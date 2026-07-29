@@ -1,0 +1,80 @@
+# Private/local documentation bundle
+Documentation/
+Legacy/
+LegacyReference/
+DOCUMENTATION_ALIGNMENT_CHANGELOG_*
+Odyssey_VTT_New_Chat_Handoff_*
+*current-context*
+*CurrentContext*
+*.zip
+*.7z
+*.rar
+
+# Secrets and local environment
+.env
+.env.*
+!.env.example
+*.pem
+*.pfx
+*.p12
+*.key
+*.crt
+*.cer
+*.secrets.json
+secrets/
+.secrets/
+
+# Unity generated/local state
+Library/
+Temp/
+Obj/
+Build/
+Builds/
+Logs/
+UserSettings/
+MemoryCaptures/
+Recordings/
+artifacts/
+*.csproj
+*.sln
+*.user
+*.pidb
+*.booproj
+*.svd
+*.pdb
+*.mdb
+*.opendb
+*.VC.db
+
+# Unity crash and diagnostics
+sysinfo.txt
+*.stackdump
+*.dmp
+*.log
+*.jsonl
+
+# .NET generated output
+bin/
+obj/
+TestResults/
+coverage/
+*.trx
+*.nupkg
+
+# IDE/editor local files
+.vs/
+.vscode/
+.idea/
+*.suo
+*.userprefs
+*.tmp
+*.temp
+*.swp
+*~
+.DS_Store
+Thumbs.db
+
+# OS/package-manager noise
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
