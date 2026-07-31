@@ -1,8 +1,8 @@
 # Odyssey VTT — Technical Development Baseline
 
-**Документ:** `TECHNICAL_DEVELOPMENT_BASELINE_Odyssey_VTT_v0.1.md`  
-**Версия:** 0.1  
-**Дата:** 27 июля 2026 года  
+**Документ:** `TECHNICAL_DEVELOPMENT_BASELINE_Odyssey_VTT_v0.2.md`  
+**Версия:** 0.2  
+**Дата:** 1 августа 2026 года  
 **Статус:** Approved baseline for M0 / M1  
 **Область:** техническая исходная точка нового репозитория, движок, платформы, архитектурные границы, структура кода, тестирование, CI, лицензирование и правила разработки через Codex  
 **Связанные этапы:** Roadmap Stage 0, Stage 1, `SLICE-00`, Milestones `M0` и `M1`
@@ -36,7 +36,7 @@
 При реализации применяются:
 
 1. последнее явное решение владельца продукта;
-2. `ACTIVE_DOCUMENTATION_BASELINE_Odyssey_VTT_v1.6.md`;
+2. `ACTIVE_DOCUMENTATION_BASELINE_Odyssey_VTT_v1.7.md`;
 3. этот Technical Development Baseline;
 4. утверждённый ADR для конкретного технического вопроса;
 5. специализированный продуктовый контракт подсистемы;
@@ -78,7 +78,7 @@ Codex и разработчики не могут самостоятельно:
 | TDB-DEC-005 | Exact Editor patch фиксируется в `ProjectVersion.txt` | Approved |
 | TDB-DEC-006 | Render Pipeline — HDRP | Approved |
 | TDB-DEC-007 | Основной runtime UI — UI Toolkit | Approved |
-| TDB-DEC-008 | Основной репозиторий — публичный GitHub repository | Approved |
+| TDB-DEC-008 | Единственный authoritative code repository — private GitHub repository `odyssey-services/Odyssey_VTT`; visibility не изменяется без отдельного решения владельца | Approved, supersedes v0.1 wording |
 | TDB-DEC-009 | Система контроля версий — Git | Approved |
 | TDB-DEC-010 | Крупные бинарные файлы управляются через Git LFS | Approved |
 | TDB-DEC-011 | CI выполняется через GitHub Actions | Approved |
@@ -107,8 +107,8 @@ Codex и разработчики не могут самостоятельно:
 
 M0 закрывается, когда:
 
-- создан единственный публичный основной репозиторий;
-- закрытая документация физически отделена от публичного Git history;
+- создан единственный private authoritative code repository `odyssey-services/Odyssey_VTT`;
+- закрытая продуктовая документация физически отделена от authoritative Git history;
 - Unity Editor version зафиксирована;
 - лицензия и политика зависимостей оформлены;
 - секреты отсутствуют в репозитории;
@@ -333,7 +333,7 @@ Baseline — `.NET Standard 2.1` для максимально предсказ�
 
 ## 8.1 Основной репозиторий
 
-- публичный GitHub repository;
+- private GitHub repository `odyssey-services/Odyssey_VTT`;
 - единственный authoritative code repository;
 - `main` — единственная release-bearing branch;
 - разработка — короткоживущие branches;
@@ -350,7 +350,7 @@ Baseline — `.NET Standard 2.1` для максимально предсказ�
 
 - проект не получает open-source license;
 - правообладатель сохраняет исключительные права по умолчанию;
-- публичное размещение предоставляет пользователям только ограниченные права, необходимые для просмотра и fork внутри GitHub согласно GitHub Terms of Service;
+- private visibility не предоставляет дополнительных прав на код; доступ к repository не является лицензией;
 - дополнительные права на использование, изменение, распространение, продажу или создание производных продуктов вне разрешённой функциональности GitHub не предоставляются без отдельного письменного разрешения;
 - copyright notice присутствует в `README.md` и `LICENSE`;
 - финальная формулировка `LICENSE` должна быть проверена перед публикацией и не считается юридической консультацией этого технического документа.
@@ -398,7 +398,7 @@ Git LFS обязателен для крупных и плохо diff-able binar
 
 # 9. Гибридная документация
 
-## 9.1 Публичная часть
+## 9.1 Repository-safe часть
 
 В code repository могут находиться:
 
@@ -410,7 +410,7 @@ CONTRIBUTING.md
 SECURITY.md
 AGENTS.md
 PLANS.md
-TECHNICAL_DEVELOPMENT_BASELINE_Odyssey_VTT_v0.1.md
+TECHNICAL_DEVELOPMENT_BASELINE_Odyssey_VTT_v0.2.md
 docs/adr/**
 docs/architecture/**
 docs/build/**
@@ -455,11 +455,11 @@ Codex получает только task-specific bundle:
 
 Task bundle:
 
-- не коммитится в публичный репозиторий, если содержит закрытый текст;
+- не коммитится в authoritative code repository, если содержит закрытый продуктовый текст;
 - не копируется целиком в pull request;
 - не попадает в CI artifacts;
 - после задачи может быть удалён;
-- в публичном issue заменяется безопасным кратким описанием и IDs.
+- в issue или pull request заменяется безопасным кратким описанием и IDs.
 
 ---
 
@@ -1107,7 +1107,7 @@ SafeProperties
 - не включает закрытую документацию;
 - не включает private chat plaintext.
 
-## 20.4 Public repository security
+## 20.4 Authoritative repository security
 
 - secrets хранятся только в local secret store или GitHub Actions Secrets;
 - `.env`, credentials, certificates и user configs ignored;

@@ -1,35 +1,35 @@
-# ODY-S00-001 — Create the Public Repository Foundation
+# ODY-S00-001 — Align and Close the Private Repository Foundation
 
-**Status:** Blocked  
+**Status:** In Review  
 **Roadmap stage / slice:** SLICE-00  
 **Owner:** Codex  
 **Requested by:** Product owner  
-**Branch:** `chore/ody-s00-001-repository-foundation` local unborn branch  
+**Branch:** `chore/ody-s00-001-foundation-closeout`  
 **Pull request:** Not opened  
 **ExecPlan:** Not required; coordinated by `docs/plans/active/ODY-S00-000_SLICE_00_Technical_Skeleton.md`  
 **Created:** 2026-07-28  
-**Last updated:** 2026-07-29 08:15 UTC
+**Last updated:** 2026-08-01
 
 ## 1. Goal
 
-Create the single public authoritative Odyssey VTT GitHub repository with a protected `main`, All Rights Reserved policy, Git/LFS/editor configuration, public-safe technical documentation, and repository contribution/security rules. The resulting repository must be safe for the Unity and Core scaffolding tasks without exposing private product documentation or secrets.
+Align the single Private authoritative Odyssey VTT GitHub repository `odyssey-services/Odyssey_VTT` with the owner decision, preserve All Rights Reserved and Git/LFS/editor policy, and close the foundation through a reviewed branch without rewriting the owner bootstrap history. The resulting repository must be safe for the Unity and Core scaffolding tasks without exposing private product documentation or secrets.
 
 ## 2. Why this task exists
 
-- Problem or dependency being addressed: There is no evidenced code repository in which later `SLICE-00` tasks can create the Unity project, modules, tests, scripts, or CI.
-- Value or risk reduction: Establishes ownership, license, history, private/public boundary, review flow, large-file policy, and predictable text formatting before generated project content arrives.
+- Problem or dependency being addressed: The authoritative repository exists, but its task contract and evidence still describe the earlier pre-bootstrap assumptions, so later `SLICE-00` tasks cannot safely proceed until the authority and closeout evidence are aligned.
+- Value or risk reduction: Establishes ownership, license, history, repository-safe/private-product boundary, review flow, large-file policy, and predictable text formatting before generated project content arrives.
 - Blocking or enabling relationship: Blocks `ODY-S00-002` and every later implementation task.
 
 ## 3. Authorities and requirement references
 
 ### Required authorities
 
-- `ACTIVE_DOCUMENTATION_BASELINE_Odyssey_VTT_v1.6.md`, sections 1–7
+- `ACTIVE_DOCUMENTATION_BASELINE_Odyssey_VTT_v1.7.md`, sections 1–7
 - `AGENTS.md`, sections 1–4, 12–17
 - `PLANS.md`, sections 1–4, 8–11
 - `docs/tasks/TASK_TEMPLATE.md`
 - `docs/tasks/SLICE-00_BACKLOG.md`
-- `TECHNICAL_DEVELOPMENT_BASELINE_Odyssey_VTT_v0.1.md`:
+- `TECHNICAL_DEVELOPMENT_BASELINE_Odyssey_VTT_v0.2.md`:
   - section 4.1 Milestone M0;
   - section 8 Repository, rights and openness;
   - section 9 Hybrid documentation;
@@ -43,45 +43,45 @@ Create the single public authoritative Odyssey VTT GitHub repository with a prot
 - `docs/adr/ADR-006_Test_Project_Structure_and_Dual_Unity_DotNet_Compilation_v1.0.md` for future test-directory names only.
 - `docs/adr/ADR-007_Versioning_and_Build_Identity_v1.0.md` for repository/tag policy; no build identity is generated in this task.
 - `docs/adr/ADR-009_Unity_Project_and_Build_Baseline_v1.0.md` for the exact future Unity project location; the Unity project is out of scope here.
-- `docs/adr/ADR-010_Logging_Diagnostics_and_Redaction_v1.0.md` for forbidden secret/private path content in public evidence.
+- `docs/adr/ADR-010_Logging_Diagnostics_and_Redaction_v1.0.md` for forbidden secret/private path content in repository evidence.
 
 ### Requirement and test IDs
 
 - Requirement IDs: `SLICE-00`, Milestone `M0`, Technical Baseline `PR-000`, `TDB-DEC-008–TDB-DEC-016`
 - Existing test IDs: None; the repository does not yet contain executable tests.
 - New test IDs to introduce:
-  - `REPO-POLICY-001` required public files exist;
+  - `REPO-POLICY-001` required repository files exist;
   - `REPO-POLICY-002` forbidden private files and archive patterns are absent from tracked files;
   - `REPO-POLICY-003` Git LFS patterns are active for approved binary candidates;
   - `REPO-POLICY-004` text/meta/Unity YAML extensions are not globally forced into LFS;
   - `REPO-POLICY-005` branch and merge settings match the supported GitHub protection baseline;
-  - `REPO-POLICY-006` repository is public and the license notice is visible.
+  - `REPO-POLICY-006` approved Private visibility, authoritative identity `odyssey-services/Odyssey_VTT`, and All Rights Reserved notice are verified.
 
 ### Task-safe private context
 
-- Approved summary / references: The code repository is public. Full Product Vision, Product Requirements, MVP Scope, Domain Model, subsystem contracts, internal Roadmap, private decision logs, current-context archives, handoff files, and local backup paths remain outside public Git history.
+- Approved summary / references: `odyssey-services/Odyssey_VTT` is the single authoritative code repository and remains Private until a separate owner decision. Full Product Vision, Product Requirements, MVP Scope, Domain Model, subsystem contracts, internal Roadmap, private decision logs, current-context archives, handoff files, and local backup paths remain outside authoritative Git history.
 
 ## 4. Verified current state
 
 ### Verified facts
 
 - A current local documentation bundle exists with accepted technical authorities and private product documents.
-- Technical Development Baseline requires one public GitHub repository, protected `main`, short-lived branches, owner-reviewed merges, All Rights Reserved, Git LFS, and hybrid documentation.
-- The public repository may contain technical baseline, ADRs, AGENTS, PLANS, build/testing/task documentation and public-safe architecture material.
-- No repository URL, Git commit, branch protection screenshot/export, LFS pointer, CI run, or repository-policy script result is present in the current planning evidence.
+- Technical Development Baseline v0.2 requires one Private authoritative GitHub repository `odyssey-services/Odyssey_VTT`, short-lived branches, owner-reviewed merges, All Rights Reserved, Git LFS, and hybrid documentation.
+- The authoritative repository may contain the technical baseline, ADRs, AGENTS, PLANS, build/testing/task documentation and repository-safe architecture material.
+- Repository `odyssey-services/Odyssey_VTT` is Private with default branch `main`; owner-controlled bootstrap commit `82de52e9cb47bd7a1fa8952ac5cba2b9c88456f5` contains the foundation. Branch protection has not been verified.
 
 ### Assumptions
 
-- The owner-selected repository slug will be `Odyssey-VTT` unless unavailable; a different slug does not change architecture and is recorded in completion evidence.
-- The owner can create a public repository and configure branch protection. If a GitHub plan does not expose an exact setting, the strongest available equivalent is used and the limitation is recorded rather than silently ignored.
+- Repository identity and visibility are owner decisions: `odyssey-services/Odyssey_VTT`, Private.
+- Branch protection is not claimed until directly inspected; any unavailable option is recorded rather than silently treated as passed.
 - Git and Git LFS are available on the workstation; versions are recorded during execution.
 
 ## 5. Scope
 
 ### In scope
 
-- Owner creates the public GitHub repository and a one-time minimal initial commit on `main` solely to establish the base branch.
-- Create a short-lived branch such as `chore/ody-s00-001-repository-foundation` for all substantive task content.
+- Record the real owner-controlled foundation bootstrap commit `82de52e9cb47bd7a1fa8952ac5cba2b9c88456f5` on `main` as a one-time deviation; do not rewrite history or create a retroactive PR.
+- Use `chore/ody-s00-001-foundation-closeout` for this closeout and retain branch → PR → owner review → owner merge for all subsequent substantive changes.
 - Add root policy files:
   - `README.md`;
   - `LICENSE` with the approved All Rights Reserved wording and copyright notice;
@@ -90,9 +90,9 @@ Create the single public authoritative Odyssey VTT GitHub repository with a prot
   - `THIRD_PARTY_NOTICES.md`;
   - `AGENTS.md`;
   - `PLANS.md`;
-  - `TECHNICAL_DEVELOPMENT_BASELINE_Odyssey_VTT_v0.1.md`;
+  - `TECHNICAL_DEVELOPMENT_BASELINE_Odyssey_VTT_v0.2.md`;
   - the current technical authority register needed by Codex, without committing the private source documents it references.
-- Add public-safe technical documentation:
+- Add repository-safe technical documentation:
   - `docs/adr/ADR-001–ADR-010`;
   - `docs/adr/README.md` or index;
   - `docs/tasks/TASK_TEMPLATE.md`;
@@ -156,15 +156,15 @@ Tests/**
 - Time / RNG rule: Not applicable.
 - Unity / thread / lifetime rule: Do not create a Unity project or runtime bootstrap.
 - Dependency / licensing rule: No new runtime dependency. Git LFS and GitHub-native repository features are approved tooling. Any new GitHub Action or downloaded executable requires separate approval and license/provenance review.
-- Security / privacy / redaction rule: Public Git history must contain no private source document, secret, token, credential, absolute private path, personal data, hidden campaign content, or full context bundle.
+- Security / privacy / redaction rule: Authoritative Git history must contain no private source document, secret, token, credential, absolute private path, personal data, hidden campaign content, or full context bundle.
 - Performance or platform constraint: Repository text/config files must work on Windows with LF normalization policy explicitly defined; no platform build is required yet.
 - Other: Codex cannot merge to `main`. The owner controls the one-time bootstrap and final merge.
 
 ## 7. Expected behavior
 
-### Scenario 1 — Safe public clone
+### Scenario 1 — Safe authorized clone
 
-**Given** a person clones the public repository after this task  
+**Given** an authorized contributor clones the Private authoritative repository after this task  
 **When** they inspect tracked files and Git history  
 **Then** they see the technical policies/authorities needed for future work and no private product documents, secrets, local backup paths, generated Unity cache, or current-context archive.
 
@@ -182,9 +182,9 @@ Tests/**
 
 ### Required invariants
 
-- There is one authoritative public code repository.
+- There is one Private authoritative code repository: `odyssey-services/Odyssey_VTT`.
 - `main` is the only release-bearing branch and is protected to the strongest supported baseline.
-- The public repository is not licensed as open source.
+- Private visibility does not grant reuse rights; the repository remains All Rights Reserved.
 - The full private documentation bundle is never committed, even temporarily and later deleted.
 - No task completion claim depends on a check that was not run.
 
@@ -194,14 +194,14 @@ Tests/**
 - Tests: Repository-policy script checks `REPO-POLICY-001–004`; owner/settings evidence covers 005–006.
 - Scripts / CI: `scripts/check-repository-policy.ps1`; no required GitHub Actions workflow.
 - Configuration: `.gitignore`, `.gitattributes`, `.editorconfig`, PR template, supported branch protection settings.
-- Documentation: Root policy files, public-safe technical authorities, task/plan workflow and ADR index.
+- Documentation: Root policy files, repository-safe technical authorities, task/plan workflow and ADR index.
 - Generated evidence or build artifacts: Repository URL, branch/PR reference, policy-script output, tracked-file inventory/hash, Git LFS attribute evidence, protection checklist.
 - Migration / recovery material: Not applicable.
 
 ## 9. Acceptance criteria
 
-1. A public GitHub repository exists under the owner-selected namespace and is recorded as the single authoritative code repository.
-2. `main` exists from an owner-controlled minimal bootstrap; all substantive task changes are delivered through a short-lived branch and pull request.
+1. Private GitHub repository `odyssey-services/Odyssey_VTT` is recorded as the single authoritative code repository and remains Private until a separate owner decision.
+2. `main` contains owner-controlled foundation bootstrap `82de52e9cb47bd7a1fa8952ac5cba2b9c88456f5`; this one-time direct commit is documented without history rewrite or retroactive PR, and all subsequent substantive changes use a short-lived branch and pull request.
 3. `LICENSE` and `README.md` clearly state All Rights Reserved and do not grant open-source reuse rights.
 4. `CONTRIBUTING.md` requires prior written agreement for external contributions, and `SECURITY.md` defines a private reporting path without publishing a secret address that was not provided.
 5. All required root operational/technical files and ADR-001–ADR-010 are present in their canonical paths and unchanged except for repository-safe path/reference alignment explicitly recorded in the PR.
@@ -219,12 +219,12 @@ Tests/**
 
 | Test ID | Layer / runner | Behavior or contract proven | Required result |
 |---|---|---|---|
-| `REPO-POLICY-001` | PowerShell script | Required public files and canonical directories exist | Pass |
+| `REPO-POLICY-001` | PowerShell script | Required repository files and canonical directories exist | Pass |
 | `REPO-POLICY-002` | PowerShell script | Forbidden private/archive/secret/generated patterns are not tracked | Pass |
 | `REPO-POLICY-003` | Git attributes/LFS check | Approved binary candidates use LFS | Pass |
 | `REPO-POLICY-004` | Git attributes check | Source/Markdown/JSON/Unity YAML/meta/UI text are not globally put in LFS | Pass |
 | `REPO-POLICY-005` | Owner settings inspection | Main protection matches supported baseline | Pass or documented unavailable option with owner acceptance |
-| `REPO-POLICY-006` | GitHub repository inspection | Repository visibility and license notice are correct | Pass |
+| `REPO-POLICY-006` | GitHub repository inspection | Private visibility, authoritative repository identity, and All Rights Reserved notice are correct | Pass |
 
 ### Required commands
 
@@ -245,7 +245,7 @@ Also run the policy script against an isolated negative fixture or injected file
 
 ### Manual validation
 
-- Inspect the public repository while logged out/incognito to confirm visibility and license notice.
+- Inspect repository metadata through the authenticated GitHub connector to confirm Private visibility, authoritative identity, default branch, and All Rights Reserved notice.
 - Review GitHub branch protection/ruleset settings against the task checklist.
 - Inspect the pull-request file list for accidental private documents, ZIP archives, generated caches, absolute paths or credentials.
 - Confirm the substantive change was not pushed directly to `main`.
@@ -273,7 +273,7 @@ Also run the policy script against an isolated negative fixture or injected file
 - Migration or upcaster: Not applicable.
 - Forward / backward behavior: Future commits must follow the repository policy; no runtime behavior exists.
 - Rollback method: Close the unmerged PR or revert the foundation PR. Repository visibility/deletion is owner-only and must not be used as a casual rollback method.
-- Data-loss risk and protection: The main risk is accidental public disclosure or polluted Git history. Inspect before push; if a secret/private file reaches a remote, stop work, rotate affected secret, remove it with an approved history-rewrite incident procedure, and document the incident. Deleting a later commit is not sufficient.
+- Data-loss risk and protection: The main risk is unauthorized disclosure or polluted authoritative Git history. Inspect before push; if a secret/private file reaches a remote, stop work, rotate affected secret, remove it with an approved history-rewrite incident procedure, and document the incident. Deleting a later commit is not sufficient.
 - Recovery rehearsal required: Negative policy fixture; no production-data rehearsal.
 
 ## 12. Dependencies and licensing
@@ -290,13 +290,13 @@ No GitHub Action, package manager dependency, executable download, or runtime li
 
 ## 13. Security, privacy, and hidden information
 
-- Data classes handled: Public technical documentation/configuration; repository metadata; owner GitHub identity; no campaign/user data.
-- Trust boundaries: Local documentation bundle → selected public-safe files → Git staging → public GitHub repository.
+- Data classes handled: Repository-safe technical documentation/configuration; repository metadata; owner GitHub identity; no campaign/user data.
+- Trust boundaries: Local documentation bundle → selected repository-safe files → Git staging → Private authoritative GitHub repository.
 - Authorization / audience checks: Owner controls repository creation, visibility, protection and merge. Codex can prepare changes but cannot merge.
 - Redaction requirements: Remove private document bodies, personal/local paths, tokens, credentials, email addresses not explicitly approved for publication, diagnostic dumps, RNG secrets and hidden campaign data.
 - Log-safe fields: Repository path relative to root, task ID, Git commit/branch, file category and rule result. Do not log file contents from suspected secret/private files.
 - Abuse / malformed input limits: Policy script operates on tracked paths and bounded text configuration; it must not recursively print contents of large/binary/private files.
-- Security tests: Forbidden-pattern negative fixture, secret-pattern/path checks, manual public diff review.
+- Security tests: Forbidden-pattern negative fixture, secret-pattern/path checks, manual repository diff review.
 
 ## 14. Planning and execution mode
 
@@ -308,7 +308,7 @@ No GitHub Action, package manager dependency, executable download, or runtime li
 
 ## 15. Documentation and versioning impact
 
-- Documents that must change: Repository copies/paths of the approved public-safe technical authorities; ADR index; task completion evidence; parent ExecPlan/backlog status.
+- Documents that must change: Repository copies/paths of the approved repository-safe technical authorities; ADR index; task completion evidence; parent ExecPlan/backlog status.
 - Documents that must not change: Product Vision, Product Requirements, MVP Scope, Domain Model, subsystem product documents, internal Roadmap, Test Strategy content, accepted ADR decisions, full current context archive.
 - Application version change: No — no application exists.
 - Schema / format / contract / protocol / ruleset version change: None.
@@ -332,98 +332,81 @@ No GitHub Action, package manager dependency, executable download, or runtime li
 
 ## 17. Completion evidence
 
-Fill this section with real results before moving the task to `Done`.
+This task remains `In Review` until owner review and merge.
 
 ### Changed files / areas
 
-- Root repository policy/configuration scaffold: `README.md`, `LICENSE`, `CONTRIBUTING.md`, `SECURITY.md`, `THIRD_PARTY_NOTICES.md`, `.gitignore`, `.gitattributes`, `.editorconfig`, `.github/PULL_REQUEST_TEMPLATE.md`.
-- Public-safe technical authorities copied into canonical root paths: `AGENTS.md`, `PLANS.md`, `TECHNICAL_DEVELOPMENT_BASELINE_Odyssey_VTT_v0.1.md`, `ACTIVE_DOCUMENTATION_BASELINE_Odyssey_VTT_v1.6.md`, `docs/adr/**`, `docs/tasks/**`, `docs/plans/**`.
-- Repository policy script added: `scripts/check-repository-policy.ps1`.
-- Local Git repository initialized on `chore/ody-s00-001-repository-foundation` and files staged for validation only; no commit, remote push, pull request, merge, Unity project, C# code, or GitHub workflow was created.
+- Repository identity and visibility aligned to Private authoritative repository `odyssey-services/Odyssey_VTT`.
+- Technical Development Baseline raised to v0.2 and Active Documentation Baseline raised to v1.7 for the material authority change.
+- Root policy documents, Slice-00 backlog, parent task, child task, ExecPlan, and repository-policy required paths aligned.
+- No Unity project, C#/.NET project, GitHub Actions workflow, runtime/gameplay code, `version.json`, BuildIdentity, or ODY-S00-002 artifact was created.
 
 ### Validation results
 
 | Command / check | Result | Evidence / notes |
 |---|---|---|
-| Root authority review | Passed | Read `Documentation/AGENTS.md`, `Documentation/PLANS.md`, `docs/tasks/active/ODY-S00-001_Repository_Foundation.md`, parent ExecPlan, Technical Development Baseline, and ADR-001-ADR-010 before implementation. |
-| `git --version` | Passed | `git version 2.54.0.windows.1`. |
-| `git lfs version` | Passed | `git-lfs/3.7.1 (GitHub; windows amd64; go 1.25.1; git b84b3384)`. |
-| `git init -b chore/ody-s00-001-repository-foundation` | Passed | Initialized local Git repository at `D:/Documents/Odyssey_VTT/.git/`; no commit created. |
-| `git add .` | Passed with warning | Staged the public-safe scaffold. Warning: unable to access `C:\Users\alexx/.config/git/ignore`: Permission denied. |
-| `pwsh -NoProfile -File ./scripts/check-repository-policy.ps1` | Failed / not available | `pwsh` is not present in PATH in this environment. |
-| `powershell -NoProfile -ExecutionPolicy Bypass -File .\scripts\check-repository-policy.ps1` | Passed | `REPO-POLICY-001` through `REPO-POLICY-004` all PASS; repository policy check passed. |
-| Negative fixture policy run | Passed as rejection test | `powershell ... -TrackedFileList .\repo-policy-negative-fixture.txt` exited 1 and rejected `Documentation/01_Product_Requirements_Odyssey_VTT_v0.14.md` and `context.zip`; fixture file removed after the run. |
-| `git status --short` | Passed | Shows 36 staged public-safe files. Warning: unable to access global ignore due permission denied. |
-| `git ls-files` | Passed | Listed 36 staged files; `Documentation/`, private product docs, changelogs, handoffs, archives, Unity/.NET/generated paths absent. |
-| `git lfs env` | Passed | Git LFS 3.7.1 configured; local media dir `.git/lfs/objects`; no remote access configured. |
-| `git lfs track` | Passed | Listed LFS patterns from `.gitattributes`: PSD/PSB/TIF/TIFF/PNG/JPG/JPEG/WAV/MP3/OGG/FLAC/FBX/BLEND/EXR. |
-| `git check-attr filter diff merge text -- sample.psd sample.wav sample.cs sample.md sample.json sample.meta sample.asset sample.prefab sample.unity sample.uxml sample.uss` | Passed | `sample.psd` and `sample.wav` use `filter/diff/merge: lfs` and `text: unset`; `.cs`, `.md`, `.json`, `.meta`, `.asset`, `.prefab`, `.unity`, `.uxml`, `.uss` are not LFS and have `text: set`. |
-| `git diff --check` | Passed | No output; exit 0. |
-| `git diff --cached --check` | Initially failed, then passed | Initial failure was trailing whitespace in copied Markdown authorities. `.gitattributes` now sets `*.md whitespace=-blank-at-eol` to preserve accepted Markdown content; rerun exit 0. |
-| `git log --oneline --decorate --all` | Passed | No output; no local commits exist yet. |
-| GitHub connector installed account check | Passed | Connector sees account `limonety995-maker`. |
-| GitHub connector repository search | Not found | Search for `Odyssey-VTT` returned no accessible repositories. |
-| `gh --version` | Not available | `gh` is not installed in PATH. |
-| `git remote -v` | Passed | No output; no remote configured. |
-| GitHub repository visibility inspection | Not run | No owner-selected GitHub namespace/repository URL available and connector cannot create a new repository. |
-| GitHub branch protection/ruleset inspection | Not run | Public remote repository and owner settings are not available in this environment. |
-| Pull request creation | Not run | No remote repository/owner bootstrap exists; Codex did not push or open a PR. |
+| GitHub connector repository inspection | Passed | Authenticated account `odyssey-services`; repository `odyssey-services/Odyssey_VTT`; visibility `private`; default branch `main`; connector reports push/admin access. |
+| Owner bootstrap verification | Passed | Local `HEAD` and `origin/main` started at `82de52e9cb47bd7a1fa8952ac5cba2b9c88456f5`, `chore: initialize repository`. |
+| Repository policy script, initial run | Environment-limited | Nested Git calls were rejected by Git dubious-ownership protection, so REPO-POLICY-003/004 had empty attribute output. This was not treated as a product failure. |
+| Repository policy script with process-scoped `safe.directory` | Passed | `REPO-POLICY-001` through `REPO-POLICY-004` PASS; exit 0. No global Git config was changed. |
+| Negative fixture | Passed as rejection test | Isolated tracked-file list containing private-document and ZIP paths was rejected; exit 1; temporary fixture removed. |
+| `git diff --check` | Passed | No whitespace errors. |
+| `git check-attr` | Passed | PSD/WAV use LFS; C#, Markdown, JSON, Unity YAML/meta, UXML and USS remain normal text. |
+| Git LFS checks | Passed | Git LFS 3.7.1; remote endpoint resolves to `odyssey-services/Odyssey_VTT`; approved patterns listed from `.gitattributes`. |
+| Tracked-file and history forbidden-path scan | Passed | No Unity/.NET/generated/private-document/archive/secret paths matched. |
+| `gh --version` | Not available | GitHub CLI is not installed in PATH; authenticated GitHub connector is used for repository metadata and Draft PR creation. |
+| Branch protection/ruleset inspection | Not run | No claim is made that branch protection is configured or passing. |
 
 ### Acceptance result
 
 | Criterion | Status | Evidence |
 |---|---|---|
-| AC-1 | Blocked | Public GitHub repository URL/namespace was not provided or created by owner. |
-| AC-2 | Blocked | Owner-controlled minimal `main` bootstrap and remote PR workflow not available; local work is staged on `chore/ody-s00-001-repository-foundation` only. |
-| AC-3 | Passed locally | `README.md` and `LICENSE` state All Rights Reserved and no open-source license grant. |
-| AC-4 | Passed locally | `CONTRIBUTING.md` requires prior written agreement; `SECURITY.md` requires private reporting without inventing an address. |
-| AC-5 | Passed locally | Required root files, ADR-001-ADR-010, task docs, plan docs, and authority register exist in canonical paths. |
-| AC-6 | Passed locally | `git ls-files` and policy script show private docs, changelogs, handoffs, archives, Unity/.NET generated paths, and secrets absent from staged public file set. |
-| AC-7 | Passed locally | `.gitattributes` routes approved binary candidates through LFS and keeps source/Markdown/JSON/Unity YAML/meta/UI text out of LFS. |
-| AC-8 | Passed locally | `.gitignore` covers private docs, Unity generated/local paths, .NET outputs, IDE files, logs, secrets, env files, archives, and artifacts. |
-| AC-9 | Passed locally | `.editorconfig` sets UTF-8, LF, final newline, whitespace, and C#/Unity text indentation baseline; Markdown trailing spaces are allowed to preserve copied authorities. |
-| AC-10 | Passed locally | Policy script exits 0 on staged repository and exits non-zero against negative tracked-file fixture. |
-| AC-11 | Blocked | Remote `main` protection requires owner GitHub repository/settings access. |
-| AC-12 | Blocked | Pull request cannot be opened without owner remote repository/bootstrap. |
+| AC-1 | Passed | Private `odyssey-services/Odyssey_VTT` is verified as the authoritative repository. |
+| AC-2 | Passed with documented deviation | Owner foundation bootstrap entered `main` directly as `82de52e9…`; no history rewrite or retroactive PR. Subsequent substantive work uses branch/PR. |
+| AC-3–AC-10 | Passed | All Rights Reserved, contribution/security policy, authority files, forbidden-path checks, Git LFS/text attributes, ignores/editor policy, positive policy run and negative fixture verified. |
+| AC-11 | Not verified | Branch protection/ruleset inspection was not performed and is not claimed. |
+| AC-12 | In Review | Closeout is delivered through a Draft PR; owner review and merge are still required. |
 
 ### Build and artifact evidence
 
-- Build identity: Not applicable
-- Artifact path / name: Local staged repository scaffold only; no build artifact.
+- Build identity: Not applicable; explicitly out of scope.
+- Artifact path / name: Documentation/policy closeout only.
 - Checksums: Not created; no binary artifact.
-- Test or quality report: Policy command output recorded above.
+- Test or quality report: Validation evidence above.
 
 ### Known limitations
 
-- Exact GitHub namespace, repository URL, public visibility, branch protection, owner review requirement, and pull request evidence remain blocked on owner-controlled GitHub setup.
-- Local branch is an unborn branch with staged files and no commits; this avoids pretending that the owner-controlled `main` bootstrap or reviewed PR exists.
-- `pwsh` is not installed in PATH; Windows PowerShell compatibility was verified instead.
+- Branch protection settings have not been inspected.
+- `pwsh` and `gh` are not installed in PATH; Windows PowerShell and the authenticated GitHub connector were used.
+- Task cannot move to `Done` until owner review and merge.
 
 ### Follow-up tasks
 
-- Complete owner-controlled GitHub setup for `ODY-S00-001`: create public repository, bootstrap `main`, push this staged scaffold through a short-lived branch, configure branch protection, open PR, record visibility/protection evidence, and obtain owner review.
-- `ODY-S00-002 — Unity Project Foundation` only after `ODY-S00-001` reaches Done.
+- Owner reviews and merges the Draft closeout PR; Codex does not merge.
+- After merge and required owner evidence, move ODY-S00-001 to completed.
+- Activate `ODY-S00-002 — Unity Project Foundation` only after ODY-S00-001 reaches Done.
 
 ### Self-review summary
 
-- Scope review: Repository policy/documentation only; no Unity project, C# code, .NET projects, CI workflows, or product feature work.
-- Architecture review: No module edges, assemblies, runtime contracts, persistence, networking, logging runtime, clock/RNG, or Unity settings were created.
-- Test review: `REPO-POLICY-001` through `REPO-POLICY-004` pass locally; GitHub-only checks remain not run.
-- Security/privacy review: Public/private boundary is enforced by `.gitignore`, staged inventory, and negative fixture; source private bundle remains outside staged public files.
-- Documentation/version review: Accepted ADR content copied unchanged; no product/ADR/application/schema/format/contract/protocol/ruleset version change.
+- Scope: documentation and repository policy only; no ODY-S00-002 artifacts.
+- Architecture: accepted ADR files were not modified.
+- Security/privacy: Private visibility does not weaken tracked-file/history exclusions.
+- Versioning: Technical Baseline v0.2 and Active Baseline v1.7 reflect the material owner decision; no application/schema/format/contract/protocol/ruleset version changed.
 
 ## 18. Blockers, decisions, and change control
 
 ### Blockers
 
-- Owner-controlled GitHub setup is still required: select/create the public repository namespace, create the minimal `main` bootstrap, configure visibility and branch protection, and provide remote access for branch/PR evidence.
+- Owner review and merge are required before `Done`.
+- Branch protection evidence remains not verified.
 
 ### Decisions made during execution
 
-- 2026-07-28 — One-time owner-created minimal commit may establish `main`; all substantive foundation content must use branch/PR workflow — Authority / approval: Parent ExecPlan operational decision consistent with owner-only merge policy.
-- 2026-07-28 — Commit only a public-safe technical subset, not the full current context bundle — Authority / approval: Technical Baseline hybrid documentation policy.
-- 2026-07-29 — Preserve copied accepted Markdown authorities and configure Git whitespace checking with `*.md whitespace=-blank-at-eol` rather than editing accepted ADR/baseline line endings or hard-break spacing — Authority / approval: ODY-S00-001 acceptance criterion 5 and repository `git diff --check` validation.
+- 2026-08-01 — `odyssey-services/Odyssey_VTT` remains Private and is the single authoritative code repository; visibility must not be changed without a separate owner decision.
+- 2026-08-01 — Owner-controlled foundation commit `82de52e9cb47bd7a1fa8952ac5cba2b9c88456f5` entered `main` directly. It is a recorded one-time bootstrap deviation, not the standard for future work.
+- 2026-08-01 — No Git history rewrite and no fictitious retroactive PR. All subsequent substantive changes use branch → PR → owner review → owner merge.
+- 2026-08-01 — Accepted ADR files remain unchanged; the owner decision is registered through Technical Baseline v0.2 and Active Baseline v1.7.
 
 ### Approved task changes
 
-- None.
+- Owner-approved controlled closeout and Private repository authority alignment described above.

@@ -1,6 +1,6 @@
 # Security
 
-Do not report security issues, secrets, or private findings in public GitHub issues, pull requests, commits, logs, screenshots, or artifacts.
+Do not report security issues, secrets, or private findings in GitHub issues, pull requests, commits, logs, screenshots, or artifacts.
 
 Until the owner publishes a dedicated private reporting address, report security concerns through the private channel already established with the project owner. If no private channel is available, request one without disclosing details publicly.
 

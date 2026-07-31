@@ -40,8 +40,8 @@ try {
         'THIRD_PARTY_NOTICES.md',
         'AGENTS.md',
         'PLANS.md',
-        'TECHNICAL_DEVELOPMENT_BASELINE_Odyssey_VTT_v0.1.md',
-        'ACTIVE_DOCUMENTATION_BASELINE_Odyssey_VTT_v1.6.md',
+        'TECHNICAL_DEVELOPMENT_BASELINE_Odyssey_VTT_v0.2.md',
+        'ACTIVE_DOCUMENTATION_BASELINE_Odyssey_VTT_v1.7.md',
         '.gitignore',
         '.gitattributes',
         '.editorconfig',
@@ -72,7 +72,7 @@ try {
         }
     }
 
-    Write-PolicyResult 'REPO-POLICY-001' ($failures.Count -eq 0) 'required public files and directories exist'
+    Write-PolicyResult 'REPO-POLICY-001' ($failures.Count -eq 0) 'required repository files and directories exist'
 
     if ($TrackedFileList) {
         $trackedFiles = Get-Content -LiteralPath $TrackedFileList | ForEach-Object { Normalize-RepoPath $_ } | Where-Object { $_ }

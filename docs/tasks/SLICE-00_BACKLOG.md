@@ -9,7 +9,7 @@
 
 ## 1. Purpose
 
-This backlog converts the accepted Stage 1 architecture into small, reviewable repository tasks. It does not add product features. Its only outcome is a reliable public repository, a minimal Unity client, clean Core modules, deterministic contracts, tests, CI, and a Windows development build that can support `SLICE-01`.
+This backlog converts the accepted Stage 1 architecture into small, reviewable repository tasks. It does not add product features. Its only outcome is a reliable private authoritative repository, a minimal Unity client, clean Core modules, deterministic contracts, tests, CI, and a Windows development build that can support `SLICE-01`.
 
 The delivery-group labels `PR-000–PR-005` come from Technical Development Baseline section 30. They are architectural delivery groups, not guaranteed GitHub pull-request numbers. A delivery group may be split into more than one pull request when that keeps review and rollback safe, provided that:
 
@@ -23,7 +23,7 @@ The delivery-group labels `PR-000–PR-005` come from Technical Development Base
 
 `SLICE-00` is complete only when all of the following are proven:
 
-1. A single public authoritative code repository exists and private product documentation is absent from its Git history.
+1. A single private authoritative code repository exists and private product documentation is absent from its Git history.
 2. Unity `6000.3.20f1` opens from a clean checkout with the locked package graph and no import or compile errors.
 3. Core production source has one physical copy and compiles in both Unity and pure .NET.
 4. ADR-001 dependency direction is enforced automatically.
@@ -39,7 +39,7 @@ The delivery-group labels `PR-000–PR-005` come from Technical Development Base
 
 | Order | Task ID | Delivery group | Title | Status | Depends on | Planning mode | Primary result |
 |---:|---|---|---|---|---|---|---|
-| 1 | `ODY-S00-001` | PR-000 | Repository Foundation | Blocked | None | Brief plan | Public repository policy, safe documentation subset, Git/LFS baseline and contribution/security files |
+| 1 | `ODY-S00-001` | PR-000 | Repository Foundation | In Review | None | Brief plan | Private authoritative repository policy, repository-safe documentation subset, Git/LFS baseline and contribution/security files |
 | 2 | `ODY-S00-002` | PR-001 | Unity Project Foundation | Draft | 001 | ExecPlan update | Exact Unity/HDRP project, package lock, settings, Bootstrap and AppShell assets |
 | 3 | `ODY-S00-003` | PR-002 | Module and Test Skeleton | Draft | 002 | ExecPlan update | Embedded modules, `.asmdef`, dual .NET compilation, test projects and architecture guard |
 | 4 | `ODY-S00-004` | PR-003A | Identity, Version and Result Primitives | Draft | 003 | Brief plan | Typed IDs, version value objects, `Result/Error`, registries and unit tests |
@@ -54,7 +54,7 @@ The delivery-group labels `PR-000–PR-005` come from Technical Development Base
 
 ### ODY-S00-001 — Repository Foundation
 
-Create the public repository and public-safe policy/documentation scaffold. Do not create the Unity project, .NET projects, production code, CI workflows, or product features. The one-time initial `main` bootstrap is performed by the owner; substantive content enters through a reviewed branch and pull request.
+Align the private authoritative repository and repository-safe policy/documentation scaffold. Do not create the Unity project, .NET projects, production code, CI workflows, or product features. The owner-controlled foundation bootstrap commit `82de52e9cb47bd7a1fa8952ac5cba2b9c88456f5` entered `main` directly as a recorded one-time deviation; no history rewrite or retroactive PR is required. All subsequent substantive changes use branch → pull request → owner review → owner merge.
 
 ### ODY-S00-002 — Unity Project Foundation
 

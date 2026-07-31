@@ -12,7 +12,7 @@
 
 ## 1. Goal
 
-Deliver the complete `SLICE-00` technical skeleton: a public repository, exact Unity project, clean Core module/test graph, deterministic foundational contracts, safe diagnostics, serialization/AOT evidence, required CI, and a scripted Windows development build accepted as Milestone M1.
+Deliver the complete `SLICE-00` technical skeleton: a private authoritative repository, exact Unity project, clean Core module/test graph, deterministic foundational contracts, safe diagnostics, serialization/AOT evidence, required CI, and a scripted Windows development build accepted as Milestone M1.
 
 ## 2. Why this task exists
 
@@ -24,12 +24,12 @@ Deliver the complete `SLICE-00` technical skeleton: a public repository, exact U
 
 ### Required authorities
 
-- `ACTIVE_DOCUMENTATION_BASELINE_Odyssey_VTT_v1.6.md`
+- `ACTIVE_DOCUMENTATION_BASELINE_Odyssey_VTT_v1.7.md`
 - `AGENTS.md`
 - `PLANS.md`
 - `docs/tasks/TASK_TEMPLATE.md`
 - `docs/tasks/SLICE-00_BACKLOG.md`
-- `TECHNICAL_DEVELOPMENT_BASELINE_Odyssey_VTT_v0.1.md`, sections 4, 5, 8–16, 23–31
+- `TECHNICAL_DEVELOPMENT_BASELINE_Odyssey_VTT_v0.2.md`, sections 4, 5, 8–16, 23–31
 - `02_MVP_Scope_Odyssey_VTT_v0.10.md`, section 6, `SLICE-00`
 - `17_Roadmap_Odyssey_VTT_v0.11.md`, sections 9.4–9.7
 - `16_Test_Strategy_Odyssey_VTT_v0.1.md`, applicable M0/M1 gates
@@ -43,20 +43,20 @@ Deliver the complete `SLICE-00` technical skeleton: a public repository, exact U
 
 ### Task-safe private context
 
-- Approved summary / references: Build only the technical skeleton. No gameplay feature or private product document content is permitted in the public repository.
+- Approved summary / references: Build only the technical skeleton. No gameplay feature or private product document content is permitted in the authoritative repository.
 
 ## 4. Verified current state
 
 ### Verified facts
 
-- The current documentation bundle contains Technical Development Baseline v0.1, accepted ADR-001–ADR-010, `AGENTS.md`, `PLANS.md`, and the task workflow.
+- The current documentation bundle contains Technical Development Baseline v0.2, accepted ADR-001–ADR-010, `AGENTS.md`, `PLANS.md`, and the task workflow.
 - The approved platform is Windows 10/11 x64 with Unity `6000.3.20f1`, HDRP, UI Toolkit, and Input System.
-- The approved code repository is public, uses All Rights Reserved, Git LFS, protected `main`, owner-reviewed pull requests, and GitHub Actions.
+- The approved code repository is Private and authoritative at `odyssey-services/Odyssey_VTT`, uses All Rights Reserved and Git LFS; protected `main`, owner-reviewed pull requests, and GitHub Actions remain required outcomes, not claims of completed verification.
 - No Odyssey VTT production repository, Unity project, .NET solution, scripts, tests, CI run, or build artifact is evidenced by this planning package.
 
 ### Assumptions
 
-- The product owner has or will choose a GitHub namespace capable of creating the public repository. This is verified in `ODY-S00-001` before work begins.
+- The owner-selected repository is `odyssey-services/Odyssey_VTT`; it remains Private until a separate owner decision.
 - A licensed Unity installation/runner can execute `6000.3.20f1` on Windows for later tasks. Availability is verified before `ODY-S00-002` becomes In Progress.
 
 ## 5. Scope
@@ -115,7 +115,7 @@ Application/schema/format/contract/protocol/ruleset versions
 
 ### Required invariants
 
-- Private product documentation is absent from public Git history.
+- Private product documentation is absent from authoritative Git history.
 - No gameplay feature is implemented in `SLICE-00`.
 - Production source is not duplicated between Unity and .NET.
 - `main` cannot be merged by Codex and requires owner review.
@@ -146,7 +146,7 @@ Application/schema/format/contract/protocol/ruleset versions
 |---|---|---|---|
 | ADR-defined SLICE-00 suite | .NET / Unity / Player / scripts | Accepted architecture and baseline contracts | Pass |
 | `S00-GATE-001` | repository rehearsal | Clean checkout can restore, test and build | Pass |
-| `S00-GATE-002` | repository policy | Public history contains no forbidden private or secret material | Pass |
+| `S00-GATE-002` | repository policy | Authoritative Git history contains no forbidden private or secret material | Pass |
 
 ### Required commands
 
@@ -170,7 +170,7 @@ Canonical commands are introduced by child tasks. The final task must run the co
 
 ## 11. Compatibility, migration, and rollback
 
-- Compatibility impact: Establishes initial compatibility sources; no previous public release exists.
+- Compatibility impact: Establishes initial compatibility sources; no previous release exists.
 - Version fields affected: Initial `ApplicationVersion` and baseline schema/contract/protocol fields created by child tasks.
 - Migration or upcaster: No persistent user data migration.
 - Forward / backward behavior: Only initial contract fixtures and explicit unsupported-version behavior.
@@ -192,7 +192,7 @@ All additional dependencies require a child task update and explicit approval be
 ## 13. Security, privacy, and hidden information
 
 - Data classes handled: Public technical documents, repository metadata, local diagnostics, synthetic test fixtures.
-- Trust boundaries: Public Git repository, GitHub Actions, local build workstation, generated artifacts.
+- Trust boundaries: Private authoritative Git repository, GitHub Actions, local build workstation, generated artifacts.
 - Authorization / audience checks: Repository owner controls merge/protection; no product permissions runtime exists.
 - Redaction requirements: No private product excerpts, secrets, personal paths, user names, tokens, RNG secrets, or hidden campaign data.
 - Log-safe fields: Only ADR-010 allowlisted technical fields and synthetic identifiers.
@@ -242,7 +242,7 @@ All additional dependencies require a child task update and explicit approval be
 | Command / check | Result | Evidence / notes |
 |---|---|---|
 | Documentation package integrity | Passed | Bundle manifest and Markdown checks performed when this contract was created |
-| Repository build/test commands | Not run | Repository does not yet exist |
+| Repository build/test commands | Not run | No Unity/.NET implementation exists yet; repository foundation policy checks are recorded in ODY-S00-001. |
 
 ### Acceptance result
 

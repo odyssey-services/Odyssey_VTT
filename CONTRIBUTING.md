@@ -1,6 +1,6 @@
 # Contributing
 
-Odyssey VTT is public source and All Rights Reserved. External contributions are not accepted unless the contributor has a prior written agreement with the project owner.
+Odyssey VTT is private source and All Rights Reserved. External contributions are not accepted unless the contributor has a prior written agreement with the project owner.
 
 ## Development Rules
 
