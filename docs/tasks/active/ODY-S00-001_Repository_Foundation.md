@@ -5,7 +5,7 @@
 **Owner:** Codex  
 **Requested by:** Product owner  
 **Branch:** `chore/ody-s00-001-foundation-closeout`  
-**Pull request:** Not opened  
+**Pull request:** `https://github.com/odyssey-services/Odyssey_VTT/pull/1` (Draft)  
 **ExecPlan:** Not required; coordinated by `docs/plans/active/ODY-S00-000_SLICE_00_Technical_Skeleton.md`  
 **Created:** 2026-07-28  
 **Last updated:** 2026-08-01
@@ -365,7 +365,7 @@ This task remains `In Review` until owner review and merge.
 | AC-2 | Passed with documented deviation | Owner foundation bootstrap entered `main` directly as `82de52e9…`; no history rewrite or retroactive PR. Subsequent substantive work uses branch/PR. |
 | AC-3–AC-10 | Passed | All Rights Reserved, contribution/security policy, authority files, forbidden-path checks, Git LFS/text attributes, ignores/editor policy, positive policy run and negative fixture verified. |
 | AC-11 | Not verified | Branch protection/ruleset inspection was not performed and is not claimed. |
-| AC-12 | In Review | Closeout is delivered through a Draft PR; owner review and merge are still required. |
+| AC-12 | In Review | Draft PR `#1` is open against `main`; owner review and merge are still required. |
 
 ### Build and artifact evidence
 

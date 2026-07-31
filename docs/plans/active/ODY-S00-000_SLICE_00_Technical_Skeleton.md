@@ -3,7 +3,7 @@
 **Status:** Active  
 **Owner:** Codex  
 **Branch:** `chore/ody-s00-001-foundation-closeout`  
-**Pull request:** Not opened  
+**Pull request:** `https://github.com/odyssey-services/Odyssey_VTT/pull/1` (Draft)  
 **Last updated:** 2026-08-01
 
 ## 1. Purpose and user-visible outcome
@@ -179,7 +179,7 @@ Not run because the repository implementation was not yet available at plan crea
 Not yet verified during closeout:
 
 - branch protection/ruleset inspection;
-- reviewed pull request creation/evidence.
+- owner review, branch-protection evidence, and merge.
 
 Record real commands, outputs and artifact paths here as child tasks complete.
 
