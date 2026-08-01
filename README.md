@@ -8,7 +8,7 @@ The private GitHub repository `odyssey-services/Odyssey_VTT` is the single autho
 
 Current stage: `SLICE-00 — Technical Skeleton`.
 
-The first repository foundation task is `docs/tasks/active/ODY-S00-001_Repository_Foundation.md`. Unity project files, .NET projects, C# production code, CI workflows, and build artifacts are intentionally out of scope for this foundation step.
+Repository Foundation is complete. The next Ready task is `docs/tasks/active/ODY-S00-002_Unity_Project_Foundation.md`; this repository state contains its contract only and does not yet contain a Unity project.
 
 ## Rights
 

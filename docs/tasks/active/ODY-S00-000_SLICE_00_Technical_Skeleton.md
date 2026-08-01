@@ -8,7 +8,7 @@
 **Pull request:** Not opened  
 **ExecPlan:** `docs/plans/active/ODY-S00-000_SLICE_00_Technical_Skeleton.md`  
 **Created:** 2026-07-28  
-**Last updated:** 2026-07-28 08:55 UTC
+**Last updated:** 2026-08-01 19:26 UTC
 
 ## 1. Goal
 
@@ -52,7 +52,7 @@ Deliver the complete `SLICE-00` technical skeleton: a private authoritative repo
 - The current documentation bundle contains Technical Development Baseline v0.2, accepted ADR-001–ADR-010, `AGENTS.md`, `PLANS.md`, and the task workflow.
 - The approved platform is Windows 10/11 x64 with Unity `6000.3.20f1`, HDRP, UI Toolkit, and Input System.
 - The approved code repository is Private and authoritative at `odyssey-services/Odyssey_VTT`, uses All Rights Reserved and Git LFS; protected `main`, owner-reviewed pull requests, and GitHub Actions remain required outcomes, not claims of completed verification.
-- No Odyssey VTT production repository, Unity project, .NET solution, scripts, tests, CI run, or build artifact is evidenced by this planning package.
+- Repository Foundation is complete through merged PR #1; no Unity project, .NET solution, production code, CI run, or build artifact exists yet.
 
 ### Assumptions
 
@@ -259,11 +259,11 @@ All additional dependencies require a child task update and explicit approval be
 
 ### Known limitations
 
-- GitHub repository, Unity runner availability, branch protection, and all implementation evidence remain future execution work.
+- Unity runner availability and exact branch protection/ruleset settings remain unverified; the latter is an owner-accepted ODY-S00-001 limitation.
 
 ### Follow-up tasks
 
-- `ODY-S00-001` through `ODY-S00-010`.
+- `ODY-S00-002` through `ODY-S00-010`; ODY-S00-001 is completed.
 
 ### Self-review summary
 
@@ -277,7 +277,7 @@ All additional dependencies require a child task update and explicit approval be
 
 ### Blockers
 
-- None for planning. Execution needs a selected GitHub namespace and access to Unity `6000.3.20f1` before the relevant child tasks begin.
+- ODY-S00-001 is complete. Before ODY-S00-002 moves from Ready to In Progress, verify access to Unity `6000.3.20f1` and Windows Build Support (IL2CPP).
 
 ### Decisions made during execution
 
