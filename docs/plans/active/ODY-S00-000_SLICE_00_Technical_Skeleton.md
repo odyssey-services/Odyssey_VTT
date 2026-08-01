@@ -3,7 +3,7 @@
 **Status:** Active  
 **Owner:** Codex  
 **Branch:** `chore/ody-s00-001-complete`  
-**Pull request:** PR #1 merged; post-merge closure PR not opened  
+**Pull request:** `https://github.com/odyssey-services/Odyssey_VTT/pull/2` (Draft post-merge closure; PR #1 merged)  
 **Last updated:** 2026-08-01
 
 ## 1. Purpose and user-visible outcome
