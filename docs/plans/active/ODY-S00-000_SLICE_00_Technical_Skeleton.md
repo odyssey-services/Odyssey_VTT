@@ -2,8 +2,8 @@
 
 **Status:** Active  
 **Owner:** Codex  
-**Branch:** `chore/ody-s00-001-foundation-closeout`  
-**Pull request:** `https://github.com/odyssey-services/Odyssey_VTT/pull/1` (Draft)  
+**Branch:** `chore/ody-s00-001-complete`  
+**Pull request:** `https://github.com/odyssey-services/Odyssey_VTT/pull/2` (Draft post-merge closure; PR #1 merged)  
 **Last updated:** 2026-08-01
 
 ## 1. Purpose and user-visible outcome
@@ -67,11 +67,11 @@ Every child task produces a compilable or documentation-only repository state. A
 Child task: `ODY-S00-001`.
 
 - [x] Owner created the foundation directly on `main` in commit `82de52e9cb47bd7a1fa8952ac5cba2b9c88456f5`; repository `odyssey-services/Odyssey_VTT` remains Private by owner decision.
-- [ ] Closeout alignment is delivered through `chore/ody-s00-001-foundation-closeout` and a reviewed Draft PR; the original owner bootstrap is retained as a documented one-time deviation.
-- [ ] All Rights Reserved, contribution/security policy, Git LFS and repository ignores are present.
-- [ ] Private product documents, handoffs, changelogs, archives, secrets and local paths are absent from Git history.
-- [ ] Branch protection and owner-review rules are recorded and enabled where GitHub permits.
-- Evidence: repository URL, first reviewed pull request, repository-policy check, owner settings capture/checklist.
+- [x] Closeout alignment was merged through PR #1; merge commit `9c7a61893b107624c29ecaa0af34335a715b11e3`; the original owner bootstrap remains a documented one-time deviation.
+- [x] All Rights Reserved, contribution/security policy, Git LFS and repository ignores are present.
+- [x] Private product documents, handoffs, changelogs, archives, secrets and local paths are absent from Git history.
+- [x] Owner merge evidence is recorded. Exact branch protection/ruleset settings were inaccessible and are an owner-accepted limitation; no setting is claimed as Passed.
+- Evidence: repository URL, merged PR #1, merge commit `9c7a61893b107624c29ecaa0af34335a715b11e3`, repository-policy checks, and explicit owner-accepted settings limitation.
 
 ### M1 — Exact Unity project opens cleanly
 
@@ -144,6 +144,7 @@ Child task: `ODY-S00-010`.
 - 2026-07-29 08:15 UTC — Executed local portion of `ODY-S00-001`: copied public-safe technical authorities to canonical paths, added root All Rights Reserved/contribution/security/LFS/editor policy files, added `scripts/check-repository-policy.ps1`, initialized a local Git repository on `chore/ody-s00-001-repository-foundation`, staged 36 public-safe files, and ran repository policy/LFS/diff validation. This historical entry predates the owner bootstrap and is superseded by the 2026-08-01 closeout evidence.
 
 - 2026-08-01 — Began controlled closeout after owner decision: authoritative repository is `odyssey-services/Odyssey_VTT`, visibility is Private, and foundation bootstrap is `82de52e9cb47bd7a1fa8952ac5cba2b9c88456f5`. No history rewrite or retroactive PR; all subsequent substantive changes use branch → PR → owner review → owner merge.
+- 2026-08-01 19:26 UTC — Owner merged PR #1 with merge-commit method as `9c7a61893b107624c29ecaa0af34335a715b11e3`. ODY-S00-001 completed; ODY-S00-002 task contract activated as Ready. Exact branch protection/ruleset settings remain an owner-accepted limitation.
 
 ## 7. Decisions
 
@@ -161,12 +162,12 @@ Child task: `ODY-S00-010`.
 
 ## 9. Validation and acceptance evidence
 
-Current planning evidence only:
+Current execution evidence:
 
 - Documentation files were generated from the active template and PLANS structure.
 - Required authorities and non-goals are mapped to child tasks.
 - The bundle manifest and internal file references are validated during packaging.
-- `ODY-S00-001` local policy evidence exists in `docs/tasks/active/ODY-S00-001_Repository_Foundation.md`: `REPO-POLICY-001` through `REPO-POLICY-004` pass under Windows PowerShell, negative fixture rejection passes, staged tracked-file inventory excludes private/local bundle paths, and Git LFS attributes are active for approved binary candidates.
+- `ODY-S00-001` completion evidence exists in `docs/tasks/completed/ODY-S00-001_Repository_Foundation.md`: `REPO-POLICY-001` through `REPO-POLICY-004` pass under Windows PowerShell, negative fixture rejection passes, staged tracked-file inventory excludes private/local bundle paths, and Git LFS attributes are active for approved binary candidates.
 
 Not run because the repository implementation was not yet available at plan creation:
 
@@ -176,10 +177,9 @@ Not run because the repository implementation was not yet available at plan crea
 - GitHub Actions;
 - clean-checkout rehearsal.
 
-Not yet verified during closeout:
+Post-merge limitation:
 
-- branch protection/ruleset inspection;
-- owner review, branch-protection evidence, and merge.
+- Exact branch protection/ruleset settings were not accessible through the connector, and browser inspection failed before page access because the Windows sandbox helper could not initialize. Owner accepted this limitation; no setting is claimed as Passed.
 
 Record real commands, outputs and artifact paths here as child tasks complete.
 
@@ -193,7 +193,7 @@ Record real commands, outputs and artifact paths here as child tasks complete.
 
 ## 11. Open questions and blockers
 
-- Repository identity and Private visibility are verified through owner decision and authenticated connector; branch protection remains not verified.
+- Repository identity, Private visibility, and PR #1 merge are verified. Exact branch protection/ruleset settings remain an owner-accepted limitation.
 - Availability of Unity `6000.3.20f1` Windows editor/license and IL2CPP module: must be verified before `ODY-S00-002` is In Progress.
 - GitHub plan/settings may affect exact branch-protection options; the task must apply the strongest supported equivalent and record any unavailable setting.
 
@@ -201,6 +201,6 @@ These items do not block completion of the planning package.
 
 ## 12. Outcome and follow-up
 
-Current outcome: Private authoritative repository and owner bootstrap are verified; ODY-S00-001 closeout alignment is In Review. Branch protection remains not verified and is not claimed.
+Current outcome: ODY-S00-001 is Done after owner merge of PR #1. ODY-S00-002 is Ready at task-contract level; Unity implementation has not started.
 
-Next action: owner reviews and merges the Draft closeout PR. Only after merge and any required branch-protection evidence should ODY-S00-001 move to Done and ODY-S00-002 be activated.
+Next action: review the ODY-S00-002 contract and begin its implementation only in a separate task branch/PR.

@@ -1,14 +1,14 @@
 # ODY-S00-001 — Align and Close the Private Repository Foundation
 
-**Status:** In Review  
+**Status:** Done  
 **Roadmap stage / slice:** SLICE-00  
 **Owner:** Codex  
 **Requested by:** Product owner  
 **Branch:** `chore/ody-s00-001-foundation-closeout`  
-**Pull request:** `https://github.com/odyssey-services/Odyssey_VTT/pull/1` (Draft)  
+**Pull request:** `https://github.com/odyssey-services/Odyssey_VTT/pull/1` (Merged)  
 **ExecPlan:** Not required; coordinated by `docs/plans/active/ODY-S00-000_SLICE_00_Technical_Skeleton.md`  
 **Created:** 2026-07-28  
-**Last updated:** 2026-08-01
+**Last updated:** 2026-08-01 19:26 UTC
 
 ## 1. Goal
 
@@ -317,22 +317,22 @@ No GitHub Action, package manager dependency, executable download, or runtime li
 
 ## 16. Definition of Done
 
-- [ ] Goal is achieved without unapproved scope expansion.
-- [ ] All acceptance criteria are satisfied.
-- [ ] Required automated policy tests pass.
-- [ ] Required manual repository/protection checks are completed.
-- [ ] Required commands and their real results are recorded.
-- [ ] Public/private documentation boundary is verified.
-- [ ] No unapproved dependency, tool, GitHub Action or license was introduced.
-- [ ] Git LFS and text normalization rules are verified.
-- [ ] Documentation is copied/updated only where materially required.
-- [ ] Codex/developer performs self-review against this task and `AGENTS.md`.
-- [ ] Pull request explains changes, evidence, limitations and follow-up work.
-- [ ] Product owner reviews and merges; Codex does not merge into `main`.
+- [x] Goal is achieved without unapproved scope expansion.
+- [x] All acceptance criteria are satisfied, including the owner-accepted branch-settings limitation.
+- [x] Required automated policy tests pass.
+- [x] Required manual checks are completed to the available interface boundary; branch settings are an owner-accepted limitation.
+- [x] Required commands and their real results are recorded.
+- [x] Repository/private-product documentation boundary is verified.
+- [x] No unapproved dependency, tool, GitHub Action or license was introduced.
+- [x] Git LFS and text normalization rules are verified.
+- [x] Documentation is copied/updated only where materially required.
+- [x] Codex/developer performed self-review against this task and `AGENTS.md`.
+- [x] Pull request explains changes, evidence, limitations and follow-up work.
+- [x] Product owner merged PR #1; Codex did not merge into `main`.
 
 ## 17. Completion evidence
 
-This task remains `In Review` until owner review and merge.
+This task is `Done` after owner merge of PR #1.
 
 ### Changed files / areas
 
@@ -347,6 +347,7 @@ This task remains `In Review` until owner review and merge.
 |---|---|---|
 | GitHub connector repository inspection | Passed | Authenticated account `odyssey-services`; repository `odyssey-services/Odyssey_VTT`; visibility `private`; default branch `main`; connector reports push/admin access. |
 | Owner bootstrap verification | Passed | Local `HEAD` and `origin/main` started at `82de52e9cb47bd7a1fa8952ac5cba2b9c88456f5`, `chore: initialize repository`. |
+| PR #1 owner merge | Passed | PR #1 merged at `2026-08-01T19:26:07Z`; merge commit `9c7a61893b107624c29ecaa0af34335a715b11e3`; two-parent Git graph confirms merge-commit method. No separate review submission exists (`reviews=[]`); owner merge is the recorded owner acceptance. |
 | Repository policy script, initial run | Environment-limited | Nested Git calls were rejected by Git dubious-ownership protection, so REPO-POLICY-003/004 had empty attribute output. This was not treated as a product failure. |
 | Repository policy script with process-scoped `safe.directory` | Passed | `REPO-POLICY-001` through `REPO-POLICY-004` PASS; exit 0. No global Git config was changed. |
 | Negative fixture | Passed as rejection test | Isolated tracked-file list containing private-document and ZIP paths was rejected; exit 1; temporary fixture removed. |
@@ -355,7 +356,8 @@ This task remains `In Review` until owner review and merge.
 | Git LFS checks | Passed | Git LFS 3.7.1; remote endpoint resolves to `odyssey-services/Odyssey_VTT`; approved patterns listed from `.gitattributes`. |
 | Tracked-file and history forbidden-path scan | Passed | No Unity/.NET/generated/private-document/archive/secret paths matched. |
 | `gh --version` | Not available | GitHub CLI is not installed in PATH; authenticated GitHub connector is used for repository metadata and Draft PR creation. |
-| Branch protection/ruleset inspection | Not run | No claim is made that branch protection is configured or passing. |
+| Branch protection/ruleset inspection | Owner-accepted limitation | Connector exposes no protection/ruleset endpoint; authenticated browser settings inspection failed before page access because the Windows sandbox helper could not initialize. No setting is claimed as Passed. |
+| Post-merge repository policy and negative fixture | Passed | `REPO-POLICY-001–004` PASS; controlled private-document/archive fixture rejected with exit 1; `git diff --check` and attribute checks passed. |
 
 ### Acceptance result
 
@@ -364,8 +366,8 @@ This task remains `In Review` until owner review and merge.
 | AC-1 | Passed | Private `odyssey-services/Odyssey_VTT` is verified as the authoritative repository. |
 | AC-2 | Passed with documented deviation | Owner foundation bootstrap entered `main` directly as `82de52e9…`; no history rewrite or retroactive PR. Subsequent substantive work uses branch/PR. |
 | AC-3–AC-10 | Passed | All Rights Reserved, contribution/security policy, authority files, forbidden-path checks, Git LFS/text attributes, ignores/editor policy, positive policy run and negative fixture verified. |
-| AC-11 | Not verified | Branch protection/ruleset inspection was not performed and is not claimed. |
-| AC-12 | In Review | Draft PR `#1` is open against `main`; owner review and merge are still required. |
+| AC-11 | Owner-accepted limitation | Exact branch protection/ruleset settings were unavailable through the accessible interfaces. Owner authorized closure with this limitation; no unverified setting is claimed as Passed. |
+| AC-12 | Passed | Owner merged PR #1 into `main` using a merge commit. |
 
 ### Build and artifact evidence
 
@@ -376,15 +378,15 @@ This task remains `In Review` until owner review and merge.
 
 ### Known limitations
 
-- Branch protection settings have not been inspected.
+- Exact branch protection/ruleset settings were unavailable and are accepted by the owner as a closure limitation; none are claimed as Passed.
 - `pwsh` and `gh` are not installed in PATH; Windows PowerShell and the authenticated GitHub connector were used.
-- Task cannot move to `Done` until owner review and merge.
+- No additional limitations.
 
 ### Follow-up tasks
 
-- Owner reviews and merges the Draft closeout PR; Codex does not merge.
-- After merge and required owner evidence, move ODY-S00-001 to completed.
-- Activate `ODY-S00-002 — Unity Project Foundation` only after ODY-S00-001 reaches Done.
+- PR #1 was merged by the owner; Codex did not merge.
+- ODY-S00-001 moved to `docs/tasks/completed/` in this post-merge closure.
+- `ODY-S00-002 — Unity Project Foundation` task contract is activated as Ready; implementation has not started.
 
 ### Self-review summary
 
@@ -397,8 +399,7 @@ This task remains `In Review` until owner review and merge.
 
 ### Blockers
 
-- Owner review and merge are required before `Done`.
-- Branch protection evidence remains not verified.
+- None. Exact branch protection/ruleset settings remain an owner-accepted limitation and are not claimed as Passed.
 
 ### Decisions made during execution
 
@@ -410,3 +411,4 @@ This task remains `In Review` until owner review and merge.
 ### Approved task changes
 
 - Owner-approved controlled closeout and Private repository authority alignment described above.
+- 2026-08-01 — Close ODY-S00-001 with exact branch protection/ruleset settings recorded as an owner-accepted limitation because accessible interfaces did not expose them — Approved by: product owner post-merge closure instruction.
