@@ -1,9 +1,11 @@
 # Odyssey VTT — Active Documentation Baseline
 
-**Документ:** `ACTIVE_DOCUMENTATION_BASELINE_Odyssey_VTT_v1.6.md`  
-**Версия:** 1.6  
-**Дата:** 28 июля 2026 года  
+**Документ:** `ACTIVE_DOCUMENTATION_BASELINE_Odyssey_VTT_v1.7.md`  
+**Версия:** 1.7  
+**Дата:** 1 августа 2026 года  
 **Статус:** Active authority register
+
+**Материальное изменение v1.7:** зарегистрирован `TECHNICAL_DEVELOPMENT_BASELINE_Odyssey_VTT_v0.2.md`, который фиксирует решение владельца: `odyssey-services/Odyssey_VTT` остаётся Private и является единственным authoritative code repository. Private visibility не ослабляет запрет на private product documentation, secrets и archives в Git history; дальнейшие substantive changes проходят только через branch → pull request → owner review → owner merge.
 
 **Материальное изменение v1.6:** добавлен исполнимый пакет `SLICE-00`: parent task `ODY-S00-000`, living ExecPlan, упорядоченный backlog из десяти задач и первая Ready-задача `ODY-S00-001 — Repository Foundation`. Delivery-группы Technical Baseline `PR-000–PR-005` сохранены по результатам, но широкие Core/CI группы разделены на review-safe task/PR units без изменения архитектуры или MVP. В комплекте оставлен только текущий Active Baseline; исторические версии реестра удалены как дубли источника истины.
 
@@ -84,7 +86,7 @@
 15_Legacy_Prototype_Reference_Odyssey_VTT_v0.1.md
 16_Test_Strategy_Odyssey_VTT_v0.1.md
 17_Roadmap_Odyssey_VTT_v0.11.md
-TECHNICAL_DEVELOPMENT_BASELINE_Odyssey_VTT_v0.1.md
+TECHNICAL_DEVELOPMENT_BASELINE_Odyssey_VTT_v0.2.md
 AGENTS.md
 PLANS.md
 docs/tasks/TASK_TEMPLATE.md
@@ -106,9 +108,9 @@ docs/adr/ADR-010_Logging_Diagnostics_and_Redaction_v1.0.md
 
 # 4. Активные технические authorities
 
-`TECHNICAL_DEVELOPMENT_BASELINE_Odyssey_VTT_v0.1.md` является обязательным техническим authority для создания публичного репозитория, Unity 6.3 LTS HDRP/UI Toolkit проекта, CI и работы Codex. Он не заменяет продуктовые требования и не может расширять MVP.
+`TECHNICAL_DEVELOPMENT_BASELINE_Odyssey_VTT_v0.2.md` является обязательным техническим authority для private authoritative repository `odyssey-services/Odyssey_VTT`, Unity 6.3 LTS HDRP/UI Toolkit проекта, CI и работы Codex. Он не заменяет продуктовые требования и не может расширять MVP.
 
-`AGENTS.md` является обязательным operational contract публичного репозитория для Codex и code review. Он автоматически применяется ко всему репозиторию, маршрутизирует агента к активным ADR и задаёт обязательные проверки, ограничения scope, Git/PR workflow и Definition of Done. При любом расхождении приоритет сохраняют этот Active Baseline, принятый ADR и Technical Development Baseline; `AGENTS.md` должен быть синхронизирован с ними, а не заменять их.
+`AGENTS.md` является обязательным operational contract authoritative code repository для Codex и code review. Он автоматически применяется ко всему репозиторию, маршрутизирует агента к активным ADR и задаёт обязательные проверки, ограничения scope, Git/PR workflow и Definition of Done. При любом расхождении приоритет сохраняют этот Active Baseline, принятый ADR и Technical Development Baseline; `AGENTS.md` должен быть синхронизирован с ними, а не заменять их.
 
 `PLANS.md` является обязательным operational contract для планирования сложных и многоэтапных задач Codex. Он определяет, когда достаточно brief plan, когда требуется repository ExecPlan, где хранить активные и завершённые планы, как фиксировать milestones, progress, decisions, discoveries, validation evidence, recovery/rollback и blockers. Он не предоставляет разрешение на изменение scope или архитектуры и должен применяться совместно с `AGENTS.md`, Active Baseline и соответствующими ADR.
 

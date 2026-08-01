@@ -15,7 +15,7 @@ Use sources in this order:
 1. Explicit current decision from the product owner in the task.
 2. `ACTIVE_DOCUMENTATION_BASELINE_Odyssey_VTT_*.md`.
 3. Accepted ADR for the technical question.
-4. `TECHNICAL_DEVELOPMENT_BASELINE_Odyssey_VTT_v0.1.md`.
+4. `TECHNICAL_DEVELOPMENT_BASELINE_Odyssey_VTT_v0.2.md`.
 5. Task-specific requirement excerpts and acceptance criteria.
 6. Public subsystem documentation explicitly named by the task.
 7. Product Requirements, MVP Scope, Domain Model, Vision, Roadmap, Test Strategy.
@@ -30,7 +30,7 @@ Never use these as requirements unless the task explicitly names them:
 - templates or placeholder evidence;
 - private documentation not included in the task bundle.
 
-Private product documentation is stored outside the public repository. Do not copy private excerpts into commits, issues, pull requests, CI logs, test snapshots, or generated artifacts.
+Private product documentation is stored outside the authoritative code repository. Do not copy private excerpts into commits, issues, pull requests, CI logs, test snapshots, or generated artifacts.
 
 ## 3. Task contract
 
@@ -206,7 +206,7 @@ Follow ADR-009.
 
 ## 13. Dependencies and licensing
 
-The repository is public but the code is All Rights Reserved.
+The authoritative repository is Private and the code is All Rights Reserved.
 
 - Do not add a production or development dependency, GitHub Action, executable, or downloadable tool unless the task explicitly allows it or an ADR approves it.
 - Allowed licenses by default: MIT, BSD, Apache-2.0, Unity Companion License.
@@ -317,7 +317,7 @@ Flag as blocking:
 - swallowed exceptions, unsafe retry loops, or user-visible internal details;
 - tests removed, weakened, skipped, or made flaky to accommodate a change;
 - Unity/package/version changes outside task scope;
-- private documentation committed to the public repository;
+- private documentation committed to the authoritative repository;
 - claims of validation without evidence.
 
 When a safe correction is clear and in scope, implement it. Otherwise report the issue with the relevant ADR and do not invent a new architecture.

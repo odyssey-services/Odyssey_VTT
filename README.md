@@ -2,7 +2,7 @@
 
 Odyssey VTT is a Windows 10/11 x64 virtual tabletop application being built from a new technical foundation with Unity 6000.3 LTS, HDRP, UI Toolkit, and a pure Core architecture.
 
-This public repository is the single authoritative code repository for Odyssey VTT implementation work. It intentionally contains only public-safe technical documentation, repository policy, task contracts, and future source/build artifacts. Private product documentation, campaign content, local handoffs, context archives, secrets, and personal paths do not belong in this repository.
+The private GitHub repository `odyssey-services/Odyssey_VTT` is the single authoritative code repository for Odyssey VTT implementation work. It intentionally contains only repository-safe technical documentation, repository policy, task contracts, and future source/build artifacts. Private product documentation, campaign content, local handoffs, context archives, secrets, and personal paths do not belong in this repository.
 
 ## Status
 
@@ -12,16 +12,16 @@ The first repository foundation task is `docs/tasks/active/ODY-S00-001_Repositor
 
 ## Rights
 
-Odyssey VTT is public source, not open source. All rights are reserved. See `LICENSE`.
+Odyssey VTT is private source and not open source. All rights are reserved. See `LICENSE`.
 
-Viewing or forking through GitHub is permitted only as allowed by GitHub Terms of Service. No license is granted to use, copy, modify, distribute, sublicense, sell, host, train on, or create derivative works from this project without prior written permission from the rights holder.
+Repository access through GitHub does not grant rights beyond those required to use GitHub as authorized. No license is granted to use, copy, modify, distribute, sublicense, sell, host, train on, or create derivative works from this project without prior written permission from the rights holder.
 
 ## Repository Entry Points
 
 - `AGENTS.md` — operating rules for Codex and contributors.
 - `PLANS.md` — execution plan rules.
-- `TECHNICAL_DEVELOPMENT_BASELINE_Odyssey_VTT_v0.1.md` — approved technical baseline.
-- `ACTIVE_DOCUMENTATION_BASELINE_Odyssey_VTT_v1.6.md` — active authority register.
+- `TECHNICAL_DEVELOPMENT_BASELINE_Odyssey_VTT_v0.2.md` — approved technical baseline.
+- `ACTIVE_DOCUMENTATION_BASELINE_Odyssey_VTT_v1.7.md` — active authority register.
 - `docs/adr/` — accepted architecture decisions.
 - `docs/tasks/` — task contracts and execution backlog.
 - `scripts/check-repository-policy.ps1` — repository foundation policy check.

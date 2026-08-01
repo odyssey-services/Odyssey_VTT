@@ -62,7 +62,7 @@ Every ExecPlan must be:
 - **Concrete:** name relevant modules, paths, commands, test IDs, contracts, and artifacts.
 - **Honest:** distinguish completed work, assumptions, unresolved questions, failed attempts, and unrun checks.
 - **Scope-controlled:** record non-goals and do not silently absorb unrelated cleanup.
-- **Safe for the public repository:** never copy private product documentation, secrets, private paths, personal data, or hidden campaign content into a plan.
+- **Safe for the authoritative repository:** never copy private product documentation, secrets, private paths, personal data, or hidden campaign content into a plan.
 
 An ExecPlan must not rely on phrases such as “as discussed earlier,” “use the usual approach,” or “finish the remaining work” without defining the referenced work.
 
@@ -269,7 +269,7 @@ Stop and request an owner decision when:
 - acceptance requires expanding MVP;
 - a paid, proprietary, copyleft, or unclear dependency appears necessary;
 - data loss or irreversible migration cannot be ruled out;
-- private material would need to enter the public repository.
+- private material would need to enter the authoritative repository.
 
 ## 10. Git and pull request use
 
@@ -305,6 +305,6 @@ An ExecPlan may be marked `Completed` only when:
 6. the complete diff was reviewed for scope and accidental files;
 7. the pull request or patch is ready for owner review;
 8. remaining limitations and follow-up tasks are listed;
-9. no private requirement text or secrets were added to the public repository.
+9. no private requirement text or secrets were added to the authoritative repository.
 
 A completed plan is evidence of how the result was produced. It is not evidence that the owner approved or merged it.

@@ -2,13 +2,13 @@
 
 **Status:** Active  
 **Owner:** Codex  
-**Branch:** `chore/ody-s00-001-repository-foundation` local unborn branch  
-**Pull request:** Not opened  
-**Last updated:** 2026-07-29 08:15 UTC
+**Branch:** `chore/ody-s00-001-foundation-closeout`  
+**Pull request:** `https://github.com/odyssey-services/Odyssey_VTT/pull/1` (Draft)  
+**Last updated:** 2026-08-01
 
 ## 1. Purpose and user-visible outcome
 
-When this plan is complete, Odyssey VTT has a trustworthy technical starting point rather than a collection of disconnected prototypes. A developer can clone the public repository on Windows, restore the pinned toolchain, run fast Core tests without Unity, open the exact Unity project, run Unity tests, create a versioned Windows development build, inspect safe diagnostics, and prove that invalid architecture changes are blocked before merge.
+When this plan is complete, Odyssey VTT has a trustworthy technical starting point rather than a collection of disconnected prototypes. A developer can clone the Private authoritative repository on Windows, restore the pinned toolchain, run fast Core tests without Unity, open the exact Unity project, run Unity tests, create a versioned Windows development build, inspect safe diagnostics, and prove that invalid architecture changes are blocked before merge.
 
 No user-facing game feature is delivered. The observable outcome is readiness to begin `SLICE-01 — Local Campaign` without redesigning repository, module, contract, test, or build foundations inside that feature slice.
 
@@ -19,7 +19,7 @@ No user-facing game feature is delivered. The observable outcome is readiness to
 - Requirement IDs: `SLICE-00`, `M1`, `TDB-DEC-001–027`, ADR-defined `SLICE-00` test IDs.
 - In scope: Child tasks `ODY-S00-001–010`.
 - Out of scope: Persistence, networking, accounts, permissions runtime and all gameplay/product features.
-- Required authorities: Active Baseline v1.6, Technical Baseline v0.1, AGENTS, PLANS, Task Template, ADR-001–010, MVP Scope SLICE-00, Roadmap Stage 1, Test Strategy.
+- Required authorities: Active Baseline v1.7, Technical Baseline v0.2, AGENTS, PLANS, Task Template, ADR-001–010, MVP Scope SLICE-00, Roadmap Stage 1, Test Strategy.
 - Required validation commands: Introduced incrementally; final canonical set must match `AGENTS.md` and actual repository scripts.
 
 Governing task contract: `docs/tasks/active/ODY-S00-000_SLICE_00_Technical_Skeleton.md`.
@@ -30,12 +30,12 @@ Governing task contract: `docs/tasks/active/ODY-S00-000_SLICE_00_Technical_Skele
 
 - Architecture and operational documentation are prepared and internally consistent through ADR-010, AGENTS, PLANS, and the task workflow.
 - Exact platform/toolchain decisions exist: Windows x64, Unity `6000.3.20f1`, HDRP, UI Toolkit, Input System, pure .NET host, GitHub Actions, Git LFS, All Rights Reserved.
-- No repository implementation artifact is currently evidenced: no Git commit, Unity project, package lock, `.asmdef`, `.csproj`, script output, CI run, or Player build.
-- The full current documentation bundle contains private product material and must not be copied wholesale into the public code repository.
+- Repository foundation exists in owner bootstrap `82de52e9cb47bd7a1fa8952ac5cba2b9c88456f5`; no Unity project, package lock, `.asmdef`, `.csproj`, CI run, or Player build exists.
+- The full current documentation bundle contains private product material and must not be copied wholesale into the authoritative code repository.
 
 ### Assumptions to verify during execution
 
-- A public GitHub repository can be created in the owner-selected namespace.
+- The owner-selected Private authoritative repository is `odyssey-services/Odyssey_VTT`; visibility changes require a separate owner decision.
 - Windows access and a valid Unity `6000.3.20f1` installation/license are available for Unity and IL2CPP validation.
 - Git LFS is available on contributor and CI machines.
 
@@ -43,7 +43,7 @@ Governing task contract: `docs/tasks/active/ODY-S00-000_SLICE_00_Technical_Skele
 
 Execute ten child tasks in six accepted delivery groups.
 
-1. Establish repository policy and a public-safe technical documentation subset before any generated project files.
+1. Establish repository policy and a repository-safe technical documentation subset before any generated project files.
 2. Create the exact Unity project without Core behavior so project settings and package changes remain reviewable.
 3. Add embedded module packages and the pure .NET test host using one physical source set.
 4. Introduce foundational contracts in three review-safe increments: values/results, deterministic command/time/RNG contracts, then runtime composition/diagnostics.
@@ -66,8 +66,8 @@ Every child task produces a compilable or documentation-only repository state. A
 
 Child task: `ODY-S00-001`.
 
-- [ ] Owner creates the one-time initial `main` bootstrap and enables public visibility.
-- [ ] Public-safe policy and technical documentation scaffold is committed through a reviewed branch.
+- [x] Owner created the foundation directly on `main` in commit `82de52e9cb47bd7a1fa8952ac5cba2b9c88456f5`; repository `odyssey-services/Odyssey_VTT` remains Private by owner decision.
+- [ ] Closeout alignment is delivered through `chore/ody-s00-001-foundation-closeout` and a reviewed Draft PR; the original owner bootstrap is retained as a documented one-time deviation.
 - [ ] All Rights Reserved, contribution/security policy, Git LFS and repository ignores are present.
 - [ ] Private product documents, handoffs, changelogs, archives, secrets and local paths are absent from Git history.
 - [ ] Branch protection and owner-review rules are recorded and enabled where GitHub permits.
@@ -141,21 +141,23 @@ Child task: `ODY-S00-010`.
 ## 6. Progress log
 
 - 2026-07-28 08:55 UTC — Created parent task, SLICE-00 backlog, child task sequence and this ExecPlan. No repository implementation or build validation has been performed.
-- 2026-07-29 08:15 UTC — Executed local portion of `ODY-S00-001`: copied public-safe technical authorities to canonical paths, added root All Rights Reserved/contribution/security/LFS/editor policy files, added `scripts/check-repository-policy.ps1`, initialized a local Git repository on `chore/ody-s00-001-repository-foundation`, staged 36 public-safe files, and ran repository policy/LFS/diff validation. External GitHub repository/protection/PR evidence remains blocked on owner setup.
+- 2026-07-29 08:15 UTC — Executed local portion of `ODY-S00-001`: copied public-safe technical authorities to canonical paths, added root All Rights Reserved/contribution/security/LFS/editor policy files, added `scripts/check-repository-policy.ps1`, initialized a local Git repository on `chore/ody-s00-001-repository-foundation`, staged 36 public-safe files, and ran repository policy/LFS/diff validation. This historical entry predates the owner bootstrap and is superseded by the 2026-08-01 closeout evidence.
+
+- 2026-08-01 — Began controlled closeout after owner decision: authoritative repository is `odyssey-services/Odyssey_VTT`, visibility is Private, and foundation bootstrap is `82de52e9cb47bd7a1fa8952ac5cba2b9c88456f5`. No history rewrite or retroactive PR; all subsequent substantive changes use branch → PR → owner review → owner merge.
 
 ## 7. Decisions
 
 - 2026-07-28 — Decision: Keep Technical Baseline `PR-000–PR-005` as delivery groups while splitting Core and CI work into smaller task/PR units. Rationale: reduces review and rollback risk without changing required outcomes. Authority: Technical Baseline section 30 plus PLANS scope-control rules.
 - 2026-07-28 — Decision: Use a parent task `ODY-S00-000` for the slice-level ExecPlan and separate child task contracts for implementation. Rationale: preserves PLANS requirement that every ExecPlan has a governing task while keeping each pull request independently reviewable.
 - 2026-07-28 — Decision: The one-time initial commit that creates `main` is owner-controlled; all substantive repository foundation content goes through a branch and review. Rationale: GitHub requires a base branch before normal protected-branch PR workflow can begin; Codex still never merges to `main`.
-- 2026-07-28 — Decision: Do not copy the full current context bundle into the public repository. Rationale: hybrid documentation policy keeps full product documents private; only public-safe technical authorities and sanitized task artifacts are committed.
+- 2026-07-28 — Decision: Do not copy the full current context bundle into the authoritative repository. Rationale: hybrid documentation policy keeps full product documents private; only repository-safe technical authorities and sanitized task artifacts are committed.
 
 ## 8. Discoveries and deviations
 
 - The accepted Technical Baseline groups a large amount of foundational work under PR-003 and PR-005. The execution backlog splits these into PR-003A/B/C and PR-005A/B while preserving dependencies and exit criteria.
 - Canonical repository scripts do not exist yet. Plans and tasks must state them as future deliverables and cannot claim they were run.
-- GitHub namespace, final repository URL and Unity runner availability are execution-time facts, not planning evidence.
-- During `ODY-S00-001`, the workspace root initially contained only a private/local `Documentation/` bundle and no Git repository. Codex prepared a public-safe local repository scaffold at the root and initialized a local Git index on `chore/ody-s00-001-repository-foundation`, but the owner-controlled public GitHub repository, protected `main`, and pull request still do not exist.
+- Repository identity is verified as `odyssey-services/Odyssey_VTT`; Unity runner availability remains an execution-time fact.
+- Owner added the foundation directly to `main` as commit `82de52e9cb47bd7a1fa8952ac5cba2b9c88456f5` in Private repository `odyssey-services/Odyssey_VTT`. No separate foundation branch or PR existed. This is a recorded one-time deviation, not a precedent; no history rewrite or retroactive PR is required.
 
 ## 9. Validation and acceptance evidence
 
@@ -174,11 +176,10 @@ Not run because the repository implementation was not yet available at plan crea
 - GitHub Actions;
 - clean-checkout rehearsal.
 
-Not run because owner-controlled GitHub setup does not yet exist:
+Not yet verified during closeout:
 
-- public repository visibility inspection;
 - branch protection/ruleset inspection;
-- reviewed pull request creation/evidence.
+- owner review, branch-protection evidence, and merge.
 
 Record real commands, outputs and artifact paths here as child tasks complete.
 
@@ -192,7 +193,7 @@ Record real commands, outputs and artifact paths here as child tasks complete.
 
 ## 11. Open questions and blockers
 
-- GitHub namespace and final repository URL: still required to finish `ODY-S00-001`.
+- Repository identity and Private visibility are verified through owner decision and authenticated connector; branch protection remains not verified.
 - Availability of Unity `6000.3.20f1` Windows editor/license and IL2CPP module: must be verified before `ODY-S00-002` is In Progress.
 - GitHub plan/settings may affect exact branch-protection options; the task must apply the strongest supported equivalent and record any unavailable setting.
 
@@ -200,6 +201,6 @@ These items do not block completion of the planning package.
 
 ## 12. Outcome and follow-up
 
-Current outcome: execution package prepared; `ODY-S00-001` local repository foundation scaffold exists and passes local repository policy checks, but remote GitHub repository/protection/PR evidence remains blocked.
+Current outcome: Private authoritative repository and owner bootstrap are verified; ODY-S00-001 closeout alignment is In Review. Branch protection remains not verified and is not claimed.
 
-Next action: owner creates/selects the public GitHub repository and protected `main`, then the staged `ODY-S00-001` scaffold is pushed through a reviewed pull request. After owner review, update this plan, move the task to completed, and activate `ODY-S00-002`.
+Next action: owner reviews and merges the Draft closeout PR. Only after merge and any required branch-protection evidence should ODY-S00-001 move to Done and ODY-S00-002 be activated.
