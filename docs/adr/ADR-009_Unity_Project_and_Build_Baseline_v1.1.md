@@ -8,13 +8,13 @@
 **Supersedes:** docs/adr/ADR-009_Unity_Project_and_Build_Baseline_v1.0.md only for the Unity Editor baseline and Unity package baseline
 **Область:** exact Unity Editor baseline, project creation, package policy, HDRP/UI Toolkit/Input System configuration, Unity assets and scenes, Player settings, Windows build profiles, graphics APIs, scripting backends, build automation, Unity CI contract, upgrade policy и `SLICE-00` Unity scaffold
 **Связанные этапы:** Roadmap Stage 1, `SLICE-00`, Milestone `M1`, PR-001 Unity Project Foundation, PR-005 CI and Windows Dev Build и последующие Unity Client slices
-**Базовые документы:** `TECHNICAL_DEVELOPMENT_BASELINE_Odyssey_VTT_v0.1.md`, `16_Test_Strategy_Odyssey_VTT_v0.1.md`, `17_Roadmap_Odyssey_VTT_v0.11.md`, `ADR-001_Module_Boundaries_and_Dependency_Direction_v1.0.md`, `ADR-003_Serialization_Strategy_v1.0.md`, `ADR-005_Dependency_Composition_v1.0.md`, `ADR-006_Test_Project_Structure_and_Dual_Unity_DotNet_Compilation_v1.0.md`, `ADR-007_Versioning_and_Build_Identity_v1.0.md`, `ADR-008_Deterministic_Clock_and_RNG_v1.0.md`
+**Базовые документы:** `TECHNICAL_DEVELOPMENT_BASELINE_Odyssey_VTT_v0.3.md`, `16_Test_Strategy_Odyssey_VTT_v0.1.md`, `17_Roadmap_Odyssey_VTT_v0.11.md`, `ADR-001_Module_Boundaries_and_Dependency_Direction_v1.0.md`, `ADR-003_Serialization_Strategy_v1.0.md`, `ADR-005_Dependency_Composition_v1.0.md`, `ADR-006_Test_Project_Structure_and_Dual_Unity_DotNet_Compilation_v1.0.md`, `ADR-007_Versioning_and_Build_Identity_v1.0.md`, `ADR-008_Deterministic_Clock_and_RNG_v1.0.md`
 
 ---
 
 # 1. Решение
 
-Odyssey VTT создаётся как один version-controlled Unity 6.4 LTS HDRP-проект с точным Editor patch, воспроизводимым package graph, явными Windows build profiles и автоматизированной проверкой всех критических Unity settings.
+Odyssey VTT создаётся как один version-controlled Unity 6.4 Update release HDRP-проект с точным Editor patch, воспроизводимым package graph, явными Windows build profiles и автоматизированной проверкой всех критических Unity settings.
 
 Обязательные решения:
 
@@ -55,7 +55,7 @@ Odyssey VTT создаётся как один version-controlled Unity 6.4 LTS 
 31. Unity Console compiler error, package restore/signature error, отсутствующий required scene/settings asset, package lock drift или failed smoke test делает build неуспешным.
 32. GitHub Actions provider и Unity license activation implementation выбираются отдельной implementation task, но обязаны соблюдать contract этого ADR.
 33. Patch upgrade `6000.4.x` выполняется отдельным PR после review release notes, clean reimport, package diff, all tests, Mono build и IL2CPP build.
-34. Переход с `6000.3` на другую Unity minor/LTS line, смена render pipeline, release scripting backend либо обязательной Graphics API требует amendment или superseding ADR.
+34. Переход с `6000.4` на другую minor/LTS line, смена render pipeline, release scripting backend либо обязательной Graphics API требует amendment или superseding ADR.
 35. ADR-009 является нормативным authority по Unity project/build baseline и заменяет предварительные Unity/build-profile решения Technical Development Baseline в пределах этой области.
 
 ---
@@ -78,7 +78,7 @@ Odyssey VTT начинается с нуля и будет в значитель
 - добавить Unity Services, Netcode, Addressables или telemetry без решения владельца продукта;
 - получить build, который нельзя связать с Git commit и versioned settings.
 
-Нужен один contract, превращающий утверждённый стек Unity 6.4 LTS + HDRP + UI Toolkit в воспроизводимый repository scaffold и одинаковый build process для человека, Codex и CI.
+Нужен один contract, превращающий утверждённый стек Unity 6.4 Update release + HDRP + UI Toolkit в воспроизводимый repository scaffold и одинаковый build process для человека, Codex и CI.
 
 ---
 
@@ -87,8 +87,8 @@ Odyssey VTT начинается с нуля и будет в значитель
 Решение оптимизировано под:
 
 1. Windows 10/11 x64 MVP.
-2. Публичный GitHub repository.
-3. Unity 6.4 LTS и длительную поддержку проекта.
+2. Private authoritative repository `odyssey-services/Odyssey_VTT`.
+3. Unity 6.4 Update release / Supported release для утверждённого Editor baseline.
 4. HDRP при функциональной независимости от тяжёлой графики.
 5. UI Toolkit как основной runtime UI.
 6. Single-source Core packages и dual Unity/.NET compilation.
@@ -141,12 +141,12 @@ Odyssey VTT начинается с нуля и будет в значитель
 
 ```text
 Unity Editor: 6000.4.0f1
-Release line: Unity 6.4 LTS
+Release line: Unity 6.4 Update release / Supported release
 Changeset: 8cf496087c8f
 Release date: 16 July 2026
 ```
 
-На дату принятия ADR это последний опубликованный Unity 6.4 LTS patch, найденный в официальном Unity release archive.
+На дату принятия ADR Unity `6000.4.0f1` является Unity 6.4 Update release / Supported release, опубликованным 18 March 2026, с approved changeset `8cf496087c8f`.
 
 ## 5.2 ProjectVersion.txt
 
@@ -895,7 +895,7 @@ TestCaseId могут уточняться traceability matrix, но semantics �
 
 ## 24.2 Minor/LTS upgrade
 
-Переход на `6000.4`, `6000.5` или другую line требует superseding/amended ADR, даже если Unity называет её production-ready.
+Переход с `6000.4` на `6000.5` или другую minor/LTS line требует superseding/amended ADR, даже если Unity называет её production-ready.
 
 ## 24.3 Package-only update
 
@@ -1014,7 +1014,7 @@ PR-001 считается готовым, когда существует:
 
 ## 30.2 Unity 6.5 Supported release
 
-Отклонено: проект уже утвердил 6.3 LTS; переход не даёт достаточной выгоды для стартового scaffold и сокращает стабильность baseline.
+Исторически Unity 6.3 оставалась LTS line, но она больше не является Editor baseline этого репозитория после owner-approved ADR-009 v1.1.
 
 ## 30.3 URP вместо HDRP
 
@@ -1119,7 +1119,7 @@ ADR-009 фиксирует только точки интеграции.
 
 | Решение | Источник |
 |---|---|
-| Unity 6.4 LTS | решение владельца продукта, Technical Baseline |
+| Unity 6.4 Update release / Supported release | решение владельца продукта, Technical Baseline v0.3 |
 | Exact patch pin | Technical Baseline, ADR-007 |
 | HDRP | решение владельца продукта |
 | UI Toolkit | решение владельца продукта |
@@ -1141,7 +1141,7 @@ ADR-009 фиксирует только точки интеграции.
 На дату принятия использованы официальные Unity sources:
 
 - Unity `6000.4.0f1` release page и changeset;
-- Unity 6.4 LTS Manual;
+- Unity Manual for version 6000.4;
 - Unity documentation по UI Toolkit runtime;
 - Unity documentation по Input System;
 - Unity documentation по активному Render Pipeline Asset;

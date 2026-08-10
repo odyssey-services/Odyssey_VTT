@@ -7,7 +7,7 @@
 
 **Материальное изменение v1.8:** принят `docs/adr/ADR-009_Unity_Project_and_Build_Baseline_v1.1.md`, который supersedes ADR-009 v1.0 only for the Unity Editor/package baseline and pins Unity `6000.4.0f1 (8cf496087c8f)` with HDRP `com.unity.render-pipelines.high-definition` `17.4.0`. Registered `TECHNICAL_DEVELOPMENT_BASELINE_Odyssey_VTT_v0.3.md`; no MVP scope, repository privacy, or architecture boundary is changed.
 
-**Материальное изменение v1.7:** зарегистрирован `TECHNICAL_DEVELOPMENT_BASELINE_Odyssey_VTT_v0.3.md`, который фиксирует решение владельца: `odyssey-services/Odyssey_VTT` остаётся Private и является единственным authoritative code repository. Private visibility не ослабляет запрет на private product documentation, secrets и archives в Git history; дальнейшие substantive changes проходят только через branch → pull request → owner review → owner merge.
+**Материальное изменение v1.7:** зарегистрирован `TECHNICAL_DEVELOPMENT_BASELINE_Odyssey_VTT_v0.2.md`, который фиксирует решение владельца: `odyssey-services/Odyssey_VTT` остаётся Private и является единственным authoritative code repository. Private visibility не ослабляет запрет на private product documentation, secrets и archives в Git history; дальнейшие substantive changes проходят только через branch → pull request → owner review → owner merge.
 
 **Материальное изменение v1.6:** добавлен исполнимый пакет `SLICE-00`: parent task `ODY-S00-000`, living ExecPlan, упорядоченный backlog из десяти задач и первая Ready-задача `ODY-S00-001 — Repository Foundation`. Delivery-группы Technical Baseline `PR-000–PR-005` сохранены по результатам, но широкие Core/CI группы разделены на review-safe task/PR units без изменения архитектуры или MVP. В комплекте оставлен только текущий Active Baseline; исторические версии реестра удалены как дубли источника истины.
 
@@ -20,7 +20,7 @@
 **Материальное изменение v1.2:** принят ADR-010 с process-scoped structured diagnostics runtime, typed EventCode/allowlist properties, локальными memory/rolling JSONL/emergency sinks, bounded queue/backpressure, CorrelationId/DiagnosticId, crash markers, rotation/retention, explicit diagnostic sessions, allowlisted diagnostic bundles и обязательной redaction данных классов Personal/HiddenGameplay/Secret до любого sink.
 
 
-**Материальное изменение v1.1:** принят ADR-009 с точным Unity `6000.4.0f1 (8cf496087c8f)`, repository-owned HDRP/UI Toolkit/Input System baseline, package lock policy, Bootstrap/AppShell scenes, D3D12→D3D11 Windows graphics matrix, Low/Medium/High quality assets, Mono development и IL2CPP RC/Release profiles, automated build validation и Unity patch upgrade procedure.
+**Материальное изменение v1.1:** принят ADR-009 v1.0 с точным Unity `6000.3.20f1 (c9ba695d4f07)`, repository-owned HDRP/UI Toolkit/Input System baseline, package lock policy, Bootstrap/AppShell scenes, D3D12→D3D11 Windows graphics matrix, Low/Medium/High quality assets, Mono development и IL2CPP RC/Release profiles, automated build validation и Unity patch upgrade procedure.
 
 **Материальное изменение v1.0:** принят ADR-008 с разделением host wall UTC, process monotonic time, campaign WorldClock и presentation time; custom Clock/Scheduler ports, durable deadline semantics, host-secret campaign RNG key epochs, HMAC-SHA-256 stream derivation v1, xoshiro256** v1, rejection mapping без modulo bias, retry/replay rules, non-secret RngProofData и обязательными .NET/Unity/IL2CPP contract vectors.
 
@@ -94,7 +94,7 @@ PLANS.md
 docs/tasks/TASK_TEMPLATE.md
 docs/tasks/SLICE-00_BACKLOG.md
 docs/tasks/active/ODY-S00-000_SLICE_00_Technical_Skeleton.md
-docs/tasks/active/ODY-S00-001_Repository_Foundation.md
+docs/tasks/active/ODY-S00-002_Unity_Project_Foundation.md
 docs/plans/active/ODY-S00-000_SLICE_00_Technical_Skeleton.md
 docs/adr/ADR-001_Module_Boundaries_and_Dependency_Direction_v1.0.md
 docs/adr/ADR-002_Command_and_Domain_Event_Model_v1.0.md
@@ -110,7 +110,7 @@ docs/adr/ADR-010_Logging_Diagnostics_and_Redaction_v1.0.md
 
 # 4. Активные технические authorities
 
-`TECHNICAL_DEVELOPMENT_BASELINE_Odyssey_VTT_v0.3.md` является обязательным техническим authority для private authoritative repository `odyssey-services/Odyssey_VTT`, Unity 6.4 LTS HDRP/UI Toolkit проекта, CI и работы Codex. Он не заменяет продуктовые требования и не может расширять MVP.
+`TECHNICAL_DEVELOPMENT_BASELINE_Odyssey_VTT_v0.3.md` является обязательным техническим authority для private authoritative repository `odyssey-services/Odyssey_VTT`, Unity 6.4 Update release HDRP/UI Toolkit проекта, CI и работы Codex. Он не заменяет продуктовые требования и не может расширять MVP.
 
 `AGENTS.md` является обязательным operational contract authoritative code repository для Codex и code review. Он автоматически применяется ко всему репозиторию, маршрутизирует агента к активным ADR и задаёт обязательные проверки, ограничения scope, Git/PR workflow и Definition of Done. При любом расхождении приоритет сохраняют этот Active Baseline, принятый ADR и Technical Development Baseline; `AGENTS.md` должен быть синхронизирован с ними, а не заменять их.
 
@@ -124,7 +124,7 @@ docs/adr/ADR-010_Logging_Diagnostics_and_Redaction_v1.0.md
 
 `docs/plans/active/ODY-S00-000_SLICE_00_Technical_Skeleton.md` является living ExecPlan для исполнения `SLICE-00`. Он ведёт milestones, progress, decisions, deviations, evidence, recovery и blockers; до начала разработки имеет статус Draft и не является доказательством выполнения кода или тестов.
 
-`docs/tasks/active/ODY-S00-001_Repository_Foundation.md` является первой Ready-задачей исполнения. Она ограничена публичным repository/policy/documentation scaffold и прямо запрещает начинать Unity, Core, CI или продуктовую реализацию внутри этого PR.
+`docs/tasks/active/ODY-S00-002_Unity_Project_Foundation.md` является текущей active task исполнения Unity Project Foundation. Она ограничена Unity baseline scaffold и прямо запрещает переходить к ODY-S00-003/Core/gameplay реализации внутри этого PR.
 
 `docs/adr/ADR-001_Module_Boundaries_and_Dependency_Direction_v1.0.md` является принятым authority по module ownership, compile-time dependency graph, ports/adapters и assembly enforcement. Его точная матрица заменяет предварительные формулировки `limited contracts` в Technical Development Baseline.
 

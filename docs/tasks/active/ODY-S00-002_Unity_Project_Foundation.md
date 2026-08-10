@@ -268,11 +268,11 @@ Any resolved package not covered by ADR-009 must stop implementation for owner a
 
 ## 15. Documentation and versioning impact
 
-- Documents that must change: This task completion evidence, parent ExecPlan progress, and Slice-00 backlog status.
-- Documents that must not change: Accepted ADR, Technical Development Baseline v0.2, Active Documentation Baseline v1.7, private product documents.
+- Documents that must change: ADR-009 v1.1, Technical Development Baseline v0.3, Active Documentation Baseline v1.8, this task completion evidence, parent ExecPlan progress, Slice-00 backlog status, AGENTS.md, and ADR README.
+- Documents that must not change: private product documents. ADR-009 v1.0, Technical Development Baseline v0.2, and Active Documentation Baseline v1.7 remain historical records; current normative references are amended by owner approval dated 2026-08-10.
 - Application version change: No — version source is deferred.
 - Schema / format / contract / protocol / ruleset version change: None.
-- Documentation version changes: None.
+- Documentation version changes: approved material change on 2026-08-10: ADR-009 v1.0 → v1.1, Technical Development Baseline v0.2 → v0.3, Active Documentation Baseline v1.7 → v1.8.
 - Changelog or release-note requirement: Task/ExecPlan evidence only; no user-facing release note.
 
 ## 16. Definition of Done
@@ -318,15 +318,18 @@ Unity `6000.4.0f1 (8cf496087c8f)` is now the formal repository baseline through 
 | Unity first batchmode attempt via `Start-Process -Wait` | Failed / stopped | No log was created and the process remained idle; it was stopped manually. Recorded process exit was `-1`. |
 | Unity sandboxed direct batchmode attempt | Failed / stopped | Unity failed before import on local Unity cache access (`CurlRequestCache.db`) and printed a crash stack; the process was stopped. This was an environment/sandbox startup failure, not a project compile result. |
 | Escalated Unity first repository import | Completed | Unity created the repository `Library`, resolved packages, and completed initial AssetDatabase import. |
-| Final Unity batchmode open/import/compile after cleanup | Passed | `UnityExitCode=0`; final log `Logs/OdysseyRepositoryCleanImport-final-after-cleanup.log` ends with `return code 0`. |
-| Unity final log error scan after cleanup | Passed | `error_pattern_matches=0` for compiler/package/import failure patterns: `error CS`, compiler errors, package resolve failures, invalid JSON, refresh errors, and batchmode abort. |
+| Final Unity batchmode open/import/compile after review corrections | Passed | `UnityExitCode=0`; final log `Logs/OdysseyRepositoryReviewFixValidation.log` ends with `return code 0`. |
+| Unity final log error scan after review corrections | Passed | `error_pattern_matches=0` for compiler/package/import/missing-reference failure patterns, including missing UIDocument panel references. |
 | `ProjectSettings/ProjectVersion.txt` | Passed | Records `m_EditorVersion: 6000.4.0f1` and `m_EditorVersionWithRevision: 6000.4.0f1 (8cf496087c8f)`. |
 | Manifest / lock parse and package source check | Passed | `manifest_dependency_count=37`, `bad_manifest_dependencies=0`, `bad_lock_sources=0`. HDRP `17.4.0`, Input System `1.19.0`, Test Framework `1.6.0`; no URP or `com.unity.2d.*` in lock. |
 | Root package check | Passed | Root packages include `com.unity.render-pipelines.high-definition 17.4.0`, `com.unity.inputsystem 1.19.0`, `com.unity.test-framework 1.6.0`, and Unity built-in modules. |
-| Render pipeline / graphics settings | Passed | `GraphicsSettings.asset` maps `UnityEngine.Rendering.HighDefinition.HDRenderPipeline`; Windows graphics APIs are `D3D12` then `D3D11` with `m_Automatic: 0`. `templateDefaultScene`, `cloudProjectId`, and `organizationId` are empty after cleanup. |
+| Render pipeline / graphics settings | Passed | `GraphicsSettings.asset` maps `UnityEngine.Rendering.HighDefinition.HDRenderPipeline`; Windows graphics APIs are `D3D12` then `D3D11` with `m_Automatic: 0`. `templateDefaultScene`, `cloudProjectId`, and `organizationId` are empty. |
 | Quality settings | Passed | Quality profiles are `High`, `Medium`, `Low`; current/default Standalone quality index is `1` (`Medium`); project-owned HDRP assets exist for High/Medium/Low. |
-| UI Toolkit / Input System assets | Passed | `Assets/Odyssey/Client/UI/AppShell.uxml`, `AppShell.uss`, `OdysseyPanelSettings.asset`, and `Assets/Odyssey/Client/Input/Odyssey.inputactions` exist; `activeInputHandler: 1`. |
+| UI Toolkit binding | Passed | `AppShell.unity` UIDocument `m_PanelSettings` references `OdysseyPanelSettings.asset` GUID `2677362e67e332f45b94106f6a8ddb28`; source UXML remains bound. |
+| Minimal Input System asset | Passed | `Odyssey.inputactions` contains only `UI` map with `Navigate`, `Submit`, `Cancel`, `Point`, `Click`, and `ScrollWheel`; template/gameplay action scan returned `template_gameplay_matches=0`; `activeInputHandler: 1`. |
 | Scene build settings | Passed | `Bootstrap.unity` is first enabled scene; `AppShell.unity` is second enabled scene. |
+| Player identity and resolution baseline | Passed | `companyName: Odyssey`, `productName: Odyssey VTT`, Standalone `applicationIdentifier: com.odyssey.vtt`, default resolution `1920x1080`, native resolution off, HDR display off, dynamic resolution mode off. |
+| Release terminology / baseline docs | Passed | ADR-009 v1.1 and TDB v0.3 use Unity 6.4 Update release / Supported release, not LTS; ADR release date records `18 March 2026`; Active Baseline historical v1.7/v1.1 entries restored to v0.2 / ADR-009 v1.0 + Unity 6000.3.20f1. |
 | No C# / `.asmdef` in `Assets` | Passed | Recursive file scan returned no `.cs` and no `.asmdef` under `Assets`. |
 | Force Text / Visible Meta | Passed | `m_SerializationMode: 2`; `m_Mode: Visible Meta Files`. |
 | `powershell -NoProfile -ExecutionPolicy Bypass -File .\scripts\check-repository-policy.ps1` | Passed | REPO-POLICY-001 through REPO-POLICY-004 PASS; repository policy check passed. |
@@ -347,14 +350,14 @@ Unity `6000.4.0f1 (8cf496087c8f)` is now the formal repository baseline through 
 | AC-1 | Passed | ProjectVersion records `6000.4.0f1 (8cf496087c8f)`. |
 | AC-2 | Passed | Manifest/lock parse, pinned package versions, approved sources, no preview/experimental/URP/2D packages. |
 | AC-3 | Passed | HDRP is active; High/Medium/Low project-owned HDRP assets exist. |
-| AC-4 | Passed | UI Toolkit assets exist; no root uGUI package baseline or product UI behavior added. |
-| AC-5 | Passed | Input System New-only setting and Odyssey input asset exist. |
+| AC-4 | Passed | UI Toolkit assets exist and `AppShell.unity` UIDocument references `OdysseyPanelSettings.asset` by GUID; no root uGUI package baseline or product UI behavior added. |
+| AC-5 | Passed | Input System New-only setting is active and `Odyssey.inputactions` is UI-only; template/gameplay `Player`, movement, combat, XR/touch/joystick actions were removed and verification returned `template_gameplay_matches=0`. |
 | AC-6 | Passed | Windows Standalone graphics order D3D12 then D3D11; Auto Graphics API disabled. |
 | AC-7 | Passed | Visible Meta Files and Force Text enabled; `.meta` files present; generated/local Unity dirs ignored. |
 | AC-8 | Passed | Bootstrap index 0 and AppShell index 1; no C# runtime root, service locator, or authoritative state introduced. |
-| AC-9 | Passed | Final Unity batchmode open/import/compile returned `UnityExitCode=0`. |
+| AC-9 | Passed | Final Unity batchmode open/import/compile after review corrections returned `UnityExitCode=0`. |
 | AC-10 | Passed with manual/config evidence | Applicable `TST-UNI-001` through `TST-UNI-014` configuration checks passed by file/log inspection; no Player/IL2CPP success is claimed. |
-| AC-11 | Passed | Diff contains no Core module implementation, gameplay feature, GitHub Actions workflow, BuildIdentity/version source, private document, credential, paid asset, or unapproved dependency. |
+| AC-11 | Passed | Diff contains no Core module implementation, gameplay feature, template gameplay input actions, GitHub Actions workflow, BuildIdentity/version source, private document, credential, paid asset, or unapproved dependency. |
 | AC-12 | Passed | Repository policy, diff, LFS, generated-path, package, settings, Unity log, and negative fixture checks completed. Owner review remains required before merge. |
 
 ### Build and artifact evidence
@@ -378,7 +381,7 @@ Unity `6000.4.0f1 (8cf496087c8f)` is now the formal repository baseline through 
 
 - Scope review: Unity foundation only; no C#/.asmdef/Core module work added.
 - Architecture review: ADR-009 v1.1 records the Unity baseline amendment; ADR-001/005/006 boundaries remain untouched.
-- Test review: Required project/package/settings checks and Unity batchmode compile passed; deferred build/CI checks are listed honestly.
+- Test review: Required project/package/settings checks, minimal input scan, UIDocument binding check, Player identity/resolution check, and Unity batchmode compile passed; deferred build/CI checks are listed honestly.
 - Security/privacy review: No private product docs, credentials, paid assets, external registries, or generated cache directories are tracked.
 - Documentation/version review: ADR-009 v1.1, TDB v0.3, Active Baseline v1.8, task, ExecPlan, backlog, AGENTS, and ADR README were updated for the owner-approved Unity 6000.4 baseline.
 

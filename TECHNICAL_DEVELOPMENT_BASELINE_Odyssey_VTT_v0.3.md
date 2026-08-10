@@ -74,7 +74,7 @@ Codex и разработчики не могут самостоятельно:
 | TDB-DEC-001 | Проект создаётся полностью с нуля; production-код старого прототипа не наследуется | Approved |
 | TDB-DEC-002 | MVP поддерживает Windows 10 и Windows 11 на PC | Approved |
 | TDB-DEC-003 | Архитектура процесса — x86-64 | Approved |
-| TDB-DEC-004 | Движок — Unity 6.4 LTS, ветка `6000.3` | Approved |
+| TDB-DEC-004 | Движок — Unity 6.4 Update release / Supported release, version line `6000.4.x` | Approved |
 | TDB-DEC-005 | Exact Editor patch фиксируется в `ProjectVersion.txt` | Approved |
 | TDB-DEC-006 | Render Pipeline — HDRP | Approved |
 | TDB-DEC-007 | Основной runtime UI — UI Toolkit | Approved |
@@ -219,7 +219,7 @@ Baseline-направление:
 
 ```text
 Unity family: Unity 6
-Approved branch: Unity 6.4 LTS
+Approved branch: Unity 6.4 Update release / Supported release
 Version line: 6000.4.x
 Exact patch: pinned in ProjectSettings/ProjectVersion.txt
 ```
@@ -243,7 +243,7 @@ Exact patch: pinned in ProjectSettings/ProjectVersion.txt
 
 ## 6.3 HDRP
 
-- проект создаётся из HDRP-compatible шаблона Unity 6.4 LTS;
+- проект создаётся из HDRP-compatible шаблона Unity 6.4 Update release;
 - HDRP package version определяется выбранным Editor patch и фиксируется lock-файлом;
 - качество строится через отдельные HDRP/Quality profiles;
 - обязательны минимум Low, Medium, High;
@@ -1600,7 +1600,7 @@ Codex не имеет права выбрать их как скрытую ча�
 
 Результат:
 
-- Unity 6.4 LTS HDRP project;
+- Unity 6.4 Update release HDRP project;
 - exact patch pinned;
 - package lock;
 - UI Toolkit and Input System baseline;
@@ -1663,10 +1663,10 @@ Codex не имеет права выбрать их как скрытую ча�
 
 Документ считается внедрённым, когда:
 
-1. он находится в публичном code repository;
+1. он находится в private authoritative code repository `odyssey-services/Odyssey_VTT`;
 2. `ACTIVE_DOCUMENTATION_BASELINE` указывает его как технический authority;
 3. решения владельца продукта не противоречат repository settings;
-4. Unity 6.4 LTS patch закреплён;
+4. Unity 6.4 Update release patch закреплён;
 5. `main` защищена;
 6. All Rights Reserved license опубликована;
 7. dependency policy опубликована;
@@ -1682,7 +1682,7 @@ Codex не имеет права выбрать их как скрытую ча�
 
 ## Repository
 
-- [ ] Публичный GitHub repository создан.
+- [ ] Private authoritative GitHub repository `odyssey-services/Odyssey_VTT` создан.
 - [ ] `main` защищена.
 - [ ] Direct push и force push запрещены.
 - [ ] Owner approval required.
@@ -1692,7 +1692,7 @@ Codex не имеет права выбрать их как скрытую ча�
 
 ## Unity
 
-- [ ] Unity 6.4 LTS exact patch закреплён.
+- [ ] Unity 6.4 Update release exact patch закреплён.
 - [ ] HDRP project открывается без ошибок.
 - [ ] UI Toolkit используется как основной UI.
 - [ ] Input System включён.
@@ -1731,8 +1731,8 @@ Codex не имеет права выбрать их как скрытую ча�
 
 При создании репозитория используются соответствующие pinned-версии официальной документации:
 
-- Unity 6.4 LTS release and support documentation;
-- Unity Manual for version 6000.3;
+- Unity 6.4 Update release / Supported release documentation;
+- Unity Manual for version 6000.4;
 - Unity .NET profile support documentation;
 - Unity UI Toolkit runtime documentation;
 - Unity HDRP and Windows compatibility documentation;
