@@ -5,7 +5,7 @@
 **Owner:** Codex  
 **Requested by:** Product owner  
 **Branch:** `feat/ody-s00-003-module-test-skeleton`  
-**Pull request:** Not opened  
+**Pull request:** https://github.com/odyssey-services/Odyssey_VTT/pull/6  
 **ExecPlan:** `docs/plans/active/ODY-S00-000_SLICE_00_Technical_Skeleton.md`  
 **Created:** 2026-08-10  
 **Last updated:** 2026-08-10 16:23 UTC
@@ -345,7 +345,7 @@ Do not add production or development dependencies beyond those already approved 
 - [x] No unapproved dependency, tool, GitHub Action, or license was introduced.
 - [x] Documentation is updated only where materially required.
 - [x] Codex/developer performed a self-review against this task and `AGENTS.md`.
-- [ ] Pull request explains changes, evidence, limitations, and follow-up work.
+- [x] Pull request explains changes, evidence, limitations, and follow-up work.
 - [ ] Product owner or authorized reviewer completes the required review; Codex does not merge into `main`.
 
 ## 17. Completion evidence

@@ -3,7 +3,7 @@
 **Status:** Active
 **Owner:** Codex
 **Branch:** `feat/ody-s00-003-module-test-skeleton`
-**Pull request:** Not opened
+**Pull request:** https://github.com/odyssey-services/Odyssey_VTT/pull/6
 **Last updated:** 2026-08-10
 
 ## 1. Purpose and user-visible outcome
@@ -157,6 +157,7 @@ Child task: `ODY-S00-010`.
 - 2026-08-10 15:41 UTC — ODY-S00-003 preflight found only .NET SDK `9.0.308`; required stable .NET 10 LTS SDK is absent. Per owner instruction, implementation stopped before creating `global.json`, `DotNet/Odyssey.Core.sln`, modules, tests, or scripts. ODY-S00-003 is Blocked.
 - 2026-08-10 15:58 UTC — Owner resolved the .NET 10 blocker by installing stable .NET SDK `10.0.302` x64. Repeated preflight selected SDK `10.0.302`, host/runtime `10.0.10`, and Unity baseline remained `6000.4.0f1 (8cf496087c8f)`. ODY-S00-003 resumed as In Progress on `feat/ody-s00-003-module-test-skeleton`.
 - 2026-08-10 16:23 UTC — ODY-S00-003 implementation completed on `feat/ody-s00-003-module-test-skeleton`: six embedded Unity packages, Unity Client assembly boundaries, `DotNet/Odyssey.Core.sln`, four pure .NET bridge projects, four .NET test projects, Unity EditMode/PlayMode smoke tests, and real repository validation scripts now exist. Validation passed for repository policy, format, architecture guard including negative fixture, .NET restore/build/test, Unity batch compile, Unity EditMode, Unity PlayMode, and `git diff --check`; ODY-S00-003 is In Review and ODY-S00-004 remains Draft.
+- 2026-08-10 16:33 UTC — Opened Draft PR #6 for ODY-S00-003 owner review: https://github.com/odyssey-services/Odyssey_VTT/pull/6. Do not merge and do not start ODY-S00-004.
 
 ## 7. Decisions
 
