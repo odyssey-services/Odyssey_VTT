@@ -1,14 +1,14 @@
 # ODY-S00-002 — Create the Unity Project Foundation
 
-**Status:** Ready  
+**Status:** In Progress  
 **Roadmap stage / slice:** SLICE-00  
-**Owner:** Unassigned  
+**Owner:** Codex  
 **Requested by:** Product owner  
-**Branch:** Not created  
+**Branch:** `feat/ody-s00-002-unity-project-foundation`  
 **Pull request:** Not opened  
 **ExecPlan:** `docs/plans/active/ODY-S00-000_SLICE_00_Technical_Skeleton.md`  
 **Created:** 2026-08-01  
-**Last updated:** 2026-08-01 19:26 UTC
+**Last updated:** 2026-08-10 03:12 UTC
 
 ## 1. Goal
 
@@ -292,24 +292,45 @@ Any resolved package not covered by ADR-009 must stop implementation for owner a
 
 ## 17. Completion evidence
 
-Not started. Fill with actual implementation and validation results before moving to `In Review`.
+Unity version tolerance is recorded by owner decision. The external project remains outside the repository until its URP/2D package graph is converted to the required HDRP baseline and revalidated.
 
 ### Changed files / areas
 
-- None.
+- `docs/tasks/active/ODY-S00-002_Unity_Project_Foundation.md`
+- `docs/plans/active/ODY-S00-000_SLICE_00_Technical_Skeleton.md`
+- `docs/tasks/SLICE-00_BACKLOG.md`
 
 ### Validation results
 
 | Command / check | Result | Evidence / notes |
 |---|---|---|
 | Repository policy at contract creation | Passed | REPO-POLICY-001–004 PASS; controlled negative fixture rejected with exit 1; `git diff --check` and Git attribute checks passed. |
-| Unity validation | Not run | Implementation has not started. |
+| PR #2 merge verification | Passed | GitHub PR #2 is closed/merged; merge commit `e790af79fcbfa549231c50b7fd9e3a90c52719b4`; local `main` was already up to date after `git pull --ff-only origin main`. |
+| Branch creation | Passed | Current branch is `feat/ody-s00-002-unity-project-foundation`; worktree was clean before status/evidence edits. |
+| Unity Editor path search | Failed | Found only `C:\Program Files\Unity\Hub\Editor\6000.4.0f1\Editor\Unity.exe`; required `6000.3.20f1` Editor was not present under checked Unity Hub paths. |
+| Unity version command | Failed | `C:\Program Files\Unity\Hub\Editor\6000.4.0f1\Editor\Unity.exe -version` returned `6000.4.0f1`, not required `6000.3.20f1`. |
+| Owner version tolerance decision | Passed | On 2026-08-10, the product owner stated Unity `6000.3` vs `6000.4` is acceptable for the development process. `6000.4.0f1` may be used for local scaffold/import evidence for this task when recorded explicitly. |
+| Owner-created external Unity project inspection | Partial | `D:\Game_Dev\Odyssey_VTT\Odyssey_VTT\ProjectSettings\ProjectVersion.txt` records `6000.4.0f1 (8cf496087c8f)`, which is acceptable for local development by owner decision. Manifest now contains `com.unity.render-pipelines.high-definition` `17.4.0` and no direct URP/`com.unity.2d.*` entries were found. Remaining issues: template/sample assets (`OutdoorsScene`, `Readme`, `TutorialInfo` scripts/assets), no `Bootstrap`/`AppShell`, quality profiles still named `High Fidelity`/`Balanced`/`Performant`, and root packages still include `com.unity.feature.development`, `com.unity.multiplayer.center`, `com.unity.ugui`, and `com.unity.visualscripting`. It was not copied into the repository. |
+| Unity revision `c9ba695d4f07` | Not verified | Blocked because the required `6000.3.20f1` Editor executable is absent. |
+| Windows Build Support (IL2CPP) | Blocked for required Editor | Installed `6000.4.0f1` has `Editor\Data\PlaybackEngines\WindowsStandaloneSupport` and `Editor\Data\il2cpp\build\deploy\il2cpp.exe`; required `6000.3.20f1` IL2CPP module cannot be verified because that Editor is absent. |
+| Official Unity package registry availability | Passed | `Test-NetConnection packages.unity.com -Port 443` failed in sandbox, then passed with escalated network permission: `TcpTestSucceeded: True`. |
+| Git version | Passed | `git version 2.54.0.windows.1`. |
+| Git LFS version | Passed | `git-lfs/3.7.1 (GitHub; windows amd64; go 1.25.1; git b84b3384)`. |
+| `powershell -NoProfile -ExecutionPolicy Bypass -File .\scripts\check-repository-policy.ps1` | Passed | REPO-POLICY-001 through REPO-POLICY-004 PASS; repository policy check passed. |
+| Controlled negative fixture | Passed | `Documentation/private.md` fixture was rejected with exit code 1 and `REPO-POLICY-002 FAIL`, as expected. |
+| `git diff --check` | Passed | No whitespace errors reported. |
+| `git status --short --branch` | Passed with environment warning | Branch `feat/ody-s00-002-unity-project-foundation`; modified files are this task, parent ExecPlan, and backlog only. Git also warned it cannot access `C:\Users\alexx/.config/git/ignore` due to permission denied. |
+| `git ls-files` | Passed | Tracked inventory contains repository policy/docs/script files only; no Unity project files or generated Unity directories are tracked. |
+| `git lfs ls-files` | Passed | No LFS objects are currently tracked. |
+| `git check-attr filter` LFS samples | Passed | `sample.psd` and `sample.wav` resolve to `filter: lfs`; source/Markdown/JSON/Unity YAML/meta/UI samples are `filter: unspecified`. |
+| Generated path absence check | Passed | No tracked paths matched `Library`, `Temp`, `Obj`, `Build`, `Builds`, `Logs`, `UserSettings`, `MemoryCaptures`, `Recordings`, or `artifacts`. |
+| Unity validation | Not run | Per contract, Unity project creation/open/import/compile was not attempted with the wrong Editor version. |
 
 ### Acceptance result
 
 | Criterion | Status | Evidence |
 |---|---|---|
-| AC-1–AC-12 | Pending | ODY-S00-002 is Ready, not In Progress. |
+| AC-1–AC-12 | In progress | Unity `6000.4.0f1` is acceptable for local development by owner decision and HDRP is now present. Remaining work: remove template/sample content and unrelated packages, create Odyssey-owned paths/assets/scenes, configure Low/Medium/High with default Medium, and revalidate before repository import. |
 
 ### Build and artifact evidence
 
@@ -320,7 +341,9 @@ Not started. Fill with actual implementation and validation results before movin
 
 ### Known limitations
 
-- Unity `6000.3.20f1` and Windows Build Support (IL2CPP) availability must be verified before implementation.
+- Unity `6000.3.20f1 (c9ba695d4f07)` is not installed on this machine; Unity `6000.4.0f1` is acceptable for local development/import by owner decision recorded on 2026-08-10.
+- The external Unity project at `D:\Game_Dev\Odyssey_VTT\Odyssey_VTT` now has HDRP, but still contains template/sample content, non-Odyssey scenes, and extra root packages that must be removed or justified before it can be copied into the repository.
+- Windows Build Support (IL2CPP) is present for installed Unity `6000.4.0f1`; exact `6000.3.20f1` IL2CPP evidence is not required for local development after the owner tolerance decision.
 - Repository scripts beyond the policy check do not exist yet.
 
 ### Follow-up tasks
@@ -329,7 +352,7 @@ Not started. Fill with actual implementation and validation results before movin
 
 ### Self-review summary
 
-- Scope review: Contract only; Unity implementation has not started.
+- Scope review: Preflight/status updates only; Unity implementation has not started and no Unity project files were created.
 - Architecture review: Authorities and module boundaries named without creating source.
 - Test review: Required tests and explicitly deferred checks identified.
 - Security/privacy review: Package and local-data boundaries identified.
@@ -339,12 +362,13 @@ Not started. Fill with actual implementation and validation results before movin
 
 ### Blockers
 
-- None for Ready status. Unity installation/module verification is the first required pre-implementation check.
+- External project `D:\Game_Dev\Odyssey_VTT\Odyssey_VTT` must not be imported as the ODY-S00-002 foundation until template/sample assets are removed, Odyssey `Bootstrap`/`AppShell` scenes and project-owned paths are created, extra root packages are removed or justified, and settings are revalidated.
 
 ### Decisions made during execution
 
 - 2026-08-01 — Activate only the ODY-S00-002 contract after ODY-S00-001 merge; do not create Unity project in the post-merge closure PR — Authority / approval: product owner instruction.
+- 2026-08-10 — Unity `6000.3` versus `6000.4` is acceptable for the development process; `6000.4.0f1` may be used for local scaffold/import validation in ODY-S00-002 if the actual version/revision is recorded. HDRP, UI Toolkit, Input System New-only, Windows x64, D3D12→D3D11, Force Text, Visible Meta Files, and no generated/cache directories remain required.
 
 ### Approved task changes
 
-- None.
+- 2026-08-10 — Owner approved development-version tolerance for Unity `6000.4.0f1` relative to the pinned `6000.3.20f1`; this task records actual version evidence instead of blocking solely on the patch difference.

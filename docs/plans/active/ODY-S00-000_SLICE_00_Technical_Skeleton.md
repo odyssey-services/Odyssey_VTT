@@ -2,9 +2,9 @@
 
 **Status:** Active  
 **Owner:** Codex  
-**Branch:** `chore/ody-s00-001-complete`  
-**Pull request:** `https://github.com/odyssey-services/Odyssey_VTT/pull/2` (Draft post-merge closure; PR #1 merged)  
-**Last updated:** 2026-08-01
+**Branch:** `feat/ody-s00-002-unity-project-foundation`  
+**Pull request:** Not opened  
+**Last updated:** 2026-08-10
 
 ## 1. Purpose and user-visible outcome
 
@@ -145,6 +145,11 @@ Child task: `ODY-S00-010`.
 
 - 2026-08-01 — Began controlled closeout after owner decision: authoritative repository is `odyssey-services/Odyssey_VTT`, visibility is Private, and foundation bootstrap is `82de52e9cb47bd7a1fa8952ac5cba2b9c88456f5`. No history rewrite or retroactive PR; all subsequent substantive changes use branch → PR → owner review → owner merge.
 - 2026-08-01 19:26 UTC — Owner merged PR #1 with merge-commit method as `9c7a61893b107624c29ecaa0af34335a715b11e3`. ODY-S00-001 completed; ODY-S00-002 task contract activated as Ready. Exact branch protection/ruleset settings remain an owner-accepted limitation.
+- 2026-08-10 02:51 UTC — Verified PR #2 is merged into `main` as merge commit `e790af79fcbfa549231c50b7fd9e3a90c52719b4`, fast-forwarded local `main`, confirmed a clean worktree, created branch `feat/ody-s00-002-unity-project-foundation`, and moved ODY-S00-002 to In Progress before Unity preflight. Pull request is not opened.
+- 2026-08-10 02:52 UTC — Mandatory ODY-S00-002 preflight blocked Unity project creation: only Unity `6000.4.0f1` was found at `C:\Program Files\Unity\Hub\Editor\6000.4.0f1\Editor\Unity.exe`; required Unity `6000.3.20f1 (c9ba695d4f07)` is absent, so required IL2CPP for that exact Editor cannot be verified. Git `2.54.0.windows.1`, Git LFS `3.7.1`, and official Unity package registry connectivity passed.
+- 2026-08-10 03:05 UTC — Inspected owner-created external project at `D:\Game_Dev\Odyssey_VTT\Odyssey_VTT`; it records Unity `6000.4.0f1 (8cf496087c8f)` and a URP/2D package graph. It was not copied into the repository because ODY-S00-002 requires Unity `6000.3.20f1 (c9ba695d4f07)` and HDRP.
+- 2026-08-10 03:12 UTC — Product owner clarified that Unity `6000.3` versus `6000.4` is acceptable for the development process. The project may proceed with recorded `6000.4.0f1` local evidence, but the URP/2D external project still must be converted to the required HDRP baseline before repository import.
+- 2026-08-10 03:20 UTC — Re-inspected external project: manifest now contains HDRP `17.4.0` and no direct URP/`com.unity.2d.*` entries. Remaining issues before repository import are template/sample content, lack of Odyssey `Bootstrap`/`AppShell` scenes and paths, template quality names, and extra root packages.
 
 ## 7. Decisions
 
@@ -180,6 +185,9 @@ Not run because the repository implementation was not yet available at plan crea
 Post-merge limitation:
 
 - Exact branch protection/ruleset settings were not accessible through the connector, and browser inspection failed before page access because the Windows sandbox helper could not initialize. Owner accepted this limitation; no setting is claimed as Passed.
+- ODY-S00-002 preflight evidence: required Unity `6000.3.20f1 (c9ba695d4f07)` was not installed; by owner decision, installed Unity `6000.4.0f1` may be used for local development/import evidence when recorded explicitly.
+- External project evidence: `D:\Game_Dev\Odyssey_VTT\Odyssey_VTT` is Unity `6000.4.0f1 (8cf496087c8f)` with HDRP `17.4.0`; it remains outside the repository until template/sample content, extra root packages, scenes, quality profile names/defaults, and Odyssey-owned paths are corrected.
+- Owner decision: `6000.4.0f1` may be used for local development/import evidence in ODY-S00-002; this does not relax the HDRP/package/settings requirements.
 
 Record real commands, outputs and artifact paths here as child tasks complete.
 
@@ -194,10 +202,11 @@ Record real commands, outputs and artifact paths here as child tasks complete.
 ## 11. Open questions and blockers
 
 - Repository identity, Private visibility, and PR #1 merge are verified. Exact branch protection/ruleset settings remain an owner-accepted limitation.
-- Availability of Unity `6000.3.20f1` Windows editor/license and IL2CPP module: must be verified before `ODY-S00-002` is In Progress.
+- Unity `6000.4.0f1` is acceptable for local ODY-S00-002 development by owner decision.
+- The external Unity project at `D:\Game_Dev\Odyssey_VTT\Odyssey_VTT` cannot be imported yet because it still contains template/sample content, lacks Odyssey `Bootstrap`/`AppShell` scenes and paths, and includes extra root packages that must be removed or justified.
 - GitHub plan/settings may affect exact branch-protection options; the task must apply the strongest supported equivalent and record any unavailable setting.
 
-These items do not block completion of the planning package.
+The remaining implementation blocker is Odyssey foundation cleanup and validation.
 
 ## 12. Outcome and follow-up
 
