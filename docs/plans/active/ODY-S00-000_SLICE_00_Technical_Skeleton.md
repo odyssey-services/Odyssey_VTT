@@ -81,7 +81,7 @@ Child task: `ODY-S00-002`.
 - [x] HDRP, UI Toolkit, Input System, graphics APIs, serialization modes and quality assets match ADR-009 v1.1.
 - [x] `Bootstrap` and `AppShell` scenes exist with no business behavior.
 - [x] Clean Unity open/import/compile succeeds.
-- Evidence: project settings inspection, package-lock diff, Unity Editor log, EditMode compile smoke.
+- Evidence: project settings inspection, package-lock diff, Unity Editor log, EditMode compile smoke, owner-merged PR #4, merge commit `70e7d49e217d4aecb7a2e873d31787d26001f47f`.
 
 ### M2 — Core modules compile and test outside Unity
 
@@ -151,7 +151,8 @@ Child task: `ODY-S00-010`.
 - 2026-08-10 03:12 UTC — Product owner clarified that Unity `6000.3` versus `6000.4` is acceptable for the development process. The project may proceed with recorded `6000.4.0f1` local evidence, but the URP/2D external project still must be converted to the required HDRP baseline before repository import.
 - 2026-08-10 03:20 UTC — Re-inspected external project: manifest now contains HDRP `17.4.0` and no direct URP/`com.unity.2d.*` entries. Remaining issues before repository import are template/sample content, lack of Odyssey `Bootstrap`/`AppShell` scenes and paths, template quality names, and extra root packages.
 
-- 2026-08-10 11:35 UTC — Formalized owner-approved Unity baseline amendment as ADR-009 v1.1 / Technical Baseline v0.3 / Active Baseline v1.8, imported only `Assets/`, `Packages/`, and `ProjectSettings/` into the authoritative repository, and validated repository Unity batchmode open/import/compile with Unity `6000.4.0f1` ExitCode 0. ODY-S00-002 moved to In Review; ODY-S00-003 remains Draft.
+- 2026-08-10 11:35 UTC — Formalized owner-approved Unity baseline amendment as ADR-009 v1.1 / Technical Baseline v0.3 / Active Baseline v1.8, imported only `Assets/`, `Packages/`, and `ProjectSettings/` into the authoritative repository, and validated repository Unity batchmode open/import/compile with Unity `6000.4.0f1` ExitCode 0. ODY-S00-002 entered owner review; ODY-S00-003 was not yet activated.
+- 2026-08-10 14:21 UTC — Owner merged PR #4, `ODY-S00-002 — Establish Unity 6000.4 project foundation`, into `main` with GitHub merge-commit method as `70e7d49e217d4aecb7a2e873d31787d26001f47f`. ODY-S00-002 is Done; ODY-S00-003 is activated as Ready only. Implementation of ODY-S00-003 waits for the post-merge closure PR to be owner-reviewed and merged.
 
 ## 7. Decisions
 
@@ -187,9 +188,9 @@ Not run because the repository implementation was not yet available at plan crea
 Post-merge limitation:
 
 - Exact branch protection/ruleset settings were not accessible through the connector, and browser inspection failed before page access because the Windows sandbox helper could not initialize. Owner accepted this limitation; no setting is claimed as Passed.
-- ODY-S00-002 preflight evidence: required Unity `6000.3.20f1 (c9ba695d4f07)` was not installed; by owner decision, installed Unity `6000.4.0f1` may be used for local development/import evidence when recorded explicitly.
-- Repository import evidence: the cleaned Unity `6000.4.0f1 (8cf496087c8f)` HDRP `17.4.0` foundation is now copied into `Assets/`, `Packages/`, and `ProjectSettings/` in the authoritative repository and validates with Unity batchmode ExitCode 0.
-- Owner decision: `6000.4.0f1` may be used for local development/import evidence in ODY-S00-002; this does not relax the HDRP/package/settings requirements.
+- ODY-S00-002 preflight evidence: required Unity `6000.3.20f1 (c9ba695d4f07)` was not installed; by owner decision and accepted baseline amendment, Unity `6000.4.0f1 (8cf496087c8f)` is the repository Unity baseline for ODY-S00-002.
+- Repository import evidence: the cleaned Unity `6000.4.0f1 (8cf496087c8f)` HDRP `17.4.0` foundation is copied into `Assets/`, `Packages/`, and `ProjectSettings/` in the authoritative repository and validates with Unity batchmode ExitCode 0.
+- Owner merge evidence: PR #4 was merged into `main` on `2026-08-10T16:21:33+02:00` as merge commit `70e7d49e217d4aecb7a2e873d31787d26001f47f` using the GitHub merge-commit method.
 
 Record real commands, outputs and artifact paths here as child tasks complete.
 
@@ -205,13 +206,13 @@ Record real commands, outputs and artifact paths here as child tasks complete.
 
 - Repository identity, Private visibility, and PR #1 merge are verified. Exact branch protection/ruleset settings remain an owner-accepted limitation.
 - Unity `6000.4.0f1` is acceptable for local ODY-S00-002 development by owner decision.
-- ODY-S00-002 has no remaining implementation blocker; it is awaiting owner review through a draft PR.
+- ODY-S00-002 is Done. ODY-S00-003 is Ready and waits for the ODY-S00-002 closure PR to be owner-reviewed and merged before implementation starts.
 - GitHub plan/settings may affect exact branch-protection options; the task must apply the strongest supported equivalent and record any unavailable setting.
 
-The remaining implementation blocker is Odyssey foundation cleanup and validation.
+The remaining sequencing blocker is owner review/merge of the ODY-S00-002 closure PR before starting ODY-S00-003 implementation.
 
 ## 12. Outcome and follow-up
 
-Current outcome: ODY-S00-001 is Done after owner merge of PR #1. ODY-S00-002 is In Review with Unity 6000.4/HDRP foundation imported and validated. ODY-S00-003 remains Draft.
+Current outcome: ODY-S00-001 is Done after owner merge of PR #1. ODY-S00-002 is Done after owner merge of PR #4 with Unity 6000.4/HDRP foundation imported and validated. ODY-S00-003 is Ready only.
 
-Next action: open a draft ODY-S00-002 PR for owner review; do not start ODY-S00-003 until ODY-S00-002 is reviewed and merged.
+Next action: open the ODY-S00-002 closure PR for owner review; after that PR is merged, start ODY-S00-003 in `feat/ody-s00-003-module-test-skeleton`. Do not merge and do not start ODY-S00-003 in the closure branch.

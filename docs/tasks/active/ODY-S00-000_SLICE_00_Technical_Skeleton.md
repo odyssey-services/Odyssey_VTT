@@ -1,6 +1,6 @@
 # ODY-S00-000 — Deliver the SLICE-00 Technical Skeleton
 
-**Status:** Ready  
+**Status:** In Progress  
 **Roadmap stage / slice:** SLICE-00  
 **Owner:** Unassigned  
 **Requested by:** Product owner  
@@ -8,7 +8,7 @@
 **Pull request:** Not opened  
 **ExecPlan:** `docs/plans/active/ODY-S00-000_SLICE_00_Technical_Skeleton.md`  
 **Created:** 2026-07-28  
-**Last updated:** 2026-08-01 19:26 UTC
+**Last updated:** 2026-08-10 14:21 UTC
 
 ## 1. Goal
 
@@ -24,12 +24,12 @@ Deliver the complete `SLICE-00` technical skeleton: a private authoritative repo
 
 ### Required authorities
 
-- `ACTIVE_DOCUMENTATION_BASELINE_Odyssey_VTT_v1.7.md`
+- `ACTIVE_DOCUMENTATION_BASELINE_Odyssey_VTT_v1.8.md`
 - `AGENTS.md`
 - `PLANS.md`
 - `docs/tasks/TASK_TEMPLATE.md`
 - `docs/tasks/SLICE-00_BACKLOG.md`
-- `TECHNICAL_DEVELOPMENT_BASELINE_Odyssey_VTT_v0.2.md`, sections 4, 5, 8–16, 23–31
+- `TECHNICAL_DEVELOPMENT_BASELINE_Odyssey_VTT_v0.3.md`, sections 4, 5, 8–16, 23–31
 - `02_MVP_Scope_Odyssey_VTT_v0.10.md`, section 6, `SLICE-00`
 - `17_Roadmap_Odyssey_VTT_v0.11.md`, sections 9.4–9.7
 - `16_Test_Strategy_Odyssey_VTT_v0.1.md`, applicable M0/M1 gates
@@ -49,15 +49,17 @@ Deliver the complete `SLICE-00` technical skeleton: a private authoritative repo
 
 ### Verified facts
 
-- The current documentation bundle contains Technical Development Baseline v0.2, accepted ADR-001–ADR-010, `AGENTS.md`, `PLANS.md`, and the task workflow.
-- The approved platform is Windows 10/11 x64 with Unity `6000.3.20f1`, HDRP, UI Toolkit, and Input System.
+- The current documentation baseline contains Technical Development Baseline v0.3, Active Documentation Baseline v1.8, accepted ADR-001–ADR-010, `AGENTS.md`, `PLANS.md`, and the task workflow.
+- The approved platform is Windows 10/11 x64 with Unity `6000.4.0f1`, HDRP, UI Toolkit, and Input System.
 - The approved code repository is Private and authoritative at `odyssey-services/Odyssey_VTT`, uses All Rights Reserved and Git LFS; protected `main`, owner-reviewed pull requests, and GitHub Actions remain required outcomes, not claims of completed verification.
-- Repository Foundation is complete through merged PR #1; no Unity project, .NET solution, production code, CI run, or build artifact exists yet.
+- Repository Foundation is complete through merged PR #1.
+- Unity Project Foundation is complete through owner-merged PR #4; merge commit `70e7d49e217d4aecb7a2e873d31787d26001f47f` records the Unity `6000.4.0f1 (8cf496087c8f)` HDRP baseline.
+- ODY-S00-003 is activated as Ready; no .NET solution, Core module skeleton, production code, CI run, or build artifact exists yet.
 
 ### Assumptions
 
 - The owner-selected repository is `odyssey-services/Odyssey_VTT`; it remains Private until a separate owner decision.
-- A licensed Unity installation/runner can execute `6000.3.20f1` on Windows for later tasks. Availability is verified before `ODY-S00-002` becomes In Progress.
+- A licensed Unity installation/runner can execute the accepted Unity `6000.4.0f1` baseline on Windows for later Unity validation tasks.
 
 ## 5. Scope
 
@@ -263,7 +265,7 @@ All additional dependencies require a child task update and explicit approval be
 
 ### Follow-up tasks
 
-- `ODY-S00-002` through `ODY-S00-010`; ODY-S00-001 is completed.
+- `ODY-S00-003` through `ODY-S00-010`; ODY-S00-001 and ODY-S00-002 are completed.
 
 ### Self-review summary
 
@@ -277,7 +279,7 @@ All additional dependencies require a child task update and explicit approval be
 
 ### Blockers
 
-- ODY-S00-001 is complete. Before ODY-S00-002 moves from Ready to In Progress, verify access to Unity `6000.3.20f1` and Windows Build Support (IL2CPP).
+- ODY-S00-001 and ODY-S00-002 are complete. ODY-S00-003 implementation must wait until the ODY-S00-002 closure PR is owner-reviewed and merged.
 
 ### Decisions made during execution
 

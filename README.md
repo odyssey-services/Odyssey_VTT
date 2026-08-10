@@ -1,6 +1,6 @@
 # Odyssey VTT
 
-Odyssey VTT is a Windows 10/11 x64 virtual tabletop application being built from a new technical foundation with Unity 6000.3 LTS, HDRP, UI Toolkit, and a pure Core architecture.
+Odyssey VTT is a Windows 10/11 x64 virtual tabletop application being built from a new technical foundation with Unity 6000.4, HDRP, UI Toolkit, and a pure Core architecture.
 
 The private GitHub repository `odyssey-services/Odyssey_VTT` is the single authoritative code repository for Odyssey VTT implementation work. It intentionally contains only repository-safe technical documentation, repository policy, task contracts, and future source/build artifacts. Private product documentation, campaign content, local handoffs, context archives, secrets, and personal paths do not belong in this repository.
 
@@ -8,7 +8,7 @@ The private GitHub repository `odyssey-services/Odyssey_VTT` is the single autho
 
 Current stage: `SLICE-00 — Technical Skeleton`.
 
-Repository Foundation is complete. The next Ready task is `docs/tasks/active/ODY-S00-002_Unity_Project_Foundation.md`; this repository state contains its contract only and does not yet contain a Unity project.
+Repository Foundation and Unity Project Foundation are complete. The next Ready task is `docs/tasks/active/ODY-S00-003_Module_and_Test_Skeleton.md`; this repository state contains the Unity 6000.4/HDRP project foundation but does not yet contain the Core module/test skeleton.
 
 ## Rights
 
@@ -20,8 +20,8 @@ Repository access through GitHub does not grant rights beyond those required to 
 
 - `AGENTS.md` — operating rules for Codex and contributors.
 - `PLANS.md` — execution plan rules.
-- `TECHNICAL_DEVELOPMENT_BASELINE_Odyssey_VTT_v0.2.md` — approved technical baseline.
-- `ACTIVE_DOCUMENTATION_BASELINE_Odyssey_VTT_v1.7.md` — active authority register.
+- `TECHNICAL_DEVELOPMENT_BASELINE_Odyssey_VTT_v0.3.md` — approved technical baseline.
+- `ACTIVE_DOCUMENTATION_BASELINE_Odyssey_VTT_v1.8.md` — active authority register.
 - `docs/adr/` — accepted architecture decisions.
 - `docs/tasks/` — task contracts and execution backlog.
 - `scripts/check-repository-policy.ps1` — repository foundation policy check.
