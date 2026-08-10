@@ -28,6 +28,7 @@ namespace Odyssey.Application.Results
     }
 
     public readonly struct Result<T>
+        where T : notnull
     {
         private readonly T? _value;
         private readonly Error? _error;

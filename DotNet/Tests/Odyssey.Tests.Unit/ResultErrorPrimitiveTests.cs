@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using NUnit.Framework;
 using Odyssey.Application.Identity;
 using Odyssey.Application.Results;
@@ -43,15 +44,45 @@ namespace Odyssey.Tests.Unit
 
             Assert.That(error.Code, Is.EqualTo(ErrorCodes.ApplicationValidationInvalid));
             Assert.That(error.Category, Is.EqualTo(ErrorCategory.Validation));
-            Assert.That(error.SafeReasonCode, Is.EqualTo(SafeReasonCode.InvalidInput));
+            Assert.That(error.SafeReasonCode, Is.EqualTo(SafeReasonCode.InvalidRequest));
             Assert.That(error.UserMessageKey.ToString(), Is.EqualTo("errors.application.validation_invalid"));
             Assert.That(error.SafeMessageArguments, Has.Count.EqualTo(1));
             Assert.That(error.ValidationDetails, Has.Count.EqualTo(1));
             Assert.That(error.Metadata, Has.Count.EqualTo(1));
             Assert.That(error.CorrelationId.IsValid, Is.True);
             Assert.That(error.DiagnosticId.HasValue, Is.False);
-            AssertThrows<ArgumentException>(() => SafeMessageArgument.Create(@"C:\\Users\\secret\\file.txt"));
+            AssertThrows<ArgumentException>(() => SafeMessageArgument.FromKnownPublicText(@"C:\\Users\\secret\\file.txt"));
             AssertThrows<ArgumentException>(() => ErrorMetadata.Create("unsafe", "token secret"));
+            AssertThrows<FormatException>(() => SafeReasonCode.Parse("InvalidInput"));
+            Assert.That(SafeReasonCode.TryParse("SomeRandomReason", out _), Is.False);
+            AssertThrows<ArgumentOutOfRangeException>(() => Error.Create(
+                ErrorCodes.ApplicationValidationInvalid,
+                (ErrorCategory)0,
+                SafeReasonCode.InvalidRequest,
+                UserMessageKey.Parse("errors.application.validation_invalid"),
+                RetryDirective.DoNotRetry,
+                CorrelationId.Parse("corr_0123456789abcdef0123456789abcdef")));
+            AssertThrows<ArgumentOutOfRangeException>(() => Error.Create(
+                ErrorCodes.ApplicationValidationInvalid,
+                (ErrorCategory)999,
+                SafeReasonCode.InvalidRequest,
+                UserMessageKey.Parse("errors.application.validation_invalid"),
+                RetryDirective.DoNotRetry,
+                CorrelationId.Parse("corr_0123456789abcdef0123456789abcdef")));
+            AssertThrows<ArgumentOutOfRangeException>(() => Error.Create(
+                ErrorCodes.ApplicationValidationInvalid,
+                ErrorCategory.Validation,
+                SafeReasonCode.InvalidRequest,
+                UserMessageKey.Parse("errors.application.validation_invalid"),
+                (RetryDirective)0,
+                CorrelationId.Parse("corr_0123456789abcdef0123456789abcdef")));
+            AssertThrows<ArgumentOutOfRangeException>(() => Error.Create(
+                ErrorCodes.ApplicationValidationInvalid,
+                ErrorCategory.Validation,
+                SafeReasonCode.InvalidRequest,
+                UserMessageKey.Parse("errors.application.validation_invalid"),
+                (RetryDirective)999,
+                CorrelationId.Parse("corr_0123456789abcdef0123456789abcdef")));
         }
 
         [Test]
@@ -75,21 +106,70 @@ namespace Odyssey.Tests.Unit
         [Test]
         public void ValidationDetailsArgumentsAndMetadataAreBoundedAndAllowlisted()
         {
-            SafeMessageArgument argument = SafeMessageArgument.Create("field name");
+            SafeMessageArgument argument = SafeMessageArgument.FromReferenceKey("payload.destination.x");
             ValidationDetail detail = ValidationDetail.Create(
                 ErrorCodes.ApplicationValidationInvalid,
                 UserMessageKey.Parse("errors.application.validation_invalid"),
-                "request.field",
+                "payload.destination.x",
                 new[] { argument });
             ErrorMetadata metadata = ErrorMetadata.Create("limit.max", "8");
 
             Assert.That(detail.IsValid, Is.True);
+            Assert.That(detail.Severity, Is.EqualTo(ValidationSeverity.Error));
             Assert.That(metadata.IsValid, Is.True);
+            Assert.That(ValidationDetail.Create(
+                ErrorCodes.ApplicationValidationInvalid,
+                UserMessageKey.Parse("errors.application.validation_invalid"),
+                "manifest.assets[3].relative_path").IsValid, Is.True);
+            Assert.That(ValidationDetail.Create(
+                ErrorCodes.ApplicationValidationInvalid,
+                UserMessageKey.Parse("errors.application.validation_invalid"),
+                "character.attributes.strength").IsValid, Is.True);
             AssertThrows<ArgumentException>(() => ValidationDetail.Create(
                 ErrorCodes.ApplicationValidationInvalid,
                 UserMessageKey.Parse("errors.application.validation_invalid"),
                 @"C:\\secret"));
-            AssertThrows<ArgumentException>(() => SafeMessageArgument.Create("SELECT * FROM hidden"));
+            AssertThrows<ArgumentException>(() => SafeMessageArgument.FromKnownPublicText("SELECT * FROM hidden"));
+            AssertThrows<ArgumentException>(() => ValidationDetail.Create(
+                ErrorCodes.ApplicationValidationInvalid,
+                UserMessageKey.Parse("errors.application.validation_invalid"),
+                "manifest.assets[].relative_path"));
+            AssertThrows<ArgumentException>(() => ValidationDetail.Create(
+                ErrorCodes.ApplicationValidationInvalid,
+                UserMessageKey.Parse("errors.application.validation_invalid"),
+                "manifest.assets[-1].relative_path"));
+            AssertThrows<ArgumentException>(() => ValidationDetail.Create(
+                ErrorCodes.ApplicationValidationInvalid,
+                UserMessageKey.Parse("errors.application.validation_invalid"),
+                "manifest.assets[abc].relative_path"));
+            AssertThrows<ArgumentException>(() => ValidationDetail.Create(
+                ErrorCodes.ApplicationValidationInvalid,
+                UserMessageKey.Parse("errors.application.validation_invalid"),
+                "manifest.assets[3"));
+            AssertThrows<ArgumentException>(() => ValidationDetail.Create(
+                ErrorCodes.ApplicationValidationInvalid,
+                UserMessageKey.Parse("errors.application.validation_invalid"),
+                "manifest.assets.3]"));
+            AssertThrows<ArgumentException>(() => ValidationDetail.Create(
+                ErrorCodes.ApplicationValidationInvalid,
+                UserMessageKey.Parse("errors.application.validation_invalid"),
+                "manifest..assets"));
+            AssertThrows<ArgumentException>(() => ValidationDetail.Create(
+                ErrorCodes.ApplicationValidationInvalid,
+                UserMessageKey.Parse("errors.application.validation_invalid"),
+                ".manifest.assets"));
+            AssertThrows<ArgumentException>(() => ValidationDetail.Create(
+                ErrorCodes.ApplicationValidationInvalid,
+                UserMessageKey.Parse("errors.application.validation_invalid"),
+                "manifest.assets."));
+            AssertThrows<ArgumentException>(() => ValidationDetail.Create(
+                ErrorCodes.ApplicationValidationInvalid,
+                UserMessageKey.Parse("errors.application.validation_invalid"),
+                "manifest assets"));
+            AssertThrows<ArgumentException>(() => ValidationDetail.Create(
+                ErrorCodes.ApplicationValidationInvalid,
+                UserMessageKey.Parse("errors.application.validation_invalid"),
+                "../manifest"));
 
             SafeMessageArgument[] tooManyArguments =
             {
@@ -107,16 +187,141 @@ namespace Odyssey.Tests.Unit
             AssertThrows<ArgumentOutOfRangeException>(() => Error.Create(
                 ErrorCodes.ApplicationValidationInvalid,
                 ErrorCategory.Validation,
-                SafeReasonCode.InvalidInput,
+                SafeReasonCode.InvalidRequest,
                 UserMessageKey.Parse("errors.application.validation_invalid"),
                 RetryDirective.DoNotRetry,
                 CorrelationId.Parse("corr_0123456789abcdef0123456789abcdef"),
                 validationDetails: tooManyDetails));
         }
 
+        [Test]
+        public void ErrorAndNestedCollectionsAreImmutable()
+        {
+            SafeMessageArgument first = SafeMessageArgument.FromReferenceKey("field.name");
+            SafeMessageArgument second = SafeMessageArgument.FromReferenceKey("field.other");
+            SafeMessageArgument[] arguments = { first };
+            ValidationDetail[] details =
+            {
+                ValidationDetail.Create(
+                    ErrorCodes.ApplicationValidationInvalid,
+                    UserMessageKey.Parse("errors.application.validation_invalid"),
+                    "payload.destination.x",
+                    arguments)
+            };
+            ErrorMetadata[] metadata = { ErrorMetadata.Create("limit.max", "64") };
+
+            Error error = Error.Create(
+                ErrorCodes.ApplicationValidationInvalid,
+                ErrorCategory.Validation,
+                SafeReasonCode.InvalidRequest,
+                UserMessageKey.Parse("errors.application.validation_invalid"),
+                RetryDirective.DoNotRetry,
+                CorrelationId.Parse("corr_0123456789abcdef0123456789abcdef"),
+                safeMessageArguments: arguments,
+                validationDetails: details,
+                metadata: metadata);
+
+            arguments[0] = second;
+            details[0] = ValidationDetail.Create(
+                ErrorCodes.ApplicationValidationInvalid,
+                UserMessageKey.Parse("errors.application.validation_invalid"),
+                "character.attributes.strength");
+            metadata[0] = ErrorMetadata.Create("limit.max", "128");
+
+            Assert.That(error.SafeMessageArguments[0], Is.EqualTo(first));
+            Assert.That(error.ValidationDetails[0].FieldPath, Is.EqualTo("payload.destination.x"));
+            Assert.That(error.ValidationDetails[0].SafeMessageArguments[0], Is.EqualTo(first));
+            Assert.That(error.Metadata[0].Value, Is.EqualTo("64"));
+            Assert.That(error.SafeMessageArguments, Is.Not.TypeOf<SafeMessageArgument[]>());
+            Assert.That(error.ValidationDetails, Is.Not.TypeOf<ValidationDetail[]>());
+            Assert.That(error.Metadata, Is.Not.TypeOf<ErrorMetadata[]>());
+            Assert.That(error.ValidationDetails[0].SafeMessageArguments, Is.Not.TypeOf<SafeMessageArgument[]>());
+
+            AssertThrows<NotSupportedException>(() => ((IList<SafeMessageArgument>)error.SafeMessageArguments)[0] = second);
+            AssertThrows<NotSupportedException>(() => ((IList<ValidationDetail>)error.ValidationDetails)[0] = details[0]);
+            AssertThrows<NotSupportedException>(() => ((IList<ErrorMetadata>)error.Metadata)[0] = metadata[0]);
+            AssertThrows<NotSupportedException>(() => ((IList<SafeMessageArgument>)error.ValidationDetails[0].SafeMessageArguments)[0] = second);
+        }
+
+        [Test]
+        public void ValidationWarningsAreAllowedPrimitivesButRejectedInFailureErrors()
+        {
+            ValidationDetail warning = ValidationDetail.Create(
+                ErrorCodes.ApplicationValidationInvalid,
+                UserMessageKey.Parse("errors.application.validation_invalid"),
+                "payload.destination.x",
+                severity: ValidationSeverity.Warning);
+
+            Assert.That(warning.IsValid, Is.True);
+            Assert.That(warning.Severity, Is.EqualTo(ValidationSeverity.Warning));
+            AssertThrows<ArgumentException>(() => Error.Create(
+                ErrorCodes.ApplicationValidationInvalid,
+                ErrorCategory.Validation,
+                SafeReasonCode.InvalidRequest,
+                UserMessageKey.Parse("errors.application.validation_invalid"),
+                RetryDirective.DoNotRetry,
+                CorrelationId.Parse("corr_0123456789abcdef0123456789abcdef"),
+                validationDetails: new[] { warning }));
+        }
+
+        [Test]
+        public void MetadataIsAllowlistedPerErrorCode()
+        {
+            ErrorMetadata allowed = ErrorMetadata.Create("limit.max", "64");
+            Error validationError = Error.Create(
+                ErrorCodes.ApplicationValidationInvalid,
+                ErrorCategory.Validation,
+                SafeReasonCode.InvalidRequest,
+                UserMessageKey.Parse("errors.application.validation_invalid"),
+                RetryDirective.DoNotRetry,
+                CorrelationId.Parse("corr_0123456789abcdef0123456789abcdef"),
+                metadata: new[] { allowed });
+
+            Assert.That(validationError.Metadata, Has.Count.EqualTo(1));
+            AssertThrows<ArgumentException>(() => Error.Create(
+                ErrorCodes.ApplicationInternalUnexpected,
+                ErrorCategory.Internal,
+                SafeReasonCode.UnexpectedError,
+                UserMessageKey.Parse("errors.application.unexpected"),
+                RetryDirective.ManualRecoveryRequired,
+                CorrelationId.Parse("corr_0123456789abcdef0123456789abcdef"),
+                metadata: new[] { allowed }));
+            AssertThrows<ArgumentException>(() => Error.Create(
+                ErrorCodes.ApplicationValidationInvalid,
+                ErrorCategory.Validation,
+                SafeReasonCode.InvalidRequest,
+                UserMessageKey.Parse("errors.application.validation_invalid"),
+                RetryDirective.DoNotRetry,
+                CorrelationId.Parse("corr_0123456789abcdef0123456789abcdef"),
+                metadata: new[] { ErrorMetadata.Create("unknown.key", "64") }));
+
+            ErrorMetadata[] tooManyMetadata =
+            {
+                allowed, allowed, allowed, allowed, allowed, allowed, allowed, allowed, allowed
+            };
+            AssertThrows<ArgumentOutOfRangeException>(() => Error.Create(
+                ErrorCodes.ApplicationValidationInvalid,
+                ErrorCategory.Validation,
+                SafeReasonCode.InvalidRequest,
+                UserMessageKey.Parse("errors.application.validation_invalid"),
+                RetryDirective.DoNotRetry,
+                CorrelationId.Parse("corr_0123456789abcdef0123456789abcdef"),
+                metadata: tooManyMetadata));
+        }
+
+        [Test]
+        public void SafeMessageArgumentsRequireExplicitTrustFactory()
+        {
+            Assert.That(SafeMessageArgument.FromReferenceKey("manifest.assets.3").IsValid, Is.True);
+            Assert.That(SafeMessageArgument.FromInteger(123).ToString(), Is.EqualTo("123"));
+            Assert.That(SafeMessageArgument.FromKnownPublicText("Known public label").IsValid, Is.True);
+            AssertThrows<ArgumentException>(() => SafeMessageArgument.FromReferenceKey("Known public label"));
+            AssertThrows<ArgumentException>(() => SafeMessageArgument.FromKnownPublicText(@"C:\\Users\\secret\\file.txt"));
+        }
+
         private static Error CreateValidationError()
         {
-            SafeMessageArgument argument = SafeMessageArgument.Create("name");
+            SafeMessageArgument argument = SafeMessageArgument.FromReferenceKey("name");
             ValidationDetail detail = ValidationDetail.Create(
                 ErrorCodes.ApplicationValidationInvalid,
                 UserMessageKey.Parse("errors.application.validation_invalid"),
@@ -126,7 +331,7 @@ namespace Odyssey.Tests.Unit
             return Error.Create(
                 ErrorCodes.ApplicationValidationInvalid,
                 ErrorCategory.Validation,
-                SafeReasonCode.InvalidInput,
+                SafeReasonCode.InvalidRequest,
                 UserMessageKey.Parse("errors.application.validation_invalid"),
                 RetryDirective.DoNotRetry,
                 CorrelationId.Parse("corr_0123456789abcdef0123456789abcdef"),

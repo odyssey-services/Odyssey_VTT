@@ -14,9 +14,9 @@ namespace Odyssey.Application.Results
 
         public bool IsValid => _value != null;
 
-        public static bool TryCreate(string? value, out SafeMessageArgument argument)
+        public static bool TryFromReferenceKey(string? value, out SafeMessageArgument argument)
         {
-            if (IsSafe(value, MaxLength))
+            if (IsSafeReferenceKey(value))
             {
                 argument = new SafeMessageArgument(value!);
                 return true;
@@ -26,11 +26,35 @@ namespace Odyssey.Application.Results
             return false;
         }
 
-        public static SafeMessageArgument Create(string value)
+        public static SafeMessageArgument FromReferenceKey(string value)
         {
-            if (!TryCreate(value, out SafeMessageArgument argument))
+            if (!TryFromReferenceKey(value, out SafeMessageArgument argument))
             {
-                throw new ArgumentException("Safe message argument is not allowlisted.", nameof(value));
+                throw new ArgumentException("Reference key is not safe for message arguments.", nameof(value));
+            }
+
+            return argument;
+        }
+
+        public static SafeMessageArgument FromInteger(int value) => new SafeMessageArgument(value.ToString(System.Globalization.CultureInfo.InvariantCulture));
+
+        public static bool TryFromKnownPublicText(string? value, out SafeMessageArgument argument)
+        {
+            if (IsSafeKnownPublicText(value, MaxLength))
+            {
+                argument = new SafeMessageArgument(value!);
+                return true;
+            }
+
+            argument = default;
+            return false;
+        }
+
+        public static SafeMessageArgument FromKnownPublicText(string value)
+        {
+            if (!TryFromKnownPublicText(value, out SafeMessageArgument argument))
+            {
+                throw new ArgumentException("Known public text is not safe for message arguments.", nameof(value));
             }
 
             return argument;
@@ -41,7 +65,7 @@ namespace Odyssey.Application.Results
         public override bool Equals(object? obj) => obj is SafeMessageArgument other && Equals(other);
         public override int GetHashCode() => _value == null ? 0 : StringComparer.Ordinal.GetHashCode(_value);
 
-        internal static bool IsSafe(string? value, int maxLength)
+        internal static bool IsSafeKnownPublicText(string? value, int maxLength)
         {
             if (string.IsNullOrWhiteSpace(value) || value!.Length > maxLength || value.Trim() != value)
             {
@@ -62,6 +86,25 @@ namespace Odyssey.Application.Results
                 char c = value[index];
                 if (!((c >= 'A' && c <= 'Z') || (c >= 'a' && c <= 'z') ||
                     (c >= '0' && c <= '9') || c == '_' || c == '-' || c == '.' || c == ' '))
+                {
+                    return false;
+                }
+            }
+
+            return true;
+        }
+
+        private static bool IsSafeReferenceKey(string? value)
+        {
+            if (string.IsNullOrWhiteSpace(value) || value!.Length > MaxLength || value.Trim() != value)
+            {
+                return false;
+            }
+
+            for (int index = 0; index < value.Length; index++)
+            {
+                char c = value[index];
+                if (!((c >= 'a' && c <= 'z') || (c >= '0' && c <= '9') || c == '_' || c == '.' || c == '-'))
                 {
                     return false;
                 }

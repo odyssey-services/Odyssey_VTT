@@ -13,13 +13,27 @@ namespace Odyssey.Application.Results
         }
 
         public bool IsValid => _value != null;
+        public static SafeReasonCode InvalidRequest => Parse("InvalidRequest");
         public static SafeReasonCode PermissionDenied => Parse("PermissionDenied");
-        public static SafeReasonCode InvalidInput => Parse("InvalidInput");
+        public static SafeReasonCode ActionNotAllowed => Parse("ActionNotAllowed");
+        public static SafeReasonCode TargetUnavailable => Parse("TargetUnavailable");
+        public static SafeReasonCode StateChanged => Parse("StateChanged");
+        public static SafeReasonCode ResourceUnavailable => Parse("ResourceUnavailable");
+        public static SafeReasonCode CapacityReached => Parse("CapacityReached");
+        public static SafeReasonCode ApprovalRequired => Parse("ApprovalRequired");
+        public static SafeReasonCode InteractionExpired => Parse("InteractionExpired");
+        public static SafeReasonCode VersionUnsupported => Parse("VersionUnsupported");
+        public static SafeReasonCode UpdateRequired => Parse("UpdateRequired");
+        public static SafeReasonCode DataCorrupted => Parse("DataCorrupted");
+        public static SafeReasonCode ServiceUnavailable => Parse("ServiceUnavailable");
+        public static SafeReasonCode OperationTimedOut => Parse("OperationTimedOut");
+        public static SafeReasonCode OperationCancelled => Parse("OperationCancelled");
+        public static SafeReasonCode ManualRecoveryRequired => Parse("ManualRecoveryRequired");
         public static SafeReasonCode UnexpectedError => Parse("UnexpectedError");
 
         public static bool TryParse(string? value, out SafeReasonCode code)
         {
-            if (IsCanonical(value))
+            if (IsAllowed(value))
             {
                 code = new SafeReasonCode(value!);
                 return true;
@@ -46,23 +60,31 @@ namespace Odyssey.Application.Results
         public static bool operator ==(SafeReasonCode left, SafeReasonCode right) => left.Equals(right);
         public static bool operator !=(SafeReasonCode left, SafeReasonCode right) => !left.Equals(right);
 
-        private static bool IsCanonical(string? value)
+        internal static bool IsAllowed(string? value)
         {
-            if (string.IsNullOrWhiteSpace(value) || value!.Length > MaxLength || value[0] < 'A' || value[0] > 'Z')
+            switch (value)
             {
-                return false;
-            }
-
-            for (int index = 0; index < value.Length; index++)
-            {
-                char c = value[index];
-                if (!((c >= 'A' && c <= 'Z') || (c >= 'a' && c <= 'z') || (c >= '0' && c <= '9')))
-                {
+                case "InvalidRequest":
+                case "PermissionDenied":
+                case "ActionNotAllowed":
+                case "TargetUnavailable":
+                case "StateChanged":
+                case "ResourceUnavailable":
+                case "CapacityReached":
+                case "ApprovalRequired":
+                case "InteractionExpired":
+                case "VersionUnsupported":
+                case "UpdateRequired":
+                case "DataCorrupted":
+                case "ServiceUnavailable":
+                case "OperationTimedOut":
+                case "OperationCancelled":
+                case "ManualRecoveryRequired":
+                case "UnexpectedError":
+                    return true;
+                default:
                     return false;
-                }
             }
-
-            return true;
         }
     }
 }

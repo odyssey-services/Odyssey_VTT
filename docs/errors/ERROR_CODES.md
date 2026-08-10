@@ -9,7 +9,7 @@ This registry contains only ErrorCodes introduced in production source. Do not p
 
 ErrorCode format is lowercase dot-separated `<area>.<subject>.<condition>`. Segments use lowercase ASCII letters, digits, and underscores. Spaces, provider numeric codes, version suffixes, and reused deprecated or reserved codes are forbidden.
 
-| Code | Owner module | Category | Default SafeReasonCode | Default RetryDirective | Introduced version | Deprecated / Reserved status | Security notes | Test reference |
-|---|---|---|---|---|---|---|---|---|
-| `application.validation.invalid` | `Odyssey.Application` | `Validation` | `InvalidInput` | `DoNotRetry` | ODY-S00-004 | Active | Public-safe validation foundation code; details must not contain raw rejected values, secrets, stack traces, SQL, absolute paths, or hidden entity payloads. | `TC-RESULT-002`, `TC-RESULT-004` |
-| `application.internal.unexpected` | `Odyssey.Application` | `Internal` | `UnexpectedError` | `ManualRecoveryRequired` | ODY-S00-004 | Active | Public-safe unexpected-failure foundation code; diagnostic data must stay behind opaque `DiagnosticId` and must not be embedded in `Error`. | `TC-RESULT-002`, `TC-RESULT-003` |
+| Code | Owner module | Category | Default SafeReasonCode | Default UserMessageKey | Default RetryDirective | Introduced version | Status | Allowed metadata keys | Security notes | Test reference |
+|---|---|---|---|---|---|---|---|---|---|---|
+| `application.validation.invalid` | `Odyssey.Application` | `Validation` | `InvalidRequest` | `errors.application.validation_invalid` | `DoNotRetry` | `0.1.0` | Active | `limit.max` | Public-safe validation foundation code; details must not contain raw rejected values, secrets, stack traces, SQL, absolute paths, or hidden entity payloads. | `TC-RESULT-002`, `TC-RESULT-004` |
+| `application.internal.unexpected` | `Odyssey.Application` | `Internal` | `UnexpectedError` | `errors.application.unexpected` | `ManualRecoveryRequired` | `0.1.0` | Active | - | Public-safe unexpected-failure foundation code; diagnostic data must stay behind opaque `DiagnosticId` and must not be embedded in `Error`. | `TC-RESULT-002`, `TC-RESULT-003` |

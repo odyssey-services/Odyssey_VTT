@@ -27,7 +27,7 @@ namespace Odyssey.Application.Results
                 throw new ArgumentException("Metadata key is not allowlisted.", nameof(key));
             }
 
-            if (!SafeMessageArgument.IsSafe(value, MaxValueLength))
+            if (!SafeMessageArgument.IsSafeKnownPublicText(value, MaxValueLength))
             {
                 throw new ArgumentException("Metadata value is not allowlisted.", nameof(value));
             }

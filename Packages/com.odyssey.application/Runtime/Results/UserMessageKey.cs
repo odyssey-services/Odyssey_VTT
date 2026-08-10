@@ -16,9 +16,9 @@ namespace Odyssey.Application.Results
 
         public static bool TryParse(string? value, out UserMessageKey key)
         {
-            if (ErrorCode.IsCanonical(value) && value!.StartsWith("errors.", StringComparison.Ordinal))
+            if (IsCanonical(value))
             {
-                key = new UserMessageKey(value);
+                key = new UserMessageKey(value!);
                 return true;
             }
 
@@ -42,5 +42,38 @@ namespace Odyssey.Application.Results
         public override int GetHashCode() => _value == null ? 0 : StringComparer.Ordinal.GetHashCode(_value);
         public static bool operator ==(UserMessageKey left, UserMessageKey right) => left.Equals(right);
         public static bool operator !=(UserMessageKey left, UserMessageKey right) => !left.Equals(right);
+
+        internal static bool IsCanonical(string? value)
+        {
+            if (string.IsNullOrWhiteSpace(value) || value!.Length > MaxLength || !value.StartsWith("errors.", StringComparison.Ordinal) || value.Trim() != value)
+            {
+                return false;
+            }
+
+            bool segmentHasCharacter = false;
+            for (int index = 0; index < value.Length; index++)
+            {
+                char c = value[index];
+                if (c == '.')
+                {
+                    if (!segmentHasCharacter)
+                    {
+                        return false;
+                    }
+
+                    segmentHasCharacter = false;
+                    continue;
+                }
+
+                if (!((c >= 'a' && c <= 'z') || (c >= '0' && c <= '9') || c == '_'))
+                {
+                    return false;
+                }
+
+                segmentHasCharacter = true;
+            }
+
+            return segmentHasCharacter;
+        }
     }
 }
