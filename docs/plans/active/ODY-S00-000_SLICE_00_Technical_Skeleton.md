@@ -1,9 +1,9 @@
 # ODY-S00-000 — Establish the SLICE-00 Technical Skeleton
 
-**Status:** Active  
-**Owner:** Codex  
-**Branch:** `feat/ody-s00-002-unity-project-foundation`  
-**Pull request:** Not opened  
+**Status:** Active
+**Owner:** Codex
+**Branch:** `feat/ody-s00-002-unity-project-foundation`
+**Pull request:** Draft pending
 **Last updated:** 2026-08-10
 
 ## 1. Purpose and user-visible outcome
@@ -19,7 +19,7 @@ No user-facing game feature is delivered. The observable outcome is readiness to
 - Requirement IDs: `SLICE-00`, `M1`, `TDB-DEC-001–027`, ADR-defined `SLICE-00` test IDs.
 - In scope: Child tasks `ODY-S00-001–010`.
 - Out of scope: Persistence, networking, accounts, permissions runtime and all gameplay/product features.
-- Required authorities: Active Baseline v1.7, Technical Baseline v0.2, AGENTS, PLANS, Task Template, ADR-001–010, MVP Scope SLICE-00, Roadmap Stage 1, Test Strategy.
+- Required authorities: Active Baseline v1.8, Technical Baseline v0.3, AGENTS, PLANS, Task Template, ADR-001–010, MVP Scope SLICE-00, Roadmap Stage 1, Test Strategy.
 - Required validation commands: Introduced incrementally; final canonical set must match `AGENTS.md` and actual repository scripts.
 
 Governing task contract: `docs/tasks/active/ODY-S00-000_SLICE_00_Technical_Skeleton.md`.
@@ -29,14 +29,14 @@ Governing task contract: `docs/tasks/active/ODY-S00-000_SLICE_00_Technical_Skele
 ### Verified facts
 
 - Architecture and operational documentation are prepared and internally consistent through ADR-010, AGENTS, PLANS, and the task workflow.
-- Exact platform/toolchain decisions exist: Windows x64, Unity `6000.3.20f1`, HDRP, UI Toolkit, Input System, pure .NET host, GitHub Actions, Git LFS, All Rights Reserved.
+- Exact platform/toolchain decisions exist: Windows x64, Unity `6000.4.0f1`, HDRP, UI Toolkit, Input System, pure .NET host, GitHub Actions, Git LFS, All Rights Reserved.
 - Repository foundation exists in owner bootstrap `82de52e9cb47bd7a1fa8952ac5cba2b9c88456f5`; no Unity project, package lock, `.asmdef`, `.csproj`, CI run, or Player build exists.
 - The full current documentation bundle contains private product material and must not be copied wholesale into the authoritative code repository.
 
 ### Assumptions to verify during execution
 
 - The owner-selected Private authoritative repository is `odyssey-services/Odyssey_VTT`; visibility changes require a separate owner decision.
-- Windows access and a valid Unity `6000.3.20f1` installation/license are available for Unity and IL2CPP validation.
+- Windows access and a valid Unity `6000.4.0f1` installation/license are available for Unity and IL2CPP validation.
 - Git LFS is available on contributor and CI machines.
 
 ## 4. Proposed approach
@@ -77,10 +77,10 @@ Child task: `ODY-S00-001`.
 
 Child task: `ODY-S00-002`.
 
-- [ ] Unity `6000.3.20f1` project files and package lock exist.
-- [ ] HDRP, UI Toolkit, Input System, graphics APIs, serialization modes and quality assets match ADR-009.
-- [ ] `Bootstrap` and `AppShell` scenes exist with no business behavior.
-- [ ] Clean Unity open/import/compile succeeds.
+- [x] Unity `6000.4.0f1` project files and package lock exist.
+- [x] HDRP, UI Toolkit, Input System, graphics APIs, serialization modes and quality assets match ADR-009 v1.1.
+- [x] `Bootstrap` and `AppShell` scenes exist with no business behavior.
+- [x] Clean Unity open/import/compile succeeds.
 - Evidence: project settings inspection, package-lock diff, Unity Editor log, EditMode compile smoke.
 
 ### M2 — Core modules compile and test outside Unity
@@ -151,6 +151,8 @@ Child task: `ODY-S00-010`.
 - 2026-08-10 03:12 UTC — Product owner clarified that Unity `6000.3` versus `6000.4` is acceptable for the development process. The project may proceed with recorded `6000.4.0f1` local evidence, but the URP/2D external project still must be converted to the required HDRP baseline before repository import.
 - 2026-08-10 03:20 UTC — Re-inspected external project: manifest now contains HDRP `17.4.0` and no direct URP/`com.unity.2d.*` entries. Remaining issues before repository import are template/sample content, lack of Odyssey `Bootstrap`/`AppShell` scenes and paths, template quality names, and extra root packages.
 
+- 2026-08-10 11:35 UTC — Formalized owner-approved Unity baseline amendment as ADR-009 v1.1 / Technical Baseline v0.3 / Active Baseline v1.8, imported only `Assets/`, `Packages/`, and `ProjectSettings/` into the authoritative repository, and validated repository Unity batchmode open/import/compile with Unity `6000.4.0f1` ExitCode 0. ODY-S00-002 moved to In Review; ODY-S00-003 remains Draft.
+
 ## 7. Decisions
 
 - 2026-07-28 — Decision: Keep Technical Baseline `PR-000–PR-005` as delivery groups while splitting Core and CI work into smaller task/PR units. Rationale: reduces review and rollback risk without changing required outcomes. Authority: Technical Baseline section 30 plus PLANS scope-control rules.
@@ -186,7 +188,7 @@ Post-merge limitation:
 
 - Exact branch protection/ruleset settings were not accessible through the connector, and browser inspection failed before page access because the Windows sandbox helper could not initialize. Owner accepted this limitation; no setting is claimed as Passed.
 - ODY-S00-002 preflight evidence: required Unity `6000.3.20f1 (c9ba695d4f07)` was not installed; by owner decision, installed Unity `6000.4.0f1` may be used for local development/import evidence when recorded explicitly.
-- External project evidence: `D:\Game_Dev\Odyssey_VTT\Odyssey_VTT` is Unity `6000.4.0f1 (8cf496087c8f)` with HDRP `17.4.0`; it remains outside the repository until template/sample content, extra root packages, scenes, quality profile names/defaults, and Odyssey-owned paths are corrected.
+- Repository import evidence: the cleaned Unity `6000.4.0f1 (8cf496087c8f)` HDRP `17.4.0` foundation is now copied into `Assets/`, `Packages/`, and `ProjectSettings/` in the authoritative repository and validates with Unity batchmode ExitCode 0.
 - Owner decision: `6000.4.0f1` may be used for local development/import evidence in ODY-S00-002; this does not relax the HDRP/package/settings requirements.
 
 Record real commands, outputs and artifact paths here as child tasks complete.
@@ -203,13 +205,13 @@ Record real commands, outputs and artifact paths here as child tasks complete.
 
 - Repository identity, Private visibility, and PR #1 merge are verified. Exact branch protection/ruleset settings remain an owner-accepted limitation.
 - Unity `6000.4.0f1` is acceptable for local ODY-S00-002 development by owner decision.
-- The external Unity project at `D:\Game_Dev\Odyssey_VTT\Odyssey_VTT` cannot be imported yet because it still contains template/sample content, lacks Odyssey `Bootstrap`/`AppShell` scenes and paths, and includes extra root packages that must be removed or justified.
+- ODY-S00-002 has no remaining implementation blocker; it is awaiting owner review through a draft PR.
 - GitHub plan/settings may affect exact branch-protection options; the task must apply the strongest supported equivalent and record any unavailable setting.
 
 The remaining implementation blocker is Odyssey foundation cleanup and validation.
 
 ## 12. Outcome and follow-up
 
-Current outcome: ODY-S00-001 is Done after owner merge of PR #1. ODY-S00-002 is Ready at task-contract level; Unity implementation has not started.
+Current outcome: ODY-S00-001 is Done after owner merge of PR #1. ODY-S00-002 is In Review with Unity 6000.4/HDRP foundation imported and validated. ODY-S00-003 remains Draft.
 
-Next action: review the ODY-S00-002 contract and begin its implementation only in a separate task branch/PR.
+Next action: open a draft ODY-S00-002 PR for owner review; do not start ODY-S00-003 until ODY-S00-002 is reviewed and merged.

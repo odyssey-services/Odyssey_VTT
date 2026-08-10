@@ -1,11 +1,11 @@
 # Odyssey VTT — SLICE-00 Technical Skeleton Backlog
 
-**Status:** Approved execution backlog  
-**Slice:** `SLICE-00 — Technical Skeleton`  
-**Parent task:** `docs/tasks/active/ODY-S00-000_SLICE_00_Technical_Skeleton.md`  
-**ExecPlan:** `docs/plans/active/ODY-S00-000_SLICE_00_Technical_Skeleton.md`  
-**Created:** 2026-07-28  
-**Last updated:** 2026-08-10 03:12 UTC
+**Status:** Approved execution backlog
+**Slice:** `SLICE-00 — Technical Skeleton`
+**Parent task:** `docs/tasks/active/ODY-S00-000_SLICE_00_Technical_Skeleton.md`
+**ExecPlan:** `docs/plans/active/ODY-S00-000_SLICE_00_Technical_Skeleton.md`
+**Created:** 2026-07-28
+**Last updated:** 2026-08-10 11:35 UTC
 
 ## 1. Purpose
 
@@ -24,7 +24,7 @@ The delivery-group labels `PR-000–PR-005` come from Technical Development Base
 `SLICE-00` is complete only when all of the following are proven:
 
 1. A single private authoritative code repository exists and private product documentation is absent from its Git history.
-2. Unity `6000.3.20f1` opens from a clean checkout with the locked package graph and no import or compile errors.
+2. Unity `6000.4.0f1` opens from a clean checkout with the locked package graph and no import or compile errors.
 3. Core production source has one physical copy and compiles in both Unity and pure .NET.
 4. ADR-001 dependency direction is enforced automatically.
 5. At least one test operation uses the accepted command, result, event, idempotency, clock, RNG, and serialization contracts.
@@ -40,7 +40,7 @@ The delivery-group labels `PR-000–PR-005` come from Technical Development Base
 | Order | Task ID | Delivery group | Title | Status | Depends on | Planning mode | Primary result |
 |---:|---|---|---|---|---|---|---|
 | 1 | `ODY-S00-001` | PR-000 | Repository Foundation | Done | None | Brief plan | Private authoritative repository policy, repository-safe documentation subset, Git/LFS baseline and contribution/security files |
-| 2 | `ODY-S00-002` | PR-001 | Unity Project Foundation | In Progress | 001 | ExecPlan update | Exact Unity/HDRP project, package lock, settings, Bootstrap and AppShell assets |
+| 2 | `ODY-S00-002` | PR-001 | Unity Project Foundation | In Review | 001 | ExecPlan update | Unity 6000.4/HDRP project, package lock, settings, Bootstrap and AppShell assets |
 | 3 | `ODY-S00-003` | PR-002 | Module and Test Skeleton | Draft | 002 | ExecPlan update | Embedded modules, `.asmdef`, dual .NET compilation, test projects and architecture guard |
 | 4 | `ODY-S00-004` | PR-003A | Identity, Version and Result Primitives | Draft | 003 | Brief plan | Typed IDs, version value objects, `Result/Error`, registries and unit tests |
 | 5 | `ODY-S00-005` | PR-003B | Command, Event, Clock and RNG Contracts | Draft | 004 | ExecPlan update | Deterministic test operation, idempotency contracts, virtual time and RNG vectors |
