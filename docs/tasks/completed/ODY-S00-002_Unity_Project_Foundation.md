@@ -1,6 +1,6 @@
 # ODY-S00-002 — Create the Unity Project Foundation
 
-**Status:** In Review
+**Status:** Done
 **Roadmap stage / slice:** SLICE-00
 **Owner:** Codex
 **Requested by:** Product owner
@@ -8,7 +8,7 @@
 **Pull request:** https://github.com/odyssey-services/Odyssey_VTT/pull/4
 **ExecPlan:** `docs/plans/active/ODY-S00-000_SLICE_00_Technical_Skeleton.md`
 **Created:** 2026-08-01
-**Last updated:** 2026-08-10 11:35 UTC
+**Last updated:** 2026-08-10 14:21 UTC
 
 ## 1. Goal
 
@@ -94,7 +94,7 @@ Packages/manifest.json
 Packages/packages-lock.json
 ProjectSettings/**
 scripts/**                         # only a minimal Unity validation entry point if required and approved by the task
-docs/tasks/active/ODY-S00-002_Unity_Project_Foundation.md
+docs/tasks/completed/ODY-S00-002_Unity_Project_Foundation.md
 docs/plans/active/ODY-S00-000_SLICE_00_Technical_Skeleton.md
 docs/tasks/SLICE-00_BACKLOG.md
 THIRD_PARTY_NOTICES.md             # only if the resolved graph requires a notice update
@@ -277,22 +277,30 @@ Any resolved package not covered by ADR-009 must stop implementation for owner a
 
 ## 16. Definition of Done
 
-- [ ] Goal is achieved without unapproved scope expansion.
-- [ ] All acceptance criteria are satisfied.
-- [ ] Required automated and manual validation is complete with real evidence.
-- [ ] Clean Unity `6000.4.0f1` open/import/compile passes.
-- [ ] Package graph, licenses/sources, settings, scenes, and generated-file exclusions are reviewed.
-- [ ] Architecture boundaries and no-authoritative-state invariant remain valid.
-- [ ] No unapproved dependency, package source, tool, asset, or license is introduced.
-- [ ] No Unity/package/version drift or unrelated cleanup is included.
-- [ ] Security/privacy and repository policy checks pass.
-- [ ] Complete diff and Unity YAML/meta integrity are reviewed.
-- [ ] Task, backlog, and ExecPlan evidence are updated honestly.
-- [ ] Owner reviews and merges; Codex does not merge into `main`.
+- [x] Goal is achieved without unapproved scope expansion.
+- [x] All acceptance criteria are satisfied.
+- [x] Required automated and manual validation is complete with real evidence.
+- [x] Clean Unity `6000.4.0f1` open/import/compile passes.
+- [x] Package graph, licenses/sources, settings, scenes, and generated-file exclusions are reviewed.
+- [x] Architecture boundaries and no-authoritative-state invariant remain valid.
+- [x] No unapproved dependency, package source, tool, asset, or license is introduced.
+- [x] No Unity/package/version drift or unrelated cleanup is included.
+- [x] Security/privacy and repository policy checks pass.
+- [x] Complete diff and Unity YAML/meta integrity are reviewed.
+- [x] Task, backlog, and ExecPlan evidence are updated honestly.
+- [x] Owner reviews and merges; Codex does not merge into `main`.
 
 ## 17. Completion evidence
 
 Unity `6000.4.0f1 (8cf496087c8f)` is now the formal repository baseline through ADR-009 v1.1, Technical Development Baseline v0.3, and Active Documentation Baseline v1.8. The Unity foundation was copied from `D:\Game_Dev\Odyssey_VTT\Odyssey_VTT` into the authoritative repository using only `Assets/`, `Packages/`, and `ProjectSettings/`.
+
+Owner merged PR #4 into `main` using the GitHub merge-commit method.
+
+- Pull request: https://github.com/odyssey-services/Odyssey_VTT/pull/4
+- Merge commit: `70e7d49e217d4aecb7a2e873d31787d26001f47f`
+- Merge date: `2026-08-10T16:21:33+02:00` (`2026-08-10 14:21:33 UTC`)
+- Merge method: GitHub merge commit
+- Final accepted Unity baseline: Unity `6000.4.0f1`, changeset `8cf496087c8f`, HDRP `17.4.0`, Input System `1.19.0`
 
 ### Changed files / areas
 
@@ -305,7 +313,7 @@ Unity `6000.4.0f1 (8cf496087c8f)` is now the formal repository baseline through 
 - `ACTIVE_DOCUMENTATION_BASELINE_Odyssey_VTT_v1.8.md`
 - `AGENTS.md`
 - `docs/adr/README.md`
-- `docs/tasks/active/ODY-S00-002_Unity_Project_Foundation.md`
+- `docs/tasks/completed/ODY-S00-002_Unity_Project_Foundation.md`
 - `docs/plans/active/ODY-S00-000_SLICE_00_Technical_Skeleton.md`
 - `docs/tasks/SLICE-00_BACKLOG.md`
 
@@ -313,6 +321,7 @@ Unity `6000.4.0f1 (8cf496087c8f)` is now the formal repository baseline through 
 
 | Command / check | Result | Evidence / notes |
 |---|---|---|
+| Post-merge sync with `origin/main` | Passed | Local `main` fast-forwarded to `origin/main` at merge commit `70e7d49e217d4aecb7a2e873d31787d26001f47f`; worktree was clean before creating closure branch `chore/ody-s00-002-complete`. |
 | Branch sync with `origin/main` | Passed | Local branch `feat/ody-s00-002-unity-project-foundation` fast-forwarded to latest `origin/main` before implementation. No merge from main was performed after task work began. |
 | Unity project copy scope | Passed | Only `Assets/`, `Packages/`, and `ProjectSettings/` were copied into `D:\Documents\Odyssey_VTT`; external `.git`, `Library`, `Logs`, and `UserSettings` were not copied. |
 | Unity first batchmode attempt via `Start-Process -Wait` | Failed / stopped | No log was created and the process remained idle; it was stopped manually. Recorded process exit was `-1`. |
@@ -358,7 +367,7 @@ Unity `6000.4.0f1 (8cf496087c8f)` is now the formal repository baseline through 
 | AC-9 | Passed | Final Unity batchmode open/import/compile after review corrections returned `UnityExitCode=0`. |
 | AC-10 | Passed with manual/config evidence | Applicable `TST-UNI-001` through `TST-UNI-014` configuration checks passed by file/log inspection; no Player/IL2CPP success is claimed. |
 | AC-11 | Passed | Diff contains no Core module implementation, gameplay feature, template gameplay input actions, GitHub Actions workflow, BuildIdentity/version source, private document, credential, paid asset, or unapproved dependency. |
-| AC-12 | Passed | Repository policy, diff, LFS, generated-path, package, settings, Unity log, and negative fixture checks completed. Owner review remains required before merge. |
+| AC-12 | Passed | Repository policy, diff, LFS, generated-path, package, settings, Unity log, and negative fixture checks completed. Owner review and merge completed through PR #4. |
 
 ### Build and artifact evidence
 
@@ -375,7 +384,7 @@ Unity `6000.4.0f1 (8cf496087c8f)` is now the formal repository baseline through 
 
 ### Follow-up tasks
 
-- ODY-S00-003 remains `Draft` and begins only after owner review/merge of ODY-S00-002.
+- ODY-S00-003 is activated as `Ready` by the post-merge closure PR and begins only after that closure PR is owner-reviewed and merged.
 
 ### Self-review summary
 
@@ -389,7 +398,7 @@ Unity `6000.4.0f1 (8cf496087c8f)` is now the formal repository baseline through 
 
 ### Blockers
 
-- None for ODY-S00-002 owner review.
+- None. ODY-S00-002 was owner-reviewed and merged through PR #4.
 
 ### Decisions made during execution
 

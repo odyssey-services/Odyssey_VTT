@@ -53,7 +53,8 @@ try {
         'docs/tasks/SLICE-00_BACKLOG.md',
         'docs/tasks/active/ODY-S00-000_SLICE_00_Technical_Skeleton.md',
         'docs/tasks/completed/ODY-S00-001_Repository_Foundation.md',
-        'docs/tasks/active/ODY-S00-002_Unity_Project_Foundation.md',
+        'docs/tasks/completed/ODY-S00-002_Unity_Project_Foundation.md',
+        'docs/tasks/active/ODY-S00-003_Module_and_Test_Skeleton.md',
         'docs/plans/README.md',
         'docs/plans/active/ODY-S00-000_SLICE_00_Technical_Skeleton.md'
     )

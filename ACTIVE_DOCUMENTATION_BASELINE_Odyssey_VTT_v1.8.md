@@ -94,7 +94,7 @@ PLANS.md
 docs/tasks/TASK_TEMPLATE.md
 docs/tasks/SLICE-00_BACKLOG.md
 docs/tasks/active/ODY-S00-000_SLICE_00_Technical_Skeleton.md
-docs/tasks/active/ODY-S00-002_Unity_Project_Foundation.md
+docs/tasks/active/ODY-S00-003_Module_and_Test_Skeleton.md
 docs/plans/active/ODY-S00-000_SLICE_00_Technical_Skeleton.md
 docs/adr/ADR-001_Module_Boundaries_and_Dependency_Direction_v1.0.md
 docs/adr/ADR-002_Command_and_Domain_Event_Model_v1.0.md
@@ -124,7 +124,7 @@ docs/adr/ADR-010_Logging_Diagnostics_and_Redaction_v1.0.md
 
 `docs/plans/active/ODY-S00-000_SLICE_00_Technical_Skeleton.md` является living ExecPlan для исполнения `SLICE-00`. Он ведёт milestones, progress, decisions, deviations, evidence, recovery и blockers; до начала разработки имеет статус Draft и не является доказательством выполнения кода или тестов.
 
-`docs/tasks/active/ODY-S00-002_Unity_Project_Foundation.md` является текущей active task исполнения Unity Project Foundation. Она ограничена Unity baseline scaffold и прямо запрещает переходить к ODY-S00-003/Core/gameplay реализации внутри этого PR.
+`docs/tasks/active/ODY-S00-003_Module_and_Test_Skeleton.md` является текущей active task исполнения Module and Test Skeleton. Она ограничена physical module/test skeleton, ADR-001 dependency graph, ADR-006 dual Unity/.NET compilation structure and architecture guard, and прямо запрещает runtime composition, gameplay, persistence/networking behavior, serialization contracts, Unity project/package baseline changes, GitHub Actions, Player build automation, and any ODY-S00-004+ implementation inside this PR.
 
 `docs/adr/ADR-001_Module_Boundaries_and_Dependency_Direction_v1.0.md` является принятым authority по module ownership, compile-time dependency graph, ports/adapters и assembly enforcement. Его точная матрица заменяет предварительные формулировки `limited contracts` в Technical Development Baseline.
 
