@@ -1,0 +1,12 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <TargetFramework>netstandard2.1</TargetFramework>
+    <AssemblyName>Odyssey.Domain</AssemblyName>
+    <RootNamespace>Odyssey.Domain</RootNamespace>
+    <EnableDefaultCompileItems>false</EnableDefaultCompileItems>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <Compile Include="..\..\Packages\com.odyssey.domain\Runtime\**\*.cs" />
+  </ItemGroup>
+</Project>

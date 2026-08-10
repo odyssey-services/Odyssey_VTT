@@ -1,0 +1,13 @@
+{
+  "name": "com.odyssey.networking",
+  "version": "0.1.0",
+  "displayName": "Odyssey Networking",
+  "description": "Odyssey VTT Networking module skeleton.",
+  "unity": "6000.4",
+  "license": "UNLICENSED",
+  "dependencies": {
+    "com.odyssey.domain": "0.1.0",
+    "com.odyssey.content": "0.1.0",
+    "com.odyssey.application": "0.1.0"
+  }
+}

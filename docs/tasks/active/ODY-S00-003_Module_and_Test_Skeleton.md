@@ -1,6 +1,6 @@
 # ODY-S00-003 — Module and Test Skeleton
 
-**Status:** Blocked  
+**Status:** In Review  
 **Roadmap stage / slice:** SLICE-00  
 **Owner:** Codex  
 **Requested by:** Product owner  
@@ -8,7 +8,7 @@
 **Pull request:** Not opened  
 **ExecPlan:** `docs/plans/active/ODY-S00-000_SLICE_00_Technical_Skeleton.md`  
 **Created:** 2026-08-10  
-**Last updated:** 2026-08-10 15:41 UTC
+**Last updated:** 2026-08-10 16:23 UTC
 
 ## 1. Goal
 
@@ -298,10 +298,10 @@ Unity batchmode compile/EditMode/PlayMode validation is required if ADR-006 or t
 
 | Dependency | Version / source | Purpose | License | Approved by |
 |---|---|---|---|---|
-| .NET 10 LTS SDK | Exact installed stable SDK version from preflight / Microsoft | Pure .NET test host and pinned SDK selection through `global.json` | Microsoft .NET license terms | ADR-006 and product owner ODY-S00-003 direction |
-| Microsoft.NET.Test.Sdk | Exact stable NuGet version selected during implementation / nuget.org | .NET test execution | MIT | ADR-006 and product owner ODY-S00-003 direction |
-| NUnit | Exact stable NuGet version selected during implementation / nuget.org | Pure .NET test framework | MIT | ADR-006 and product owner ODY-S00-003 direction |
-| NUnit3TestAdapter | Exact stable NuGet version selected during implementation / nuget.org | NUnit discovery/execution in .NET test host | MIT | ADR-006 and product owner ODY-S00-003 direction |
+| .NET 10 LTS SDK | `10.0.302` / Microsoft installed SDK | Pure .NET test host and pinned SDK selection through `global.json` | Microsoft .NET license terms | ADR-006 and product owner ODY-S00-003 direction |
+| Microsoft.NET.Test.Sdk | `18.8.1` / NuGet Gallery `https://www.nuget.org/packages/Microsoft.NET.Test.Sdk` | .NET test execution | MIT | ADR-006 and product owner ODY-S00-003 direction |
+| NUnit | `4.6.1` / NuGet Gallery `https://www.nuget.org/packages/NUnit` | Pure .NET test framework | MIT | ADR-006 and product owner ODY-S00-003 direction |
+| NUnit3TestAdapter | `6.2.0` / NuGet Gallery `https://www.nuget.org/packages/NUnit3TestAdapter` | NUnit discovery/execution in .NET test host | MIT | ADR-006 and product owner ODY-S00-003 direction |
 
 Do not add production or development dependencies beyond those already approved by ADR-006 and the Technical Development Baseline. Do not add a coverage collector unless a real coverage gate is implemented in this task. Do not add a mocking framework. Do not create `Directory.Packages.props` unless central package version management is explicitly selected and justified in task evidence.
 
@@ -334,27 +334,34 @@ Do not add production or development dependencies beyond those already approved 
 
 ## 16. Definition of Done
 
-- [ ] Goal is achieved without unapproved scope expansion.
-- [ ] All acceptance criteria are satisfied.
-- [ ] Required automated tests pass.
-- [ ] Required manual checks are completed.
-- [ ] Required commands and their real results are recorded.
-- [ ] Architecture and dependency rules remain valid.
-- [ ] Security, privacy, redaction, and audience rules are verified where applicable.
-- [ ] Compatibility, migration, rollback, and versioning obligations are complete where applicable.
-- [ ] No unapproved dependency, tool, GitHub Action, or license was introduced.
-- [ ] Documentation is updated only where materially required.
-- [ ] Codex/developer performed a self-review against this task and `AGENTS.md`.
+- [x] Goal is achieved without unapproved scope expansion.
+- [x] All acceptance criteria are satisfied.
+- [x] Required automated tests pass.
+- [x] Required manual checks are completed.
+- [x] Required commands and their real results are recorded.
+- [x] Architecture and dependency rules remain valid.
+- [x] Security, privacy, redaction, and audience rules are verified where applicable.
+- [x] Compatibility, migration, rollback, and versioning obligations are complete where applicable.
+- [x] No unapproved dependency, tool, GitHub Action, or license was introduced.
+- [x] Documentation is updated only where materially required.
+- [x] Codex/developer performed a self-review against this task and `AGENTS.md`.
 - [ ] Pull request explains changes, evidence, limitations, and follow-up work.
 - [ ] Product owner or authorized reviewer completes the required review; Codex does not merge into `main`.
 
 ## 17. Completion evidence
 
-Fill this section with real results before moving the task to `In Review`.
+ODY-S00-003 implementation is complete and ready for owner review.
 
 ### Changed files / areas
 
-- Not started. This contract only activates the task as Ready.
+- `global.json` pins .NET SDK `10.0.302` with `latestPatch` roll-forward and prerelease disabled.
+- `Directory.Build.props` defines shared .NET build settings needed by the skeleton.
+- `Packages/com.odyssey.domain/**`, `Packages/com.odyssey.rules/**`, `Packages/com.odyssey.content/**`, `Packages/com.odyssey.application/**`, `Packages/com.odyssey.persistence/**`, and `Packages/com.odyssey.networking/**` create embedded package metadata, runtime `.asmdef`, Unity `.meta`, and internal marker source.
+- `Assets/Odyssey/Client/Runtime/**` and `Assets/Odyssey/Client/Editor/**` create Unity Client runtime/editor assembly boundaries with internal markers.
+- `Assets/Odyssey/Client/Tests/EditMode/**` and `Assets/Odyssey/Client/Tests/PlayMode/**` create Unity test-only assemblies and smoke tests.
+- `DotNet/Odyssey.Core.sln`, `DotNet/Projects/**`, and `DotNet/Tests/**` create the four pure .NET bridge projects and four .NET test projects.
+- `scripts/restore.ps1`, `scripts/verify-format.ps1`, `scripts/verify-test-structure.ps1`, `scripts/test-fast.ps1`, `scripts/test-unity.ps1`, and `scripts/verify-repository.ps1` create real repository entry checks.
+- `.gitignore`, `scripts/check-repository-policy.ps1`, `Packages/packages-lock.json`, `README.md`, parent task, backlog, and ExecPlan are updated for the new skeleton/status.
 
 ### Validation results
 
@@ -366,33 +373,60 @@ Fill this section with real results before moving the task to `In Review`.
 | `git lfs version` | Passed | `git-lfs/3.7.1 (GitHub; windows amd64; go 1.25.1; git b84b3384)`. |
 | PowerShell version | Passed | `5.1.26100.8972`. |
 | Unity version / changeset check | Passed | `ProjectSettings/ProjectVersion.txt` records `6000.4.0f1 (8cf496087c8f)`. |
+| `where.exe dotnet` after owner SDK install | Passed | `C:\Program Files\dotnet\dotnet.exe`. |
+| `dotnet --list-sdks` after owner SDK install | Passed | Installed SDKs include `9.0.308` and `10.0.302`. |
+| `dotnet --version` after owner SDK install | Passed | Selected SDK is `10.0.302`. |
+| `dotnet --info` after owner SDK install | Passed | SDK `10.0.302`, x64, host/runtime `10.0.10`; no `global.json` exists yet before implementation. |
+| `dotnet --version` after `global.json` | Passed | Selected SDK remains `10.0.302`. |
+| Sandboxed `.\scripts\restore.ps1` | Failed / environment | Failed on denied access to `C:\Users\alexx\AppData\Roaming\NuGet\NuGet.Config`; rerun with approved escalation passed. |
+| Sandboxed `.\scripts\verify-format.ps1` | Failed / environment | `dotnet format` restore failed under sandboxed NuGet access; rerun with approved escalation passed. |
+| `.\scripts\restore.ps1` | Passed | Escalated rerun: all projects up-to-date for restore. |
+| `.\scripts\verify-format.ps1` | Passed | `FORMAT-001 PASS repository text formatting checks passed`. |
+| `.\scripts\verify-test-structure.ps1` | Passed | `TST-ARCH-001 PASS valid ADR-001 graph passes`; `TST-ARCH-002 PASS invalid dependency fixture failed with exit code 1`. |
+| `.\scripts\test-fast.ps1` | Passed | Guard passed; restore passed; build completed with `0` warnings and `0` errors; .NET tests passed `4/4`, failed `0`, skipped `0`. |
+| `.\scripts\test-unity.ps1` | Passed | Unity batch compile exit `0`; EditMode exit `0`, `total=1 passed=1 failed=0 skipped=0`; PlayMode exit `0`, `total=1 passed=1 failed=0 skipped=0`. Logs/results under `Logs/ODY-S00-003/`. |
+| `.\scripts\verify-repository.ps1` | Passed | Repository policy passed; architecture guard passed; SDK `10.0.302` check passed. |
+| `.\scripts\check-repository-policy.ps1` | Passed | `REPO-POLICY-001` through `REPO-POLICY-004` PASS. |
+| `dotnet build DotNet/Odyssey.Core.sln` | Passed | Build completed with `0` warnings and `0` errors. |
+| `dotnet test DotNet/Odyssey.Core.sln` | Passed | Four .NET test projects ran one test each; total passed `4`, failed `0`, skipped `0`. |
+| `git diff --check` | Passed | Exit code `0`; no whitespace errors after reverting unintended Unity `ProjectSettings.asset` reserialization. |
+| Source inventory checks | Passed | No production source under `DotNet/Projects` outside generated `bin/obj`; only four bridge projects exist; no Persistence/Networking bridge projects; no Core `UnityEngine` references. |
 
 ### Acceptance result
 
 | Criterion | Status | Evidence |
 |---|---|---|
-| AC-1 through AC-9 | Deferred | Must be proven during ODY-S00-003 implementation before review. |
+| AC-1 | Passed | Six embedded production packages exist with `package.json`, runtime `.asmdef`, `.meta`, and internal marker source. |
+| AC-2 | Passed | `verify-test-structure.ps1` validates package, `.asmdef`, and `.csproj` graphs against ADR-001, including no production-to-test references. |
+| AC-3 | Passed | Unity Client runtime/editor asmdefs exist; runtime assembly name is `Odyssey.Unity.Client`; editor assembly is Editor-only. |
+| AC-4 | Passed | `DotNet/Odyssey.Core.sln` contains only Domain/Rules/Content/Application bridge projects compiling source from package `Runtime/**/*.cs`. |
+| AC-5 | Passed | Four .NET test projects and Unity EditMode/PlayMode test-only assemblies exist; Unity test asmdefs include `TestAssemblies`. |
+| AC-6 | Passed | Architecture guard detects invalid dependency fixture with non-zero exit, cycles, forbidden edges, dependency parity, orphan/duplicate source, production-to-test, and Core UnityEngine references. |
+| AC-7 | Passed | Repository scripts run real checks and failed during development on real defects/sandbox blockers before final pass. |
+| AC-8 | Passed | No gameplay/domain behavior, persistence/network implementation, runtime composition, serialization contracts, GitHub Actions, Player build automation, or unrelated Unity/package/version changes were introduced. |
+| AC-9 | Passed | Required validation commands are recorded with real pass/fail evidence. |
 
 ### Build and artifact evidence
 
 - Build identity: Not created.
 - Artifact path / name: None.
 - Checksums: None.
-- Test or quality report: Not created.
+- Test or quality report: `Logs/ODY-S00-003/editmode-results.xml`, `Logs/ODY-S00-003/playmode-results.xml`, and Unity logs under `Logs/ODY-S00-003/`.
 
 ### Known limitations
 
-- No module/test skeleton files have been created yet. The task is blocked before `global.json` and `DotNet/Odyssey.Core.sln` creation because the required stable .NET 10 SDK is absent.
+- Unity result/log files live under ignored `Logs/ODY-S00-003/` and are recorded as local evidence, not tracked artifacts.
+- Windows Player build, IL2CPP smoke, BuildIdentity, GitHub Actions, serialization/AOT, runtime composition, gameplay, persistence implementation, and networking implementation remain out of scope.
 
 ### Follow-up tasks
 
-- Install the approved stable .NET 10 LTS SDK, then resume ODY-S00-003 preflight on `feat/ody-s00-003-module-test-skeleton`.
+- ODY-S00-004 remains Draft and must not be activated until owner review/merge of ODY-S00-003.
 
 ### Self-review summary
 
-- Scope review: Contract limits work to module/test skeleton and architecture guard.
-- Architecture review: ADR-001 and ADR-006 are the controlling authorities; no new architecture rule is introduced.
-- Test review: Required future checks are listed with no success claimed.
+- Scope review: Diff is limited to module/test skeleton, scripts, package lock, narrow `.gitignore` exceptions, and status/evidence docs.
+- Architecture review: ADR-001 dependency graph is encoded in package, `.asmdef`, `.csproj`, and automated guard checks; no new architecture rule is introduced.
+- Test review: .NET, architecture, Unity EditMode, and Unity PlayMode checks all run with nonzero test counts; zero-test success is not claimed.
 - Security/privacy review: Contract excludes private docs, secrets, local handoffs, and hidden campaign/product content.
 - Documentation/version review: No ADR, baseline, Unity package, or version amendment is authorized by this task.
 
@@ -400,12 +434,13 @@ Fill this section with real results before moving the task to `In Review`.
 
 ### Blockers
 
-- Stable .NET 10 LTS SDK is absent on this machine. Smallest safe next step: install the approved stable .NET 10 SDK, then rerun `dotnet --info` and `dotnet --list-sdks`.
+- None currently. Initial stable .NET 10 SDK blocker was resolved by owner-installed SDK `10.0.302`.
 
 ### Decisions made during execution
 
 - 2026-08-10 — Activate ODY-S00-003 only as `Ready` during ODY-S00-002 post-merge closure; do not begin implementation until the closure PR is merged — Authority / approval: product owner instruction.
 - 2026-08-10 — ODY-S00-003 preflight must stop and set task status to Blocked when stable .NET 10 SDK is absent; do not install SDK or switch major versions automatically — Authority / approval: product owner instruction.
+- 2026-08-10 — Owner resolved the .NET 10 blocker by installing stable .NET SDK `10.0.302` x64; resume ODY-S00-003 on existing branch without rewriting blocked evidence — Authority / approval: product owner instruction.
 
 ### Approved task changes
 

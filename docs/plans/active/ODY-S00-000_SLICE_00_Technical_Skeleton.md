@@ -87,12 +87,12 @@ Child task: `ODY-S00-002`.
 
 Child task: `ODY-S00-003`.
 
-- [ ] Embedded packages and exact `.asmdef` graph exist.
-- [ ] Pure .NET solution compiles the same source files under `netstandard2.1` bridges.
-- [ ] Unit, Domain, Contracts, Architecture, EditMode and PlayMode test assemblies exist only when meaningful.
-- [ ] Forbidden dependency test fails against an intentional fixture and passes against production graph.
-- [ ] Canonical restore/format/test scripts exist.
-- Evidence: source inventory parity, `dotnet` build/test, Unity compile/EditMode/PlayMode smoke.
+- [x] Embedded packages and exact `.asmdef` graph exist.
+- [x] Pure .NET solution compiles the same source files under `netstandard2.1` bridges.
+- [x] Unit, Domain, Contracts, Architecture, EditMode and PlayMode test assemblies exist only when meaningful.
+- [x] Forbidden dependency test fails against an intentional fixture and passes against production graph.
+- [x] Canonical restore/format/test scripts exist.
+- Evidence: source inventory parity, `dotnet` build/test, Unity compile/EditMode/PlayMode smoke, repository policy, and architecture guard results recorded in `docs/tasks/active/ODY-S00-003_Module_and_Test_Skeleton.md`.
 
 ### M3 — Foundational contracts and runtime shell are deterministic and safe
 
@@ -155,6 +155,8 @@ Child task: `ODY-S00-010`.
 - 2026-08-10 14:21 UTC — Owner merged PR #4, `ODY-S00-002 — Establish Unity 6000.4 project foundation`, into `main` with GitHub merge-commit method as `70e7d49e217d4aecb7a2e873d31787d26001f47f`. ODY-S00-002 is Done; ODY-S00-003 is activated as Ready only. Implementation of ODY-S00-003 waits for the post-merge closure PR to be owner-reviewed and merged.
 - 2026-08-10 15:37 UTC — Owner merged PR #5, `ODY-S00-002 — Complete Unity foundation and activate ODY-S00-003`, into `main` with GitHub merge-commit method as `16ce536b7649fbbf617008b946b6ec33a1dd3a12`. Created branch `feat/ody-s00-003-module-test-skeleton` and began ODY-S00-003 preflight.
 - 2026-08-10 15:41 UTC — ODY-S00-003 preflight found only .NET SDK `9.0.308`; required stable .NET 10 LTS SDK is absent. Per owner instruction, implementation stopped before creating `global.json`, `DotNet/Odyssey.Core.sln`, modules, tests, or scripts. ODY-S00-003 is Blocked.
+- 2026-08-10 15:58 UTC — Owner resolved the .NET 10 blocker by installing stable .NET SDK `10.0.302` x64. Repeated preflight selected SDK `10.0.302`, host/runtime `10.0.10`, and Unity baseline remained `6000.4.0f1 (8cf496087c8f)`. ODY-S00-003 resumed as In Progress on `feat/ody-s00-003-module-test-skeleton`.
+- 2026-08-10 16:23 UTC — ODY-S00-003 implementation completed on `feat/ody-s00-003-module-test-skeleton`: six embedded Unity packages, Unity Client assembly boundaries, `DotNet/Odyssey.Core.sln`, four pure .NET bridge projects, four .NET test projects, Unity EditMode/PlayMode smoke tests, and real repository validation scripts now exist. Validation passed for repository policy, format, architecture guard including negative fixture, .NET restore/build/test, Unity batch compile, Unity EditMode, Unity PlayMode, and `git diff --check`; ODY-S00-003 is In Review and ODY-S00-004 remains Draft.
 
 ## 7. Decisions
 
@@ -193,6 +195,7 @@ Post-merge limitation:
 - ODY-S00-002 preflight evidence: required Unity `6000.3.20f1 (c9ba695d4f07)` was not installed; by owner decision and accepted baseline amendment, Unity `6000.4.0f1 (8cf496087c8f)` is the repository Unity baseline for ODY-S00-002.
 - Repository import evidence: the cleaned Unity `6000.4.0f1 (8cf496087c8f)` HDRP `17.4.0` foundation is copied into `Assets/`, `Packages/`, and `ProjectSettings/` in the authoritative repository and validates with Unity batchmode ExitCode 0.
 - Owner merge evidence: PR #4 was merged into `main` on `2026-08-10T16:21:33+02:00` as merge commit `70e7d49e217d4aecb7a2e873d31787d26001f47f` using the GitHub merge-commit method.
+- ODY-S00-003 evidence: after owner-installed .NET SDK `10.0.302`, `global.json` selects `10.0.302`; `.\scripts\restore.ps1`, `.\scripts\verify-format.ps1`, `.\scripts\verify-test-structure.ps1`, `.\scripts\test-fast.ps1`, `.\scripts\test-unity.ps1`, `.\scripts\verify-repository.ps1`, `.\scripts\check-repository-policy.ps1`, `dotnet build DotNet/Odyssey.Core.sln`, `dotnet test DotNet/Odyssey.Core.sln`, and `git diff --check` passed. Unity batch compile, EditMode, and PlayMode each returned exit code `0`; EditMode and PlayMode each ran `1` test with `1` passed, `0` failed, `0` skipped.
 
 Record real commands, outputs and artifact paths here as child tasks complete.
 
@@ -208,13 +211,13 @@ Record real commands, outputs and artifact paths here as child tasks complete.
 
 - Repository identity, Private visibility, and PR #1 merge are verified. Exact branch protection/ruleset settings remain an owner-accepted limitation.
 - Unity `6000.4.0f1` is acceptable for local ODY-S00-002 development by owner decision.
-- ODY-S00-002 is Done. ODY-S00-003 is Blocked before implementation because the required stable .NET 10 SDK is absent.
+- ODY-S00-002 is Done. ODY-S00-003 is In Review after owner-installed stable .NET SDK `10.0.302` resolved the preflight blocker and local validation passed.
 - GitHub plan/settings may affect exact branch-protection options; the task must apply the strongest supported equivalent and record any unavailable setting.
 
-The remaining sequencing blocker is installation of the approved stable .NET 10 LTS SDK before creating `global.json` or `DotNet/Odyssey.Core.sln`.
+No current blocker is recorded for ODY-S00-003 implementation.
 
 ## 12. Outcome and follow-up
 
-Current outcome: ODY-S00-001 is Done after owner merge of PR #1. ODY-S00-002 is Done after owner merge of PR #4 and closure PR #5. ODY-S00-003 is Blocked during preflight because .NET SDK `9.0.308` is installed but stable .NET 10 SDK is absent.
+Current outcome: ODY-S00-001 is Done after owner merge of PR #1. ODY-S00-002 is Done after owner merge of PR #4 and closure PR #5. ODY-S00-003 is In Review with local validation complete on .NET SDK `10.0.302`; ODY-S00-004 remains Draft and is not started.
 
-Next action: install the approved stable .NET 10 LTS SDK, then rerun ODY-S00-003 toolchain preflight on `feat/ody-s00-003-module-test-skeleton`. Do not merge and do not start ODY-S00-004.
+Next action: open a draft PR for ODY-S00-003 owner review. Do not merge and do not start ODY-S00-004.

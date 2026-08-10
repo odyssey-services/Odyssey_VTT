@@ -46,6 +46,14 @@ artifacts/
 *.opendb
 *.VC.db
 
+# Repository-owned .NET bridge/test projects
+!DotNet/
+!DotNet/Odyssey.Core.sln
+!DotNet/Projects/
+!DotNet/Projects/*.csproj
+!DotNet/Tests/
+!DotNet/Tests/**/*.csproj
+
 # Unity crash and diagnostics
 sysinfo.txt
 *.stackdump

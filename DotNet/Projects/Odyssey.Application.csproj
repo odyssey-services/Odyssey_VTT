@@ -1,0 +1,18 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <TargetFramework>netstandard2.1</TargetFramework>
+    <AssemblyName>Odyssey.Application</AssemblyName>
+    <RootNamespace>Odyssey.Application</RootNamespace>
+    <EnableDefaultCompileItems>false</EnableDefaultCompileItems>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="Odyssey.Domain.csproj" />
+    <ProjectReference Include="Odyssey.Rules.csproj" />
+    <ProjectReference Include="Odyssey.Content.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <Compile Include="..\..\Packages\com.odyssey.application\Runtime\**\*.cs" />
+  </ItemGroup>
+</Project>

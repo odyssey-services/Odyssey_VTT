@@ -8,7 +8,7 @@ The private GitHub repository `odyssey-services/Odyssey_VTT` is the single autho
 
 Current stage: `SLICE-00 — Technical Skeleton`.
 
-Repository Foundation and Unity Project Foundation are complete. The active task is `docs/tasks/active/ODY-S00-003_Module_and_Test_Skeleton.md`, currently blocked during toolchain preflight because stable .NET 10 SDK is not installed. This repository state contains the Unity 6000.4/HDRP project foundation but does not yet contain the Core module/test skeleton.
+Repository Foundation and Unity Project Foundation are complete. The active task is `docs/tasks/active/ODY-S00-003_Module_and_Test_Skeleton.md`, currently in review on its task branch. This repository state contains the Unity 6000.4/HDRP project foundation and the proposed Core module/test skeleton.
 
 ## Rights
 

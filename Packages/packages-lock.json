@@ -1,5 +1,58 @@
 {
   "dependencies": {
+    "com.odyssey.application": {
+      "version": "file:com.odyssey.application",
+      "depth": 0,
+      "source": "embedded",
+      "dependencies": {
+        "com.odyssey.domain": "0.1.0",
+        "com.odyssey.rules": "0.1.0",
+        "com.odyssey.content": "0.1.0"
+      }
+    },
+    "com.odyssey.content": {
+      "version": "file:com.odyssey.content",
+      "depth": 0,
+      "source": "embedded",
+      "dependencies": {
+        "com.odyssey.domain": "0.1.0",
+        "com.odyssey.rules": "0.1.0"
+      }
+    },
+    "com.odyssey.domain": {
+      "version": "file:com.odyssey.domain",
+      "depth": 0,
+      "source": "embedded",
+      "dependencies": {}
+    },
+    "com.odyssey.networking": {
+      "version": "file:com.odyssey.networking",
+      "depth": 0,
+      "source": "embedded",
+      "dependencies": {
+        "com.odyssey.domain": "0.1.0",
+        "com.odyssey.content": "0.1.0",
+        "com.odyssey.application": "0.1.0"
+      }
+    },
+    "com.odyssey.persistence": {
+      "version": "file:com.odyssey.persistence",
+      "depth": 0,
+      "source": "embedded",
+      "dependencies": {
+        "com.odyssey.domain": "0.1.0",
+        "com.odyssey.content": "0.1.0",
+        "com.odyssey.application": "0.1.0"
+      }
+    },
+    "com.odyssey.rules": {
+      "version": "file:com.odyssey.rules",
+      "depth": 0,
+      "source": "embedded",
+      "dependencies": {
+        "com.odyssey.domain": "0.1.0"
+      }
+    },
     "com.unity.burst": {
       "version": "1.8.28",
       "depth": 2,

@@ -1,0 +1,24 @@
+{
+  "name": "Odyssey.Unity.Client.Editor",
+  "rootNamespace": "Odyssey.Unity.Client.Editor",
+  "references": [
+    "Odyssey.Unity.Client",
+    "Odyssey.Domain",
+    "Odyssey.Rules",
+    "Odyssey.Content",
+    "Odyssey.Application",
+    "Odyssey.Persistence",
+    "Odyssey.Networking"
+  ],
+  "includePlatforms": [
+    "Editor"
+  ],
+  "excludePlatforms": [],
+  "allowUnsafeCode": false,
+  "overrideReferences": false,
+  "precompiledReferences": [],
+  "autoReferenced": true,
+  "defineConstraints": [],
+  "versionDefines": [],
+  "noEngineReferences": false
+}

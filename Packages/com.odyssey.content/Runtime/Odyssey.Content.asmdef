@@ -1,0 +1,17 @@
+{
+  "name": "Odyssey.Content",
+  "rootNamespace": "Odyssey.Content",
+  "references": [
+    "Odyssey.Domain",
+    "Odyssey.Rules"
+  ],
+  "includePlatforms": [],
+  "excludePlatforms": [],
+  "allowUnsafeCode": false,
+  "overrideReferences": false,
+  "precompiledReferences": [],
+  "autoReferenced": true,
+  "defineConstraints": [],
+  "versionDefines": [],
+  "noEngineReferences": true
+}
