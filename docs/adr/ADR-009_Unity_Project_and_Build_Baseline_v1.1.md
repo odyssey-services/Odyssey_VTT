@@ -143,7 +143,7 @@ Odyssey VTT начинается с нуля и будет в значитель
 Unity Editor: 6000.4.0f1
 Release line: Unity 6.4 Update release / Supported release
 Changeset: 8cf496087c8f
-Release date: 16 July 2026
+Release date: 18 March 2026
 ```
 
 На дату принятия ADR Unity `6000.4.0f1` является Unity 6.4 Update release / Supported release, опубликованным 18 March 2026, с approved changeset `8cf496087c8f`.
