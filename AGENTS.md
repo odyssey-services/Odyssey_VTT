@@ -4,7 +4,7 @@ This file applies to the entire repository. Keep it concise. Detailed architectu
 
 ## 1. Mission
 
-Build Odyssey VTT as a Windows 10/11 x64 application using Unity `6000.3.20f1`, HDRP, UI Toolkit, and the Input System.
+Build Odyssey VTT as a Windows 10/11 x64 application using Unity `6000.4.0f1`, HDRP, UI Toolkit, and the Input System.
 
 Implement only the task that was assigned. Do not expand MVP scope, invent product behavior, or turn an implementation task into an architectural redesign.
 
@@ -15,7 +15,7 @@ Use sources in this order:
 1. Explicit current decision from the product owner in the task.
 2. `ACTIVE_DOCUMENTATION_BASELINE_Odyssey_VTT_*.md`.
 3. Accepted ADR for the technical question.
-4. `TECHNICAL_DEVELOPMENT_BASELINE_Odyssey_VTT_v0.2.md`.
+4. `TECHNICAL_DEVELOPMENT_BASELINE_Odyssey_VTT_v0.3.md`.
 5. Task-specific requirement excerpts and acceptance criteria.
 6. Public subsystem documentation explicitly named by the task.
 7. Product Requirements, MVP Scope, Domain Model, Vision, Roadmap, Test Strategy.
@@ -192,7 +192,7 @@ Follow ADR-010.
 
 Follow ADR-009.
 
-- Required Editor: Unity `6000.3.20f1` (`c9ba695d4f07`).
+- Required Editor: Unity `6000.4.0f1` (`8cf496087c8f`).
 - Target: Windows Standalone x86-64.
 - Render pipeline: HDRP only.
 - Runtime UI: UI Toolkit.

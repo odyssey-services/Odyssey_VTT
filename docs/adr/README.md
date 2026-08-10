@@ -12,5 +12,5 @@ Current accepted ADRs:
 - `ADR-006_Test_Project_Structure_and_Dual_Unity_DotNet_Compilation_v1.0.md`
 - `ADR-007_Versioning_and_Build_Identity_v1.0.md`
 - `ADR-008_Deterministic_Clock_and_RNG_v1.0.md`
-- `ADR-009_Unity_Project_and_Build_Baseline_v1.0.md`
+- `ADR-009_Unity_Project_and_Build_Baseline_v1.1.md`
 - `ADR-010_Logging_Diagnostics_and_Redaction_v1.0.md`
