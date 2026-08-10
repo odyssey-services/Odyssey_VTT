@@ -2,9 +2,9 @@
 
 **Status:** Active
 **Owner:** Codex
-**Branch:** `feat/ody-s00-003-module-test-skeleton`
-**Pull request:** https://github.com/odyssey-services/Odyssey_VTT/pull/6
-**Last updated:** 2026-08-10
+**Branch:** `chore/ody-s00-003-complete`
+**Pull request:** https://github.com/odyssey-services/Odyssey_VTT/pull/7
+**Last updated:** 2026-08-10 19:53 UTC
 
 ## 1. Purpose and user-visible outcome
 
@@ -92,7 +92,7 @@ Child task: `ODY-S00-003`.
 - [x] Unit, Domain, Contracts, Architecture, EditMode and PlayMode test assemblies exist only when meaningful.
 - [x] Forbidden dependency test fails against an intentional fixture and passes against production graph.
 - [x] Canonical restore/format/test scripts exist.
-- Evidence: source inventory parity, `dotnet` build/test, Unity compile/EditMode/PlayMode smoke, repository policy, and architecture guard results recorded in `docs/tasks/active/ODY-S00-003_Module_and_Test_Skeleton.md`.
+- Evidence: source inventory parity, `dotnet` build/test, Unity compile/EditMode/PlayMode smoke, repository policy, architecture guard results, owner-merged PR #6, and merge commit `5e6f5e03ef022c5d7b0e6fef559c2383796d95be` recorded in `docs/tasks/completed/ODY-S00-003_Module_and_Test_Skeleton.md`.
 
 ### M3 — Foundational contracts and runtime shell are deterministic and safe
 
@@ -160,6 +160,9 @@ Child task: `ODY-S00-010`.
 - 2026-08-10 16:33 UTC — Opened Draft PR #6 for ODY-S00-003 owner review: https://github.com/odyssey-services/Odyssey_VTT/pull/6. Do not merge and do not start ODY-S00-004.
 - 2026-08-10 17:25 UTC — Addressed PR #6 owner review corrections: C# language parity is now `LangVersion` `9.0`; production `.asmdef` files are not auto-referenced and remain engine-free; architecture guard validates exact package/asmdef/csproj graphs, catalog metadata, complete valid fixture, and controlled `Odyssey.Domain -> Odyssey.Rules` invalid fixture; repository restore uses root `NuGet.Config` plus ignored local package/cache paths; `test-fast.ps1` exports TRX evidence; `test-unity.ps1` accepts `-UnityEditorPath`/`UNITY_EDITOR_PATH` with exact Unity version validation. ODY-S00-003 remains In Review and ODY-S00-004 remains Draft.
 - 2026-08-10 18:38 UTC — Addressed final PR #6 review corrections: test package versions are centralized in `Directory.Build.props` and referenced by all four test projects; architecture guard validates exactly three approved test `PackageReference` entries, central version property values, internal package versions/dependency version parity, duplicate catalog ownership by `runner|path|check`, and controlled negative fixtures for package version mismatch and duplicate catalog ownership; `test-unity.ps1` verifies the selected Unity executable reports `6000.4.0f1` before opening the project. ODY-S00-003 remains In Review and ODY-S00-004 remains Draft.
+- 2026-08-10 19:10 UTC — Owner merged PR #6, `ODY-S00-003 — Establish module and dual-test skeleton`, into `main` as merge commit `5e6f5e03ef022c5d7b0e6fef559c2383796d95be` using the GitHub merge-commit method. ODY-S00-003 is Done and moved to `docs/tasks/completed/`; ODY-S00-004 is activated as Ready only. Implementation of ODY-S00-004 waits for the post-merge closure PR to be owner-reviewed and merged.
+- 2026-08-10 19:18 UTC — Opened Draft PR #7 for ODY-S00-003 post-merge closure and ODY-S00-004 activation: https://github.com/odyssey-services/Odyssey_VTT/pull/7. Do not merge and do not start ODY-S00-004 implementation.
+- 2026-08-10 19:53 UTC — Refined ODY-S00-004 activation contract in existing Draft PR #7: added future `docs/errors/ERROR_CODES.md` registry requirement, multi-task test catalog validation requirement, full ADR-004 Error shape semantics, explicit ApplicationVersion/RulesetVersion/ContentPackageVersion scope, identity preflight, canonical PowerShell validation commands, and ADR-004/ADR-007 partial-implementation wording. No ODY-S00-004 implementation files were created.
 
 ## 7. Decisions
 
@@ -198,7 +201,7 @@ Post-merge limitation:
 - ODY-S00-002 preflight evidence: required Unity `6000.3.20f1 (c9ba695d4f07)` was not installed; by owner decision and accepted baseline amendment, Unity `6000.4.0f1 (8cf496087c8f)` is the repository Unity baseline for ODY-S00-002.
 - Repository import evidence: the cleaned Unity `6000.4.0f1 (8cf496087c8f)` HDRP `17.4.0` foundation is copied into `Assets/`, `Packages/`, and `ProjectSettings/` in the authoritative repository and validates with Unity batchmode ExitCode 0.
 - Owner merge evidence: PR #4 was merged into `main` on `2026-08-10T16:21:33+02:00` as merge commit `70e7d49e217d4aecb7a2e873d31787d26001f47f` using the GitHub merge-commit method.
-- ODY-S00-003 evidence: after owner-installed .NET SDK `10.0.302`, `global.json` selects stable SDK `10.0.302`; `.\scripts\restore.ps1`, `.\scripts\verify-format.ps1`, `.\scripts\verify-test-structure.ps1`, `.\scripts\test-fast.ps1`, `.\scripts\test-unity.ps1`, `.\scripts\verify-repository.ps1`, `.\scripts\check-repository-policy.ps1`, `dotnet build DotNet/Odyssey.Core.sln --no-restore`, `dotnet test DotNet/Odyssey.Core.sln --no-build --no-restore`, and `git diff --check` passed. Architecture guard validates the normal graph plus controlled negative `Domain -> Rules`, package version mismatch, and duplicate catalog ownership fixtures. The selected Unity executable reports `6000.4.0f1`; Unity batch compile, EditMode, and PlayMode each returned exit code `0`; EditMode and PlayMode each ran `1` test with `1` passed, `0` failed, `0` skipped. `test-fast.ps1` exported four .NET TRX files under `Logs/ODY-S00-003/dotnet/`.
+- ODY-S00-003 evidence: after owner-installed .NET SDK `10.0.302`, `global.json` selects stable SDK `10.0.302`; `.\scripts\restore.ps1`, `.\scripts\verify-format.ps1`, `.\scripts\verify-test-structure.ps1`, `.\scripts\test-fast.ps1`, `.\scripts\test-unity.ps1`, `.\scripts\verify-repository.ps1`, `.\scripts\check-repository-policy.ps1`, `dotnet build DotNet/Odyssey.Core.sln --no-restore`, `dotnet test DotNet/Odyssey.Core.sln --no-build --no-restore`, and `git diff --check` passed. Architecture guard validates the normal graph plus controlled negative `Domain -> Rules`, package version mismatch, and duplicate catalog ownership fixtures. The selected Unity executable reports `6000.4.0f1`; Unity batch compile, EditMode, and PlayMode each returned exit code `0`; EditMode and PlayMode each ran `1` test with `1` passed, `0` failed, `0` skipped. `test-fast.ps1` exported four .NET TRX files under `Logs/ODY-S00-003/dotnet/`. Owner merged PR #6 into `main` as merge commit `5e6f5e03ef022c5d7b0e6fef559c2383796d95be` on `2026-08-10T19:07:16Z`.
 
 Record real commands, outputs and artifact paths here as child tasks complete.
 
@@ -214,13 +217,13 @@ Record real commands, outputs and artifact paths here as child tasks complete.
 
 - Repository identity, Private visibility, and PR #1 merge are verified. Exact branch protection/ruleset settings remain an owner-accepted limitation.
 - Unity `6000.4.0f1` is acceptable for local ODY-S00-002 development by owner decision.
-- ODY-S00-002 is Done. ODY-S00-003 is In Review after owner-installed stable .NET SDK `10.0.302` resolved the preflight blocker and local validation passed.
+- ODY-S00-002 and ODY-S00-003 are Done. ODY-S00-004 is Ready and must not be implemented until its own implementation branch begins after closure review.
 - GitHub plan/settings may affect exact branch-protection options; the task must apply the strongest supported equivalent and record any unavailable setting.
 
-No current blocker is recorded for ODY-S00-003 implementation.
+No current implementation blocker is recorded for ODY-S00-004. Implementation remains gated only by owner merge of closure PR #7.
 
 ## 12. Outcome and follow-up
 
-Current outcome: ODY-S00-001 is Done after owner merge of PR #1. ODY-S00-002 is Done after owner merge of PR #4 and closure PR #5. ODY-S00-003 is In Review with local validation complete on .NET SDK `10.0.302`; ODY-S00-004 remains Draft and is not started.
+Current outcome: ODY-S00-001 is Done after owner merge of PR #1. ODY-S00-002 is Done after owner merge of PR #4 and closure PR #5. ODY-S00-003 is Done after owner merge of PR #6; ODY-S00-004 is Ready and is not started.
 
-Next action: open a draft PR for ODY-S00-003 owner review. Do not merge and do not start ODY-S00-004.
+Next action: owner review of Draft PR #7. Do not merge by Codex and do not start ODY-S00-004 implementation.

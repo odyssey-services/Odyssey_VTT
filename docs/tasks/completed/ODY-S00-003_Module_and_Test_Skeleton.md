@@ -1,6 +1,6 @@
 # ODY-S00-003 — Module and Test Skeleton
 
-**Status:** In Review  
+**Status:** Done  
 **Roadmap stage / slice:** SLICE-00  
 **Owner:** Codex  
 **Requested by:** Product owner  
@@ -8,7 +8,7 @@
 **Pull request:** https://github.com/odyssey-services/Odyssey_VTT/pull/6  
 **ExecPlan:** `docs/plans/active/ODY-S00-000_SLICE_00_Technical_Skeleton.md`  
 **Created:** 2026-08-10  
-**Last updated:** 2026-08-10 16:23 UTC
+**Last updated:** 2026-08-10 19:10 UTC
 
 ## 1. Goal
 
@@ -347,11 +347,19 @@ Do not add production or development dependencies beyond those already approved 
 - [x] Documentation is updated only where materially required.
 - [x] Codex/developer performed a self-review against this task and `AGENTS.md`.
 - [x] Pull request explains changes, evidence, limitations, and follow-up work.
-- [ ] Product owner or authorized reviewer completes the required review; Codex does not merge into `main`.
+- [x] Product owner or authorized reviewer completes the required review; Codex does not merge into `main`.
 
 ## 17. Completion evidence
 
-ODY-S00-003 implementation is complete and ready for owner review.
+ODY-S00-003 implementation was owner-reviewed and merged through PR #6.
+
+### Owner merge evidence
+
+- Pull request: https://github.com/odyssey-services/Odyssey_VTT/pull/6
+- Merge commit: `5e6f5e03ef022c5d7b0e6fef559c2383796d95be`
+- Merge timestamp: `2026-08-10T19:07:16Z` (`2026-08-10T21:07:15+02:00` commit timestamp)
+- Merge method: GitHub merge commit; verified two parents `16ce536b7649fbbf617008b946b6ec33a1dd3a12` and `9760db0ef0f7d6efa823ffd8ccdebcb898e3e716`
+- Resulting `main` HEAD after fetch/pull: `5e6f5e03ef022c5d7b0e6fef559c2383796d95be`
 
 ### Changed files / areas
 
@@ -423,7 +431,7 @@ ODY-S00-003 implementation is complete and ready for owner review.
 
 ### Follow-up tasks
 
-- ODY-S00-004 remains Draft and must not be activated until owner review/merge of ODY-S00-003.
+- ODY-S00-004 is activated as `Ready` by the ODY-S00-003 post-merge closure task. Implementation must not begin until its own feature branch and PR scope are explicitly started.
 
 ### Self-review summary
 
