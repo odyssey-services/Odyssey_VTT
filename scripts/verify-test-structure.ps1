@@ -36,6 +36,21 @@ $allowed = @{
 $coreBridgeModules = @('Odyssey.Domain', 'Odyssey.Rules', 'Odyssey.Content', 'Odyssey.Application')
 $requiredTestCaseIds = @('TC-ARCH-001', 'TC-ARCH-002', 'TC-DOTNET-001', 'TC-UNITY-ASM-001', 'TC-UNITY-TEST-001', 'TC-REPO-001')
 $testProjects = @('Odyssey.Tests.Unit', 'Odyssey.Tests.Domain', 'Odyssey.Tests.Contracts', 'Odyssey.Tests.Architecture')
+$baselinePackageVersion = '0.1.0'
+$testPackageVersions = [ordered]@{
+    'Microsoft.NET.Test.Sdk' = @{
+        Property = 'MicrosoftNETTestSdkVersion'
+        Version = '18.8.1'
+    }
+    'NUnit' = @{
+        Property = 'NUnitVersion'
+        Version = '4.6.1'
+    }
+    'NUnit3TestAdapter' = @{
+        Property = 'NUnit3TestAdapterVersion'
+        Version = '6.2.0'
+    }
+}
 
 function Get-RelativePath([string] $Path) {
     $rootFull = [System.IO.Path]::GetFullPath($RootPath).TrimEnd('\') + '\'
@@ -94,6 +109,10 @@ function Assert-SetEquals([System.Collections.Generic.List[string]] $Errors, [st
     }
 }
 
+function Test-StableExactVersion([string] $Version) {
+    return $Version -match '^[0-9]+(\.[0-9]+){2}$'
+}
+
 function Get-PackageReferences([string] $AssemblyName) {
     $packageName = $modulePackages[$AssemblyName]
     $json = Read-JsonFile (Join-Path $RootPath "Packages/$packageName/package.json")
@@ -101,14 +120,28 @@ function Get-PackageReferences([string] $AssemblyName) {
     if ($json.name -ne $packageName) {
         throw "Package name mismatch in Packages/$packageName/package.json: expected $packageName, got $($json.name)."
     }
+    if ([string] $json.version -ne $baselinePackageVersion -or -not (Test-StableExactVersion ([string] $json.version))) {
+        throw "Package version mismatch in Packages/$packageName/package.json: expected stable exact $baselinePackageVersion, got $($json.version)."
+    }
 
     $references = @()
     if (Test-JsonProperty $json 'dependencies') {
         $dependencyProperties = @($json.dependencies.PSObject.Properties)
-        foreach ($dependency in @($dependencyProperties | ForEach-Object { $_.Name } | Where-Object { -not [string]::IsNullOrWhiteSpace($_) })) {
+        foreach ($dependencyProperty in $dependencyProperties) {
+            $dependency = $dependencyProperty.Name
+            if ([string]::IsNullOrWhiteSpace($dependency)) {
+                continue
+            }
             $moduleName = ($modulePackages.GetEnumerator() | Where-Object { $_.Value -eq $dependency }).Key
             if (-not $moduleName) {
                 throw "Unexpected package dependency '$dependency' in Packages/$packageName/package.json."
+            }
+            $dependencyVersion = [string] $dependencyProperty.Value
+            $targetPackageName = $modulePackages[$moduleName]
+            $targetPackage = Read-JsonFile (Join-Path $RootPath "Packages/$targetPackageName/package.json")
+            $targetVersion = [string] $targetPackage.version
+            if ($dependencyVersion -ne $targetVersion -or -not (Test-StableExactVersion $dependencyVersion)) {
+                throw "Package dependency version mismatch in Packages/$packageName/package.json: $dependency=$dependencyVersion, target $targetPackageName version=$targetVersion."
             }
             $references += $moduleName
         }
@@ -253,6 +286,24 @@ function Test-BridgeProject([System.Collections.Generic.List[string]] $Errors, [
     }
 }
 
+function Test-CentralPackageVersions([System.Collections.Generic.List[string]] $Errors) {
+    $propsPath = Join-Path $RootPath 'Directory.Build.props'
+    try {
+        $xml = Read-XmlFile $propsPath
+        foreach ($packageName in $testPackageVersions.Keys) {
+            $propertyName = $testPackageVersions[$packageName].Property
+            $expectedVersion = $testPackageVersions[$packageName].Version
+            $propertyValue = [string] $xml.Project.PropertyGroup.$propertyName
+            if ($propertyValue -ne $expectedVersion) {
+                $Errors.Add("Directory.Build.props $propertyName must be $expectedVersion, got $propertyValue.")
+            }
+        }
+    }
+    catch {
+        $Errors.Add($_.Exception.Message)
+    }
+}
+
 function Test-TestCatalog([System.Collections.Generic.List[string]] $Errors) {
     $catalogPath = Join-Path $RootPath 'Tests/Metadata/test-catalog.json'
     try {
@@ -263,7 +314,7 @@ function Test-TestCatalog([System.Collections.Generic.List[string]] $Errors) {
         }
 
         $ids = New-Object System.Collections.Generic.HashSet[string]
-        $paths = New-Object System.Collections.Generic.HashSet[string]
+        $ownershipKeys = New-Object System.Collections.Generic.HashSet[string]
         foreach ($case in @($json.testCases)) {
             foreach ($property in @('testCaseId', 'taskId', 'authority', 'runner', 'path', 'check')) {
                 if (-not (Test-JsonProperty $case $property) -or [string]::IsNullOrWhiteSpace($case.$property)) {
@@ -285,8 +336,9 @@ function Test-TestCatalog([System.Collections.Generic.List[string]] $Errors) {
             if (-not (Test-Path -LiteralPath $casePath)) {
                 $Errors.Add("Test catalog path does not exist for $($case.testCaseId): $($case.path).")
             }
-            if (-not $paths.Add("$($case.testCaseId)|$($case.path)|$($case.check)")) {
-                $Errors.Add("Duplicate test catalog ownership entry for $($case.testCaseId).")
+            $ownershipKey = "$($case.runner)|$($case.path)|$($case.check)"
+            if (-not $ownershipKeys.Add($ownershipKey)) {
+                $Errors.Add("Duplicate test catalog ownership entry for runner/path/check: $ownershipKey.")
             }
         }
 
@@ -306,6 +358,8 @@ function Test-RepositoryStructure {
     $asmdefGraph = @{}
     $packageGraph = @{}
     $csprojGraph = @{}
+
+    Test-CentralPackageVersions $errors
 
     foreach ($requiredPath in @('DotNet/Odyssey.Core.sln', 'NuGet.Config', 'Tests/Metadata/test-catalog.json')) {
         $path = Join-Path $RootPath $requiredPath
@@ -380,10 +434,26 @@ function Test-RepositoryStructure {
             if ($xml.Project.PropertyGroup.TargetFramework -ne 'net10.0') {
                 $errors.Add("$testProject target framework must be net10.0.")
             }
-            foreach ($packageReference in @($xml.SelectNodes('//PackageReference'))) {
-                $version = $packageReference.Version
-                if ([string]::IsNullOrWhiteSpace($version) -or $version -match '[\*\[\]\(\),]' -or $version -match '-') {
-                    $errors.Add("$testProject has non-exact or prerelease package version for $($packageReference.Include).")
+
+            $packageReferences = @($xml.SelectNodes('//PackageReference'))
+            $actualPackages = @($packageReferences | ForEach-Object { $_.Include })
+            Assert-SetEquals $errors "$testProject PackageReference" $actualPackages @($testPackageVersions.Keys)
+            if ($packageReferences.Count -ne 3) {
+                $errors.Add("$testProject must have exactly three PackageReference entries.")
+            }
+
+            foreach ($packageReference in $packageReferences) {
+                $packageName = [string] $packageReference.Include
+                if (-not $testPackageVersions.Contains($packageName)) {
+                    $errors.Add("$testProject has unapproved PackageReference $packageName.")
+                    continue
+                }
+
+                $propertyName = $testPackageVersions[$packageName].Property
+                $expectedReference = '$(' + $propertyName + ')'
+                $version = [string] $packageReference.Version
+                if ($version -ne $expectedReference) {
+                    $errors.Add("$testProject PackageReference $packageName must use Version=`"$expectedReference`", got `"$version`".")
                 }
             }
         }
@@ -551,9 +621,9 @@ function New-TestProjectFixture([string] $FixtureRoot, [string] $ProjectName) {
   </PropertyGroup>
 
   <ItemGroup>
-    <PackageReference Include="Microsoft.NET.Test.Sdk" Version="18.8.1" />
-    <PackageReference Include="NUnit" Version="4.6.1" />
-    <PackageReference Include="NUnit3TestAdapter" Version="6.2.0" />
+    <PackageReference Include="Microsoft.NET.Test.Sdk" Version="`$(MicrosoftNETTestSdkVersion)" />
+    <PackageReference Include="NUnit" Version="`$(NUnitVersion)" />
+    <PackageReference Include="NUnit3TestAdapter" Version="`$(NUnit3TestAdapterVersion)" />
   </ItemGroup>
 </Project>
 "@
@@ -567,6 +637,22 @@ function New-SyntheticFixture([string] $FixtureRoot, [bool] $InvalidDomainDepend
     foreach ($module in $coreBridgeModules) {
         New-FixtureCsproj $FixtureRoot $module $InvalidDomainDependency
     }
+
+    Write-Utf8NoBom (Join-Path $FixtureRoot 'Directory.Build.props') @"
+<Project>
+  <PropertyGroup>
+    <LangVersion>9.0</LangVersion>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>disable</ImplicitUsings>
+    <Deterministic>true</Deterministic>
+    <ContinuousIntegrationBuild>true</ContinuousIntegrationBuild>
+    <TreatWarningsAsErrors>true</TreatWarningsAsErrors>
+    <MicrosoftNETTestSdkVersion>18.8.1</MicrosoftNETTestSdkVersion>
+    <NUnitVersion>4.6.1</NUnitVersion>
+    <NUnit3TestAdapterVersion>6.2.0</NUnit3TestAdapterVersion>
+  </PropertyGroup>
+</Project>
+"@
 
     Write-Utf8NoBom (Join-Path $FixtureRoot 'DotNet/Odyssey.Core.sln') "`n"
     Write-Utf8NoBom (Join-Path $FixtureRoot 'NuGet.Config') @"
@@ -658,6 +744,33 @@ function New-SyntheticFixture([string] $FixtureRoot, [bool] $InvalidDomainDepend
     Write-Utf8NoBom (Join-Path $FixtureRoot 'scripts/verify-repository.ps1') "`n"
 }
 
+function Set-FixturePackageVersionMismatch([string] $FixtureRoot) {
+    $packagePath = Join-Path $FixtureRoot 'Packages/com.odyssey.rules/package.json'
+    $json = Read-JsonFile $packagePath
+    $json.dependencies.'com.odyssey.domain' = '0.2.0'
+    Write-Utf8NoBom $packagePath ($json | ConvertTo-Json -Depth 10)
+}
+
+function Set-FixtureDuplicateCatalogOwnership([string] $FixtureRoot) {
+    $catalogPath = Join-Path $FixtureRoot 'Tests/Metadata/test-catalog.json'
+    $json = Read-JsonFile $catalogPath
+    $json.testCases[1].check = $json.testCases[0].check
+    Write-Utf8NoBom $catalogPath ($json | ConvertTo-Json -Depth 10)
+}
+
+function Invoke-GuardFixture([string] $FixtureRoot) {
+    $previousErrorActionPreference = $ErrorActionPreference
+    $ErrorActionPreference = 'Continue'
+    $output = & powershell -NoProfile -ExecutionPolicy Bypass -File $PSCommandPath -RootPath $FixtureRoot -SkipNegativeFixture 2>&1
+    $exitCode = $LASTEXITCODE
+    $ErrorActionPreference = $previousErrorActionPreference
+    return @{
+        ExitCode = $exitCode
+        Output = @($output)
+        Text = ($output -join "`n")
+    }
+}
+
 $errors = Test-RepositoryStructure
 if ($errors.Count -gt 0) {
     Write-Host 'TC-ARCH-001 FAIL valid ADR-001 graph check failed'
@@ -671,32 +784,45 @@ if (-not $SkipNegativeFixture) {
     $fixtureRoot = Join-Path ([System.IO.Path]::GetTempPath()) ("odyssey-graph-fixture-" + [guid]::NewGuid().ToString('N'))
     try {
         New-SyntheticFixture $fixtureRoot $false
-        $previousErrorActionPreference = $ErrorActionPreference
-        $ErrorActionPreference = 'Continue'
-        $validOutput = & powershell -NoProfile -ExecutionPolicy Bypass -File $PSCommandPath -RootPath $fixtureRoot -SkipNegativeFixture 2>&1
-        $validExitCode = $LASTEXITCODE
-        $ErrorActionPreference = $previousErrorActionPreference
-        if ($validExitCode -ne 0) {
-            Write-Host "TC-ARCH-002 FAIL valid synthetic fixture failed with exit code $validExitCode"
-            $validOutput | ForEach-Object { Write-Host $_ }
+        $validResult = Invoke-GuardFixture $fixtureRoot
+        if ($validResult.ExitCode -ne 0) {
+            Write-Host "TC-ARCH-002 FAIL valid synthetic fixture failed with exit code $($validResult.ExitCode)"
+            $validResult.Output | ForEach-Object { Write-Host $_ }
             exit 1
         }
 
         Remove-Item -LiteralPath $fixtureRoot -Recurse -Force
         New-SyntheticFixture $fixtureRoot $true
-        $previousErrorActionPreference = $ErrorActionPreference
-        $ErrorActionPreference = 'Continue'
-        $invalidOutput = & powershell -NoProfile -ExecutionPolicy Bypass -File $PSCommandPath -RootPath $fixtureRoot -SkipNegativeFixture 2>&1
-        $invalidExitCode = $LASTEXITCODE
-        $ErrorActionPreference = $previousErrorActionPreference
-        $expectedDiagnostic = ($invalidOutput -join "`n") -match 'Odyssey\.Domain.*(dependencies mismatch|Cycle detected)|Cycle detected.*Odyssey\.Domain'
-        if ($invalidExitCode -eq 0 -or -not $expectedDiagnostic) {
+        $invalidResult = Invoke-GuardFixture $fixtureRoot
+        $expectedDiagnostic = $invalidResult.Text -match 'Odyssey\.Domain.*(dependencies mismatch|Cycle detected)|Cycle detected.*Odyssey\.Domain'
+        if ($invalidResult.ExitCode -eq 0 -or -not $expectedDiagnostic) {
             Write-Host "TC-ARCH-002 FAIL controlled invalid fixture did not fail for expected Domain dependency reason"
-            $invalidOutput | ForEach-Object { Write-Host $_ }
+            $invalidResult.Output | ForEach-Object { Write-Host $_ }
             exit 1
         }
+        Write-Host "TC-ARCH-002 PASS controlled invalid Domain->Rules dependency rejected with exit code $($invalidResult.ExitCode)"
 
-        Write-Host "TC-ARCH-002 PASS controlled invalid Domain->Rules dependency rejected with exit code $invalidExitCode"
+        Remove-Item -LiteralPath $fixtureRoot -Recurse -Force
+        New-SyntheticFixture $fixtureRoot $false
+        Set-FixturePackageVersionMismatch $fixtureRoot
+        $versionResult = Invoke-GuardFixture $fixtureRoot
+        if ($versionResult.ExitCode -eq 0 -or $versionResult.Text -notmatch 'Package dependency version mismatch') {
+            Write-Host 'TC-ARCH-002 FAIL controlled package version mismatch was not rejected for expected reason'
+            $versionResult.Output | ForEach-Object { Write-Host $_ }
+            exit 1
+        }
+        Write-Host "TC-ARCH-002 PASS controlled package version mismatch rejected with exit code $($versionResult.ExitCode)"
+
+        Remove-Item -LiteralPath $fixtureRoot -Recurse -Force
+        New-SyntheticFixture $fixtureRoot $false
+        Set-FixtureDuplicateCatalogOwnership $fixtureRoot
+        $catalogResult = Invoke-GuardFixture $fixtureRoot
+        if ($catalogResult.ExitCode -eq 0 -or $catalogResult.Text -notmatch 'Duplicate test catalog ownership entry') {
+            Write-Host 'TC-ARCH-002 FAIL controlled duplicate catalog ownership was not rejected for expected reason'
+            $catalogResult.Output | ForEach-Object { Write-Host $_ }
+            exit 1
+        }
+        Write-Host "TC-ARCH-002 PASS controlled duplicate catalog ownership rejected with exit code $($catalogResult.ExitCode)"
     }
     finally {
         if (Test-Path -LiteralPath $fixtureRoot) {

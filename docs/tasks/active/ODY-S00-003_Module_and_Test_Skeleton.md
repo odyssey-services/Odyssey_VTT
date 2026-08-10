@@ -357,7 +357,7 @@ ODY-S00-003 implementation is complete and ready for owner review.
 
 - `global.json` pins .NET SDK `10.0.302` with `latestPatch` roll-forward and prerelease disabled.
 - `NuGet.Config` pins the repository-owned package source to nuget.org without credentials or private feeds; `restore.ps1` uses repo-local ignored cache paths under `artifacts/`.
-- `Directory.Build.props` defines shared .NET build settings with `LangVersion` `9.0` for Unity compiler parity.
+- `Directory.Build.props` defines shared .NET build settings with `LangVersion` `9.0` for Unity compiler parity and central approved test package versions: `Microsoft.NET.Test.Sdk` `18.8.1`, `NUnit` `4.6.1`, and `NUnit3TestAdapter` `6.2.0`.
 - `Packages/com.odyssey.domain/**`, `Packages/com.odyssey.rules/**`, `Packages/com.odyssey.content/**`, `Packages/com.odyssey.application/**`, `Packages/com.odyssey.persistence/**`, and `Packages/com.odyssey.networking/**` create embedded package metadata, runtime `.asmdef`, Unity `.meta`, and internal marker source. Production `.asmdef` files set `autoReferenced=false`, `allowUnsafeCode=false`, `overrideReferences=false`, and `noEngineReferences=true`.
 - `Assets/Odyssey/Client/Runtime/**` and `Assets/Odyssey/Client/Editor/**` create Unity Client runtime/editor assembly boundaries with internal markers.
 - `Assets/Odyssey/Client/Tests/EditMode/**` and `Assets/Odyssey/Client/Tests/PlayMode/**` create Unity test-only assemblies and smoke tests.
@@ -385,27 +385,27 @@ ODY-S00-003 implementation is complete and ready for owner review.
 | Sandboxed `.\scripts\restore.ps1` after NuGet isolation | Failed / environment | No user NuGet config access occurred; failure was sandboxed network denial to `https://api.nuget.org/v3/index.json`. |
 | `.\scripts\restore.ps1` | Passed | Approved network rerun restored through root `NuGet.Config` and `artifacts/nuget-packages/`. |
 | `.\scripts\verify-format.ps1` | Passed | `FORMAT-001 PASS repository text formatting checks passed`. |
-| `.\scripts\verify-test-structure.ps1` | Passed | `TC-ARCH-001 PASS valid ADR-001 graph passes`; `TC-ARCH-002 PASS controlled invalid Domain->Rules dependency rejected with exit code 1`. |
+| `.\scripts\verify-test-structure.ps1` | Passed | `TC-ARCH-001 PASS valid ADR-001 graph passes`; `TC-ARCH-002 PASS controlled invalid Domain->Rules dependency rejected with exit code 1`; `TC-ARCH-002 PASS controlled package version mismatch rejected with exit code 1`; `TC-ARCH-002 PASS controlled duplicate catalog ownership rejected with exit code 1`. |
 | `.\scripts\test-fast.ps1` | Passed | Guard passed; restore passed; C# 9 build completed with `0` warnings and `0` errors; .NET tests passed `4/4`, failed `0`, skipped `0`; four TRX files exported under `Logs/ODY-S00-003/dotnet/`. |
-| `.\scripts\test-unity.ps1` | Passed | Unity batch compile exit `0`; EditMode exit `0`, `total=1 passed=1 failed=0 skipped=0`; PlayMode exit `0`, `total=1 passed=1 failed=0 skipped=0`. Logs/results under `Logs/ODY-S00-003/`. |
+| `.\scripts\test-unity.ps1` | Passed | Selected Unity executable version check passed: `TC-UNITY-ASM-001 EditorVersion PASS selected=6000.4.0f1`; Unity batch compile exit `0`; EditMode exit `0`, `total=1 passed=1 failed=0 skipped=0`; PlayMode exit `0`, `total=1 passed=1 failed=0 skipped=0`. Logs/results under `Logs/ODY-S00-003/`. |
 | `.\scripts\verify-repository.ps1` | Passed | Repository policy passed; architecture guard passed; `global.json` config is `10.0.302`/`latestPatch`/`allowPrerelease=false`; selected SDK `10.0.302` is stable and in feature band `10.0.3xx`. |
 | `.\scripts\check-repository-policy.ps1` | Passed | `REPO-POLICY-001` through `REPO-POLICY-004` PASS. |
 | `dotnet build DotNet/Odyssey.Core.sln --no-restore` | Passed | C# 9 build completed with `0` warnings and `0` errors after canonical restore. |
 | `dotnet test DotNet/Odyssey.Core.sln --no-build --no-restore` | Passed | Four .NET test projects ran one test each; total passed `4`, failed `0`, skipped `0`. |
 | `git diff --check` | Passed | Exit code `0`; no whitespace errors after reverting unintended Unity `ProjectSettings.asset` reserialization. |
-| Source inventory / catalog checks | Passed | No production source under `DotNet/Projects` outside generated `bin/obj`; only four bridge projects exist; no Persistence/Networking bridge projects; no Core `UnityEngine` references; test catalog IDs are unique and required paths exist. |
+| Source inventory / catalog / version checks | Passed | No production source under `DotNet/Projects` outside generated `bin/obj`; only four bridge projects exist; no Persistence/Networking bridge projects; no Core `UnityEngine` references; test catalog IDs are unique, `runner|path|check` ownership is unique, required paths exist, central test package versions are exact, each test project has exactly three approved `PackageReference` entries using central properties, each internal package version is stable exact `0.1.0`, and internal dependency versions match target package versions. |
 
 ### Acceptance result
 
 | Criterion | Status | Evidence |
 |---|---|---|
 | AC-1 | Passed | Six embedded production packages exist with `package.json`, runtime `.asmdef`, `.meta`, and internal marker source. |
-| AC-2 | Passed | `verify-test-structure.ps1` validates exact package, `.asmdef`, and `.csproj` graphs against ADR-001, including no extra package/assembly/project references, no production-to-test references, production `autoReferenced=false`, and production `noEngineReferences=true`. |
+| AC-2 | Passed | `verify-test-structure.ps1` validates exact package, `.asmdef`, and `.csproj` graphs against ADR-001, including no extra package/assembly/project references, no production-to-test references, production `autoReferenced=false`, production `noEngineReferences=true`, internal package version stability, and dependency version parity. |
 | AC-3 | Passed | Unity Client runtime/editor asmdefs exist; runtime assembly name is `Odyssey.Unity.Client`; editor assembly is Editor-only. |
 | AC-4 | Passed | `DotNet/Odyssey.Core.sln` contains only Domain/Rules/Content/Application bridge projects compiling source from package `Runtime/**/*.cs`. |
 | AC-5 | Passed | Four .NET test projects and Unity EditMode/PlayMode test-only assemblies exist; Unity test asmdefs include `TestAssemblies`. |
-| AC-6 | Passed | Architecture guard first validates a complete synthetic control fixture with exit `0`, then rejects a controlled `Odyssey.Domain -> Odyssey.Rules` mutation with non-zero exit and expected dependency/cycle diagnostic. It also checks cycles, forbidden edges, dependency parity, orphan/duplicate source, production-to-test, Core UnityEngine references, and malformed metadata fail-closed. |
-| AC-7 | Passed | Repository scripts run real checks, use repository-owned NuGet config/cache, export .NET TRX evidence, provide a portable Unity entry point, and failed during development on real defects/sandbox blockers before final pass. |
+| AC-6 | Passed | Architecture guard first validates a complete synthetic control fixture with exit `0`, then rejects controlled `Odyssey.Domain -> Odyssey.Rules`, package version mismatch, and duplicate catalog ownership mutations with non-zero exit and expected diagnostics. It also checks cycles, forbidden edges, dependency parity, orphan/duplicate source, production-to-test, Core UnityEngine references, central test package versions, and malformed metadata fail-closed. |
+| AC-7 | Passed | Repository scripts run real checks, use repository-owned NuGet config/cache, export .NET TRX evidence, provide a portable Unity entry point, verify the selected Unity executable version before project load, and failed during development on real defects/sandbox blockers before final pass. |
 | AC-8 | Passed | No gameplay/domain behavior, persistence/network implementation, runtime composition, serialization contracts, GitHub Actions, Player build automation, or unrelated Unity/package/version changes were introduced. |
 | AC-9 | Passed | Required validation commands are recorded with real pass/fail evidence. |
 

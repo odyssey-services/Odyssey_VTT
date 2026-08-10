@@ -6,5 +6,8 @@
     <Deterministic>true</Deterministic>
     <ContinuousIntegrationBuild>true</ContinuousIntegrationBuild>
     <TreatWarningsAsErrors>true</TreatWarningsAsErrors>
+    <MicrosoftNETTestSdkVersion>18.8.1</MicrosoftNETTestSdkVersion>
+    <NUnitVersion>4.6.1</NUnitVersion>
+    <NUnit3TestAdapterVersion>6.2.0</NUnit3TestAdapterVersion>
   </PropertyGroup>
 </Project>

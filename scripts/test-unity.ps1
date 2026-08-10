@@ -44,6 +44,37 @@ function Invoke-Unity([string[]] $Arguments, [string] $Name) {
     Write-Host "TC-UNITY-ASM-001 PASS $Name exit code 0"
 }
 
+function Test-UnityEditorVersion {
+    $startInfo = New-Object System.Diagnostics.ProcessStartInfo
+    $startInfo.FileName = $UnityEditorPath
+    $startInfo.UseShellExecute = $false
+    $startInfo.RedirectStandardOutput = $true
+    $startInfo.RedirectStandardError = $true
+    $startInfo.Arguments = '-version'
+
+    $process = New-Object System.Diagnostics.Process
+    $process.StartInfo = $startInfo
+    [void] $process.Start()
+    $standardOutput = $process.StandardOutput.ReadToEnd()
+    $standardError = $process.StandardError.ReadToEnd()
+    $process.WaitForExit()
+
+    $versionOutput = ($standardOutput + "`n" + $standardError).Trim()
+    if ($process.ExitCode -ne 0) {
+        throw "Unity Editor version check failed with exit code $($process.ExitCode). Output: $versionOutput"
+    }
+    if ([string]::IsNullOrWhiteSpace($versionOutput)) {
+        throw 'Unity Editor version check produced no output.'
+    }
+
+    $match = [regex]::Match($versionOutput, '6000\.4\.0f1')
+    if (-not $match.Success) {
+        throw "Selected Unity Editor version must be 6000.4.0f1. Output: $versionOutput"
+    }
+
+    Write-Host "TC-UNITY-ASM-001 EditorVersion PASS selected=$($match.Value)"
+}
+
 Push-Location $repoRoot
 try {
     $projectVersionPath = Join-Path $repoRoot 'ProjectSettings/ProjectVersion.txt'
@@ -59,6 +90,8 @@ try {
     if (-not (Test-Path -LiteralPath $UnityEditorPath)) {
         throw "Required Unity Editor not found: $UnityEditorPath. Pass -UnityEditorPath or set UNITY_EDITOR_PATH to Unity 6000.4.0f1."
     }
+
+    Test-UnityEditorVersion
 
     Invoke-Unity @(
         '-batchmode',
