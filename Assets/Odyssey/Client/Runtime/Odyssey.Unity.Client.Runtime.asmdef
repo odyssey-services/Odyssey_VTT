@@ -1,0 +1,21 @@
+{
+  "name": "Odyssey.Unity.Client",
+  "rootNamespace": "Odyssey.Unity.Client",
+  "references": [
+    "Odyssey.Domain",
+    "Odyssey.Rules",
+    "Odyssey.Content",
+    "Odyssey.Application",
+    "Odyssey.Persistence",
+    "Odyssey.Networking"
+  ],
+  "includePlatforms": [],
+  "excludePlatforms": [],
+  "allowUnsafeCode": false,
+  "overrideReferences": false,
+  "precompiledReferences": [],
+  "autoReferenced": true,
+  "defineConstraints": [],
+  "versionDefines": [],
+  "noEngineReferences": false
+}

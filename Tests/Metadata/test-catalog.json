@@ -1,0 +1,52 @@
+{
+  "testCases": [
+    {
+      "testCaseId": "TC-ARCH-001",
+      "taskId": "ODY-S00-003",
+      "authority": "ADR-001; ADR-006; ODY-S00-003 AC-2/AC-6",
+      "runner": "PowerShell",
+      "path": "scripts/verify-test-structure.ps1",
+      "check": "valid repository and synthetic graph pass"
+    },
+    {
+      "testCaseId": "TC-ARCH-002",
+      "taskId": "ODY-S00-003",
+      "authority": "ADR-001; ADR-006; ODY-S00-003 AC-6",
+      "runner": "PowerShell",
+      "path": "scripts/verify-test-structure.ps1",
+      "check": "controlled invalid Domain-to-Rules graph is rejected"
+    },
+    {
+      "testCaseId": "TC-DOTNET-001",
+      "taskId": "ODY-S00-003",
+      "authority": "ADR-006; Technical Development Baseline v0.3",
+      "runner": "dotnet test",
+      "path": "DotNet/Odyssey.Core.sln",
+      "check": "pure .NET bridge build and tests"
+    },
+    {
+      "testCaseId": "TC-UNITY-ASM-001",
+      "taskId": "ODY-S00-003",
+      "authority": "ADR-001; ADR-009; ODY-S00-003 AC-1/AC-3",
+      "runner": "Unity batchmode",
+      "path": "scripts/test-unity.ps1",
+      "check": "Unity assembly graph compile smoke"
+    },
+    {
+      "testCaseId": "TC-UNITY-TEST-001",
+      "taskId": "ODY-S00-003",
+      "authority": "ADR-006; ADR-009; ODY-S00-003 AC-5",
+      "runner": "Unity Test Framework",
+      "path": "Assets/Odyssey/Client/Tests",
+      "check": "Unity EditMode and PlayMode test assemblies run with nonzero tests"
+    },
+    {
+      "testCaseId": "TC-REPO-001",
+      "taskId": "ODY-S00-003",
+      "authority": "AGENTS.md; ODY-S00-003 AC-7/AC-9",
+      "runner": "PowerShell",
+      "path": "scripts/verify-repository.ps1",
+      "check": "repository policy, architecture guard, and SDK configuration"
+    }
+  ]
+}

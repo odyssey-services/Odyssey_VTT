@@ -1,0 +1,27 @@
+{
+  "name": "Odyssey.Tests.Unity.EditMode",
+  "rootNamespace": "Odyssey.Tests.Unity.EditMode",
+  "references": [
+    "Odyssey.Unity.Client",
+    "Odyssey.Domain",
+    "Odyssey.Rules",
+    "Odyssey.Content",
+    "Odyssey.Application",
+    "Odyssey.Persistence",
+    "Odyssey.Networking"
+  ],
+  "includePlatforms": [
+    "Editor"
+  ],
+  "excludePlatforms": [],
+  "allowUnsafeCode": false,
+  "overrideReferences": false,
+  "precompiledReferences": [],
+  "autoReferenced": true,
+  "defineConstraints": [],
+  "versionDefines": [],
+  "optionalUnityReferences": [
+    "TestAssemblies"
+  ],
+  "noEngineReferences": false
+}

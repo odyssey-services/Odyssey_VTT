@@ -1,0 +1,11 @@
+{
+  "name": "com.odyssey.rules",
+  "version": "0.1.0",
+  "displayName": "Odyssey Rules",
+  "description": "Odyssey VTT Rules module skeleton.",
+  "unity": "6000.4",
+  "license": "UNLICENSED",
+  "dependencies": {
+    "com.odyssey.domain": "0.1.0"
+  }
+}

@@ -1,0 +1,13 @@
+{
+  "name": "com.odyssey.application",
+  "version": "0.1.0",
+  "displayName": "Odyssey Application",
+  "description": "Odyssey VTT Application module skeleton.",
+  "unity": "6000.4",
+  "license": "UNLICENSED",
+  "dependencies": {
+    "com.odyssey.domain": "0.1.0",
+    "com.odyssey.rules": "0.1.0",
+    "com.odyssey.content": "0.1.0"
+  }
+}
