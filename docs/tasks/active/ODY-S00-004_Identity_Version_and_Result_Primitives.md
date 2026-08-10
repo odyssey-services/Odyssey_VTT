@@ -1,14 +1,14 @@
 # ODY-S00-004 - Identity, Version and Result Primitives
 
-**Status:** Ready  
+**Status:** In Review  
 **Roadmap stage / slice:** SLICE-00  
-**Owner:** Unassigned  
+**Owner:** Codex  
 **Requested by:** Product owner  
-**Branch:** Not created  
+**Branch:** `feat/ody-s00-004-identity-version-result-primitives`  
 **Pull request:** Not opened  
 **ExecPlan:** `docs/plans/active/ODY-S00-000_SLICE_00_Technical_Skeleton.md`  
 **Created:** 2026-08-10  
-**Last updated:** 2026-08-10 19:53 UTC
+**Last updated:** 2026-08-10 20:43 UTC
 
 ## 1. Goal
 
@@ -344,52 +344,85 @@ Do not add production or development dependencies, GitHub Actions, executables, 
 
 ## 16. Definition of Done
 
-- [ ] Goal is achieved without unapproved scope expansion.
-- [ ] All acceptance criteria are satisfied.
-- [ ] Required automated tests pass.
-- [ ] Required manual checks are completed.
-- [ ] Required commands and their real results are recorded.
-- [ ] Architecture and dependency rules remain valid.
-- [ ] Security, privacy, redaction, and audience rules are verified where applicable.
-- [ ] Compatibility, migration, rollback, and versioning obligations are complete where applicable.
-- [ ] No unapproved dependency, tool, GitHub Action, or license was introduced.
-- [ ] Documentation is updated only where materially required.
-- [ ] Codex/developer performed a self-review against this task and `AGENTS.md`.
+- [x] Goal is achieved without unapproved scope expansion.
+- [x] All acceptance criteria are satisfied.
+- [x] Required automated tests pass.
+- [x] Required manual checks are completed.
+- [x] Required commands and their real results are recorded.
+- [x] Architecture and dependency rules remain valid.
+- [x] Security, privacy, redaction, and audience rules are verified where applicable.
+- [x] Compatibility, migration, rollback, and versioning obligations are complete where applicable.
+- [x] No unapproved dependency, tool, GitHub Action, or license was introduced.
+- [x] Documentation is updated only where materially required.
+- [x] Codex/developer performed a self-review against this task and `AGENTS.md`.
 - [ ] Pull request explains changes, evidence, limitations, and follow-up work.
 - [ ] Product owner or authorized reviewer completes the required review; Codex does not merge into `main`.
 
 ## 17. Completion evidence
 
-ODY-S00-004 has not started. This section must be filled with real implementation evidence before the task moves to `In Review`, including the identity candidate preflight table and wording that claims only `ADR-004 primitive foundation implemented` and `ADR-007 value primitive subset implemented`.
+ODY-S00-004 implementation is complete and in owner review. `ADR-004 primitive foundation implemented` and `ADR-007 value primitive subset implemented`. Remaining ADR-004 and ADR-007 scope stays assigned to later SLICE-00 tasks.
+
+### Identity candidate preflight
+
+| Candidate | Authority | Owner module | Implement / Defer | Reason |
+|---|---|---|---|---|
+| `CorrelationId` | TDB section 15.1; ADR-004 sections 4.3, 23.1; ODY-S00-004 scope | `Odyssey.Application` | Implement | Required on every Application boundary `Error` to correlate expected failures without exposing diagnostics internals. Typed ID only; no generator policy is introduced. |
+| `DiagnosticId` | TDB section 15.1; ADR-004 sections 4.9, 23.2; ADR-010 diagnostic reference rules; ODY-S00-004 scope | `Odyssey.Application` | Implement | Required as optional opaque diagnostic reference on `Error` when a separate diagnostic record exists. Typed ID only; diagnostics runtime remains out of scope. |
+| `CommandId` | ADR-002 command identity/idempotency contract; ODY-S00-004 out of scope | `Odyssey.Application` in ODY-S00-005 | Defer | Belongs to command/event/idempotency lifecycle in ODY-S00-005. |
+| `DomainEventId` / `EventId` | ADR-002 event envelope contract; ODY-S00-004 out of scope | `Odyssey.Domain` / `Odyssey.Application` decision in ODY-S00-005 | Defer | Belongs to command/event envelope and event lifecycle in ODY-S00-005. |
+| `TransactionId` | ADR-002 transaction boundary contract; ODY-S00-004 out of scope | `Odyssey.Application` / persistence decision in later task | Defer | Belongs to authoritative transaction handling, not primitive Result/Error foundation. |
+| Command `IdempotencyKey` | ADR-002 states `CommandId` is the canonical idempotency key; ODY-S00-004 out of scope | None | Defer | Do not create a separate Core idempotency key for Application commands. |
 
 ### Changed files / areas
 
-- None yet.
+- `Packages/com.odyssey.application/Runtime/Identity/**`
+- `Packages/com.odyssey.application/Runtime/Results/**`
+- `Packages/com.odyssey.application/Runtime/Versions/**`
+- `Packages/com.odyssey.rules/Runtime/Versions/**`
+- `Packages/com.odyssey.content/Runtime/Versions/**`
+- `DotNet/Tests/Odyssey.Tests.Unit/**`
+- `DotNet/Tests/Odyssey.Tests.Architecture/**`
+- `Tests/Metadata/test-catalog.json`
+- `docs/errors/ERROR_CODES.md`
+- `scripts/verify-test-structure.ps1`
+- `scripts/check-repository-policy.ps1`
+- `scripts/test-fast.ps1`
+- `scripts/test-unity.ps1`
+- Operational task/backlog/plan/README status updates.
 
 ### Validation results
 
 | Command / check | Result | Evidence / notes |
 |---|---|---|
-| Implementation validation | Not run | ODY-S00-004 implementation has not started. |
+| `powershell -NoProfile -ExecutionPolicy Bypass -File .\scripts\restore.ps1` | Passed | First sandbox run failed with `NU1900` because NuGet.org vulnerability index was inaccessible; rerun with approved network/escalated access passed. |
+| `powershell -NoProfile -ExecutionPolicy Bypass -File .\scripts\verify-format.ps1` | Passed | `FORMAT-001 PASS repository text formatting checks passed`. |
+| `powershell -NoProfile -ExecutionPolicy Bypass -File .\scripts\verify-test-structure.ps1` | Passed | `TC-ARCH-001 PASS`; controlled invalid Domain->Rules, package version mismatch, and duplicate catalog ownership fixtures rejected. |
+| `powershell -NoProfile -ExecutionPolicy Bypass -File .\scripts\test-fast.ps1` | Passed | Build passed with 0 warnings/errors; TRX: `Logs/ODY-S00-004/dotnet/ody-s00-004_net10.0_20260810224025.trx` total 1, `...224026.trx` total 1, `...224027.trx` total 20, `...224030.trx` total 2; all failed 0. |
+| `powershell -NoProfile -ExecutionPolicy Bypass -File .\scripts\test-unity.ps1` | Passed | Unity `6000.4.0f1`; batch compile exit 0; EditMode total 1 passed 1 failed 0 skipped 0; PlayMode total 1 passed 1 failed 0 skipped 0. |
+| `powershell -NoProfile -ExecutionPolicy Bypass -File .\scripts\verify-repository.ps1` | Passed | Repository policy, architecture guard, and SDK check passed; configured/selected SDK `10.0.302`. |
+| `powershell -NoProfile -ExecutionPolicy Bypass -File .\scripts\check-repository-policy.ps1` | Passed | `REPO-POLICY-001` through `REPO-POLICY-005` pass; ErrorCode registry complete and machine-checkable. |
+| `dotnet build DotNet\Odyssey.Core.sln --no-restore` | Passed | 0 warnings, 0 errors. |
+| `dotnet test DotNet\Odyssey.Core.sln --no-build --no-restore` | Passed | Unit 20, Contracts 1, Domain 1, Architecture 2; failed 0, skipped 0. |
 
 ### Acceptance result
 
 | Criterion | Status | Evidence |
 |---|---|---|
-| AC-1 through AC-11 | Deferred | Must be proven by the ODY-S00-004 implementation PR. |
+| AC-1 through AC-11 | Passed | Identity preflight recorded; implemented `CorrelationId`/`DiagnosticId`, three SemVer value primitives, Application Result/Error foundation, ErrorCode registry, multi-task test catalog validation, focused tests, Unity compatibility, and repository policy checks. ODY-S00-005 scope was not implemented. |
 
 ### Build and artifact evidence
 
 - Build identity: Not created.
 - Artifact path / name: None.
 - Checksums: None.
-- Test or quality report: Not created.
+- Test or quality report: `Logs/ODY-S00-004/dotnet/*.trx`, `Logs/ODY-S00-004/editmode-results.xml`, `Logs/ODY-S00-004/playmode-results.xml`.
 
 ### Known limitations
 
-- The exact minimal identity primitive set must be re-confirmed against the listed authorities before implementation; speculative IDs are not allowed.
+- `CorrelationId` and `DiagnosticId` are value primitives only; no production generation policy is introduced.
 - `CommandId`, `DomainEventId`/`EventId`, `TransactionId`, command/result lifecycle, and event envelopes remain ODY-S00-005.
 - Integer compatibility version dimensions remain deferred to the corresponding owning SLICE-00 tasks.
+- ADR-004 diagnostics runtime, mappings, command results, localization implementation, persistence/network adapters, and DTO serialization remain future scope.
 
 ### Follow-up tasks
 
@@ -397,21 +430,22 @@ ODY-S00-004 has not started. This section must be filled with real implementatio
 
 ### Self-review summary
 
-- Scope review: Contract only; no implementation has started.
-- Architecture review: Uses ADR-001, ADR-004, ADR-006, ADR-007, and ADR-009 without introducing a new architecture rule.
-- Test review: Required test IDs and commands are defined; no test pass is claimed.
-- Security/privacy review: Error and validation detail safe-field constraints are explicit; private content remains prohibited.
-- Documentation/version review: No version bump, ADR change, Technical Baseline change, Unity change, schema/format/contract/protocol/ruleset change, or BuildIdentity generation is authorized.
+- Scope review: Implementation stayed within identity/version/Result/Error primitives, registry, tests, and validation scripts; ODY-S00-005 and runtime/persistence/network scope were not started.
+- Architecture review: Domain and Rules remain free of Application Result/Error and Unity; no new Common/Shared/Utils module or dependency was added.
+- Test review: Required ODY-S00-004 TestCase IDs are in `Tests/Metadata/test-catalog.json` and covered by .NET tests or repository checks.
+- Security/privacy review: Error safe fields are bounded/allowlisted; no raw rejected values, arbitrary objects, unrestricted dictionaries, stack traces, SQL, full paths, secrets, or hidden payloads are exposed.
+- Documentation/version review: No ADR, Technical Baseline, Active Baseline, Unity package/version, ProjectSettings, schema/format/contract/protocol/ruleset source, `version.json`, compatibility config, BuildIdentity, Git metadata, or build pipeline source was changed.
 
 ## 18. Blockers, decisions, and change control
 
 ### Blockers
 
-- None currently. Implementation must not start until this activation PR is owner-reviewed and merged.
+- None currently. ODY-S00-004 is ready for owner review.
 
 ### Decisions made during execution
 
 - 2026-08-10 - Activate ODY-S00-004 only as `Ready` during ODY-S00-003 post-merge closure; do not begin implementation until the closure PR is merged - Authority / approval: product owner instruction.
+- 2026-08-10 - Implement only `CorrelationId` and `DiagnosticId` from the identity preflight; defer `CommandId`, `DomainEventId`/`EventId`, `TransactionId`, and separate command `IdempotencyKey` to ODY-S00-005 - Authority / approval: ODY-S00-004 contract, ADR-002, ADR-004.
 
 ### Approved task changes
 

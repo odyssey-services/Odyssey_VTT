@@ -8,7 +8,7 @@
 **Pull request:** Not opened  
 **ExecPlan:** `docs/plans/active/ODY-S00-000_SLICE_00_Technical_Skeleton.md`  
 **Created:** 2026-07-28  
-**Last updated:** 2026-08-10 19:10 UTC
+**Last updated:** 2026-08-10 20:43 UTC
 
 ## 1. Goal
 
@@ -55,7 +55,7 @@ Deliver the complete `SLICE-00` technical skeleton: a private authoritative repo
 - Repository Foundation is complete through merged PR #1.
 - Unity Project Foundation is complete through owner-merged PR #4; merge commit `70e7d49e217d4aecb7a2e873d31787d26001f47f` records the Unity `6000.4.0f1 (8cf496087c8f)` HDRP baseline.
 - Module and Test Skeleton is complete through owner-merged PR #6; merge commit `5e6f5e03ef022c5d7b0e6fef559c2383796d95be` records the Core module/test skeleton and dual .NET/Unity test foundation.
-- ODY-S00-004 is activated as Ready; typed identity, version, and Result/Error primitives have not been implemented yet.
+- ODY-S00-004 is In Review on `feat/ody-s00-004-identity-version-result-primitives`; typed identity, version, and Result/Error primitive implementation is complete pending owner review.
 
 ### Assumptions
 
@@ -266,7 +266,7 @@ All additional dependencies require a child task update and explicit approval be
 
 ### Follow-up tasks
 
-- `ODY-S00-004` through `ODY-S00-010`; ODY-S00-001, ODY-S00-002, and ODY-S00-003 are completed.
+- `ODY-S00-004` through `ODY-S00-010`; ODY-S00-001, ODY-S00-002, and ODY-S00-003 are completed, and ODY-S00-004 is in review.
 
 ### Self-review summary
 

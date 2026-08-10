@@ -22,6 +22,127 @@ function Normalize-RepoPath {
     return ($Path -replace '\\', '/').TrimStart('./')
 }
 
+function Get-ErrorRegistryEntries {
+    param([string] $RegistryPath)
+
+    $entries = @()
+    foreach ($line in Get-Content -LiteralPath $RegistryPath) {
+        if ($line -notmatch '^\|\s*`([^`]+)`\s*\|') {
+            continue
+        }
+
+        $columns = @($line.Trim('|') -split '\|' | ForEach-Object { $_.Trim() })
+        if ($columns.Count -ne 9) {
+            throw "Malformed ERROR_CODES.md row for $($matches[1]): expected 9 columns, got $($columns.Count)."
+        }
+
+        $entries += [pscustomobject]@{
+            Code = $matches[1]
+            OwnerModule = $columns[1].Trim('`')
+            Category = $columns[2].Trim('`')
+            SafeReasonCode = $columns[3].Trim('`')
+            RetryDirective = $columns[4].Trim('`')
+            IntroducedVersion = $columns[5]
+            Status = $columns[6]
+            SecurityNotes = $columns[7]
+            TestReference = $columns[8]
+        }
+    }
+
+    return @($entries)
+}
+
+function Test-ErrorCodeRegistry {
+    param([string] $RepositoryRoot)
+
+    $registryFailures = New-Object System.Collections.Generic.List[string]
+    $registryPath = Join-Path $RepositoryRoot 'docs/errors/ERROR_CODES.md'
+
+    if (-not (Test-Path -LiteralPath $registryPath)) {
+        $registryFailures.Add('Missing required path: docs/errors/ERROR_CODES.md')
+        return $registryFailures.ToArray()
+    }
+
+    try {
+        $entries = @(Get-ErrorRegistryEntries $registryPath)
+    }
+    catch {
+        $registryFailures.Add($_.Exception.Message)
+        return $registryFailures.ToArray()
+    }
+
+    if ($entries.Count -eq 0) {
+        $registryFailures.Add('ERROR_CODES.md must contain at least one registered ErrorCode.')
+    }
+
+    $codePattern = '^[a-z0-9_]+(\.[a-z0-9_]+){2,}$'
+    $categories = @('Validation', 'Authorization', 'RuleViolation', 'NotFound', 'Conflict', 'Precondition', 'Capacity', 'Compatibility', 'Integrity', 'TransientInfrastructure', 'PermanentInfrastructure', 'Cancelled', 'Security', 'Internal')
+    $retryDirectives = @('DoNotRetry', 'RetrySameRequest', 'RetryWithBackoff', 'RefreshStateThenRetry', 'ReconnectThenRetry', 'UserActionRequired', 'UpgradeRequired', 'ManualRecoveryRequired')
+    $seenCodes = New-Object System.Collections.Generic.HashSet[string]
+
+    $catalogPath = Join-Path $RepositoryRoot 'Tests/Metadata/test-catalog.json'
+    $catalogText = if (Test-Path -LiteralPath $catalogPath) { Get-Content -LiteralPath $catalogPath -Raw } else { '' }
+
+    foreach ($entry in $entries) {
+        if ($entry.Code -notmatch $codePattern) {
+            $registryFailures.Add("Malformed ErrorCode in registry: $($entry.Code)")
+        }
+        if (-not $seenCodes.Add([string] $entry.Code)) {
+            $registryFailures.Add("Duplicate ErrorCode in registry: $($entry.Code)")
+        }
+        if ($entry.Category -notin $categories) {
+            $registryFailures.Add("Invalid category for $($entry.Code): $($entry.Category)")
+        }
+        if ($entry.RetryDirective -notin $retryDirectives) {
+            $registryFailures.Add("Invalid retry directive for $($entry.Code): $($entry.RetryDirective)")
+        }
+        foreach ($field in @('OwnerModule', 'SafeReasonCode', 'IntroducedVersion', 'Status', 'SecurityNotes', 'TestReference')) {
+            if ([string]::IsNullOrWhiteSpace([string] $entry.$field)) {
+                $registryFailures.Add("Missing required ERROR_CODES.md field '$field' for $($entry.Code).")
+            }
+        }
+        if ($entry.Status -match '(?i)deprecated|reserved') {
+            $registryFailures.Add("Deprecated/reserved ErrorCode is present in active registry rows and must not be reused: $($entry.Code).")
+        }
+
+        $references = @([regex]::Matches([string] $entry.TestReference, 'TC-[A-Z0-9]+(?:-[A-Z0-9]+)*-[0-9]{3}') | ForEach-Object { $_.Value })
+        if ($references.Count -eq 0) {
+            $registryFailures.Add("Registry row has no TestCaseId reference: $($entry.Code).")
+        }
+        foreach ($reference in $references) {
+            if ($catalogText -notmatch [regex]::Escape($reference)) {
+                $registryFailures.Add("Registry row references missing catalog TestCaseId $reference for $($entry.Code).")
+            }
+        }
+    }
+
+    $productionCodes = New-Object System.Collections.Generic.HashSet[string]
+    foreach ($source in Get-ChildItem -LiteralPath (Join-Path $RepositoryRoot 'Packages') -Recurse -File -Filter '*.cs') {
+        if ($source.FullName -match '\\Tests\\') {
+            continue
+        }
+
+        $text = Get-Content -LiteralPath $source.FullName -Raw
+        foreach ($match in [regex]::Matches($text, 'ErrorCode\.Parse\("([^"]+)"\)')) {
+            [void] $productionCodes.Add($match.Groups[1].Value)
+        }
+    }
+
+    foreach ($code in $productionCodes) {
+        if (-not $seenCodes.Contains($code)) {
+            $registryFailures.Add("Production ErrorCode is missing from docs/errors/ERROR_CODES.md: $code")
+        }
+    }
+
+    foreach ($entry in $entries) {
+        if (-not $productionCodes.Contains([string] $entry.Code)) {
+            $registryFailures.Add("Registry ErrorCode has no matching production ErrorCode.Parse usage: $($entry.Code)")
+        }
+    }
+
+    return $registryFailures.ToArray()
+}
+
 if ([string]::IsNullOrWhiteSpace($RepositoryRoot)) {
     $scriptRoot = Split-Path -Parent $MyInvocation.MyCommand.Path
     $RepositoryRoot = Split-Path -Parent $scriptRoot
@@ -77,6 +198,7 @@ try {
         'docs/tasks/completed/ODY-S00-002_Unity_Project_Foundation.md',
         'docs/tasks/completed/ODY-S00-003_Module_and_Test_Skeleton.md',
         'docs/tasks/active/ODY-S00-004_Identity_Version_and_Result_Primitives.md',
+        'docs/errors/ERROR_CODES.md',
         'docs/plans/README.md',
         'docs/plans/active/ODY-S00-000_SLICE_00_Technical_Skeleton.md'
     )
@@ -169,6 +291,15 @@ try {
     }
 
     Write-PolicyResult 'REPO-POLICY-004' ($textFailures.Count -eq 0) 'source/Markdown/JSON/Unity YAML/meta/UI text are not globally forced into LFS'
+
+    $registryFailures = @(Test-ErrorCodeRegistry $RepositoryRoot)
+    if ($registryFailures.Count -gt 0) {
+        foreach ($failure in $registryFailures) {
+            $failures.Add($failure)
+        }
+    }
+
+    Write-PolicyResult 'REPO-POLICY-005' ($registryFailures.Count -eq 0) 'ErrorCode registry is complete and machine-checkable'
 
     if ($failures.Count -gt 0) {
         Write-Host ''

@@ -47,6 +47,70 @@
       "runner": "PowerShell",
       "path": "scripts/verify-repository.ps1",
       "check": "repository policy, architecture guard, and SDK configuration"
+    },
+    {
+      "testCaseId": "TC-ID-001",
+      "taskId": "ODY-S00-004",
+      "authority": "TDB section 15.1; ADR-004; ODY-S00-004 AC-1/AC-2",
+      "runner": "dotnet test",
+      "path": "DotNet/Tests/Odyssey.Tests.Unit/IdentityPrimitiveTests.cs",
+      "check": "identity construction, equality, hash, canonical format, and parse round-trip"
+    },
+    {
+      "testCaseId": "TC-ID-002",
+      "taskId": "ODY-S00-004",
+      "authority": "TDB section 15.1; ADR-004; ODY-S00-004 AC-2",
+      "runner": "dotnet test",
+      "path": "DotNet/Tests/Odyssey.Tests.Unit/IdentityPrimitiveTests.cs",
+      "check": "default, empty, malformed, non-canonical, and wrong-form identities are rejected"
+    },
+    {
+      "testCaseId": "TC-VERSION-001",
+      "taskId": "ODY-S00-004",
+      "authority": "ADR-007; ODY-S00-004 AC-3",
+      "runner": "dotnet test",
+      "path": "DotNet/Tests/Odyssey.Tests.Unit/VersionPrimitiveTests.cs",
+      "check": "ApplicationVersion, RulesetVersion, and ContentPackageVersion parse, format, and compare canonical SemVer"
+    },
+    {
+      "testCaseId": "TC-VERSION-002",
+      "taskId": "ODY-S00-004",
+      "authority": "ADR-007; ODY-S00-004 AC-3",
+      "runner": "dotnet test",
+      "path": "DotNet/Tests/Odyssey.Tests.Unit/VersionPrimitiveTests.cs",
+      "check": "version dimensions are type-safe and no automatic version source generation occurs"
+    },
+    {
+      "testCaseId": "TC-RESULT-001",
+      "taskId": "ODY-S00-004",
+      "authority": "ADR-004; ODY-S00-004 AC-4",
+      "runner": "dotnet test",
+      "path": "DotNet/Tests/Odyssey.Tests.Unit/ResultErrorPrimitiveTests.cs",
+      "check": "Result and Result<T> success/failure invariants and invalid default state"
+    },
+    {
+      "testCaseId": "TC-RESULT-002",
+      "taskId": "ODY-S00-004",
+      "authority": "ADR-004; ODY-S00-004 AC-4/AC-6",
+      "runner": "dotnet test",
+      "path": "DotNet/Tests/Odyssey.Tests.Unit/ResultErrorPrimitiveTests.cs",
+      "check": "Error requires safe fields and excludes unsafe internal detail"
+    },
+    {
+      "testCaseId": "TC-RESULT-003",
+      "taskId": "ODY-S00-004",
+      "authority": "ADR-004; ODY-S00-004 AC-4",
+      "runner": "dotnet test",
+      "path": "DotNet/Tests/Odyssey.Tests.Unit/ResultErrorPrimitiveTests.cs",
+      "check": "RetryDirective vocabulary is exact"
+    },
+    {
+      "testCaseId": "TC-RESULT-004",
+      "taskId": "ODY-S00-004",
+      "authority": "ADR-004; ODY-S00-004 AC-4/AC-6",
+      "runner": "dotnet test",
+      "path": "DotNet/Tests/Odyssey.Tests.Unit/ResultErrorPrimitiveTests.cs",
+      "check": "ValidationDetail, safe arguments, and metadata are bounded and allowlisted"
     }
   ]
 }
