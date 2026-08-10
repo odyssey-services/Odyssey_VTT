@@ -1,14 +1,14 @@
 # ODY-S00-003 — Module and Test Skeleton
 
-**Status:** Ready  
+**Status:** Blocked  
 **Roadmap stage / slice:** SLICE-00  
 **Owner:** Codex  
 **Requested by:** Product owner  
-**Branch:** Not created; planned `feat/ody-s00-003-module-test-skeleton` after closure PR merge  
+**Branch:** `feat/ody-s00-003-module-test-skeleton`  
 **Pull request:** Not opened  
 **ExecPlan:** `docs/plans/active/ODY-S00-000_SLICE_00_Technical_Skeleton.md`  
 **Created:** 2026-08-10  
-**Last updated:** 2026-08-10 14:21 UTC
+**Last updated:** 2026-08-10 15:41 UTC
 
 ## 1. Goal
 
@@ -63,7 +63,7 @@ No runtime composition, gameplay, persistence, networking behavior, command pipe
 
 ### Assumptions
 
-- The implementation branch will be created only after the ODY-S00-002 closure PR is owner-reviewed and merged.
+- The implementation branch exists after owner merge of the ODY-S00-002 closure PR.
 - The exact .NET target framework, SDK constraints, and test framework versions are taken from ADR-006 and the current Technical Development Baseline at implementation time; this task does not independently upgrade tools.
 
 ## 5. Scope
@@ -93,6 +93,8 @@ No runtime composition, gameplay, persistence, networking behavior, command pipe
   - `Assets/Odyssey/Client/Runtime/Odyssey.Unity.Client.Runtime.asmdef` file with assembly field `"name": "Odyssey.Unity.Client"`
   - `Assets/Odyssey/Client/Editor/Odyssey.Unity.Client.Editor.asmdef` file with assembly field `"name": "Odyssey.Unity.Client.Editor"`
 - Pure .NET skeleton:
+  - `global.json` with the exact installed approved .NET 10 LTS SDK and ADR-006 feature-band roll-forward policy.
+  - `Directory.Build.props` with only shared .NET build settings required by this skeleton.
   - `DotNet/Odyssey.Core.sln`
   - ADR-006 bridge/project structure for single-source Core compilation:
     - `DotNet/Projects/Odyssey.Domain.csproj`
@@ -120,6 +122,7 @@ No runtime composition, gameplay, persistence, networking behavior, command pipe
   - `Odyssey.Tests.Unity.PlayMode`
 - Automatic architecture guard for ADR-001 dependency direction.
 - Repository scripts that belong directly to module/test skeleton verification, such as `scripts/restore.ps1`, `scripts/verify-format.ps1`, `scripts/test-fast.ps1`, and `scripts/verify-repository.ps1`, if they can perform real checks.
+- Real test-structure and Unity validation scripts: `scripts/verify-test-structure.ps1` and `scripts/test-unity.ps1`.
 
 ### Out of scope
 
@@ -140,11 +143,15 @@ Assets/Odyssey/Client/Runtime/**
 Assets/Odyssey/Client/Editor/**
 Assets/Odyssey/Client/Tests/EditMode/**
 Assets/Odyssey/Client/Tests/PlayMode/**
+global.json
+Directory.Build.props
 DotNet/**
 Tests/**
 scripts/restore.ps1
 scripts/verify-format.ps1
+scripts/verify-test-structure.ps1
 scripts/test-fast.ps1
+scripts/test-unity.ps1
 scripts/verify-repository.ps1
 docs/tasks/active/ODY-S00-003_Module_and_Test_Skeleton.md
 docs/tasks/SLICE-00_BACKLOG.md
@@ -291,9 +298,12 @@ Unity batchmode compile/EditMode/PlayMode validation is required if ADR-006 or t
 
 | Dependency | Version / source | Purpose | License | Approved by |
 |---|---|---|---|---|
-| None | — | — | — | — |
+| .NET 10 LTS SDK | Exact installed stable SDK version from preflight / Microsoft | Pure .NET test host and pinned SDK selection through `global.json` | Microsoft .NET license terms | ADR-006 and product owner ODY-S00-003 direction |
+| Microsoft.NET.Test.Sdk | Exact stable NuGet version selected during implementation / nuget.org | .NET test execution | MIT | ADR-006 and product owner ODY-S00-003 direction |
+| NUnit | Exact stable NuGet version selected during implementation / nuget.org | Pure .NET test framework | MIT | ADR-006 and product owner ODY-S00-003 direction |
+| NUnit3TestAdapter | Exact stable NuGet version selected during implementation / nuget.org | NUnit discovery/execution in .NET test host | MIT | ADR-006 and product owner ODY-S00-003 direction |
 
-Do not add production or development dependencies beyond those already approved by ADR-006 and the Technical Development Baseline.
+Do not add production or development dependencies beyond those already approved by ADR-006 and the Technical Development Baseline. Do not add a coverage collector unless a real coverage gate is implemented in this task. Do not add a mocking framework. Do not create `Directory.Packages.props` unless central package version management is explicitly selected and justified in task evidence.
 
 ## 13. Security, privacy, and hidden information
 
@@ -350,7 +360,12 @@ Fill this section with real results before moving the task to `In Review`.
 
 | Command / check | Result | Evidence / notes |
 |---|---|---|
-| Implementation validation | Not run | ODY-S00-003 implementation has not started. |
+| `dotnet --info` | Failed blocker | Installed SDK is `9.0.308`; no stable .NET 10 SDK is installed. Contract requires STOP before creating `global.json` or solution. |
+| `dotnet --list-sdks` | Failed blocker | Output lists only `9.0.308 [C:\Program Files\dotnet\sdk]`. |
+| `git --version` | Passed | `git version 2.54.0.windows.1`. |
+| `git lfs version` | Passed | `git-lfs/3.7.1 (GitHub; windows amd64; go 1.25.1; git b84b3384)`. |
+| PowerShell version | Passed | `5.1.26100.8972`. |
+| Unity version / changeset check | Passed | `ProjectSettings/ProjectVersion.txt` records `6000.4.0f1 (8cf496087c8f)`. |
 
 ### Acceptance result
 
@@ -367,11 +382,11 @@ Fill this section with real results before moving the task to `In Review`.
 
 ### Known limitations
 
-- No module/test skeleton files have been created yet; this task is Ready only.
+- No module/test skeleton files have been created yet. The task is blocked before `global.json` and `DotNet/Odyssey.Core.sln` creation because the required stable .NET 10 SDK is absent.
 
 ### Follow-up tasks
 
-- Start ODY-S00-003 in `feat/ody-s00-003-module-test-skeleton` after the ODY-S00-002 closure PR is owner-reviewed and merged.
+- Install the approved stable .NET 10 LTS SDK, then resume ODY-S00-003 preflight on `feat/ody-s00-003-module-test-skeleton`.
 
 ### Self-review summary
 
@@ -385,11 +400,12 @@ Fill this section with real results before moving the task to `In Review`.
 
 ### Blockers
 
-- ODY-S00-003 implementation must wait until the ODY-S00-002 closure PR is owner-reviewed and merged.
+- Stable .NET 10 LTS SDK is absent on this machine. Smallest safe next step: install the approved stable .NET 10 SDK, then rerun `dotnet --info` and `dotnet --list-sdks`.
 
 ### Decisions made during execution
 
 - 2026-08-10 — Activate ODY-S00-003 only as `Ready` during ODY-S00-002 post-merge closure; do not begin implementation until the closure PR is merged — Authority / approval: product owner instruction.
+- 2026-08-10 — ODY-S00-003 preflight must stop and set task status to Blocked when stable .NET 10 SDK is absent; do not install SDK or switch major versions automatically — Authority / approval: product owner instruction.
 
 ### Approved task changes
 

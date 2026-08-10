@@ -2,8 +2,8 @@
 
 **Status:** Active
 **Owner:** Codex
-**Branch:** `feat/ody-s00-002-unity-project-foundation`
-**Pull request:** https://github.com/odyssey-services/Odyssey_VTT/pull/4
+**Branch:** `feat/ody-s00-003-module-test-skeleton`
+**Pull request:** Not opened
 **Last updated:** 2026-08-10
 
 ## 1. Purpose and user-visible outcome
@@ -153,6 +153,8 @@ Child task: `ODY-S00-010`.
 
 - 2026-08-10 11:35 UTC — Formalized owner-approved Unity baseline amendment as ADR-009 v1.1 / Technical Baseline v0.3 / Active Baseline v1.8, imported only `Assets/`, `Packages/`, and `ProjectSettings/` into the authoritative repository, and validated repository Unity batchmode open/import/compile with Unity `6000.4.0f1` ExitCode 0. ODY-S00-002 entered owner review; ODY-S00-003 was not yet activated.
 - 2026-08-10 14:21 UTC — Owner merged PR #4, `ODY-S00-002 — Establish Unity 6000.4 project foundation`, into `main` with GitHub merge-commit method as `70e7d49e217d4aecb7a2e873d31787d26001f47f`. ODY-S00-002 is Done; ODY-S00-003 is activated as Ready only. Implementation of ODY-S00-003 waits for the post-merge closure PR to be owner-reviewed and merged.
+- 2026-08-10 15:37 UTC — Owner merged PR #5, `ODY-S00-002 — Complete Unity foundation and activate ODY-S00-003`, into `main` with GitHub merge-commit method as `16ce536b7649fbbf617008b946b6ec33a1dd3a12`. Created branch `feat/ody-s00-003-module-test-skeleton` and began ODY-S00-003 preflight.
+- 2026-08-10 15:41 UTC — ODY-S00-003 preflight found only .NET SDK `9.0.308`; required stable .NET 10 LTS SDK is absent. Per owner instruction, implementation stopped before creating `global.json`, `DotNet/Odyssey.Core.sln`, modules, tests, or scripts. ODY-S00-003 is Blocked.
 
 ## 7. Decisions
 
@@ -206,13 +208,13 @@ Record real commands, outputs and artifact paths here as child tasks complete.
 
 - Repository identity, Private visibility, and PR #1 merge are verified. Exact branch protection/ruleset settings remain an owner-accepted limitation.
 - Unity `6000.4.0f1` is acceptable for local ODY-S00-002 development by owner decision.
-- ODY-S00-002 is Done. ODY-S00-003 is Ready and waits for the ODY-S00-002 closure PR to be owner-reviewed and merged before implementation starts.
+- ODY-S00-002 is Done. ODY-S00-003 is Blocked before implementation because the required stable .NET 10 SDK is absent.
 - GitHub plan/settings may affect exact branch-protection options; the task must apply the strongest supported equivalent and record any unavailable setting.
 
-The remaining sequencing blocker is owner review/merge of the ODY-S00-002 closure PR before starting ODY-S00-003 implementation.
+The remaining sequencing blocker is installation of the approved stable .NET 10 LTS SDK before creating `global.json` or `DotNet/Odyssey.Core.sln`.
 
 ## 12. Outcome and follow-up
 
-Current outcome: ODY-S00-001 is Done after owner merge of PR #1. ODY-S00-002 is Done after owner merge of PR #4 with Unity 6000.4/HDRP foundation imported and validated. ODY-S00-003 is Ready only.
+Current outcome: ODY-S00-001 is Done after owner merge of PR #1. ODY-S00-002 is Done after owner merge of PR #4 and closure PR #5. ODY-S00-003 is Blocked during preflight because .NET SDK `9.0.308` is installed but stable .NET 10 SDK is absent.
 
-Next action: open the ODY-S00-002 closure PR for owner review; after that PR is merged, start ODY-S00-003 in `feat/ody-s00-003-module-test-skeleton`. Do not merge and do not start ODY-S00-003 in the closure branch.
+Next action: install the approved stable .NET 10 LTS SDK, then rerun ODY-S00-003 toolchain preflight on `feat/ody-s00-003-module-test-skeleton`. Do not merge and do not start ODY-S00-004.
