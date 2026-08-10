@@ -2,28 +2,29 @@ using System;
 using System.Linq;
 using NUnit.Framework;
 
-namespace Odyssey.Tests.Unit;
-
-public sealed class AssemblyReferenceSmokeTests
+namespace Odyssey.Tests.Unit
 {
-    [Test]
-    public void CoreBridgeAssembliesExposeOnlyInternalMarkers()
+    public sealed class AssemblyReferenceSmokeTests
     {
-        string[] assemblyNames =
+        [Test]
+        public void CoreBridgeAssembliesExposeOnlyInternalMarkers()
         {
-            "Odyssey.Domain",
-            "Odyssey.Rules",
-            "Odyssey.Content",
-            "Odyssey.Application"
-        };
+            string[] assemblyNames =
+            {
+                "Odyssey.Domain",
+                "Odyssey.Rules",
+                "Odyssey.Content",
+                "Odyssey.Application"
+            };
 
-        foreach (string assemblyName in assemblyNames)
-        {
-            Type marker = AppDomain.CurrentDomain.Load(assemblyName)
-                .GetTypes()
-                .Single(type => type.FullName == assemblyName + ".AssemblyMarker");
+            foreach (string assemblyName in assemblyNames)
+            {
+                Type marker = AppDomain.CurrentDomain.Load(assemblyName)
+                    .GetTypes()
+                    .Single(type => type.FullName == assemblyName + ".AssemblyMarker");
 
-            Assert.That(marker.IsNotPublic, Is.True, assemblyName);
+                Assert.That(marker.IsNotPublic, Is.True, assemblyName);
+            }
         }
     }
 }

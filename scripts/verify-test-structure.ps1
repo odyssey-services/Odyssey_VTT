@@ -34,7 +34,8 @@ $allowed = @{
 }
 
 $coreBridgeModules = @('Odyssey.Domain', 'Odyssey.Rules', 'Odyssey.Content', 'Odyssey.Application')
-$testAssemblyNames = @('Odyssey.Tests.Unit', 'Odyssey.Tests.Domain', 'Odyssey.Tests.Contracts', 'Odyssey.Tests.Architecture', 'Odyssey.Tests.Unity.EditMode', 'Odyssey.Tests.Unity.PlayMode')
+$requiredTestCaseIds = @('TC-ARCH-001', 'TC-ARCH-002', 'TC-DOTNET-001', 'TC-UNITY-ASM-001', 'TC-UNITY-TEST-001', 'TC-REPO-001')
+$testProjects = @('Odyssey.Tests.Unit', 'Odyssey.Tests.Domain', 'Odyssey.Tests.Contracts', 'Odyssey.Tests.Architecture')
 
 function Get-RelativePath([string] $Path) {
     $rootFull = [System.IO.Path]::GetFullPath($RootPath).TrimEnd('\') + '\'
@@ -43,6 +44,15 @@ function Get-RelativePath([string] $Path) {
         return $pathFull.Substring($rootFull.Length).Replace('\', '/')
     }
     return $pathFull.Replace('\', '/')
+}
+
+function Write-Utf8NoBom([string] $Path, [string] $Content) {
+    $directory = Split-Path -Parent $Path
+    if (-not (Test-Path -LiteralPath $directory)) {
+        New-Item -ItemType Directory -Force -Path $directory | Out-Null
+    }
+    $utf8NoBom = New-Object System.Text.UTF8Encoding($false)
+    [System.IO.File]::WriteAllText($Path, $Content, $utf8NoBom)
 }
 
 function Read-JsonFile([string] $Path) {
@@ -72,25 +82,60 @@ function Read-XmlFile([string] $Path) {
     }
 }
 
+function Test-JsonProperty([object] $Json, [string] $Name) {
+    return $null -ne ($Json.PSObject.Properties | Where-Object { $_.Name -eq $Name } | Select-Object -First 1)
+}
+
+function Assert-SetEquals([System.Collections.Generic.List[string]] $Errors, [string] $Subject, [string[]] $Actual, [string[]] $Expected) {
+    $actualJoined = (@($Actual) | Sort-Object) -join ','
+    $expectedJoined = (@($Expected) | Sort-Object) -join ','
+    if ($actualJoined -ne $expectedJoined) {
+        $Errors.Add("$Subject dependencies mismatch. Expected [$expectedJoined], actual [$actualJoined].")
+    }
+}
+
 function Get-PackageReferences([string] $AssemblyName) {
     $packageName = $modulePackages[$AssemblyName]
     $json = Read-JsonFile (Join-Path $RootPath "Packages/$packageName/package.json")
+
+    if ($json.name -ne $packageName) {
+        throw "Package name mismatch in Packages/$packageName/package.json: expected $packageName, got $($json.name)."
+    }
+
     $references = @()
-    if ($json.PSObject.Properties.Name -contains 'dependencies') {
-        foreach ($dependency in $json.dependencies.PSObject.Properties.Name) {
+    if (Test-JsonProperty $json 'dependencies') {
+        $dependencyProperties = @($json.dependencies.PSObject.Properties)
+        foreach ($dependency in @($dependencyProperties | ForEach-Object { $_.Name } | Where-Object { -not [string]::IsNullOrWhiteSpace($_) })) {
             $moduleName = ($modulePackages.GetEnumerator() | Where-Object { $_.Value -eq $dependency }).Key
-            if ($moduleName) {
-                $references += $moduleName
+            if (-not $moduleName) {
+                throw "Unexpected package dependency '$dependency' in Packages/$packageName/package.json."
             }
+            $references += $moduleName
         }
     }
+
     return @($references | Sort-Object)
 }
 
-function Get-AsmdefReferences([string] $AssemblyName, [string] $AsmdefPath) {
+function Get-AsmdefReferences([string] $AssemblyName, [string] $AsmdefPath, [bool] $ProductionAssembly) {
     $json = Read-JsonFile $AsmdefPath
     if ($json.name -ne $AssemblyName) {
         throw "Assembly name mismatch in $(Get-RelativePath $AsmdefPath): expected $AssemblyName, got $($json.name)."
+    }
+
+    if ($ProductionAssembly) {
+        if ($json.autoReferenced -ne $false) {
+            throw "Production asmdef must set autoReferenced=false: $(Get-RelativePath $AsmdefPath)."
+        }
+        if ($json.allowUnsafeCode -ne $false) {
+            throw "Production asmdef must set allowUnsafeCode=false: $(Get-RelativePath $AsmdefPath)."
+        }
+        if ($json.overrideReferences -ne $false) {
+            throw "Production asmdef must set overrideReferences=false: $(Get-RelativePath $AsmdefPath)."
+        }
+        if ($json.noEngineReferences -ne $true) {
+            throw "Production asmdef must set noEngineReferences=true: $(Get-RelativePath $AsmdefPath)."
+        }
     }
 
     $references = @()
@@ -98,12 +143,10 @@ function Get-AsmdefReferences([string] $AssemblyName, [string] $AsmdefPath) {
         if ($reference -like 'GUID:*') {
             throw "GUID asmdef reference is not allowed in $(Get-RelativePath $AsmdefPath)."
         }
-        if ($reference -in $allowed.Keys) {
-            $references += $reference
+        if ($reference -notin $allowed.Keys) {
+            throw "Unexpected asmdef reference '$reference' in $(Get-RelativePath $AsmdefPath)."
         }
-        elseif ($reference -like 'Odyssey.*') {
-            throw "Unknown Odyssey asmdef reference '$reference' in $(Get-RelativePath $AsmdefPath)."
-        }
+        $references += $reference
     }
     return @($references | Sort-Object)
 }
@@ -132,19 +175,12 @@ function Get-CsprojReferences([string] $ProjectPath) {
     foreach ($reference in @($xml.SelectNodes('//ProjectReference'))) {
         $include = $reference.Include
         $name = [System.IO.Path]::GetFileNameWithoutExtension($include)
-        if ($name -like 'Odyssey.*') {
-            $references += $name
+        if ($name -notin $coreBridgeModules) {
+            throw "Unexpected ProjectReference '$include' in $(Get-RelativePath $ProjectPath)."
         }
+        $references += $name
     }
     return @($references | Sort-Object)
-}
-
-function Assert-SetEquals([System.Collections.Generic.List[string]] $Errors, [string] $Subject, [string[]] $Actual, [string[]] $Expected) {
-    $actualJoined = (@($Actual) | Sort-Object) -join ','
-    $expectedJoined = (@($Expected) | Sort-Object) -join ','
-    if ($actualJoined -ne $expectedJoined) {
-        $Errors.Add("$Subject dependencies mismatch. Expected [$expectedJoined], actual [$actualJoined].")
-    }
 }
 
 function Test-Cycles([hashtable] $Graph, [System.Collections.Generic.List[string]] $Errors) {
@@ -175,15 +211,111 @@ function Test-Cycles([hashtable] $Graph, [System.Collections.Generic.List[string
     }
 }
 
+function Test-BridgeProject([System.Collections.Generic.List[string]] $Errors, [string] $Module, [hashtable] $CsprojGraph) {
+    $projectName = "$Module.csproj"
+    $projectPath = Join-Path $RootPath "DotNet/Projects/$projectName"
+
+    try {
+        $xml = Read-XmlFile $projectPath
+        $targetFramework = $xml.Project.PropertyGroup.TargetFramework
+        if ($targetFramework -ne 'netstandard2.1') {
+            $Errors.Add("$projectName target framework is $targetFramework, expected netstandard2.1.")
+        }
+
+        $packageRefs = @($xml.SelectNodes('//PackageReference'))
+        if ($packageRefs.Count -ne 0) {
+            $Errors.Add("$projectName must not contain PackageReference entries.")
+        }
+
+        $compileIncludes = @($xml.SelectNodes('//Compile') | ForEach-Object { $_.Include.Replace('\', '/') })
+        $packageName = $modulePackages[$Module]
+        $expectedInclude = "../../Packages/$packageName/Runtime/**/*.cs"
+        if ($compileIncludes.Count -ne 1 -or $compileIncludes[0] -ne $expectedInclude) {
+            $Errors.Add("$projectName Compile Include must be exactly $expectedInclude.")
+        }
+
+        foreach ($include in $compileIncludes) {
+            foreach ($otherModule in $modulePackages.Keys) {
+                if ($otherModule -ne $Module) {
+                    $otherPackage = $modulePackages[$otherModule]
+                    if ($include -like "*Packages/$otherPackage/*") {
+                        $Errors.Add("$projectName includes source from $otherModule directly.")
+                    }
+                }
+            }
+        }
+
+        $CsprojGraph[$Module] = Get-CsprojReferences $projectPath
+        Assert-SetEquals $Errors "$Module csproj" $CsprojGraph[$Module] $allowed[$Module]
+    }
+    catch {
+        $Errors.Add($_.Exception.Message)
+    }
+}
+
+function Test-TestCatalog([System.Collections.Generic.List[string]] $Errors) {
+    $catalogPath = Join-Path $RootPath 'Tests/Metadata/test-catalog.json'
+    try {
+        $json = Read-JsonFile $catalogPath
+        if (-not (Test-JsonProperty $json 'testCases')) {
+            $Errors.Add('Test catalog must contain testCases.')
+            return
+        }
+
+        $ids = New-Object System.Collections.Generic.HashSet[string]
+        $paths = New-Object System.Collections.Generic.HashSet[string]
+        foreach ($case in @($json.testCases)) {
+            foreach ($property in @('testCaseId', 'taskId', 'authority', 'runner', 'path', 'check')) {
+                if (-not (Test-JsonProperty $case $property) -or [string]::IsNullOrWhiteSpace($case.$property)) {
+                    $Errors.Add("Test catalog entry is missing '$property'.")
+                }
+            }
+
+            if ($case.testCaseId -notmatch '^TC-[A-Z0-9]+(-[A-Z0-9]+)*-[0-9]{3}$') {
+                $Errors.Add("Invalid test case ID: $($case.testCaseId).")
+            }
+            if ($case.taskId -ne 'ODY-S00-003') {
+                $Errors.Add("Test catalog entry $($case.testCaseId) has taskId $($case.taskId), expected ODY-S00-003.")
+            }
+            if (-not $ids.Add([string] $case.testCaseId)) {
+                $Errors.Add("Duplicate test case ID: $($case.testCaseId).")
+            }
+
+            $casePath = Join-Path $RootPath ([string] $case.path)
+            if (-not (Test-Path -LiteralPath $casePath)) {
+                $Errors.Add("Test catalog path does not exist for $($case.testCaseId): $($case.path).")
+            }
+            if (-not $paths.Add("$($case.testCaseId)|$($case.path)|$($case.check)")) {
+                $Errors.Add("Duplicate test catalog ownership entry for $($case.testCaseId).")
+            }
+        }
+
+        foreach ($requiredId in $requiredTestCaseIds) {
+            if (-not $ids.Contains($requiredId)) {
+                $Errors.Add("Required test case ID missing from catalog: $requiredId.")
+            }
+        }
+    }
+    catch {
+        $Errors.Add($_.Exception.Message)
+    }
+}
+
 function Test-RepositoryStructure {
     $errors = New-Object System.Collections.Generic.List[string]
     $asmdefGraph = @{}
     $packageGraph = @{}
     $csprojGraph = @{}
 
+    foreach ($requiredPath in @('DotNet/Odyssey.Core.sln', 'NuGet.Config', 'Tests/Metadata/test-catalog.json')) {
+        $path = Join-Path $RootPath $requiredPath
+        if (-not (Test-Path -LiteralPath $path)) {
+            $errors.Add("Missing required path: $requiredPath.")
+        }
+    }
+
     foreach ($module in $modulePackages.Keys) {
         $packageName = $modulePackages[$module]
-        $packagePath = Join-Path $RootPath "Packages/$packageName/package.json"
         $asmdefPath = Join-Path $RootPath "Packages/$packageName/Runtime/$module.asmdef"
         $sourcePath = Join-Path $RootPath "Packages/$packageName/Runtime/AssemblyMarker.cs"
 
@@ -193,7 +325,7 @@ function Test-RepositoryStructure {
 
         try {
             $packageGraph[$module] = Get-PackageReferences $module
-            $asmdefGraph[$module] = Get-AsmdefReferences $module $asmdefPath
+            $asmdefGraph[$module] = Get-AsmdefReferences $module $asmdefPath $true
         }
         catch {
             $errors.Add($_.Exception.Message)
@@ -209,10 +341,10 @@ function Test-RepositoryStructure {
     $playModeAsmdef = Join-Path $RootPath 'Assets/Odyssey/Client/Tests/PlayMode/Odyssey.Tests.Unity.PlayMode.asmdef'
 
     try {
-        $asmdefGraph['Odyssey.Unity.Client'] = Get-AsmdefReferences 'Odyssey.Unity.Client' $unityRuntimeAsmdef
-        $asmdefGraph['Odyssey.Unity.Client.Editor'] = Get-AsmdefReferences 'Odyssey.Unity.Client.Editor' $unityEditorAsmdef
-        [void] (Get-AsmdefReferences 'Odyssey.Tests.Unity.EditMode' $editModeAsmdef)
-        [void] (Get-AsmdefReferences 'Odyssey.Tests.Unity.PlayMode' $playModeAsmdef)
+        $asmdefGraph['Odyssey.Unity.Client'] = Get-AsmdefReferences 'Odyssey.Unity.Client' $unityRuntimeAsmdef $false
+        $asmdefGraph['Odyssey.Unity.Client.Editor'] = Get-AsmdefReferences 'Odyssey.Unity.Client.Editor' $unityEditorAsmdef $false
+        [void] (Get-AsmdefReferences 'Odyssey.Tests.Unity.EditMode' $editModeAsmdef $false)
+        [void] (Get-AsmdefReferences 'Odyssey.Tests.Unity.PlayMode' $playModeAsmdef $false)
         Test-UnityTestAsmdef $errors 'Odyssey.Tests.Unity.EditMode' $editModeAsmdef $true
         Test-UnityTestAsmdef $errors 'Odyssey.Tests.Unity.PlayMode' $playModeAsmdef $false
     }
@@ -224,39 +356,7 @@ function Test-RepositoryStructure {
     Assert-SetEquals $errors 'Odyssey.Unity.Client.Editor asmdef' $asmdefGraph['Odyssey.Unity.Client.Editor'] $allowed['Odyssey.Unity.Client.Editor']
 
     foreach ($module in $coreBridgeModules) {
-        $projectName = "$module.csproj"
-        $projectPath = Join-Path $RootPath "DotNet/Projects/$projectName"
-        try {
-            $xml = Read-XmlFile $projectPath
-            $targetFramework = $xml.Project.PropertyGroup.TargetFramework
-            if ($targetFramework -ne 'netstandard2.1') {
-                $errors.Add("$projectName target framework is $targetFramework, expected netstandard2.1.")
-            }
-
-            $compileIncludes = @($xml.SelectNodes('//Compile') | ForEach-Object { $_.Include.Replace('\', '/') })
-            $packageName = $modulePackages[$module]
-            $expectedInclude = "../../Packages/$packageName/Runtime/**/*.cs"
-            if ($expectedInclude -notin $compileIncludes) {
-                $errors.Add("$projectName does not include $expectedInclude.")
-            }
-
-            foreach ($include in $compileIncludes) {
-                foreach ($otherModule in $modulePackages.Keys) {
-                    if ($otherModule -ne $module) {
-                        $otherPackage = $modulePackages[$otherModule]
-                        if ($include -like "*Packages/$otherPackage/*") {
-                            $errors.Add("$projectName includes source from $otherModule directly.")
-                        }
-                    }
-                }
-            }
-
-            $csprojGraph[$module] = Get-CsprojReferences $projectPath
-            Assert-SetEquals $errors "$module csproj" $csprojGraph[$module] $allowed[$module]
-        }
-        catch {
-            $errors.Add($_.Exception.Message)
-        }
+        Test-BridgeProject $errors $module $csprojGraph
     }
 
     foreach ($unexpected in @('Odyssey.Persistence.csproj', 'Odyssey.Networking.csproj')) {
@@ -273,7 +373,7 @@ function Test-RepositoryStructure {
         }
     }
 
-    foreach ($testProject in @('Odyssey.Tests.Unit', 'Odyssey.Tests.Domain', 'Odyssey.Tests.Contracts', 'Odyssey.Tests.Architecture')) {
+    foreach ($testProject in $testProjects) {
         $projectPath = Join-Path $RootPath "DotNet/Tests/$testProject/$testProject.csproj"
         try {
             $xml = Read-XmlFile $projectPath
@@ -306,7 +406,7 @@ function Test-RepositoryStructure {
 
         foreach ($source in $sources) {
             $text = Get-Content -LiteralPath $source.FullName -Raw
-            if ($module -in $coreBridgeModules -and $text -match '^\s*using\s+UnityEngine[.;]' ) {
+            if ($module -in $coreBridgeModules -and $text -match '^\s*using\s+UnityEngine[.;]') {
                 $errors.Add("Core source references UnityEngine: $(Get-RelativePath $source.FullName).")
             }
             if ($text -match 'Odyssey\.Tests|NUnit') {
@@ -338,86 +438,265 @@ function Test-RepositoryStructure {
     }
 
     Test-Cycles $asmdefGraph $errors
+    Test-TestCatalog $errors
     return ,$errors
 }
 
-function New-InvalidFixture([string] $FixtureRoot) {
-    New-Item -ItemType Directory -Force -Path (Join-Path $FixtureRoot 'Packages/com.odyssey.domain/Runtime') | Out-Null
-    New-Item -ItemType Directory -Force -Path (Join-Path $FixtureRoot 'Packages/com.odyssey.rules/Runtime') | Out-Null
-    New-Item -ItemType Directory -Force -Path (Join-Path $FixtureRoot 'Packages/com.odyssey.content/Runtime') | Out-Null
-    New-Item -ItemType Directory -Force -Path (Join-Path $FixtureRoot 'Packages/com.odyssey.application/Runtime') | Out-Null
-    New-Item -ItemType Directory -Force -Path (Join-Path $FixtureRoot 'Packages/com.odyssey.persistence/Runtime') | Out-Null
-    New-Item -ItemType Directory -Force -Path (Join-Path $FixtureRoot 'Packages/com.odyssey.networking/Runtime') | Out-Null
-    New-Item -ItemType Directory -Force -Path (Join-Path $FixtureRoot 'Assets/Odyssey/Client/Runtime') | Out-Null
-    New-Item -ItemType Directory -Force -Path (Join-Path $FixtureRoot 'Assets/Odyssey/Client/Editor') | Out-Null
-    New-Item -ItemType Directory -Force -Path (Join-Path $FixtureRoot 'Assets/Odyssey/Client/Tests/EditMode') | Out-Null
-    New-Item -ItemType Directory -Force -Path (Join-Path $FixtureRoot 'Assets/Odyssey/Client/Tests/PlayMode') | Out-Null
-    New-Item -ItemType Directory -Force -Path (Join-Path $FixtureRoot 'DotNet/Projects') | Out-Null
-    New-Item -ItemType Directory -Force -Path (Join-Path $FixtureRoot 'DotNet/Tests/Odyssey.Tests.Unit') | Out-Null
-    New-Item -ItemType Directory -Force -Path (Join-Path $FixtureRoot 'DotNet/Tests/Odyssey.Tests.Domain') | Out-Null
-    New-Item -ItemType Directory -Force -Path (Join-Path $FixtureRoot 'DotNet/Tests/Odyssey.Tests.Contracts') | Out-Null
-    New-Item -ItemType Directory -Force -Path (Join-Path $FixtureRoot 'DotNet/Tests/Odyssey.Tests.Architecture') | Out-Null
-
-    foreach ($module in $modulePackages.Keys) {
-        $packageName = $modulePackages[$module]
-        $deps = @{}
-        foreach ($dependency in $allowed[$module]) {
-            if ($modulePackages.Contains($dependency)) {
-                $deps[$modulePackages[$dependency]] = '0.1.0'
-            }
-        }
-        if ($module -eq 'Odyssey.Domain') {
-            $deps['com.odyssey.rules'] = '0.1.0'
-        }
-        $package = [ordered]@{
-            name = $packageName
-            version = '0.1.0'
-            unity = '6000.4'
-            license = 'UNLICENSED'
-            dependencies = $deps
-        }
-        $package | ConvertTo-Json -Depth 5 | Set-Content -LiteralPath (Join-Path $FixtureRoot "Packages/$packageName/package.json") -Encoding UTF8
-
-        $refs = @($allowed[$module])
-        if ($module -eq 'Odyssey.Domain') {
-            $refs = @('Odyssey.Rules')
-        }
-        $asmdef = [ordered]@{
-            name = $module
-            references = $refs
-            includePlatforms = @()
-            excludePlatforms = @()
-            noEngineReferences = $true
-        }
-        $asmdef | ConvertTo-Json -Depth 5 | Set-Content -LiteralPath (Join-Path $FixtureRoot "Packages/$packageName/Runtime/$module.asmdef") -Encoding UTF8
-        "namespace $module { internal static class AssemblyMarker { } }" | Set-Content -LiteralPath (Join-Path $FixtureRoot "Packages/$packageName/Runtime/AssemblyMarker.cs") -Encoding UTF8
+function New-FixturePackage([string] $FixtureRoot, [string] $Module, [bool] $InvalidDomainDependency) {
+    $packageName = $modulePackages[$Module]
+    $dependencyModules = @($allowed[$Module])
+    if ($InvalidDomainDependency -and $Module -eq 'Odyssey.Domain') {
+        $dependencyModules = @('Odyssey.Rules')
     }
+
+    $dependencyLines = @()
+    foreach ($dependency in $dependencyModules) {
+        $dependencyLines += "    `"$($modulePackages[$dependency])`": `"0.1.0`""
+    }
+    $dependencyBlock = '{}'
+    if ($dependencyLines.Count -gt 0) {
+        $dependencyBlock = "{`n$($dependencyLines -join ",`n")`n  }"
+    }
+
+    $referenceLines = @()
+    foreach ($dependency in $dependencyModules) {
+        $referenceLines += "    `"$dependency`""
+    }
+    $referenceBlock = '[]'
+    if ($referenceLines.Count -gt 0) {
+        $referenceBlock = "[`n$($referenceLines -join ",`n")`n  ]"
+    }
+
+    Write-Utf8NoBom (Join-Path $FixtureRoot "Packages/$packageName/package.json") @"
+{
+  "name": "$packageName",
+  "version": "0.1.0",
+  "unity": "6000.4",
+  "license": "UNLICENSED",
+  "dependencies": $dependencyBlock
+}
+"@
+
+    Write-Utf8NoBom (Join-Path $FixtureRoot "Packages/$packageName/Runtime/$Module.asmdef") @"
+{
+  "name": "$Module",
+  "rootNamespace": "$Module",
+  "references": $referenceBlock,
+  "includePlatforms": [],
+  "excludePlatforms": [],
+  "allowUnsafeCode": false,
+  "overrideReferences": false,
+  "precompiledReferences": [],
+  "autoReferenced": false,
+  "defineConstraints": [],
+  "versionDefines": [],
+  "noEngineReferences": true
+}
+"@
+
+    Write-Utf8NoBom (Join-Path $FixtureRoot "Packages/$packageName/Runtime/AssemblyMarker.cs") @"
+namespace $Module
+{
+    internal static class AssemblyMarker
+    {
+        internal const string ModuleName = "$Module";
+    }
+}
+"@
+}
+
+function New-FixtureCsproj([string] $FixtureRoot, [string] $Module, [bool] $InvalidDomainDependency) {
+    $projectReferences = @($allowed[$Module])
+    if ($InvalidDomainDependency -and $Module -eq 'Odyssey.Domain') {
+        $projectReferences = @('Odyssey.Rules')
+    }
+
+    $referenceBlock = ''
+    if ($projectReferences.Count -gt 0) {
+        $referenceLines = @()
+        foreach ($reference in $projectReferences) {
+            $referenceLines += "    <ProjectReference Include=`"$reference.csproj`" />"
+        }
+        $referenceBlock = @"
+
+  <ItemGroup>
+$($referenceLines -join "`n")
+  </ItemGroup>
+"@
+    }
+
+    $packageName = $modulePackages[$Module]
+    Write-Utf8NoBom (Join-Path $FixtureRoot "DotNet/Projects/$Module.csproj") @"
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <TargetFramework>netstandard2.1</TargetFramework>
+    <AssemblyName>$Module</AssemblyName>
+    <RootNamespace>$Module</RootNamespace>
+    <EnableDefaultCompileItems>false</EnableDefaultCompileItems>
+  </PropertyGroup>$referenceBlock
+
+  <ItemGroup>
+    <Compile Include="..\..\Packages\$packageName\Runtime\**\*.cs" />
+  </ItemGroup>
+</Project>
+"@
+}
+
+function New-TestProjectFixture([string] $FixtureRoot, [string] $ProjectName) {
+    Write-Utf8NoBom (Join-Path $FixtureRoot "DotNet/Tests/$ProjectName/$ProjectName.csproj") @"
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <IsPackable>false</IsPackable>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Microsoft.NET.Test.Sdk" Version="18.8.1" />
+    <PackageReference Include="NUnit" Version="4.6.1" />
+    <PackageReference Include="NUnit3TestAdapter" Version="6.2.0" />
+  </ItemGroup>
+</Project>
+"@
+}
+
+function New-SyntheticFixture([string] $FixtureRoot, [bool] $InvalidDomainDependency) {
+    foreach ($module in $modulePackages.Keys) {
+        New-FixturePackage $FixtureRoot $module $InvalidDomainDependency
+    }
+
+    foreach ($module in $coreBridgeModules) {
+        New-FixtureCsproj $FixtureRoot $module $InvalidDomainDependency
+    }
+
+    Write-Utf8NoBom (Join-Path $FixtureRoot 'DotNet/Odyssey.Core.sln') "`n"
+    Write-Utf8NoBom (Join-Path $FixtureRoot 'NuGet.Config') @"
+<?xml version="1.0" encoding="utf-8"?>
+<configuration>
+  <packageSources>
+    <clear />
+    <add key="nuget.org"
+         value="https://api.nuget.org/v3/index.json"
+         protocolVersion="3" />
+  </packageSources>
+</configuration>
+"@
+
+    foreach ($testProject in $testProjects) {
+        New-TestProjectFixture $FixtureRoot $testProject
+    }
+
+    Write-Utf8NoBom (Join-Path $FixtureRoot 'Assets/Odyssey/Client/Runtime/Odyssey.Unity.Client.Runtime.asmdef') @"
+{
+  "name": "Odyssey.Unity.Client",
+  "references": [
+    "Odyssey.Domain",
+    "Odyssey.Rules",
+    "Odyssey.Content",
+    "Odyssey.Application",
+    "Odyssey.Persistence",
+    "Odyssey.Networking"
+  ]
+}
+"@
+
+    Write-Utf8NoBom (Join-Path $FixtureRoot 'Assets/Odyssey/Client/Editor/Odyssey.Unity.Client.Editor.asmdef') @"
+{
+  "name": "Odyssey.Unity.Client.Editor",
+  "references": [
+    "Odyssey.Unity.Client",
+    "Odyssey.Domain",
+    "Odyssey.Rules",
+    "Odyssey.Content",
+    "Odyssey.Application",
+    "Odyssey.Persistence",
+    "Odyssey.Networking"
+  ]
+}
+"@
+
+    Write-Utf8NoBom (Join-Path $FixtureRoot 'Assets/Odyssey/Client/Tests/EditMode/Odyssey.Tests.Unity.EditMode.asmdef') @"
+{
+  "name": "Odyssey.Tests.Unity.EditMode",
+  "references": [
+    "Odyssey.Unity.Client"
+  ],
+  "includePlatforms": [
+    "Editor"
+  ],
+  "optionalUnityReferences": [
+    "TestAssemblies"
+  ]
+}
+"@
+
+    Write-Utf8NoBom (Join-Path $FixtureRoot 'Assets/Odyssey/Client/Tests/PlayMode/Odyssey.Tests.Unity.PlayMode.asmdef') @"
+{
+  "name": "Odyssey.Tests.Unity.PlayMode",
+  "references": [
+    "Odyssey.Unity.Client"
+  ],
+  "optionalUnityReferences": [
+    "TestAssemblies"
+  ]
+}
+"@
+
+    Write-Utf8NoBom (Join-Path $FixtureRoot 'Tests/Metadata/test-catalog.json') @"
+{
+  "testCases": [
+    { "testCaseId": "TC-ARCH-001", "taskId": "ODY-S00-003", "authority": "ADR-001", "runner": "PowerShell", "path": "scripts/verify-test-structure.ps1", "check": "valid graph" },
+    { "testCaseId": "TC-ARCH-002", "taskId": "ODY-S00-003", "authority": "ADR-001", "runner": "PowerShell", "path": "scripts/verify-test-structure.ps1", "check": "invalid graph" },
+    { "testCaseId": "TC-DOTNET-001", "taskId": "ODY-S00-003", "authority": "ADR-006", "runner": "dotnet test", "path": "DotNet/Odyssey.Core.sln", "check": "dotnet bridge tests" },
+    { "testCaseId": "TC-UNITY-ASM-001", "taskId": "ODY-S00-003", "authority": "ADR-001", "runner": "Unity batchmode", "path": "Assets/Odyssey/Client/Runtime/Odyssey.Unity.Client.Runtime.asmdef", "check": "Unity asmdef graph" },
+    { "testCaseId": "TC-UNITY-TEST-001", "taskId": "ODY-S00-003", "authority": "ADR-006", "runner": "Unity Test Framework", "path": "Assets/Odyssey/Client/Tests", "check": "Unity tests" },
+    { "testCaseId": "TC-REPO-001", "taskId": "ODY-S00-003", "authority": "AGENTS.md", "runner": "PowerShell", "path": "scripts/verify-repository.ps1", "check": "repository verification" }
+  ]
+}
+"@
+
+    Write-Utf8NoBom (Join-Path $FixtureRoot 'scripts/verify-test-structure.ps1') "`n"
+    Write-Utf8NoBom (Join-Path $FixtureRoot 'scripts/verify-repository.ps1') "`n"
 }
 
 $errors = Test-RepositoryStructure
 if ($errors.Count -gt 0) {
-    Write-Host 'TST-ARCH-001 FAIL valid ADR-001 graph check failed'
+    Write-Host 'TC-ARCH-001 FAIL valid ADR-001 graph check failed'
     $errors | ForEach-Object { Write-Error $_ }
     exit 1
 }
 
-Write-Host 'TST-ARCH-001 PASS valid ADR-001 graph passes'
+Write-Host 'TC-ARCH-001 PASS valid ADR-001 graph passes'
 
 if (-not $SkipNegativeFixture) {
-    $fixtureRoot = Join-Path ([System.IO.Path]::GetTempPath()) ("odyssey-invalid-graph-" + [guid]::NewGuid().ToString('N'))
+    $fixtureRoot = Join-Path ([System.IO.Path]::GetTempPath()) ("odyssey-graph-fixture-" + [guid]::NewGuid().ToString('N'))
     try {
-        New-InvalidFixture $fixtureRoot
+        New-SyntheticFixture $fixtureRoot $false
         $previousErrorActionPreference = $ErrorActionPreference
         $ErrorActionPreference = 'Continue'
-        $fixtureOutput = & powershell -NoProfile -ExecutionPolicy Bypass -File $PSCommandPath -RootPath $fixtureRoot -SkipNegativeFixture 2>&1
-        $fixtureExitCode = $LASTEXITCODE
+        $validOutput = & powershell -NoProfile -ExecutionPolicy Bypass -File $PSCommandPath -RootPath $fixtureRoot -SkipNegativeFixture 2>&1
+        $validExitCode = $LASTEXITCODE
         $ErrorActionPreference = $previousErrorActionPreference
-        if ($fixtureExitCode -eq 0) {
-            Write-Host 'TST-ARCH-002 FAIL invalid dependency fixture unexpectedly passed'
-            $fixtureOutput | ForEach-Object { Write-Host $_ }
+        if ($validExitCode -ne 0) {
+            Write-Host "TC-ARCH-002 FAIL valid synthetic fixture failed with exit code $validExitCode"
+            $validOutput | ForEach-Object { Write-Host $_ }
             exit 1
         }
-        Write-Host "TST-ARCH-002 PASS invalid dependency fixture failed with exit code $fixtureExitCode"
+
+        Remove-Item -LiteralPath $fixtureRoot -Recurse -Force
+        New-SyntheticFixture $fixtureRoot $true
+        $previousErrorActionPreference = $ErrorActionPreference
+        $ErrorActionPreference = 'Continue'
+        $invalidOutput = & powershell -NoProfile -ExecutionPolicy Bypass -File $PSCommandPath -RootPath $fixtureRoot -SkipNegativeFixture 2>&1
+        $invalidExitCode = $LASTEXITCODE
+        $ErrorActionPreference = $previousErrorActionPreference
+        $expectedDiagnostic = ($invalidOutput -join "`n") -match 'Odyssey\.Domain.*(dependencies mismatch|Cycle detected)|Cycle detected.*Odyssey\.Domain'
+        if ($invalidExitCode -eq 0 -or -not $expectedDiagnostic) {
+            Write-Host "TC-ARCH-002 FAIL controlled invalid fixture did not fail for expected Domain dependency reason"
+            $invalidOutput | ForEach-Object { Write-Host $_ }
+            exit 1
+        }
+
+        Write-Host "TC-ARCH-002 PASS controlled invalid Domain->Rules dependency rejected with exit code $invalidExitCode"
     }
     finally {
         if (Test-Path -LiteralPath $fixtureRoot) {

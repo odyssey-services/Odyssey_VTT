@@ -1,26 +1,65 @@
+param(
+    [string] $UnityEditorPath = $env:UNITY_EDITOR_PATH
+)
+
 Set-StrictMode -Version Latest
 $ErrorActionPreference = 'Stop'
 
 $repoRoot = Resolve-Path (Join-Path $PSScriptRoot '..')
-$unityExe = 'C:\Program Files\Unity\Hub\Editor\6000.4.0f1\Editor\Unity.exe'
 $logDir = Join-Path $repoRoot 'Logs/ODY-S00-003'
+$fallbackUnityEditorPath = 'C:\Program Files\Unity\Hub\Editor\6000.4.0f1\Editor\Unity.exe'
 
-if (-not (Test-Path -LiteralPath $unityExe)) {
-    throw "Required Unity Editor not found: $unityExe"
+if ([string]::IsNullOrWhiteSpace($UnityEditorPath)) {
+    $UnityEditorPath = $fallbackUnityEditorPath
 }
 
 New-Item -ItemType Directory -Force -Path $logDir | Out-Null
 
+function Join-ProcessArguments([string[]] $Arguments) {
+    $quoted = @()
+    foreach ($argument in $Arguments) {
+        if ($argument -match '[\s"]') {
+            $quoted += '"' + ($argument -replace '"', '\"') + '"'
+        }
+        else {
+            $quoted += $argument
+        }
+    }
+    return $quoted -join ' '
+}
+
 function Invoke-Unity([string[]] $Arguments, [string] $Name) {
-    $process = Start-Process -FilePath $unityExe -ArgumentList $Arguments -Wait -NoNewWindow -PassThru
+    $startInfo = New-Object System.Diagnostics.ProcessStartInfo
+    $startInfo.FileName = $UnityEditorPath
+    $startInfo.UseShellExecute = $false
+    $startInfo.Arguments = Join-ProcessArguments $Arguments
+
+    $process = New-Object System.Diagnostics.Process
+    $process.StartInfo = $startInfo
+    [void] $process.Start()
+    $process.WaitForExit()
     if ($process.ExitCode -ne 0) {
         throw "$Name failed with exit code $($process.ExitCode)."
     }
-    Write-Host "$Name PASS exit code 0"
+    Write-Host "TC-UNITY-ASM-001 PASS $Name exit code 0"
 }
 
 Push-Location $repoRoot
 try {
+    $projectVersionPath = Join-Path $repoRoot 'ProjectSettings/ProjectVersion.txt'
+    if (-not (Test-Path -LiteralPath $projectVersionPath)) {
+        throw "ProjectVersion.txt not found: $projectVersionPath"
+    }
+
+    $projectVersion = Get-Content -LiteralPath $projectVersionPath -Raw
+    if ($projectVersion -notmatch 'm_EditorVersion:\s*6000\.4\.0f1' -or $projectVersion -notmatch 'm_EditorVersionWithRevision:\s*6000\.4\.0f1\s+\(8cf496087c8f\)') {
+        throw 'ProjectSettings/ProjectVersion.txt does not match exact Unity 6000.4.0f1 (8cf496087c8f).'
+    }
+
+    if (-not (Test-Path -LiteralPath $UnityEditorPath)) {
+        throw "Required Unity Editor not found: $UnityEditorPath. Pass -UnityEditorPath or set UNITY_EDITOR_PATH to Unity 6000.4.0f1."
+    }
+
     Invoke-Unity @(
         '-batchmode',
         '-quit',
@@ -63,7 +102,7 @@ try {
         if ($failed -ne 0) {
             throw "Unity test result file has $failed failed tests: $resultPath"
         }
-        Write-Host "$resultName PASS total=$total passed=$passed failed=$failed skipped=$skipped"
+        Write-Host "TC-UNITY-TEST-001 PASS $resultName total=$total passed=$passed failed=$failed skipped=$skipped"
     }
 }
 finally {

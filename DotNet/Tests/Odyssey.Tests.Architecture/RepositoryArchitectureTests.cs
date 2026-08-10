@@ -3,49 +3,57 @@ using System.Diagnostics;
 using System.IO;
 using NUnit.Framework;
 
-namespace Odyssey.Tests.Architecture;
-
-public sealed class RepositoryArchitectureTests
+namespace Odyssey.Tests.Architecture
 {
-    [Test]
-    public void RepositoryStructurePassesArchitectureGuard()
+    public sealed class RepositoryArchitectureTests
     {
-        string root = FindRepositoryRoot();
-        string script = Path.Combine(root, "scripts", "verify-test-structure.ps1");
-
-        using Process process = Process.Start(new ProcessStartInfo
+        [Test]
+        public void RepositoryStructurePassesArchitectureGuard()
         {
-            FileName = "powershell",
-            ArgumentList =
+            string root = FindRepositoryRoot();
+            string script = Path.Combine(root, "scripts", "verify-test-structure.ps1");
+
+            using (Process process = Process.Start(new ProcessStartInfo
             {
-                "-NoProfile",
-                "-ExecutionPolicy",
-                "Bypass",
-                "-File",
-                script
-            },
-            WorkingDirectory = root,
-            RedirectStandardOutput = true,
-            RedirectStandardError = true
-        }) ?? throw new InvalidOperationException("Failed to start architecture guard.");
+                FileName = "powershell",
+                ArgumentList =
+                {
+                    "-NoProfile",
+                    "-ExecutionPolicy",
+                    "Bypass",
+                    "-File",
+                    script
+                },
+                WorkingDirectory = root,
+                RedirectStandardOutput = true,
+                RedirectStandardError = true
+            }) ?? throw new InvalidOperationException("Failed to start architecture guard."))
+            {
+                process.WaitForExit();
 
-        process.WaitForExit();
-
-        string output = process.StandardOutput.ReadToEnd() + process.StandardError.ReadToEnd();
-        Assert.That(process.ExitCode, Is.EqualTo(0), output);
-        Assert.That(output, Does.Contain("TST-ARCH-001 PASS"));
-        Assert.That(output, Does.Contain("TST-ARCH-002 PASS"));
-    }
-
-    private static string FindRepositoryRoot()
-    {
-        string? current = TestContext.CurrentContext.TestDirectory;
-
-        while (current is not null && !File.Exists(Path.Combine(current, "AGENTS.md")))
-        {
-            current = Directory.GetParent(current)?.FullName;
+                string output = process.StandardOutput.ReadToEnd() + process.StandardError.ReadToEnd();
+                Assert.That(process.ExitCode, Is.EqualTo(0), output);
+                Assert.That(output, Does.Contain("TC-ARCH-001 PASS"));
+                Assert.That(output, Does.Contain("TC-ARCH-002 PASS"));
+            }
         }
 
-        return current ?? throw new DirectoryNotFoundException("Repository root was not found.");
+        private static string FindRepositoryRoot()
+        {
+            string? current = TestContext.CurrentContext.TestDirectory;
+
+            while (current != null && !File.Exists(Path.Combine(current, "AGENTS.md")))
+            {
+                DirectoryInfo? parent = Directory.GetParent(current);
+                current = parent == null ? null : parent.FullName;
+            }
+
+            if (current == null)
+            {
+                throw new DirectoryNotFoundException("Repository root was not found.");
+            }
+
+            return current;
+        }
     }
 }
