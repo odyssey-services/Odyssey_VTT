@@ -58,7 +58,7 @@ No runtime composition, gameplay, persistence, networking behavior, command pipe
 - The accepted Unity baseline is Unity `6000.4.0f1`, changeset `8cf496087c8f`, HDRP `17.4.0`, and Input System `1.19.0`.
 - The repository contains Unity project folders `Assets/`, `Packages/`, and `ProjectSettings/` from ODY-S00-002.
 - Core embedded package folders `Packages/com.odyssey.domain/`, `Packages/com.odyssey.rules/`, `Packages/com.odyssey.content/`, `Packages/com.odyssey.application/`, `Packages/com.odyssey.persistence/`, and `Packages/com.odyssey.networking/` do not exist yet.
-- `DotNet/Odyssey.sln` does not exist yet.
+- `DotNet/Odyssey.Core.sln` does not exist yet.
 - Only `scripts/check-repository-policy.ps1` exists as a repository command in the merged ODY-S00-002 state; broader canonical scripts are future Slice-00 deliverables.
 
 ### Assumptions
@@ -90,13 +90,27 @@ No runtime composition, gameplay, persistence, networking behavior, command pipe
 - Unity Client assembly boundaries:
   - `Assets/Odyssey/Client/Runtime/`
   - `Assets/Odyssey/Client/Editor/`
-  - `Odyssey.Unity.Client.Runtime.asmdef`
-  - `Odyssey.Unity.Client.Editor.asmdef`
+  - `Assets/Odyssey/Client/Runtime/Odyssey.Unity.Client.Runtime.asmdef` file with assembly field `"name": "Odyssey.Unity.Client"`
+  - `Assets/Odyssey/Client/Editor/Odyssey.Unity.Client.Editor.asmdef` file with assembly field `"name": "Odyssey.Unity.Client.Editor"`
 - Pure .NET skeleton:
-  - `DotNet/Odyssey.sln`
-  - ADR-006 bridge/project structure for single-source Core compilation.
-  - .NET projects compile production source directly from `Packages/com.odyssey.*/Runtime/**`.
+  - `DotNet/Odyssey.Core.sln`
+  - ADR-006 bridge/project structure for single-source Core compilation:
+    - `DotNet/Projects/Odyssey.Domain.csproj`
+    - `DotNet/Projects/Odyssey.Rules.csproj`
+    - `DotNet/Projects/Odyssey.Content.csproj`
+    - `DotNet/Projects/Odyssey.Application.csproj`
+    - `DotNet/Tests/Odyssey.Tests.Unit/`
+    - `DotNet/Tests/Odyssey.Tests.Domain/`
+    - `DotNet/Tests/Odyssey.Tests.Contracts/`
+    - `DotNet/Tests/Odyssey.Tests.Architecture/`
+  - Pure .NET bridge projects are created only for `Odyssey.Domain`, `Odyssey.Rules`, `Odyssey.Content`, and `Odyssey.Application`.
+  - The four pure .NET bridge projects target `netstandard2.1` and include physical production source from:
+    - `Packages/com.odyssey.domain/Runtime/**/*.cs`
+    - `Packages/com.odyssey.rules/Runtime/**/*.cs`
+    - `Packages/com.odyssey.content/Runtime/**/*.cs`
+    - `Packages/com.odyssey.application/Runtime/**/*.cs`
   - Production source is not copied into `DotNet/`.
+  - Do not create `Odyssey.Persistence.csproj`, `Odyssey.Networking.csproj`, `Odyssey.Tests.Persistence`, or `Odyssey.Tests.Networking` unless ADR-006 requires them for SLICE-00.
 - Test projects:
   - `Odyssey.Tests.Unit`
   - `Odyssey.Tests.Domain`
@@ -124,7 +138,8 @@ Packages/com.odyssey.persistence/**
 Packages/com.odyssey.networking/**
 Assets/Odyssey/Client/Runtime/**
 Assets/Odyssey/Client/Editor/**
-Assets/Odyssey/Tests/**
+Assets/Odyssey/Client/Tests/EditMode/**
+Assets/Odyssey/Client/Tests/PlayMode/**
 DotNet/**
 Tests/**
 scripts/restore.ps1
@@ -162,7 +177,7 @@ Assets/Odyssey/**/*.asset
 - Dependency / licensing rule: Do not add dependencies, GitHub Actions, executables, downloaded tools, or package/version updates unless explicitly authorized by ADR-006/current baseline.
 - Security / privacy / redaction rule: Do not commit private documents, secrets, local caches, generated Unity folders, local absolute paths, or hidden product/campaign content.
 - Performance or platform constraint: Windows 10/11 x64 and the accepted Unity `6000.4.0f1` baseline remain unchanged.
-- Other: Test assemblies, test fixtures, and test helpers must not enter Player assemblies.
+- Other: Test assemblies, test fixtures, and test helpers must not enter Player assemblies. The Unity Client runtime assembly is `Odyssey.Unity.Client`; `Odyssey.Unity.Client.Runtime` is not a separate production module or architectural responsibility.
 
 ## 7. Expected behavior
 
@@ -187,8 +202,9 @@ Assets/Odyssey/**/*.asset
 ### Required invariants
 
 - Production source has one physical copy under the owned module packages.
-- .NET projects compile source directly from `Packages/com.odyssey.*/Runtime/**`; they do not copy production files into `DotNet/`.
+- Pure .NET bridge projects exist only for Domain, Rules, Content, and Application, and compile source directly from their matching package `Runtime/**/*.cs` paths; they do not copy production files into `DotNet/`.
 - `Persistence` and `Networking` do not reference each other.
+- Persistence and Networking are created as embedded Unity packages with `package.json` and production `.asmdef`, but no `Odyssey.Persistence.csproj`, `Odyssey.Networking.csproj`, `Odyssey.Tests.Persistence`, or `Odyssey.Tests.Networking` is created unless ADR-006 requires them for SLICE-00.
 - No runtime composition, product behavior, command/event handling, persistence adapter, network adapter, serialization contract, or gameplay rule is introduced.
 
 ## 8. Deliverables
@@ -206,7 +222,7 @@ Assets/Odyssey/**/*.asset
 1. Each required embedded production package exists with pinned, repository-owned metadata and a production assembly definition.
 2. Production assembly references exactly match the ADR-001 allowed dependency graph, including no `Persistence <-> Networking` reference and no production-to-test reference.
 3. Unity Client Runtime and Editor assemblies exist in the required paths and respect Unity/editor/test boundary rules.
-4. `DotNet/Odyssey.sln` and bridge/test projects compile the same production source from `Packages/com.odyssey.*/Runtime/**` without copying source into `DotNet/`.
+4. `DotNet/Odyssey.Core.sln` and the four Domain/Rules/Content/Application bridge projects compile the matching production source from `Packages/com.odyssey.domain/Runtime/**/*.cs`, `Packages/com.odyssey.rules/Runtime/**/*.cs`, `Packages/com.odyssey.content/Runtime/**/*.cs`, and `Packages/com.odyssey.application/Runtime/**/*.cs` without copying source into `DotNet/`.
 5. Required .NET test projects and Unity EditMode/PlayMode test assemblies exist and are excluded from Player runtime assemblies.
 6. The architecture guard automatically detects the listed forbidden dependency categories and cyclic module references.
 7. Repository scripts created by this task perform real checks and fail on relevant broken state; no fake or placeholder success wrappers are added.
@@ -221,7 +237,7 @@ Assets/Odyssey/**/*.asset
 |---|---|---|---|
 | `TST-ARCH-001` | Architecture script / .NET test | ADR-001 allowed production dependency graph passes | Pass |
 | `TST-ARCH-002` | Architecture script / .NET test | Forbidden dependency categories and cycles fail against intentional fixture/sample | Pass |
-| `TST-DOTNET-001` | .NET build/test | Bridge projects compile production source directly from `Packages/com.odyssey.*/Runtime/**` | Pass |
+| `TST-DOTNET-001` | .NET build/test | Domain, Rules, Content, and Application bridge projects compile source directly from their matching package `Runtime/**/*.cs` paths | Pass |
 | `TST-UNITY-ASM-001` | Unity compile/EditMode | Production and Unity Client `.asmdef` graph compiles in Unity | Pass |
 | `TST-UNITY-TEST-001` | Unity EditMode/PlayMode boundary check | Unity test assemblies exist and do not enter Player assemblies | Pass |
 | `TST-REPO-001` | Repository script | Repository policy and generated/private path exclusions remain enforced | Pass |
