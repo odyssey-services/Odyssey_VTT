@@ -5,10 +5,10 @@
 **Owner:** Codex  
 **Requested by:** Product owner  
 **Branch:** `feat/ody-s00-004-identity-version-result-primitives`  
-**Pull request:** Not opened  
+**Pull request:** https://github.com/odyssey-services/Odyssey_VTT/pull/8  
 **ExecPlan:** `docs/plans/active/ODY-S00-000_SLICE_00_Technical_Skeleton.md`  
 **Created:** 2026-08-10  
-**Last updated:** 2026-08-10 20:43 UTC
+**Last updated:** 2026-08-10 20:52 UTC
 
 ## 1. Goal
 

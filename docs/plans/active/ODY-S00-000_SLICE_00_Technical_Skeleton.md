@@ -3,8 +3,8 @@
 **Status:** Active
 **Owner:** Codex
 **Branch:** `feat/ody-s00-004-identity-version-result-primitives`
-**Pull request:** Not opened
-**Last updated:** 2026-08-10 20:43 UTC
+**Pull request:** https://github.com/odyssey-services/Odyssey_VTT/pull/8
+**Last updated:** 2026-08-10 20:52 UTC
 
 ## 1. Purpose and user-visible outcome
 
@@ -165,6 +165,7 @@ Child task: `ODY-S00-010`.
 - 2026-08-10 19:53 UTC — Refined ODY-S00-004 activation contract in existing Draft PR #7: added future `docs/errors/ERROR_CODES.md` registry requirement, multi-task test catalog validation requirement, full ADR-004 Error shape semantics, explicit ApplicationVersion/RulesetVersion/ContentPackageVersion scope, identity preflight, canonical PowerShell validation commands, and ADR-004/ADR-007 partial-implementation wording. No ODY-S00-004 implementation files were created.
 - 2026-08-10 20:22 UTC — Owner merged PR #7 into `main` as merge commit `8616246903f7316bfcf767c05a8e2b252d30321b` using the GitHub merge-commit method. Local `main` fast-forwarded to that commit, branch `feat/ody-s00-004-identity-version-result-primitives` was created, and ODY-S00-004 moved to In Progress with identity preflight recorded before production code.
 - 2026-08-10 20:43 UTC — ODY-S00-004 implementation completed and moved to In Review: Application `CorrelationId`/`DiagnosticId`, Application/Rules/Content SemVer primitives, Application Result/Error primitives, `docs/errors/ERROR_CODES.md`, multi-task test catalog validation, registry policy checks, and focused .NET tests are in place. Validation passed for restore, format, test structure, test-fast, Unity batch/EditMode/PlayMode, verify-repository, repository policy, dotnet build/test, and final diff checks.
+- 2026-08-10 20:52 UTC — Draft PR #8 opened for ODY-S00-004: https://github.com/odyssey-services/Odyssey_VTT/pull/8.
 
 ## 7. Decisions
 
