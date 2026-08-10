@@ -3,8 +3,8 @@
 **Status:** Active
 **Owner:** Codex
 **Branch:** `chore/ody-s00-003-complete`
-**Pull request:** Not opened
-**Last updated:** 2026-08-10 19:10 UTC
+**Pull request:** https://github.com/odyssey-services/Odyssey_VTT/pull/7
+**Last updated:** 2026-08-10 19:18 UTC
 
 ## 1. Purpose and user-visible outcome
 
@@ -161,6 +161,7 @@ Child task: `ODY-S00-010`.
 - 2026-08-10 17:25 UTC — Addressed PR #6 owner review corrections: C# language parity is now `LangVersion` `9.0`; production `.asmdef` files are not auto-referenced and remain engine-free; architecture guard validates exact package/asmdef/csproj graphs, catalog metadata, complete valid fixture, and controlled `Odyssey.Domain -> Odyssey.Rules` invalid fixture; repository restore uses root `NuGet.Config` plus ignored local package/cache paths; `test-fast.ps1` exports TRX evidence; `test-unity.ps1` accepts `-UnityEditorPath`/`UNITY_EDITOR_PATH` with exact Unity version validation. ODY-S00-003 remains In Review and ODY-S00-004 remains Draft.
 - 2026-08-10 18:38 UTC — Addressed final PR #6 review corrections: test package versions are centralized in `Directory.Build.props` and referenced by all four test projects; architecture guard validates exactly three approved test `PackageReference` entries, central version property values, internal package versions/dependency version parity, duplicate catalog ownership by `runner|path|check`, and controlled negative fixtures for package version mismatch and duplicate catalog ownership; `test-unity.ps1` verifies the selected Unity executable reports `6000.4.0f1` before opening the project. ODY-S00-003 remains In Review and ODY-S00-004 remains Draft.
 - 2026-08-10 19:10 UTC — Owner merged PR #6, `ODY-S00-003 — Establish module and dual-test skeleton`, into `main` as merge commit `5e6f5e03ef022c5d7b0e6fef559c2383796d95be` using the GitHub merge-commit method. ODY-S00-003 is Done and moved to `docs/tasks/completed/`; ODY-S00-004 is activated as Ready only. Implementation of ODY-S00-004 waits for the post-merge closure PR to be owner-reviewed and merged.
+- 2026-08-10 19:18 UTC — Opened Draft PR #7 for ODY-S00-003 post-merge closure and ODY-S00-004 activation: https://github.com/odyssey-services/Odyssey_VTT/pull/7. Do not merge and do not start ODY-S00-004 implementation.
 
 ## 7. Decisions
 
@@ -224,4 +225,4 @@ No current blocker is recorded for ODY-S00-003 implementation.
 
 Current outcome: ODY-S00-001 is Done after owner merge of PR #1. ODY-S00-002 is Done after owner merge of PR #4 and closure PR #5. ODY-S00-003 is Done after owner merge of PR #6; ODY-S00-004 is Ready and is not started.
 
-Next action: open a draft closure PR for ODY-S00-003 completion and ODY-S00-004 activation. Do not merge and do not start ODY-S00-004 implementation.
+Next action: owner review of Draft PR #7. Do not merge by Codex and do not start ODY-S00-004 implementation.
