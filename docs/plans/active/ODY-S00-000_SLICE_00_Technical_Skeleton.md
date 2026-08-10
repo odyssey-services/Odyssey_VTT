@@ -3,7 +3,7 @@
 **Status:** Active
 **Owner:** Codex
 **Branch:** `feat/ody-s00-002-unity-project-foundation`
-**Pull request:** Draft pending
+**Pull request:** https://github.com/odyssey-services/Odyssey_VTT/pull/4
 **Last updated:** 2026-08-10
 
 ## 1. Purpose and user-visible outcome

@@ -5,7 +5,7 @@
 **Owner:** Codex
 **Requested by:** Product owner
 **Branch:** `feat/ody-s00-002-unity-project-foundation`
-**Pull request:** Draft pending
+**Pull request:** https://github.com/odyssey-services/Odyssey_VTT/pull/4
 **ExecPlan:** `docs/plans/active/ODY-S00-000_SLICE_00_Technical_Skeleton.md`
 **Created:** 2026-08-01
 **Last updated:** 2026-08-10 11:35 UTC
