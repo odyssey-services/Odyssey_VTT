@@ -8,7 +8,7 @@
 **Pull request:** https://github.com/odyssey-services/Odyssey_VTT/pull/8  
 **ExecPlan:** `docs/plans/active/ODY-S00-000_SLICE_00_Technical_Skeleton.md`  
 **Created:** 2026-08-10  
-**Last updated:** 2026-08-10 21:55 UTC
+**Last updated:** 2026-08-10 22:15 UTC
 
 ## 1. Goal
 
@@ -365,6 +365,8 @@ ODY-S00-004 implementation is complete and in owner review. `ADR-004 primitive f
 
 PR #8 review corrections are addressed: `Error` no longer has partial structural equality; public collection properties expose read-only wrappers instead of backing arrays; enum vocabularies fail fast on undefined/default values; `SafeReasonCode` is restricted to the ADR-004 core-safe vocabulary with `InvalidRequest`; `ValidationDetail` includes `ValidationSeverity`; metadata keys are checked per `ErrorCode`; `SafeMessageArgument` uses explicit trust factories; registry lifecycle/status/version/message metadata policy is machine-checked.
 
+Final guard/parser hardening is addressed: production `ErrorCode.Parse`/`TryParse` literals are scanned outside registry definitions and must resolve to Active registry rows; registry SemVer rejects leading-zero components; registry checks enforce runtime length limits for `ErrorCode`, `UserMessageKey`, and metadata keys; FieldPath rejects non-canonical indexes and glued text after `]`; UserMessageKey grammar requires `errors.<area>.<key>` or deeper lowercase canonical paths.
+
 ### Identity candidate preflight
 
 | Candidate | Authority | Owner module | Implement / Defer | Reason |
@@ -400,12 +402,12 @@ PR #8 review corrections are addressed: `Error` no longer has partial structural
 | `powershell -NoProfile -ExecutionPolicy Bypass -File .\scripts\restore.ps1` | Passed | First sandbox run failed with `NU1900` because NuGet.org vulnerability index was inaccessible; rerun with approved network/escalated access passed. |
 | `powershell -NoProfile -ExecutionPolicy Bypass -File .\scripts\verify-format.ps1` | Passed | `FORMAT-001 PASS repository text formatting checks passed`. |
 | `powershell -NoProfile -ExecutionPolicy Bypass -File .\scripts\verify-test-structure.ps1` | Passed | `TC-ARCH-001 PASS`; controlled invalid Domain->Rules, package version mismatch, and duplicate catalog ownership fixtures rejected. |
-| `powershell -NoProfile -ExecutionPolicy Bypass -File .\scripts\test-fast.ps1` | Passed | Build passed with 0 warnings/errors; TRX: `Logs/ODY-S00-004/dotnet/ody-s00-004_net10.0_20260810235209.trx` total 24, `...235210.trx` total 1, `...235211.trx` total 1, `...235213.trx` total 2; all failed 0. |
+| `powershell -NoProfile -ExecutionPolicy Bypass -File .\scripts\test-fast.ps1` | Passed | Build passed with 0 warnings/errors; TRX: `Logs/ODY-S00-004/dotnet/ody-s00-004_net10.0_20260811001246.trx` total 26, `...001247.trx` total 1, `...001248.trx` total 1, `...001252.trx` total 2; all failed 0. |
 | `powershell -NoProfile -ExecutionPolicy Bypass -File .\scripts\test-unity.ps1` | Passed | Unity `6000.4.0f1`; batch compile exit 0; EditMode total 1 passed 1 failed 0 skipped 0; PlayMode total 1 passed 1 failed 0 skipped 0. Unity-generated ProjectSettings whitespace churn was restored and is not part of this PR. |
-| `powershell -NoProfile -ExecutionPolicy Bypass -File .\scripts\verify-repository.ps1` | Passed | Repository policy, architecture guard, and SDK check passed; configured/selected SDK `10.0.302`; registry lifecycle fixtures passed. |
-| `powershell -NoProfile -ExecutionPolicy Bypass -File .\scripts\check-repository-policy.ps1` | Passed | `REPO-POLICY-001` through `REPO-POLICY-005` pass; ErrorCode registry complete and machine-checkable; controlled Deprecated row/no-production PASS; production use of Deprecated row FAIL fixture; invalid SafeReason FAIL fixture; non-SemVer Introduced version FAIL fixture; missing UserMessageKey mapping FAIL fixture. |
+| `powershell -NoProfile -ExecutionPolicy Bypass -File .\scripts\verify-repository.ps1` | Passed | Repository policy, architecture guard, and SDK check passed; configured/selected SDK `10.0.302`; registry lifecycle/literal/canonical limit fixtures passed. |
+| `powershell -NoProfile -ExecutionPolicy Bypass -File .\scripts\check-repository-policy.ps1` | Passed | `REPO-POLICY-001` through `REPO-POLICY-005` pass; ErrorCode registry complete and machine-checkable; controlled Deprecated row/no-production PASS; registered Active literal PASS; unregistered `ErrorCode.Parse` literal FAIL fixture; Deprecated `ErrorCode.TryParse` literal FAIL fixture; production use of Deprecated row FAIL fixture; invalid SafeReason FAIL fixture; non-SemVer and leading-zero IntroducedVersion FAIL fixtures; missing UserMessageKey mapping FAIL fixture; overlong ErrorCode and metadata key FAIL fixtures. |
 | `dotnet build DotNet\Odyssey.Core.sln --no-restore` | Passed | 0 warnings, 0 errors. |
-| `dotnet test DotNet\Odyssey.Core.sln --no-build --no-restore` | Passed | Unit 24, Contracts 1, Domain 1, Architecture 2; failed 0, skipped 0. |
+| `dotnet test DotNet\Odyssey.Core.sln --no-build --no-restore` | Passed | Unit 26, Contracts 1, Domain 1, Architecture 2; failed 0, skipped 0. |
 | `git diff --check` | Passed | Final whitespace check passed after restoring Unity-generated ProjectSettings churn. |
 | `git diff --cached --check` | Passed | Final staged whitespace check passed. |
 | `git status --short --branch` | Passed | Branch `feat/ody-s00-004-identity-version-result-primitives`; final tracked diff contains only ODY-S00-004 correction files. Local Git may warn that `C:\Users\alexx/.config/git/ignore` is inaccessible; this does not indicate repository diff failure. |

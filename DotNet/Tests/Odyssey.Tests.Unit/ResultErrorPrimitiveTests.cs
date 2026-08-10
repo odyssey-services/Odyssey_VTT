@@ -104,6 +104,61 @@ namespace Odyssey.Tests.Unit
         }
 
         [Test]
+        public void ErrorVocabulariesAreExact()
+        {
+            Assert.That(Enum.GetNames(typeof(ErrorCategory)), Is.EquivalentTo(new[]
+            {
+                "Validation",
+                "Authorization",
+                "RuleViolation",
+                "NotFound",
+                "Conflict",
+                "Precondition",
+                "Capacity",
+                "Compatibility",
+                "Integrity",
+                "TransientInfrastructure",
+                "PermanentInfrastructure",
+                "Cancelled",
+                "Security",
+                "Internal"
+            }));
+            Assert.That(Enum.GetNames(typeof(ValidationSeverity)), Is.EquivalentTo(new[]
+            {
+                "Error",
+                "Warning"
+            }));
+
+            string[] safeReasons =
+            {
+                "InvalidRequest",
+                "PermissionDenied",
+                "ActionNotAllowed",
+                "TargetUnavailable",
+                "StateChanged",
+                "ResourceUnavailable",
+                "CapacityReached",
+                "ApprovalRequired",
+                "InteractionExpired",
+                "VersionUnsupported",
+                "UpdateRequired",
+                "DataCorrupted",
+                "ServiceUnavailable",
+                "OperationTimedOut",
+                "OperationCancelled",
+                "ManualRecoveryRequired",
+                "UnexpectedError"
+            };
+            foreach (string safeReason in safeReasons)
+            {
+                Assert.That(SafeReasonCode.TryParse(safeReason, out SafeReasonCode parsed), Is.True);
+                Assert.That(parsed.ToString(), Is.EqualTo(safeReason));
+            }
+
+            Assert.That(SafeReasonCode.TryParse("SomeRandomReason", out _), Is.False);
+        }
+
+        [Test]
         public void ValidationDetailsArgumentsAndMetadataAreBoundedAndAllowlisted()
         {
             SafeMessageArgument argument = SafeMessageArgument.FromReferenceKey("payload.destination.x");
@@ -120,7 +175,19 @@ namespace Odyssey.Tests.Unit
             Assert.That(ValidationDetail.Create(
                 ErrorCodes.ApplicationValidationInvalid,
                 UserMessageKey.Parse("errors.application.validation_invalid"),
+                "manifest.assets[0].relative_path").IsValid, Is.True);
+            Assert.That(ValidationDetail.Create(
+                ErrorCodes.ApplicationValidationInvalid,
+                UserMessageKey.Parse("errors.application.validation_invalid"),
                 "manifest.assets[3].relative_path").IsValid, Is.True);
+            Assert.That(ValidationDetail.Create(
+                ErrorCodes.ApplicationValidationInvalid,
+                UserMessageKey.Parse("errors.application.validation_invalid"),
+                "manifest.assets[123].relative_path").IsValid, Is.True);
+            Assert.That(ValidationDetail.Create(
+                ErrorCodes.ApplicationValidationInvalid,
+                UserMessageKey.Parse("errors.application.validation_invalid"),
+                "matrix[1][2]").IsValid, Is.True);
             Assert.That(ValidationDetail.Create(
                 ErrorCodes.ApplicationValidationInvalid,
                 UserMessageKey.Parse("errors.application.validation_invalid"),
@@ -146,6 +213,18 @@ namespace Odyssey.Tests.Unit
                 ErrorCodes.ApplicationValidationInvalid,
                 UserMessageKey.Parse("errors.application.validation_invalid"),
                 "manifest.assets[3"));
+            AssertThrows<ArgumentException>(() => ValidationDetail.Create(
+                ErrorCodes.ApplicationValidationInvalid,
+                UserMessageKey.Parse("errors.application.validation_invalid"),
+                "manifest.assets[3]relative_path"));
+            AssertThrows<ArgumentException>(() => ValidationDetail.Create(
+                ErrorCodes.ApplicationValidationInvalid,
+                UserMessageKey.Parse("errors.application.validation_invalid"),
+                "manifest.assets[03].relative_path"));
+            AssertThrows<ArgumentException>(() => ValidationDetail.Create(
+                ErrorCodes.ApplicationValidationInvalid,
+                UserMessageKey.Parse("errors.application.validation_invalid"),
+                "manifest.assets[00].relative_path"));
             AssertThrows<ArgumentException>(() => ValidationDetail.Create(
                 ErrorCodes.ApplicationValidationInvalid,
                 UserMessageKey.Parse("errors.application.validation_invalid"),
@@ -317,6 +396,19 @@ namespace Odyssey.Tests.Unit
             Assert.That(SafeMessageArgument.FromKnownPublicText("Known public label").IsValid, Is.True);
             AssertThrows<ArgumentException>(() => SafeMessageArgument.FromReferenceKey("Known public label"));
             AssertThrows<ArgumentException>(() => SafeMessageArgument.FromKnownPublicText(@"C:\\Users\\secret\\file.txt"));
+        }
+
+        [Test]
+        public void UserMessageKeyGrammarRequiresErrorsAreaAndKey()
+        {
+            Assert.That(UserMessageKey.Parse("errors.application.unexpected").IsValid, Is.True);
+            Assert.That(UserMessageKey.Parse("errors.application.validation_invalid").IsValid, Is.True);
+            Assert.That(UserMessageKey.Parse("errors.board.token.not_found").IsValid, Is.True);
+            Assert.That(UserMessageKey.TryParse("errors.foo", out _), Is.False);
+            Assert.That(UserMessageKey.TryParse("errors.", out _), Is.False);
+            Assert.That(UserMessageKey.TryParse("errors..foo", out _), Is.False);
+            Assert.That(UserMessageKey.TryParse("Errors.application.foo", out _), Is.False);
+            Assert.That(UserMessageKey.TryParse("errors.application. white", out _), Is.False);
         }
 
         private static Error CreateValidationError()

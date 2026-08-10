@@ -141,6 +141,17 @@ namespace Odyssey.Application.Results
                         return false;
                     }
 
+                    int digitCount = index - digitStart;
+                    if (digitCount > 1 && fieldPath[digitStart] == '0')
+                    {
+                        return false;
+                    }
+
+                    if (index + 1 < fieldPath.Length && fieldPath[index + 1] != '.' && fieldPath[index + 1] != '[')
+                    {
+                        return false;
+                    }
+
                     continue;
                 }
 

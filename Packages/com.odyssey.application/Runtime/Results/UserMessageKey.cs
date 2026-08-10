@@ -50,6 +50,7 @@ namespace Odyssey.Application.Results
                 return false;
             }
 
+            int segments = 0;
             bool segmentHasCharacter = false;
             for (int index = 0; index < value.Length; index++)
             {
@@ -61,6 +62,7 @@ namespace Odyssey.Application.Results
                         return false;
                     }
 
+                    segments++;
                     segmentHasCharacter = false;
                     continue;
                 }
@@ -73,7 +75,12 @@ namespace Odyssey.Application.Results
                 segmentHasCharacter = true;
             }
 
-            return segmentHasCharacter;
+            if (segmentHasCharacter)
+            {
+                segments++;
+            }
+
+            return segments >= 3;
         }
     }
 }

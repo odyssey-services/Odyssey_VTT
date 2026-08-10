@@ -4,7 +4,7 @@
 **Owner:** Codex
 **Branch:** `feat/ody-s00-004-identity-version-result-primitives`
 **Pull request:** https://github.com/odyssey-services/Odyssey_VTT/pull/8
-**Last updated:** 2026-08-10 21:55 UTC
+**Last updated:** 2026-08-10 22:15 UTC
 
 ## 1. Purpose and user-visible outcome
 
@@ -167,6 +167,7 @@ Child task: `ODY-S00-010`.
 - 2026-08-10 20:43 UTC — ODY-S00-004 implementation completed and moved to In Review: Application `CorrelationId`/`DiagnosticId`, Application/Rules/Content SemVer primitives, Application Result/Error primitives, `docs/errors/ERROR_CODES.md`, multi-task test catalog validation, registry policy checks, and focused .NET tests are in place. Validation passed for restore, format, test structure, test-fast, Unity batch/EditMode/PlayMode, verify-repository, repository policy, dotnet build/test, and final diff checks.
 - 2026-08-10 20:52 UTC — Draft PR #8 opened for ODY-S00-004: https://github.com/odyssey-services/Odyssey_VTT/pull/8.
 - 2026-08-10 21:55 UTC — Addressed PR #8 foundation review blockers: true read-only Error/ValidationDetail collections, Error reference identity, enum fail-fast validation, ADR-004 SafeReason vocabulary, ValidationSeverity, indexed FieldPath validation, per-ErrorCode metadata allowlist, explicit safe message argument trust factories, and corrected ErrorCode registry lifecycle/version/message metadata policy. Full validation rerun passed with 28 .NET tests and Unity batch/EditMode/PlayMode exit code 0.
+- 2026-08-10 22:15 UTC — Addressed final PR #8 guard/parser hardening: repository policy now scans all production literal `ErrorCode.Parse`/`TryParse` usages for Active registry rows, enforces canonical no-leading-zero SemVer and runtime length limits, and covers registered Active literal, unregistered literal, Deprecated literal, leading-zero version, overlong ErrorCode, and overlong metadata-key fixtures. FieldPath and UserMessageKey parser regressions are covered by unit tests. Full validation rerun passed with 30 .NET tests and Unity batch/EditMode/PlayMode exit code 0.
 
 ## 7. Decisions
 

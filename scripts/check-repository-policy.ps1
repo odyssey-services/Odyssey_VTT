@@ -107,6 +107,29 @@ function Get-ProductionErrorCodes {
     return $codes
 }
 
+function Get-ProductionErrorCodeLiterals {
+    param([string] $RepositoryRoot)
+
+    $literals = @{}
+    foreach ($source in Get-ChildItem -LiteralPath (Join-Path $RepositoryRoot 'Packages') -Recurse -File -Filter '*.cs') {
+        if ($source.FullName -match '\\Tests\\') {
+            continue
+        }
+
+        $text = Get-Content -LiteralPath $source.FullName -Raw
+        foreach ($match in [regex]::Matches($text, 'ErrorCode\.(?:Parse|TryParse)\("([^"]+)"')) {
+            $literal = $match.Groups[1].Value
+            if (-not $literals.ContainsKey($literal)) {
+                $literals[$literal] = New-Object System.Collections.Generic.List[string]
+            }
+
+            $literals[$literal].Add((Normalize-RepoPath ($source.FullName.Substring($RepositoryRoot.Length).TrimStart('\', '/'))))
+        }
+    }
+
+    return $literals
+}
+
 function Get-ProductionMetadataPolicy {
     param(
         [string] $RepositoryRoot,
@@ -167,7 +190,7 @@ function Test-ErrorCodeRegistry {
     $safeReasons = @('InvalidRequest', 'PermissionDenied', 'ActionNotAllowed', 'TargetUnavailable', 'StateChanged', 'ResourceUnavailable', 'CapacityReached', 'ApprovalRequired', 'InteractionExpired', 'VersionUnsupported', 'UpdateRequired', 'DataCorrupted', 'ServiceUnavailable', 'OperationTimedOut', 'OperationCancelled', 'ManualRecoveryRequired', 'UnexpectedError')
     $ownerModules = @('Odyssey.Application', 'Odyssey.Domain', 'Odyssey.Rules', 'Odyssey.Content', 'Odyssey.Persistence', 'Odyssey.Networking', 'Odyssey.Unity.Client')
     $statuses = @('Active', 'Deprecated', 'Reserved')
-    $semVerPattern = '^[0-9]+(\.[0-9]+){2}$'
+    $semVerPattern = '^(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)$'
     $metadataKeyPattern = '^[a-z0-9_]+(\.[a-z0-9_]+)*$'
     $seenCodes = New-Object System.Collections.Generic.HashSet[string]
 
@@ -177,6 +200,9 @@ function Test-ErrorCodeRegistry {
     foreach ($entry in $entries) {
         if ($entry.Code -notmatch $codePattern) {
             $registryFailures.Add("Malformed ErrorCode in registry: $($entry.Code)")
+        }
+        if ([string] $entry.Code -and ([string] $entry.Code).Length -gt 96) {
+            $registryFailures.Add("ErrorCode exceeds max length 96 in registry: $($entry.Code)")
         }
         if (-not $seenCodes.Add([string] $entry.Code)) {
             $registryFailures.Add("Duplicate ErrorCode in registry: $($entry.Code)")
@@ -206,6 +232,9 @@ function Test-ErrorCodeRegistry {
             if ($metadataKey -notmatch $metadataKeyPattern) {
                 $registryFailures.Add("Invalid metadata key for $($entry.Code): $metadataKey")
             }
+            if ($metadataKey.Length -gt 48) {
+                $registryFailures.Add("Metadata key exceeds max length 48 for $($entry.Code): $metadataKey")
+            }
         }
         foreach ($field in @('OwnerModule', 'SafeReasonCode', 'UserMessageKey', 'IntroducedVersion', 'Status', 'AllowedMetadataKeys', 'SecurityNotes', 'TestReference')) {
             if ([string]::IsNullOrWhiteSpace([string] $entry.$field)) {
@@ -225,6 +254,7 @@ function Test-ErrorCodeRegistry {
     }
 
     $productionCodes = Get-ProductionErrorCodes $RepositoryRoot
+    $productionLiterals = Get-ProductionErrorCodeLiterals $RepositoryRoot
     $productionMetadataPolicy = Get-ProductionMetadataPolicy $RepositoryRoot $productionCodes
     $entryByCode = @{}
     foreach ($entry in $entries) {
@@ -239,6 +269,17 @@ function Test-ErrorCodeRegistry {
 
         if ($entryByCode[$code].Status -ne 'Active') {
             $registryFailures.Add("Production ErrorCode uses non-active registry row $code with status $($entryByCode[$code].Status).")
+        }
+    }
+
+    foreach ($literal in $productionLiterals.Keys) {
+        if (-not $entryByCode.ContainsKey($literal)) {
+            $registryFailures.Add("Production ErrorCode literal is missing from docs/errors/ERROR_CODES.md: $literal")
+            continue
+        }
+
+        if ($entryByCode[$literal].Status -ne 'Active') {
+            $registryFailures.Add("Production ErrorCode literal uses non-active registry row $literal with status $($entryByCode[$literal].Status).")
         }
     }
 
@@ -272,7 +313,8 @@ function New-RegistryFixture {
         [string] $FixtureRoot,
         [string] $RegistryRows,
         [string] $ProductionConstants,
-        [string] $MetadataPolicyBody
+        [string] $MetadataPolicyBody,
+        [string] $ExtraProductionSource = ''
     )
 
     Write-Utf8NoBom (Join-Path $FixtureRoot 'Tests/Metadata/test-catalog.json') @"
@@ -316,6 +358,10 @@ $MetadataPolicyBody
     }
 }
 "@
+
+    if (-not [string]::IsNullOrWhiteSpace($ExtraProductionSource)) {
+        Write-Utf8NoBom (Join-Path $FixtureRoot 'Packages/com.odyssey.application/Runtime/Results/RegistryLiteralProbe.cs') $ExtraProductionSource
+    }
 }
 
 function Test-ErrorCodeRegistryFixtures {
@@ -340,6 +386,60 @@ function Test-ErrorCodeRegistryFixtures {
         }
         else {
             Write-Host 'REPO-POLICY-005 PASS controlled Deprecated registry row without production code is allowed'
+        }
+
+        Remove-Item -LiteralPath $fixtureRoot -Recurse -Force
+        New-RegistryFixture $fixtureRoot "$activeValidationRow`n$deprecatedInternalRow" $validationConstant $validationMetadataPolicy @"
+namespace Odyssey.Application.Results
+{
+    internal static class RegistryLiteralProbe
+    {
+        internal static readonly ErrorCode ActiveLiteral = ErrorCode.Parse("application.validation.invalid");
+    }
+}
+"@
+        $activeLiteralFailures = @(Test-ErrorCodeRegistry $fixtureRoot)
+        if ($activeLiteralFailures.Count -ne 0) {
+            $fixtureFailures.Add('Registry fixture expected registered Active direct literal usage to pass: ' + ($activeLiteralFailures -join '; '))
+        }
+        else {
+            Write-Host 'REPO-POLICY-005 PASS controlled registered Active literal usage is allowed'
+        }
+
+        Remove-Item -LiteralPath $fixtureRoot -Recurse -Force
+        New-RegistryFixture $fixtureRoot $activeValidationRow $validationConstant $validationMetadataPolicy @"
+namespace Odyssey.Application.Results
+{
+    internal static class RegistryLiteralProbe
+    {
+        internal static readonly ErrorCode MissingLiteral = ErrorCode.Parse("application.missing.literal");
+    }
+}
+"@
+        $missingLiteralFailures = @(Test-ErrorCodeRegistry $fixtureRoot)
+        if (($missingLiteralFailures -join "`n") -notmatch 'Production ErrorCode literal is missing') {
+            $fixtureFailures.Add('Registry fixture expected unregistered direct ErrorCode.Parse literal to fail.')
+        }
+        else {
+            Write-Host 'REPO-POLICY-005 PASS controlled unregistered ErrorCode.Parse literal is rejected'
+        }
+
+        Remove-Item -LiteralPath $fixtureRoot -Recurse -Force
+        New-RegistryFixture $fixtureRoot "$activeValidationRow`n$deprecatedInternalRow" $validationConstant $validationMetadataPolicy @"
+namespace Odyssey.Application.Results
+{
+    internal static class RegistryLiteralProbe
+    {
+        internal static readonly bool DeprecatedLiteral = ErrorCode.TryParse("application.internal.unexpected", out _);
+    }
+}
+"@
+        $deprecatedLiteralFailures = @(Test-ErrorCodeRegistry $fixtureRoot)
+        if (($deprecatedLiteralFailures -join "`n") -notmatch 'Production ErrorCode literal uses non-active registry row') {
+            $fixtureFailures.Add('Registry fixture expected direct Deprecated ErrorCode.TryParse literal to fail.')
+        }
+        else {
+            Write-Host 'REPO-POLICY-005 PASS controlled Deprecated ErrorCode.TryParse literal is rejected'
         }
 
         Remove-Item -LiteralPath $fixtureRoot -Recurse -Force
@@ -375,6 +475,17 @@ function Test-ErrorCodeRegistryFixtures {
         }
 
         Remove-Item -LiteralPath $fixtureRoot -Recurse -Force
+        $leadingZeroVersionRow = $activeValidationRow -replace '0\.1\.0', '00.1.0'
+        New-RegistryFixture $fixtureRoot $leadingZeroVersionRow $validationConstant $validationMetadataPolicy
+        $leadingZeroVersionFailures = @(Test-ErrorCodeRegistry $fixtureRoot)
+        if (($leadingZeroVersionFailures -join "`n") -notmatch 'Invalid introduced version') {
+            $fixtureFailures.Add('Registry fixture expected leading-zero IntroducedVersion to fail.')
+        }
+        else {
+            Write-Host 'REPO-POLICY-005 PASS controlled leading-zero introduced version is rejected'
+        }
+
+        Remove-Item -LiteralPath $fixtureRoot -Recurse -Force
         $missingMessageRow = $activeValidationRow -replace 'errors\.application\.validation_invalid', '-'
         New-RegistryFixture $fixtureRoot $missingMessageRow $validationConstant $validationMetadataPolicy
         $missingMessageFailures = @(Test-ErrorCodeRegistry $fixtureRoot)
@@ -383,6 +494,31 @@ function Test-ErrorCodeRegistryFixtures {
         }
         else {
             Write-Host 'REPO-POLICY-005 PASS controlled missing UserMessageKey mapping is rejected'
+        }
+
+        Remove-Item -LiteralPath $fixtureRoot -Recurse -Force
+        $overlongCode = 'application.' + ('a' * 85) + '.invalid'
+        $overlongCodeRow = $activeValidationRow -replace 'application\.validation\.invalid', $overlongCode
+        New-RegistryFixture $fixtureRoot $overlongCodeRow $validationConstant $validationMetadataPolicy
+        $overlongCodeFailures = @(Test-ErrorCodeRegistry $fixtureRoot)
+        if (($overlongCodeFailures -join "`n") -notmatch 'ErrorCode exceeds max length 96') {
+            $fixtureFailures.Add('Registry fixture expected overlong ErrorCode to fail.')
+        }
+        else {
+            Write-Host 'REPO-POLICY-005 PASS controlled overlong ErrorCode is rejected'
+        }
+
+        Remove-Item -LiteralPath $fixtureRoot -Recurse -Force
+        $overlongMetadataKey = 'limit.' + ('a' * 44)
+        $overlongMetadataRow = $activeValidationRow -replace 'limit\.max', $overlongMetadataKey
+        $overlongMetadataPolicy = $validationMetadataPolicy -replace 'limit\.max', $overlongMetadataKey
+        New-RegistryFixture $fixtureRoot $overlongMetadataRow $validationConstant $overlongMetadataPolicy
+        $overlongMetadataFailures = @(Test-ErrorCodeRegistry $fixtureRoot)
+        if (($overlongMetadataFailures -join "`n") -notmatch 'Metadata key exceeds max length 48') {
+            $fixtureFailures.Add('Registry fixture expected overlong metadata key to fail.')
+        }
+        else {
+            Write-Host 'REPO-POLICY-005 PASS controlled overlong metadata key is rejected'
         }
     }
     finally {
