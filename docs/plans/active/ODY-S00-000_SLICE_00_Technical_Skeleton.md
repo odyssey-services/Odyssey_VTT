@@ -2,9 +2,9 @@
 
 **Status:** Active
 **Owner:** Codex
-**Branch:** `chore/ody-s00-003-complete`
-**Pull request:** https://github.com/odyssey-services/Odyssey_VTT/pull/7
-**Last updated:** 2026-08-10 19:53 UTC
+**Branch:** `feat/ody-s00-004-identity-version-result-primitives`
+**Pull request:** https://github.com/odyssey-services/Odyssey_VTT/pull/8
+**Last updated:** 2026-08-10 22:15 UTC
 
 ## 1. Purpose and user-visible outcome
 
@@ -163,6 +163,11 @@ Child task: `ODY-S00-010`.
 - 2026-08-10 19:10 UTC — Owner merged PR #6, `ODY-S00-003 — Establish module and dual-test skeleton`, into `main` as merge commit `5e6f5e03ef022c5d7b0e6fef559c2383796d95be` using the GitHub merge-commit method. ODY-S00-003 is Done and moved to `docs/tasks/completed/`; ODY-S00-004 is activated as Ready only. Implementation of ODY-S00-004 waits for the post-merge closure PR to be owner-reviewed and merged.
 - 2026-08-10 19:18 UTC — Opened Draft PR #7 for ODY-S00-003 post-merge closure and ODY-S00-004 activation: https://github.com/odyssey-services/Odyssey_VTT/pull/7. Do not merge and do not start ODY-S00-004 implementation.
 - 2026-08-10 19:53 UTC — Refined ODY-S00-004 activation contract in existing Draft PR #7: added future `docs/errors/ERROR_CODES.md` registry requirement, multi-task test catalog validation requirement, full ADR-004 Error shape semantics, explicit ApplicationVersion/RulesetVersion/ContentPackageVersion scope, identity preflight, canonical PowerShell validation commands, and ADR-004/ADR-007 partial-implementation wording. No ODY-S00-004 implementation files were created.
+- 2026-08-10 20:22 UTC — Owner merged PR #7 into `main` as merge commit `8616246903f7316bfcf767c05a8e2b252d30321b` using the GitHub merge-commit method. Local `main` fast-forwarded to that commit, branch `feat/ody-s00-004-identity-version-result-primitives` was created, and ODY-S00-004 moved to In Progress with identity preflight recorded before production code.
+- 2026-08-10 20:43 UTC — ODY-S00-004 implementation completed and moved to In Review: Application `CorrelationId`/`DiagnosticId`, Application/Rules/Content SemVer primitives, Application Result/Error primitives, `docs/errors/ERROR_CODES.md`, multi-task test catalog validation, registry policy checks, and focused .NET tests are in place. Validation passed for restore, format, test structure, test-fast, Unity batch/EditMode/PlayMode, verify-repository, repository policy, dotnet build/test, and final diff checks.
+- 2026-08-10 20:52 UTC — Draft PR #8 opened for ODY-S00-004: https://github.com/odyssey-services/Odyssey_VTT/pull/8.
+- 2026-08-10 21:55 UTC — Addressed PR #8 foundation review blockers: true read-only Error/ValidationDetail collections, Error reference identity, enum fail-fast validation, ADR-004 SafeReason vocabulary, ValidationSeverity, indexed FieldPath validation, per-ErrorCode metadata allowlist, explicit safe message argument trust factories, and corrected ErrorCode registry lifecycle/version/message metadata policy. Full validation rerun passed with 28 .NET tests and Unity batch/EditMode/PlayMode exit code 0.
+- 2026-08-10 22:15 UTC — Addressed final PR #8 guard/parser hardening: repository policy now scans all production literal `ErrorCode.Parse`/`TryParse` usages for Active registry rows, enforces canonical no-leading-zero SemVer and runtime length limits, and covers registered Active literal, unregistered literal, Deprecated literal, leading-zero version, overlong ErrorCode, and overlong metadata-key fixtures. FieldPath and UserMessageKey parser regressions are covered by unit tests. Full validation rerun passed with 30 .NET tests and Unity batch/EditMode/PlayMode exit code 0.
 
 ## 7. Decisions
 
@@ -217,13 +222,13 @@ Record real commands, outputs and artifact paths here as child tasks complete.
 
 - Repository identity, Private visibility, and PR #1 merge are verified. Exact branch protection/ruleset settings remain an owner-accepted limitation.
 - Unity `6000.4.0f1` is acceptable for local ODY-S00-002 development by owner decision.
-- ODY-S00-002 and ODY-S00-003 are Done. ODY-S00-004 is Ready and must not be implemented until its own implementation branch begins after closure review.
+- ODY-S00-002 and ODY-S00-003 are Done. ODY-S00-004 is In Review on `feat/ody-s00-004-identity-version-result-primitives`.
 - GitHub plan/settings may affect exact branch-protection options; the task must apply the strongest supported equivalent and record any unavailable setting.
 
-No current implementation blocker is recorded for ODY-S00-004. Implementation remains gated only by owner merge of closure PR #7.
+No current implementation blocker is recorded for ODY-S00-004.
 
 ## 12. Outcome and follow-up
 
-Current outcome: ODY-S00-001 is Done after owner merge of PR #1. ODY-S00-002 is Done after owner merge of PR #4 and closure PR #5. ODY-S00-003 is Done after owner merge of PR #6; ODY-S00-004 is Ready and is not started.
+Current outcome: ODY-S00-001 is Done after owner merge of PR #1. ODY-S00-002 is Done after owner merge of PR #4 and closure PR #5. ODY-S00-003 is Done after owner merge of PR #6 and closure PR #7; ODY-S00-004 is In Review.
 
-Next action: owner review of Draft PR #7. Do not merge by Codex and do not start ODY-S00-004 implementation.
+Next action: owner review of ODY-S00-004 Draft PR. Do not merge by Codex and do not start ODY-S00-005.

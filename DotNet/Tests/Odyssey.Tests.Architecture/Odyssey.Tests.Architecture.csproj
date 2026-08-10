@@ -9,4 +9,11 @@
     <PackageReference Include="NUnit" Version="$(NUnitVersion)" />
     <PackageReference Include="NUnit3TestAdapter" Version="$(NUnit3TestAdapterVersion)" />
   </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\..\Projects\Odyssey.Domain.csproj" />
+    <ProjectReference Include="..\..\Projects\Odyssey.Rules.csproj" />
+    <ProjectReference Include="..\..\Projects\Odyssey.Content.csproj" />
+    <ProjectReference Include="..\..\Projects\Odyssey.Application.csproj" />
+  </ItemGroup>
 </Project>

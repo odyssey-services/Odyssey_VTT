@@ -34,7 +34,22 @@ $allowed = @{
 }
 
 $coreBridgeModules = @('Odyssey.Domain', 'Odyssey.Rules', 'Odyssey.Content', 'Odyssey.Application')
-$requiredTestCaseIds = @('TC-ARCH-001', 'TC-ARCH-002', 'TC-DOTNET-001', 'TC-UNITY-ASM-001', 'TC-UNITY-TEST-001', 'TC-REPO-001')
+$requiredTestCaseIds = @(
+    'TC-ARCH-001',
+    'TC-ARCH-002',
+    'TC-DOTNET-001',
+    'TC-UNITY-ASM-001',
+    'TC-UNITY-TEST-001',
+    'TC-REPO-001',
+    'TC-ID-001',
+    'TC-ID-002',
+    'TC-VERSION-001',
+    'TC-VERSION-002',
+    'TC-RESULT-001',
+    'TC-RESULT-002',
+    'TC-RESULT-003',
+    'TC-RESULT-004'
+)
 $testProjects = @('Odyssey.Tests.Unit', 'Odyssey.Tests.Domain', 'Odyssey.Tests.Contracts', 'Odyssey.Tests.Architecture')
 $baselinePackageVersion = '0.1.0'
 $testPackageVersions = [ordered]@{
@@ -325,8 +340,21 @@ function Test-TestCatalog([System.Collections.Generic.List[string]] $Errors) {
             if ($case.testCaseId -notmatch '^TC-[A-Z0-9]+(-[A-Z0-9]+)*-[0-9]{3}$') {
                 $Errors.Add("Invalid test case ID: $($case.testCaseId).")
             }
-            if ($case.taskId -ne 'ODY-S00-003') {
-                $Errors.Add("Test catalog entry $($case.testCaseId) has taskId $($case.taskId), expected ODY-S00-003.")
+            $taskId = [string] $case.taskId
+            if ($taskId -notmatch '^ODY-S[0-9]{2}-[0-9]{3}$') {
+                $Errors.Add("Invalid taskId for $($case.testCaseId): $taskId.")
+            }
+            else {
+                $taskMatches = @(
+                    Get-ChildItem -LiteralPath (Join-Path $RootPath 'docs/tasks/active') -File -Filter "$taskId`_*.md" -ErrorAction SilentlyContinue
+                    Get-ChildItem -LiteralPath (Join-Path $RootPath 'docs/tasks/completed') -File -Filter "$taskId`_*.md" -ErrorAction SilentlyContinue
+                )
+                if ($taskMatches.Count -eq 0) {
+                    $Errors.Add("Test catalog entry $($case.testCaseId) references missing task contract: $taskId.")
+                }
+                elseif ($taskMatches.Count -gt 1) {
+                    $Errors.Add("Test catalog entry $($case.testCaseId) references ambiguous task contract: $taskId.")
+                }
             }
             if (-not $ids.Add([string] $case.testCaseId)) {
                 $Errors.Add("Duplicate test case ID: $($case.testCaseId).")
@@ -735,13 +763,23 @@ function New-SyntheticFixture([string] $FixtureRoot, [bool] $InvalidDomainDepend
     { "testCaseId": "TC-DOTNET-001", "taskId": "ODY-S00-003", "authority": "ADR-006", "runner": "dotnet test", "path": "DotNet/Odyssey.Core.sln", "check": "dotnet bridge tests" },
     { "testCaseId": "TC-UNITY-ASM-001", "taskId": "ODY-S00-003", "authority": "ADR-001", "runner": "Unity batchmode", "path": "Assets/Odyssey/Client/Runtime/Odyssey.Unity.Client.Runtime.asmdef", "check": "Unity asmdef graph" },
     { "testCaseId": "TC-UNITY-TEST-001", "taskId": "ODY-S00-003", "authority": "ADR-006", "runner": "Unity Test Framework", "path": "Assets/Odyssey/Client/Tests", "check": "Unity tests" },
-    { "testCaseId": "TC-REPO-001", "taskId": "ODY-S00-003", "authority": "AGENTS.md", "runner": "PowerShell", "path": "scripts/verify-repository.ps1", "check": "repository verification" }
+    { "testCaseId": "TC-REPO-001", "taskId": "ODY-S00-003", "authority": "AGENTS.md", "runner": "PowerShell", "path": "scripts/verify-repository.ps1", "check": "repository verification" },
+    { "testCaseId": "TC-ID-001", "taskId": "ODY-S00-004", "authority": "ODY-S00-004", "runner": "dotnet test", "path": "DotNet/Tests/Odyssey.Tests.Unit", "check": "identity valid values" },
+    { "testCaseId": "TC-ID-002", "taskId": "ODY-S00-004", "authority": "ODY-S00-004", "runner": "dotnet test", "path": "DotNet/Tests/Odyssey.Tests.Unit", "check": "identity invalid values" },
+    { "testCaseId": "TC-VERSION-001", "taskId": "ODY-S00-004", "authority": "ADR-007", "runner": "dotnet test", "path": "DotNet/Tests/Odyssey.Tests.Unit", "check": "version valid values" },
+    { "testCaseId": "TC-VERSION-002", "taskId": "ODY-S00-004", "authority": "ADR-007", "runner": "dotnet test", "path": "DotNet/Tests/Odyssey.Tests.Unit", "check": "version dimensions independent" },
+    { "testCaseId": "TC-RESULT-001", "taskId": "ODY-S00-004", "authority": "ADR-004", "runner": "dotnet test", "path": "DotNet/Tests/Odyssey.Tests.Unit", "check": "result invariants" },
+    { "testCaseId": "TC-RESULT-002", "taskId": "ODY-S00-004", "authority": "ADR-004", "runner": "dotnet test", "path": "DotNet/Tests/Odyssey.Tests.Unit", "check": "error safe fields" },
+    { "testCaseId": "TC-RESULT-003", "taskId": "ODY-S00-004", "authority": "ADR-004", "runner": "dotnet test", "path": "DotNet/Tests/Odyssey.Tests.Unit", "check": "retry vocabulary" },
+    { "testCaseId": "TC-RESULT-004", "taskId": "ODY-S00-004", "authority": "ADR-004", "runner": "dotnet test", "path": "DotNet/Tests/Odyssey.Tests.Unit", "check": "bounded safe details" }
   ]
 }
 "@
 
     Write-Utf8NoBom (Join-Path $FixtureRoot 'scripts/verify-test-structure.ps1') "`n"
     Write-Utf8NoBom (Join-Path $FixtureRoot 'scripts/verify-repository.ps1') "`n"
+    Write-Utf8NoBom (Join-Path $FixtureRoot 'docs/tasks/completed/ODY-S00-003_Module_and_Test_Skeleton.md') "`n"
+    Write-Utf8NoBom (Join-Path $FixtureRoot 'docs/tasks/active/ODY-S00-004_Identity_Version_and_Result_Primitives.md') "`n"
 }
 
 function Set-FixturePackageVersionMismatch([string] $FixtureRoot) {

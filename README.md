@@ -8,7 +8,7 @@ The private GitHub repository `odyssey-services/Odyssey_VTT` is the single autho
 
 Current stage: `SLICE-00 — Technical Skeleton`.
 
-Repository Foundation, Unity Project Foundation, and Module/Test Skeleton are complete. The active task is `docs/tasks/active/ODY-S00-004_Identity_Version_and_Result_Primitives.md`, currently Ready and not started. This repository state contains the Unity 6000.4/HDRP project foundation and the accepted Core module/test skeleton.
+Repository Foundation, Unity Project Foundation, and Module/Test Skeleton are complete. The active task is `docs/tasks/active/ODY-S00-004_Identity_Version_and_Result_Primitives.md`, currently In Review on `feat/ody-s00-004-identity-version-result-primitives`. This repository state contains the Unity 6000.4/HDRP project foundation, accepted Core module/test skeleton, and ODY-S00-004 primitive foundation pending owner review.
 
 ## Rights
 
