@@ -4,7 +4,7 @@
 **Owner:** Codex
 **Branch:** `chore/ody-s00-003-complete`
 **Pull request:** https://github.com/odyssey-services/Odyssey_VTT/pull/7
-**Last updated:** 2026-08-10 19:18 UTC
+**Last updated:** 2026-08-10 19:53 UTC
 
 ## 1. Purpose and user-visible outcome
 
@@ -162,6 +162,7 @@ Child task: `ODY-S00-010`.
 - 2026-08-10 18:38 UTC — Addressed final PR #6 review corrections: test package versions are centralized in `Directory.Build.props` and referenced by all four test projects; architecture guard validates exactly three approved test `PackageReference` entries, central version property values, internal package versions/dependency version parity, duplicate catalog ownership by `runner|path|check`, and controlled negative fixtures for package version mismatch and duplicate catalog ownership; `test-unity.ps1` verifies the selected Unity executable reports `6000.4.0f1` before opening the project. ODY-S00-003 remains In Review and ODY-S00-004 remains Draft.
 - 2026-08-10 19:10 UTC — Owner merged PR #6, `ODY-S00-003 — Establish module and dual-test skeleton`, into `main` as merge commit `5e6f5e03ef022c5d7b0e6fef559c2383796d95be` using the GitHub merge-commit method. ODY-S00-003 is Done and moved to `docs/tasks/completed/`; ODY-S00-004 is activated as Ready only. Implementation of ODY-S00-004 waits for the post-merge closure PR to be owner-reviewed and merged.
 - 2026-08-10 19:18 UTC — Opened Draft PR #7 for ODY-S00-003 post-merge closure and ODY-S00-004 activation: https://github.com/odyssey-services/Odyssey_VTT/pull/7. Do not merge and do not start ODY-S00-004 implementation.
+- 2026-08-10 19:53 UTC — Refined ODY-S00-004 activation contract in existing Draft PR #7: added future `docs/errors/ERROR_CODES.md` registry requirement, multi-task test catalog validation requirement, full ADR-004 Error shape semantics, explicit ApplicationVersion/RulesetVersion/ContentPackageVersion scope, identity preflight, canonical PowerShell validation commands, and ADR-004/ADR-007 partial-implementation wording. No ODY-S00-004 implementation files were created.
 
 ## 7. Decisions
 
@@ -219,7 +220,7 @@ Record real commands, outputs and artifact paths here as child tasks complete.
 - ODY-S00-002 and ODY-S00-003 are Done. ODY-S00-004 is Ready and must not be implemented until its own implementation branch begins after closure review.
 - GitHub plan/settings may affect exact branch-protection options; the task must apply the strongest supported equivalent and record any unavailable setting.
 
-No current blocker is recorded for ODY-S00-003 implementation.
+No current implementation blocker is recorded for ODY-S00-004. Implementation remains gated only by owner merge of closure PR #7.
 
 ## 12. Outcome and follow-up
 

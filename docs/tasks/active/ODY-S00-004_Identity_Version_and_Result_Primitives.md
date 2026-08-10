@@ -8,7 +8,7 @@
 **Pull request:** Not opened  
 **ExecPlan:** `docs/plans/active/ODY-S00-000_SLICE_00_Technical_Skeleton.md`  
 **Created:** 2026-08-10  
-**Last updated:** 2026-08-10 19:10 UTC
+**Last updated:** 2026-08-10 19:53 UTC
 
 ## 1. Goal
 
@@ -87,11 +87,23 @@ This task does not implement command dispatch, domain events, gameplay, serializ
   - `UserMessageKey`
   - `RetryDirective`
   - `ValidationDetail`
-- ADR-007 value-level version primitives only:
-  - `ApplicationVersion`
-  - monotonic positive integer version value types required for compatibility dimensions, with names and ownership matching ADR-007 where implemented
-  - `RulesetVersion` and `ContentPackageVersion` SemVer value types only if the implementation can assign their owner without adding content/rules behavior
+- Canonical `Error` semantics must account for ADR-004 fields: `ErrorCode`, `ErrorCategory`, `SafeReasonCode`, `UserMessageKey`, bounded allowlisted `SafeMessageArguments[]`, `RetryDirective`, `CorrelationId`, bounded `ValidationDetails[]`, optional `DiagnosticId`, and optional bounded allowlisted machine-safe `Metadata[]`. A separate public type is not required for every field unless the clean model needs it, but these semantics must not be silently dropped.
+- ADR-004 ErrorCode registry contract:
+  - create `docs/errors/ERROR_CODES.md` during the ODY-S00-004 implementation PR, not during this activation PR;
+  - every actually introduced `ErrorCode` is registered;
+  - every registry entry records at least Code, Owner module, Category, default SafeReasonCode, default RetryDirective, Introduced version, Deprecated/reserved status, security notes, and test reference;
+  - duplicate `ErrorCode` values are forbidden;
+  - deprecated or reserved codes are not reused;
+  - an `ErrorCode` cannot be added without registry and test updates;
+  - do not pre-register future persistence, networking, or gameplay codes that ODY-S00-004 does not actually use.
+- ADR-007 value-level SemVer primitives only:
+  - `ApplicationVersion` in `Packages/com.odyssey.application/Runtime/**`;
+  - `RulesetVersion` in `Packages/com.odyssey.rules/Runtime/**`;
+  - `ContentPackageVersion` in `Packages/com.odyssey.content/Runtime/**`.
+- `RulesetVersion` and `ContentPackageVersion` scope is limited to value primitives and minimal validation. It does not allow Rules behavior, formulas, content definitions, content execution, package publishing behavior, or content/rules runtime implementation.
+- Integer compatibility dimensions are deferred and must not be implemented in ODY-S00-004: `DatabaseSchemaVersion`, `CampaignFormatVersion`, `ManifestSchemaVersion`, `AssetManifestVersion`, `ContractVersion`, `FingerprintVersion`, `NetworkProtocolVersion`, `AssetProtocolVersion`, and `AudioProtocolVersion`.
 - Registries and validation directly required by these primitives, such as minimal ErrorCode/SafeReasonCode/UserMessageKey registration and version/identity deterministic vectors.
+- Generalize test catalog validation during the ODY-S00-004 implementation PR. The guard must not hardcode a single `taskId`; every catalog entry must have a `taskId` whose task contract exists under `docs/tasks/active/<TASK>.md` or `docs/tasks/completed/<TASK>.md`, and both ODY-S00-003 and ODY-S00-004 catalog entries must remain valid together.
 - Pure .NET unit/contract/domain tests for construction, invalid/default behavior, equality, hash code, canonical string formatting, parse success/failure, Result invariants, Error safe fields, retry directives, validation detail shape, and version parsing.
 - Unity compatibility validation through existing Unity EditMode/PlayMode test assemblies when required to prove compile parity.
 - Updates to `Tests/Metadata/test-catalog.json` for the new stable TestCase IDs.
@@ -99,11 +111,14 @@ This task does not implement command dispatch, domain events, gameplay, serializ
 ### Out of scope
 
 - Command dispatcher, command handlers, command gateway, command receipt store, command fingerprint implementation, `CommandResult` processing, command/event lifecycle, DomainEvent envelope, event batching, transaction boundaries, and duplicate command behavior; these belong to ODY-S00-005.
-- `CommandId`, `DomainEventId`, and `TransactionId` lifecycle or generation policy. A bare value primitive may be added only if implementation proves it is directly required by an accepted authority for ODY-S00-004 before command processing exists.
+- `CommandId`, `DomainEventId`/`EventId`, and `TransactionId` lifecycle, generation policy, or value primitive implementation; these belong to ODY-S00-005.
+- A separate Core `IdempotencyKey` for Application commands; ADR-002 defines `CommandId` as the canonical idempotency key.
 - Clock, scheduler, RNG, retry timers, backoff algorithms, or deterministic RNG vectors.
 - Persistence, networking, SQLite, transport DTOs, JSON serialization contracts, source-generated JSON contexts, upcasters, protocol envelopes, and wire/persistence mappings.
 - `version.json` generation, `config/compatibility.json` generation, Git metadata readers, build numbers, release tags, artifact names, checksums, generated C# identity, runtime `build-identity.json`, `BuildIdentity` generation, Player presentation, startup log identity, CI build identity, or Windows Player build.
+- Integer compatibility dimensions: `DatabaseSchemaVersion`, `CampaignFormatVersion`, `ManifestSchemaVersion`, `AssetManifestVersion`, `ContractVersion`, `FingerprintVersion`, `NetworkProtocolVersion`, `AssetProtocolVersion`, and `AudioProtocolVersion`.
 - Runtime composition, `AppRuntime`, Developer Shell, diagnostics runtime, log sinks, redaction runtime, localization implementation, UI behavior, gameplay behavior, and content/rules behavior.
+- Rules behavior, formulas, content definitions, content execution, and package publishing behavior.
 - New test projects, new production modules, `Common`/`Shared`/`Utils` modules, new third-party dependencies, GitHub Actions, ADR changes, Technical Baseline changes, Unity package/version changes, or ProjectSettings changes.
 
 ### Allowed paths
@@ -111,6 +126,8 @@ This task does not implement command dispatch, domain events, gameplay, serializ
 ```text
 Packages/com.odyssey.domain/Runtime/**
 Packages/com.odyssey.application/Runtime/**
+Packages/com.odyssey.rules/Runtime/**
+Packages/com.odyssey.content/Runtime/**
 DotNet/Tests/Odyssey.Tests.Unit/**
 DotNet/Tests/Odyssey.Tests.Domain/**
 DotNet/Tests/Odyssey.Tests.Contracts/**
@@ -118,6 +135,7 @@ DotNet/Tests/Odyssey.Tests.Architecture/**
 Assets/Odyssey/Client/Tests/EditMode/**
 Assets/Odyssey/Client/Tests/PlayMode/**
 Tests/Metadata/test-catalog.json
+docs/errors/ERROR_CODES.md
 scripts/restore.ps1
 scripts/verify-format.ps1
 scripts/verify-test-structure.ps1
@@ -132,6 +150,8 @@ docs/plans/active/ODY-S00-000_SLICE_00_Technical_Skeleton.md
 README.md
 ```
 
+`Packages/com.odyssey.rules/Runtime/**` and `Packages/com.odyssey.content/Runtime/**` are allowed only for `RulesetVersion`, `ContentPackageVersion`, and their minimal validation. They do not authorize rules formulas, content definitions, content execution, or package publishing behavior.
+
 ### Paths requiring explicit approval before editing
 
 ```text
@@ -143,8 +163,6 @@ Packages/packages-lock.json
 ProjectSettings/**
 DotNet/Odyssey.Core.sln
 DotNet/Projects/**
-Packages/com.odyssey.rules/**
-Packages/com.odyssey.content/**
 Packages/com.odyssey.persistence/**
 Packages/com.odyssey.networking/**
 Assets/Odyssey/Client/Runtime/**
@@ -161,8 +179,9 @@ config/compatibility.json
 - Authoritative-state and transaction boundary: No authoritative mutation, command processing, transaction handling, persistence, networking, or gameplay state change is introduced.
 - Serialization / compatibility boundary: Do not create ADR-003 DTOs, converters, source-generated JSON contexts, golden serialization snapshots, or persistence/network contracts. Future serialization implications may be documented in code comments/tests only when needed to protect canonical parse/format behavior.
 - Identity rule: A typed ID value type is separate from any generator. Do not call `Guid.NewGuid` or define production generation policy unless an accepted authority explicitly assigns it to this task.
-- Version rule: Implement only value-level parsing/formatting/comparison primitives allowed by ADR-007. Do not create or mutate version sources of truth, generated build identity artifacts, or compatibility config files in this task.
-- Result/Error rule: `Result<T>` has exactly two states, `Success` and `Failure`; `Failure` always has an `Error`; `null`, empty strings, `false`, and exceptions are not normal expected-failure contracts.
+- Identity preflight rule: Before creating typed IDs, implementation must add a table to task evidence with columns `Candidate`, `Authority`, `Owner module`, `Implement / Defer`, and `Reason`, using TDB section 15.1 and accepted ADRs. `CommandId`, `DomainEventId`/`EventId`, and `TransactionId` remain ODY-S00-005. A separate Core `IdempotencyKey` must not be created for Application commands because ADR-002 defines `CommandId` as the canonical idempotency key. `CorrelationId` and `DiagnosticId` remain in scope. If a required typed ID has no unambiguous owner, stop before adding the type.
+- Version rule: Implement only `ApplicationVersion`, `RulesetVersion`, and `ContentPackageVersion` value-level parsing/formatting/comparison primitives allowed by ADR-007. Do not create or mutate version sources of truth, integer compatibility version dimensions, generated build identity artifacts, or compatibility config files in this task.
+- Result/Error rule: `Result<T>` has exactly two states, `Success` and `Failure`; `Failure` always has an `Error`; `null`, empty strings, `false`, and exceptions are not normal expected-failure contracts. Safe message arguments, validation details, and optional metadata must be bounded and allowlisted; unrestricted dictionary/object payloads are forbidden.
 - Unity / thread / lifetime rule: Core primitives must not depend on `UnityEngine`, Unity packages, scene lifecycle, MonoBehaviour, ScriptableObject, or Unity time/random APIs.
 - Dependency / licensing rule: Do not add dependencies, packages, GitHub Actions, executables, or downloaded tools.
 - Security / privacy / redaction rule: Error and validation detail values must not expose stack traces, SQL, absolute paths, secrets, hidden gameplay data, private content, raw exception text, arbitrary objects, or unrestricted dictionaries.
@@ -194,29 +213,34 @@ config/compatibility.json
 - `Odyssey.Domain` and `Odyssey.Rules` do not depend on Application `Result/Error`.
 - `Result<T>` never has a third state and never represents failure as `null`, `false`, empty string, or exception.
 - `ErrorCode`, `SafeReasonCode`, and `UserMessageKey` are separate concepts.
+- `Error` does not contain raw rejected values, arbitrary objects, unrestricted dictionaries, stack traces, SQL, full paths, secrets, hidden IDs, or raw exception text.
+- `SafeMessageArguments[]`, `ValidationDetails[]`, and optional `Metadata[]` are bounded and allowlisted.
 - Version primitives do not generate or mutate `version.json`, compatibility config, BuildIdentity, release tags, or CI artifacts.
 - Test assemblies and test helpers do not enter Player runtime assemblies.
 
 ## 8. Deliverables
 
-- Production code: Minimal primitives under `Packages/com.odyssey.domain/Runtime/**` and/or `Packages/com.odyssey.application/Runtime/**` according to ownership.
+- Production code: Minimal primitives under `Packages/com.odyssey.domain/Runtime/**`, `Packages/com.odyssey.application/Runtime/**`, `Packages/com.odyssey.rules/Runtime/**`, and/or `Packages/com.odyssey.content/Runtime/**` according to explicit ownership and this task's version-primitive limits.
 - Tests: Focused .NET tests in existing Unit/Domain/Contracts projects and architecture tests only when needed to prove a boundary rule; Unity compatibility tests only in existing EditMode/PlayMode assemblies when needed.
-- Scripts / CI: Updates to existing repository scripts only if required for real validation of the new primitives; no new CI.
+- Scripts / CI: Updates to existing repository scripts only if required for real validation of the new primitives; no new CI. During implementation, `scripts/verify-test-structure.ps1` must generalize catalog validation for multiple task IDs, and after `docs/errors/ERROR_CODES.md` is created, `scripts/check-repository-policy.ps1` must count it as a required repository path.
 - Configuration: Test catalog metadata for new TestCase IDs; no Unity package or ProjectSettings changes.
-- Documentation: ODY-S00-004 completion evidence when implementation finishes, plus parent task, backlog, ExecPlan, and README status if materially affected.
+- Documentation: Create `docs/errors/ERROR_CODES.md` during implementation and register each actually introduced ErrorCode; update ODY-S00-004 completion evidence when implementation finishes, plus parent task, backlog, ExecPlan, and README status if materially affected.
 - Generated evidence or build artifacts: Command output summaries and local test report paths only; no tracked generated build artifacts.
 - Migration / recovery material: None.
 
 ## 9. Acceptance criteria
 
 1. Every new production primitive has a documented owner module before implementation and lives only in that owner's `Packages/com.odyssey.<module>/Runtime/**` path.
-2. The implemented identity primitives cover only the authority-required ODY-S00-004 set, define underlying representation, equality, hash code, canonical string format, parse success/failure, invalid/default behavior, and future serialization implications without adding generators or speculative IDs.
-3. Version primitives implement only ADR-007 value-level behavior and do not create `version.json`, compatibility config generation, Git metadata reading, BuildIdentity generation, release tagging, artifact naming, Player presentation, startup logging, or CI behavior.
-4. `Result`, `Result<T>`, `Unit`, `Error`, `ErrorCode`, `ErrorCategory`, `SafeReasonCode`, `UserMessageKey`, `RetryDirective`, and required validation detail support follow ADR-004 invariants and expose no unsafe internal details.
+2. Before adding identity primitives, task evidence contains the required candidate preflight table and the implemented identity primitives cover only the authority-required ODY-S00-004 set, define underlying representation, equality, hash code, canonical string format, parse success/failure, invalid/default behavior, and future serialization implications without adding generators, speculative IDs, `CommandId`, `DomainEventId`/`EventId`, `TransactionId`, or a separate command `IdempotencyKey`.
+3. Version primitives implement only `ApplicationVersion`, `RulesetVersion`, and `ContentPackageVersion` value-level SemVer-compatible behavior and do not create integer compatibility dimensions, `version.json`, compatibility config generation, Git metadata reading, BuildIdentity generation, release tagging, artifact naming, Player presentation, startup logging, or CI behavior.
+4. `Result`, `Result<T>`, `Unit`, `Error`, `ErrorCode`, `ErrorCategory`, `SafeReasonCode`, `UserMessageKey`, `RetryDirective`, and required validation detail support follow ADR-004 invariants and expose no unsafe internal details. `Error` semantics include bounded allowlisted `SafeMessageArguments[]`, bounded `ValidationDetails[]`, optional `DiagnosticId`, and optional bounded allowlisted machine-safe `Metadata[]` without unrestricted dictionary/object payloads.
 5. Domain and Rules remain free of Application `Result/Error`, Unity, persistence, networking, logging, serializer, clock, RNG, and infrastructure dependencies.
-6. No new production module, test project, third-party dependency, GitHub Action, ADR amendment, Technical Baseline amendment, Unity package/version change, ProjectSettings change, schema/format/contract/protocol/ruleset version bump, or ODY-S00-005 implementation is introduced.
-7. New stable TestCase IDs are registered in `Tests/Metadata/test-catalog.json` and are covered by real tests or repository checks.
-8. Required validation commands run with real pass/fail/not-run evidence recorded before the task moves to `In Review`.
+6. `docs/errors/ERROR_CODES.md` exists by the end of the ODY-S00-004 implementation PR, `scripts/check-repository-policy.ps1` counts it as a required repository path after creation, every actually introduced `ErrorCode` is registered with the required fields, duplicate codes are rejected, deprecated/reserved codes are not reused, and ErrorCode additions without registry/test updates are rejected.
+7. Test catalog validation supports multiple task IDs without rewriting historical ODY-S00-003 entries, verifies unique TestCaseId, valid taskId, referenced task existence, referenced path existence, unique ownership, and required current test IDs.
+8. No new production module, test project, third-party dependency, GitHub Action, ADR amendment, Technical Baseline amendment, Unity package/version change, ProjectSettings change, schema/format/contract/protocol/ruleset version bump, diagnostics runtime, or ODY-S00-005 implementation is introduced.
+9. New stable TestCase IDs are registered in `Tests/Metadata/test-catalog.json` and are covered by real tests or repository checks.
+10. Completion evidence states `ADR-004 primitive foundation implemented` and `ADR-007 value primitive subset implemented`, not that ADR-004 or ADR-007 are fully implemented.
+11. Required validation commands run with real pass/fail/not-run evidence recorded before the task moves to `In Review`.
 
 ## 10. Tests and validation
 
@@ -226,12 +250,12 @@ config/compatibility.json
 |---|---|---|---|
 | `TC-ID-001` | .NET Unit/Domain | Identity construction, equality, hash code, canonical string, and parse success/failure for each implemented identity primitive | Pass |
 | `TC-ID-002` | .NET Unit/Domain | Default, empty, malformed, non-canonical, or wrong-kind identity values are rejected deterministically | Pass |
-| `TC-VERSION-001` | .NET Unit/Contracts | ApplicationVersion and implemented compatibility version values parse/format/compare according to ADR-007 | Pass |
-| `TC-VERSION-002` | .NET Unit/Contracts | Different version dimensions are not interchangeable and do not trigger automatic bumps/generation | Pass |
+| `TC-VERSION-001` | .NET Unit/Contracts | `ApplicationVersion`, `RulesetVersion`, and `ContentPackageVersion` have SemVer-compatible value semantics and canonical parse/format behavior | Pass |
+| `TC-VERSION-002` | .NET Unit/Contracts | `ApplicationVersion`, `RulesetVersion`, and `ContentPackageVersion` are not interchangeable, do not trigger automatic bumps, and do not create `version.json`, compatibility config, or BuildIdentity | Pass |
 | `TC-RESULT-001` | .NET Unit/Contracts | `Result` and `Result<T>` have exactly Success/Failure states and reject default/invalid state | Pass |
-| `TC-RESULT-002` | .NET Unit/Contracts | `Error` requires code/category/safe reason/message key/retry/correlation fields and excludes unsafe details | Pass |
+| `TC-RESULT-002` | .NET Unit/Contracts | `Error` requires code/category/safe reason/message key/safe arguments/retry/correlation/validation fields and excludes unsafe details | Pass |
 | `TC-RESULT-003` | .NET Unit/Contracts | `RetryDirective` vocabulary is exact and cannot be weakened by boolean retry shortcuts | Pass |
-| `TC-RESULT-004` | .NET Unit/Contracts | `ValidationDetail` supports safe structured validation details without raw rejected values | Pass |
+| `TC-RESULT-004` | .NET Unit/Contracts | `ValidationDetail`, safe arguments, and optional metadata are bounded/allowlisted and reject raw values, unrestricted dictionaries, and arbitrary objects | Pass |
 | `TC-ARCH-001` | Architecture script / .NET test | ADR-001 dependency graph still passes after adding primitives | Pass |
 | `TC-DOTNET-001` | .NET build/test | Core bridge projects compile the same package source under `netstandard2.1` with C# 9 parity | Pass |
 | `TC-UNITY-ASM-001` | Unity batchmode | Unity assembly graph compiles with the new primitives | Pass |
@@ -241,13 +265,13 @@ config/compatibility.json
 ### Required commands
 
 ```powershell
-.\scripts\restore.ps1
-.\scripts\verify-format.ps1
-.\scripts\verify-test-structure.ps1
-.\scripts\test-fast.ps1
-.\scripts\test-unity.ps1
-.\scripts\verify-repository.ps1
-.\scripts\check-repository-policy.ps1
+powershell -NoProfile -ExecutionPolicy Bypass -File .\scripts\restore.ps1
+powershell -NoProfile -ExecutionPolicy Bypass -File .\scripts\verify-format.ps1
+powershell -NoProfile -ExecutionPolicy Bypass -File .\scripts\verify-test-structure.ps1
+powershell -NoProfile -ExecutionPolicy Bypass -File .\scripts\test-fast.ps1
+powershell -NoProfile -ExecutionPolicy Bypass -File .\scripts\test-unity.ps1
+powershell -NoProfile -ExecutionPolicy Bypass -File .\scripts\verify-repository.ps1
+powershell -NoProfile -ExecutionPolicy Bypass -File .\scripts\check-repository-policy.ps1
 dotnet build DotNet/Odyssey.Core.sln --no-restore
 dotnet test DotNet/Odyssey.Core.sln --no-build --no-restore
 git diff --check
@@ -311,7 +335,7 @@ Do not add production or development dependencies, GitHub Actions, executables, 
 
 ## 15. Documentation and versioning impact
 
-- Documents that must change: ODY-S00-004 task completion evidence, parent task, ExecPlan, Slice-00 backlog, README status, and test catalog if materially affected by implementation.
+- Documents that must change: ODY-S00-004 task completion evidence, `docs/errors/ERROR_CODES.md`, parent task, ExecPlan, Slice-00 backlog, README status, and test catalog if materially affected by implementation.
 - Documents that must not change: ADR-001 through ADR-010, Technical Development Baseline v0.3, Active Documentation Baseline v1.8 except owner-approved operational active-task pointer update, private product documents, changelogs, and handoff/context bundles.
 - Application version change: No - version value primitives do not bump or create the application version source of truth.
 - Schema / format / contract / protocol / ruleset version change: None.
@@ -336,7 +360,7 @@ Do not add production or development dependencies, GitHub Actions, executables, 
 
 ## 17. Completion evidence
 
-ODY-S00-004 has not started. This section must be filled with real implementation evidence before the task moves to `In Review`.
+ODY-S00-004 has not started. This section must be filled with real implementation evidence before the task moves to `In Review`, including the identity candidate preflight table and wording that claims only `ADR-004 primitive foundation implemented` and `ADR-007 value primitive subset implemented`.
 
 ### Changed files / areas
 
@@ -352,7 +376,7 @@ ODY-S00-004 has not started. This section must be filled with real implementatio
 
 | Criterion | Status | Evidence |
 |---|---|---|
-| AC-1 through AC-8 | Deferred | Must be proven by the ODY-S00-004 implementation PR. |
+| AC-1 through AC-11 | Deferred | Must be proven by the ODY-S00-004 implementation PR. |
 
 ### Build and artifact evidence
 
@@ -364,7 +388,8 @@ ODY-S00-004 has not started. This section must be filled with real implementatio
 ### Known limitations
 
 - The exact minimal identity primitive set must be re-confirmed against the listed authorities before implementation; speculative IDs are not allowed.
-- `CommandId`, `DomainEventId`, `TransactionId`, command/result lifecycle, and event envelopes remain ODY-S00-005 unless a bare value primitive is explicitly proven in scope before implementation.
+- `CommandId`, `DomainEventId`/`EventId`, `TransactionId`, command/result lifecycle, and event envelopes remain ODY-S00-005.
+- Integer compatibility version dimensions remain deferred to the corresponding owning SLICE-00 tasks.
 
 ### Follow-up tasks
 
