@@ -136,9 +136,8 @@ namespace Odyssey.Tests.Unit
         [Test]
         public void SecretAndHiddenDiagnosticPropertiesAreRejectedBeforeRegistryValidation()
         {
-            EventCodeDefinition definition = EventCodeRegistry.CreateDefault().Definitions[OdysseyEventCodes.DiagnosticsProbeEmitted];
-            SafeLogProperty secret = new SafeLogProperty(SafePropertyKey.Parse("probe"), SafeLogValue.SecretCandidateForRejection("super-secret-token"));
-            Assert.That(definition.Allows(secret), Is.False);
+            Action secret = () => SafeLogValue.BoundedText("super-secret-token", classification: DiagnosticDataClassification.Secret);
+            Assert.Throws<ArgumentException>(secret);
         }
 
         [Test]

@@ -29,6 +29,14 @@ namespace Odyssey.Tests.Unity.PlayMode
             Assert.That(Text(document, "runtime-profile"), Is.EqualTo("Runtime profile: DeveloperShell"));
             Assert.That(Text(document, "build-identity"), Is.EqualTo("Build identity: unavailable"));
 
+            GameObject duplicateHostObject = new GameObject("Duplicate Odyssey Runtime Host");
+            OdysseyRuntimeHost duplicateHost = duplicateHostObject.AddComponent<OdysseyRuntimeHost>();
+            yield return null;
+            yield return null;
+            Assert.That(FindAcceptedHosts(), Is.EqualTo(1));
+            Assert.That(duplicateHost == null || !duplicateHost.IsAcceptedHost, Is.True);
+            if (duplicateHostObject != null) Object.Destroy(duplicateHostObject);
+
             Click(document, "accepted-probe-button");
             yield return null;
             Assert.That(Text(document, "shell-result"), Does.Contain("Accepted Probe: Accepted"));
@@ -44,7 +52,8 @@ namespace Odyssey.Tests.Unity.PlayMode
             Click(document, "shutdown-button");
             yield return null;
             Assert.That(Text(document, "runtime-state"), Is.EqualTo("State: Stopped"));
-            Assert.That(FindAcceptedHosts(), Is.EqualTo(1));
+            Assert.That(FindAcceptedHosts(), Is.EqualTo(0));
+            Assert.That(RuntimeHostLease.IsHeld, Is.False);
         }
 
         private static IEnumerator WaitUntil(System.Func<bool> predicate)

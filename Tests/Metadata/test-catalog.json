@@ -254,15 +254,15 @@
       "authority": "ADR-005; ODY-S00-006 AC-3/AC-4",
       "runner": "Unity EditMode",
       "path": "Assets/Odyssey/Client/Tests/EditMode/RuntimeCompositionAndDiagnosticsTests.cs",
-      "check": "startup failure cleans partial resources"
+      "check": "mid-construction crash marker start failure disposes owned marker and records safe incident"
     },
     {
       "testCaseId": "TC-CMP-004",
       "taskId": "ODY-S00-006",
       "authority": "ADR-005; ODY-S00-006 AC-1",
-      "runner": "Unity EditMode",
-      "path": "Assets/Odyssey/Client/Tests/EditMode/RuntimeCompositionAndDiagnosticsTests.cs",
-      "check": "duplicate bootstrap is rejected"
+      "runner": "Unity PlayMode",
+      "path": "Assets/Odyssey/Client/Tests/PlayMode/OdysseyPlayModeFoundationSmokeTests.cs",
+      "check": "independent duplicate RuntimeHost is rejected while accepted graph remains one and clean shutdown releases the lease"
     },
     {
       "testCaseId": "TC-CMP-009",
@@ -294,7 +294,7 @@
       "authority": "ADR-005; ODY-S00-006 AC-8",
       "runner": "Unity EditMode",
       "path": "Assets/Odyssey/Client/Tests/EditMode/RuntimeCompositionAndDiagnosticsTests.cs",
-      "check": "explicit test adapter override preserves deterministic defaults"
+      "check": "typed adapter override changes only the requested adapter and preserves deterministic defaults"
     },
     {
       "testCaseId": "TC-CMP-016",
@@ -318,7 +318,7 @@
       "authority": "ADR-005; ODY-S00-006 AC-4",
       "runner": "Unity EditMode",
       "path": "Assets/Odyssey/Client/Tests/EditMode/RuntimeCompositionAndDiagnosticsTests.cs",
-      "check": "shutdown while presentation runtime active respects ownership order"
+      "check": "shutdown while PresentationRuntime active disposes presentation subscription before crash marker before diagnostics"
     },
     {
       "testCaseId": "TC-DIAG-002",
@@ -414,7 +414,7 @@
       "authority": "ADR-010; ODY-S00-006 AC-13",
       "runner": "Unity EditMode",
       "path": "Assets/Odyssey/Client/Tests/EditMode/RuntimeCompositionAndDiagnosticsTests.cs",
-      "check": "sink failure fallback avoids recursive duplicate exception recording"
+      "check": "bounded incident dedup records full safe ExceptionSummary once and repeats as counter-only"
     },
     {
       "testCaseId": "TC-DIAG-019",
@@ -422,7 +422,7 @@
       "authority": "ADR-010; ODY-S00-006 AC-12",
       "runner": "Unity EditMode",
       "path": "Assets/Odyssey/Client/Tests/EditMode/RuntimeCompositionAndDiagnosticsTests.cs",
-      "check": "diagnostic queue accepts events without corruption"
+      "check": "diagnostic queue accepts concurrent Task producers without corruption or Unity API use in workers"
     },
     {
       "testCaseId": "TC-DIAG-020",
@@ -430,7 +430,7 @@
       "authority": "ADR-010; ODY-S00-006 AC-12",
       "runner": "Unity EditMode",
       "path": "Assets/Odyssey/Client/Tests/EditMode/RuntimeCompositionAndDiagnosticsTests.cs",
-      "check": "queue drops Information before Warning under pressure"
+      "check": "queue pressure compares incoming priority and sacrifices Trace then Debug then Information"
     },
     {
       "testCaseId": "TC-DIAG-021",
@@ -438,7 +438,7 @@
       "authority": "ADR-010; ODY-S00-006 AC-12",
       "runner": "Unity EditMode",
       "path": "Assets/Odyssey/Client/Tests/EditMode/RuntimeCompositionAndDiagnosticsTests.cs",
-      "check": "drop counters are tracked after pressure recovery"
+      "check": "drop counters emit exact per-level counts after recovery and then reset"
     },
     {
       "testCaseId": "TC-DIAG-022",
@@ -470,7 +470,7 @@
       "authority": "ADR-010; ODY-S00-006 AC-12",
       "runner": "Unity EditMode",
       "path": "Assets/Odyssey/Client/Tests/EditMode/RuntimeCompositionAndDiagnosticsTests.cs",
-      "check": "normal shutdown drains diagnostic queue within bounded path"
+      "check": "normal shutdown drains diagnostic queue within 2 second fake-monotonic budget"
     },
     {
       "testCaseId": "TC-DIAG-026",
@@ -478,7 +478,7 @@
       "authority": "ADR-010; ODY-S00-006 AC-12",
       "runner": "Unity EditMode",
       "path": "Assets/Odyssey/Client/Tests/EditMode/RuntimeCompositionAndDiagnosticsTests.cs",
-      "check": "fatal bounded shutdown path does not wait indefinitely"
+      "check": "fatal bounded shutdown stops at 500ms fake-monotonic budget and writes emergency evidence"
     },
     {
       "testCaseId": "TC-DIAG-027",
@@ -516,9 +516,9 @@
       "testCaseId": "TC-UNITY-SHELL-001",
       "taskId": "ODY-S00-006",
       "authority": "ADR-005; ADR-009; ODY-S00-006 AC-5/AC-6",
-      "runner": "Unity EditMode",
-      "path": "Assets/Odyssey/Client/Tests/EditMode/RuntimeCompositionAndDiagnosticsTests.cs",
-      "check": "Developer Shell presenter binds runtime and exposes lifecycle state"
+      "runner": "Unity PlayMode",
+      "path": "Assets/Odyssey/Client/Tests/PlayMode/OdysseyPlayModeFoundationSmokeTests.cs",
+      "check": "Bootstrap loads AppShell to visible Ready state, runs technical shell actions, rejects duplicate RuntimeHost, and reaches Stopped shutdown"
     }
   ]
 }

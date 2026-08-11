@@ -3,6 +3,7 @@ using Odyssey.Application.Diagnostics;
 using Odyssey.Application.Results;
 using UnityEngine;
 using UnityEngine.SceneManagement;
+using UnityEngine.UIElements;
 
 namespace Odyssey.Unity.Client
 {
@@ -49,11 +50,12 @@ namespace Odyssey.Unity.Client
             {
                 Error error = RuntimeErrors.CompositionInvalid();
                 _runtime.MarkStartupFailed(error);
+                RenderStartupFailure(scene, error);
                 Debug.LogError(error.UserMessageKey.ToString());
                 return;
             }
 
-            IDeveloperShellFacade facade = new DeveloperShellFacade(_runtime);
+            IDeveloperShellFacade facade = new DeveloperShellFacade(_runtime, RequestShutdownFromShell);
             Result<PresentationRuntime> presentation = entryPoint.Initialize(facade);
             if (presentation.IsFailure)
             {
@@ -89,6 +91,26 @@ namespace Odyssey.Unity.Client
             return found;
         }
 
+        internal static void RenderStartupFailure(Scene scene, Error error)
+        {
+            UIDocument? document = null;
+            foreach (GameObject root in scene.GetRootGameObjects())
+            {
+                UIDocument[] documents = root.GetComponentsInChildren<UIDocument>(true);
+                for (int index = 0; index < documents.Length; index++)
+                {
+                    if (document != null) return;
+                    document = documents[index];
+                }
+            }
+
+            if (document == null) return;
+            VisualElement rootElement = document.rootVisualElement;
+            rootElement.Clear();
+            rootElement.Add(new Label("State: StartupFailed") { name = "runtime-state" });
+            rootElement.Add(new Label("Failure: " + error.SafeReasonCode) { name = "shell-result" });
+        }
+
         private void OnDestroy()
         {
             SceneManager.sceneLoaded -= OnSceneLoaded;
@@ -98,6 +120,21 @@ namespace Odyssey.Unity.Client
                 _runtime = null;
             }
 
+            if (_leaseHeld)
+            {
+                RuntimeHostLease.Release();
+                _leaseHeld = false;
+            }
+        }
+
+        private void RequestShutdownFromShell()
+        {
+            if (_runtime != null)
+            {
+                _runtime.Shutdown();
+            }
+
+            SceneManager.sceneLoaded -= OnSceneLoaded;
             if (_leaseHeld)
             {
                 RuntimeHostLease.Release();
@@ -121,15 +158,19 @@ namespace Odyssey.Unity.Client
         {
             _isHeld = false;
         }
+
+        internal static bool IsHeld => _isHeld;
     }
 
     internal sealed class DeveloperShellFacade : IDeveloperShellFacade
     {
         private readonly AppRuntime _runtime;
+        private readonly System.Action _requestShutdown;
 
-        public DeveloperShellFacade(AppRuntime runtime)
+        public DeveloperShellFacade(AppRuntime runtime, System.Action requestShutdown)
         {
             _runtime = runtime;
+            _requestShutdown = requestShutdown;
         }
 
         public OdysseyRuntimeState RuntimeState => _runtime.State;
@@ -139,6 +180,6 @@ namespace Odyssey.Unity.Client
         public Result<Odyssey.Application.Commands.CommandResult> RunRejectedProbe() => _runtime.RunRejectedProbe();
         public void EmitDiagnosticProbe() => _runtime.EmitDiagnosticProbe();
         public System.Collections.Generic.IReadOnlyList<LogEventV1> GetRecentDiagnostics() => _runtime.GetRecentDiagnostics();
-        public void RequestShutdown() => _runtime.Shutdown();
+        public void RequestShutdown() => _requestShutdown();
     }
 }

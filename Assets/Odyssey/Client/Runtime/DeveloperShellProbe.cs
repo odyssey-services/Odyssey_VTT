@@ -133,8 +133,8 @@ namespace Odyssey.Unity.Client
                 if (command.CommandType.Equals(CommandType.Parse("developer.shell.probe.rejected")))
                 {
                     Error error = Error.Create(
-                        ErrorCodes.ApplicationBootstrapCompositionInvalid,
-                        ErrorCategory.Precondition,
+                        ErrorCodes.ApplicationDeveloperProbeRejected,
+                        ErrorCategory.RuleViolation,
                         SafeReasonCode.ActionNotAllowed,
                         UserMessageKey.Parse("errors.developer_shell.probe_rejected"),
                         RetryDirective.DoNotRetry,

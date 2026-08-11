@@ -4,9 +4,28 @@ using Odyssey.Application.Diagnostics;
 
 namespace Odyssey.Unity.Client
 {
-    public sealed class CrashMarkerStore : IDisposable
+    public interface ICrashMarkerStore : IDisposable
     {
-        public const string MarkerFileName = "process-started.marker";
+        string SanitizedMarkerPath { get; }
+        bool PreviousMarkerWasUnfinished { get; }
+        bool PreviousMarkerWasMalformed { get; }
+        void Start(ProcessInstanceId processInstanceId);
+        void Complete();
+    }
+
+    public interface ICrashMarkerStoreFactory
+    {
+        ICrashMarkerStore Create(string directory);
+    }
+
+    public sealed class DefaultCrashMarkerStoreFactory : ICrashMarkerStoreFactory
+    {
+        public ICrashMarkerStore Create(string directory) => new CrashMarkerStore(directory);
+    }
+
+    public sealed class CrashMarkerStore : ICrashMarkerStore
+    {
+        public const string MarkerFileName = "process-started.json";
         private readonly string _directory;
         private readonly string _markerPath;
         private bool _completed;
@@ -29,7 +48,7 @@ namespace Odyssey.Unity.Client
             MarkerState previous = ReadPreviousMarker();
             PreviousMarkerWasUnfinished = previous == MarkerState.Started;
             PreviousMarkerWasMalformed = previous == MarkerState.Malformed;
-            File.WriteAllText(_markerPath, "state=started\nprocess=" + processInstanceId + "\n");
+            File.WriteAllText(_markerPath, "{\"state\":\"started\",\"process\":\"" + processInstanceId + "\"}");
             _completed = false;
         }
 
@@ -37,7 +56,7 @@ namespace Odyssey.Unity.Client
         {
             if (_completed) return;
             Directory.CreateDirectory(_directory);
-            File.WriteAllText(_markerPath, "state=completed\n");
+            File.WriteAllText(_markerPath, "{\"state\":\"completed\"}");
             try
             {
                 File.Delete(_markerPath);
@@ -78,8 +97,9 @@ namespace Odyssey.Unity.Client
                 return MarkerState.Malformed;
             }
 
-            if (text.StartsWith("state=started\n", StringComparison.Ordinal)) return MarkerState.Started;
-            if (text.StartsWith("state=completed\n", StringComparison.Ordinal)) return MarkerState.Completed;
+            if (text.Length > 512) return MarkerState.Malformed;
+            if (text.StartsWith("{\"state\":\"started\"", StringComparison.Ordinal) && text.Contains("\"process\":\"proc_")) return MarkerState.Started;
+            if (string.Equals(text, "{\"state\":\"completed\"}", StringComparison.Ordinal)) return MarkerState.Completed;
             return MarkerState.Malformed;
         }
 

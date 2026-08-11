@@ -17,7 +17,8 @@ namespace Odyssey.Application.Results
             if (code == ErrorCodes.ApplicationBootstrapConfigurationInvalid ||
                 code == ErrorCodes.ApplicationBootstrapInitializationCancelled ||
                 code == ErrorCodes.ApplicationBootstrapCompositionInvalid ||
-                code == ErrorCodes.ApplicationBootstrapUnexpected)
+                code == ErrorCodes.ApplicationBootstrapUnexpected ||
+                code == ErrorCodes.ApplicationDeveloperProbeRejected)
             {
                 return false;
             }

@@ -1,5 +1,8 @@
 using System;
 using System.Collections.Generic;
+using System.Diagnostics;
+using System.IO;
+using System.Threading.Tasks;
 using Odyssey.Application.Diagnostics;
 using Odyssey.Application.Identity;
 using Odyssey.Application.Time;
@@ -116,6 +119,32 @@ namespace Odyssey.Unity.Client
         }
     }
 
+    public sealed class FileEmergencyDiagnosticSink : IEmergencyDiagnosticSink
+    {
+        private readonly string _path;
+
+        public FileEmergencyDiagnosticSink(string diagnosticsDirectory)
+        {
+            if (string.IsNullOrWhiteSpace(diagnosticsDirectory)) throw new ArgumentException("Diagnostics directory is required.", nameof(diagnosticsDirectory));
+            _path = Path.Combine(diagnosticsDirectory, "emergency.log");
+        }
+
+        public bool TryWrite(EmergencyDiagnosticRecord record)
+        {
+            try
+            {
+                Directory.CreateDirectory(Path.GetDirectoryName(_path)!);
+                string line = record.TimestampUtc + " " + record.EventCode + " " + (record.DiagnosticId.HasValue ? record.DiagnosticId.Value.ToString() : "diag_none") + " " + record.Token + Environment.NewLine;
+                File.AppendAllText(_path, line);
+                return true;
+            }
+            catch
+            {
+                return false;
+            }
+        }
+    }
+
     public sealed class UnityConsoleDiagnosticSink : IDiagnosticSink
     {
         public string Name => "unity_console";
@@ -124,9 +153,9 @@ namespace Odyssey.Unity.Client
         {
             if (logEvent == null) throw new ArgumentNullException(nameof(logEvent));
             string line = logEvent.EventCode + " " + logEvent.MessageTemplateKey;
-            if (logEvent.Level >= LogLevel.Error) Debug.LogError(line);
-            else if (logEvent.Level == LogLevel.Warning) Debug.LogWarning(line);
-            else Debug.Log(line);
+            if (logEvent.Level >= LogLevel.Error) UnityEngine.Debug.LogError(line);
+            else if (logEvent.Level == LogLevel.Warning) UnityEngine.Debug.LogWarning(line);
+            else UnityEngine.Debug.Log(line);
             return true;
         }
     }
@@ -233,6 +262,11 @@ namespace Odyssey.Unity.Client
             Shutdown(TimeSpan.FromSeconds(2));
         }
 
+        internal void RecordEmergency(EventCode eventCode, DiagnosticId? diagnosticId, string token)
+        {
+            WriteEmergency(eventCode, diagnosticId, token);
+        }
+
         private void FlushUntil(TimeSpan? budget)
         {
             MonotonicTimestamp started = _monotonicClock.GetTimestamp();
@@ -281,13 +315,13 @@ namespace Odyssey.Unity.Client
 
                 if (WouldExceed(logEvent))
                 {
-                    if (logEvent.Level <= LogLevel.Information)
+                    DropLowerPriorityVictimsUntilFits(logEvent);
+                    if (WouldExceed(logEvent) && logEvent.Level <= LogLevel.Information)
                     {
                         CountDrop(logEvent.Level);
                         return;
                     }
 
-                    DropLowestPriorityVictimsUntilFits(logEvent);
                     if (WouldExceed(logEvent))
                     {
                         WriteEmergency(logEvent.EventCode, logEvent.DiagnosticId, "queue_full");
@@ -295,7 +329,7 @@ namespace Odyssey.Unity.Client
                     }
                 }
 
-                EmitDropCounterIfRecovered(logEvent.ProcessInstanceId);
+                EmitDropCounterIfRecovered(logEvent);
                 _queue.Enqueue(logEvent);
                 _logicalBytes += logEvent.EstimatedLogicalSize;
             }
@@ -306,11 +340,22 @@ namespace Odyssey.Unity.Client
             return _queue.Count + 1 > _maxEvents || _logicalBytes + logEvent.EstimatedLogicalSize > _maxBytes;
         }
 
-        private void DropLowestPriorityVictimsUntilFits(LogEventV1 incoming)
+        private void DropLowerPriorityVictimsUntilFits(LogEventV1 incoming)
         {
-            while (WouldExceed(incoming) && DropOne(LogLevel.Trace)) { }
-            while (WouldExceed(incoming) && DropOne(LogLevel.Debug)) { }
-            while (WouldExceed(incoming) && DropOne(LogLevel.Information)) { }
+            if (incoming.Level > LogLevel.Trace)
+            {
+                while (WouldExceed(incoming) && DropOne(LogLevel.Trace)) { }
+            }
+
+            if (incoming.Level > LogLevel.Debug)
+            {
+                while (WouldExceed(incoming) && DropOne(LogLevel.Debug)) { }
+            }
+
+            if (incoming.Level > LogLevel.Information)
+            {
+                while (WouldExceed(incoming) && DropOne(LogLevel.Information)) { }
+            }
         }
 
         private bool DropOne(LogLevel level)
@@ -342,7 +387,12 @@ namespace Odyssey.Unity.Client
             else if (level == LogLevel.Information) _droppedInformation++;
         }
 
-        private void EmitDropCounterIfRecovered(ProcessInstanceId processInstanceId)
+        private bool WouldExceed(LogEventV1 first, LogEventV1 second)
+        {
+            return _queue.Count + 2 > _maxEvents || _logicalBytes + first.EstimatedLogicalSize + second.EstimatedLogicalSize > _maxBytes;
+        }
+
+        private void EmitDropCounterIfRecovered(LogEventV1 incoming)
         {
             if ((_droppedTrace + _droppedDebug + _droppedInformation) <= 0) return;
             LogEventV1 dropEvent = new LogEventV1(
@@ -351,7 +401,7 @@ namespace Odyssey.Unity.Client
                 OdysseyEventCodes.DiagnosticsQueueEventsDropped,
                 SubsystemName.Parse("diagnostics"),
                 BuildIdAvailability.UnavailableNotYetComposed,
-                processInstanceId,
+                incoming.ProcessInstanceId,
                 MessageTemplateKey.Parse("log.diagnostics.queue.events_dropped"),
                 new[]
                 {
@@ -359,7 +409,7 @@ namespace Odyssey.Unity.Client
                     new SafeLogProperty(SafePropertyKey.Parse("debug_count"), SafeLogValue.Count(_droppedDebug)),
                     new SafeLogProperty(SafePropertyKey.Parse("information_count"), SafeLogValue.Count(_droppedInformation))
                 });
-            if (WouldExceed(dropEvent)) return;
+            if (WouldExceed(dropEvent, incoming)) return;
             _droppedTrace = 0;
             _droppedDebug = 0;
             _droppedInformation = 0;
@@ -391,6 +441,143 @@ namespace Odyssey.Unity.Client
         }
     }
 
+    internal sealed class IncidentDeduplicator
+    {
+        private readonly object _gate = new object();
+        private readonly Dictionary<string, int> _counts = new Dictionary<string, int>();
+        private readonly int _capacity;
+
+        internal IncidentDeduplicator(int capacity = 64)
+        {
+            if (capacity <= 0) throw new ArgumentOutOfRangeException(nameof(capacity));
+            _capacity = capacity;
+        }
+
+        internal bool Record(BoundedDiagnosticRuntime diagnostics, IWallClock clock, ProcessInstanceId processInstanceId, IDiagnosticIdGenerator ids, Exception exception, SubsystemName subsystem, out DiagnosticId diagnosticId)
+        {
+            if (diagnostics == null) throw new ArgumentNullException(nameof(diagnostics));
+            if (clock == null) throw new ArgumentNullException(nameof(clock));
+            if (ids == null) throw new ArgumentNullException(nameof(ids));
+            if (exception == null) throw new ArgumentNullException(nameof(exception));
+            DiagnosticId createdDiagnosticId = ids.Create();
+            diagnosticId = createdDiagnosticId;
+            ExceptionSummary summary = ExceptionSummary.FromException(exception, subsystem, createdDiagnosticId);
+            string key = summary.Category + "|" + subsystem;
+            int count;
+            bool first;
+            lock (_gate)
+            {
+                if (!_counts.ContainsKey(key) && _counts.Count >= _capacity) _counts.Clear();
+                first = !_counts.TryGetValue(key, out count);
+                count = first ? 1 : Math.Min(count + 1, 9999);
+                _counts[key] = count;
+            }
+
+            diagnostics.Write(LogLevel.Error, OdysseyEventCodes.DiagnosticsIncidentUnexpected, SubsystemName.Parse("diagnostics"), MessageTemplateKey.Parse("log.diagnostics.incident.unexpected"), new DiagnosticContext(processInstanceId, diagnosticId: diagnosticId), () => new[]
+            {
+                new SafeLogProperty(SafePropertyKey.Parse("diagnostic_id"), SafeLogValue.TechnicalIdentifier(createdDiagnosticId.ToString())),
+                new SafeLogProperty(SafePropertyKey.Parse("incident_category"), SafeLogValue.Code(ToIncidentCategory(summary.Category))),
+                new SafeLogProperty(SafePropertyKey.Parse("repeat_count"), SafeLogValue.Count(count))
+            }, first ? summary : (ExceptionSummary?)null);
+            return first;
+        }
+
+        private static string ToIncidentCategory(ExceptionCategory category)
+        {
+            switch (category)
+            {
+                case ExceptionCategory.InvalidOperation: return "invalid_operation";
+                case ExceptionCategory.IoFailure: return "io_failure";
+                case ExceptionCategory.AccessDenied: return "access_denied";
+                case ExceptionCategory.Cancelled: return "cancelled";
+                default: return "unexpected";
+            }
+        }
+    }
+
+    internal interface IPlatformExceptionHookSource
+    {
+        event Action<Exception> UnhandledException;
+        event Action<Exception> UnobservedTaskException;
+    }
+
+    internal sealed class DotNetPlatformExceptionHookSource : IPlatformExceptionHookSource, IDisposable
+    {
+        public event Action<Exception>? UnhandledException;
+        public event Action<Exception>? UnobservedTaskException;
+
+        public DotNetPlatformExceptionHookSource()
+        {
+            AppDomain.CurrentDomain.UnhandledException += OnUnhandledException;
+            TaskScheduler.UnobservedTaskException += OnUnobservedTaskException;
+        }
+
+        public void Dispose()
+        {
+            AppDomain.CurrentDomain.UnhandledException -= OnUnhandledException;
+            TaskScheduler.UnobservedTaskException -= OnUnobservedTaskException;
+        }
+
+        private void OnUnhandledException(object sender, UnhandledExceptionEventArgs args)
+        {
+            if (args.ExceptionObject is Exception exception) UnhandledException?.Invoke(exception);
+            else UnhandledException?.Invoke(new InvalidOperationException("non_exception_unhandled"));
+        }
+
+        private void OnUnobservedTaskException(object sender, UnobservedTaskExceptionEventArgs args)
+        {
+            UnobservedTaskException?.Invoke(args.Exception);
+        }
+    }
+
+    internal sealed class PlatformFatalHookOwner : IDisposable
+    {
+        private readonly IPlatformExceptionHookSource _source;
+        private readonly BoundedDiagnosticRuntime _diagnostics;
+        private readonly IWallClock _clock;
+        private readonly ProcessInstanceId _processInstanceId;
+        private readonly IDiagnosticIdGenerator _diagnosticIds;
+        private readonly IncidentDeduplicator _deduplicator;
+        private bool _recording;
+        private bool _disposed;
+
+        public PlatformFatalHookOwner(IPlatformExceptionHookSource source, BoundedDiagnosticRuntime diagnostics, IWallClock clock, ProcessInstanceId processInstanceId, IDiagnosticIdGenerator diagnosticIds, IncidentDeduplicator deduplicator)
+        {
+            _source = source ?? throw new ArgumentNullException(nameof(source));
+            _diagnostics = diagnostics ?? throw new ArgumentNullException(nameof(diagnostics));
+            _clock = clock ?? throw new ArgumentNullException(nameof(clock));
+            _processInstanceId = processInstanceId;
+            _diagnosticIds = diagnosticIds ?? throw new ArgumentNullException(nameof(diagnosticIds));
+            _deduplicator = deduplicator ?? throw new ArgumentNullException(nameof(deduplicator));
+            _source.UnhandledException += Record;
+            _source.UnobservedTaskException += Record;
+        }
+
+        public void Dispose()
+        {
+            if (_disposed) return;
+            _source.UnhandledException -= Record;
+            _source.UnobservedTaskException -= Record;
+            if (_source is IDisposable disposable) disposable.Dispose();
+            _disposed = true;
+        }
+
+        private void Record(Exception exception)
+        {
+            if (_disposed || _recording) return;
+            _recording = true;
+            try
+            {
+                _deduplicator.Record(_diagnostics, _clock, _processInstanceId, _diagnosticIds, exception, SubsystemName.Parse("app"), out DiagnosticId diagnosticId);
+                _diagnostics.RecordEmergency(OdysseyEventCodes.DiagnosticsIncidentUnexpected, diagnosticId, "platform_fatal_hook");
+            }
+            finally
+            {
+                _recording = false;
+            }
+        }
+    }
+
     public sealed class UnityWallClock : IWallClock
     {
         public UtcInstant GetUtcNow()
@@ -403,10 +590,9 @@ namespace Odyssey.Unity.Client
     {
         private readonly object _gate = new object();
         private readonly Dictionary<MonotonicTimestamp, long> _ticks = new Dictionary<MonotonicTimestamp, long>();
-        private readonly int _started = Environment.TickCount;
         public MonotonicTimestamp GetTimestamp()
         {
-            long ticks = unchecked(Environment.TickCount - _started);
+            long ticks = Stopwatch.GetTimestamp();
             MonotonicTimestamp timestamp = MonotonicTimestamp.FromTestTicks(ticks);
             lock (_gate)
             {
@@ -420,7 +606,7 @@ namespace Odyssey.Unity.Client
         {
             lock (_gate)
             {
-                return TimeSpan.FromMilliseconds(_ticks[end] - _ticks[start]);
+                return TimeSpan.FromSeconds((double)(_ticks[end] - _ticks[start]) / Stopwatch.Frequency);
             }
         }
     }

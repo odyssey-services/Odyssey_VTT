@@ -316,12 +316,6 @@ namespace Odyssey.Application.Diagnostics
             return new SafeLogValue(classification, SafeLogValueKind.BoundedText, rendered, Encoding.UTF8.GetByteCount(rendered), originalScalars, truncated);
         }
 
-        public static SafeLogValue SecretCandidateForRejection(string value)
-        {
-            if (value == null) throw new ArgumentNullException(nameof(value));
-            return new SafeLogValue(DiagnosticDataClassification.Secret, SafeLogValueKind.BoundedText, value, Encoding.UTF8.GetByteCount(value), CountScalars(value), false);
-        }
-
         private static SafeLogValue Create(DiagnosticDataClassification classification, SafeLogValueKind kind, string rendered)
         {
             return new SafeLogValue(classification, kind, rendered, Encoding.UTF8.GetByteCount(rendered), CountScalars(rendered), false);
@@ -645,16 +639,16 @@ namespace Odyssey.Application.Diagnostics
         internal static Error UnknownEventCode(CorrelationId correlationId) => Error.Create(
             ErrorCodes.ApplicationValidationInvalid,
             ErrorCategory.Validation,
-            SafeReasonCode.ActionNotAllowed,
-            UserMessageKey.Parse("errors.diagnostics.event_code_unknown"),
+            SafeReasonCode.InvalidRequest,
+            UserMessageKey.Parse("errors.application.validation_invalid"),
             RetryDirective.DoNotRetry,
             correlationId);
 
         internal static Error UnregisteredProperty(CorrelationId correlationId) => Error.Create(
             ErrorCodes.ApplicationValidationInvalid,
             ErrorCategory.Validation,
-            SafeReasonCode.ActionNotAllowed,
-            UserMessageKey.Parse("errors.diagnostics.property_not_registered"),
+            SafeReasonCode.InvalidRequest,
+            UserMessageKey.Parse("errors.application.validation_invalid"),
             RetryDirective.DoNotRetry,
             correlationId);
     }

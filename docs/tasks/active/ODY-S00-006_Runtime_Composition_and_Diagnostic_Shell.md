@@ -264,15 +264,15 @@ Implementation note: The exact scene edits above are owner-approved only for min
 |---|---|---|---|
 | `TC-CMP-001` | .NET / Unity | Build minimal process graph -> Success, exactly one AppRuntime | Pass |
 | `TC-CMP-002` | .NET / Unity | Invalid bootstrap configuration -> safe Failure, graph unpublished | Pass |
-| `TC-CMP-003` | .NET / Unity | Adapter/resource creation fails midway -> partial resources cleaned | Pass |
-| `TC-CMP-004` | .NET / Unity | Duplicate bootstrap -> second graph not created | Pass |
+| `TC-CMP-003` | Unity EditMode | Crash marker store fails after ownership -> graph unpublished, marker disposed, safe incident recorded | Pass |
+| `TC-CMP-004` | Unity PlayMode | Duplicate RuntimeHost rejected while accepted graph remains one; clean shutdown releases lease | Pass |
 | `TC-CMP-009` | Unity EditMode or PlayMode | AppShell/PresentationRuntime load-unload -> presentation resources disposed | Pass |
 | `TC-CMP-010` | .NET / Unity | Shutdown called twice -> no duplicate side effects | Pass |
 | `TC-CMP-011` | .NET / Unity | Process cancellation during startup -> bounded cleanup + cancelled Result | Pass |
-| `TC-CMP-015` | .NET / Unity | Explicit test adapter override -> deterministic defaults otherwise preserved | Pass |
+| `TC-CMP-015` | Unity EditMode | Typed test adapter override changes only requested adapter; deterministic defaults otherwise preserved | Pass |
 | `TC-CMP-016` | .NET / Unity | Non-developer/production composition cannot silently request developer fake | Pass |
 | `TC-CMP-018` | Architecture / .NET | Static locator/container pattern -> architecture validation fails | Pass |
-| `TC-CMP-020` | .NET / Unity | Shutdown while PresentationRuntime active -> correct ownership order | Pass |
+| `TC-CMP-020` | Unity EditMode | Shutdown while PresentationRuntime active -> presentation subscription before marker before diagnostics | Pass |
 | `TC-DIAG-002` | .NET Unit | Disabled Debug event does not evaluate lazy property | Pass |
 | `TC-DIAG-003` | .NET Unit / policy | EventCode outside registry rejected | Pass |
 | `TC-DIAG-004` | .NET Unit | Arbitrary object property rejected | Pass |
@@ -284,20 +284,20 @@ Implementation note: The exact scene edits above are owner-approved only for min
 | `TC-DIAG-015` | .NET Unit | CommandId remains distinct from CorrelationId | Pass |
 | `TC-DIAG-016` | .NET Unit | Unexpected exception creates DiagnosticId | Pass |
 | `TC-DIAG-017` | .NET Unit | Public Error contains no stack trace/raw exception | Pass |
-| `TC-DIAG-018` | .NET Unit | Duplicate exception is not fully recorded repeatedly | Pass |
-| `TC-DIAG-019` | .NET Unit | Diagnostic queue accepts concurrent events without corruption | Pass |
-| `TC-DIAG-020` | .NET Unit | Queue drops Trace before Warning under pressure | Pass |
-| `TC-DIAG-021` | .NET Unit | Drop counters emitted after recovery | Pass |
+| `TC-DIAG-018` | Unity EditMode | Bounded incident dedup records full safe summary once, repeats counter-only | Pass |
+| `TC-DIAG-019` | Unity EditMode | Diagnostic queue accepts concurrent Task producers without corruption | Pass |
+| `TC-DIAG-020` | Unity EditMode | Queue pressure compares incoming priority and drops Trace/Debug/Information in order | Pass |
+| `TC-DIAG-021` | Unity EditMode | Exact per-level drop counters emitted after recovery and reset | Pass |
 | `TC-DIAG-022` | .NET Unit | Warning uses emergency fallback when priority path unavailable | Pass |
 | `TC-DIAG-023` | .NET Unit | Sink failure does not recurse infinitely | Pass |
 | `TC-DIAG-024` | .NET Unit | Logger failure does not change successful application/domain outcome | Pass |
-| `TC-DIAG-025` | .NET Unit | Normal shutdown drains diagnostic queue within bounded budget | Pass |
-| `TC-DIAG-026` | .NET Unit | Fatal/bounded shutdown does not wait indefinitely | Pass |
+| `TC-DIAG-025` | Unity EditMode | Normal shutdown drains diagnostic queue within 2s fake-monotonic budget | Pass |
+| `TC-DIAG-026` | Unity EditMode | Fatal/bounded shutdown stops at 500ms fake-monotonic budget and writes emergency evidence | Pass |
 | `TC-DIAG-027` | .NET Unit or Unity EditMode | Crash marker detected on next startup | Pass |
 | `TC-DIAG-028` | .NET Unit or Unity EditMode | Correct shutdown clears/completes process marker | Pass |
 | `TC-DIAG-046` | Architecture / .NET | Domain and Rules have no diagnostics/logger dependency | Pass |
 | `TC-DIAG-051` | .NET Unit | Task-specific extension: bounded ring buffer count/byte capacity and deterministic oldest eviction | Pass |
-| `TC-UNITY-SHELL-001` | Unity EditMode or PlayMode | Developer Shell lifecycle smoke proves visible runtime state without gameplay | Pass |
+| `TC-UNITY-SHELL-001` | Unity PlayMode | Bootstrap -> AppShell -> Ready -> technical actions -> duplicate host rejection -> Stopped | Pass |
 
 ### Required commands
 
@@ -421,9 +421,9 @@ No new dependency, package, GitHub Action, executable, or downloadable tool is a
 | `powershell -NoProfile -ExecutionPolicy Bypass -File .\scripts\verify-format.ps1` | Passed | `FORMAT-001 PASS repository text formatting checks passed`. |
 | `powershell -NoProfile -ExecutionPolicy Bypass -File .\scripts\verify-test-structure.ps1` | Passed | `TC-ARCH-001` passed; controlled invalid Domain->Rules, package version mismatch, and duplicate catalog ownership fixtures were rejected with exit code 1. ODY-S00-006 composition/diagnostics guards also passed. |
 | `powershell -NoProfile -ExecutionPolicy Bypass -File .\scripts\test-fast.ps1` | Passed | Structure guard passed; `dotnet build` succeeded with 0 warnings / 0 errors; TRX evidence under `Logs/ODY-S00-006/dotnet/`: Unit 53/53, Domain 1/1, Contracts 1/1, Architecture 2/2, failed 0. |
-| `powershell -NoProfile -ExecutionPolicy Bypass -File .\scripts\test-unity.ps1` | Failed then Passed | Sandbox run failed before compile on Unity global cache access; escalated corrective runs exposed compile errors, then EditMode and PlayMode issues. Final run passed Unity `6000.4.0f1`, batch compile exit code 0, EditMode total 9 passed 9 failed 0 skipped 0, PlayMode total 1 passed 1 failed 0 skipped 0. Logs under `Logs/ODY-S00-006/`. |
-| `powershell -NoProfile -ExecutionPolicy Bypass -File .\scripts\verify-repository.ps1` | Passed | Repository policy passed, test structure passed, SDK configured `10.0.302`, selected `10.0.302`, rollForward `latestPatch`, allowPrerelease `False`; `REPOSITORY-VERIFY PASS`. |
-| `powershell -NoProfile -ExecutionPolicy Bypass -File .\scripts\check-repository-policy.ps1` | Passed | `REPO-POLICY-001` through `REPO-POLICY-005` passed, including controlled ErrorCode registry fixtures. |
+| `powershell -NoProfile -ExecutionPolicy Bypass -File .\scripts\test-unity.ps1` | Failed then Passed | Sandbox run failed before compile on Unity global cache access; escalated corrective runs exposed compile errors, then EditMode and PlayMode issues. Final run passed Unity `6000.4.0f1`, batch compile exit code 0, EditMode total 18 passed 18 failed 0 skipped 0, PlayMode total 1 passed 1 failed 0 skipped 0. Logs under `Logs/ODY-S00-006/`. |
+| `powershell -NoProfile -ExecutionPolicy Bypass -File .\scripts\verify-repository.ps1` | Failed then Passed | Corrective run initially failed because `application.developer.probe_rejected` referenced missing catalog ID `TC-CMP-006`; after registry evidence fix, repository policy passed, test structure passed, SDK configured `10.0.302`, selected `10.0.302`, rollForward `latestPatch`, allowPrerelease `False`; `REPOSITORY-VERIFY PASS`. |
+| `powershell -NoProfile -ExecutionPolicy Bypass -File .\scripts\check-repository-policy.ps1` | Failed then Passed | Corrective run initially failed on missing catalog ID `TC-CMP-006`; after registry evidence fix, `REPO-POLICY-001` through `REPO-POLICY-005` passed, including controlled ErrorCode registry fixtures. |
 | `dotnet build DotNet\Odyssey.Core.sln --no-restore` | Passed | Build succeeded with 0 warnings / 0 errors. |
 | `dotnet test DotNet\Odyssey.Core.sln --no-build --no-restore` | Passed | Contracts 1, Domain 1, Unit 53, Architecture 2; total 57 passed, 0 failed, 0 skipped. |
 | `git diff --check` | Failed then Passed | Initial final run failed due Unity-generated `ProjectSettings/ProjectSettings.asset` whitespace churn and task-doc blank EOF; ProjectSettings was restored to HEAD and EOF corrected. Final rerun exited 0 with only the CRLF normalization warning for this task document. |
@@ -436,18 +436,18 @@ No new dependency, package, GitHub Action, executable, or downloadable tool is a
 |---|---|---|
 | AC-1 | Satisfied | One `OdysseyRuntimeCompositionRoot` exists in `Odyssey.Unity.Client`; `verify-test-structure.ps1` rejects DI/service locator/search patterns and duplicate composition-root classes. |
 | AC-2 | Satisfied | `OdysseyRuntimeCompositionRoot.Start` publishes `Starting`; runtime reaches `Ready` only after AppShell entry point and presentation initialization succeed. |
-| AC-3 | Satisfied | Startup failures return safe `Result<Error>`, can emit diagnostic evidence when diagnostics exist, and clean partial resources; Unity EditMode covers cancellation/configuration paths. |
-| AC-4 | Satisfied | `AppRuntime.Shutdown` disposes presentation before process resources, is idempotent, and is covered by Unity EditMode tests. |
-| AC-5 | Satisfied | `AppShellEntryPoint` initializes the UI Toolkit Developer Shell; PlayMode `TC-UNITY-SHELL-001` verifies visible Ready, profile, build identity unavailable, accepted/rejected probes, diagnostic emission, and Stopped shutdown. |
+| AC-3 | Satisfied | Startup failures return safe `Result<Error>`, can emit diagnostic evidence when diagnostics exist, clean partial resources, and render scene-local StartupFailed fallback where exactly one UIDocument exists. |
+| AC-4 | Satisfied | `AppRuntime.Shutdown` disposes presentation before process resources, emits crash-marker completed while diagnostics are alive, shuts diagnostics last, is idempotent, and is covered by Unity EditMode tests. |
+| AC-5 | Satisfied | `AppShellEntryPoint` initializes the UI Toolkit Developer Shell; PlayMode `TC-UNITY-SHELL-001` verifies visible Ready, profile, build identity unavailable, accepted/rejected probes, diagnostic emission, duplicate host rejection, Stopped shutdown, and released host lease. |
 | AC-6 | Satisfied | DeveloperShell-only probe uses Application command/result contracts and an in-memory commit adapter that records receipt plus accepted event batch; UI exposes separate accepted and rejected probe actions. |
 | AC-7 | Satisfied | Application diagnostics contracts expose required `LogEventV1` fields, exact `LogLevel` vocabulary, `ProcessInstanceId`, unavailable BuildId state, and shared `CorrelationId`/`DiagnosticId`/`CommandId`/`UtcInstant`. |
 | AC-8 | Satisfied | `ProcessInstanceId` is generated per startup; deterministic typed test composition is internal/friend-only; no username/device/path/secret is encoded. |
 | AC-9 | Satisfied | `config/diagnostics/event-codes.json` exists and is checked against runtime registry parity by .NET tests and repository guard. |
 | AC-10 | Satisfied | Safe property API is allowlist-first with split classification/valueKind; tests cover object/exception API absence, Unicode bounded truncation, path username removal, endpoint generalization, and secret rejection. |
 | AC-11 | Satisfied | `InMemoryDiagnosticRingBuffer` enforces count/byte limits with oldest-event eviction and rejects oversized events; Unity EditMode covers count/byte capacity. |
-| AC-12 | Satisfied | `BoundedDiagnosticRuntime` covers lazy filtering by level/event code, Trace/Debug/Information pressure policy, per-level drop counters, minimal emergency fallback, sink failure fallback, and bounded shutdown paths. |
-| AC-13 | Satisfied | Startup unexpected failures attach `DiagnosticId` and emit safe incident when diagnostics exist; public `Error` remains ADR-004-safe without stack/raw exception text. |
-| AC-14 | Satisfied | `CrashMarkerStore` uses `Application.persistentDataPath/Diagnostics/` in production host and a `state=started` marker parser; Unity EditMode covers started/completed/malformed marker states and repeated clean finalization. |
+| AC-12 | Satisfied | `BoundedDiagnosticRuntime` covers lazy filtering by level/event code, incoming-priority-aware Trace/Debug/Information pressure policy, exact per-level drop counters, minimal emergency fallback, sink failure fallback, concurrent producers, and bounded shutdown paths. |
+| AC-13 | Satisfied | Startup and fatal-hook unexpected failures attach `DiagnosticId`, emit safe normalized incident evidence, deduplicate repeats without second full summary, and keep public `Error` ADR-004-safe without stack/raw exception text. |
+| AC-14 | Satisfied | `CrashMarkerStore` uses exact `process-started.json` in `Application.persistentDataPath/Diagnostics/`; Unity EditMode covers started/completed/malformed marker states and repeated clean finalization. |
 | AC-15 | Satisfied | Repository guard scans Domain and Rules runtime source for diagnostics/logger dependencies; no violations. |
 | AC-16 | Satisfied | No serialization DTOs/JSONL, SQLite, Networking/Persistence runtime, BuildIdentity generation, telemetry, CI, Player/IL2CPP build, gameplay, Unity package, manifest, lock, or ProjectSettings baseline changes are introduced. |
 | AC-17 | Satisfied | Required validation commands have real pass/fail/pass evidence recorded above. |

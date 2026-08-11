@@ -1,7 +1,9 @@
 using System;
 using System.Collections.Generic;
 using System.IO;
+using System.Linq;
 using System.Threading;
+using System.Threading.Tasks;
 using NUnit.Framework;
 using Odyssey.Application.Commands;
 using Odyssey.Application.Diagnostics;
@@ -13,6 +15,7 @@ using Odyssey.Domain.Identity;
 using Odyssey.Domain.Time;
 using Odyssey.Unity.Client;
 using UnityEngine;
+using UnityEngine.SceneManagement;
 using UnityEngine.UIElements;
 
 namespace Odyssey.Tests.Unity.EditMode
@@ -82,6 +85,7 @@ namespace Odyssey.Tests.Unity.EditMode
             Assert.That(accepted.Value.Status, Is.EqualTo(CommandResultStatus.Accepted));
             Assert.That(rejected.IsSuccess, Is.True);
             Assert.That(rejected.Value.Status, Is.EqualTo(CommandResultStatus.Rejected));
+            Assert.That(rejected.Value.Error!.Code, Is.EqualTo(ErrorCodes.ApplicationDeveloperProbeRejected));
             Assert.That(result.Value.DeveloperProbe.AcceptedCommitCount, Is.EqualTo(1));
             Assert.That(result.Value.DeveloperProbe.RejectedCommitCount, Is.EqualTo(1));
             Assert.That(result.Value.DeveloperProbe.EventBatchCommitCount, Is.EqualTo(1));
@@ -113,10 +117,222 @@ namespace Odyssey.Tests.Unity.EditMode
             diagnostics.Write(CreateDiagnosticsProbe(LogLevel.Warning, clock));
             diagnostics.Flush();
             IReadOnlyList<LogEventV1> flushed = ring.Snapshot();
-            Assert.That(flushed, Has.Some.Matches<LogEventV1>(entry => entry.EventCode == OdysseyEventCodes.DiagnosticsQueueEventsDropped));
             Assert.That(flushed, Has.Some.Matches<LogEventV1>(entry => entry.Level == LogLevel.Warning));
             Assert.That(diagnostics.DroppedTraceCount + diagnostics.DroppedInformationCount, Is.GreaterThanOrEqualTo(1));
             Assert.That(emergency.Snapshot().Count, Is.GreaterThanOrEqualTo(1));
+        }
+
+        [Test]
+        public void DiagnosticsPressureComparesIncomingPriorityAndEmitsExactDropCounters()
+        {
+            TestClock clock = new TestClock();
+            AssertPressurePair(clock, LogLevel.Trace, LogLevel.Information, expectedSurvivor: LogLevel.Information, expectedTraceDrops: 1, expectedDebugDrops: 0, expectedInformationDrops: 0);
+            AssertPressurePair(clock, LogLevel.Debug, LogLevel.Information, expectedSurvivor: LogLevel.Information, expectedTraceDrops: 0, expectedDebugDrops: 1, expectedInformationDrops: 0);
+            AssertPressurePair(clock, LogLevel.Information, LogLevel.Debug, expectedSurvivor: LogLevel.Information, expectedTraceDrops: 0, expectedDebugDrops: 1, expectedInformationDrops: 0);
+            AssertPressurePair(clock, LogLevel.Information, LogLevel.Trace, expectedSurvivor: LogLevel.Information, expectedTraceDrops: 1, expectedDebugDrops: 0, expectedInformationDrops: 0);
+
+            CapturingSink sink = new CapturingSink();
+            BoundedDiagnosticRuntime diagnostics = new BoundedDiagnosticRuntime(EventCodeRegistry.CreateDefault(), clock, new TestMonotonicClock(), new IDiagnosticSink[] { sink }, new EmergencyDiagnosticSink(), maxEvents: 3, maxBytes: 4096, autoFlush: false);
+            diagnostics.Write(CreateDiagnosticsProbe(LogLevel.Trace, clock));
+            diagnostics.Write(CreateDiagnosticsProbe(LogLevel.Debug, clock));
+            diagnostics.Write(CreateDiagnosticsProbe(LogLevel.Information, clock));
+            diagnostics.Write(CreateShutdown(LogLevel.Warning, clock));
+            diagnostics.Flush();
+            Assert.That(sink.Events, Has.Some.Matches<LogEventV1>(entry => entry.Level == LogLevel.Warning));
+            Assert.That(sink.Events, Has.None.Matches<LogEventV1>(entry => entry.Level == LogLevel.Trace));
+            Assert.That(diagnostics.DroppedTraceCount, Is.EqualTo(1));
+
+            sink.Clear();
+            diagnostics.Write(CreateShutdown(LogLevel.Warning, clock));
+            diagnostics.Flush();
+            Assert.That(sink.Events, Has.Some.Matches<LogEventV1>(entry => entry.EventCode == OdysseyEventCodes.DiagnosticsQueueEventsDropped && HasProperty(entry, "trace_count", "1") && HasProperty(entry, "debug_count", "0") && HasProperty(entry, "information_count", "0")));
+            Assert.That(diagnostics.DroppedLowerPriorityCount, Is.EqualTo(0));
+        }
+
+        [Test]
+        public void DiagnosticsQueueAcceptsConcurrentProducersWithoutCorruption()
+        {
+            TestClock clock = new TestClock();
+            TestMonotonicClock monotonic = new TestMonotonicClock();
+            EmergencyDiagnosticSink emergency = new EmergencyDiagnosticSink();
+            CapturingSink sink = new CapturingSink();
+            BoundedDiagnosticRuntime diagnostics = new BoundedDiagnosticRuntime(EventCodeRegistry.CreateDefault(), clock, monotonic, new IDiagnosticSink[] { sink }, emergency, maxEvents: 512, maxBytes: 1024 * 1024, autoFlush: false);
+            Exception? failure = null;
+            Task[] producers = Enumerable.Range(0, 8).Select(_ => Task.Run(() =>
+            {
+                try
+                {
+                    for (int index = 0; index < 32; index++) diagnostics.Write(CreateDiagnosticsProbe(LogLevel.Information, clock));
+                }
+                catch (Exception ex)
+                {
+                    failure = ex;
+                }
+            })).ToArray();
+
+            Task.WaitAll(producers);
+            Assert.That(failure, Is.Null);
+            Assert.That(diagnostics.PendingCount, Is.GreaterThanOrEqualTo(0));
+            Assert.That(diagnostics.PendingLogicalBytes, Is.GreaterThanOrEqualTo(0));
+            long dropped = diagnostics.DroppedTraceCount + diagnostics.DroppedDebugCount + diagnostics.DroppedInformationCount;
+            diagnostics.Flush();
+            Assert.That(sink.Events.Count + dropped, Is.GreaterThanOrEqualTo(1));
+            Assert.That(diagnostics.PendingLogicalBytes, Is.GreaterThanOrEqualTo(0));
+        }
+
+        [Test]
+        public void DiagnosticsShutdownHonorsNormalAndFatalBudgets()
+        {
+            TestClock clock = new TestClock();
+            TestMonotonicClock normalClock = new TestMonotonicClock();
+            AdvancingSink normalSink = new AdvancingSink(normalClock, TimeSpan.FromMilliseconds(100));
+            BoundedDiagnosticRuntime normal = new BoundedDiagnosticRuntime(EventCodeRegistry.CreateDefault(), clock, normalClock, new IDiagnosticSink[] { normalSink }, new EmergencyDiagnosticSink(), maxEvents: 8, maxBytes: 4096, autoFlush: false);
+            normal.Write(CreateDiagnosticsProbe(LogLevel.Information, clock));
+            normal.Write(CreateShutdown(LogLevel.Warning, clock));
+            normal.Shutdown(TimeSpan.FromSeconds(2));
+            Assert.That(normalSink.Count, Is.EqualTo(2));
+
+            TestMonotonicClock fatalClock = new TestMonotonicClock();
+            EmergencyDiagnosticSink emergency = new EmergencyDiagnosticSink();
+            AdvancingSink fatalSink = new AdvancingSink(fatalClock, TimeSpan.FromMilliseconds(300));
+            BoundedDiagnosticRuntime fatal = new BoundedDiagnosticRuntime(EventCodeRegistry.CreateDefault(), clock, fatalClock, new IDiagnosticSink[] { fatalSink }, emergency, maxEvents: 8, maxBytes: 4096, autoFlush: false);
+            fatal.Write(CreateDiagnosticsProbe(LogLevel.Information, clock));
+            fatal.Write(CreateDiagnosticsProbe(LogLevel.Information, clock));
+            fatal.Write(CreateShutdown(LogLevel.Warning, clock));
+            fatal.Shutdown(TimeSpan.FromMilliseconds(500));
+            Assert.That(fatalSink.Count, Is.LessThan(3));
+            Assert.That(emergency.Snapshot(), Has.Some.Matches<EmergencyDiagnosticRecord>(record => record.Token == "drain_budget_exhausted"));
+        }
+
+        [Test]
+        public void IncidentDeduplicatorRecordsOnlyFirstFullExceptionSummary()
+        {
+            TestClock clock = new TestClock();
+            TestMonotonicClock monotonic = new TestMonotonicClock();
+            EmergencyDiagnosticSink emergency = new EmergencyDiagnosticSink();
+            CapturingSink sink = new CapturingSink();
+            BoundedDiagnosticRuntime diagnostics = new BoundedDiagnosticRuntime(EventCodeRegistry.CreateDefault(), clock, monotonic, new IDiagnosticSink[] { sink }, emergency);
+            IncidentDeduplicator deduplicator = new IncidentDeduplicator();
+            TestDiagnosticIds ids = new TestDiagnosticIds();
+
+            bool first = deduplicator.Record(diagnostics, clock, TestIds.Process, ids, new InvalidOperationException("raw secret message"), SubsystemName.Parse("app"), out _);
+            bool second = deduplicator.Record(diagnostics, clock, TestIds.Process, ids, new InvalidOperationException("different raw message"), SubsystemName.Parse("app"), out _);
+
+            Assert.That(first, Is.True);
+            Assert.That(second, Is.False);
+            Assert.That(sink.Events.Count(entry => entry.ExceptionSummary.HasValue), Is.EqualTo(1));
+            Assert.That(string.Join("|", sink.Events.Select(entry => entry.MessageTemplateKey.ToString())), Does.Not.Contain("raw secret message"));
+        }
+
+        [Test]
+        public void StartupFailureDisposesPartialGraphAndRecordsSafeIncident()
+        {
+            using TemporaryDirectory directory = new TemporaryDirectory();
+            CapturingSink sink = new CapturingSink();
+            ThrowingCrashMarkerStore marker = new ThrowingCrashMarkerStore();
+            RuntimeCompositionSettings settings = DeterministicSettings(
+                extraSinks: new IDiagnosticSink[] { sink },
+                markerFactory: new FixedCrashMarkerStoreFactory(marker));
+
+            Result<AppRuntime> result = new OdysseyRuntimeCompositionRoot().Start(OdysseyRuntimeConfiguration.DeveloperShell(directory.Path), settings);
+
+            Assert.That(result.IsFailure, Is.True);
+            Assert.That(result.Error.Code, Is.EqualTo(ErrorCodes.ApplicationBootstrapUnexpected));
+            Assert.That(result.Error.SafeReasonCode, Is.EqualTo(SafeReasonCode.UnexpectedError));
+            Assert.That(marker.Disposed, Is.True);
+            Assert.That(sink.Events, Has.Some.Matches<LogEventV1>(entry => entry.EventCode == OdysseyEventCodes.DiagnosticsIncidentUnexpected));
+            Assert.That(sink.Events, Has.None.Matches<LogEventV1>(entry => entry.MessageTemplateKey.ToString().Contains("raw startup secret")));
+        }
+
+        [Test]
+        public void RuntimeSettingsOverrideOnlyRequestedAdapter()
+        {
+            using TemporaryDirectory directory = new TemporaryDirectory();
+            CapturingSink sink = new CapturingSink();
+            RuntimeCompositionSettings settings = DeterministicSettings(extraSinks: new IDiagnosticSink[] { sink });
+
+            Result<AppRuntime> result = new OdysseyRuntimeCompositionRoot().Start(OdysseyRuntimeConfiguration.DeveloperShell(directory.Path), settings);
+
+            Assert.That(result.IsSuccess, Is.True);
+            Assert.That(result.Value.ProcessInstanceId, Is.EqualTo(TestIds.Process));
+            Assert.That(result.Value.Diagnostics, Is.Not.Null);
+            Assert.That(result.Value.CrashMarker, Is.TypeOf<CrashMarkerStore>());
+            Assert.That(result.Value.EmergencySink, Is.TypeOf<EmergencyDiagnosticSink>());
+            Assert.That(sink.Events, Has.Some.Matches<LogEventV1>(entry => entry.EventCode == OdysseyEventCodes.AppStartupStarted));
+            result.Value.Shutdown();
+        }
+
+        [Test]
+        public void FatalHooksRecordSafeIncidentAndUnsubscribeBeforeDiagnosticsShutdown()
+        {
+            using TemporaryDirectory directory = new TemporaryDirectory();
+            CapturingSink sink = new CapturingSink();
+            EmergencyDiagnosticSink emergency = new EmergencyDiagnosticSink();
+            TestPlatformHookSource hooks = new TestPlatformHookSource();
+            RuntimeCompositionSettings settings = DeterministicSettings(
+                extraSinks: new IDiagnosticSink[] { sink },
+                emergencySinkFactory: _ => emergency,
+                hookSourceFactory: () => hooks);
+            Result<AppRuntime> result = new OdysseyRuntimeCompositionRoot().Start(OdysseyRuntimeConfiguration.DeveloperShell(directory.Path), settings);
+            Assert.That(result.IsSuccess, Is.True);
+
+            hooks.RaiseUnhandled(new InvalidOperationException("raw hook secret"));
+            Assert.That(sink.Events, Has.Some.Matches<LogEventV1>(entry => entry.EventCode == OdysseyEventCodes.DiagnosticsIncidentUnexpected && entry.ExceptionSummary.HasValue));
+            int incidentsBeforeShutdown = sink.Events.Count(entry => entry.EventCode == OdysseyEventCodes.DiagnosticsIncidentUnexpected);
+
+            result.Value.Shutdown();
+            hooks.RaiseUnhandled(new InvalidOperationException("after shutdown"));
+
+            Assert.That(hooks.ActiveSubscriptions, Is.EqualTo(0));
+            Assert.That(sink.Events.Count(entry => entry.EventCode == OdysseyEventCodes.DiagnosticsIncidentUnexpected), Is.EqualTo(incidentsBeforeShutdown));
+            Assert.That(emergency.Snapshot(), Has.Some.Matches<EmergencyDiagnosticRecord>(record => record.Token == "platform_fatal_hook"));
+            Assert.That(sink.Events, Has.None.Matches<LogEventV1>(entry => entry.MessageTemplateKey.ToString().Contains("raw hook secret")));
+        }
+
+        [Test]
+        public void RuntimeShutdownDisposesPresentationMarkerThenDiagnostics()
+        {
+            using TemporaryDirectory directory = new TemporaryDirectory();
+            List<string> order = new List<string>();
+            CapturingSink sink = new CapturingSink(order);
+            RecordingCrashMarkerStore marker = new RecordingCrashMarkerStore(order);
+            RuntimeCompositionSettings settings = DeterministicSettings(
+                extraSinks: new IDiagnosticSink[] { sink },
+                markerFactory: new FixedCrashMarkerStoreFactory(marker));
+            Result<AppRuntime> result = new OdysseyRuntimeCompositionRoot().Start(OdysseyRuntimeConfiguration.DeveloperShell(directory.Path), settings);
+            Assert.That(result.IsSuccess, Is.True);
+            PresentationRuntime presentation = new PresentationRuntime();
+            presentation.AddSubscription(new RecordingDisposable(order, "presentation"));
+            Assert.That(result.Value.AttachPresentationRuntime(presentation).IsSuccess, Is.True);
+
+            result.Value.Shutdown();
+
+            Assert.That(order.IndexOf("presentation"), Is.LessThan(order.IndexOf("marker")));
+            Assert.That(order.IndexOf("marker"), Is.LessThan(order.IndexOf("diagnostics")));
+            Assert.That(sink.Events, Has.Some.Matches<LogEventV1>(entry => entry.EventCode == OdysseyEventCodes.DiagnosticsCrashMarkerCompleted));
+            Assert.That(sink.Events, Has.Some.Matches<LogEventV1>(entry => entry.EventCode == OdysseyEventCodes.AppShutdownCompleted));
+        }
+
+        [Test]
+        public void StartupFailureFallbackRendersSingleSceneDocumentWithSafeReasonOnly()
+        {
+            Scene scene = SceneManager.GetActiveScene();
+            GameObject gameObject = new GameObject("Fallback Document");
+            try
+            {
+                UIDocument document = gameObject.AddComponent<UIDocument>();
+                Error error = RuntimeErrors.CompositionInvalid();
+
+                OdysseyRuntimeHost.RenderStartupFailure(scene, error);
+
+                Assert.That(document.rootVisualElement.Q<Label>("runtime-state")!.text, Is.EqualTo("State: StartupFailed"));
+                Assert.That(document.rootVisualElement.Q<Label>("shell-result")!.text, Is.EqualTo("Failure: ActionNotAllowed"));
+                Assert.That(document.rootVisualElement.Q<Label>("shell-result")!.text, Does.Not.Contain("composition_invalid"));
+            }
+            finally
+            {
+                UnityEngine.Object.DestroyImmediate(gameObject);
+            }
         }
 
         [Test]
@@ -135,14 +351,14 @@ namespace Odyssey.Tests.Unity.EditMode
         public void CrashMarkerParsesStartedCompletedAndMalformedStatesSafely()
         {
             using TemporaryDirectory directory = new TemporaryDirectory();
-            File.WriteAllText(Path.Combine(directory.Path, CrashMarkerStore.MarkerFileName), "state=started\nprocess=proc_0123456789abcdef0123456789abcdef\n");
+            File.WriteAllText(Path.Combine(directory.Path, CrashMarkerStore.MarkerFileName), "{\"state\":\"started\",\"process\":\"proc_0123456789abcdef0123456789abcdef\"}");
             using (CrashMarkerStore marker = new CrashMarkerStore(directory.Path))
             {
                 marker.Start(TestIds.Process);
                 Assert.That(marker.PreviousMarkerWasUnfinished, Is.True);
             }
 
-            File.WriteAllText(Path.Combine(directory.Path, CrashMarkerStore.MarkerFileName), "state=completed\n");
+            File.WriteAllText(Path.Combine(directory.Path, CrashMarkerStore.MarkerFileName), "{\"state\":\"completed\"}");
             using (CrashMarkerStore marker = new CrashMarkerStore(directory.Path))
             {
                 marker.Start(TestIds.Process);
@@ -182,7 +398,11 @@ namespace Odyssey.Tests.Unity.EditMode
             }
         }
 
-        private static RuntimeCompositionSettings DeterministicSettings()
+        private static RuntimeCompositionSettings DeterministicSettings(
+            IReadOnlyList<IDiagnosticSink>? extraSinks = null,
+            Func<string, IEmergencyDiagnosticSink>? emergencySinkFactory = null,
+            ICrashMarkerStoreFactory? markerFactory = null,
+            Func<IPlatformExceptionHookSource>? hookSourceFactory = null)
         {
             return new RuntimeCompositionSettings(
                 new TestClock(),
@@ -190,8 +410,31 @@ namespace Odyssey.Tests.Unity.EditMode
                 new TestProcessIds(),
                 new TestDiagnosticIds(),
                 new TestTechnicalIds(),
-                Array.Empty<IDiagnosticSink>(),
+                extraSinks ?? Array.Empty<IDiagnosticSink>(),
+                emergencySinkFactory ?? (_ => new EmergencyDiagnosticSink()),
+                markerFactory ?? new DefaultCrashMarkerStoreFactory(),
+                hookSourceFactory ?? (() => new TestPlatformHookSource()),
                 false);
+        }
+
+        private static bool HasProperty(LogEventV1 logEvent, string key, string value)
+        {
+            return logEvent.SafeProperties.Any(property => property.Key == SafePropertyKey.Parse(key) && property.Value.RenderedValue == value);
+        }
+
+        private static void AssertPressurePair(TestClock clock, LogLevel existing, LogLevel incoming, LogLevel expectedSurvivor, long expectedTraceDrops, long expectedDebugDrops, long expectedInformationDrops)
+        {
+            CapturingSink sink = new CapturingSink();
+            BoundedDiagnosticRuntime diagnostics = new BoundedDiagnosticRuntime(EventCodeRegistry.CreateDefault(), clock, new TestMonotonicClock(), new IDiagnosticSink[] { sink }, new EmergencyDiagnosticSink(), maxEvents: 1, maxBytes: 4096, autoFlush: false);
+            diagnostics.Write(CreateDiagnosticsProbe(existing, clock));
+            diagnostics.Write(CreateDiagnosticsProbe(incoming, clock));
+            diagnostics.Flush();
+
+            Assert.That(sink.Events.Count(entry => entry.EventCode == OdysseyEventCodes.DiagnosticsProbeEmitted), Is.EqualTo(1));
+            Assert.That(sink.Events, Has.Some.Matches<LogEventV1>(entry => entry.Level == expectedSurvivor));
+            Assert.That(diagnostics.DroppedTraceCount, Is.EqualTo(expectedTraceDrops));
+            Assert.That(diagnostics.DroppedDebugCount, Is.EqualTo(expectedDebugDrops));
+            Assert.That(diagnostics.DroppedInformationCount, Is.EqualTo(expectedInformationDrops));
         }
 
         private static LogEventV1 CreateDiagnosticsProbe(LogLevel level, IWallClock clock, SafeLogValue? value = null, int payloadBytes = 0)
@@ -242,8 +485,15 @@ namespace Odyssey.Tests.Unity.EditMode
         private sealed class TestMonotonicClock : IMonotonicClock
         {
             private long _ticks;
-            public MonotonicTimestamp GetTimestamp() => MonotonicTimestamp.FromTestTicks(_ticks);
-            public TimeSpan GetElapsedTime(MonotonicTimestamp start, MonotonicTimestamp end) => TimeSpan.FromMilliseconds(_ticks);
+            private readonly Dictionary<MonotonicTimestamp, long> _captured = new Dictionary<MonotonicTimestamp, long>();
+            public MonotonicTimestamp GetTimestamp()
+            {
+                MonotonicTimestamp timestamp = MonotonicTimestamp.FromTestTicks(_ticks);
+                _captured[timestamp] = _ticks;
+                return timestamp;
+            }
+
+            public TimeSpan GetElapsedTime(MonotonicTimestamp start, MonotonicTimestamp end) => TimeSpan.FromMilliseconds(_captured[end] - _captured[start]);
             public void Advance(TimeSpan value) => _ticks += (long)value.TotalMilliseconds;
         }
 
@@ -270,6 +520,146 @@ namespace Odyssey.Tests.Unity.EditMode
         {
             public string Name => "failing";
             public bool TryWrite(LogEventV1 logEvent) => throw new InvalidOperationException("sink_failed");
+        }
+
+        private sealed class CapturingSink : IDiagnosticSink
+        {
+            private readonly List<LogEventV1> _events = new List<LogEventV1>();
+            private readonly List<string>? _order;
+            public CapturingSink()
+            {
+            }
+
+            public CapturingSink(List<string> order)
+            {
+                _order = order;
+            }
+
+            public string Name => "capturing";
+            public IReadOnlyList<LogEventV1> Events => _events;
+            public bool TryWrite(LogEventV1 logEvent)
+            {
+                _events.Add(logEvent);
+                if (logEvent.EventCode == OdysseyEventCodes.AppShutdownCompleted) _order?.Add("diagnostics");
+                return true;
+            }
+
+            public void Clear() => _events.Clear();
+        }
+
+        private sealed class AdvancingSink : IDiagnosticSink
+        {
+            private readonly TestMonotonicClock _clock;
+            private readonly TimeSpan _advanceBy;
+            public AdvancingSink(TestMonotonicClock clock, TimeSpan advanceBy)
+            {
+                _clock = clock;
+                _advanceBy = advanceBy;
+            }
+
+            public string Name => "advancing";
+            public int Count { get; private set; }
+            public bool TryWrite(LogEventV1 logEvent)
+            {
+                Count++;
+                _clock.Advance(_advanceBy);
+                return true;
+            }
+        }
+
+        private sealed class TestPlatformHookSource : IPlatformExceptionHookSource
+        {
+            public event Action<Exception>? UnhandledException;
+            public event Action<Exception>? UnobservedTaskException;
+            public int ActiveSubscriptions { get; private set; }
+            event Action<Exception> IPlatformExceptionHookSource.UnhandledException
+            {
+                add
+                {
+                    ActiveSubscriptions++;
+                    UnhandledException += value;
+                }
+                remove
+                {
+                    ActiveSubscriptions--;
+                    UnhandledException -= value;
+                }
+            }
+
+            event Action<Exception> IPlatformExceptionHookSource.UnobservedTaskException
+            {
+                add
+                {
+                    ActiveSubscriptions++;
+                    UnobservedTaskException += value;
+                }
+                remove
+                {
+                    ActiveSubscriptions--;
+                    UnobservedTaskException -= value;
+                }
+            }
+
+            public void RaiseUnhandled(Exception exception) => UnhandledException?.Invoke(exception);
+            public void RaiseUnobserved(Exception exception) => UnobservedTaskException?.Invoke(exception);
+        }
+
+        private sealed class FixedCrashMarkerStoreFactory : ICrashMarkerStoreFactory
+        {
+            private readonly ICrashMarkerStore _marker;
+            public FixedCrashMarkerStoreFactory(ICrashMarkerStore marker)
+            {
+                _marker = marker;
+            }
+
+            public ICrashMarkerStore Create(string directory) => _marker;
+        }
+
+        private sealed class RecordingCrashMarkerStore : ICrashMarkerStore
+        {
+            private readonly List<string> _order;
+            public RecordingCrashMarkerStore(List<string> order)
+            {
+                _order = order;
+            }
+
+            public string SanitizedMarkerPath => "Diagnostics/process-started.json";
+            public bool PreviousMarkerWasUnfinished => false;
+            public bool PreviousMarkerWasMalformed => false;
+            public void Start(ProcessInstanceId processInstanceId) { }
+            public void Complete()
+            {
+                _order.Add("marker");
+            }
+
+            public void Dispose() => Complete();
+        }
+
+        private sealed class ThrowingCrashMarkerStore : ICrashMarkerStore
+        {
+            public string SanitizedMarkerPath => "Diagnostics/process-started.json";
+            public bool PreviousMarkerWasUnfinished => false;
+            public bool PreviousMarkerWasMalformed => false;
+            public bool Disposed { get; private set; }
+            public void Start(ProcessInstanceId processInstanceId) => throw new InvalidOperationException("raw startup secret");
+            public void Complete() { }
+            public void Dispose()
+            {
+                Disposed = true;
+            }
+        }
+
+        private sealed class RecordingDisposable : IDisposable
+        {
+            private readonly List<string> _order;
+            private readonly string _name;
+            public RecordingDisposable(List<string> order, string name)
+            {
+                _order = order;
+                _name = name;
+            }
+
+            public void Dispose() => _order.Add(_name);
         }
 
         private sealed class TemporaryDirectory : IDisposable
