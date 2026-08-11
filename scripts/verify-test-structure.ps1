@@ -477,10 +477,16 @@ function Test-CompositionAndDiagnosticsGuards([System.Collections.Generic.List[s
         $forbiddenCompositionPatterns = [ordered]@{
             'IServiceProvider' = '\bIServiceProvider\b'
             'Resolve<T>' = '\bResolve\s*<'
+            'ServiceLocator' = '\bServiceLocator\b'
+            'GlobalServices' = '\bGlobalServices\b'
+            'GetService(' = '\bGetService\s*\('
             'FindObjectOfType' = '\bFindObjectOfType\s*<|\bFindObjectOfType\s*\('
+            'FindFirstObjectByType' = '\bFindFirstObjectByType\s*<|\bFindFirstObjectByType\s*\('
             'GameObject.Find' = '\bGameObject\.Find\s*\('
             'Resources.Load' = '\bResources\.Load\s*<|\bResources\.Load\s*\('
             'Dictionary<Type,' = 'Dictionary\s*<\s*Type\s*,'
+            'Assembly.GetAssemblies' = '\bGetAssemblies\s*\('
+            'DI namespace' = '\b(Microsoft\.Extensions\.DependencyInjection|Zenject|Autofac|Extenject)\b'
         }
 
         foreach ($source in Get-ChildItem -LiteralPath $unityRuntimeRoot -Recurse -File -Filter '*.cs') {
@@ -529,32 +535,40 @@ function Test-DiagnosticsEventCodeRegistry([System.Collections.Generic.List[stri
             $Errors.Add('Diagnostics EventCode registry schemaVersion must be 1.')
         }
         $expectedCodes = @(
-            'runtime.starting',
-            'runtime.ready',
-            'runtime.startup_failed',
-            'runtime.shutdown_requested',
-            'runtime.shutdown_completed',
-            'diagnostics.dropped_events',
-            'diagnostics.sink_failed',
-            'diagnostics.probe',
-            'diagnostics.crash_marker_detected',
-            'diagnostics.crash_marker_completed',
-            'developer.probe_accepted',
-            'developer.probe_rejected'
+            'app.startup.started',
+            'app.startup.completed',
+            'app.startup.failed',
+            'app.shutdown.requested',
+            'app.shutdown.completed',
+            'app.bootstrap.duplicate_rejected',
+            'diagnostics.queue.events_dropped',
+            'diagnostics.sink.write_failed',
+            'diagnostics.probe.emitted',
+            'diagnostics.crash.previous_unclean_detected',
+            'diagnostics.crash.marker_completed',
+            'diagnostics.incident.unexpected',
+            'developer.shell.probe_accepted',
+            'developer.shell.probe_rejected'
         )
         $actualCodes = @($json.eventCodes | ForEach-Object { [string] $_.eventCode })
         Assert-SetEquals $Errors 'diagnostics event-code registry' $actualCodes $expectedCodes
         foreach ($row in @($json.eventCodes)) {
-            foreach ($property in @('eventCode', 'ownerSubsystem', 'defaultLogLevel', 'allowedProperties', 'purpose', 'status')) {
+            foreach ($property in @('eventCode', 'ownerSubsystem', 'defaultLogLevel', 'messageTemplateKey', 'allowedProperties', 'purpose', 'status')) {
                 if (-not (Test-JsonProperty $row $property)) {
                     $Errors.Add("Diagnostics EventCode row missing '$property'.")
                 }
+            }
+            if ([string] $row.eventCode -notmatch '^[a-z0-9_]+(\.[a-z0-9_]+){2,}$') {
+                $Errors.Add("Diagnostics EventCode must use <subsystem>.<area>.<event>: $($row.eventCode).")
+            }
+            if ([string] $row.messageTemplateKey -notmatch '^log\.[a-z0-9_]+(\.[a-z0-9_]+){2,}$') {
+                $Errors.Add("Diagnostics messageTemplateKey must start with log. and use canonical segments: $($row.messageTemplateKey).")
             }
             if ([string] $row.status -ne 'Active') {
                 $Errors.Add("Diagnostics EventCode must be Active for ODY-S00-006-used code: $($row.eventCode).")
             }
             foreach ($allowedProperty in @($row.allowedProperties)) {
-                if (-not (Test-JsonProperty $allowedProperty 'key') -or -not (Test-JsonProperty $allowedProperty 'classification')) {
+                if (-not (Test-JsonProperty $allowedProperty 'key') -or -not (Test-JsonProperty $allowedProperty 'classification') -or -not (Test-JsonProperty $allowedProperty 'valueKind')) {
                     $Errors.Add("Diagnostics EventCode allowedProperties entry is incomplete for $($row.eventCode).")
                 }
             }

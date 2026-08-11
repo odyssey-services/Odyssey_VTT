@@ -18,8 +18,7 @@ namespace Odyssey.Unity.Client
 
     public enum DevelopmentAdapterMode
     {
-        None = 1,
-        ExplicitDeveloperShell = 2
+        ExplicitDeveloperShell = 1
     }
 
     public enum OdysseyRuntimeState
@@ -53,85 +52,95 @@ namespace Odyssey.Unity.Client
         }
     }
 
-    public sealed class OdysseyRuntimeOverrides
+    internal sealed class RuntimeCompositionSettings
     {
-        public IWallClock? Clock { get; set; }
-        public IProcessInstanceIdGenerator? ProcessInstanceIds { get; set; }
-        public IDiagnosticIdGenerator? DiagnosticIds { get; set; }
-        public bool FailAfterDiagnostics { get; set; }
-        public bool DisableConsoleSink { get; set; }
+        internal RuntimeCompositionSettings(IWallClock clock, IMonotonicClock monotonicClock, IProcessInstanceIdGenerator processInstanceIds, IDiagnosticIdGenerator diagnosticIds, ITechnicalIdGenerator technicalIds, IReadOnlyList<IDiagnosticSink> extraSinks, bool includeConsoleSink)
+        {
+            Clock = clock ?? throw new ArgumentNullException(nameof(clock));
+            MonotonicClock = monotonicClock ?? throw new ArgumentNullException(nameof(monotonicClock));
+            ProcessInstanceIds = processInstanceIds ?? throw new ArgumentNullException(nameof(processInstanceIds));
+            DiagnosticIds = diagnosticIds ?? throw new ArgumentNullException(nameof(diagnosticIds));
+            TechnicalIds = technicalIds ?? throw new ArgumentNullException(nameof(technicalIds));
+            ExtraSinks = extraSinks ?? throw new ArgumentNullException(nameof(extraSinks));
+            IncludeConsoleSink = includeConsoleSink;
+        }
+
+        internal IWallClock Clock { get; }
+        internal IMonotonicClock MonotonicClock { get; }
+        internal IProcessInstanceIdGenerator ProcessInstanceIds { get; }
+        internal IDiagnosticIdGenerator DiagnosticIds { get; }
+        internal ITechnicalIdGenerator TechnicalIds { get; }
+        internal IReadOnlyList<IDiagnosticSink> ExtraSinks { get; }
+        internal bool IncludeConsoleSink { get; }
+
+        internal static RuntimeCompositionSettings Production()
+        {
+            return new RuntimeCompositionSettings(
+                new UnityWallClock(),
+                new UnityMonotonicClock(),
+                new GuidProcessInstanceIdGenerator(),
+                new GuidDiagnosticIdGenerator(),
+                new GuidTechnicalIdGenerator(),
+                Array.Empty<IDiagnosticSink>(),
+                true);
+        }
     }
 
     public sealed class OdysseyRuntimeCompositionRoot
     {
         private bool _started;
 
-        public Result<AppRuntime> Start(OdysseyRuntimeConfiguration configuration, OdysseyRuntimeOverrides? overrides = null, CancellationToken cancellationToken = default)
+        public Result<AppRuntime> Start(OdysseyRuntimeConfiguration configuration, CancellationToken cancellationToken = default)
+        {
+            return Start(configuration, RuntimeCompositionSettings.Production(), cancellationToken);
+        }
+
+        internal Result<AppRuntime> Start(OdysseyRuntimeConfiguration configuration, RuntimeCompositionSettings settings, CancellationToken cancellationToken = default)
         {
             if (configuration == null) throw new ArgumentNullException(nameof(configuration));
-            if (_started)
-            {
-                return Result<AppRuntime>.Failure(RuntimeErrors.InvalidConfiguration("errors.runtime.duplicate_start"));
-            }
-
+            if (settings == null) throw new ArgumentNullException(nameof(settings));
+            if (_started) return Result<AppRuntime>.Failure(RuntimeErrors.InvalidConfiguration());
             _started = true;
+
             List<IDisposable> owned = new List<IDisposable>();
-            ProcessInstanceId processInstanceId = default;
-            IDiagnosticIdGenerator? diagnosticIds = null;
+            BoundedDiagnosticRuntime? diagnostics = null;
+            EmergencyDiagnosticSink? emergency = null;
+            DiagnosticContext? context = null;
+            IDiagnosticIdGenerator diagnosticIds = settings.DiagnosticIds;
             try
             {
-                if (cancellationToken.IsCancellationRequested)
+                if (cancellationToken.IsCancellationRequested) return Result<AppRuntime>.Failure(RuntimeErrors.Cancelled());
+                if (configuration.Profile != OdysseyRuntimeProfile.DeveloperShell)
                 {
-                    return Result<AppRuntime>.Failure(RuntimeErrors.Cancelled());
+                    return Result<AppRuntime>.Failure(RuntimeErrors.UnsupportedProfile());
                 }
 
-                if (configuration.Profile != OdysseyRuntimeProfile.DeveloperShell &&
-                    configuration.DevelopmentAdapters == DevelopmentAdapterMode.ExplicitDeveloperShell)
-                {
-                    return Result<AppRuntime>.Failure(RuntimeErrors.InvalidConfiguration("errors.runtime.developer_adapters_rejected"));
-                }
-
-                IWallClock clock = overrides?.Clock ?? new UnityWallClock();
-                IProcessInstanceIdGenerator processIds = overrides?.ProcessInstanceIds ?? new GuidProcessInstanceIdGenerator();
-                diagnosticIds = overrides?.DiagnosticIds ?? new GuidDiagnosticIdGenerator();
-                processInstanceId = processIds.Create();
-                DiagnosticContext context = new DiagnosticContext(processInstanceId);
+                ProcessInstanceId processInstanceId = settings.ProcessInstanceIds.Create();
+                context = new DiagnosticContext(processInstanceId);
                 EventCodeRegistry registry = EventCodeRegistry.CreateDefault();
                 InMemoryDiagnosticRingBuffer ring = new InMemoryDiagnosticRingBuffer();
-                EmergencyDiagnosticSink emergency = new EmergencyDiagnosticSink();
-                List<IDiagnosticSink> sinks = new List<IDiagnosticSink> { ring, emergency };
-                if (overrides == null || !overrides.DisableConsoleSink)
-                {
-                    sinks.Add(new UnityConsoleDiagnosticSink());
-                }
+                emergency = new EmergencyDiagnosticSink();
+                List<IDiagnosticSink> sinks = new List<IDiagnosticSink> { ring };
+                sinks.AddRange(settings.ExtraSinks);
+                if (settings.IncludeConsoleSink) sinks.Add(new UnityConsoleDiagnosticSink());
 
-                BoundedDiagnosticRuntime diagnostics = new BoundedDiagnosticRuntime(registry, clock, sinks, emergency);
+                diagnostics = new BoundedDiagnosticRuntime(registry, settings.Clock, settings.MonotonicClock, sinks, emergency);
                 owned.Add(diagnostics);
                 CrashMarkerStore crashMarker = new CrashMarkerStore(configuration.CrashMarkerDirectory);
                 owned.Add(crashMarker);
                 crashMarker.Start(processInstanceId);
 
-                diagnostics.Write(LogLevel.Information, OdysseyEventCodes.RuntimeStarting, SubsystemName.Parse("runtime"), MessageTemplateKey.Parse("runtime.starting"), context, () => new[]
+                diagnostics.Write(LogLevel.Information, OdysseyEventCodes.AppStartupStarted, SubsystemName.Parse("app"), MessageTemplateKey.Parse("log.app.startup.started"), context, () => new[]
                 {
                     new SafeLogProperty(SafePropertyKey.Parse("phase"), SafeLogValue.Code("diagnostics"))
                 });
 
                 if (crashMarker.PreviousMarkerWasUnfinished)
                 {
-                    diagnostics.Write(LogLevel.Warning, OdysseyEventCodes.CrashMarkerDetected, SubsystemName.Parse("diagnostics"), MessageTemplateKey.Parse("diagnostics.crash_marker_detected"), context, () => new[]
+                    diagnostics.Write(LogLevel.Warning, OdysseyEventCodes.DiagnosticsCrashPreviousUncleanDetected, SubsystemName.Parse("diagnostics"), MessageTemplateKey.Parse("log.diagnostics.crash.previous_unclean_detected"), context, () => new[]
                     {
                         new SafeLogProperty(SafePropertyKey.Parse("marker"), SafeLogValue.SanitizedPath(crashMarker.SanitizedMarkerPath))
                     });
-                }
-
-                if (overrides != null && overrides.FailAfterDiagnostics)
-                {
-                    diagnostics.Write(LogLevel.Error, OdysseyEventCodes.RuntimeStartupFailed, SubsystemName.Parse("runtime"), MessageTemplateKey.Parse("runtime.startup_failed"), context, () => new[]
-                    {
-                        new SafeLogProperty(SafePropertyKey.Parse("phase"), SafeLogValue.Code("application_graph")),
-                        new SafeLogProperty(SafePropertyKey.Parse("reason"), SafeLogValue.Code("startup_phase_failed"))
-                    });
-                    throw new InvalidOperationException("startup_phase_failed");
                 }
 
                 if (cancellationToken.IsCancellationRequested)
@@ -140,36 +149,48 @@ namespace Odyssey.Unity.Client
                     return Result<AppRuntime>.Failure(RuntimeErrors.Cancelled());
                 }
 
-                DeveloperShellProbe? probe = configuration.Profile == OdysseyRuntimeProfile.DeveloperShell
-                    ? new DeveloperShellProbe(clock)
-                    : null;
-                AppRuntime runtime = new AppRuntime(configuration.Profile, processInstanceId, clock, diagnostics, ring, emergency, crashMarker, probe, diagnosticIds, owned);
-                diagnostics.Write(LogLevel.Information, OdysseyEventCodes.RuntimeReady, SubsystemName.Parse("runtime"), MessageTemplateKey.Parse("runtime.ready"), context, () => new[]
-                {
-                    new SafeLogProperty(SafePropertyKey.Parse("state"), SafeLogValue.Code("ready")),
-                    new SafeLogProperty(SafePropertyKey.Parse("duration_ms"), SafeLogValue.Duration(TimeSpan.Zero))
-                });
+                DeveloperShellProbe probe = new DeveloperShellProbe(settings.Clock, settings.TechnicalIds);
+                AppRuntime runtime = new AppRuntime(configuration.Profile, processInstanceId, settings.Clock, diagnostics, ring, emergency, crashMarker, probe, diagnosticIds, owned);
                 return Result<AppRuntime>.Success(runtime);
             }
             catch (Exception ex)
             {
-                CleanupOwned(owned);
-                DiagnosticId? diagnosticId = null;
-                if (diagnosticIds != null)
+                DiagnosticId diagnosticId = diagnosticIds.Create();
+                if (diagnostics != null && context != null)
                 {
-                    diagnosticId = diagnosticIds.Create();
+                    ExceptionSummary summary = ExceptionSummary.FromException(ex, SubsystemName.Parse("app"), diagnosticId);
+                    diagnostics.Write(LogLevel.Error, OdysseyEventCodes.DiagnosticsIncidentUnexpected, SubsystemName.Parse("diagnostics"), MessageTemplateKey.Parse("log.diagnostics.incident.unexpected"), new DiagnosticContext(context.ProcessInstanceId, diagnosticId: diagnosticId), () => new[]
+                    {
+                        new SafeLogProperty(SafePropertyKey.Parse("diagnostic_id"), SafeLogValue.TechnicalIdentifier(diagnosticId.ToString())),
+                        new SafeLogProperty(SafePropertyKey.Parse("incident_category"), SafeLogValue.Code(ToIncidentCategory(summary.Category))),
+                        new SafeLogProperty(SafePropertyKey.Parse("repeat_count"), SafeLogValue.Count(1))
+                    }, summary);
+                }
+                else
+                {
+                    emergency?.TryWrite(new EmergencyDiagnosticRecord(settings.Clock.GetUtcNow(), OdysseyEventCodes.AppStartupFailed, diagnosticId, "startup_unexpected"));
                 }
 
-                return Result<AppRuntime>.Failure(RuntimeErrors.Unexpected(diagnosticId, ex));
+                CleanupOwned(owned);
+                return Result<AppRuntime>.Failure(RuntimeErrors.Unexpected(diagnosticId));
+            }
+        }
+
+        private static string ToIncidentCategory(ExceptionCategory category)
+        {
+            switch (category)
+            {
+                case ExceptionCategory.InvalidOperation: return "invalid_operation";
+                case ExceptionCategory.IoFailure: return "io_failure";
+                case ExceptionCategory.AccessDenied: return "access_denied";
+                case ExceptionCategory.Cancelled: return "cancelled";
+                default: return "unexpected";
             }
         }
 
         private static void CleanupOwned(IReadOnlyList<IDisposable> owned)
         {
-            for (int index = owned.Count - 1; index >= 0; index--)
-            {
-                owned[index].Dispose();
-            }
+            for (int index = owned.Count - 1; index >= 0; index--) owned[index].Dispose();
         }
     }
 
@@ -188,7 +209,7 @@ namespace Odyssey.Unity.Client
             InMemoryDiagnosticRingBuffer ringBuffer,
             EmergencyDiagnosticSink emergencySink,
             CrashMarkerStore crashMarker,
-            DeveloperShellProbe? developerProbe,
+            DeveloperShellProbe developerProbe,
             IDiagnosticIdGenerator diagnosticIds,
             List<IDisposable> owned)
         {
@@ -202,7 +223,7 @@ namespace Odyssey.Unity.Client
             DeveloperProbe = developerProbe;
             DiagnosticIds = diagnosticIds;
             _owned = owned;
-            State = OdysseyRuntimeState.Ready;
+            State = OdysseyRuntimeState.Starting;
         }
 
         public OdysseyRuntimeProfile Profile { get; }
@@ -212,57 +233,66 @@ namespace Odyssey.Unity.Client
         public InMemoryDiagnosticRingBuffer RingBuffer { get; }
         public EmergencyDiagnosticSink EmergencySink { get; }
         public CrashMarkerStore CrashMarker { get; }
-        public DeveloperShellProbe? DeveloperProbe { get; }
+        public DeveloperShellProbe DeveloperProbe { get; }
         public IDiagnosticIdGenerator DiagnosticIds { get; }
         public OdysseyRuntimeState State { get; private set; }
         public int ShutdownSideEffects { get; private set; }
         public bool HasPresentationRuntime => _presentationRuntime != null;
 
-        public void AttachPresentationRuntime(PresentationRuntime presentationRuntime)
+        internal Result AttachPresentationRuntime(PresentationRuntime presentationRuntime)
         {
             if (presentationRuntime == null) throw new ArgumentNullException(nameof(presentationRuntime));
             lock (_gate)
             {
+                if (State != OdysseyRuntimeState.Starting) return Result.Failure(RuntimeErrors.CompositionInvalid());
                 _presentationRuntime?.Dispose();
                 _presentationRuntime = presentationRuntime;
+                State = OdysseyRuntimeState.Ready;
+                Diagnostics.Write(LogLevel.Information, OdysseyEventCodes.AppStartupCompleted, SubsystemName.Parse("app"), MessageTemplateKey.Parse("log.app.startup.completed"), new DiagnosticContext(ProcessInstanceId), () => new[]
+                {
+                    new SafeLogProperty(SafePropertyKey.Parse("state"), SafeLogValue.Code("ready")),
+                    new SafeLogProperty(SafePropertyKey.Parse("duration_ms"), SafeLogValue.Duration(TimeSpan.Zero))
+                });
+                return Result.Success();
             }
         }
 
-        public Result<CommandResult> ExecuteDeveloperProbe(bool mismatchFingerprint = false)
+        internal void MarkStartupFailed(Error error)
         {
-            if (DeveloperProbe == null)
+            _ = error;
+            lock (_gate)
             {
-                return Result<CommandResult>.Failure(RuntimeErrors.InvalidConfiguration("errors.runtime.developer_probe_unavailable"));
+                State = OdysseyRuntimeState.StartupFailed;
+                _presentationRuntime?.Dispose();
+                _presentationRuntime = null;
             }
+        }
 
-            Result<CommandResult> result = DeveloperProbe.Execute(mismatchFingerprint);
-            DiagnosticContext context = new DiagnosticContext(ProcessInstanceId, result.IsSuccess ? result.Value.CorrelationId : (CorrelationId?)null, null, result.IsSuccess ? result.Value.CommandId : (CommandId?)null);
-            if (result.IsSuccess && result.Value.Status == CommandResultStatus.Accepted)
-            {
-                Diagnostics.Write(LogLevel.Information, OdysseyEventCodes.DeveloperProbeAccepted, SubsystemName.Parse("developer"), MessageTemplateKey.Parse("developer.probe_accepted"), context, () => new[]
-                {
-                    new SafeLogProperty(SafePropertyKey.Parse("command_id"), SafeLogValue.TechnicalIdentifier(result.Value.CommandId.ToString())),
-                    new SafeLogProperty(SafePropertyKey.Parse("result_status"), SafeLogValue.Code("accepted"))
-                });
-            }
-            else
-            {
-                Diagnostics.Write(LogLevel.Warning, OdysseyEventCodes.DeveloperProbeRejected, SubsystemName.Parse("developer"), MessageTemplateKey.Parse("developer.probe_rejected"), new DiagnosticContext(ProcessInstanceId), () => new[]
-                {
-                    new SafeLogProperty(SafePropertyKey.Parse("command_id"), SafeLogValue.TechnicalIdentifier("cmd_unavailable")),
-                    new SafeLogProperty(SafePropertyKey.Parse("result_status"), SafeLogValue.Code("rejected"))
-                });
-            }
+        public Result<CommandResult> RunAcceptedProbe()
+        {
+            Result<CommandResult> result = DeveloperProbe.ExecuteAccepted();
+            WriteProbeDiagnostic(result, false);
+            return result;
+        }
 
+        public Result<CommandResult> RunRejectedProbe()
+        {
+            Result<CommandResult> result = DeveloperProbe.ExecuteRejected();
+            WriteProbeDiagnostic(result, true);
             return result;
         }
 
         public void EmitDiagnosticProbe()
         {
-            Diagnostics.Write(LogLevel.Information, OdysseyEventCodes.DiagnosticsProbe, SubsystemName.Parse("diagnostics"), MessageTemplateKey.Parse("diagnostics.probe"), new DiagnosticContext(ProcessInstanceId), () => new[]
+            Diagnostics.Write(LogLevel.Information, OdysseyEventCodes.DiagnosticsProbeEmitted, SubsystemName.Parse("diagnostics"), MessageTemplateKey.Parse("log.diagnostics.probe.emitted"), new DiagnosticContext(ProcessInstanceId), () => new[]
             {
                 new SafeLogProperty(SafePropertyKey.Parse("probe"), SafeLogValue.Code("developer_shell"))
             });
+        }
+
+        public IReadOnlyList<LogEventV1> GetRecentDiagnostics()
+        {
+            return RingBuffer.Snapshot();
         }
 
         public void Shutdown()
@@ -272,21 +302,23 @@ namespace Odyssey.Unity.Client
                 if (_shutdownCompleted) return;
                 State = OdysseyRuntimeState.ShuttingDown;
                 ShutdownSideEffects++;
-                Diagnostics.Write(LogLevel.Information, OdysseyEventCodes.RuntimeShutdownRequested, SubsystemName.Parse("runtime"), MessageTemplateKey.Parse("runtime.shutdown_requested"), new DiagnosticContext(ProcessInstanceId), () => new[]
+                Diagnostics.Write(LogLevel.Information, OdysseyEventCodes.AppShutdownRequested, SubsystemName.Parse("app"), MessageTemplateKey.Parse("log.app.shutdown.requested"), new DiagnosticContext(ProcessInstanceId), () => new[]
                 {
                     new SafeLogProperty(SafePropertyKey.Parse("state"), SafeLogValue.Code("shutting_down"))
                 });
                 _presentationRuntime?.Dispose();
                 _presentationRuntime = null;
-                Diagnostics.Write(LogLevel.Information, OdysseyEventCodes.RuntimeShutdownCompleted, SubsystemName.Parse("runtime"), MessageTemplateKey.Parse("runtime.shutdown_completed"), new DiagnosticContext(ProcessInstanceId), () => new[]
-                {
-                    new SafeLogProperty(SafePropertyKey.Parse("duration_ms"), SafeLogValue.Duration(TimeSpan.Zero))
-                });
                 for (int index = _owned.Count - 1; index >= 0; index--)
                 {
+                    if (_owned[index] is BoundedDiagnosticRuntime) continue;
                     _owned[index].Dispose();
                 }
 
+                Diagnostics.Write(LogLevel.Information, OdysseyEventCodes.AppShutdownCompleted, SubsystemName.Parse("app"), MessageTemplateKey.Parse("log.app.shutdown.completed"), new DiagnosticContext(ProcessInstanceId), () => new[]
+                {
+                    new SafeLogProperty(SafePropertyKey.Parse("duration_ms"), SafeLogValue.Duration(TimeSpan.Zero))
+                });
+                Diagnostics.Shutdown(TimeSpan.FromSeconds(2));
                 State = OdysseyRuntimeState.Stopped;
                 _shutdownCompleted = true;
             }
@@ -296,19 +328,40 @@ namespace Odyssey.Unity.Client
         {
             Shutdown();
         }
+
+        private void WriteProbeDiagnostic(Result<CommandResult> result, bool rejectedPath)
+        {
+            CommandResult? commandResult = result.IsSuccess ? result.Value : null;
+            bool rejected = rejectedPath || result.IsFailure || commandResult!.Status == CommandResultStatus.Rejected;
+            Diagnostics.Write(rejected ? LogLevel.Warning : LogLevel.Information, rejected ? OdysseyEventCodes.DeveloperShellProbeRejected : OdysseyEventCodes.DeveloperShellProbeAccepted, SubsystemName.Parse("developer"), MessageTemplateKey.Parse(rejected ? "log.developer.shell.probe_rejected" : "log.developer.shell.probe_accepted"), new DiagnosticContext(ProcessInstanceId, commandResult?.CorrelationId, null, commandResult?.CommandId), () => new[]
+            {
+                new SafeLogProperty(SafePropertyKey.Parse("command_id"), SafeLogValue.TechnicalIdentifier(commandResult == null ? "cmd_unavailable" : commandResult.CommandId.ToString())),
+                new SafeLogProperty(SafePropertyKey.Parse("result_status"), SafeLogValue.Code(rejected ? "rejected" : "accepted"))
+            });
+        }
     }
 
     public sealed class PresentationRuntime : IDisposable
     {
+        private readonly List<IDisposable> _subscriptions = new List<IDisposable>();
         private bool _disposed;
 
         public bool IsDisposed => _disposed;
         public int DisposeCount { get; private set; }
 
+        public void AddSubscription(IDisposable subscription)
+        {
+            if (subscription == null) throw new ArgumentNullException(nameof(subscription));
+            if (_disposed) throw new ObjectDisposedException(nameof(PresentationRuntime));
+            _subscriptions.Add(subscription);
+        }
+
         public void Dispose()
         {
             if (_disposed) return;
             DisposeCount++;
+            for (int index = _subscriptions.Count - 1; index >= 0; index--) _subscriptions[index].Dispose();
+            _subscriptions.Clear();
             _disposed = true;
         }
     }
@@ -317,39 +370,45 @@ namespace Odyssey.Unity.Client
     {
         private static readonly CorrelationId RuntimeCorrelationId = CorrelationId.Parse("corr_00000000000000000000000000000000");
 
-        internal static Error InvalidConfiguration(string messageKey)
-        {
-            return Error.Create(
-                ErrorCodes.ApplicationValidationInvalid,
-                ErrorCategory.Validation,
-                SafeReasonCode.InvalidRequest,
-                UserMessageKey.Parse(messageKey),
-                RetryDirective.DoNotRetry,
-                RuntimeCorrelationId);
-        }
+        internal static Error InvalidConfiguration() => Error.Create(
+            ErrorCodes.ApplicationBootstrapConfigurationInvalid,
+            ErrorCategory.Validation,
+            SafeReasonCode.InvalidRequest,
+            UserMessageKey.Parse("errors.runtime.configuration_invalid"),
+            RetryDirective.DoNotRetry,
+            RuntimeCorrelationId);
 
-        internal static Error Cancelled()
-        {
-            return Error.Create(
-                ErrorCodes.ApplicationValidationInvalid,
-                ErrorCategory.Cancelled,
-                SafeReasonCode.OperationCancelled,
-                UserMessageKey.Parse("errors.runtime.startup_cancelled"),
-                RetryDirective.DoNotRetry,
-                RuntimeCorrelationId);
-        }
+        internal static Error UnsupportedProfile() => Error.Create(
+            ErrorCodes.ApplicationBootstrapConfigurationInvalid,
+            ErrorCategory.Validation,
+            SafeReasonCode.InvalidRequest,
+            UserMessageKey.Parse("errors.runtime.unsupported_profile"),
+            RetryDirective.DoNotRetry,
+            RuntimeCorrelationId);
 
-        internal static Error Unexpected(DiagnosticId? diagnosticId, Exception exception)
-        {
-            _ = exception;
-            return Error.Create(
-                ErrorCodes.ApplicationInternalUnexpected,
-                ErrorCategory.Internal,
-                SafeReasonCode.UnexpectedError,
-                UserMessageKey.Parse("errors.runtime.unexpected_startup_failure"),
-                RetryDirective.DoNotRetry,
-                RuntimeCorrelationId,
-                diagnosticId: diagnosticId);
-        }
+        internal static Error Cancelled() => Error.Create(
+            ErrorCodes.ApplicationBootstrapInitializationCancelled,
+            ErrorCategory.Cancelled,
+            SafeReasonCode.OperationCancelled,
+            UserMessageKey.Parse("errors.runtime.startup_cancelled"),
+            RetryDirective.DoNotRetry,
+            RuntimeCorrelationId);
+
+        internal static Error CompositionInvalid() => Error.Create(
+            ErrorCodes.ApplicationBootstrapCompositionInvalid,
+            ErrorCategory.Precondition,
+            SafeReasonCode.ActionNotAllowed,
+            UserMessageKey.Parse("errors.runtime.composition_invalid"),
+            RetryDirective.DoNotRetry,
+            RuntimeCorrelationId);
+
+        internal static Error Unexpected(DiagnosticId diagnosticId) => Error.Create(
+            ErrorCodes.ApplicationBootstrapUnexpected,
+            ErrorCategory.Internal,
+            SafeReasonCode.UnexpectedError,
+            UserMessageKey.Parse("errors.runtime.unexpected_startup_failure"),
+            RetryDirective.DoNotRetry,
+            RuntimeCorrelationId,
+            diagnosticId: diagnosticId);
     }
 }

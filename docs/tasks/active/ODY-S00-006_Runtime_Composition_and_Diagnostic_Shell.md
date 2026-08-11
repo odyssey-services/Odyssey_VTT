@@ -410,7 +410,7 @@ No new dependency, package, GitHub Action, executable, or downloadable tool is a
 - Minimal approved scene wiring in `Assets/Odyssey/Client/Scenes/Bootstrap.unity` and `Assets/Odyssey/Client/Scenes/AppShell.unity`.
 - Developer Shell UI styling in `Assets/Odyssey/Client/UI/AppShell.uss`.
 - Machine-readable EventCode registry at `config/diagnostics/event-codes.json`.
-- .NET diagnostics contract tests and Unity EditMode composition/diagnostics tests.
+- .NET diagnostics contract tests plus Unity EditMode composition/diagnostics tests and PlayMode Developer Shell lifecycle test.
 - Test catalog and repository guard/script updates for ODY-S00-006 TestCase IDs, composition guards, diagnostics registry validation, and `Logs/ODY-S00-006` evidence paths.
 
 ### Validation results
@@ -420,13 +420,13 @@ No new dependency, package, GitHub Action, executable, or downloadable tool is a
 | `powershell -NoProfile -ExecutionPolicy Bypass -File .\scripts\restore.ps1` | Failed then Passed | First sandbox run failed with `NU1900` while loading NuGet vulnerability data from `https://api.nuget.org/v3/index.json`; escalated rerun passed and restored/confirmed projects. |
 | `powershell -NoProfile -ExecutionPolicy Bypass -File .\scripts\verify-format.ps1` | Passed | `FORMAT-001 PASS repository text formatting checks passed`. |
 | `powershell -NoProfile -ExecutionPolicy Bypass -File .\scripts\verify-test-structure.ps1` | Passed | `TC-ARCH-001` passed; controlled invalid Domain->Rules, package version mismatch, and duplicate catalog ownership fixtures were rejected with exit code 1. ODY-S00-006 composition/diagnostics guards also passed. |
-| `powershell -NoProfile -ExecutionPolicy Bypass -File .\scripts\test-fast.ps1` | Passed | Structure guard passed; `dotnet build` succeeded with 0 warnings / 0 errors; TRX evidence under `Logs/ODY-S00-006/dotnet/`: Unit 50/50, Domain 1/1, Contracts 1/1, Architecture 2/2, failed 0. |
-| `powershell -NoProfile -ExecutionPolicy Bypass -File .\scripts\test-unity.ps1` | Failed then Passed | First run failed at Unity compile due `Application.temporaryCachePath` namespace resolution; second run failed 2 EditMode assertions; final run passed Unity `6000.4.0f1`, batch compile exit code 0, EditMode total 10 passed 10 failed 0, PlayMode total 1 passed 1 failed 0. Logs under `Logs/ODY-S00-006/`. |
+| `powershell -NoProfile -ExecutionPolicy Bypass -File .\scripts\test-fast.ps1` | Passed | Structure guard passed; `dotnet build` succeeded with 0 warnings / 0 errors; TRX evidence under `Logs/ODY-S00-006/dotnet/`: Unit 53/53, Domain 1/1, Contracts 1/1, Architecture 2/2, failed 0. |
+| `powershell -NoProfile -ExecutionPolicy Bypass -File .\scripts\test-unity.ps1` | Failed then Passed | Sandbox run failed before compile on Unity global cache access; escalated corrective runs exposed compile errors, then EditMode and PlayMode issues. Final run passed Unity `6000.4.0f1`, batch compile exit code 0, EditMode total 9 passed 9 failed 0 skipped 0, PlayMode total 1 passed 1 failed 0 skipped 0. Logs under `Logs/ODY-S00-006/`. |
 | `powershell -NoProfile -ExecutionPolicy Bypass -File .\scripts\verify-repository.ps1` | Passed | Repository policy passed, test structure passed, SDK configured `10.0.302`, selected `10.0.302`, rollForward `latestPatch`, allowPrerelease `False`; `REPOSITORY-VERIFY PASS`. |
 | `powershell -NoProfile -ExecutionPolicy Bypass -File .\scripts\check-repository-policy.ps1` | Passed | `REPO-POLICY-001` through `REPO-POLICY-005` passed, including controlled ErrorCode registry fixtures. |
 | `dotnet build DotNet\Odyssey.Core.sln --no-restore` | Passed | Build succeeded with 0 warnings / 0 errors. |
-| `dotnet test DotNet\Odyssey.Core.sln --no-build --no-restore` | Passed | Contracts 1, Domain 1, Unit 50, Architecture 2; total 54 passed, 0 failed, 0 skipped. |
-| `git diff --check` | Failed then Passed | Failed while Unity-generated whitespace churn existed in out-of-scope `ProjectSettings/ProjectSettings.asset`; that file was restored to HEAD. Final rerun passed with no output. |
+| `dotnet test DotNet\Odyssey.Core.sln --no-build --no-restore` | Passed | Contracts 1, Domain 1, Unit 53, Architecture 2; total 57 passed, 0 failed, 0 skipped. |
+| `git diff --check` | Failed then Passed | Initial final run failed due Unity-generated `ProjectSettings/ProjectSettings.asset` whitespace churn and task-doc blank EOF; ProjectSettings was restored to HEAD and EOF corrected. Final rerun exited 0 with only the CRLF normalization warning for this task document. |
 | `git diff --cached --check` | Passed | No staged diff errors; command printed only the local inaccessible global ignore warning. |
 | `git status --short --branch` | Passed | Branch `feat/ody-s00-006-runtime-composition-diagnostic-shell`; ProjectSettings, manifest, package lock, ADRs, Technical Baseline, Active Baseline, Persistence, and Networking are not modified. |
 
@@ -435,19 +435,19 @@ No new dependency, package, GitHub Action, executable, or downloadable tool is a
 | Criterion | Status | Evidence |
 |---|---|---|
 | AC-1 | Satisfied | One `OdysseyRuntimeCompositionRoot` exists in `Odyssey.Unity.Client`; `verify-test-structure.ps1` rejects DI/service locator/search patterns and duplicate composition-root classes. |
-| AC-2 | Satisfied | `OdysseyRuntimeCompositionRoot.Start` validates profile/configuration, initializes diagnostics/crash marker, composes Developer Shell adapters, and returns Ready only after mandatory phases. |
-| AC-3 | Satisfied | Startup failures return safe `Result<Error>`, emit diagnostic evidence when diagnostics exist, and clean partial resources; Unity EditMode covers failure cleanup. |
+| AC-2 | Satisfied | `OdysseyRuntimeCompositionRoot.Start` publishes `Starting`; runtime reaches `Ready` only after AppShell entry point and presentation initialization succeed. |
+| AC-3 | Satisfied | Startup failures return safe `Result<Error>`, can emit diagnostic evidence when diagnostics exist, and clean partial resources; Unity EditMode covers cancellation/configuration paths. |
 | AC-4 | Satisfied | `AppRuntime.Shutdown` disposes presentation before process resources, is idempotent, and is covered by Unity EditMode tests. |
-| AC-5 | Satisfied | `DeveloperShellPresenter` displays Starting/Ready/Shutting Down states through UI Toolkit and is wired into `AppShell.unity`. |
-| AC-6 | Satisfied | DeveloperShell-only probe uses Application command/result contracts and an in-memory dev adapter under Unity Client; tests cover accepted duplicate replay and mismatch rejection. |
+| AC-5 | Satisfied | `AppShellEntryPoint` initializes the UI Toolkit Developer Shell; PlayMode `TC-UNITY-SHELL-001` verifies visible Ready, profile, build identity unavailable, accepted/rejected probes, diagnostic emission, and Stopped shutdown. |
+| AC-6 | Satisfied | DeveloperShell-only probe uses Application command/result contracts and an in-memory commit adapter that records receipt plus accepted event batch; UI exposes separate accepted and rejected probe actions. |
 | AC-7 | Satisfied | Application diagnostics contracts expose required `LogEventV1` fields, exact `LogLevel` vocabulary, `ProcessInstanceId`, unavailable BuildId state, and shared `CorrelationId`/`DiagnosticId`/`CommandId`/`UtcInstant`. |
-| AC-8 | Satisfied | `ProcessInstanceId` is generated per startup and deterministic test overrides are supported; no username/device/path/secret is encoded. |
-| AC-9 | Satisfied | `config/diagnostics/event-codes.json` exists and is checked against code registry semantics by .NET tests and repository guard. |
-| AC-10 | Satisfied | Safe property API is allowlist-first; tests cover object/exception API absence, bounded truncation, path username removal, endpoint generalization, and secret absence from ring buffer. |
-| AC-11 | Satisfied | `InMemoryDiagnosticRingBuffer` enforces count/byte limits with oldest-event eviction; Unity EditMode covers ring eviction. |
-| AC-12 | Satisfied | `BoundedDiagnosticRuntime` covers lazy filtering, queue pressure, drop counter emission, emergency fallback, sink failure fallback, and bounded shutdown paths in Unity EditMode. |
-| AC-13 | Satisfied | Startup unexpected failures can attach a `DiagnosticId`; public `Error` remains ADR-004-safe without stack/raw exception text. |
-| AC-14 | Satisfied | `CrashMarkerStore` uses `process-started.json`; Unity EditMode covers suspected previous marker detection and clean shutdown clearing. |
+| AC-8 | Satisfied | `ProcessInstanceId` is generated per startup; deterministic typed test composition is internal/friend-only; no username/device/path/secret is encoded. |
+| AC-9 | Satisfied | `config/diagnostics/event-codes.json` exists and is checked against runtime registry parity by .NET tests and repository guard. |
+| AC-10 | Satisfied | Safe property API is allowlist-first with split classification/valueKind; tests cover object/exception API absence, Unicode bounded truncation, path username removal, endpoint generalization, and secret rejection. |
+| AC-11 | Satisfied | `InMemoryDiagnosticRingBuffer` enforces count/byte limits with oldest-event eviction and rejects oversized events; Unity EditMode covers count/byte capacity. |
+| AC-12 | Satisfied | `BoundedDiagnosticRuntime` covers lazy filtering by level/event code, Trace/Debug/Information pressure policy, per-level drop counters, minimal emergency fallback, sink failure fallback, and bounded shutdown paths. |
+| AC-13 | Satisfied | Startup unexpected failures attach `DiagnosticId` and emit safe incident when diagnostics exist; public `Error` remains ADR-004-safe without stack/raw exception text. |
+| AC-14 | Satisfied | `CrashMarkerStore` uses `Application.persistentDataPath/Diagnostics/` in production host and a `state=started` marker parser; Unity EditMode covers started/completed/malformed marker states and repeated clean finalization. |
 | AC-15 | Satisfied | Repository guard scans Domain and Rules runtime source for diagnostics/logger dependencies; no violations. |
 | AC-16 | Satisfied | No serialization DTOs/JSONL, SQLite, Networking/Persistence runtime, BuildIdentity generation, telemetry, CI, Player/IL2CPP build, gameplay, Unity package, manifest, lock, or ProjectSettings baseline changes are introduced. |
 | AC-17 | Satisfied | Required validation commands have real pass/fail/pass evidence recorded above. |
@@ -463,7 +463,8 @@ No new dependency, package, GitHub Action, executable, or downloadable tool is a
 
 - BuildIdentity is intentionally unavailable until ODY-S00-008.
 - Canonical diagnostic JSONL and source-generated diagnostic serialization are deferred to ODY-S00-007 or later owning tasks.
-- Crash marker format is intentionally provisional and non-authoritative.
+- Crash marker format is intentionally provisional and non-authoritative; only valid `state=started` is treated as suspected previous unclean shutdown.
+- Manual interactive Editor validation was not run in this non-interactive batch workflow.
 - Developer Shell is a technical shell only; no gameplay, campaign runtime, persistence runtime, networking runtime, telemetry, CI, Player, or IL2CPP work was added.
 
 ### Follow-up tasks

@@ -1,6 +1,7 @@
 using System;
 using System.Collections.ObjectModel;
 using System.Collections.Generic;
+using System.Text;
 using Odyssey.Application.Commands;
 using Odyssey.Application.Identity;
 using Odyssey.Application.Results;
@@ -26,22 +27,44 @@ namespace Odyssey.Application.Diagnostics
         Reserved = 3
     }
 
-    public enum SafePropertyClassification
+    public enum DiagnosticDataClassification
     {
-        Operational = 1,
-        TechnicalIdentifier = 2,
-        SanitizedPath = 3,
-        SanitizedEndpoint = 4,
-        Count = 5,
-        Duration = 6,
-        Timestamp = 7,
-        ByteCount = 8
+        Public = 1,
+        OperationalSafe = 2,
+        Personal = 3,
+        HiddenGameplay = 4,
+        Secret = 5
+    }
+
+    public enum SafeLogValueKind
+    {
+        Boolean = 1,
+        Integer = 2,
+        Decimal = 3,
+        Code = 4,
+        Duration = 5,
+        Timestamp = 6,
+        ByteCount = 7,
+        TechnicalIdentifier = 8,
+        Fingerprint = 9,
+        BoundedText = 10,
+        SanitizedPath = 11,
+        SanitizedEndpoint = 12
     }
 
     public enum BuildIdAvailability
     {
         UnavailableNotYetComposed = 1,
         Available = 2
+    }
+
+    public enum ExceptionCategory
+    {
+        InvalidOperation = 1,
+        IoFailure = 2,
+        AccessDenied = 3,
+        Cancelled = 4,
+        Unexpected = 5
     }
 
     public readonly struct ProcessInstanceId : IEquatable<ProcessInstanceId>
@@ -70,7 +93,7 @@ namespace Odyssey.Application.Diagnostics
         public bool IsValid => _value != null;
         public static bool TryParse(string? value, out EventCode code)
         {
-            if (DiagnosticText.IsDottedLowerIdentifier(value, 96, 2))
+            if (DiagnosticText.IsDottedLowerIdentifier(value, 96, 3))
             {
                 code = new EventCode(value!);
                 return true;
@@ -97,9 +120,9 @@ namespace Odyssey.Application.Diagnostics
         public bool IsValid => _value != null;
         public static bool TryParse(string? value, out MessageTemplateKey key)
         {
-            if (DiagnosticText.IsDottedLowerIdentifier(value, 128, 2))
+            if (value != null && value.StartsWith("log.", StringComparison.Ordinal) && DiagnosticText.IsDottedLowerIdentifier(value, 128, 4))
             {
-                key = new MessageTemplateKey(value!);
+                key = new MessageTemplateKey(value);
                 return true;
             }
 
@@ -112,6 +135,8 @@ namespace Odyssey.Application.Diagnostics
         public bool Equals(MessageTemplateKey other) => string.Equals(_value, other._value, StringComparison.Ordinal);
         public override bool Equals(object? obj) => obj is MessageTemplateKey other && Equals(other);
         public override int GetHashCode() => _value == null ? 0 : StringComparer.Ordinal.GetHashCode(_value);
+        public static bool operator ==(MessageTemplateKey left, MessageTemplateKey right) => left.Equals(right);
+        public static bool operator !=(MessageTemplateKey left, MessageTemplateKey right) => !left.Equals(right);
     }
 
     public readonly struct SubsystemName : IEquatable<SubsystemName>
@@ -122,7 +147,7 @@ namespace Odyssey.Application.Diagnostics
         public bool IsValid => _value != null;
         public static bool TryParse(string? value, out SubsystemName subsystem)
         {
-            if (DiagnosticText.IsDottedLowerIdentifier(value, 96, 1))
+            if (DiagnosticText.IsLowerToken(value, 48))
             {
                 subsystem = new SubsystemName(value!);
                 return true;
@@ -137,6 +162,8 @@ namespace Odyssey.Application.Diagnostics
         public bool Equals(SubsystemName other) => string.Equals(_value, other._value, StringComparison.Ordinal);
         public override bool Equals(object? obj) => obj is SubsystemName other && Equals(other);
         public override int GetHashCode() => _value == null ? 0 : StringComparer.Ordinal.GetHashCode(_value);
+        public static bool operator ==(SubsystemName left, SubsystemName right) => left.Equals(right);
+        public static bool operator !=(SubsystemName left, SubsystemName right) => !left.Equals(right);
     }
 
     public readonly struct SafePropertyKey : IEquatable<SafePropertyKey>
@@ -162,6 +189,8 @@ namespace Odyssey.Application.Diagnostics
         public bool Equals(SafePropertyKey other) => string.Equals(_value, other._value, StringComparison.Ordinal);
         public override bool Equals(object? obj) => obj is SafePropertyKey other && Equals(other);
         public override int GetHashCode() => _value == null ? 0 : StringComparer.Ordinal.GetHashCode(_value);
+        public static bool operator ==(SafePropertyKey left, SafePropertyKey right) => left.Equals(right);
+        public static bool operator !=(SafePropertyKey left, SafePropertyKey right) => !left.Equals(right);
     }
 
     public readonly struct SessionReference : IEquatable<SessionReference>
@@ -191,72 +220,148 @@ namespace Odyssey.Application.Diagnostics
 
     public readonly struct ExceptionSummary
     {
-        public ExceptionSummary(string exceptionType, string safeSummary)
+        private ExceptionSummary(ExceptionCategory category, SubsystemName subsystem, int innerExceptionCount, bool transient, DiagnosticId diagnosticId)
         {
-            if (!DiagnosticText.IsDottedUpperOrLowerIdentifier(exceptionType, 128, 1)) throw new ArgumentException("Exception type is not safe.", nameof(exceptionType));
-            if (!DiagnosticText.IsSafeBoundedText(safeSummary, 256)) throw new ArgumentException("Exception summary is not safe.", nameof(safeSummary));
-            ExceptionType = exceptionType;
-            SafeSummary = safeSummary;
+            if (!Enum.IsDefined(typeof(ExceptionCategory), category)) throw new ArgumentOutOfRangeException(nameof(category));
+            if (!subsystem.IsValid) throw new ArgumentException("Subsystem is required.", nameof(subsystem));
+            if (innerExceptionCount < 0 || innerExceptionCount > 16) throw new ArgumentOutOfRangeException(nameof(innerExceptionCount));
+            if (!diagnosticId.IsValid) throw new ArgumentException("DiagnosticId is required.", nameof(diagnosticId));
+            Category = category;
+            Subsystem = subsystem;
+            InnerExceptionCount = innerExceptionCount;
+            IsTransient = transient;
+            DiagnosticId = diagnosticId;
         }
 
-        public string ExceptionType { get; }
-        public string SafeSummary { get; }
-        public bool IsValid => ExceptionType != null && SafeSummary != null;
+        public ExceptionCategory Category { get; }
+        public SubsystemName Subsystem { get; }
+        public int InnerExceptionCount { get; }
+        public bool IsTransient { get; }
+        public DiagnosticId DiagnosticId { get; }
+        public bool IsValid => Subsystem.IsValid && DiagnosticId.IsValid && InnerExceptionCount >= 0;
+
+        public static ExceptionSummary FromException(Exception exception, SubsystemName subsystem, DiagnosticId diagnosticId)
+        {
+            if (exception == null) throw new ArgumentNullException(nameof(exception));
+            ExceptionCategory category = ExceptionCategory.Unexpected;
+            bool transient = false;
+            if (exception is InvalidOperationException) category = ExceptionCategory.InvalidOperation;
+            else if (exception is OperationCanceledException) category = ExceptionCategory.Cancelled;
+            else if (exception is UnauthorizedAccessException) category = ExceptionCategory.AccessDenied;
+            else if (exception is System.IO.IOException)
+            {
+                category = ExceptionCategory.IoFailure;
+                transient = true;
+            }
+
+            return new ExceptionSummary(category, subsystem, CountInnerExceptions(exception), transient, diagnosticId);
+        }
+
+        private static int CountInnerExceptions(Exception exception)
+        {
+            int count = 0;
+            Exception? current = exception.InnerException;
+            while (current != null && count < 16)
+            {
+                count++;
+                current = current.InnerException;
+            }
+
+            return count;
+        }
     }
 
     public sealed class SafeLogValue
     {
-        private SafeLogValue(SafePropertyClassification classification, string renderedValue, int logicalSize)
+        private SafeLogValue(DiagnosticDataClassification classification, SafeLogValueKind valueKind, string renderedValue, int logicalSize, int originalScalarCount, bool wasTruncated)
         {
+            if (!Enum.IsDefined(typeof(DiagnosticDataClassification), classification)) throw new ArgumentOutOfRangeException(nameof(classification));
+            if (!Enum.IsDefined(typeof(SafeLogValueKind), valueKind)) throw new ArgumentOutOfRangeException(nameof(valueKind));
             Classification = classification;
-            RenderedValue = renderedValue;
+            ValueKind = valueKind;
+            RenderedValue = renderedValue ?? throw new ArgumentNullException(nameof(renderedValue));
             LogicalSize = logicalSize;
+            OriginalScalarCount = originalScalarCount;
+            WasTruncated = wasTruncated;
         }
 
-        public SafePropertyClassification Classification { get; }
+        public DiagnosticDataClassification Classification { get; }
+        public SafeLogValueKind ValueKind { get; }
         public string RenderedValue { get; }
         public int LogicalSize { get; }
-        public bool WasTruncated { get; private set; }
+        public int OriginalScalarCount { get; }
+        public bool WasTruncated { get; }
 
-        public static SafeLogValue BoundedText(string value, int maxScalars = 256)
+        public static SafeLogValue Boolean(bool value) => Create(DiagnosticDataClassification.OperationalSafe, SafeLogValueKind.Boolean, value ? "true" : "false");
+        public static SafeLogValue Code(string value) => DiagnosticText.IsDottedLowerIdentifier(value, 96, 1) ? Create(DiagnosticDataClassification.OperationalSafe, SafeLogValueKind.Code, value) : throw new ArgumentException("Code is not safe.", nameof(value));
+        public static SafeLogValue Count(long value) => Create(DiagnosticDataClassification.OperationalSafe, SafeLogValueKind.Integer, value.ToString(System.Globalization.CultureInfo.InvariantCulture));
+        public static SafeLogValue Duration(TimeSpan value) => Create(DiagnosticDataClassification.OperationalSafe, SafeLogValueKind.Duration, value.TotalMilliseconds.ToString("0.###", System.Globalization.CultureInfo.InvariantCulture) + "ms");
+        public static SafeLogValue Timestamp(UtcInstant value) => value.IsValid ? Create(DiagnosticDataClassification.OperationalSafe, SafeLogValueKind.Timestamp, value.ToString()) : throw new ArgumentException("Timestamp is required.", nameof(value));
+        public static SafeLogValue ByteCount(long value) => value >= 0 ? Create(DiagnosticDataClassification.OperationalSafe, SafeLogValueKind.ByteCount, value.ToString(System.Globalization.CultureInfo.InvariantCulture)) : throw new ArgumentOutOfRangeException(nameof(value));
+        public static SafeLogValue TechnicalIdentifier(string value) => DiagnosticText.IsSafeFingerprint(value, 128) ? Create(DiagnosticDataClassification.OperationalSafe, SafeLogValueKind.TechnicalIdentifier, value) : throw new ArgumentException("Identifier is not safe.", nameof(value));
+        public static SafeLogValue Fingerprint(string value) => DiagnosticText.IsSafeFingerprint(value, 128) ? Create(DiagnosticDataClassification.OperationalSafe, SafeLogValueKind.Fingerprint, value) : throw new ArgumentException("Fingerprint is not safe.", nameof(value));
+        public static SafeLogValue SanitizedPath(string value) => Create(DiagnosticDataClassification.OperationalSafe, SafeLogValueKind.SanitizedPath, PathSanitizer.Sanitize(value));
+        public static SafeLogValue SanitizedEndpoint(string value) => Create(DiagnosticDataClassification.OperationalSafe, SafeLogValueKind.SanitizedEndpoint, EndpointSanitizer.Sanitize(value));
+
+        public static SafeLogValue BoundedText(string value, int maxScalars = 256, DiagnosticDataClassification classification = DiagnosticDataClassification.OperationalSafe)
         {
-            if (string.IsNullOrEmpty(value)) throw new ArgumentException("Safe text is required.", nameof(value));
+            if (value == null) throw new ArgumentNullException(nameof(value));
             if (maxScalars <= 0 || maxScalars > 256) throw new ArgumentOutOfRangeException(nameof(maxScalars));
-            string safe = SanitizeControlCharacters(value);
-            bool truncated = safe.Length > maxScalars;
-            if (truncated)
-            {
-                safe = safe.Substring(0, Math.Max(0, maxScalars - 12)) + "[truncated]";
-            }
+            if (classification != DiagnosticDataClassification.Public && classification != DiagnosticDataClassification.OperationalSafe) throw new ArgumentException("Bounded text must be public or operational-safe.", nameof(classification));
+            if (ContainsControlCharacter(value)) throw new ArgumentException("Bounded text must not contain control characters.", nameof(value));
 
-            SafeLogValue result = new SafeLogValue(SafePropertyClassification.Operational, safe, safe.Length);
-            result.WasTruncated = truncated;
-            return result;
+            int originalScalars = CountScalars(value);
+            bool truncated = originalScalars > maxScalars;
+            string rendered = truncated ? TakeScalars(value, Math.Max(0, maxScalars - 11)) + "[truncated]" : value;
+            return new SafeLogValue(classification, SafeLogValueKind.BoundedText, rendered, Encoding.UTF8.GetByteCount(rendered), originalScalars, truncated);
         }
 
-        public static SafeLogValue Code(string value)
+        public static SafeLogValue SecretCandidateForRejection(string value)
         {
-            if (!DiagnosticText.IsDottedLowerIdentifier(value, 96, 1)) throw new ArgumentException("Code is not safe.", nameof(value));
-            return new SafeLogValue(SafePropertyClassification.Operational, value, value.Length);
+            if (value == null) throw new ArgumentNullException(nameof(value));
+            return new SafeLogValue(DiagnosticDataClassification.Secret, SafeLogValueKind.BoundedText, value, Encoding.UTF8.GetByteCount(value), CountScalars(value), false);
         }
 
-        public static SafeLogValue Count(long value) => new SafeLogValue(SafePropertyClassification.Count, value.ToString(System.Globalization.CultureInfo.InvariantCulture), 8);
-        public static SafeLogValue Duration(TimeSpan value) => new SafeLogValue(SafePropertyClassification.Duration, value.TotalMilliseconds.ToString("0.###", System.Globalization.CultureInfo.InvariantCulture) + "ms", 16);
-        public static SafeLogValue Timestamp(UtcInstant value) => value.IsValid ? new SafeLogValue(SafePropertyClassification.Timestamp, value.ToString(), 32) : throw new ArgumentException("Timestamp is required.", nameof(value));
-        public static SafeLogValue ByteCount(long value) => value >= 0 ? new SafeLogValue(SafePropertyClassification.ByteCount, value.ToString(System.Globalization.CultureInfo.InvariantCulture), 8) : throw new ArgumentOutOfRangeException(nameof(value));
-        public static SafeLogValue TechnicalIdentifier(string value) => DiagnosticText.IsSafeFingerprint(value, 128) ? new SafeLogValue(SafePropertyClassification.TechnicalIdentifier, value, value.Length) : throw new ArgumentException("Identifier is not safe.", nameof(value));
-        public static SafeLogValue SanitizedPath(string value) => new SafeLogValue(SafePropertyClassification.SanitizedPath, PathSanitizer.Sanitize(value), 48);
-        public static SafeLogValue SanitizedEndpoint(string value) => new SafeLogValue(SafePropertyClassification.SanitizedEndpoint, EndpointSanitizer.Sanitize(value), 48);
-
-        private static string SanitizeControlCharacters(string value)
+        private static SafeLogValue Create(DiagnosticDataClassification classification, SafeLogValueKind kind, string rendered)
         {
-            char[] chars = value.ToCharArray();
-            for (int index = 0; index < chars.Length; index++)
+            return new SafeLogValue(classification, kind, rendered, Encoding.UTF8.GetByteCount(rendered), CountScalars(rendered), false);
+        }
+
+        private static bool ContainsControlCharacter(string value)
+        {
+            for (int index = 0; index < value.Length; index++)
             {
-                if (char.IsControl(chars[index])) chars[index] = '?';
+                if (char.IsControl(value[index])) return true;
             }
 
-            return new string(chars);
+            return false;
+        }
+
+        private static int CountScalars(string value)
+        {
+            int count = 0;
+            for (int index = 0; index < value.Length; index++)
+            {
+                if (char.IsHighSurrogate(value[index]) && index + 1 < value.Length && char.IsLowSurrogate(value[index + 1])) index++;
+                count++;
+            }
+
+            return count;
+        }
+
+        private static string TakeScalars(string value, int scalarCount)
+        {
+            if (scalarCount <= 0) return string.Empty;
+            int index = 0;
+            int count = 0;
+            while (index < value.Length && count < scalarCount)
+            {
+                if (char.IsHighSurrogate(value[index]) && index + 1 < value.Length && char.IsLowSurrogate(value[index + 1])) index += 2;
+                else index++;
+                count++;
+            }
+
+            return value.Substring(0, index);
         }
     }
 
@@ -347,7 +452,7 @@ namespace Odyssey.Application.Diagnostics
         public MessageTemplateKey MessageTemplateKey { get; }
         public IReadOnlyList<SafeLogProperty> SafeProperties => _safeProperties;
         public ExceptionSummary? ExceptionSummary { get; }
-        public int EstimatedLogicalSize => 96 + SumPropertySize(_safeProperties) + (ExceptionSummary.HasValue ? 128 : 0);
+        public int EstimatedLogicalSize => 128 + SumPropertySize(_safeProperties) + (ExceptionSummary.HasValue ? 96 : 0);
 
         private static ReadOnlyCollection<SafeLogProperty> CopyProperties(IReadOnlyList<SafeLogProperty>? source)
         {
@@ -357,6 +462,7 @@ namespace Odyssey.Application.Diagnostics
             for (int index = 0; index < source.Count; index++)
             {
                 if (!source[index].IsValid) throw new ArgumentException("Safe property is required.", nameof(source));
+                if (source[index].Value.Classification != DiagnosticDataClassification.Public && source[index].Value.Classification != DiagnosticDataClassification.OperationalSafe) throw new ArgumentException("Unsafe diagnostic property classification is not allowed.", nameof(source));
                 copy[index] = source[index];
             }
 
@@ -368,65 +474,84 @@ namespace Odyssey.Application.Diagnostics
             int total = 0;
             for (int index = 0; index < properties.Count; index++)
             {
-                total += properties[index].Key.ToString().Length + properties[index].Value.LogicalSize;
+                total += Encoding.UTF8.GetByteCount(properties[index].Key.ToString()) + properties[index].Value.LogicalSize;
             }
 
             return total;
         }
     }
 
+    public sealed class EventPropertyDefinition
+    {
+        public EventPropertyDefinition(SafePropertyKey key, DiagnosticDataClassification classification, SafeLogValueKind valueKind)
+        {
+            if (!key.IsValid) throw new ArgumentException("Property key is required.", nameof(key));
+            if (!Enum.IsDefined(typeof(DiagnosticDataClassification), classification)) throw new ArgumentOutOfRangeException(nameof(classification));
+            if (!Enum.IsDefined(typeof(SafeLogValueKind), valueKind)) throw new ArgumentOutOfRangeException(nameof(valueKind));
+            if (classification != DiagnosticDataClassification.Public && classification != DiagnosticDataClassification.OperationalSafe) throw new ArgumentException("Registry may only allow public or operational-safe properties.", nameof(classification));
+            Key = key;
+            Classification = classification;
+            ValueKind = valueKind;
+        }
+
+        public SafePropertyKey Key { get; }
+        public DiagnosticDataClassification Classification { get; }
+        public SafeLogValueKind ValueKind { get; }
+
+        public bool Allows(SafeLogProperty property)
+        {
+            return property.IsValid && property.Key == Key && property.Value.Classification == Classification && property.Value.ValueKind == ValueKind;
+        }
+    }
+
     public sealed class EventCodeDefinition
     {
-        public EventCodeDefinition(EventCode eventCode, SubsystemName ownerSubsystem, LogLevel defaultLevel, IReadOnlyList<SafePropertyKey> allowedPropertyKeys, IReadOnlyDictionary<SafePropertyKey, SafePropertyClassification> propertyClassifications, string purpose, EventCodeStatus status)
+        private readonly ReadOnlyDictionary<SafePropertyKey, EventPropertyDefinition> _properties;
+
+        public EventCodeDefinition(EventCode eventCode, SubsystemName ownerSubsystem, LogLevel defaultLevel, MessageTemplateKey messageTemplateKey, IReadOnlyList<EventPropertyDefinition> allowedProperties, string purpose, EventCodeStatus status)
         {
             if (!eventCode.IsValid) throw new ArgumentException("EventCode is required.", nameof(eventCode));
             if (!ownerSubsystem.IsValid) throw new ArgumentException("Owner subsystem is required.", nameof(ownerSubsystem));
             if (!Enum.IsDefined(typeof(LogLevel), defaultLevel)) throw new ArgumentOutOfRangeException(nameof(defaultLevel));
-            if (!DiagnosticText.IsSafeBoundedText(purpose, 256)) throw new ArgumentException("Purpose is not safe.", nameof(purpose));
+            if (!messageTemplateKey.IsValid) throw new ArgumentException("MessageTemplateKey is required.", nameof(messageTemplateKey));
+            if (!DiagnosticText.IsSafePurposeText(purpose, 256)) throw new ArgumentException("Purpose is not safe.", nameof(purpose));
             if (!Enum.IsDefined(typeof(EventCodeStatus), status)) throw new ArgumentOutOfRangeException(nameof(status));
             EventCode = eventCode;
             OwnerSubsystem = ownerSubsystem;
             DefaultLevel = defaultLevel;
-            AllowedPropertyKeys = CopyKeys(allowedPropertyKeys);
-            PropertyClassifications = new ReadOnlyDictionary<SafePropertyKey, SafePropertyClassification>(new Dictionary<SafePropertyKey, SafePropertyClassification>(propertyClassifications ?? throw new ArgumentNullException(nameof(propertyClassifications))));
+            MessageTemplateKey = messageTemplateKey;
             Purpose = purpose;
             Status = status;
-            ValidateParity();
+            _properties = CopyProperties(allowedProperties);
         }
 
         public EventCode EventCode { get; }
         public SubsystemName OwnerSubsystem { get; }
         public LogLevel DefaultLevel { get; }
-        public IReadOnlyList<SafePropertyKey> AllowedPropertyKeys { get; }
-        public IReadOnlyDictionary<SafePropertyKey, SafePropertyClassification> PropertyClassifications { get; }
+        public MessageTemplateKey MessageTemplateKey { get; }
+        public IReadOnlyDictionary<SafePropertyKey, EventPropertyDefinition> AllowedProperties => _properties;
         public string Purpose { get; }
         public EventCodeStatus Status { get; }
 
         public bool Allows(SafeLogProperty property)
         {
-            return property.IsValid && PropertyClassifications.TryGetValue(property.Key, out SafePropertyClassification classification) && classification == property.Value.Classification;
+            return property.IsValid && _properties.TryGetValue(property.Key, out EventPropertyDefinition definition) && definition.Allows(property);
         }
 
-        private void ValidateParity()
+        private static ReadOnlyDictionary<SafePropertyKey, EventPropertyDefinition> CopyProperties(IReadOnlyList<EventPropertyDefinition>? source)
         {
-            if (AllowedPropertyKeys.Count != PropertyClassifications.Count) throw new ArgumentException("Property keys and classifications must match.");
-            for (int index = 0; index < AllowedPropertyKeys.Count; index++)
+            Dictionary<SafePropertyKey, EventPropertyDefinition> copy = new Dictionary<SafePropertyKey, EventPropertyDefinition>();
+            if (source != null)
             {
-                if (!PropertyClassifications.ContainsKey(AllowedPropertyKeys[index])) throw new ArgumentException("Property classification is missing.");
-            }
-        }
-
-        private static ReadOnlyCollection<SafePropertyKey> CopyKeys(IReadOnlyList<SafePropertyKey>? source)
-        {
-            if (source == null) return Array.AsReadOnly(Array.Empty<SafePropertyKey>());
-            SafePropertyKey[] copy = new SafePropertyKey[source.Count];
-            for (int index = 0; index < source.Count; index++)
-            {
-                if (!source[index].IsValid) throw new ArgumentException("Property key is required.", nameof(source));
-                copy[index] = source[index];
+                for (int index = 0; index < source.Count; index++)
+                {
+                    EventPropertyDefinition definition = source[index] ?? throw new ArgumentException("Property definition is required.", nameof(source));
+                    if (copy.ContainsKey(definition.Key)) throw new ArgumentException("Duplicate property definition.", nameof(source));
+                    copy.Add(definition.Key, definition);
+                }
             }
 
-            return Array.AsReadOnly(copy);
+            return new ReadOnlyDictionary<SafePropertyKey, EventPropertyDefinition>(copy);
         }
     }
 
@@ -461,6 +586,11 @@ namespace Odyssey.Application.Diagnostics
                 return Result.Failure(DiagnosticContractErrors.UnknownEventCode(correlationId));
             }
 
+            if (definition.MessageTemplateKey != logEvent.MessageTemplateKey || definition.OwnerSubsystem != logEvent.Subsystem)
+            {
+                return Result.Failure(DiagnosticContractErrors.UnregisteredProperty(correlationId));
+            }
+
             for (int index = 0; index < logEvent.SafeProperties.Count; index++)
             {
                 if (!definition.Allows(logEvent.SafeProperties[index]))
@@ -476,36 +606,37 @@ namespace Odyssey.Application.Diagnostics
         {
             return new EventCodeRegistry(new[]
             {
-                Define(OdysseyEventCodes.RuntimeStarting, "runtime", LogLevel.Information, "Runtime startup began.", Props(("phase", SafePropertyClassification.Operational))),
-                Define(OdysseyEventCodes.RuntimeReady, "runtime", LogLevel.Information, "Runtime reached Ready.", Props(("state", SafePropertyClassification.Operational), ("duration_ms", SafePropertyClassification.Duration))),
-                Define(OdysseyEventCodes.RuntimeStartupFailed, "runtime", LogLevel.Error, "Runtime startup failed safely.", Props(("phase", SafePropertyClassification.Operational), ("reason", SafePropertyClassification.Operational))),
-                Define(OdysseyEventCodes.RuntimeShutdownRequested, "runtime", LogLevel.Information, "Runtime shutdown was requested.", Props(("state", SafePropertyClassification.Operational))),
-                Define(OdysseyEventCodes.RuntimeShutdownCompleted, "runtime", LogLevel.Information, "Runtime shutdown completed.", Props(("duration_ms", SafePropertyClassification.Duration))),
-                Define(OdysseyEventCodes.DiagnosticsDroppedEvents, "diagnostics", LogLevel.Warning, "Diagnostics queue dropped lower-priority events under pressure.", Props(("dropped_count", SafePropertyClassification.Count), ("level", SafePropertyClassification.Operational))),
-                Define(OdysseyEventCodes.DiagnosticsSinkFailed, "diagnostics", LogLevel.Warning, "A diagnostics sink failed and fallback handled the event.", Props(("sink", SafePropertyClassification.Operational), ("diagnostic_id", SafePropertyClassification.TechnicalIdentifier))),
-                Define(OdysseyEventCodes.DiagnosticsProbe, "diagnostics", LogLevel.Information, "Developer Shell emitted a safe diagnostic probe.", Props(("probe", SafePropertyClassification.Operational))),
-                Define(OdysseyEventCodes.CrashMarkerDetected, "diagnostics", LogLevel.Warning, "A previous unfinished crash marker was detected.", Props(("marker", SafePropertyClassification.SanitizedPath))),
-                Define(OdysseyEventCodes.CrashMarkerCompleted, "diagnostics", LogLevel.Information, "The crash marker was completed during clean shutdown.", Props(("marker", SafePropertyClassification.SanitizedPath))),
-                Define(OdysseyEventCodes.DeveloperProbeAccepted, "developer", LogLevel.Information, "DeveloperShell probe command was accepted.", Props(("command_id", SafePropertyClassification.TechnicalIdentifier), ("result_status", SafePropertyClassification.Operational))),
-                Define(OdysseyEventCodes.DeveloperProbeRejected, "developer", LogLevel.Warning, "DeveloperShell probe command was rejected.", Props(("command_id", SafePropertyClassification.TechnicalIdentifier), ("result_status", SafePropertyClassification.Operational)))
+                Define(OdysseyEventCodes.AppStartupStarted, "app", LogLevel.Information, "log.app.startup.started", "Runtime startup began.", Props(("phase", DiagnosticDataClassification.OperationalSafe, SafeLogValueKind.Code))),
+                Define(OdysseyEventCodes.AppStartupCompleted, "app", LogLevel.Information, "log.app.startup.completed", "Runtime reached Ready.", Props(("state", DiagnosticDataClassification.OperationalSafe, SafeLogValueKind.Code), ("duration_ms", DiagnosticDataClassification.OperationalSafe, SafeLogValueKind.Duration))),
+                Define(OdysseyEventCodes.AppStartupFailed, "app", LogLevel.Error, "log.app.startup.failed", "Runtime startup failed safely.", Props(("phase", DiagnosticDataClassification.OperationalSafe, SafeLogValueKind.Code), ("reason", DiagnosticDataClassification.OperationalSafe, SafeLogValueKind.Code), ("diagnostic_id", DiagnosticDataClassification.OperationalSafe, SafeLogValueKind.TechnicalIdentifier))),
+                Define(OdysseyEventCodes.AppShutdownRequested, "app", LogLevel.Information, "log.app.shutdown.requested", "Runtime shutdown was requested.", Props(("state", DiagnosticDataClassification.OperationalSafe, SafeLogValueKind.Code))),
+                Define(OdysseyEventCodes.AppShutdownCompleted, "app", LogLevel.Information, "log.app.shutdown.completed", "Runtime shutdown completed.", Props(("duration_ms", DiagnosticDataClassification.OperationalSafe, SafeLogValueKind.Duration))),
+                Define(OdysseyEventCodes.AppBootstrapDuplicateRejected, "app", LogLevel.Warning, "log.app.bootstrap.duplicate_rejected", "Duplicate bootstrap attempt was rejected.", Props(("state", DiagnosticDataClassification.OperationalSafe, SafeLogValueKind.Code))),
+                Define(OdysseyEventCodes.DiagnosticsQueueEventsDropped, "diagnostics", LogLevel.Warning, "log.diagnostics.queue.events_dropped", "Diagnostics queue dropped lower-priority events under pressure.", Props(("trace_count", DiagnosticDataClassification.OperationalSafe, SafeLogValueKind.Integer), ("debug_count", DiagnosticDataClassification.OperationalSafe, SafeLogValueKind.Integer), ("information_count", DiagnosticDataClassification.OperationalSafe, SafeLogValueKind.Integer))),
+                Define(OdysseyEventCodes.DiagnosticsSinkWriteFailed, "diagnostics", LogLevel.Warning, "log.diagnostics.sink.write_failed", "A diagnostics sink failed and fallback handled the event.", Props(("sink", DiagnosticDataClassification.OperationalSafe, SafeLogValueKind.Code), ("diagnostic_id", DiagnosticDataClassification.OperationalSafe, SafeLogValueKind.TechnicalIdentifier))),
+                Define(OdysseyEventCodes.DiagnosticsProbeEmitted, "diagnostics", LogLevel.Information, "log.diagnostics.probe.emitted", "Developer Shell emitted a safe diagnostic probe.", Props(("probe", DiagnosticDataClassification.OperationalSafe, SafeLogValueKind.Code))),
+                Define(OdysseyEventCodes.DiagnosticsCrashPreviousUncleanDetected, "diagnostics", LogLevel.Warning, "log.diagnostics.crash.previous_unclean_detected", "A previous unfinished crash marker was detected.", Props(("marker", DiagnosticDataClassification.OperationalSafe, SafeLogValueKind.SanitizedPath))),
+                Define(OdysseyEventCodes.DiagnosticsCrashMarkerCompleted, "diagnostics", LogLevel.Information, "log.diagnostics.crash.marker_completed", "The crash marker was completed during clean shutdown.", Props(("marker", DiagnosticDataClassification.OperationalSafe, SafeLogValueKind.SanitizedPath))),
+                Define(OdysseyEventCodes.DiagnosticsIncidentUnexpected, "diagnostics", LogLevel.Error, "log.diagnostics.incident.unexpected", "An unexpected incident was recorded safely.", Props(("diagnostic_id", DiagnosticDataClassification.OperationalSafe, SafeLogValueKind.TechnicalIdentifier), ("incident_category", DiagnosticDataClassification.OperationalSafe, SafeLogValueKind.Code), ("repeat_count", DiagnosticDataClassification.OperationalSafe, SafeLogValueKind.Integer))),
+                Define(OdysseyEventCodes.DeveloperShellProbeAccepted, "developer", LogLevel.Information, "log.developer.shell.probe_accepted", "DeveloperShell probe command was accepted.", Props(("command_id", DiagnosticDataClassification.OperationalSafe, SafeLogValueKind.TechnicalIdentifier), ("result_status", DiagnosticDataClassification.OperationalSafe, SafeLogValueKind.Code))),
+                Define(OdysseyEventCodes.DeveloperShellProbeRejected, "developer", LogLevel.Warning, "log.developer.shell.probe_rejected", "DeveloperShell probe command was rejected.", Props(("command_id", DiagnosticDataClassification.OperationalSafe, SafeLogValueKind.TechnicalIdentifier), ("result_status", DiagnosticDataClassification.OperationalSafe, SafeLogValueKind.Code)))
             });
         }
 
-        private static EventCodeDefinition Define(EventCode code, string subsystem, LogLevel level, string purpose, IReadOnlyDictionary<SafePropertyKey, SafePropertyClassification> properties)
+        private static EventCodeDefinition Define(EventCode code, string subsystem, LogLevel level, string messageTemplateKey, string purpose, IReadOnlyList<EventPropertyDefinition> properties)
         {
-            List<SafePropertyKey> keys = new List<SafePropertyKey>(properties.Keys);
-            return new EventCodeDefinition(code, SubsystemName.Parse(subsystem), level, keys, properties, purpose, EventCodeStatus.Active);
+            return new EventCodeDefinition(code, SubsystemName.Parse(subsystem), level, MessageTemplateKey.Parse(messageTemplateKey), properties, purpose, EventCodeStatus.Active);
         }
 
-        private static IReadOnlyDictionary<SafePropertyKey, SafePropertyClassification> Props(params (string Key, SafePropertyClassification Classification)[] properties)
+        private static IReadOnlyList<EventPropertyDefinition> Props(params (string Key, DiagnosticDataClassification Classification, SafeLogValueKind Kind)[] properties)
         {
-            Dictionary<SafePropertyKey, SafePropertyClassification> result = new Dictionary<SafePropertyKey, SafePropertyClassification>();
+            EventPropertyDefinition[] result = new EventPropertyDefinition[properties.Length];
             for (int index = 0; index < properties.Length; index++)
             {
-                result.Add(SafePropertyKey.Parse(properties[index].Key), properties[index].Classification);
+                result[index] = new EventPropertyDefinition(SafePropertyKey.Parse(properties[index].Key), properties[index].Classification, properties[index].Kind);
             }
 
-            return result;
+            return Array.AsReadOnly(result);
         }
     }
 
@@ -540,40 +671,44 @@ namespace Odyssey.Application.Diagnostics
 
     public interface IOdysseyLogger
     {
-        bool IsEnabled(LogLevel level);
+        bool IsEnabled(LogLevel level, EventCode eventCode);
         void Write(LogEventV1 logEvent);
         void Write(LogLevel level, EventCode eventCode, SubsystemName subsystem, MessageTemplateKey messageTemplateKey, DiagnosticContext context, Func<IReadOnlyList<SafeLogProperty>>? safeProperties = null, ExceptionSummary? exceptionSummary = null);
     }
 
     public static class OdysseyEventCodes
     {
-        public static readonly EventCode RuntimeStarting = EventCode.Parse("runtime.starting");
-        public static readonly EventCode RuntimeReady = EventCode.Parse("runtime.ready");
-        public static readonly EventCode RuntimeStartupFailed = EventCode.Parse("runtime.startup_failed");
-        public static readonly EventCode RuntimeShutdownRequested = EventCode.Parse("runtime.shutdown_requested");
-        public static readonly EventCode RuntimeShutdownCompleted = EventCode.Parse("runtime.shutdown_completed");
-        public static readonly EventCode DiagnosticsDroppedEvents = EventCode.Parse("diagnostics.dropped_events");
-        public static readonly EventCode DiagnosticsSinkFailed = EventCode.Parse("diagnostics.sink_failed");
-        public static readonly EventCode DiagnosticsProbe = EventCode.Parse("diagnostics.probe");
-        public static readonly EventCode CrashMarkerDetected = EventCode.Parse("diagnostics.crash_marker_detected");
-        public static readonly EventCode CrashMarkerCompleted = EventCode.Parse("diagnostics.crash_marker_completed");
-        public static readonly EventCode DeveloperProbeAccepted = EventCode.Parse("developer.probe_accepted");
-        public static readonly EventCode DeveloperProbeRejected = EventCode.Parse("developer.probe_rejected");
+        public static readonly EventCode AppStartupStarted = EventCode.Parse("app.startup.started");
+        public static readonly EventCode AppStartupCompleted = EventCode.Parse("app.startup.completed");
+        public static readonly EventCode AppStartupFailed = EventCode.Parse("app.startup.failed");
+        public static readonly EventCode AppShutdownRequested = EventCode.Parse("app.shutdown.requested");
+        public static readonly EventCode AppShutdownCompleted = EventCode.Parse("app.shutdown.completed");
+        public static readonly EventCode AppBootstrapDuplicateRejected = EventCode.Parse("app.bootstrap.duplicate_rejected");
+        public static readonly EventCode DiagnosticsQueueEventsDropped = EventCode.Parse("diagnostics.queue.events_dropped");
+        public static readonly EventCode DiagnosticsSinkWriteFailed = EventCode.Parse("diagnostics.sink.write_failed");
+        public static readonly EventCode DiagnosticsProbeEmitted = EventCode.Parse("diagnostics.probe.emitted");
+        public static readonly EventCode DiagnosticsCrashPreviousUncleanDetected = EventCode.Parse("diagnostics.crash.previous_unclean_detected");
+        public static readonly EventCode DiagnosticsCrashMarkerCompleted = EventCode.Parse("diagnostics.crash.marker_completed");
+        public static readonly EventCode DiagnosticsIncidentUnexpected = EventCode.Parse("diagnostics.incident.unexpected");
+        public static readonly EventCode DeveloperShellProbeAccepted = EventCode.Parse("developer.shell.probe_accepted");
+        public static readonly EventCode DeveloperShellProbeRejected = EventCode.Parse("developer.shell.probe_rejected");
 
         public static IReadOnlyList<EventCode> ActiveCodes { get; } = Array.AsReadOnly(new[]
         {
-            RuntimeStarting,
-            RuntimeReady,
-            RuntimeStartupFailed,
-            RuntimeShutdownRequested,
-            RuntimeShutdownCompleted,
-            DiagnosticsDroppedEvents,
-            DiagnosticsSinkFailed,
-            DiagnosticsProbe,
-            CrashMarkerDetected,
-            CrashMarkerCompleted,
-            DeveloperProbeAccepted,
-            DeveloperProbeRejected
+            AppStartupStarted,
+            AppStartupCompleted,
+            AppStartupFailed,
+            AppShutdownRequested,
+            AppShutdownCompleted,
+            AppBootstrapDuplicateRejected,
+            DiagnosticsQueueEventsDropped,
+            DiagnosticsSinkWriteFailed,
+            DiagnosticsProbeEmitted,
+            DiagnosticsCrashPreviousUncleanDetected,
+            DiagnosticsCrashMarkerCompleted,
+            DiagnosticsIncidentUnexpected,
+            DeveloperShellProbeAccepted,
+            DeveloperShellProbeRejected
         });
     }
 
@@ -601,22 +736,11 @@ namespace Odyssey.Application.Diagnostics
         internal static string Sanitize(string value)
         {
             if (string.IsNullOrWhiteSpace(value)) throw new ArgumentException("Endpoint is required.", nameof(value));
-            int separator = value.IndexOf(':');
-            string host = separator >= 0 ? value.Substring(0, separator) : value;
-            if (host.Length > 12) host = host.Substring(0, 12);
-            return "endpoint:" + host.Length.ToString(System.Globalization.CultureInfo.InvariantCulture) + ":" + StableHash(value).ToString("x8", System.Globalization.CultureInfo.InvariantCulture);
-        }
-
-        private static uint StableHash(string value)
-        {
-            uint hash = 2166136261u;
-            for (int index = 0; index < value.Length; index++)
-            {
-                hash ^= value[index];
-                hash *= 16777619u;
-            }
-
-            return hash;
+            string lower = value.Trim().ToLowerInvariant();
+            if (lower.StartsWith("localhost", StringComparison.Ordinal) || lower.StartsWith("127.", StringComparison.Ordinal) || lower.StartsWith("[::1]", StringComparison.Ordinal) || lower.StartsWith("::1", StringComparison.Ordinal)) return "endpoint:loopback";
+            if (lower.StartsWith("10.", StringComparison.Ordinal) || lower.StartsWith("192.168.", StringComparison.Ordinal) || lower.StartsWith("172.16.", StringComparison.Ordinal) || lower.StartsWith("172.17.", StringComparison.Ordinal) || lower.StartsWith("172.18.", StringComparison.Ordinal) || lower.StartsWith("172.19.", StringComparison.Ordinal) || lower.StartsWith("172.2", StringComparison.Ordinal) || lower.StartsWith("172.30.", StringComparison.Ordinal) || lower.StartsWith("172.31.", StringComparison.Ordinal)) return "endpoint:local";
+            if (lower.Contains("relay")) return "endpoint:relay";
+            return "endpoint:unknown";
         }
     }
 
@@ -669,35 +793,6 @@ namespace Odyssey.Application.Diagnostics
             return true;
         }
 
-        internal static bool IsDottedUpperOrLowerIdentifier(string? value, int maxLength, int minSegments)
-        {
-            if (string.IsNullOrWhiteSpace(value) || value!.Length > maxLength || value.Trim() != value) return false;
-            string[] segments = value.Split('.');
-            if (segments.Length < minSegments) return false;
-            for (int index = 0; index < segments.Length; index++)
-            {
-                if (segments[index].Length == 0) return false;
-                for (int charIndex = 0; charIndex < segments[index].Length; charIndex++)
-                {
-                    char c = segments[index][charIndex];
-                    if (!char.IsLetterOrDigit(c) && c != '_' && c != '-') return false;
-                }
-            }
-
-            return true;
-        }
-
-        internal static bool IsSafeBoundedText(string? value, int maxLength)
-        {
-            if (string.IsNullOrWhiteSpace(value) || value!.Length > maxLength || value.Trim() != value) return false;
-            for (int index = 0; index < value.Length; index++)
-            {
-                if (char.IsControl(value[index])) return false;
-            }
-
-            return true;
-        }
-
         internal static bool IsSafeFingerprint(string? value, int maxLength)
         {
             if (string.IsNullOrWhiteSpace(value) || value!.Length > maxLength || value.Trim() != value) return false;
@@ -705,6 +800,17 @@ namespace Odyssey.Application.Diagnostics
             {
                 char c = value[index];
                 if (!((c >= 'a' && c <= 'z') || (c >= '0' && c <= '9') || c == '_' || c == '-' || c == ':')) return false;
+            }
+
+            return true;
+        }
+
+        internal static bool IsSafePurposeText(string? value, int maxLength)
+        {
+            if (string.IsNullOrWhiteSpace(value) || value!.Length > maxLength || value.Trim() != value) return false;
+            for (int index = 0; index < value.Length; index++)
+            {
+                if (char.IsControl(value[index])) return false;
             }
 
             return true;

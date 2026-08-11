@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using System.Reflection;
@@ -22,33 +23,52 @@ namespace Odyssey.Tests.Unit
             string registryPath = FindRepositoryFile("config/diagnostics/event-codes.json");
             using JsonDocument document = JsonDocument.Parse(File.ReadAllText(registryPath));
             JsonElement rows = document.RootElement.GetProperty("eventCodes");
+            HashSet<EventCode> jsonCodes = new HashSet<EventCode>();
 
             Assert.That(registry.Definitions.Count, Is.EqualTo(rows.GetArrayLength()));
             foreach (JsonElement row in rows.EnumerateArray())
             {
                 EventCode code = EventCode.Parse(row.GetProperty("eventCode").GetString()!);
+                jsonCodes.Add(code);
                 Assert.That(registry.Definitions.ContainsKey(code), Is.True, code.ToString());
                 EventCodeDefinition definition = registry.Definitions[code];
                 Assert.That(definition.OwnerSubsystem.ToString(), Is.EqualTo(row.GetProperty("ownerSubsystem").GetString()));
                 Assert.That(definition.DefaultLevel.ToString(), Is.EqualTo(row.GetProperty("defaultLogLevel").GetString()));
+                Assert.That(definition.MessageTemplateKey.ToString(), Is.EqualTo(row.GetProperty("messageTemplateKey").GetString()));
                 Assert.That(definition.Status.ToString(), Is.EqualTo(row.GetProperty("status").GetString()));
+                Assert.That(row.GetProperty("purpose").GetString(), Is.Not.Empty);
 
-                foreach (JsonElement property in row.GetProperty("allowedProperties").EnumerateArray())
+                JsonElement properties = row.GetProperty("allowedProperties");
+                Assert.That(definition.AllowedProperties.Count, Is.EqualTo(properties.GetArrayLength()), code.ToString());
+                foreach (JsonElement property in properties.EnumerateArray())
                 {
                     SafePropertyKey key = SafePropertyKey.Parse(property.GetProperty("key").GetString()!);
-                    Assert.That(definition.PropertyClassifications.ContainsKey(key), Is.True, key.ToString());
-                    Assert.That(definition.PropertyClassifications[key].ToString(), Is.EqualTo(property.GetProperty("classification").GetString()));
+                    Assert.That(definition.AllowedProperties.ContainsKey(key), Is.True, key.ToString());
+                    EventPropertyDefinition runtimeProperty = definition.AllowedProperties[key];
+                    Assert.That(runtimeProperty.Classification.ToString(), Is.EqualTo(property.GetProperty("classification").GetString()));
+                    Assert.That(runtimeProperty.ValueKind.ToString(), Is.EqualTo(property.GetProperty("valueKind").GetString()));
                 }
             }
 
-            LogEventV1 unknown = CreateEvent(EventCode.Parse("diagnostics.unknown"), Array.Empty<SafeLogProperty>());
+            Assert.That(registry.Definitions.Keys.All(jsonCodes.Contains), Is.True);
+            Assert.That(EventCode.TryParse("diagnostics.unknown.event", out EventCode unknownCode), Is.True);
+            LogEventV1 unknown = CreateEvent(unknownCode, Array.Empty<SafeLogProperty>());
             Assert.That(registry.Validate(unknown).IsFailure, Is.True);
 
-            LogEventV1 wrongProperty = CreateEvent(OdysseyEventCodes.DiagnosticsProbe, new[]
+            LogEventV1 wrongProperty = CreateEvent(OdysseyEventCodes.DiagnosticsProbeEmitted, new[]
             {
                 new SafeLogProperty(SafePropertyKey.Parse("unexpected"), SafeLogValue.Code("safe"))
             });
             Assert.That(registry.Validate(wrongProperty).IsFailure, Is.True);
+        }
+
+        [Test]
+        public void EventCodeAndMessageTemplateKeyUseDistinctCanonicalGrammars()
+        {
+            Assert.That(EventCode.TryParse("diagnostics.probe", out _), Is.False);
+            Assert.That(EventCode.TryParse("diagnostics.probe.emitted", out _), Is.True);
+            Assert.That(MessageTemplateKey.TryParse("diagnostics.probe.emitted", out _), Is.False);
+            Assert.That(MessageTemplateKey.TryParse("log.diagnostics.probe.emitted", out _), Is.True);
         }
 
         [Test]
@@ -76,14 +96,28 @@ namespace Odyssey.Tests.Unit
         }
 
         [Test]
-        public void BoundedTextAndSanitizersRemoveUnsafeDiagnosticDetail()
+        public void BoundedTextCountsUnicodeScalarsAndRejectsControlCharacters()
         {
-            string longText = new string('a', 300);
-            SafeLogValue value = SafeLogValue.BoundedText(longText);
-            Assert.That(value.WasTruncated, Is.True);
-            Assert.That(value.RenderedValue, Does.EndWith("[truncated]"));
-            Assert.That(value.RenderedValue.Length, Is.LessThanOrEqualTo(256));
+            SafeLogValue bmp = SafeLogValue.BoundedText("abcdef", 6);
+            SafeLogValue emoji = SafeLogValue.BoundedText("ab😀cd", 5);
+            SafeLogValue crossingBoundary = SafeLogValue.BoundedText("abcdefghij😀klm", 12);
 
+            Assert.That(bmp.OriginalScalarCount, Is.EqualTo(6));
+            Assert.That(emoji.OriginalScalarCount, Is.EqualTo(5));
+            Assert.That(crossingBoundary.WasTruncated, Is.True);
+            Assert.That(crossingBoundary.RenderedValue, Does.Not.Contain("\ud83d"));
+            Assert.That(crossingBoundary.RenderedValue, Does.EndWith("[truncated]"));
+            Assert.That(crossingBoundary.RenderedValue.Length, Is.LessThanOrEqualTo(12));
+            Assert.That(SafeLogValue.BoundedText(new string('a', 300)).RenderedValue, Does.EndWith("[truncated]"));
+            Action newline = () => SafeLogValue.BoundedText("line\nbreak");
+            Action nullCharacter = () => SafeLogValue.BoundedText("null\0break");
+            Assert.Throws<ArgumentException>(newline);
+            Assert.Throws<ArgumentException>(nullCharacter);
+        }
+
+        [Test]
+        public void SanitizersRemoveUnsafeDiagnosticDetail()
+        {
             string sanitizedPath = DiagnosticSanitizers.SanitizePath(@"C:\Users\alexx\secret-token\campaign.db");
             Assert.That(sanitizedPath, Is.EqualTo("path:campaign.db"));
             Assert.That(sanitizedPath, Does.Not.Contain("alexx"));
@@ -91,9 +125,20 @@ namespace Odyssey.Tests.Unit
             Assert.That(sanitizedPath, Does.Not.Contain(@"C:\"));
 
             string endpoint = DiagnosticSanitizers.SanitizeEndpoint("relay.private.example.test:443");
-            Assert.That(endpoint, Does.StartWith("endpoint:"));
+            string endpointAgain = DiagnosticSanitizers.SanitizeEndpoint("relay.private.example.test:443");
+            Assert.That(endpoint, Is.EqualTo("endpoint:relay"));
+            Assert.That(endpointAgain, Is.EqualTo(endpoint));
             Assert.That(endpoint, Does.Not.Contain("relay.private.example.test"));
             Assert.That(endpoint, Does.Not.Contain("443"));
+            Assert.That(endpoint, Does.Not.Contain("hash"));
+        }
+
+        [Test]
+        public void SecretAndHiddenDiagnosticPropertiesAreRejectedBeforeRegistryValidation()
+        {
+            EventCodeDefinition definition = EventCodeRegistry.CreateDefault().Definitions[OdysseyEventCodes.DiagnosticsProbeEmitted];
+            SafeLogProperty secret = new SafeLogProperty(SafePropertyKey.Parse("probe"), SafeLogValue.SecretCandidateForRejection("super-secret-token"));
+            Assert.That(definition.Allows(secret), Is.False);
         }
 
         [Test]
@@ -108,7 +153,7 @@ namespace Odyssey.Tests.Unit
             Assert.That(diagnosticId.ToString(), Does.StartWith("diag_"));
 
             Error error = Error.Create(
-                ErrorCodes.ApplicationInternalUnexpected,
+                ErrorCodes.ApplicationBootstrapUnexpected,
                 ErrorCategory.Internal,
                 SafeReasonCode.UnexpectedError,
                 UserMessageKey.Parse("errors.runtime.unexpected_startup_failure"),
@@ -129,7 +174,7 @@ namespace Odyssey.Tests.Unit
                 SubsystemName.Parse("diagnostics"),
                 BuildIdAvailability.UnavailableNotYetComposed,
                 ProcessInstanceId.Parse("proc_0123456789abcdef0123456789abcdef"),
-                MessageTemplateKey.Parse("diagnostics.probe"),
+                MessageTemplateKey.Parse("log.diagnostics.probe.emitted"),
                 properties,
                 CorrelationId.Parse("corr_0123456789abcdef0123456789abcdef"));
         }

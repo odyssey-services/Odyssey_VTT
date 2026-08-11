@@ -1,124 +1,147 @@
 using System;
+using System.Collections.Generic;
 using System.Text;
 using Odyssey.Application.Commands;
 using Odyssey.Application.Diagnostics;
 using Odyssey.Application.Results;
-using UnityEngine;
 using UnityEngine.UIElements;
 
 namespace Odyssey.Unity.Client
 {
-    [RequireComponent(typeof(UIDocument))]
-    public sealed class DeveloperShellPresenter : MonoBehaviour
+    public interface IDeveloperShellFacade
     {
-        private UIDocument? _document;
-        private AppRuntime? _runtime;
-        private PresentationRuntime? _presentationRuntime;
+        OdysseyRuntimeState RuntimeState { get; }
+        OdysseyRuntimeProfile RuntimeProfile { get; }
+        BuildIdAvailability BuildIdentityAvailability { get; }
+        Result<CommandResult> RunAcceptedProbe();
+        Result<CommandResult> RunRejectedProbe();
+        void EmitDiagnosticProbe();
+        IReadOnlyList<LogEventV1> GetRecentDiagnostics();
+        void RequestShutdown();
+    }
+
+    public sealed class DeveloperShellPresenter : IDisposable
+    {
+        private readonly UIDocument _document;
+        private readonly IDeveloperShellFacade _facade;
+        private readonly PresentationRuntime _presentationRuntime;
         private Label? _state;
+        private Label? _profile;
+        private Label? _buildIdentity;
         private Label? _result;
         private Label? _diagnostics;
+        private bool _disposed;
 
-        public bool IsBound => _runtime != null;
-        public PresentationRuntime? PresentationRuntime => _presentationRuntime;
-
-        public void Bind(AppRuntime runtime)
+        public DeveloperShellPresenter(UIDocument document, IDeveloperShellFacade facade, PresentationRuntime presentationRuntime)
         {
-            _runtime = runtime ?? throw new ArgumentNullException(nameof(runtime));
-            _presentationRuntime = new PresentationRuntime();
-            _runtime.AttachPresentationRuntime(_presentationRuntime);
-            BuildView();
-            Refresh();
+            _document = document ?? throw new ArgumentNullException(nameof(document));
+            _facade = facade ?? throw new ArgumentNullException(nameof(facade));
+            _presentationRuntime = presentationRuntime ?? throw new ArgumentNullException(nameof(presentationRuntime));
         }
 
-        private void Awake()
+        public Result Initialize()
         {
-            _document = GetComponent<UIDocument>();
-            BuildView();
-            SetStateText(OdysseyRuntimeState.Starting);
+            try
+            {
+                BuildView();
+                Refresh();
+                return Result.Success();
+            }
+            catch
+            {
+                return Result.Failure(RuntimeErrors.CompositionInvalid());
+            }
         }
 
-        private void OnDestroy()
+        public void Dispose()
         {
-            _presentationRuntime?.Dispose();
-            _presentationRuntime = null;
+            if (_disposed) return;
+            _presentationRuntime.Dispose();
+            _disposed = true;
         }
 
         private void BuildView()
         {
-            if (_document == null) _document = GetComponent<UIDocument>();
             VisualElement root = _document.rootVisualElement;
             VisualElement appRoot = root.Q<VisualElement>("odyssey-root") ?? root;
             appRoot.Clear();
             appRoot.AddToClassList("app-root");
 
             Label title = new Label("Odyssey Developer Shell");
+            title.name = "shell-title";
             title.AddToClassList("shell-title");
             appRoot.Add(title);
 
-            _state = new Label();
+            _state = new Label { name = "runtime-state" };
             _state.AddToClassList("shell-state");
             appRoot.Add(_state);
 
+            _profile = new Label { name = "runtime-profile" };
+            appRoot.Add(_profile);
+            _buildIdentity = new Label { name = "build-identity" };
+            appRoot.Add(_buildIdentity);
+
             VisualElement actions = new VisualElement();
             actions.AddToClassList("shell-actions");
-            Button probe = new Button(ExecuteProbe) { text = "Probe" };
-            Button diagnostic = new Button(EmitDiagnostic) { text = "Diagnostic" };
-            Button shutdown = new Button(RequestShutdown) { text = "Shutdown" };
-            actions.Add(probe);
-            actions.Add(diagnostic);
-            actions.Add(shutdown);
+            AddButton(actions, "accepted-probe-button", "Run Accepted Probe", ExecuteAcceptedProbe);
+            AddButton(actions, "rejected-probe-button", "Run Rejected Probe", ExecuteRejectedProbe);
+            AddButton(actions, "diagnostic-button", "Emit Diagnostic", EmitDiagnostic);
+            AddButton(actions, "shutdown-button", "Shutdown", RequestShutdown);
             appRoot.Add(actions);
 
-            _result = new Label();
+            _result = new Label { name = "shell-result" };
             _result.AddToClassList("shell-result");
             appRoot.Add(_result);
 
-            _diagnostics = new Label();
+            _diagnostics = new Label { name = "shell-diagnostics" };
             _diagnostics.AddToClassList("shell-diagnostics");
             appRoot.Add(_diagnostics);
         }
 
-        private void ExecuteProbe()
+        private void AddButton(VisualElement parent, string name, string text, Action handler)
         {
-            if (_runtime == null) return;
-            Result<CommandResult> result = _runtime.ExecuteDeveloperProbe();
-            if (result.IsSuccess)
-            {
-                _result!.text = "Probe: " + result.Value.Status;
-            }
-            else
-            {
-                _result!.text = "Probe: Rejected " + result.Error.SafeReasonCode;
-            }
+            Button button = new Button { name = name, text = text };
+            button.userData = handler;
+            button.clicked += handler;
+            _presentationRuntime.AddSubscription(new ButtonSubscription(button, handler));
+            parent.Add(button);
+        }
 
+        private void ExecuteAcceptedProbe()
+        {
+            Result<CommandResult> result = _facade.RunAcceptedProbe();
+            _result!.text = result.IsSuccess ? "Accepted Probe: " + result.Value.Status : "Accepted Probe: " + result.Error.SafeReasonCode;
+            Refresh();
+        }
+
+        private void ExecuteRejectedProbe()
+        {
+            Result<CommandResult> result = _facade.RunRejectedProbe();
+            _result!.text = result.IsSuccess ? "Rejected Probe: " + result.Value.Status : "Rejected Probe: " + result.Error.SafeReasonCode;
             Refresh();
         }
 
         private void EmitDiagnostic()
         {
-            _runtime?.EmitDiagnosticProbe();
+            _facade.EmitDiagnosticProbe();
+            _result!.text = "Diagnostic: emitted";
             Refresh();
         }
 
         private void RequestShutdown()
         {
-            if (_runtime == null) return;
             SetStateText(OdysseyRuntimeState.ShuttingDown);
-            _runtime.Shutdown();
+            _facade.RequestShutdown();
             Refresh();
         }
 
-        private void Refresh()
+        public void Refresh()
         {
-            if (_runtime == null)
-            {
-                SetStateText(OdysseyRuntimeState.Starting);
-                return;
-            }
-
-            SetStateText(_runtime.State);
+            SetStateText(_facade.RuntimeState);
+            _profile!.text = "Runtime profile: " + _facade.RuntimeProfile;
+            _buildIdentity!.text = "Build identity: " + (_facade.BuildIdentityAvailability == BuildIdAvailability.Available ? "available" : "unavailable");
             StringBuilder builder = new StringBuilder();
-            foreach (LogEventV1 logEvent in _runtime.RingBuffer.Snapshot())
+            foreach (LogEventV1 logEvent in _facade.GetRecentDiagnostics())
             {
                 builder.Append(logEvent.Level).Append("  ").Append(logEvent.EventCode).Append('\n');
             }
@@ -128,9 +151,26 @@ namespace Odyssey.Unity.Client
 
         private void SetStateText(OdysseyRuntimeState state)
         {
-            if (_state != null)
+            if (_state != null) _state.text = "State: " + state;
+        }
+
+        private sealed class ButtonSubscription : IDisposable
+        {
+            private readonly Button _button;
+            private readonly Action _handler;
+            private bool _disposed;
+
+            public ButtonSubscription(Button button, Action handler)
             {
-                _state.text = "State: " + state;
+                _button = button;
+                _handler = handler;
+            }
+
+            public void Dispose()
+            {
+                if (_disposed) return;
+                _button.clicked -= _handler;
+                _disposed = true;
             }
         }
     }
