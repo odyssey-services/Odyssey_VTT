@@ -94,7 +94,7 @@ PLANS.md
 docs/tasks/TASK_TEMPLATE.md
 docs/tasks/SLICE-00_BACKLOG.md
 docs/tasks/active/ODY-S00-000_SLICE_00_Technical_Skeleton.md
-docs/tasks/active/ODY-S00-005_Command_Event_Clock_and_RNG_Contracts.md
+docs/tasks/active/ODY-S00-006_Runtime_Composition_and_Diagnostic_Shell.md
 docs/plans/active/ODY-S00-000_SLICE_00_Technical_Skeleton.md
 docs/adr/ADR-001_Module_Boundaries_and_Dependency_Direction_v1.0.md
 docs/adr/ADR-002_Command_and_Domain_Event_Model_v1.0.md
@@ -124,7 +124,7 @@ docs/adr/ADR-010_Logging_Diagnostics_and_Redaction_v1.0.md
 
 `docs/plans/active/ODY-S00-000_SLICE_00_Technical_Skeleton.md` является living ExecPlan для исполнения `SLICE-00`. Он ведёт milestones, progress, decisions, deviations, evidence, recovery и blockers; до начала разработки имеет статус Draft и не является доказательством выполнения кода или тестов.
 
-`docs/tasks/active/ODY-S00-005_Command_Event_Clock_and_RNG_Contracts.md` является текущей active task исполнения Command, Event, Clock and RNG Contracts. Она ограничена minimal deterministic command/event/idempotency contracts, one synthetic in-memory test operation, injected clock/scheduler contracts, ADR-008 RNG contract vectors, repository guards, and pure .NET/Unity compatibility tests; она прямо запрещает SQLite, network transports, serialization DTO/upcaster/source-generated context work, runtime composition, diagnostics runtime, gameplay behavior, Unity project/package baseline changes, GitHub Actions, Player build automation, and any ODY-S00-006+ implementation inside this PR.
+`docs/tasks/active/ODY-S00-006_Runtime_Composition_and_Diagnostic_Shell.md` является текущей active task исполнения Runtime Composition and Diagnostic Shell. Она ограничена one Unity Client production composition root, explicit process/presentation lifecycle, minimal Developer Shell, Application-owned structured diagnostics baseline, allowlisted/redacted diagnostic events, bounded in-memory diagnostic visibility, development/editor Unity Console adapter where appropriate, minimal crash marker baseline, and lifecycle/diagnostic tests; она прямо запрещает ODY-S00-007 serialization work, SQLite, real Persistence/Networking runtime, telemetry, BuildIdentity generation, GitHub Actions, Player/IL2CPP build, gameplay behavior, Unity package/version baseline changes, and any product UI commitments.
 
 `docs/adr/ADR-001_Module_Boundaries_and_Dependency_Direction_v1.0.md` является принятым authority по module ownership, compile-time dependency graph, ports/adapters и assembly enforcement. Его точная матрица заменяет предварительные формулировки `limited contracts` в Technical Development Baseline.
 
