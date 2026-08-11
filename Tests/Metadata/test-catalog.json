@@ -231,6 +231,294 @@
       "runner": "dotnet test",
       "path": "DotNet/Tests/Odyssey.Tests.Unit/CommandEventClockRngContractTests.cs",
       "check": "canonical ADR-008 message, StreamId, SeedCommitment, draw accounting, and zero-state fallback evidence"
+    },
+    {
+      "testCaseId": "TC-CMP-001",
+      "taskId": "ODY-S00-006",
+      "authority": "ADR-005; ODY-S00-006 AC-1/AC-2",
+      "runner": "Unity EditMode",
+      "path": "Assets/Odyssey/Client/Tests/EditMode/RuntimeCompositionAndDiagnosticsTests.cs",
+      "check": "minimal process graph starts Ready with one AppRuntime"
+    },
+    {
+      "testCaseId": "TC-CMP-002",
+      "taskId": "ODY-S00-006",
+      "authority": "ADR-005; ODY-S00-006 AC-3",
+      "runner": "Unity EditMode",
+      "path": "Assets/Odyssey/Client/Tests/EditMode/RuntimeCompositionAndDiagnosticsTests.cs",
+      "check": "invalid bootstrap configuration returns safe failure"
+    },
+    {
+      "testCaseId": "TC-CMP-003",
+      "taskId": "ODY-S00-006",
+      "authority": "ADR-005; ODY-S00-006 AC-3/AC-4",
+      "runner": "Unity EditMode",
+      "path": "Assets/Odyssey/Client/Tests/EditMode/RuntimeCompositionAndDiagnosticsTests.cs",
+      "check": "startup failure cleans partial resources"
+    },
+    {
+      "testCaseId": "TC-CMP-004",
+      "taskId": "ODY-S00-006",
+      "authority": "ADR-005; ODY-S00-006 AC-1",
+      "runner": "Unity EditMode",
+      "path": "Assets/Odyssey/Client/Tests/EditMode/RuntimeCompositionAndDiagnosticsTests.cs",
+      "check": "duplicate bootstrap is rejected"
+    },
+    {
+      "testCaseId": "TC-CMP-009",
+      "taskId": "ODY-S00-006",
+      "authority": "ADR-005; ODY-S00-006 AC-4",
+      "runner": "Unity EditMode",
+      "path": "Assets/Odyssey/Client/Tests/EditMode/RuntimeCompositionAndDiagnosticsTests.cs",
+      "check": "presentation runtime unload disposes presentation resources"
+    },
+    {
+      "testCaseId": "TC-CMP-010",
+      "taskId": "ODY-S00-006",
+      "authority": "ADR-005; ODY-S00-006 AC-4",
+      "runner": "Unity EditMode",
+      "path": "Assets/Odyssey/Client/Tests/EditMode/RuntimeCompositionAndDiagnosticsTests.cs",
+      "check": "shutdown is idempotent"
+    },
+    {
+      "testCaseId": "TC-CMP-011",
+      "taskId": "ODY-S00-006",
+      "authority": "ADR-005; ODY-S00-006 AC-3",
+      "runner": "Unity EditMode",
+      "path": "Assets/Odyssey/Client/Tests/EditMode/RuntimeCompositionAndDiagnosticsTests.cs",
+      "check": "cancelled startup returns safe cancelled failure"
+    },
+    {
+      "testCaseId": "TC-CMP-015",
+      "taskId": "ODY-S00-006",
+      "authority": "ADR-005; ODY-S00-006 AC-8",
+      "runner": "Unity EditMode",
+      "path": "Assets/Odyssey/Client/Tests/EditMode/RuntimeCompositionAndDiagnosticsTests.cs",
+      "check": "explicit test adapter override preserves deterministic defaults"
+    },
+    {
+      "testCaseId": "TC-CMP-016",
+      "taskId": "ODY-S00-006",
+      "authority": "ADR-005; ODY-S00-006 AC-16",
+      "runner": "Unity EditMode",
+      "path": "Assets/Odyssey/Client/Tests/EditMode/RuntimeCompositionAndDiagnosticsTests.cs",
+      "check": "production profile rejects developer fake adapters"
+    },
+    {
+      "testCaseId": "TC-CMP-018",
+      "taskId": "ODY-S00-006",
+      "authority": "ADR-005; ODY-S00-006 AC-1",
+      "runner": "PowerShell",
+      "path": "scripts/verify-test-structure.ps1",
+      "check": "composition guard rejects service locator and DI container patterns"
+    },
+    {
+      "testCaseId": "TC-CMP-020",
+      "taskId": "ODY-S00-006",
+      "authority": "ADR-005; ODY-S00-006 AC-4",
+      "runner": "Unity EditMode",
+      "path": "Assets/Odyssey/Client/Tests/EditMode/RuntimeCompositionAndDiagnosticsTests.cs",
+      "check": "shutdown while presentation runtime active respects ownership order"
+    },
+    {
+      "testCaseId": "TC-DIAG-002",
+      "taskId": "ODY-S00-006",
+      "authority": "ADR-010; ODY-S00-006 AC-12",
+      "runner": "Unity EditMode",
+      "path": "Assets/Odyssey/Client/Tests/EditMode/RuntimeCompositionAndDiagnosticsTests.cs",
+      "check": "disabled Debug event does not evaluate lazy property"
+    },
+    {
+      "testCaseId": "TC-DIAG-003",
+      "taskId": "ODY-S00-006",
+      "authority": "ADR-010; ODY-S00-006 AC-9",
+      "runner": "dotnet test",
+      "path": "DotNet/Tests/Odyssey.Tests.Unit/DiagnosticsContractTests.cs",
+      "check": "unknown EventCode is rejected by registry"
+    },
+    {
+      "testCaseId": "TC-DIAG-004",
+      "taskId": "ODY-S00-006",
+      "authority": "ADR-010; ODY-S00-006 AC-10",
+      "runner": "dotnet test",
+      "path": "DotNet/Tests/Odyssey.Tests.Unit/DiagnosticsContractTests.cs",
+      "check": "safe property API exposes no arbitrary object or exception payload"
+    },
+    {
+      "testCaseId": "TC-DIAG-005",
+      "taskId": "ODY-S00-006",
+      "authority": "ADR-010; ODY-S00-006 AC-10",
+      "runner": "dotnet test",
+      "path": "DotNet/Tests/Odyssey.Tests.Unit/DiagnosticsContractTests.cs",
+      "check": "safe bounded string truncates with marker"
+    },
+    {
+      "testCaseId": "TC-DIAG-006",
+      "taskId": "ODY-S00-006",
+      "authority": "ADR-010; ODY-S00-006 AC-10/AC-11",
+      "runner": "Unity EditMode",
+      "path": "Assets/Odyssey/Client/Tests/EditMode/RuntimeCompositionAndDiagnosticsTests.cs",
+      "check": "secret fixture absent from memory sink"
+    },
+    {
+      "testCaseId": "TC-DIAG-011",
+      "taskId": "ODY-S00-006",
+      "authority": "ADR-010; ODY-S00-006 AC-10",
+      "runner": "dotnet test",
+      "path": "DotNet/Tests/Odyssey.Tests.Unit/DiagnosticsContractTests.cs",
+      "check": "absolute Windows path is sanitized"
+    },
+    {
+      "testCaseId": "TC-DIAG-012",
+      "taskId": "ODY-S00-006",
+      "authority": "ADR-010; ODY-S00-006 AC-10",
+      "runner": "dotnet test",
+      "path": "DotNet/Tests/Odyssey.Tests.Unit/DiagnosticsContractTests.cs",
+      "check": "Windows username absent from path representation"
+    },
+    {
+      "testCaseId": "TC-DIAG-013",
+      "taskId": "ODY-S00-006",
+      "authority": "ADR-010; ODY-S00-006 AC-10",
+      "runner": "dotnet test",
+      "path": "DotNet/Tests/Odyssey.Tests.Unit/DiagnosticsContractTests.cs",
+      "check": "network endpoint representation is generalized"
+    },
+    {
+      "testCaseId": "TC-DIAG-015",
+      "taskId": "ODY-S00-006",
+      "authority": "ADR-010; ODY-S00-006 AC-7",
+      "runner": "dotnet test",
+      "path": "DotNet/Tests/Odyssey.Tests.Unit/DiagnosticsContractTests.cs",
+      "check": "CommandId remains distinct from CorrelationId"
+    },
+    {
+      "testCaseId": "TC-DIAG-016",
+      "taskId": "ODY-S00-006",
+      "authority": "ADR-010; ODY-S00-006 AC-13",
+      "runner": "dotnet test",
+      "path": "DotNet/Tests/Odyssey.Tests.Unit/DiagnosticsContractTests.cs",
+      "check": "unexpected exception boundary can attach DiagnosticId"
+    },
+    {
+      "testCaseId": "TC-DIAG-017",
+      "taskId": "ODY-S00-006",
+      "authority": "ADR-004; ADR-010; ODY-S00-006 AC-13",
+      "runner": "dotnet test",
+      "path": "DotNet/Tests/Odyssey.Tests.Unit/DiagnosticsContractTests.cs",
+      "check": "public Error contains no stack trace or raw exception text"
+    },
+    {
+      "testCaseId": "TC-DIAG-018",
+      "taskId": "ODY-S00-006",
+      "authority": "ADR-010; ODY-S00-006 AC-13",
+      "runner": "Unity EditMode",
+      "path": "Assets/Odyssey/Client/Tests/EditMode/RuntimeCompositionAndDiagnosticsTests.cs",
+      "check": "sink failure fallback avoids recursive duplicate exception recording"
+    },
+    {
+      "testCaseId": "TC-DIAG-019",
+      "taskId": "ODY-S00-006",
+      "authority": "ADR-010; ODY-S00-006 AC-12",
+      "runner": "Unity EditMode",
+      "path": "Assets/Odyssey/Client/Tests/EditMode/RuntimeCompositionAndDiagnosticsTests.cs",
+      "check": "diagnostic queue accepts events without corruption"
+    },
+    {
+      "testCaseId": "TC-DIAG-020",
+      "taskId": "ODY-S00-006",
+      "authority": "ADR-010; ODY-S00-006 AC-12",
+      "runner": "Unity EditMode",
+      "path": "Assets/Odyssey/Client/Tests/EditMode/RuntimeCompositionAndDiagnosticsTests.cs",
+      "check": "queue drops Information before Warning under pressure"
+    },
+    {
+      "testCaseId": "TC-DIAG-021",
+      "taskId": "ODY-S00-006",
+      "authority": "ADR-010; ODY-S00-006 AC-12",
+      "runner": "Unity EditMode",
+      "path": "Assets/Odyssey/Client/Tests/EditMode/RuntimeCompositionAndDiagnosticsTests.cs",
+      "check": "drop counters are tracked after pressure recovery"
+    },
+    {
+      "testCaseId": "TC-DIAG-022",
+      "taskId": "ODY-S00-006",
+      "authority": "ADR-010; ODY-S00-006 AC-12",
+      "runner": "Unity EditMode",
+      "path": "Assets/Odyssey/Client/Tests/EditMode/RuntimeCompositionAndDiagnosticsTests.cs",
+      "check": "Warning uses emergency fallback when priority path is unavailable"
+    },
+    {
+      "testCaseId": "TC-DIAG-023",
+      "taskId": "ODY-S00-006",
+      "authority": "ADR-010; ODY-S00-006 AC-12",
+      "runner": "Unity EditMode",
+      "path": "Assets/Odyssey/Client/Tests/EditMode/RuntimeCompositionAndDiagnosticsTests.cs",
+      "check": "sink failure does not recurse infinitely"
+    },
+    {
+      "testCaseId": "TC-DIAG-024",
+      "taskId": "ODY-S00-006",
+      "authority": "ADR-010; ODY-S00-006 AC-12",
+      "runner": "Unity EditMode",
+      "path": "Assets/Odyssey/Client/Tests/EditMode/RuntimeCompositionAndDiagnosticsTests.cs",
+      "check": "logger failure does not change successful probe result"
+    },
+    {
+      "testCaseId": "TC-DIAG-025",
+      "taskId": "ODY-S00-006",
+      "authority": "ADR-010; ODY-S00-006 AC-12",
+      "runner": "Unity EditMode",
+      "path": "Assets/Odyssey/Client/Tests/EditMode/RuntimeCompositionAndDiagnosticsTests.cs",
+      "check": "normal shutdown drains diagnostic queue within bounded path"
+    },
+    {
+      "testCaseId": "TC-DIAG-026",
+      "taskId": "ODY-S00-006",
+      "authority": "ADR-010; ODY-S00-006 AC-12",
+      "runner": "Unity EditMode",
+      "path": "Assets/Odyssey/Client/Tests/EditMode/RuntimeCompositionAndDiagnosticsTests.cs",
+      "check": "fatal bounded shutdown path does not wait indefinitely"
+    },
+    {
+      "testCaseId": "TC-DIAG-027",
+      "taskId": "ODY-S00-006",
+      "authority": "ADR-010; ODY-S00-006 AC-14",
+      "runner": "Unity EditMode",
+      "path": "Assets/Odyssey/Client/Tests/EditMode/RuntimeCompositionAndDiagnosticsTests.cs",
+      "check": "crash marker detected on next startup"
+    },
+    {
+      "testCaseId": "TC-DIAG-028",
+      "taskId": "ODY-S00-006",
+      "authority": "ADR-010; ODY-S00-006 AC-14",
+      "runner": "Unity EditMode",
+      "path": "Assets/Odyssey/Client/Tests/EditMode/RuntimeCompositionAndDiagnosticsTests.cs",
+      "check": "clean shutdown clears crash marker"
+    },
+    {
+      "testCaseId": "TC-DIAG-046",
+      "taskId": "ODY-S00-006",
+      "authority": "ADR-001; ADR-010; ODY-S00-006 AC-15",
+      "runner": "PowerShell",
+      "path": "scripts/verify-test-structure.ps1",
+      "check": "Domain and Rules have no diagnostics dependency"
+    },
+    {
+      "testCaseId": "TC-DIAG-051",
+      "taskId": "ODY-S00-006",
+      "authority": "ADR-010; ODY-S00-006 AC-11",
+      "runner": "Unity EditMode",
+      "path": "Assets/Odyssey/Client/Tests/EditMode/RuntimeCompositionAndDiagnosticsTests.cs",
+      "check": "ring buffer count and byte capacity evicts oldest events"
+    },
+    {
+      "testCaseId": "TC-UNITY-SHELL-001",
+      "taskId": "ODY-S00-006",
+      "authority": "ADR-005; ADR-009; ODY-S00-006 AC-5/AC-6",
+      "runner": "Unity EditMode",
+      "path": "Assets/Odyssey/Client/Tests/EditMode/RuntimeCompositionAndDiagnosticsTests.cs",
+      "check": "Developer Shell presenter binds runtime and exposes lifecycle state"
     }
   ]
 }

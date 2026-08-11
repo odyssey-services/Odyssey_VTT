@@ -6,7 +6,7 @@ Set-StrictMode -Version Latest
 $ErrorActionPreference = 'Stop'
 
 $repoRoot = Resolve-Path (Join-Path $PSScriptRoot '..')
-$logDir = Join-Path $repoRoot 'Logs/ODY-S00-005'
+$logDir = Join-Path $repoRoot 'Logs/ODY-S00-006'
 $fallbackUnityEditorPath = 'C:\Program Files\Unity\Hub\Editor\6000.4.0f1\Editor\Unity.exe'
 
 if ([string]::IsNullOrWhiteSpace($UnityEditorPath)) {

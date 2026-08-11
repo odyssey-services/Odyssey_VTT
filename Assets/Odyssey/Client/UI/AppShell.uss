@@ -1,1 +1,54 @@
-.app-root { flex-grow: 1; background-color: rgb(18, 20, 24); }
+.app-root {
+    flex-grow: 1;
+    background-color: rgb(18, 20, 24);
+    color: rgb(230, 235, 241);
+    padding-left: 32px;
+    padding-right: 32px;
+    padding-top: 28px;
+    padding-bottom: 28px;
+}
+
+.shell-title {
+    font-size: 28px;
+    unity-font-style: bold;
+    margin-bottom: 16px;
+}
+
+.shell-state {
+    font-size: 18px;
+    margin-bottom: 16px;
+}
+
+.shell-actions {
+    flex-direction: row;
+    margin-bottom: 16px;
+}
+
+.shell-actions Button {
+    min-width: 112px;
+    height: 34px;
+    margin-right: 8px;
+}
+
+.shell-result {
+    min-height: 28px;
+    margin-bottom: 12px;
+}
+
+.shell-diagnostics {
+    flex-grow: 1;
+    white-space: normal;
+    background-color: rgb(28, 32, 38);
+    border-left-width: 1px;
+    border-right-width: 1px;
+    border-top-width: 1px;
+    border-bottom-width: 1px;
+    border-left-color: rgb(68, 76, 88);
+    border-right-color: rgb(68, 76, 88);
+    border-top-color: rgb(68, 76, 88);
+    border-bottom-color: rgb(68, 76, 88);
+    padding-left: 12px;
+    padding-right: 12px;
+    padding-top: 12px;
+    padding-bottom: 12px;
+}

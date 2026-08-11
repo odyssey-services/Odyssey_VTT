@@ -63,7 +63,43 @@ $requiredTestCaseIds = @(
     'TC-RNG-002',
     'TC-RNG-003',
     'TC-RNG-004',
-    'TC-RNG-005'
+    'TC-RNG-005',
+    'TC-CMP-001',
+    'TC-CMP-002',
+    'TC-CMP-003',
+    'TC-CMP-004',
+    'TC-CMP-009',
+    'TC-CMP-010',
+    'TC-CMP-011',
+    'TC-CMP-015',
+    'TC-CMP-016',
+    'TC-CMP-018',
+    'TC-CMP-020',
+    'TC-DIAG-002',
+    'TC-DIAG-003',
+    'TC-DIAG-004',
+    'TC-DIAG-005',
+    'TC-DIAG-006',
+    'TC-DIAG-011',
+    'TC-DIAG-012',
+    'TC-DIAG-013',
+    'TC-DIAG-015',
+    'TC-DIAG-016',
+    'TC-DIAG-017',
+    'TC-DIAG-018',
+    'TC-DIAG-019',
+    'TC-DIAG-020',
+    'TC-DIAG-021',
+    'TC-DIAG-022',
+    'TC-DIAG-023',
+    'TC-DIAG-024',
+    'TC-DIAG-025',
+    'TC-DIAG-026',
+    'TC-DIAG-027',
+    'TC-DIAG-028',
+    'TC-DIAG-046',
+    'TC-DIAG-051',
+    'TC-UNITY-SHELL-001'
 )
 $testProjects = @('Odyssey.Tests.Unit', 'Odyssey.Tests.Domain', 'Odyssey.Tests.Contracts', 'Odyssey.Tests.Architecture')
 $baselinePackageVersion = '0.1.0'
@@ -385,9 +421,11 @@ function Test-TestCatalog([System.Collections.Generic.List[string]] $Errors) {
             }
         }
 
-        foreach ($requiredId in $requiredTestCaseIds) {
-            if (-not $ids.Contains($requiredId)) {
-                $Errors.Add("Required test case ID missing from catalog: $requiredId.")
+        if (-not $SkipNegativeFixture) {
+            foreach ($requiredId in $requiredTestCaseIds) {
+                if (-not $ids.Contains($requiredId)) {
+                    $Errors.Add("Required test case ID missing from catalog: $requiredId.")
+                }
             }
         }
     }
@@ -425,6 +463,105 @@ function Test-ForbiddenGlobalApis([System.Collections.Generic.List[string]] $Err
                 }
             }
         }
+    }
+}
+
+function Test-CompositionAndDiagnosticsGuards([System.Collections.Generic.List[string]] $Errors) {
+    if ($SkipNegativeFixture) {
+        return
+    }
+
+    $unityRuntimeRoot = Join-Path $RootPath 'Assets/Odyssey/Client/Runtime'
+    if (Test-Path -LiteralPath $unityRuntimeRoot) {
+        $compositionRootCount = 0
+        $forbiddenCompositionPatterns = [ordered]@{
+            'IServiceProvider' = '\bIServiceProvider\b'
+            'Resolve<T>' = '\bResolve\s*<'
+            'FindObjectOfType' = '\bFindObjectOfType\s*<|\bFindObjectOfType\s*\('
+            'GameObject.Find' = '\bGameObject\.Find\s*\('
+            'Resources.Load' = '\bResources\.Load\s*<|\bResources\.Load\s*\('
+            'Dictionary<Type,' = 'Dictionary\s*<\s*Type\s*,'
+        }
+
+        foreach ($source in Get-ChildItem -LiteralPath $unityRuntimeRoot -Recurse -File -Filter '*.cs') {
+            $relativePath = Get-RelativePath $source.FullName
+            $text = Get-Content -LiteralPath $source.FullName -Raw
+            if ($text -match '\bclass\s+OdysseyRuntimeCompositionRoot\b') {
+                $compositionRootCount++
+            }
+            foreach ($entry in $forbiddenCompositionPatterns.GetEnumerator()) {
+                if ($text -match $entry.Value) {
+                    $Errors.Add("Forbidden composition pattern '$($entry.Key)' in Unity Client runtime source: $relativePath.")
+                }
+            }
+        }
+
+        if ($compositionRootCount -ne 1) {
+            $Errors.Add("Expected exactly one OdysseyRuntimeCompositionRoot class, found $compositionRootCount.")
+        }
+    }
+
+    foreach ($modulePath in @('Packages/com.odyssey.domain/Runtime', 'Packages/com.odyssey.rules/Runtime')) {
+        $sourceRoot = Join-Path $RootPath $modulePath
+        foreach ($source in Get-ChildItem -LiteralPath $sourceRoot -Recurse -File -Filter '*.cs') {
+            $text = Get-Content -LiteralPath $source.FullName -Raw
+            if ($text -match 'Odyssey\.Application\.Diagnostics|IOdysseyLogger|LogEventV1') {
+                $Errors.Add("Domain/Rules must not depend on diagnostics/logger: $(Get-RelativePath $source.FullName).")
+            }
+        }
+    }
+}
+
+function Test-DiagnosticsEventCodeRegistry([System.Collections.Generic.List[string]] $Errors) {
+    if ($SkipNegativeFixture) {
+        return
+    }
+
+    $registryPath = Join-Path $RootPath 'config/diagnostics/event-codes.json'
+    if (-not (Test-Path -LiteralPath $registryPath)) {
+        $Errors.Add('Missing diagnostics EventCode registry: config/diagnostics/event-codes.json.')
+        return
+    }
+
+    try {
+        $json = Read-JsonFile $registryPath
+        if ([int] $json.schemaVersion -ne 1) {
+            $Errors.Add('Diagnostics EventCode registry schemaVersion must be 1.')
+        }
+        $expectedCodes = @(
+            'runtime.starting',
+            'runtime.ready',
+            'runtime.startup_failed',
+            'runtime.shutdown_requested',
+            'runtime.shutdown_completed',
+            'diagnostics.dropped_events',
+            'diagnostics.sink_failed',
+            'diagnostics.probe',
+            'diagnostics.crash_marker_detected',
+            'diagnostics.crash_marker_completed',
+            'developer.probe_accepted',
+            'developer.probe_rejected'
+        )
+        $actualCodes = @($json.eventCodes | ForEach-Object { [string] $_.eventCode })
+        Assert-SetEquals $Errors 'diagnostics event-code registry' $actualCodes $expectedCodes
+        foreach ($row in @($json.eventCodes)) {
+            foreach ($property in @('eventCode', 'ownerSubsystem', 'defaultLogLevel', 'allowedProperties', 'purpose', 'status')) {
+                if (-not (Test-JsonProperty $row $property)) {
+                    $Errors.Add("Diagnostics EventCode row missing '$property'.")
+                }
+            }
+            if ([string] $row.status -ne 'Active') {
+                $Errors.Add("Diagnostics EventCode must be Active for ODY-S00-006-used code: $($row.eventCode).")
+            }
+            foreach ($allowedProperty in @($row.allowedProperties)) {
+                if (-not (Test-JsonProperty $allowedProperty 'key') -or -not (Test-JsonProperty $allowedProperty 'classification')) {
+                    $Errors.Add("Diagnostics EventCode allowedProperties entry is incomplete for $($row.eventCode).")
+                }
+            }
+        }
+    }
+    catch {
+        $Errors.Add($_.Exception.Message)
     }
 }
 
@@ -585,6 +722,8 @@ function Test-RepositoryStructure {
     Test-Cycles $asmdefGraph $errors
     Test-TestCatalog $errors
     Test-ForbiddenGlobalApis $errors
+    Test-CompositionAndDiagnosticsGuards $errors
+    Test-DiagnosticsEventCodeRegistry $errors
     return ,$errors
 }
 

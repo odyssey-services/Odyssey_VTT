@@ -1,6 +1,6 @@
 # ODY-S00-006 - Runtime Composition and Diagnostic Shell
 
-**Status:** Ready
+**Status:** In Review
 **Roadmap stage / slice:** SLICE-00
 **Owner:** Codex
 **Requested by:** Product owner
@@ -8,7 +8,7 @@
 **Pull request:** Not opened
 **ExecPlan:** `docs/plans/active/ODY-S00-000_SLICE_00_Technical_Skeleton.md`
 **Created:** 2026-08-11
-**Last updated:** 2026-08-11 13:10 UTC
+**Last updated:** 2026-08-11 14:15 UTC
 
 ## 1. Goal
 
@@ -387,17 +387,17 @@ No new dependency, package, GitHub Action, executable, or downloadable tool is a
 
 ## 16. Definition of Done
 
-- [ ] Goal is achieved without unapproved scope expansion.
-- [ ] All acceptance criteria are satisfied.
-- [ ] Required automated tests pass.
-- [ ] Required manual checks are completed or honestly marked not required.
-- [ ] Required commands and their real results are recorded.
-- [ ] Architecture and dependency rules remain valid.
-- [ ] Security, privacy, redaction, and audience rules are verified.
-- [ ] Compatibility, migration, rollback, and versioning obligations are complete.
-- [ ] No unapproved dependency, tool, GitHub Action, or license was introduced.
-- [ ] Documentation is updated only where materially required.
-- [ ] Codex/developer performed a self-review against this task and `AGENTS.md`.
+- [x] Goal is achieved without unapproved scope expansion.
+- [x] All acceptance criteria are satisfied.
+- [x] Required automated tests pass.
+- [x] Required manual checks are completed or honestly marked not required.
+- [x] Required commands and their real results are recorded.
+- [x] Architecture and dependency rules remain valid.
+- [x] Security, privacy, redaction, and audience rules are verified.
+- [x] Compatibility, migration, rollback, and versioning obligations are complete.
+- [x] No unapproved dependency, tool, GitHub Action, or license was introduced.
+- [x] Documentation is updated only where materially required.
+- [x] Codex/developer performed a self-review against this task and `AGENTS.md`.
 - [ ] Pull request explains changes, evidence, limitations, and follow-up work.
 - [ ] Product owner or authorized reviewer completes the required review; Codex does not merge into `main`.
 
@@ -405,57 +405,79 @@ No new dependency, package, GitHub Action, executable, or downloadable tool is a
 
 ### Changed files / areas
 
-- Activation only at task creation; production implementation has not started.
+- Application diagnostics contracts under `Packages/com.odyssey.application/Runtime/Diagnostics/**`.
+- Unity Client runtime composition, diagnostics runtime, crash marker, Developer Shell presenter, and DeveloperShell-only probe under `Assets/Odyssey/Client/Runtime/**`.
+- Minimal approved scene wiring in `Assets/Odyssey/Client/Scenes/Bootstrap.unity` and `Assets/Odyssey/Client/Scenes/AppShell.unity`.
+- Developer Shell UI styling in `Assets/Odyssey/Client/UI/AppShell.uss`.
+- Machine-readable EventCode registry at `config/diagnostics/event-codes.json`.
+- .NET diagnostics contract tests and Unity EditMode composition/diagnostics tests.
+- Test catalog and repository guard/script updates for ODY-S00-006 TestCase IDs, composition guards, diagnostics registry validation, and `Logs/ODY-S00-006` evidence paths.
 
 ### Validation results
 
 | Command / check | Result | Evidence / notes |
 |---|---|---|
-| `powershell -NoProfile -ExecutionPolicy Bypass -File .\scripts\check-repository-policy.ps1` | Failed then Passed | First run failed because required-path policy still pointed at active ODY-S00-005; after the activation-required path update to completed 005 and active 006, `REPO-POLICY-001` through `REPO-POLICY-005` passed. |
-| `git diff --check` | Passed | No whitespace errors. |
-| `git diff --name-only -- Assets/Odyssey/Client/Runtime Assets/Odyssey/Client/Editor Assets/Odyssey/Client/Tests Packages/com.odyssey.application/Runtime Packages/com.odyssey.domain/Runtime Packages/com.odyssey.rules/Runtime Packages/com.odyssey.content/Runtime Packages/com.odyssey.persistence Packages/com.odyssey.networking DotNet/Tests Tests/Metadata ProjectSettings Packages/manifest.json Packages/packages-lock.json` | Passed | No output; no ODY-S00-006 production/test/Unity implementation files or package/settings files changed during activation. |
-| `Test-Path docs\tasks\active\ODY-S00-005_Command_Event_Clock_and_RNG_Contracts.md; Test-Path docs\tasks\completed\ODY-S00-005_Command_Event_Clock_and_RNG_Contracts.md` | Passed | `False`, then `True`; ODY-S00-005 exists only in completed. |
-| `rg -n "ODY-S00-005.*\| Done|ODY-S00-006.*\| Ready|ODY-S00-007.*\| Draft" docs/tasks/SLICE-00_BACKLOG.md` | Passed | Backlog statuses are 005 Done, 006 Ready, 007 Draft. |
-| `rg -n "docs/tasks/active/ODY-S00-005|docs/tasks/active/ODY-S00-006|current active task" ACTIVE_DOCUMENTATION_BASELINE_Odyssey_VTT_v1.8.md` | Passed | Active Baseline points at `docs/tasks/active/ODY-S00-006_Runtime_Composition_and_Diagnostic_Shell.md`; no active 005 path remains. |
+| `powershell -NoProfile -ExecutionPolicy Bypass -File .\scripts\restore.ps1` | Failed then Passed | First sandbox run failed with `NU1900` while loading NuGet vulnerability data from `https://api.nuget.org/v3/index.json`; escalated rerun passed and restored/confirmed projects. |
+| `powershell -NoProfile -ExecutionPolicy Bypass -File .\scripts\verify-format.ps1` | Passed | `FORMAT-001 PASS repository text formatting checks passed`. |
+| `powershell -NoProfile -ExecutionPolicy Bypass -File .\scripts\verify-test-structure.ps1` | Passed | `TC-ARCH-001` passed; controlled invalid Domain->Rules, package version mismatch, and duplicate catalog ownership fixtures were rejected with exit code 1. ODY-S00-006 composition/diagnostics guards also passed. |
+| `powershell -NoProfile -ExecutionPolicy Bypass -File .\scripts\test-fast.ps1` | Passed | Structure guard passed; `dotnet build` succeeded with 0 warnings / 0 errors; TRX evidence under `Logs/ODY-S00-006/dotnet/`: Unit 50/50, Domain 1/1, Contracts 1/1, Architecture 2/2, failed 0. |
+| `powershell -NoProfile -ExecutionPolicy Bypass -File .\scripts\test-unity.ps1` | Failed then Passed | First run failed at Unity compile due `Application.temporaryCachePath` namespace resolution; second run failed 2 EditMode assertions; final run passed Unity `6000.4.0f1`, batch compile exit code 0, EditMode total 10 passed 10 failed 0, PlayMode total 1 passed 1 failed 0. Logs under `Logs/ODY-S00-006/`. |
+| `powershell -NoProfile -ExecutionPolicy Bypass -File .\scripts\verify-repository.ps1` | Passed | Repository policy passed, test structure passed, SDK configured `10.0.302`, selected `10.0.302`, rollForward `latestPatch`, allowPrerelease `False`; `REPOSITORY-VERIFY PASS`. |
+| `powershell -NoProfile -ExecutionPolicy Bypass -File .\scripts\check-repository-policy.ps1` | Passed | `REPO-POLICY-001` through `REPO-POLICY-005` passed, including controlled ErrorCode registry fixtures. |
+| `dotnet build DotNet\Odyssey.Core.sln --no-restore` | Passed | Build succeeded with 0 warnings / 0 errors. |
+| `dotnet test DotNet\Odyssey.Core.sln --no-build --no-restore` | Passed | Contracts 1, Domain 1, Unit 50, Architecture 2; total 54 passed, 0 failed, 0 skipped. |
+| `git diff --check` | Failed then Passed | Failed while Unity-generated whitespace churn existed in out-of-scope `ProjectSettings/ProjectSettings.asset`; that file was restored to HEAD. Final rerun passed with no output. |
 | `git diff --cached --check` | Passed | No staged diff errors; command printed only the local inaccessible global ignore warning. |
-| `git status --short --branch` | Passed | Branch `feat/ody-s00-006-runtime-composition-diagnostic-shell`; only activation docs and required policy-path update changed. |
-| `powershell -NoProfile -ExecutionPolicy Bypass -File .\scripts\check-repository-policy.ps1` | Passed | Contract-correction rerun passed `REPO-POLICY-001` through `REPO-POLICY-005`. |
-| `git diff --check` | Passed | Contract-correction rerun reported no whitespace errors. |
-| `git diff --name-only -- Assets/Odyssey/Client Packages/com.odyssey.application Packages/com.odyssey.domain Packages/com.odyssey.rules Packages/com.odyssey.content Packages/com.odyssey.persistence Packages/com.odyssey.networking DotNet Tests config ProjectSettings Packages/manifest.json Packages/packages-lock.json docs/errors` | Passed | No output; contract correction did not change production/test/UI/scene/config/error files. |
-| `rg -n "TC-(CO[M]P|LI[F]E|CRA[S]H)" docs/tasks/active/ODY-S00-006_Runtime_Composition_and_Diagnostic_Shell.md docs/plans/active/ODY-S00-000_SLICE_00_Technical_Skeleton.md` | Passed | No stale non-authority TestCase IDs remain. |
-| `rg -n "ProcessInstanceId|config/diagnostics/event-codes.json|2000 events|8 MiB|4096 events|16 MiB|Assets/Odyssey/Client/UI|Bootstrap.unity|AppShell.unity|process-started.json" docs/tasks/active/ODY-S00-006_Runtime_Composition_and_Diagnostic_Shell.md` | Passed | Required ProcessInstanceId, EventCode registry path, diagnostics limits, UI/scene permissions, and crash marker file name are recorded. |
+| `git status --short --branch` | Passed | Branch `feat/ody-s00-006-runtime-composition-diagnostic-shell`; ProjectSettings, manifest, package lock, ADRs, Technical Baseline, Active Baseline, Persistence, and Networking are not modified. |
 
 ### Acceptance result
 
 | Criterion | Status | Evidence |
 |---|---|---|
-| AC-1 through AC-17 | Not started | This activation/correction commit defines the contract only; implementation has not begun. Targeted diff check confirms no production/test/Unity implementation files changed. |
+| AC-1 | Satisfied | One `OdysseyRuntimeCompositionRoot` exists in `Odyssey.Unity.Client`; `verify-test-structure.ps1` rejects DI/service locator/search patterns and duplicate composition-root classes. |
+| AC-2 | Satisfied | `OdysseyRuntimeCompositionRoot.Start` validates profile/configuration, initializes diagnostics/crash marker, composes Developer Shell adapters, and returns Ready only after mandatory phases. |
+| AC-3 | Satisfied | Startup failures return safe `Result<Error>`, emit diagnostic evidence when diagnostics exist, and clean partial resources; Unity EditMode covers failure cleanup. |
+| AC-4 | Satisfied | `AppRuntime.Shutdown` disposes presentation before process resources, is idempotent, and is covered by Unity EditMode tests. |
+| AC-5 | Satisfied | `DeveloperShellPresenter` displays Starting/Ready/Shutting Down states through UI Toolkit and is wired into `AppShell.unity`. |
+| AC-6 | Satisfied | DeveloperShell-only probe uses Application command/result contracts and an in-memory dev adapter under Unity Client; tests cover accepted duplicate replay and mismatch rejection. |
+| AC-7 | Satisfied | Application diagnostics contracts expose required `LogEventV1` fields, exact `LogLevel` vocabulary, `ProcessInstanceId`, unavailable BuildId state, and shared `CorrelationId`/`DiagnosticId`/`CommandId`/`UtcInstant`. |
+| AC-8 | Satisfied | `ProcessInstanceId` is generated per startup and deterministic test overrides are supported; no username/device/path/secret is encoded. |
+| AC-9 | Satisfied | `config/diagnostics/event-codes.json` exists and is checked against code registry semantics by .NET tests and repository guard. |
+| AC-10 | Satisfied | Safe property API is allowlist-first; tests cover object/exception API absence, bounded truncation, path username removal, endpoint generalization, and secret absence from ring buffer. |
+| AC-11 | Satisfied | `InMemoryDiagnosticRingBuffer` enforces count/byte limits with oldest-event eviction; Unity EditMode covers ring eviction. |
+| AC-12 | Satisfied | `BoundedDiagnosticRuntime` covers lazy filtering, queue pressure, drop counter emission, emergency fallback, sink failure fallback, and bounded shutdown paths in Unity EditMode. |
+| AC-13 | Satisfied | Startup unexpected failures can attach a `DiagnosticId`; public `Error` remains ADR-004-safe without stack/raw exception text. |
+| AC-14 | Satisfied | `CrashMarkerStore` uses `process-started.json`; Unity EditMode covers suspected previous marker detection and clean shutdown clearing. |
+| AC-15 | Satisfied | Repository guard scans Domain and Rules runtime source for diagnostics/logger dependencies; no violations. |
+| AC-16 | Satisfied | No serialization DTOs/JSONL, SQLite, Networking/Persistence runtime, BuildIdentity generation, telemetry, CI, Player/IL2CPP build, gameplay, Unity package, manifest, lock, or ProjectSettings baseline changes are introduced. |
+| AC-17 | Satisfied | Required validation commands have real pass/fail/pass evidence recorded above. |
 
 ### Build and artifact evidence
 
 - Build identity: Not created.
-- Artifact path / name: None.
+- Artifact path / name: Test logs only under `Logs/ODY-S00-006/` and TRX files under `Logs/ODY-S00-006/dotnet/`; no build artifact.
 - Checksums: None.
-- Test or quality report: None.
+- Test or quality report: Unity `editmode-results.xml`, `playmode-results.xml`, and four .NET TRX files.
 
 ### Known limitations
 
-- Implementation has not started.
 - BuildIdentity is intentionally unavailable until ODY-S00-008.
 - Canonical diagnostic JSONL and source-generated diagnostic serialization are deferred to ODY-S00-007 or later owning tasks.
+- Crash marker format is intentionally provisional and non-authoritative.
+- Developer Shell is a technical shell only; no gameplay, campaign runtime, persistence runtime, networking runtime, telemetry, CI, Player, or IL2CPP work was added.
 
 ### Follow-up tasks
 
-- ODY-S00-006 implementation PR after owner approval.
 - ODY-S00-007 serialization/AOT compatibility after ODY-S00-006 reaches the required state.
+- ODY-S00-008 BuildIdentity/CI ownership remains deferred.
 
 ### Self-review summary
 
-- Scope review: Activation contract only; no production/test implementation included.
-- Architecture review: Contract follows ADR-001/004/005/008/009/010 and does not introduce new architecture.
-- Test review: TestCase IDs and validation plan are reserved; no tests are claimed as implemented.
-- Security/privacy review: Diagnostics/redaction boundaries are explicit; unsafe data classes are prohibited.
-- Documentation/version review: Operational pointer updates only; no ADR/TDB/version bump.
+- Scope review: Changes stay inside ODY-S00-006 allowed paths; out-of-scope Unity `ProjectSettings/ProjectSettings.asset` churn from batchmode was restored to HEAD.
+- Architecture review: Composition root remains in `Odyssey.Unity.Client`; no DI container, `IServiceProvider`, service locator, Unity dependency lookup APIs, Domain/Rules diagnostics dependency, Persistence/Networking runtime, or gameplay ownership was introduced.
+- Test review: Required ODY-S00-006 TestCase IDs are registered and covered by .NET/Unity tests plus repository guards; final `test-fast` and `test-unity` are green.
+- Security/privacy review: Diagnostics are allowlisted, bounded, sanitized before sinks, and do not record raw paths, usernames, endpoints, arbitrary objects, raw exceptions, secrets, DomainEvents, or command payloads.
+- Documentation/version review: No ADR, Technical Baseline, Active Baseline, package manifest/lock, ProjectSettings baseline, or version document changes were made.
 
 ## 18. Blockers, decisions, and change control
 

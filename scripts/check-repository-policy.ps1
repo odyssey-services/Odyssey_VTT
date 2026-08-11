@@ -567,6 +567,7 @@ try {
         'NuGet.Config',
         'Directory.Build.props',
         'Tests/Metadata/test-catalog.json',
+        'config/diagnostics/event-codes.json',
         'DotNet/Odyssey.Core.sln',
         'DotNet/Projects/Odyssey.Domain.csproj',
         'DotNet/Projects/Odyssey.Rules.csproj',
