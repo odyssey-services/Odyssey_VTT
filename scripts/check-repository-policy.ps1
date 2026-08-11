@@ -587,7 +587,7 @@ try {
         'docs/tasks/completed/ODY-S00-003_Module_and_Test_Skeleton.md',
         'docs/tasks/completed/ODY-S00-004_Identity_Version_and_Result_Primitives.md',
         'docs/tasks/completed/ODY-S00-005_Command_Event_Clock_and_RNG_Contracts.md',
-        'docs/tasks/active/ODY-S00-006_Runtime_Composition_and_Diagnostic_Shell.md',
+        'docs/tasks/active/ODY-S00-007_Serialization_and_AOT_Compatibility_Spike.md',
         'docs/errors/ERROR_CODES.md',
         'docs/plans/README.md',
         'docs/plans/active/ODY-S00-000_SLICE_00_Technical_Skeleton.md'
