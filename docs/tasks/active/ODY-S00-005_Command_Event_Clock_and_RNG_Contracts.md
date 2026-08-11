@@ -1,6 +1,6 @@
 # ODY-S00-005 - Command, Event, Clock and RNG Contracts
 
-**Status:** In Progress
+**Status:** In Review
 **Roadmap stage / slice:** SLICE-00
 **Owner:** Codex
 **Requested by:** Product owner
@@ -8,7 +8,7 @@
 **Pull request:** Not opened
 **ExecPlan:** `docs/plans/active/ODY-S00-000_SLICE_00_Technical_Skeleton.md`
 **Created:** 2026-08-10
-**Last updated:** 2026-08-10 22:57 UTC
+**Last updated:** 2026-08-11 02:12 UTC
 
 ## 1. Goal
 

@@ -170,6 +170,7 @@ Child task: `ODY-S00-010`.
 - 2026-08-10 22:15 UTC — Addressed final PR #8 guard/parser hardening: repository policy now scans all production literal `ErrorCode.Parse`/`TryParse` usages for Active registry rows, enforces canonical no-leading-zero SemVer and runtime length limits, and covers registered Active literal, unregistered literal, Deprecated literal, leading-zero version, overlong ErrorCode, and overlong metadata-key fixtures. FieldPath and UserMessageKey parser regressions are covered by unit tests. Full validation rerun passed with 30 .NET tests and Unity batch/EditMode/PlayMode exit code 0.
 - 2026-08-10 22:57 UTC — Owner merged PR #8 into `main`; local `main` fast-forwarded to `4fb20e9`, branch `feat/ody-s00-005-command-event-clock-rng-primitives` was created, and owner approved preparing/activating ODY-S00-005 without production code or tests. ODY-S00-005 task contract was created as Ready and Active Baseline v1.8 active-task pointer was updated operationally.
 - 2026-08-10 23:29 UTC — ODY-S00-005 implementation completed without commit/push/PR: Application command/idempotency contracts, DomainEvent envelope/batch, injected clock/scheduler contracts, ADR-008 deterministic RNG contracts/vectors, one synthetic in-memory test operation, duplicate replay, safe mismatch rejection, global time/random architecture guard, and ODY-S00-005 test catalog entries are in place. Validation passed for restore, verify-format, verify-test-structure, test-fast, Unity batch/EditMode/PlayMode after rerun outside sandbox, verify-repository, repository policy, dotnet build/test, and diff checks.
+- 2026-08-11 02:12 UTC — Final self-review moved ODY-S00-005 to In Review and kept ODY-S00-006 Draft/not activated. Branch remains based on owner-merged PR #8 / `main` at `4fb20e935c00d3c5e88c2e7244fd8525e4771819`; Draft PR is not opened yet.
 
 ## 7. Decisions
 
@@ -226,13 +227,13 @@ Record real commands, outputs and artifact paths here as child tasks complete.
 
 - Repository identity, Private visibility, and PR #1 merge are verified. Exact branch protection/ruleset settings remain an owner-accepted limitation.
 - Unity `6000.4.0f1` is acceptable for local ODY-S00-002 development by owner decision.
-- ODY-S00-002 and ODY-S00-003 are Done. ODY-S00-004 was owner-merged into `main`. ODY-S00-005 implementation is complete on `feat/ody-s00-005-command-event-clock-rng-primitives`; commit/push/PR waits for owner permission.
+- ODY-S00-002 and ODY-S00-003 are Done. ODY-S00-004 was owner-merged into `main`. ODY-S00-005 is In Review on `feat/ody-s00-005-command-event-clock-rng-primitives`; Draft PR opening is the current action. ODY-S00-006 remains Draft and not activated.
 - GitHub plan/settings may affect exact branch-protection options; the task must apply the strongest supported equivalent and record any unavailable setting.
 
 No current implementation blocker is recorded for ODY-S00-005.
 
 ## 12. Outcome and follow-up
 
-Current outcome: ODY-S00-001 is Done after owner merge of PR #1. ODY-S00-002 is Done after owner merge of PR #4 and closure PR #5. ODY-S00-003 is Done after owner merge of PR #6 and closure PR #7. ODY-S00-004 is implemented and owner-merged through PR #8. ODY-S00-005 implementation is complete locally and awaiting commit/PR permission.
+Current outcome: ODY-S00-001 is Done after owner merge of PR #1. ODY-S00-002 is Done after owner merge of PR #4 and closure PR #5. ODY-S00-003 is Done after owner merge of PR #6 and closure PR #7. ODY-S00-004 is implemented and owner-merged through PR #8. ODY-S00-005 is In Review and awaiting Draft PR creation.
 
-Next action: owner review of ODY-S00-005 local diff and permission to commit/open PR. Do not start ODY-S00-006.
+Next action: open Draft PR for ODY-S00-005 and record the real PR URL. Do not start ODY-S00-006.

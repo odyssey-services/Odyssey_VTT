@@ -8,7 +8,7 @@ The private GitHub repository `odyssey-services/Odyssey_VTT` is the single autho
 
 Current stage: `SLICE-00 — Technical Skeleton`.
 
-Repository Foundation, Unity Project Foundation, Module/Test Skeleton, and Identity/Version/Result Primitives are complete. The active task is `docs/tasks/active/ODY-S00-005_Command_Event_Clock_and_RNG_Contracts.md`, currently In Progress on `feat/ody-s00-005-command-event-clock-rng-primitives`. This repository state contains the Unity 6000.4/HDRP project foundation, accepted Core module/test skeleton, ODY-S00-004 primitive foundation, and ODY-S00-005 command/event/clock/RNG contract work in progress.
+Repository Foundation, Unity Project Foundation, Module/Test Skeleton, and Identity/Version/Result Primitives are complete. The active task is `docs/tasks/active/ODY-S00-005_Command_Event_Clock_and_RNG_Contracts.md`, currently In Review on `feat/ody-s00-005-command-event-clock-rng-primitives`. This repository state contains the Unity 6000.4/HDRP project foundation, accepted Core module/test skeleton, ODY-S00-004 primitive foundation, and ODY-S00-005 command/event/clock/RNG contract implementation.
 
 ## Rights
 
