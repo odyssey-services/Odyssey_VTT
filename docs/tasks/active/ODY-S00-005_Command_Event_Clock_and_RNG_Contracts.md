@@ -107,15 +107,16 @@ This task does not introduce SQLite, network transports, serialization DTOs, run
   - `IWallClock`
   - `UtcInstant`
   - `IMonotonicClock`
-  - `MonotonicInstant`
+  - `MonotonicTimestamp`
   - `IDelayScheduler`
   - fixed/manual/virtual test implementations where they stay test-only unless ADR-008 requires production interfaces.
 - Application-owned RNG contracts and deterministic production algorithm scaffolding required by ADR-008:
   - campaign RNG key/epoch value contracts without persistence storage;
-  - HMAC-SHA-256 stream derivation v1;
-  - xoshiro256** v1;
-  - rejection sampling for inclusive integer ranges without modulo bias;
-  - non-secret `RngProofData`;
+  - `IAuthoritativeRandomStreamFactory.Create(RandomDecisionContext)` and `IAuthoritativeRandomStream.NextInclusive(...)`;
+  - HMAC-SHA-256 stream derivation v1 using the ADR-008 canonical binary message;
+  - internal xoshiro256** v1 stream implementation that does not expose state/raw draws to consumers;
+  - rejection sampling for inclusive integer ranges without modulo bias and with logical draw-index accounting;
+  - non-secret `RngProofData` containing algorithm/version ids, `RngKeyEpochId`, `SeedCommitment`, `StreamId`, decision/draw indexes, requested range, `RawStepCount`, and result;
   - deterministic contract vectors.
 - Architecture/repository checks preventing global time/random APIs in authoritative Core packages:
   - no `DateTime.Now`, `DateTime.UtcNow`, `DateTimeOffset.Now`, `DateTimeOffset.UtcNow`, `Stopwatch`, `Environment.TickCount`, `Task.Delay`, `System.Random`, `UnityEngine.Time`, or `UnityEngine.Random` in Domain, Rules, Content, Application, Persistence, or Networking production paths except explicitly approved adapter paths.
@@ -220,7 +221,7 @@ Owner approval for this activation step permits only the operational `ACTIVE_DOC
 
 **Given** fixed clock and RNG vector inputs
 **When** the contract vector tests run under pure .NET and Unity test assemblies where required
-**Then** UTC instants, virtual scheduler order, HMAC-derived stream state, xoshiro outputs, rejection counts, bounded integer outputs, and non-secret proof data match the expected vectors.
+**Then** UTC instants, virtual scheduler behavior, canonical HMAC stream derivation, non-secret `StreamId`/`SeedCommitment`, xoshiro outputs, raw step counts, bounded integer outputs, and non-secret proof data match the expected vectors.
 
 ### Required invariants
 
@@ -266,13 +267,17 @@ Owner approval for this activation step permits only the operational `ACTIVE_DOC
 | `TC-CMD-002` | .NET Unit/Contracts | `CommandResult` has exactly Accepted/Pending/Rejected terminal states and maps to outer `Result<CommandResult>` semantics | Pass |
 | `TC-CMD-003` | .NET Unit/Application test fixture | Exact duplicate command returns stored result without handler re-entry, event creation, clock sampling, or RNG consumption | Pass |
 | `TC-CMD-004` | .NET Unit/Application test fixture | Same `CommandId` with different semantic fingerprint is rejected safely and does not reveal the original stored result | Pass |
+| `TC-CMD-005` | .NET Unit/Application test fixture | Current-process concurrent duplicate with same `CommandId` and fingerprint is single-flight: one handler, RNG factory, event batch, commit, receipt, and transaction clock sample set | Pass |
+| `TC-CMD-006` | .NET Unit/Application test fixture | Commit failure is an outer `Result` failure and does not store/report a durable receipt | Pass |
 | `TC-EVENT-001` | .NET Domain/Contracts | DomainEvent envelope and ordered batch are immutable, Domain-owned, causally linked, and deterministic | Pass |
 | `TC-CLOCK-001` | .NET Unit/Contracts | Wall-clock and monotonic clock contracts use injected values and reject global-clock assumptions | Pass |
 | `TC-CLOCK-002` | .NET Unit/Contracts | Virtual scheduler completes deterministic order without `Task.Delay` or real waiting | Pass |
+| `TC-CLOCK-003` | .NET Unit/Contracts | `UtcInstant`, `MonotonicTimestamp`, `IMonotonicClock.GetTimestamp()/GetElapsedTime`, and `IDelayScheduler.DelayAsync` match ADR-008 shape and deterministic cancellation behavior | Pass |
 | `TC-RNG-001` | .NET Unit/Contracts | HMAC-SHA-256 stream derivation v1 produces stable state vectors from synthetic fixture keys/context | Pass |
 | `TC-RNG-002` | .NET Unit/Contracts | xoshiro256** v1 produces stable raw output vectors | Pass |
 | `TC-RNG-003` | .NET Unit/Contracts | Rejection mapping for inclusive integer ranges is unbiased and records rejection count evidence | Pass |
 | `TC-RNG-004` | .NET Unit/Contracts | `RngProofData` contains non-secret reproducibility metadata and never contains raw campaign RNG key material | Pass |
+| `TC-RNG-005` | .NET Unit/Contracts | ADR-008 canonical RNG message, `StreamId`, `SeedCommitment`, draw accounting, range boundaries, invalid-call zero consumption, forced rejection, and zero-state fallback evidence are stable | Pass |
 | `TC-ARCH-001` | Architecture script / .NET test | ADR-001 dependency graph still passes after adding command/event/clock/RNG contracts | Pass |
 | `TC-DOTNET-001` | .NET build/test | Core bridge projects compile the same package source under `netstandard2.1` with C# 9 parity | Pass |
 | `TC-UNITY-ASM-001` | Unity batchmode | Unity assembly graph compiles with the new contracts | Pass |
@@ -388,7 +393,7 @@ Implementation is complete and ready for owner review in Draft PR #9. Codex has 
 - `Packages/com.odyssey.application/Runtime/Commands/**` - Application command identity, envelope, fingerprint, command result, receipt store, and executor contracts.
 - `Packages/com.odyssey.application/Runtime/Time/**` - injected wall-clock, monotonic-clock, and scheduler contracts.
 - `Packages/com.odyssey.application/Runtime/Random/**` - ADR-008 deterministic RNG contracts, HMAC derivation, xoshiro256** stream, rejection mapping, and non-secret proof data.
-- `Packages/com.odyssey.application/Runtime/Results/ErrorCodes.cs` and `docs/errors/ERROR_CODES.md` - registered safe `application.command.identity_mismatch` ErrorCode.
+- `Packages/com.odyssey.application/Runtime/Results/ErrorCodes.cs` and `docs/errors/ERROR_CODES.md` - registered safe command identity mismatch and RNG validation ErrorCodes.
 - `Packages/com.odyssey.domain/Runtime/Events/**` - DomainEvent identity/envelope and ordered immutable batch contracts.
 - `DotNet/Tests/Odyssey.Tests.Unit/CommandEventClockRngContractTests.cs` - synthetic in-memory operation, duplicate replay, mismatch rejection, clock/scheduler, event batch, and RNG vector tests.
 - `Tests/Metadata/test-catalog.json` - ODY-S00-005 TestCase IDs.
@@ -398,6 +403,42 @@ Implementation is complete and ready for owner review in Draft PR #9. Codex has 
 - `scripts/test-unity.ps1` - ODY-S00-005 Unity XML/log output path.
 - `docs/tasks/completed/ODY-S00-004_Identity_Version_and_Result_Primitives.md` - moved from active by owner confirmation.
 - `README.md` - repository status updated.
+
+### ADR-002 / ADR-008 contract inventory
+
+| Field / group | ADR section | Owner | Current state | Implement / Optional / Blocked | Reason |
+|---|---|---|---|---|---|
+| `ApplicationCommand.CommandId` | ADR-002 §6 | Application | `CommandId` value primitive and command envelope field | Implement | Canonical idempotency key for Application commands. |
+| `ApplicationCommand.CommandType` / `CommandVersion` | ADR-002 §6 | Application | Canonical type and version value primitives | Implement | Required to describe command semantic contract without serialization DTOs. |
+| Campaign/session context | ADR-002 §6 | Application | Optional `CampaignId` and optional `SessionId` fields | Implement | Present where applicable; synthetic operation uses campaign identity. |
+| Issuer / actor evidence | ADR-002 §6 | Application | `CommandIssuer` and Domain actor bridge | Implement | Required for command admission and event actor evidence. |
+| Root and parent causation | ADR-002 §6 | Application | `RootCommandId` and optional `ParentCommandId` | Implement | One authoritative root command; parent remains optional metadata. |
+| Correlation | ADR-002 §6 | Application | `CorrelationId`; Domain event uses `EventCorrelationId` carrying the same canonical string | Implement | Preserves Domain ownership while avoiding an Application dependency. |
+| Expected revision / sequence values | ADR-002 §6, §15 | Application | Optional expected aggregate/campaign revision and expected event sequence | Implement | In-memory contract fields only; no persistence or gameplay enforcement. |
+| Client and host timestamps | ADR-002 §6; ADR-008 §7 | Application | Optional `IssuedAtClient`; required `ReceivedAtHost`; `CompletedAtHost` on result | Implement | Uses injected UTC instant values; no global clock calls. |
+| Payload version / immutable payload | ADR-002 §6 | Application | `CommandPayloadVersion` and `CommandPayload` abstraction | Implement | Opaque in-memory/test payload only; ADR-003 serialization deferred. |
+| `CommandFingerprint` | ADR-002 idempotency semantics; owner instruction | Application | Stable opaque in-memory/test value compared for mismatch | Implement | Canonical JSON/fingerprint computation deferred to ODY-S00-007. |
+| `CommandResult.Status` | ADR-002 §13 | Application | Exact enum: `Accepted`, `Pending`, `Rejected` | Implement | Durable command outcome vocabulary. |
+| `CommandResult.CommandId` / root / correlation | ADR-002 §13 | Application | Present on all terminal results | Implement | Ensures result identity matches submitted command. |
+| Transaction and event sequence range | ADR-002 §13, §15 | Application | Optional transaction id, campaign revision, and event sequence from/to | Implement | Present for committed event batches; absent for rejected results. |
+| Durable rejection Error | ADR-002 §13; ADR-004 | Application | `Error` only for `Rejected`; outer `Result` failure for technical/commit failure | Implement | Separates durable rejection from infrastructure failure. |
+| Pending-specific identity | ADR-002 §13 | Application | No separate continuation identity | Optional | ODY-S00-005 has no continuation workflow; `Pending` still carries command/root/correlation/transaction metadata. |
+| `DomainEventId`, type, version | ADR-002 §14 | Domain | Domain-owned value primitives and envelope fields | Implement | Event identity and semantic type/version are Domain-owned. |
+| Campaign and aggregate identity/revision | ADR-002 §14, §15 | Domain | Campaign identity, aggregate type/id, aggregate revision, campaign revision | Implement | Enables ordered batch invariants without persistence. |
+| Event sequence | ADR-002 §14, §15 | Domain | `EventSequence` and contiguous batch range | Implement | Proves deterministic ordering for one synthetic transaction. |
+| Transaction and command causation | ADR-002 §14 | Domain | `TransactionId`, root command id, immediate causation command id | Implement | Event batch is causally linked to one root command. |
+| Actor / occurred-at host / visibility | ADR-002 §14; ADR-008 §7 | Domain | Actor evidence, host occurrence instant, `DomainEventVisibility` | Implement | Visibility is a contract marker only; no network projection. |
+| Compensation / reason code / payload version / payload | ADR-002 §14 | Domain | Optional compensation id, optional reason code, payload version and immutable payload abstraction | Implement | Contract fields exist; real compensating command and serialization are deferred. |
+| RNG stream derivation context | ADR-008 stream derivation v1 | Application | `RandomDecisionContext` includes campaign, root command, decision ordinal, purpose, ruleset version, algorithm versions, bounded mapping version, key epoch | Implement | Matches ADR-008 canonical HMAC message; correlation is metadata only and not part of derivation. |
+| RNG proof data | ADR-008 §17 | Application | Algorithm/version ids, key epoch, seed commitment, stream id, decision/draw indexes, range, raw step count, result | Implement | Non-secret proof; raw key/state/future stream state are not exposed. |
+
+### Deterministic vector evidence
+
+- Canonical ADR-008 stream message fixture hex: `000000156f6479737365792d726e672d73747265616d2d76310000002563616d705f303132333435363738396162636465663031323334353637383961626364656600000024636d645f30313233343536373839616263646566303132333435363738396162636465660000000200000013746573742e73796e7468657469635f726f6c6c00000005312e322e3300000001000000010000000965706f63682d303031`.
+- HMAC-SHA-256 digest fixture: `60286c918a0aca2a5e8aaf3c247405fb3e5bd4790e29148ecb79badcf399e7f4`.
+- `StreamId`: `389f9e6e5dda289403d35697de46d10aec4258af1dec0a01f96436e083a1f27e`.
+- `SeedCommitment`: `a7dbf705ade53401bf502d86d2074569e55fd7d62a63769b8d42043dc2c07e00`.
+- First two xoshiro raw vector values are `fab52f556da9470b` and `c733a2a41b6283e7`; public consumers receive bounded `RandomSample` results, not raw stream state.
 
 ### Validation results
 
@@ -413,17 +454,17 @@ Implementation validation:
 | Command / check | Result | Evidence / notes |
 |---|---|---|
 | `powershell -NoProfile -ExecutionPolicy Bypass -File .\scripts\restore.ps1` | Passed | Projects restored; output reported projects up to date/restored under repository cache settings. |
-| `powershell -NoProfile -ExecutionPolicy Bypass -File .\scripts\verify-format.ps1` | Passed | `FORMAT-001 PASS repository text formatting checks passed`. |
+| `powershell -NoProfile -ExecutionPolicy Bypass -File .\scripts\verify-format.ps1` | Failed then Passed | First rerun caught CRLF line endings in `CommandEventClockRngContractTests.cs` after the review-correction vector edit; after normalizing to LF, `FORMAT-001 PASS repository text formatting checks passed`. |
 | `powershell -NoProfile -ExecutionPolicy Bypass -File .\scripts\verify-test-structure.ps1` | Passed | `TC-ARCH-001 PASS`; controlled invalid Domain->Rules, package version mismatch, and duplicate catalog ownership fixtures rejected. |
-| `powershell -NoProfile -ExecutionPolicy Bypass -File .\scripts\test-fast.ps1` | Passed | Build passed with 0 warnings/errors; TRX under `Logs/ODY-S00-005/dotnet/`: totals 1 Domain, 1 Contracts, 34 Unit, 2 Architecture; all failed 0. |
+| `powershell -NoProfile -ExecutionPolicy Bypass -File .\scripts\test-fast.ps1` | Passed | Build passed with 0 warnings/errors; TRX under `Logs/ODY-S00-005/dotnet/`: totals 1 Domain, 1 Contracts, 40 Unit, 2 Architecture; all failed 0. |
 | `powershell -NoProfile -ExecutionPolicy Bypass -File .\scripts\test-unity.ps1` | Failed then Passed | First sandboxed run failed before project compile on Unity user cache `CurlRequestCache.db`; rerun with escalated Unity cache access passed: batch compile exit 0, EditMode exit 0, PlayMode exit 0, EditMode total 1 passed 1 failed 0 skipped 0, PlayMode total 1 passed 1 failed 0 skipped 0. XML reports are under `Logs/ODY-S00-005/`. Unity-generated ProjectSettings whitespace churn was restored and is not part of this task. |
 | `powershell -NoProfile -ExecutionPolicy Bypass -File .\scripts\verify-repository.ps1` | Passed | Repository policy, architecture guard, and SDK check passed; configured/selected SDK `10.0.302`; registry fixtures passed. |
 | `powershell -NoProfile -ExecutionPolicy Bypass -File .\scripts\check-repository-policy.ps1` | Passed | `REPO-POLICY-001` through `REPO-POLICY-005` pass; registry lifecycle/literal/SafeReason/SemVer/UserMessageKey/length fixtures pass. |
 | `dotnet build DotNet\Odyssey.Core.sln --no-restore` | Passed | 0 warnings, 0 errors. |
-| `dotnet test DotNet\Odyssey.Core.sln --no-build --no-restore` | Passed | Unit 34, Domain 1, Contracts 1, Architecture 2; failed 0, skipped 0. |
+| `dotnet test DotNet\Odyssey.Core.sln --no-build --no-restore` | Passed | Unit 40, Domain 1, Contracts 1, Architecture 2; failed 0, skipped 0. |
 | `git diff --check` | Passed | No whitespace errors after restoring Unity-generated `ProjectSettings/ProjectSettings.asset` churn. |
 | `git diff --cached --check` | Passed | No staged diff errors; command reports only the local inaccessible global ignore warning when applicable. |
-| `git status --short --branch` | Passed | Branch `feat/ody-s00-005-command-event-clock-rng-primitives`; changes are unstaged as requested; no commit, push, PR, or merge performed. |
+| `git status --short --branch` | Passed | Branch `feat/ody-s00-005-command-event-clock-rng-primitives`; existing Draft PR #9 remains the review target; no merge performed. |
 
 ### Acceptance result
 
@@ -471,7 +512,7 @@ Implementation validation:
 
 ### Blockers
 
-- None currently. ODY-S00-005 implementation is ready for owner review and commit permission.
+- None currently. ODY-S00-005 implementation is ready for owner review in existing Draft PR #9.
 
 ### Decisions made during execution
 

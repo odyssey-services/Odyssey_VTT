@@ -53,13 +53,17 @@ $requiredTestCaseIds = @(
     'TC-CMD-002',
     'TC-CMD-003',
     'TC-CMD-004',
+    'TC-CMD-005',
+    'TC-CMD-006',
     'TC-EVENT-001',
     'TC-CLOCK-001',
     'TC-CLOCK-002',
+    'TC-CLOCK-003',
     'TC-RNG-001',
     'TC-RNG-002',
     'TC-RNG-003',
-    'TC-RNG-004'
+    'TC-RNG-004',
+    'TC-RNG-005'
 )
 $testProjects = @('Odyssey.Tests.Unit', 'Odyssey.Tests.Domain', 'Odyssey.Tests.Contracts', 'Odyssey.Tests.Architecture')
 $baselinePackageVersion = '0.1.0'
@@ -401,7 +405,7 @@ function Test-ForbiddenGlobalApis([System.Collections.Generic.List[string]] $Err
         'Stopwatch' = '\bStopwatch\b'
         'Environment.TickCount' = '\bEnvironment\.TickCount(?:64)?\b'
         'Task.Delay' = '\bTask\.Delay\b'
-        'System.Random' = '\b(?:System\.)?Random\s*(?:\(|[A-Za-z0-9_]+\s*=)'
+        'System.Random' = '\b(?:new\s+Random\s*\(|new\s+System\.Random\s*\(|System\.Random\s*\(|Random\.Shared\b)'
         'UnityEngine.Time' = '\bUnityEngine\.Time\b|\bTime\.deltaTime\b|\bTime\.time\b'
         'UnityEngine.Random' = '\bUnityEngine\.Random\b|\bRandom\.(?:Range|value|state)\b'
     }
@@ -820,13 +824,17 @@ function New-SyntheticFixture([string] $FixtureRoot, [bool] $InvalidDomainDepend
     { "testCaseId": "TC-CMD-002", "taskId": "ODY-S00-005", "authority": "ADR-002", "runner": "dotnet test", "path": "DotNet/Tests/Odyssey.Tests.Unit", "check": "command result" },
     { "testCaseId": "TC-CMD-003", "taskId": "ODY-S00-005", "authority": "ADR-002", "runner": "dotnet test", "path": "DotNet/Tests/Odyssey.Tests.Unit", "check": "duplicate replay" },
     { "testCaseId": "TC-CMD-004", "taskId": "ODY-S00-005", "authority": "ADR-002", "runner": "dotnet test", "path": "DotNet/Tests/Odyssey.Tests.Unit", "check": "mismatch rejection" },
+    { "testCaseId": "TC-CMD-005", "taskId": "ODY-S00-005", "authority": "ADR-002", "runner": "dotnet test", "path": "DotNet/Tests/Odyssey.Tests.Unit", "check": "single-flight duplicate" },
+    { "testCaseId": "TC-CMD-006", "taskId": "ODY-S00-005", "authority": "ADR-002", "runner": "dotnet test", "path": "DotNet/Tests/Odyssey.Tests.Unit", "check": "atomic commit failure" },
     { "testCaseId": "TC-EVENT-001", "taskId": "ODY-S00-005", "authority": "ADR-002", "runner": "dotnet test", "path": "DotNet/Tests/Odyssey.Tests.Unit", "check": "event batch" },
     { "testCaseId": "TC-CLOCK-001", "taskId": "ODY-S00-005", "authority": "ADR-008", "runner": "dotnet test", "path": "DotNet/Tests/Odyssey.Tests.Unit", "check": "clock injection" },
     { "testCaseId": "TC-CLOCK-002", "taskId": "ODY-S00-005", "authority": "ADR-008", "runner": "dotnet test", "path": "DotNet/Tests/Odyssey.Tests.Unit", "check": "virtual scheduler" },
+    { "testCaseId": "TC-CLOCK-003", "taskId": "ODY-S00-005", "authority": "ADR-008", "runner": "dotnet test", "path": "DotNet/Tests/Odyssey.Tests.Unit", "check": "ADR-008 clock shape" },
     { "testCaseId": "TC-RNG-001", "taskId": "ODY-S00-005", "authority": "ADR-008", "runner": "dotnet test", "path": "DotNet/Tests/Odyssey.Tests.Unit", "check": "HMAC vector" },
     { "testCaseId": "TC-RNG-002", "taskId": "ODY-S00-005", "authority": "ADR-008", "runner": "dotnet test", "path": "DotNet/Tests/Odyssey.Tests.Unit", "check": "xoshiro vector" },
     { "testCaseId": "TC-RNG-003", "taskId": "ODY-S00-005", "authority": "ADR-008", "runner": "dotnet test", "path": "DotNet/Tests/Odyssey.Tests.Unit", "check": "rejection mapping" },
-    { "testCaseId": "TC-RNG-004", "taskId": "ODY-S00-005", "authority": "ADR-008", "runner": "dotnet test", "path": "DotNet/Tests/Odyssey.Tests.Unit", "check": "proof data secrets" }
+    { "testCaseId": "TC-RNG-004", "taskId": "ODY-S00-005", "authority": "ADR-008", "runner": "dotnet test", "path": "DotNet/Tests/Odyssey.Tests.Unit", "check": "proof data secrets" },
+    { "testCaseId": "TC-RNG-005", "taskId": "ODY-S00-005", "authority": "ADR-008", "runner": "dotnet test", "path": "DotNet/Tests/Odyssey.Tests.Unit", "check": "canonical RNG evidence" }
   ]
 }
 "@

@@ -1,66 +1,53 @@
 using System;
+using System.Threading;
+using System.Threading.Tasks;
 
 namespace Odyssey.Application.Time
 {
     public readonly struct UtcInstant : IEquatable<UtcInstant>, IComparable<UtcInstant>
     {
-        private readonly long _unixMilliseconds;
+        private readonly DateTimeOffset _value;
         private readonly bool _isValid;
 
-        private UtcInstant(long unixMilliseconds)
+        private UtcInstant(DateTimeOffset value)
         {
-            _unixMilliseconds = unixMilliseconds;
+            _value = value.ToUniversalTime();
             _isValid = true;
         }
 
         public bool IsValid => _isValid;
-        public long UnixMilliseconds => IsValid ? _unixMilliseconds : throw new InvalidOperationException("UtcInstant is invalid.");
-        public static UtcInstant FromUnixMilliseconds(long unixMilliseconds) => new UtcInstant(unixMilliseconds);
-
-        public static UtcInstant FromDateTimeOffset(DateTimeOffset value)
-        {
-            if (value.Offset != TimeSpan.Zero)
-            {
-                throw new ArgumentException("UTC offset must be zero.", nameof(value));
-            }
-
-            return new UtcInstant(value.ToUnixTimeMilliseconds());
-        }
-
-        public DateTimeOffset ToDateTimeOffset() => DateTimeOffset.FromUnixTimeMilliseconds(UnixMilliseconds);
-        public int CompareTo(UtcInstant other) => _unixMilliseconds.CompareTo(other._unixMilliseconds);
-        public bool Equals(UtcInstant other) => _isValid == other._isValid && _unixMilliseconds == other._unixMilliseconds;
+        public DateTimeOffset Value => IsValid ? _value : throw new InvalidOperationException("UtcInstant is invalid.");
+        public static UtcInstant FromDateTimeOffset(DateTimeOffset value) => new UtcInstant(value);
+        public static UtcInstant Parse(string value) => FromDateTimeOffset(DateTimeOffset.ParseExact(value, "yyyy-MM-dd'T'HH:mm:ss.fffffff'Z'", System.Globalization.CultureInfo.InvariantCulture, System.Globalization.DateTimeStyles.AssumeUniversal | System.Globalization.DateTimeStyles.AdjustToUniversal));
+        public UtcInstant Add(TimeSpan value) => new UtcInstant(Value.Add(value));
+        public int CompareTo(UtcInstant other) => Value.CompareTo(other.Value);
+        public bool Equals(UtcInstant other) => _isValid == other._isValid && Value.Equals(other.Value);
         public override bool Equals(object? obj) => obj is UtcInstant other && Equals(other);
-        public override int GetHashCode() => HashCode.Combine(_unixMilliseconds, _isValid);
-        public override string ToString() => IsValid ? ToDateTimeOffset().ToString("O", System.Globalization.CultureInfo.InvariantCulture) : string.Empty;
+        public override int GetHashCode() => HashCode.Combine(Value, _isValid);
+        public override string ToString() => IsValid ? Value.ToString("yyyy-MM-dd'T'HH:mm:ss.fffffff'Z'", System.Globalization.CultureInfo.InvariantCulture) : string.Empty;
         public static bool operator ==(UtcInstant left, UtcInstant right) => left.Equals(right);
         public static bool operator !=(UtcInstant left, UtcInstant right) => !left.Equals(right);
     }
 
-    public readonly struct MonotonicInstant : IEquatable<MonotonicInstant>, IComparable<MonotonicInstant>
+    public readonly struct MonotonicTimestamp : IEquatable<MonotonicTimestamp>
     {
-        private readonly long _ticks;
+        private readonly long _opaqueTicks;
         private readonly bool _isValid;
 
-        private MonotonicInstant(long ticks)
+        private MonotonicTimestamp(long opaqueTicks)
         {
-            _ticks = ticks;
+            _opaqueTicks = opaqueTicks;
             _isValid = true;
         }
 
         public bool IsValid => _isValid;
-        public long Ticks => IsValid ? _ticks : throw new InvalidOperationException("MonotonicInstant is invalid.");
-        public static MonotonicInstant FromTicks(long ticks) => ticks >= 0 ? new MonotonicInstant(ticks) : throw new ArgumentOutOfRangeException(nameof(ticks));
-        public MonotonicInstant AddTicks(long ticks) => ticks >= 0 ? new MonotonicInstant(Ticks + ticks) : throw new ArgumentOutOfRangeException(nameof(ticks));
-        public int CompareTo(MonotonicInstant other) => _ticks.CompareTo(other._ticks);
-        public bool Equals(MonotonicInstant other) => _isValid == other._isValid && _ticks == other._ticks;
-        public override bool Equals(object? obj) => obj is MonotonicInstant other && Equals(other);
-        public override int GetHashCode() => HashCode.Combine(_ticks, _isValid);
-        public override string ToString() => IsValid ? _ticks.ToString(System.Globalization.CultureInfo.InvariantCulture) : string.Empty;
-        public static bool operator ==(MonotonicInstant left, MonotonicInstant right) => left.Equals(right);
-        public static bool operator !=(MonotonicInstant left, MonotonicInstant right) => !left.Equals(right);
-        public static bool operator <(MonotonicInstant left, MonotonicInstant right) => left.CompareTo(right) < 0;
-        public static bool operator >(MonotonicInstant left, MonotonicInstant right) => left.CompareTo(right) > 0;
+        internal long OpaqueTicks => IsValid ? _opaqueTicks : throw new InvalidOperationException("MonotonicTimestamp is invalid.");
+        public static MonotonicTimestamp FromTestTicks(long ticks) => ticks >= 0 ? new MonotonicTimestamp(ticks) : throw new ArgumentOutOfRangeException(nameof(ticks));
+        public bool Equals(MonotonicTimestamp other) => _isValid == other._isValid && _opaqueTicks == other._opaqueTicks;
+        public override bool Equals(object? obj) => obj is MonotonicTimestamp other && Equals(other);
+        public override int GetHashCode() => HashCode.Combine(_opaqueTicks, _isValid);
+        public static bool operator ==(MonotonicTimestamp left, MonotonicTimestamp right) => left.Equals(right);
+        public static bool operator !=(MonotonicTimestamp left, MonotonicTimestamp right) => !left.Equals(right);
     }
 
     public interface IWallClock
@@ -70,11 +57,12 @@ namespace Odyssey.Application.Time
 
     public interface IMonotonicClock
     {
-        MonotonicInstant GetCurrentInstant();
+        MonotonicTimestamp GetTimestamp();
+        TimeSpan GetElapsedTime(MonotonicTimestamp start, MonotonicTimestamp end);
     }
 
     public interface IDelayScheduler
     {
-        void Schedule(MonotonicInstant dueAt, Action callback);
+        ValueTask DelayAsync(TimeSpan delay, CancellationToken cancellationToken);
     }
 }

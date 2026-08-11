@@ -58,6 +58,38 @@ namespace Odyssey.Domain.Events
         public static bool operator !=(CausationCommandId left, CausationCommandId right) => !left.Equals(right);
     }
 
+    public readonly struct EventCorrelationId : IEquatable<EventCorrelationId>
+    {
+        private const string Prefix = "corr_";
+        private const int HexLength = 32;
+        private readonly string _value;
+
+        private EventCorrelationId(string value) => _value = value;
+        public bool IsValid => _value != null;
+        public static bool TryParse(string? value, out EventCorrelationId id) => CanonicalId.TryParse(value, Prefix, HexLength, out id, static v => new EventCorrelationId(v));
+        public static EventCorrelationId Parse(string value) => TryParse(value, out EventCorrelationId id) ? id : throw new FormatException("EventCorrelationId is not canonical.");
+        public override string ToString() => _value ?? string.Empty;
+        public bool Equals(EventCorrelationId other) => string.Equals(_value, other._value, StringComparison.Ordinal);
+        public override bool Equals(object? obj) => obj is EventCorrelationId other && Equals(other);
+        public override int GetHashCode() => _value == null ? 0 : StringComparer.Ordinal.GetHashCode(_value);
+    }
+
+    public readonly struct DomainCampaignId : IEquatable<DomainCampaignId>
+    {
+        private const string Prefix = "camp_";
+        private const int HexLength = 32;
+        private readonly string _value;
+
+        private DomainCampaignId(string value) => _value = value;
+        public bool IsValid => _value != null;
+        public static bool TryParse(string? value, out DomainCampaignId id) => CanonicalId.TryParse(value, Prefix, HexLength, out id, static v => new DomainCampaignId(v));
+        public static DomainCampaignId Parse(string value) => TryParse(value, out DomainCampaignId id) ? id : throw new FormatException("DomainCampaignId is not canonical.");
+        public override string ToString() => _value ?? string.Empty;
+        public bool Equals(DomainCampaignId other) => string.Equals(_value, other._value, StringComparison.Ordinal);
+        public override bool Equals(object? obj) => obj is DomainCampaignId other && Equals(other);
+        public override int GetHashCode() => _value == null ? 0 : StringComparer.Ordinal.GetHashCode(_value);
+    }
+
     public readonly struct DomainEventType : IEquatable<DomainEventType>
     {
         public const int MaxLength = 96;
@@ -99,34 +131,230 @@ namespace Odyssey.Domain.Events
         public override string ToString() => IsValid ? _value.ToString(System.Globalization.CultureInfo.InvariantCulture) : string.Empty;
     }
 
+    public readonly struct DomainEventPayloadVersion
+    {
+        private readonly int _value;
+        private DomainEventPayloadVersion(int value) => _value = value;
+        public bool IsValid => _value > 0;
+        public int Value => IsValid ? _value : throw new InvalidOperationException("DomainEventPayloadVersion is invalid.");
+        public static DomainEventPayloadVersion Create(int value) => value > 0 ? new DomainEventPayloadVersion(value) : throw new ArgumentOutOfRangeException(nameof(value));
+    }
+
+    public readonly struct CampaignRevision : IEquatable<CampaignRevision>, IComparable<CampaignRevision>
+    {
+        private readonly long _value;
+        private CampaignRevision(long value) => _value = value;
+        public bool IsValid => _value > 0;
+        public long Value => IsValid ? _value : throw new InvalidOperationException("CampaignRevision is invalid.");
+        public static CampaignRevision Create(long value) => value > 0 ? new CampaignRevision(value) : throw new ArgumentOutOfRangeException(nameof(value));
+        public int CompareTo(CampaignRevision other) => _value.CompareTo(other._value);
+        public bool Equals(CampaignRevision other) => _value == other._value;
+    }
+
+    public readonly struct AggregateRevision : IEquatable<AggregateRevision>, IComparable<AggregateRevision>
+    {
+        private readonly long _value;
+        private AggregateRevision(long value) => _value = value;
+        public bool IsValid => _value > 0;
+        public long Value => IsValid ? _value : throw new InvalidOperationException("AggregateRevision is invalid.");
+        public static AggregateRevision Create(long value) => value > 0 ? new AggregateRevision(value) : throw new ArgumentOutOfRangeException(nameof(value));
+        public int CompareTo(AggregateRevision other) => _value.CompareTo(other._value);
+        public bool Equals(AggregateRevision other) => _value == other._value;
+    }
+
+    public readonly struct EventSequence : IEquatable<EventSequence>, IComparable<EventSequence>
+    {
+        private readonly long _value;
+        private EventSequence(long value) => _value = value;
+        public bool IsValid => _value > 0;
+        public long Value => IsValid ? _value : throw new InvalidOperationException("EventSequence is invalid.");
+        public static EventSequence Create(long value) => value > 0 ? new EventSequence(value) : throw new ArgumentOutOfRangeException(nameof(value));
+        public int CompareTo(EventSequence other) => _value.CompareTo(other._value);
+        public bool Equals(EventSequence other) => _value == other._value;
+    }
+
+    public readonly struct DomainUtcInstant : IEquatable<DomainUtcInstant>
+    {
+        private readonly DateTimeOffset _value;
+        private readonly bool _isValid;
+
+        private DomainUtcInstant(DateTimeOffset value)
+        {
+            _value = value.ToUniversalTime();
+            _isValid = true;
+        }
+
+        public bool IsValid => _isValid;
+        public DateTimeOffset Value => IsValid ? _value : throw new InvalidOperationException("DomainUtcInstant is invalid.");
+        public static DomainUtcInstant FromDateTimeOffset(DateTimeOffset value) => new DomainUtcInstant(value);
+        public override string ToString() => IsValid ? Value.ToString("yyyy-MM-dd'T'HH:mm:ss.fffffff'Z'", System.Globalization.CultureInfo.InvariantCulture) : string.Empty;
+        public bool Equals(DomainUtcInstant other) => _isValid == other._isValid && Value.Equals(other.Value);
+    }
+
+    public readonly struct AggregateIdentity
+    {
+        public AggregateIdentity(string aggregateType, string aggregateId)
+        {
+            if (!CanonicalText.IsDottedLowerIdentifier(aggregateType, 96, 2)) throw new ArgumentException("Aggregate type is not canonical.", nameof(aggregateType));
+            if (!CanonicalText.IsLowerToken(aggregateId, 96)) throw new ArgumentException("Aggregate id is not canonical.", nameof(aggregateId));
+            AggregateType = aggregateType;
+            AggregateId = aggregateId;
+        }
+
+        public string AggregateType { get; }
+        public string AggregateId { get; }
+    }
+
+    public readonly struct DomainActor
+    {
+        public DomainActor(string issuerKind, string? actorUserId, string? actorCharacterId)
+        {
+            if (!CanonicalText.IsLowerToken(issuerKind, 32)) throw new ArgumentException("Issuer kind is not canonical.", nameof(issuerKind));
+            if (actorUserId != null && !CanonicalText.IsLowerToken(actorUserId, 64)) throw new ArgumentException("Actor user id is not canonical.", nameof(actorUserId));
+            if (actorCharacterId != null && !CanonicalText.IsLowerToken(actorCharacterId, 64)) throw new ArgumentException("Actor character id is not canonical.", nameof(actorCharacterId));
+            IssuerKind = issuerKind;
+            ActorUserId = actorUserId;
+            ActorCharacterId = actorCharacterId;
+        }
+
+        public string IssuerKind { get; }
+        public string? ActorUserId { get; }
+        public string? ActorCharacterId { get; }
+    }
+
+    public readonly struct DomainEventPayload
+    {
+        public DomainEventPayload(string payloadType)
+        {
+            if (!CanonicalText.IsDottedLowerIdentifier(payloadType, 96, 3)) throw new ArgumentException("Payload type is not canonical.", nameof(payloadType));
+            PayloadType = payloadType;
+        }
+
+        public string PayloadType { get; }
+    }
+
     public sealed class DomainEvent
     {
-        private DomainEvent(DomainEventId id, DomainEventType type, DomainEventVersion version, TransactionId transactionId, CausationCommandId causationCommandId, long sequence)
+        private DomainEvent(
+            DomainEventId id,
+            DomainEventType type,
+            DomainEventVersion version,
+            DomainCampaignId campaignId,
+            AggregateIdentity aggregate,
+            AggregateRevision aggregateRevision,
+            CampaignRevision campaignRevision,
+            EventSequence eventSequence,
+            TransactionId transactionId,
+            CausationCommandId rootCommandId,
+            CausationCommandId causationCommandId,
+            EventCorrelationId correlationId,
+            DomainActor actor,
+            DomainUtcInstant occurredAtHost,
+            string visibilityPolicy,
+            string audienceClassification,
+            bool isCompensating,
+            IReadOnlyList<DomainEventId> compensatesEventIds,
+            string? reasonCode,
+            DomainEventPayloadVersion payloadVersion,
+            DomainEventPayload payload)
         {
             Id = id;
             Type = type;
             Version = version;
+            CampaignId = campaignId;
+            Aggregate = aggregate;
+            AggregateRevision = aggregateRevision;
+            CampaignRevision = campaignRevision;
+            EventSequence = eventSequence;
             TransactionId = transactionId;
+            RootCommandId = rootCommandId;
             CausationCommandId = causationCommandId;
-            Sequence = sequence;
+            CorrelationId = correlationId;
+            Actor = actor;
+            OccurredAtHost = occurredAtHost;
+            VisibilityPolicy = visibilityPolicy;
+            AudienceClassification = audienceClassification;
+            IsCompensating = isCompensating;
+            CompensatesEventIds = Array.AsReadOnly(CopyEventIds(compensatesEventIds));
+            ReasonCode = reasonCode;
+            PayloadVersion = payloadVersion;
+            Payload = payload;
         }
 
         public DomainEventId Id { get; }
         public DomainEventType Type { get; }
         public DomainEventVersion Version { get; }
+        public DomainCampaignId CampaignId { get; }
+        public AggregateIdentity Aggregate { get; }
+        public AggregateRevision AggregateRevision { get; }
+        public CampaignRevision CampaignRevision { get; }
+        public EventSequence EventSequence { get; }
         public TransactionId TransactionId { get; }
+        public CausationCommandId RootCommandId { get; }
         public CausationCommandId CausationCommandId { get; }
-        public long Sequence { get; }
+        public EventCorrelationId CorrelationId { get; }
+        public DomainActor Actor { get; }
+        public DomainUtcInstant OccurredAtHost { get; }
+        public string VisibilityPolicy { get; }
+        public string AudienceClassification { get; }
+        public bool IsCompensating { get; }
+        public IReadOnlyList<DomainEventId> CompensatesEventIds { get; }
+        public string? ReasonCode { get; }
+        public DomainEventPayloadVersion PayloadVersion { get; }
+        public DomainEventPayload Payload { get; }
 
-        public static DomainEvent Create(DomainEventId id, DomainEventType type, DomainEventVersion version, TransactionId transactionId, CausationCommandId causationCommandId, long sequence)
+        public static DomainEvent Create(
+            DomainEventId id,
+            DomainEventType type,
+            DomainEventVersion version,
+            DomainCampaignId campaignId,
+            AggregateIdentity aggregate,
+            AggregateRevision aggregateRevision,
+            CampaignRevision campaignRevision,
+            EventSequence eventSequence,
+            TransactionId transactionId,
+            CausationCommandId rootCommandId,
+            CausationCommandId causationCommandId,
+            EventCorrelationId correlationId,
+            DomainActor actor,
+            DomainUtcInstant occurredAtHost,
+            string visibilityPolicy,
+            string audienceClassification,
+            bool isCompensating,
+            IReadOnlyList<DomainEventId> compensatesEventIds,
+            string? reasonCode,
+            DomainEventPayloadVersion payloadVersion,
+            DomainEventPayload payload)
         {
             if (!id.IsValid) throw new ArgumentException("Domain event id is required.", nameof(id));
             if (!type.IsValid) throw new ArgumentException("Domain event type is required.", nameof(type));
             if (!version.IsValid) throw new ArgumentException("Domain event version is required.", nameof(version));
+            if (!campaignId.IsValid) throw new ArgumentException("Campaign id is required.", nameof(campaignId));
+            if (!aggregateRevision.IsValid) throw new ArgumentException("Aggregate revision is required.", nameof(aggregateRevision));
+            if (!campaignRevision.IsValid) throw new ArgumentException("Campaign revision is required.", nameof(campaignRevision));
+            if (!eventSequence.IsValid) throw new ArgumentException("Event sequence is required.", nameof(eventSequence));
             if (!transactionId.IsValid) throw new ArgumentException("Transaction id is required.", nameof(transactionId));
+            if (!rootCommandId.IsValid) throw new ArgumentException("Root command id is required.", nameof(rootCommandId));
             if (!causationCommandId.IsValid) throw new ArgumentException("Causation command id is required.", nameof(causationCommandId));
-            if (sequence < 0) throw new ArgumentOutOfRangeException(nameof(sequence));
-            return new DomainEvent(id, type, version, transactionId, causationCommandId, sequence);
+            if (!correlationId.IsValid) throw new ArgumentException("Correlation id is required.", nameof(correlationId));
+            if (!occurredAtHost.IsValid) throw new ArgumentException("OccurredAtHost is required.", nameof(occurredAtHost));
+            if (!CanonicalText.IsLowerToken(visibilityPolicy, 64)) throw new ArgumentException("Visibility policy is not canonical.", nameof(visibilityPolicy));
+            if (!CanonicalText.IsLowerToken(audienceClassification, 64)) throw new ArgumentException("Audience classification is not canonical.", nameof(audienceClassification));
+            if (reasonCode != null && !CanonicalText.IsDottedLowerIdentifier(reasonCode, 96, 2)) throw new ArgumentException("Reason code is not canonical.", nameof(reasonCode));
+            if (!payloadVersion.IsValid) throw new ArgumentException("Payload version is required.", nameof(payloadVersion));
+            return new DomainEvent(id, type, version, campaignId, aggregate, aggregateRevision, campaignRevision, eventSequence, transactionId, rootCommandId, causationCommandId, correlationId, actor, occurredAtHost, visibilityPolicy, audienceClassification, isCompensating, compensatesEventIds ?? Array.Empty<DomainEventId>(), reasonCode, payloadVersion, payload);
+        }
+
+        private static DomainEventId[] CopyEventIds(IReadOnlyList<DomainEventId> source)
+        {
+            DomainEventId[] copy = new DomainEventId[source.Count];
+            for (int index = 0; index < source.Count; index++)
+            {
+                if (!source[index].IsValid) throw new ArgumentException("Compensated event id is invalid.", nameof(source));
+                copy[index] = source[index];
+            }
+
+            return copy;
         }
     }
 
@@ -134,13 +362,19 @@ namespace Odyssey.Domain.Events
     {
         private readonly ReadOnlyCollection<DomainEvent> _events;
 
-        private DomainEventBatch(TransactionId transactionId, ReadOnlyCollection<DomainEvent> events)
+        private DomainEventBatch(TransactionId transactionId, CampaignRevision campaignRevision, EventSequence from, EventSequence to, ReadOnlyCollection<DomainEvent> events)
         {
             TransactionId = transactionId;
+            CampaignRevision = campaignRevision;
+            EventSequenceFrom = from;
+            EventSequenceTo = to;
             _events = events;
         }
 
         public TransactionId TransactionId { get; }
+        public CampaignRevision CampaignRevision { get; }
+        public EventSequence EventSequenceFrom { get; }
+        public EventSequence EventSequenceTo { get; }
         public IReadOnlyList<DomainEvent> Events => _events;
 
         public static DomainEventBatch Create(TransactionId transactionId, IReadOnlyList<DomainEvent> events)
@@ -150,17 +384,20 @@ namespace Odyssey.Domain.Events
             if (events.Count == 0) throw new ArgumentException("Event batch must contain at least one event.", nameof(events));
 
             DomainEvent[] copy = new DomainEvent[events.Count];
-            long previousSequence = -1;
+            EventSequence? previousSequence = null;
+            CampaignRevision? campaignRevision = null;
             for (int index = 0; index < events.Count; index++)
             {
                 DomainEvent current = events[index] ?? throw new ArgumentException("Domain event is required.", nameof(events));
                 if (current.TransactionId != transactionId) throw new ArgumentException("All events must share the batch transaction id.", nameof(events));
-                if (current.Sequence <= previousSequence) throw new ArgumentException("Events must be in strictly increasing sequence order.", nameof(events));
-                previousSequence = current.Sequence;
+                if (campaignRevision.HasValue && !current.CampaignRevision.Equals(campaignRevision.Value)) throw new ArgumentException("All events must share campaign revision.", nameof(events));
+                if (previousSequence.HasValue && current.EventSequence.Value != previousSequence.Value.Value + 1) throw new ArgumentException("Events must form a continuous event sequence range.", nameof(events));
+                campaignRevision = current.CampaignRevision;
+                previousSequence = current.EventSequence;
                 copy[index] = current;
             }
 
-            return new DomainEventBatch(transactionId, Array.AsReadOnly(copy));
+            return new DomainEventBatch(transactionId, campaignRevision!.Value, copy[0].EventSequence, copy[copy.Length - 1].EventSequence, Array.AsReadOnly(copy));
         }
     }
 
@@ -191,6 +428,25 @@ namespace Odyssey.Domain.Events
 
     internal static class CanonicalText
     {
+        internal static bool IsLowerToken(string? value, int maxLength)
+        {
+            if (string.IsNullOrWhiteSpace(value) || value!.Length > maxLength || value.Trim() != value)
+            {
+                return false;
+            }
+
+            for (int index = 0; index < value.Length; index++)
+            {
+                char c = value[index];
+                if (!((c >= 'a' && c <= 'z') || (c >= '0' && c <= '9') || c == '_' || c == '-'))
+                {
+                    return false;
+                }
+            }
+
+            return true;
+        }
+
         internal static bool IsDottedLowerIdentifier(string? value, int maxLength, int minSegments)
         {
             if (string.IsNullOrWhiteSpace(value) || value!.Length > maxLength || value.Trim() != value)

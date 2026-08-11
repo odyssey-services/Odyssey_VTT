@@ -1,5 +1,9 @@
 using System;
 using System.Collections.Generic;
+using System.Reflection;
+using System.Security.Cryptography;
+using System.Threading;
+using System.Threading.Tasks;
 using NUnit.Framework;
 using Odyssey.Application.Commands;
 using Odyssey.Application.Identity;
@@ -13,20 +17,26 @@ namespace Odyssey.Tests.Unit
 {
     public sealed class CommandEventClockRngContractTests
     {
+        private const string GoldenCanonicalMessageHex = "000000156f6479737365792d726e672d73747265616d2d76310000002563616d705f303132333435363738396162636465663031323334353637383961626364656600000024636d645f30313233343536373839616263646566303132333435363738396162636465660000000200000013746573742e73796e7468657469635f726f6c6c00000005312e322e3300000001000000010000000965706f63682d303031";
+        private const string GoldenHmacHex = "60286c918a0aca2a5e8aaf3c247405fb3e5bd4790e29148ecb79badcf399e7f4";
+        private const string GoldenStreamId = "389f9e6e5dda289403d35697de46d10aec4258af1dec0a01f96436e083a1f27e";
+        private const string GoldenSeedCommitment = "a7dbf705ade53401bf502d86d2074569e55fd7d62a63769b8d42043dc2c07e00";
+        private const ulong GoldenFirstRaw = 0xfab52f556da9470bUL;
+        private const ulong GoldenSecondRaw = 0xc733a2a41b6283e7UL;
+
         [Test]
-        public void CommandEnvelopeAndResultRejectInvalidValues()
+        public void CommandEnvelopeAndResultExposeAdr002SemanticFields()
         {
-            CommandId commandId = CommandId.Parse("cmd_0123456789abcdef0123456789abcdef");
-            CommandType commandType = CommandType.Parse("application.synthetic.accept");
-            CommandVersion commandVersion = CommandVersion.Create(1);
-            CommandFingerprint fingerprint = CommandFingerprint.Parse("fp_0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef");
-            CorrelationId correlationId = CorrelationId.Parse("corr_0123456789abcdef0123456789abcdef");
+            ApplicationCommand command = CreateCommand("application.synthetic.accept");
 
-            ApplicationCommand command = ApplicationCommand.Create(commandId, commandType, commandVersion, fingerprint, correlationId);
-
-            Assert.That(command.CommandId, Is.EqualTo(commandId));
-            Assert.That(command.RootCommandId, Is.EqualTo(commandId));
+            Assert.That(command.CommandId, Is.EqualTo(CommandId.Parse("cmd_0123456789abcdef0123456789abcdef")));
+            Assert.That(command.RootCommandId, Is.EqualTo(command.CommandId));
             Assert.That(command.ParentCommandId.HasValue, Is.False);
+            Assert.That(command.CampaignId!.Value.ToString(), Is.EqualTo("camp_0123456789abcdef0123456789abcdef"));
+            Assert.That(command.Issuer.IssuerKind, Is.EqualTo(CommandIssuerKind.User));
+            Assert.That(command.ReceivedAtHost.ToString(), Is.EqualTo("2026-08-11T01:02:03.1234567Z"));
+            Assert.That(command.PayloadVersion.Value, Is.EqualTo(1));
+            Assert.That(command.Payload.PayloadType, Is.EqualTo("application.synthetic.payload"));
             Assert.That(CommandId.TryParse("cmd_0123456789ABCDEF0123456789abcdef", out _), Is.False);
             Assert.That(CommandType.TryParse("Application.Synthetic.Accept", out _), Is.False);
             AssertThrows<ArgumentOutOfRangeException>(() => CommandVersion.Create(0));
@@ -34,34 +44,64 @@ namespace Odyssey.Tests.Unit
         }
 
         [Test]
-        public void CommandResultHasExactTerminalStates()
+        public void CommandResultHasExactTerminalStatesAndAdr002Metadata()
         {
-            CommandId commandId = CommandId.Parse("cmd_0123456789abcdef0123456789abcdef");
-            DomainEventBatch batch = CreateBatch(commandId);
-            Error rejection = CreateValidationError();
+            ApplicationCommand command = CreateCommand("application.synthetic.accept");
+            DomainEventBatch batch = CreateBatch(command, UtcInstant.Parse("2026-08-11T01:02:04.0000000Z"));
+            UtcInstant completed = UtcInstant.Parse("2026-08-11T01:02:05.0000000Z");
+            Error rejection = CreateValidationError(command.CorrelationId);
 
-            CommandResult accepted = CommandResult.Accepted(commandId, batch);
-            CommandResult pending = CommandResult.Pending(commandId, batch);
-            CommandResult rejected = CommandResult.Rejected(commandId, rejection);
+            CommandResult accepted = CommandResult.Accepted(command, batch, completed);
+            CommandResult pending = CommandResult.Pending(command, batch, completed);
+            CommandResult rejected = CommandResult.Rejected(command, rejection, completed);
 
             Assert.That(Enum.GetNames(typeof(CommandResultStatus)), Is.EqualTo(new[] { "Accepted", "Pending", "Rejected" }));
             Assert.That(accepted.Status, Is.EqualTo(CommandResultStatus.Accepted));
-            Assert.That(accepted.Events, Has.Count.EqualTo(2));
+            Assert.That(accepted.TransactionId, Is.EqualTo(batch.TransactionId));
+            Assert.That(accepted.EventSequenceFrom!.Value.Value, Is.EqualTo(100));
+            Assert.That(accepted.EventSequenceTo!.Value.Value, Is.EqualTo(101));
             Assert.That(pending.Status, Is.EqualTo(CommandResultStatus.Pending));
             Assert.That(pending.Events, Has.Count.EqualTo(2));
-            Assert.That(pending.TransactionId, Is.EqualTo(batch.TransactionId));
             Assert.That(rejected.Status, Is.EqualTo(CommandResultStatus.Rejected));
+            Assert.That(rejected.Events, Is.Empty);
             Assert.That(rejected.Error, Is.SameAs(rejection));
             Assert.That(Result<CommandResult>.Success(rejected).IsSuccess, Is.True);
         }
 
         [Test]
+        public void SyntheticAcceptedCommandCommitsEventsReceiptClockAndRealRngOnce()
+        {
+            FixedWallClock wallClock = new FixedWallClock(UtcInstant.Parse("2026-08-11T01:02:04.0000000Z"), UtcInstant.Parse("2026-08-11T01:02:05.0000000Z"));
+            CountingRandomFactory randomFactory = new CountingRandomFactory(CreateKey());
+            InMemoryCommitPort commit = new InMemoryCommitPort();
+            SyntheticOperationHandler handler = new SyntheticOperationHandler(wallClock, randomFactory);
+            CommandExecutor executor = new CommandExecutor(commit, commit, handler);
+            ApplicationCommand command = CreateCommand("application.synthetic.accept");
+
+            Result<CommandResult> result = executor.Submit(command);
+
+            Assert.That(result.IsSuccess, Is.True);
+            Assert.That(result.Value.Status, Is.EqualTo(CommandResultStatus.Accepted));
+            Assert.That(result.Value.Events, Has.Count.EqualTo(1));
+            Assert.That(result.Value.Events[0].OccurredAtHost.ToString(), Is.EqualTo("2026-08-11T01:02:04.0000000Z"));
+            Assert.That(result.Value.Events[0].CausationCommandId.ToString(), Is.EqualTo(command.CommandId.ToString()));
+            Assert.That(result.Value.Events[0].RootCommandId.ToString(), Is.EqualTo(command.RootCommandId.ToString()));
+            Assert.That(randomFactory.CreateCalls, Is.EqualTo(1));
+            Assert.That(handler.EventBatchCreations, Is.EqualTo(1));
+            Assert.That(wallClock.Calls, Is.EqualTo(2));
+            Assert.That(commit.CommitCalls, Is.EqualTo(1));
+            Assert.That(commit.ReceiptCount, Is.EqualTo(1));
+        }
+
+        [Test]
         public void DuplicateCommandReplaysStoredResultWithoutNewEffects()
         {
-            CountingHandler handler = new CountingHandler(CommandResult.Accepted(CommandId.Parse("cmd_0123456789abcdef0123456789abcdef"), CreateBatch(CommandId.Parse("cmd_0123456789abcdef0123456789abcdef"))));
-            InMemoryReceiptStore receipts = new InMemoryReceiptStore();
-            CommandExecutor executor = new CommandExecutor(receipts, handler);
-            ApplicationCommand command = CreateCommand("fp_0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef");
+            FixedWallClock wallClock = new FixedWallClock(UtcInstant.Parse("2026-08-11T01:02:04.0000000Z"), UtcInstant.Parse("2026-08-11T01:02:05.0000000Z"));
+            CountingRandomFactory randomFactory = new CountingRandomFactory(CreateKey());
+            InMemoryCommitPort commit = new InMemoryCommitPort();
+            SyntheticOperationHandler handler = new SyntheticOperationHandler(wallClock, randomFactory);
+            CommandExecutor executor = new CommandExecutor(commit, commit, handler);
+            ApplicationCommand command = CreateCommand("application.synthetic.accept");
 
             Result<CommandResult> first = executor.Submit(command);
             Result<CommandResult> duplicate = executor.Submit(command);
@@ -70,18 +110,45 @@ namespace Odyssey.Tests.Unit
             Assert.That(duplicate.IsSuccess, Is.True);
             Assert.That(duplicate.Value, Is.SameAs(first.Value));
             Assert.That(handler.Calls, Is.EqualTo(1));
-            Assert.That(receipts.Saves, Is.EqualTo(1));
+            Assert.That(randomFactory.CreateCalls, Is.EqualTo(1));
+            Assert.That(handler.EventBatchCreations, Is.EqualTo(1));
+            Assert.That(wallClock.Calls, Is.EqualTo(2));
+            Assert.That(commit.CommitCalls, Is.EqualTo(1));
+            Assert.That(commit.ReceiptCount, Is.EqualTo(1));
         }
 
         [Test]
-        public void CommandIdMismatchIsSafeAndDoesNotRevealStoredResult()
+        public void ConcurrentDuplicateCommandIsSingleFlightInCurrentProcess()
         {
-            CommandResult stored = CommandResult.Accepted(CommandId.Parse("cmd_0123456789abcdef0123456789abcdef"), CreateBatch(CommandId.Parse("cmd_0123456789abcdef0123456789abcdef")));
-            CountingHandler handler = new CountingHandler(stored);
-            InMemoryReceiptStore receipts = new InMemoryReceiptStore();
-            CommandExecutor executor = new CommandExecutor(receipts, handler);
-            ApplicationCommand original = CreateCommand("fp_0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef");
-            ApplicationCommand changed = CreateCommand("fp_fedcba9876543210fedcba9876543210fedcba9876543210fedcba9876543210");
+            FixedWallClock wallClock = new FixedWallClock(UtcInstant.Parse("2026-08-11T01:02:04.0000000Z"), UtcInstant.Parse("2026-08-11T01:02:05.0000000Z"));
+            CountingRandomFactory randomFactory = new CountingRandomFactory(CreateKey());
+            InMemoryCommitPort commit = new InMemoryCommitPort();
+            SyntheticOperationHandler handler = new SyntheticOperationHandler(wallClock, randomFactory);
+            CommandExecutor executor = new CommandExecutor(commit, commit, handler);
+            ApplicationCommand command = CreateCommand("application.synthetic.accept");
+            Result<CommandResult>[] results = new Result<CommandResult>[2];
+
+            Parallel.Invoke(
+                () => results[0] = executor.Submit(command),
+                () => results[1] = executor.Submit(command));
+
+            Assert.That(results[0].IsSuccess, Is.True);
+            Assert.That(results[1].IsSuccess, Is.True);
+            Assert.That(results[0].Value, Is.SameAs(results[1].Value));
+            Assert.That(handler.Calls, Is.EqualTo(1));
+            Assert.That(randomFactory.CreateCalls, Is.EqualTo(1));
+            Assert.That(handler.EventBatchCreations, Is.EqualTo(1));
+            Assert.That(commit.CommitCalls, Is.EqualTo(1));
+        }
+
+        [Test]
+        public void CommandIdMismatchAndHandlerResultMismatchAreSafe()
+        {
+            FixedWallClock wallClock = new FixedWallClock(UtcInstant.Parse("2026-08-11T01:02:04.0000000Z"), UtcInstant.Parse("2026-08-11T01:02:05.0000000Z"));
+            InMemoryCommitPort commit = new InMemoryCommitPort();
+            CommandExecutor executor = new CommandExecutor(commit, commit, new SyntheticOperationHandler(wallClock, new CountingRandomFactory(CreateKey())));
+            ApplicationCommand original = CreateCommand("application.synthetic.accept", "fp_0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef");
+            ApplicationCommand changed = CreateCommand("application.synthetic.accept", "fp_fedcba9876543210fedcba9876543210fedcba9876543210fedcba9876543210");
 
             Result<CommandResult> accepted = executor.Submit(original);
             Result<CommandResult> mismatch = executor.Submit(changed);
@@ -89,33 +156,55 @@ namespace Odyssey.Tests.Unit
             Assert.That(accepted.IsSuccess, Is.True);
             Assert.That(mismatch.IsFailure, Is.True);
             Assert.That(mismatch.Error.Code, Is.EqualTo(ErrorCodes.CommandIdentityMismatch));
-            Assert.That(mismatch.Error.SafeReasonCode, Is.EqualTo(SafeReasonCode.ActionNotAllowed));
             Assert.That(mismatch.Error.Metadata, Is.Empty);
-            Assert.That(handler.Calls, Is.EqualTo(1));
-            Assert.That(receipts.Saves, Is.EqualTo(1));
+
+            CommandExecutor badExecutor = new CommandExecutor(new InMemoryCommitPort(), new InMemoryCommitPort(), new MismatchedResultHandler());
+            Result<CommandResult> bad = badExecutor.Submit(original);
+            Assert.That(bad.IsFailure, Is.True);
+            Assert.That(bad.Error.Code, Is.EqualTo(ErrorCodes.CommandIdentityMismatch));
         }
 
         [Test]
-        public void RejectedSyntheticCommandCreatesNoEventsAndConsumesNoRng()
+        public void CommitFailureIsOuterFailureAndDoesNotStoreDurableReceipt()
         {
-            CountingHandler handler = new CountingHandler(CommandResult.Rejected(CommandId.Parse("cmd_0123456789abcdef0123456789abcdef"), CreateValidationError()));
-            InMemoryReceiptStore receipts = new InMemoryReceiptStore();
-            CommandExecutor executor = new CommandExecutor(receipts, handler);
+            FixedWallClock wallClock = new FixedWallClock(UtcInstant.Parse("2026-08-11T01:02:04.0000000Z"), UtcInstant.Parse("2026-08-11T01:02:05.0000000Z"));
+            InMemoryCommitPort commit = new InMemoryCommitPort { FailCommit = true };
+            CommandExecutor executor = new CommandExecutor(commit, commit, new SyntheticOperationHandler(wallClock, new CountingRandomFactory(CreateKey())));
 
-            Result<CommandResult> result = executor.Submit(CreateCommand("fp_1111111111111111111111111111111111111111111111111111111111111111"));
+            Result<CommandResult> result = executor.Submit(CreateCommand("application.synthetic.accept"));
+
+            Assert.That(result.IsFailure, Is.True);
+            Assert.That(commit.CommitCalls, Is.EqualTo(1));
+            Assert.That(commit.ReceiptCount, Is.EqualTo(0));
+        }
+
+        [Test]
+        public void RejectedSyntheticCommandCreatesNoEventsAndConsumesNoRngOrTransactionClock()
+        {
+            FixedWallClock wallClock = new FixedWallClock(UtcInstant.Parse("2026-08-11T01:02:05.0000000Z"));
+            CountingRandomFactory randomFactory = new CountingRandomFactory(CreateKey());
+            InMemoryCommitPort commit = new InMemoryCommitPort();
+            SyntheticOperationHandler handler = new SyntheticOperationHandler(wallClock, randomFactory);
+            CommandExecutor executor = new CommandExecutor(commit, commit, handler);
+
+            Result<CommandResult> result = executor.Submit(CreateCommand("application.synthetic.reject"));
 
             Assert.That(result.IsSuccess, Is.True);
             Assert.That(result.Value.Status, Is.EqualTo(CommandResultStatus.Rejected));
             Assert.That(result.Value.Events, Is.Empty);
-            Assert.That(handler.RngCalls, Is.EqualTo(0));
+            Assert.That(randomFactory.CreateCalls, Is.EqualTo(0));
+            Assert.That(handler.EventBatchCreations, Is.EqualTo(0));
+            Assert.That(wallClock.Calls, Is.EqualTo(1));
+            Assert.That(commit.CommitCalls, Is.EqualTo(1));
+            Assert.That(commit.ReceiptCount, Is.EqualTo(1));
         }
 
         [Test]
-        public void DomainEventBatchIsImmutableOrderedAndCausallyLinked()
+        public void DomainEventBatchIsImmutableOrderedAndSemanticallyComplete()
         {
-            CommandId commandId = CommandId.Parse("cmd_0123456789abcdef0123456789abcdef");
-            DomainEvent first = CreateEvent("evt_00000000000000000000000000000001", commandId, 10);
-            DomainEvent second = CreateEvent("evt_00000000000000000000000000000002", commandId, 11);
+            ApplicationCommand command = CreateCommand("application.synthetic.accept");
+            DomainEvent first = CreateEvent("evt_00000000000000000000000000000001", command, EventSequence.Create(100), AggregateRevision.Create(7), UtcInstant.Parse("2026-08-11T01:02:04.0000000Z"));
+            DomainEvent second = CreateEvent("evt_00000000000000000000000000000002", command, EventSequence.Create(101), AggregateRevision.Create(8), UtcInstant.Parse("2026-08-11T01:02:04.0000000Z"));
             DomainEvent[] source = { first, second };
 
             DomainEventBatch batch = DomainEventBatch.Create(first.TransactionId, source);
@@ -124,29 +213,139 @@ namespace Odyssey.Tests.Unit
             Assert.That(batch.Events[0], Is.SameAs(first));
             Assert.That(batch.Events[1], Is.SameAs(second));
             Assert.That(batch.Events, Is.InstanceOf<System.Collections.ObjectModel.ReadOnlyCollection<DomainEvent>>());
-            Assert.That(batch.Events[0].CausationCommandId.ToString(), Is.EqualTo(commandId.ToString()));
+            Assert.That(batch.EventSequenceFrom.Value, Is.EqualTo(100));
+            Assert.That(batch.EventSequenceTo.Value, Is.EqualTo(101));
+            Assert.That(batch.Events[0].CorrelationId.ToString(), Is.EqualTo(command.CorrelationId.ToString()));
             AssertThrows<ArgumentException>(() => DomainEventBatch.Create(first.TransactionId, new[] { second, first }));
         }
 
         [Test]
-        public void InjectedClockAndVirtualSchedulerAreDeterministic()
+        public async Task InjectedClockAndVirtualSchedulerMatchAdr008Shape()
         {
-            FixedWallClock wallClock = new FixedWallClock(UtcInstant.FromUnixMilliseconds(1234567890));
-            VirtualMonotonicScheduler scheduler = new VirtualMonotonicScheduler(MonotonicInstant.FromTicks(10));
-            List<string> fired = new List<string>();
+            UtcInstant instant = UtcInstant.FromDateTimeOffset(new DateTimeOffset(2026, 8, 11, 3, 2, 3, 123, TimeSpan.FromHours(2)).AddTicks(4567));
+            Assert.That(instant.ToString(), Is.EqualTo("2026-08-11T01:02:03.1234567Z"));
+            Assert.That(UtcInstant.Parse(instant.ToString()), Is.EqualTo(instant));
 
-            scheduler.Schedule(MonotonicInstant.FromTicks(30), () => fired.Add("second"));
-            scheduler.Schedule(MonotonicInstant.FromTicks(20), () => fired.Add("first"));
-            scheduler.AdvanceTo(MonotonicInstant.FromTicks(25));
-            scheduler.AdvanceTo(MonotonicInstant.FromTicks(30));
+            VirtualScheduler scheduler = new VirtualScheduler();
+            MonotonicTimestamp start = scheduler.GetTimestamp();
+            await scheduler.DelayAsync(TimeSpan.Zero, CancellationToken.None);
+            Assert.That(scheduler.CompletedDelays, Is.EqualTo(1));
+            AssertThrows<ArgumentOutOfRangeException>(() => scheduler.DelayAsync(TimeSpan.FromTicks(-1), CancellationToken.None).GetAwaiter().GetResult());
 
-            Assert.That(wallClock.GetUtcNow().UnixMilliseconds, Is.EqualTo(1234567890));
-            Assert.That(scheduler.GetCurrentInstant().Ticks, Is.EqualTo(30));
-            Assert.That(fired, Is.EqualTo(new[] { "first", "second" }));
+            CancellationTokenSource cts = new CancellationTokenSource();
+            ValueTask delayed = scheduler.DelayAsync(TimeSpan.FromSeconds(5), cts.Token);
+            cts.Cancel();
+            AssertThrows<TaskCanceledException>(() => delayed.AsTask().GetAwaiter().GetResult());
+
+            scheduler.Advance(TimeSpan.FromSeconds(2));
+            MonotonicTimestamp end = scheduler.GetTimestamp();
+            Assert.That(scheduler.GetElapsedTime(start, end), Is.EqualTo(TimeSpan.FromSeconds(2)));
         }
 
         [Test]
-        public void RngVectorsAreStableAndProofDataContainsNoSecret()
+        public void RngGoldenVectorsUseExactAdr008CanonicalMessageAndProofData()
+        {
+            RandomDecisionContext context = CreateRandomContext();
+            byte[] message = HmacSha256StreamDeriverV1.CreateCanonicalMessage(context);
+            byte[] key = CreateKeyBytes();
+            byte[] digest = ComputeHmacReference(key, message);
+            IAuthoritativeRandomStream stream = new DeterministicRandomStreamFactory(CampaignRngKey.FromBytes(key)).Create(context).Value;
+
+            Assert.That(ToHex(message), Is.EqualTo(GoldenCanonicalMessageHex));
+            Assert.That(ToHex(digest), Is.EqualTo(GoldenHmacHex));
+            Assert.That(stream.Identity.StreamId.ToString(), Is.EqualTo(GoldenStreamId));
+            Assert.That(stream.Identity.SeedCommitment.ToString(), Is.EqualTo(GoldenSeedCommitment));
+            Assert.That(InvokeInternalNextRaw(stream), Is.EqualTo(GoldenFirstRaw));
+            Assert.That(InvokeInternalNextRaw(new DeterministicRandomStreamFactory(CampaignRngKey.FromBytes(key)).Create(context).Value, 2), Is.EqualTo(GoldenSecondRaw));
+
+            stream = new DeterministicRandomStreamFactory(CampaignRngKey.FromBytes(key)).Create(context).Value;
+            RandomSample roll = stream.NextInclusive(1, 20, 0).Value;
+            Assert.That(roll.Value, Is.EqualTo(4));
+            Assert.That(roll.ProofData.DrawIndex, Is.EqualTo(0));
+            Assert.That(roll.ProofData.DecisionOrdinal, Is.EqualTo(2));
+            Assert.That(roll.ProofData.RawStepCount, Is.EqualTo(1));
+            Assert.That(roll.ProofData.StreamId.ToString(), Is.EqualTo(GoldenStreamId));
+            Assert.That(roll.ProofData.SeedCommitment.ToString(), Is.EqualTo(GoldenSeedCommitment));
+            Assert.That(roll.ProofData.GetType().GetProperties(), Has.None.Property("Name").EqualTo("Key"));
+            Assert.That(roll.ProofData.GetType().GetProperties(), Has.None.Property("Name").EqualTo("State0"));
+        }
+
+        [Test]
+        public void RngRangeBoundariesAndDrawAccountingDoNotAdvanceOnInvalidCalls()
+        {
+            IAuthoritativeRandomStream stream = new DeterministicRandomStreamFactory(CreateKey()).Create(CreateRandomContext()).Value;
+
+            Assert.That(stream.NextInclusive(7, 7, 0).Value.Value, Is.EqualTo(7));
+            Assert.That(stream.NextInclusive(-10, -5, 1).Value.Value, Is.InRange(-10, -5));
+            Assert.That(stream.NextInclusive(int.MinValue, int.MaxValue, 2).Value.Value, Is.InRange(int.MinValue, int.MaxValue));
+
+            Result<RandomSample> invalidRange = stream.NextInclusive(2, 1, 3);
+            Assert.That(invalidRange.IsFailure, Is.True);
+            Assert.That(invalidRange.Error.Code, Is.EqualTo(ErrorCodes.RandomInvalidRange));
+
+            Result<RandomSample> wrongIndex = stream.NextInclusive(1, 10, 4);
+            Assert.That(wrongIndex.IsFailure, Is.True);
+            Assert.That(wrongIndex.Error.Code, Is.EqualTo(ErrorCodes.RandomDrawIndexMismatch));
+
+            Assert.That(stream.NextInclusive(1, 10, 3).IsSuccess, Is.True);
+        }
+
+        [Test]
+        public void ForcedRejectionProducesRawStepCountGreaterThanOne()
+        {
+            IAuthoritativeRandomStream stream = CreateReflectionStreamForForcedRejection();
+
+            RandomSample sample = stream.NextInclusive(1, 10, 0).Value;
+
+            Assert.That(sample.ProofData.RawStepCount, Is.GreaterThan(1));
+            Assert.That(sample.ProofData.RejectionCount, Is.EqualTo(sample.ProofData.RawStepCount - 1));
+        }
+
+        [Test]
+        public void ZeroStateFallbackUsesSecondHmacMessageWithTrailingByte()
+        {
+            byte[] message = HexToBytes(GoldenCanonicalMessageHex);
+            byte[] firstDigest = new byte[32];
+            byte[] fallbackMessage = new byte[message.Length + 1];
+            Array.Copy(message, fallbackMessage, message.Length);
+            fallbackMessage[fallbackMessage.Length - 1] = 0x01;
+            byte[] fallbackDigest = ComputeHmacReference(CreateKeyBytes(), fallbackMessage);
+
+            Assert.That(IsAllZeroState(firstDigest), Is.True);
+            Assert.That(IsAllZeroState(fallbackDigest), Is.False);
+            Assert.That(ToHex(fallbackMessage), Does.EndWith("01"));
+        }
+
+        private static ApplicationCommand CreateCommand(string commandType, string fingerprint = "fp_0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef")
+        {
+            return ApplicationCommand.Create(
+                CommandId.Parse("cmd_0123456789abcdef0123456789abcdef"),
+                CommandType.Parse(commandType),
+                CommandVersion.Create(1),
+                CommandFingerprint.Parse(fingerprint),
+                CorrelationId.Parse("corr_0123456789abcdef0123456789abcdef"),
+                UtcInstant.Parse("2026-08-11T01:02:03.1234567Z"),
+                new CommandIssuer(CommandIssuerKind.User, "user_001", "character_001"),
+                CommandPayloadVersion.Create(1),
+                new CommandPayload("application.synthetic.payload"),
+                CampaignId.Parse("camp_0123456789abcdef0123456789abcdef"));
+        }
+
+        private static RandomDecisionContext CreateRandomContext()
+        {
+            return RandomDecisionContext.Create(
+                CampaignId.Parse("camp_0123456789abcdef0123456789abcdef"),
+                CommandId.Parse("cmd_0123456789abcdef0123456789abcdef"),
+                2,
+                RngPurpose.Parse("test.synthetic_roll"),
+                RulesetVersion.Parse("1.2.3"),
+                RngKeyEpochId.Parse("epoch-001"),
+                CorrelationId.Parse("corr_0123456789abcdef0123456789abcdef"));
+        }
+
+        private static CampaignRngKey CreateKey() => CampaignRngKey.FromBytes(CreateKeyBytes());
+
+        private static byte[] CreateKeyBytes()
         {
             byte[] key = new byte[32];
             for (int index = 0; index < key.Length; index++)
@@ -154,57 +353,43 @@ namespace Odyssey.Tests.Unit
                 key[index] = (byte)index;
             }
 
-            CommandId commandId = CommandId.Parse("cmd_0123456789abcdef0123456789abcdef");
-            RngPurpose purpose = RngPurpose.Parse("test.synthetic_roll");
-            RngStreamContext context = RngStreamContext.Create(commandId, 2, purpose, RulesetVersion.Parse("1.2.3"));
-            Xoshiro256StarStar stream = DeterministicRng.CreateStream(CampaignRngKey.FromBytes(key), context);
-
-            Assert.That(stream.State0, Is.EqualTo(0xe79c594a1121d0b0UL));
-            Assert.That(stream.State1, Is.EqualTo(0xbd5c5aa379119510UL));
-            Assert.That(stream.State2, Is.EqualTo(0x27d8932b92e458bcUL));
-            Assert.That(stream.State3, Is.EqualTo(0xd6d1e0ec3400e446UL));
-            Assert.That(stream.NextUInt64(), Is.EqualTo(0x9df75e240b99eb21UL));
-            Assert.That(stream.NextUInt64(), Is.EqualTo(0xa8b9230ba48ef7f8UL));
-
-            stream = DeterministicRng.CreateStream(CampaignRngKey.FromBytes(key), context);
-            RngIntegerResult roll = DeterministicRng.NextIntInclusive(ref stream, 1, 20, RngKeyEpochId.Parse("epoch-001"), purpose, 2);
-
-            Assert.That(roll.Value, Is.EqualTo(2));
-            Assert.That(roll.ProofData.RejectionCount, Is.EqualTo(0));
-            Assert.That(roll.ProofData.KeyEpochId.ToString(), Is.EqualTo("epoch-001"));
-            Assert.That(roll.ProofData.GetType().GetProperties(), Has.None.Property("Name").EqualTo("Key"));
-            Assert.That(roll.ProofData.GetType().GetProperties(), Has.None.Property("Name").EqualTo("Secret"));
+            return key;
         }
 
-        private static ApplicationCommand CreateCommand(string fingerprint)
+        private static DomainEventBatch CreateBatch(ApplicationCommand command, UtcInstant occurredAt)
         {
-            return ApplicationCommand.Create(
-                CommandId.Parse("cmd_0123456789abcdef0123456789abcdef"),
-                CommandType.Parse("application.synthetic.accept"),
-                CommandVersion.Create(1),
-                CommandFingerprint.Parse(fingerprint),
-                CorrelationId.Parse("corr_0123456789abcdef0123456789abcdef"));
-        }
-
-        private static DomainEventBatch CreateBatch(CommandId commandId)
-        {
-            DomainEvent first = CreateEvent("evt_00000000000000000000000000000001", commandId, 10);
-            DomainEvent second = CreateEvent("evt_00000000000000000000000000000002", commandId, 11);
+            DomainEvent first = CreateEvent("evt_00000000000000000000000000000001", command, EventSequence.Create(100), AggregateRevision.Create(7), occurredAt);
+            DomainEvent second = CreateEvent("evt_00000000000000000000000000000002", command, EventSequence.Create(101), AggregateRevision.Create(8), occurredAt);
             return DomainEventBatch.Create(first.TransactionId, new[] { first, second });
         }
 
-        private static DomainEvent CreateEvent(string id, CommandId commandId, long sequence)
+        private static DomainEvent CreateEvent(string id, ApplicationCommand command, EventSequence sequence, AggregateRevision aggregateRevision, UtcInstant occurredAt)
         {
             return DomainEvent.Create(
                 DomainEventId.Parse(id),
                 DomainEventType.Parse("application.synthetic.accepted"),
                 DomainEventVersion.Create(1),
+                DomainCampaignId.Parse(command.CampaignId!.Value.ToString()),
+                new AggregateIdentity("application.synthetic", "synthetic_001"),
+                aggregateRevision,
+                CampaignRevision.Create(42),
+                sequence,
                 TransactionId.Parse("tx_0123456789abcdef0123456789abcdef"),
-                commandId.ToCausationCommandId(),
-                sequence);
+                command.RootCommandId.ToCausationCommandId(),
+                command.CommandId.ToCausationCommandId(),
+                EventCorrelationId.Parse(command.CorrelationId.ToString()),
+                command.Issuer.ToDomainActor(),
+                DomainUtcInstant.FromDateTimeOffset(occurredAt.Value),
+                "gm_visible",
+                "public",
+                false,
+                Array.Empty<DomainEventId>(),
+                null,
+                DomainEventPayloadVersion.Create(1),
+                new DomainEventPayload("application.synthetic.payload"));
         }
 
-        private static Error CreateValidationError()
+        private static Error CreateValidationError(CorrelationId correlationId)
         {
             return Error.Create(
                 ErrorCodes.ApplicationValidationInvalid,
@@ -212,7 +397,18 @@ namespace Odyssey.Tests.Unit
                 SafeReasonCode.InvalidRequest,
                 UserMessageKey.Parse("errors.application.validation_invalid"),
                 RetryDirective.DoNotRetry,
-                CorrelationId.Parse("corr_0123456789abcdef0123456789abcdef"));
+                correlationId);
+        }
+
+        private static Error CreateInternalError(CorrelationId correlationId)
+        {
+            return Error.Create(
+                ErrorCodes.ApplicationInternalUnexpected,
+                ErrorCategory.Internal,
+                SafeReasonCode.UnexpectedError,
+                UserMessageKey.Parse("errors.application.unexpected"),
+                RetryDirective.ManualRecoveryRequired,
+                correlationId);
         }
 
         private static void AssertThrows<TException>(Action action)
@@ -221,94 +417,228 @@ namespace Odyssey.Tests.Unit
             Assert.That(action, Throws.TypeOf<TException>());
         }
 
-        private sealed class CountingHandler : ICommandHandler
+        private static string ToHex(byte[] bytes)
         {
-            private readonly CommandResult _result;
-
-            public CountingHandler(CommandResult result) => _result = result;
-            public int Calls { get; private set; }
-            public int RngCalls { get; private set; }
-
-            public Result<CommandResult> Execute(ApplicationCommand command)
+            char[] chars = new char[bytes.Length * 2];
+            const string hex = "0123456789abcdef";
+            for (int index = 0; index < bytes.Length; index++)
             {
-                Calls++;
-                if (_result.Status == CommandResultStatus.Accepted)
-                {
-                    RngCalls++;
-                }
+                chars[index * 2] = hex[bytes[index] >> 4];
+                chars[index * 2 + 1] = hex[bytes[index] & 0x0F];
+            }
 
-                return Result<CommandResult>.Success(_result);
+            return new string(chars);
+        }
+
+        private static byte[] HexToBytes(string hex)
+        {
+            byte[] bytes = new byte[hex.Length / 2];
+            for (int index = 0; index < bytes.Length; index++)
+            {
+                bytes[index] = Convert.ToByte(hex.Substring(index * 2, 2), 16);
+            }
+
+            return bytes;
+        }
+
+        private static byte[] ComputeHmacReference(byte[] key, byte[] message)
+        {
+            using (HMACSHA256 hmac = new HMACSHA256(key))
+            {
+                return hmac.ComputeHash(message);
             }
         }
 
-        private sealed class InMemoryReceiptStore : ICommandReceiptStore
+        private static bool IsAllZeroState(byte[] digest)
+        {
+            if (digest.Length != 32) throw new ArgumentException("Digest must be 32 bytes.", nameof(digest));
+            ulong combined = BitConverter.ToUInt64(digest, 0) | BitConverter.ToUInt64(digest, 8) | BitConverter.ToUInt64(digest, 16) | BitConverter.ToUInt64(digest, 24);
+            return combined == 0UL;
+        }
+
+        private static ulong InvokeInternalNextRaw(IAuthoritativeRandomStream stream, int count = 1)
+        {
+            FieldInfo? field = stream.GetType().GetField("_stream", BindingFlags.NonPublic | BindingFlags.Instance);
+            object value = field!.GetValue(stream)!;
+            MethodInfo method = value.GetType().GetMethod("NextUInt64", BindingFlags.NonPublic | BindingFlags.Public | BindingFlags.Instance)!;
+            ulong result = 0;
+            for (int index = 0; index < count; index++)
+            {
+                result = (ulong)method.Invoke(value, Array.Empty<object>())!;
+            }
+
+            return result;
+        }
+
+        private static IAuthoritativeRandomStream CreateReflectionStreamForForcedRejection()
+        {
+            RandomDecisionContext context = CreateRandomContext();
+            IAuthoritativeRandomStream normal = new DeterministicRandomStreamFactory(CreateKey()).Create(context).Value;
+            Type streamType = normal.GetType();
+            Type xoshiroType = streamType.Assembly.GetType("Odyssey.Application.Random.Xoshiro256StarStarV1")!;
+            object xoshiro = Activator.CreateInstance(xoshiroType, BindingFlags.Instance | BindingFlags.NonPublic | BindingFlags.Public, null, new object[] { 1UL, 0UL, 0UL, 0UL }, null)!;
+            return (IAuthoritativeRandomStream)Activator.CreateInstance(streamType, BindingFlags.Instance | BindingFlags.NonPublic | BindingFlags.Public, null, new object[] { xoshiro, normal.Identity }, null)!;
+        }
+
+        private sealed class FixedWallClock : IWallClock
+        {
+            private readonly Queue<UtcInstant> _instants;
+
+            public FixedWallClock(params UtcInstant[] instants) => _instants = new Queue<UtcInstant>(instants);
+            public int Calls { get; private set; }
+
+            public UtcInstant GetUtcNow()
+            {
+                Calls++;
+                return _instants.Count > 1 ? _instants.Dequeue() : _instants.Peek();
+            }
+        }
+
+        private sealed class CountingRandomFactory : IAuthoritativeRandomStreamFactory
+        {
+            private readonly DeterministicRandomStreamFactory _inner;
+
+            public CountingRandomFactory(CampaignRngKey key) => _inner = new DeterministicRandomStreamFactory(key);
+            public int CreateCalls { get; private set; }
+
+            public Result<IAuthoritativeRandomStream> Create(RandomDecisionContext context)
+            {
+                CreateCalls++;
+                return _inner.Create(context);
+            }
+        }
+
+        private sealed class SyntheticOperationHandler : ICommandHandler
+        {
+            private readonly IWallClock _wallClock;
+            private readonly IAuthoritativeRandomStreamFactory _randomFactory;
+
+            public SyntheticOperationHandler(IWallClock wallClock, IAuthoritativeRandomStreamFactory randomFactory)
+            {
+                _wallClock = wallClock;
+                _randomFactory = randomFactory;
+            }
+
+            public int Calls { get; private set; }
+            public int EventBatchCreations { get; private set; }
+
+            public Result<CommandExecutionProposal> Execute(ApplicationCommand command)
+            {
+                Calls++;
+                UtcInstant completedAt = _wallClock.GetUtcNow();
+                if (command.CommandType.ToString() == "application.synthetic.reject")
+                {
+                    CommandResult rejected = CommandResult.Rejected(command, CreateValidationError(command.CorrelationId), completedAt);
+                    return Result<CommandExecutionProposal>.Success(CommandExecutionProposal.FromResult(rejected, null));
+                }
+
+                UtcInstant occurredAt = completedAt;
+                Result<IAuthoritativeRandomStream> stream = _randomFactory.Create(CreateRandomContext());
+                if (stream.IsFailure)
+                {
+                    return Result<CommandExecutionProposal>.Failure(stream.Error);
+                }
+
+                Result<RandomSample> roll = stream.Value.NextInclusive(1, 20, 0);
+                if (roll.IsFailure)
+                {
+                    return Result<CommandExecutionProposal>.Failure(roll.Error);
+                }
+
+                EventBatchCreations++;
+                DomainEventBatch batch = DomainEventBatch.Create(
+                    TransactionId.Parse("tx_0123456789abcdef0123456789abcdef"),
+                    new[]
+                    {
+                        CreateEvent("evt_00000000000000000000000000000001", command, EventSequence.Create(100), AggregateRevision.Create(7), occurredAt)
+                    });
+                UtcInstant commitCompletedAt = _wallClock.GetUtcNow();
+                CommandResult accepted = CommandResult.Accepted(command, batch, commitCompletedAt);
+                return Result<CommandExecutionProposal>.Success(CommandExecutionProposal.FromResult(accepted, batch));
+            }
+        }
+
+        private sealed class MismatchedResultHandler : ICommandHandler
+        {
+            public Result<CommandExecutionProposal> Execute(ApplicationCommand command)
+            {
+                ApplicationCommand other = ApplicationCommand.Create(
+                    CommandId.Parse("cmd_fedcba9876543210fedcba9876543210"),
+                    CommandType.Parse("application.synthetic.accept"),
+                    CommandVersion.Create(1),
+                    CommandFingerprint.Parse("fp_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"),
+                    command.CorrelationId,
+                    command.ReceivedAtHost,
+                    command.Issuer,
+                    command.PayloadVersion,
+                    command.Payload,
+                    command.CampaignId);
+                DomainEventBatch batch = CreateBatch(other, UtcInstant.Parse("2026-08-11T01:02:04.0000000Z"));
+                CommandResult result = CommandResult.Accepted(other, batch, UtcInstant.Parse("2026-08-11T01:02:05.0000000Z"));
+                return Result<CommandExecutionProposal>.Success(CommandExecutionProposal.FromResult(result, batch));
+            }
+        }
+
+        private sealed class InMemoryCommitPort : ICommandReceiptStore, ICommandCommitter
         {
             private readonly Dictionary<CommandId, CommandReceipt> _receipts = new Dictionary<CommandId, CommandReceipt>();
 
-            public int Saves { get; private set; }
+            public int CommitCalls { get; private set; }
+            public int ReceiptCount => _receipts.Count;
+            public bool FailCommit { get; set; }
 
             public bool TryGet(CommandId commandId, out CommandReceipt receipt)
             {
                 return _receipts.TryGetValue(commandId, out receipt!);
             }
 
-            public void Save(CommandReceipt receipt)
+            public Result<CommandReceipt> Commit(CommandCommitProposal proposal)
             {
-                Saves++;
+                CommitCalls++;
+                if (FailCommit)
+                {
+                    return Result<CommandReceipt>.Failure(CreateInternalError(proposal.Command.CorrelationId));
+                }
+
+                CommandReceipt receipt = new CommandReceipt(proposal.Command.CommandId, proposal.Fingerprint, proposal.Execution.Result);
                 _receipts.Add(receipt.CommandId, receipt);
+                return Result<CommandReceipt>.Success(receipt);
             }
         }
 
-        private sealed class FixedWallClock : IWallClock
+        private sealed class VirtualScheduler : IMonotonicClock, IDelayScheduler
         {
-            private readonly UtcInstant _instant;
+            private readonly Dictionary<MonotonicTimestamp, long> _timestamps = new Dictionary<MonotonicTimestamp, long>();
+            private long _ticks;
 
-            public FixedWallClock(UtcInstant instant) => _instant = instant;
-            public UtcInstant GetUtcNow() => _instant;
-        }
-
-        private sealed class VirtualMonotonicScheduler : IMonotonicClock, IDelayScheduler
-        {
-            private readonly SortedList<long, List<Action>> _callbacks = new SortedList<long, List<Action>>();
-            private MonotonicInstant _current;
-
-            public VirtualMonotonicScheduler(MonotonicInstant current) => _current = current;
-            public MonotonicInstant GetCurrentInstant() => _current;
-
-            public void Schedule(MonotonicInstant dueAt, Action callback)
+            public int CompletedDelays { get; private set; }
+            public MonotonicTimestamp GetTimestamp()
             {
-                if (callback == null) throw new ArgumentNullException(nameof(callback));
-                if (!_callbacks.TryGetValue(dueAt.Ticks, out List<Action>? callbacks))
-                {
-                    callbacks = new List<Action>();
-                    _callbacks.Add(dueAt.Ticks, callbacks);
-                }
-
-                callbacks.Add(callback);
+                MonotonicTimestamp timestamp = MonotonicTimestamp.FromTestTicks(_ticks);
+                _timestamps[timestamp] = _ticks;
+                return timestamp;
             }
 
-            public void AdvanceTo(MonotonicInstant instant)
+            public TimeSpan GetElapsedTime(MonotonicTimestamp start, MonotonicTimestamp end) => TimeSpan.FromTicks(_timestamps[end] - _timestamps[start]);
+
+            public ValueTask DelayAsync(TimeSpan delay, CancellationToken cancellationToken)
             {
-                if (instant < _current) throw new ArgumentOutOfRangeException(nameof(instant));
-                _current = instant;
-                List<long> ready = new List<long>();
-                foreach (long dueAt in _callbacks.Keys)
+                if (delay < TimeSpan.Zero) throw new ArgumentOutOfRangeException(nameof(delay));
+                if (cancellationToken.IsCancellationRequested) return new ValueTask(Task.FromCanceled(cancellationToken));
+                if (delay == TimeSpan.Zero)
                 {
-                    if (dueAt <= instant.Ticks)
-                    {
-                        ready.Add(dueAt);
-                    }
+                    CompletedDelays++;
+                    return default;
                 }
 
-                foreach (long dueAt in ready)
-                {
-                    foreach (Action callback in _callbacks[dueAt])
-                    {
-                        callback();
-                    }
+                TaskCompletionSource<bool> tcs = new TaskCompletionSource<bool>();
+                cancellationToken.Register(() => tcs.TrySetCanceled(cancellationToken));
+                return new ValueTask(tcs.Task);
+            }
 
-                    _callbacks.Remove(dueAt);
-                }
+            public void Advance(TimeSpan elapsed)
+            {
+                _ticks += elapsed.Ticks;
             }
         }
     }
