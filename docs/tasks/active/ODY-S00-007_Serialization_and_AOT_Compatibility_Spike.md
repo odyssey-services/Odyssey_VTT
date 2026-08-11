@@ -8,7 +8,7 @@
 **Pull request:** Not opened
 **ExecPlan:** `docs/plans/active/ODY-S00-000_SLICE_00_Technical_Skeleton.md`
 **Created:** 2026-08-11
-**Last updated:** 2026-08-11 20:14 UTC
+**Last updated:** 2026-08-11 20:52 UTC
 
 ## 1. Goal
 
@@ -398,6 +398,7 @@ No new dependency, package, GitHub Action, executable, or downloadable tool is a
 - ODY-S00-007 active task contract created at `docs/tasks/active/ODY-S00-007_Serialization_and_AOT_Compatibility_Spike.md`.
 - Operational pointers updated in Active Baseline v1.8, SLICE-00 backlog, parent task, parent ExecPlan, README, and repository policy required-path list.
 - Contract correction updated ODY-S00-007 IL2CPP, diagnostic JSONL, TestCase ownership, Domain read-only, focused AOT harness, and System.Text.Json/source-generation feasibility requirements. Parent task, parent ExecPlan, and backlog record future ODY-S00-008 ownership for `TC-DIAG-033`, `TC-DIAG-034`, `TC-DIAG-035`, `TC-DIAG-036`, `TC-DIAG-037`, `TC-DIAG-038`, `TC-DIAG-039`, and `TC-DIAG-040`.
+- Permanent .NET SDK build-layout correction added `UseArtifactsOutput=true` and a repository guard so sibling bridge projects no longer share `DotNet/Projects/obj/project.assets.json`.
 
 ### Validation results
 
@@ -415,6 +416,17 @@ No new dependency, package, GitHub Action, executable, or downloadable tool is a
 | `git diff --check` | Passed | Blocker-update rerun exited 0 with no whitespace errors. |
 | `git diff --cached --check` | Passed | Blocker-update pre-stage run exited 0 with no staged diff errors; printed inaccessible global ignore warning only. |
 | Targeted blocker-update assertions | Passed | Verified ODY-S00-007 is Blocked, only this task contract plus parent task/ExecPlan changed, `System.Text.Json` / `JsonSerializerContext` blocker wording is recorded, `CS0234` / `CS0246` and no-package evidence are recorded, no dependency/project/package changes were made, and ODY-S00-008 / ODY-S00-009 remain Draft. |
+| `powershell -NoProfile -ExecutionPolicy Bypass -File .\scripts\restore.ps1` | Passed | First sandbox run failed with `NU1900` NuGet vulnerability-index access; rerun outside sandbox passed. Normal restore now creates project-isolated `artifacts/obj/<Project>/project.assets.json` files. |
+| Artifact layout inspection | Passed | Confirmed `artifacts/obj/Odyssey.Domain/project.assets.json`, `artifacts/obj/Odyssey.Rules/project.assets.json`, `artifacts/obj/Odyssey.Content/project.assets.json`, `artifacts/obj/Odyssey.Application/project.assets.json`, and four test-project assets files exist. `DotNet/Projects/obj/project.assets.json`, `DotNet/Projects/obj`, and `DotNet/Projects/bin` are absent after cleanup/restore. |
+| `powershell -NoProfile -ExecutionPolicy Bypass -File .\scripts\verify-format.ps1` | Passed | `FORMAT-001 PASS repository text formatting checks passed`. |
+| `powershell -NoProfile -ExecutionPolicy Bypass -File .\scripts\verify-test-structure.ps1` | Passed | `TC-ARCH-001` valid graph passed; `TC-ARCH-002` controlled invalid Domain->Rules, package version mismatch, and duplicate catalog ownership fixtures were rejected. Guard now verifies `Directory.Build.props` `UseArtifactsOutput=true`. |
+| `powershell -NoProfile -ExecutionPolicy Bypass -File .\scripts\test-fast.ps1` | Passed | Build completed with 0 warnings / 0 errors; tests passed: Contracts 1, Domain 1, Unit 54, Architecture 2; total 58, failed 0, skipped 0. |
+| `dotnet build DotNet\Odyssey.Core.sln --no-restore` | Passed | Solution build completed with 0 warnings / 0 errors; outputs are under `artifacts/bin/<Project>/debug`. |
+| `dotnet test DotNet\Odyssey.Core.sln --no-build --no-restore` | Passed | Tests passed: Contracts 1, Domain 1, Unit 54, Architecture 2; total 58, failed 0, skipped 0. |
+| `powershell -NoProfile -ExecutionPolicy Bypass -File .\scripts\verify-repository.ps1` | Passed | Repository checks passed; SDK configured and selected `10.0.302`; repository policy and architecture checks passed inside the script. |
+| `powershell -NoProfile -ExecutionPolicy Bypass -File .\scripts\check-repository-policy.ps1` | Passed | `REPO-POLICY-001` through `REPO-POLICY-005` passed, including controlled ErrorCode registry fixtures. |
+| `git diff --check` | Passed | Exited 0 with no whitespace errors. |
+| `git diff --cached --check` | Passed | Pre-stage run exited 0 with no staged diff errors; printed inaccessible global ignore warning only. |
 
 ### Acceptance result
 
@@ -435,10 +447,12 @@ No new dependency, package, GitHub Action, executable, or downloadable tool is a
 - Focused IL2CPP serialization evidence is mandatory for implementation, but it must remain a `serialization-aot-smoke` harness/evidence path and must not claim the ODY-S00-009 application build artifact.
 - Full .NET restore/build/test, Unity batch/EditMode/PlayMode, and IL2CPP validation were not run for this docs-only activation because no `Assets/`, `Packages/`, `DotNet/`, test, or serialization implementation files changed.
 - Zero-commit feasibility probe found that `System.Text.Json` and `JsonSerializerContext` are unavailable in both the current pure .NET `Odyssey.Application` bridge and Unity `Odyssey.Application` compile contours. This is a dependency/toolchain blocker, not a serialization implementation failure.
+- Follow-up zero-commit pure .NET isolation probe proved that `System.Text.Json` `10.0.11` and `JsonSerializerContext` source generation compile for `Odyssey.Application` `netstandard2.1` when project artifacts are isolated. Evidence: `System.Text.Json` runtime resolved, `JsonSerializerContext` source generator was usable, `StjProbeJsonContext.Default.StjProbeDto` compiled, build passed with 0 warnings / 0 errors after correcting only the temporary probe nullable initializer, no reflection fallback was used, and no manual transitive `PackageReference` entries were required.
+- Root cause of the original pure .NET probe failure was the shared `DotNet/Projects/obj/project.assets.json` collision between sibling bridge projects. Permanent repository correction is `Directory.Build.props` `UseArtifactsOutput=true`.
 
 ### Follow-up tasks
 
-- Resolve the `System.Text.Json` runtime plus source-generator dependency/reference decision shared by the pure .NET bridge and Unity `6000.4.0f1` before ODY-S00-007 production implementation.
+- Prove `System.Text.Json` `10.0.11` compatibility with Unity `6000.4.0f1` Mono/source-generation and Windows x64 IL2CPP before approving the dependency and starting ODY-S00-007 production implementation.
 - ODY-S00-008 BuildIdentity/CI and ODY-S00-009 Windows Development-Debug artifact remain deferred.
 
 ### Self-review summary
@@ -458,7 +472,8 @@ No new dependency, package, GitHub Action, executable, or downloadable tool is a
 - Compiler failures: `CS0234` for unavailable `System.Text.Json` namespace, `CS0246` for unavailable `JsonSerializerContext`, and `CS0246` for unavailable `JsonSerializableAttribute` / `JsonSerializable`.
 - `dotnet list DotNet\Projects\Odyssey.Application.csproj package --include-transitive` reported `[netstandard2.1]: no packages found`.
 - No dependency, project, package, Unity package, DLL, analyzer, serializer, test, fixture, or implementation changes were made. The temporary probe source and Unity-generated `.meta` file were removed, and final git status was clean.
-- ODY-S00-007 is Blocked until the dependency/toolchain decision is approved. ODY-S00-008 and ODY-S00-009 remain Draft.
+- Pure .NET `System.Text.Json` `10.0.11` feasibility passed after isolating project artifacts with `UseArtifactsOutput=true`, but no permanent `System.Text.Json` dependency was added.
+- ODY-S00-007 remains Blocked until Unity `6000.4.0f1` Mono/source-generation and Windows x64 IL2CPP compatibility for `System.Text.Json` `10.0.11` are proven and approved. ODY-S00-008 and ODY-S00-009 remain Draft.
 
 ### Decisions made during execution
 

@@ -356,6 +356,11 @@ function Test-CentralPackageVersions([System.Collections.Generic.List[string]] $
     $propsPath = Join-Path $RootPath 'Directory.Build.props'
     try {
         $xml = Read-XmlFile $propsPath
+        $useArtifactsOutput = [string] $xml.Project.PropertyGroup.UseArtifactsOutput
+        if ($useArtifactsOutput -ne 'true') {
+            $Errors.Add("Directory.Build.props UseArtifactsOutput must be true, got $useArtifactsOutput.")
+        }
+
         foreach ($packageName in $testPackageVersions.Keys) {
             $propertyName = $testPackageVersions[$packageName].Property
             $expectedVersion = $testPackageVersions[$packageName].Version
@@ -873,6 +878,7 @@ function New-SyntheticFixture([string] $FixtureRoot, [bool] $InvalidDomainDepend
     <LangVersion>9.0</LangVersion>
     <Nullable>enable</Nullable>
     <ImplicitUsings>disable</ImplicitUsings>
+    <UseArtifactsOutput>true</UseArtifactsOutput>
     <Deterministic>true</Deterministic>
     <ContinuousIntegrationBuild>true</ContinuousIntegrationBuild>
     <TreatWarningsAsErrors>true</TreatWarningsAsErrors>
