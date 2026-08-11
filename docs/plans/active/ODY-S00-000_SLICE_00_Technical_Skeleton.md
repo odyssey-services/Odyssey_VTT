@@ -3,7 +3,7 @@
 **Status:** Active
 **Owner:** Codex
 **Branch:** `feat/ody-s00-006-runtime-composition-diagnostic-shell`
-**Pull request:** Not opened
+**Pull request:** Draft PR #10 - https://github.com/odyssey-services/Odyssey_VTT/pull/10
 **Last updated:** 2026-08-11 14:15 UTC
 
 ## 1. Purpose and user-visible outcome
@@ -236,7 +236,7 @@ Record real commands, outputs and artifact paths here as child tasks complete.
 
 - Repository identity, Private visibility, and PR #1 merge are verified. Exact branch protection/ruleset settings remain an owner-accepted limitation.
 - Unity `6000.4.0f1` is acceptable for local ODY-S00-002 development by owner decision.
-- ODY-S00-002 through ODY-S00-005 are Done. ODY-S00-006 is the current In Review child task on `feat/ody-s00-006-runtime-composition-diagnostic-shell`; production implementation and owner-review corrective hardening are complete for commit/push.
+- ODY-S00-002 through ODY-S00-005 are Done. ODY-S00-006 is the current In Review child task on `feat/ody-s00-006-runtime-composition-diagnostic-shell`; Draft PR #10 is open at https://github.com/odyssey-services/Odyssey_VTT/pull/10 with pre-metadata head commit `9e903873ccda9b0e84438c27691b061115564b3d`.
 - GitHub plan/settings may affect exact branch-protection options; the task must apply the strongest supported equivalent and record any unavailable setting.
 
 No current implementation blocker is recorded for ODY-S00-006.
@@ -245,4 +245,4 @@ No current implementation blocker is recorded for ODY-S00-006.
 
 Current outcome: ODY-S00-001 is Done after owner merge of PR #1. ODY-S00-002 is Done after owner merge of PR #4 and closure PR #5. ODY-S00-003 is Done after owner merge of PR #6 and closure PR #7. ODY-S00-004 is owner-merged through PR #8. ODY-S00-005 is owner-merged through PR #9.
 
-Next action: push the approved ODY-S00-006 corrective commit to the existing branch for owner review. Do not create a new PR, merge, or start ODY-S00-007.
+Next action: owner review of Draft PR #10 for ODY-S00-006. Do not merge, mark Ready, or start ODY-S00-007.
