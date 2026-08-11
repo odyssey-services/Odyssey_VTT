@@ -266,7 +266,7 @@ All additional dependencies require a child task update and explicit approval be
 
 ### Follow-up tasks
 
-- `ODY-S00-007` through `ODY-S00-010`; ODY-S00-001 through ODY-S00-006 are completed, and ODY-S00-007 is Blocked pending a shared `System.Text.Json` / source-generation dependency decision.
+- `ODY-S00-007` through `ODY-S00-010`; ODY-S00-001 through ODY-S00-006 are completed, and ODY-S00-007 is Blocked by the Unity Player managed reference/generator blocker for `System.Text.Json` `10.0.11`.
 - ADR-010 diagnostic session/bundle scenarios `TC-DIAG-033`, `TC-DIAG-034`, `TC-DIAG-035`, `TC-DIAG-036`, `TC-DIAG-037`, `TC-DIAG-038`, `TC-DIAG-039`, and `TC-DIAG-040` are future ODY-S00-008 scope after BuildIdentity exists; ODY-S00-010 remains final reconciliation, not an implementation task.
 
 ### Self-review summary
@@ -281,7 +281,7 @@ All additional dependencies require a child task update and explicit approval be
 
 ### Blockers
 
-- ODY-S00-001 through ODY-S00-006 are complete. ODY-S00-007 is Blocked because the current repository has no approved `System.Text.Json` runtime plus source-generator dependency/reference arrangement shared by the pure .NET bridge and Unity `6000.4.0f1`. Zero-commit probe failed with `CS0234` for unavailable `System.Text.Json` and `CS0246` for unavailable `JsonSerializerContext` / `JsonSerializableAttribute`; `dotnet list package --include-transitive` for `Odyssey.Application` reported no packages for `netstandard2.1`.
+- ODY-S00-001 through ODY-S00-006 are complete. ODY-S00-007 is Blocked: pure .NET and Unity Editor/Mono `System.Text.Json` `10.0.11` feasibility passed, but Windows Standalone x64 Player managed compilation failed before IL2CPP conversion because the Player compile received the source generator analyzer but not the required STJ runtime references. Classification: `UNITY PLAYER MANAGED REFERENCE/GENERATOR BLOCKER`. STJ `10.0.11` is not approved as production dependency, and no exact STJ `6.0.0-preview` version is selected.
 - ODY-S00-008 remains Draft and is the future owner for `TC-DIAG-033`, `TC-DIAG-034`, `TC-DIAG-035`, `TC-DIAG-036`, `TC-DIAG-037`, `TC-DIAG-038`, `TC-DIAG-039`, and `TC-DIAG-040` after BuildIdentity is available.
 
 ### Decisions made during execution

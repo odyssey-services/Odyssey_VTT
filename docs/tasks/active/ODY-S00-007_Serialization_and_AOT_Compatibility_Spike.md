@@ -8,7 +8,7 @@
 **Pull request:** Not opened
 **ExecPlan:** `docs/plans/active/ODY-S00-000_SLICE_00_Technical_Skeleton.md`
 **Created:** 2026-08-11
-**Last updated:** 2026-08-11 20:52 UTC
+**Last updated:** 2026-08-11 23:33 UTC
 
 ## 1. Goal
 
@@ -399,6 +399,7 @@ No new dependency, package, GitHub Action, executable, or downloadable tool is a
 - Operational pointers updated in Active Baseline v1.8, SLICE-00 backlog, parent task, parent ExecPlan, README, and repository policy required-path list.
 - Contract correction updated ODY-S00-007 IL2CPP, diagnostic JSONL, TestCase ownership, Domain read-only, focused AOT harness, and System.Text.Json/source-generation feasibility requirements. Parent task, parent ExecPlan, and backlog record future ODY-S00-008 ownership for `TC-DIAG-033`, `TC-DIAG-034`, `TC-DIAG-035`, `TC-DIAG-036`, `TC-DIAG-037`, `TC-DIAG-038`, `TC-DIAG-039`, and `TC-DIAG-040`.
 - Permanent .NET SDK build-layout correction added `UseArtifactsOutput=true` and a repository guard so sibling bridge projects no longer share `DotNet/Projects/obj/project.assets.json`.
+- Docs-only blocker evidence update records final `System.Text.Json` `10.0.11` feasibility status: pure .NET PASS, Unity Editor/Mono PASS, and Windows Standalone x64 Player managed compilation FAIL before IL2CPP conversion. No production, test, dependency, project, Unity package, asmdef, or ProjectSettings files were changed.
 
 ### Validation results
 
@@ -427,6 +428,10 @@ No new dependency, package, GitHub Action, executable, or downloadable tool is a
 | `powershell -NoProfile -ExecutionPolicy Bypass -File .\scripts\check-repository-policy.ps1` | Passed | `REPO-POLICY-001` through `REPO-POLICY-005` passed, including controlled ErrorCode registry fixtures. |
 | `git diff --check` | Passed | Exited 0 with no whitespace errors. |
 | `git diff --cached --check` | Passed | Pre-stage run exited 0 with no staged diff errors; printed inaccessible global ignore warning only. |
+| `powershell -NoProfile -ExecutionPolicy Bypass -File .\scripts\check-repository-policy.ps1` | Passed | Docs-only final blocker evidence rerun passed `REPO-POLICY-001` through `REPO-POLICY-005`, including controlled ErrorCode registry fixtures. |
+| `git diff --check` | Passed | Docs-only final blocker evidence rerun exited 0 with no whitespace errors; printed CRLF normalization warning for `docs/tasks/SLICE-00_BACKLOG.md` only. |
+| `git diff --cached --check` | Passed | Docs-only final blocker evidence pre-stage run exited 0 with no staged diff errors; printed inaccessible global ignore warning only. |
+| Targeted final blocker assertions | Passed | Verified ODY-S00-007 remains Blocked, backlog marks 007 Blocked, pure .NET PASS is recorded, Unity Editor/Mono PASS is recorded, Player managed compile blocker is recorded, IL2CPP conversion is explicitly not reached, no exact STJ 6 preview is approved, no serialization implementation started, ODY-S00-008/009 remain Draft, and parent ExecPlan records `UNITY PLAYER MANAGED REFERENCE/GENERATOR BLOCKER`. |
 
 ### Acceptance result
 
@@ -449,10 +454,25 @@ No new dependency, package, GitHub Action, executable, or downloadable tool is a
 - Zero-commit feasibility probe found that `System.Text.Json` and `JsonSerializerContext` are unavailable in both the current pure .NET `Odyssey.Application` bridge and Unity `Odyssey.Application` compile contours. This is a dependency/toolchain blocker, not a serialization implementation failure.
 - Follow-up zero-commit pure .NET isolation probe proved that `System.Text.Json` `10.0.11` and `JsonSerializerContext` source generation compile for `Odyssey.Application` `netstandard2.1` when project artifacts are isolated. Evidence: `System.Text.Json` runtime resolved, `JsonSerializerContext` source generator was usable, `StjProbeJsonContext.Default.StjProbeDto` compiled, build passed with 0 warnings / 0 errors after correcting only the temporary probe nullable initializer, no reflection fallback was used, and no manual transitive `PackageReference` entries were required.
 - Root cause of the original pure .NET probe failure was the shared `DotNet/Projects/obj/project.assets.json` collision between sibling bridge projects. Permanent repository correction is `Directory.Build.props` `UseArtifactsOutput=true`.
+- Final zero-commit `System.Text.Json` `10.0.11` feasibility result:
+  - Pure .NET: PASS for `Odyssey.Application` `netstandard2.1` with coherent NuGet dependency closure, `JsonSerializerContext` source generator execution, `StjProbeJsonContext.Default.StjProbeDto` compilation, generated-metadata serialize/deserialize path compilation, and no reflection fallback.
+  - Unity Editor/Mono: PASS on Unity `6000.4.0f1 (8cf496087c8f)` with Unity Roslyn `4.3`, the `System.Text.Json` roslyn4.0 source generator scoped to `Odyssey.Application`, STJ runtime types resolved, generated partial implementation produced, `CS0534` absent, `Context.Default.StjProbeDto` compiled, generated serialize PASS, generated deserialize PASS, semantic equality PASS, and no reflection fallback.
+  - The successful coherent external runtime closure used `Microsoft.Bcl.AsyncInterfaces` `10.0.11` / AssemblyVersion `10.0.0.11`, `System.IO.Pipelines` `10.0.11` / AssemblyVersion `10.0.0.0`, `System.Text.Encodings.Web` `10.0.11` / AssemblyVersion `10.0.0.0`, and `System.Text.Json` `10.0.11` / AssemblyVersion `10.0.0.0`.
+  - The earlier `Utf8JsonWriter` `TypeLoadException` was caused by an incoherent dependency substitution and was not reproduced after the coherent closure was used.
+- Windows Build Support IL2CPP is installed, Windows x64 IL2CPP variations are present, the Visual Studio native C++ toolchain is present, and Windows SDK `10.0.26100.0` is present. The remaining blocker is not missing IL2CPP tooling.
+- Corrected application-scoped production-layout probe details: `Odyssey.Application.asmdef` was temporarily set to `overrideReferences=true` with precompiled references `Microsoft.Bcl.AsyncInterfaces.dll`, `System.IO.Pipelines.dll`, `System.Text.Encodings.Web.dll`, and `System.Text.Json.dll`; the application-scoped source generator passed, and Editor/Mono passed.
+- Windows Standalone x64 IL2CPP build failed before IL2CPP conversion at Unity Player managed compilation / dependency reference resolution. Representative compiler failures were `CS0234` for missing `System.Text.Json`, `CS0246` for missing `JsonSerializerContext`, and `CS0246` for missing `JsonSerializableAttribute` / `JsonSerializable`.
+- Important Player compile evidence: the Player compile response did include the `System.Text.Json.SourceGeneration` analyzer, but the Player compile did not receive the required STJ runtime references. Therefore source generation could not execute meaningfully for the Player compilation; IL2CPP conversion, native C++ compilation/linking, and Player runtime were never reached.
+- Classification: `UNITY PLAYER MANAGED REFERENCE/GENERATOR BLOCKER`. This is not classified as an IL2CPP conversion failure, IL2CPP runtime failure, or proven `System.Text.Json` runtime incompatibility.
+- `System.Text.Json` `10.0.11` is proven compatible with the project's pure .NET bridge and Unity Editor/Mono contour, but it is not approved as an ODY-S00-007 production dependency because the current Unity `6000.4.0f1` Player compilation path has not provided a supportable dependency/reference layout that reaches the mandatory Windows x64 IL2CPP proof.
+- No further `System.Text.Json` `10.0.11` DLL-location, AutoReference, or precompiledReference experimentation is authorized under the current blocker.
+- Unity-supported legacy line research context: Unity documentation for this Unity generation identifies `System.Text.Json` `6.0.0-preview` as the supported line. No exact preview version is selected or approved, and it is not the new baseline. Exact version selection plus maintenance/security acceptability require a separate owner architectural decision.
+- ODY-S00-007 cannot return to Ready until the owner chooses and proves one supported direction: evaluate an exact Unity-supported `System.Text.Json` `6.0.0-preview` candidate with maintenance/security acceptance and full .NET + Mono + Windows x64 IL2CPP proof; amend or supersede ADR-003 for a different maintained serialization strategy preserving determinism, canonical JSON, versioned DTOs, AOT safety, fixtures, hashes, and compatibility behavior; or move to another supported Unity Editor baseline that demonstrably supports a maintained STJ dependency arrangement. A Unity baseline move requires ADR-009 amendment/supersession.
+- All feasibility probes ended with ProjectSettings restored, `Odyssey.Application.asmdef` restored, temporary runtime DLLs/analyzer/probe source/meta removed, external build outputs removed, repository clean, and no permanent dependency changes.
 
 ### Follow-up tasks
 
-- Prove `System.Text.Json` `10.0.11` compatibility with Unity `6000.4.0f1` Mono/source-generation and Windows x64 IL2CPP before approving the dependency and starting ODY-S00-007 production implementation.
+- Resolve the Unity Player managed reference/generator blocker through an owner-approved architecture/toolchain direction before approving any serialization dependency or starting ODY-S00-007 production implementation.
 - ODY-S00-008 BuildIdentity/CI and ODY-S00-009 Windows Development-Debug artifact remain deferred.
 
 ### Self-review summary
@@ -467,13 +487,11 @@ No new dependency, package, GitHub Action, executable, or downloadable tool is a
 
 ### Blockers
 
-- Current repository has no approved `System.Text.Json` runtime plus source-generator dependency/reference arrangement shared by the pure .NET bridge and Unity `6000.4.0f1`.
-- Zero-commit feasibility evidence: pure .NET `dotnet build DotNet\Projects\Odyssey.Application.csproj --no-restore -v:minimal` failed; Unity `6000.4.0f1` batch compile imported the same probe and logged the same compiler failures.
-- Compiler failures: `CS0234` for unavailable `System.Text.Json` namespace, `CS0246` for unavailable `JsonSerializerContext`, and `CS0246` for unavailable `JsonSerializableAttribute` / `JsonSerializable`.
-- `dotnet list DotNet\Projects\Odyssey.Application.csproj package --include-transitive` reported `[netstandard2.1]: no packages found`.
-- No dependency, project, package, Unity package, DLL, analyzer, serializer, test, fixture, or implementation changes were made. The temporary probe source and Unity-generated `.meta` file were removed, and final git status was clean.
-- Pure .NET `System.Text.Json` `10.0.11` feasibility passed after isolating project artifacts with `UseArtifactsOutput=true`, but no permanent `System.Text.Json` dependency was added.
-- ODY-S00-007 remains Blocked until Unity `6000.4.0f1` Mono/source-generation and Windows x64 IL2CPP compatibility for `System.Text.Json` `10.0.11` are proven and approved. ODY-S00-008 and ODY-S00-009 remain Draft.
+- Pure .NET `System.Text.Json` `10.0.11` feasibility passed after isolating project artifacts with `UseArtifactsOutput=true`; no permanent `System.Text.Json` dependency was added.
+- Unity Editor/Mono `System.Text.Json` `10.0.11` feasibility passed when the coherent runtime closure and roslyn4.0 source generator were scoped to `Odyssey.Application`; `CS0534` was absent and generated-context round-trip passed without reflection fallback.
+- Windows Standalone x64 Player managed compilation failed before IL2CPP conversion because the Player compile received the `System.Text.Json.SourceGeneration` analyzer but did not receive the required STJ runtime references. Representative failures: `CS0234` for missing `System.Text.Json`, `CS0246` for missing `JsonSerializerContext`, and `CS0246` for missing `JsonSerializableAttribute` / `JsonSerializable`.
+- Blocker classification: `UNITY PLAYER MANAGED REFERENCE/GENERATOR BLOCKER`. IL2CPP conversion, native C++ compile/link, and Player runtime were not reached.
+- `System.Text.Json` `10.0.11` is not approved as a production dependency for ODY-S00-007. No exact `System.Text.Json` `6.0.0-preview` version is selected or approved. ODY-S00-007 remains Blocked until the owner chooses and proves an approved serialization/toolchain direction. ODY-S00-008 and ODY-S00-009 remain Draft.
 
 ### Decisions made during execution
 
