@@ -55,7 +55,7 @@ Deliver the complete `SLICE-00` technical skeleton: a private authoritative repo
 - Repository Foundation is complete through merged PR #1.
 - Unity Project Foundation is complete through owner-merged PR #4; merge commit `70e7d49e217d4aecb7a2e873d31787d26001f47f` records the Unity `6000.4.0f1 (8cf496087c8f)` HDRP baseline.
 - Module and Test Skeleton is complete through owner-merged PR #6; merge commit `5e6f5e03ef022c5d7b0e6fef559c2383796d95be` records the Core module/test skeleton and dual .NET/Unity test foundation.
-- ODY-S00-004 is In Review on `feat/ody-s00-004-identity-version-result-primitives`; typed identity, version, and Result/Error primitive implementation is complete pending owner review.
+- ODY-S00-004 is complete through owner-merged PR #8. ODY-S00-005 is In Review on `feat/ody-s00-005-command-event-clock-rng-primitives`; command, event, clock, scheduler, and RNG contract implementation is complete pending owner review.
 
 ### Assumptions
 

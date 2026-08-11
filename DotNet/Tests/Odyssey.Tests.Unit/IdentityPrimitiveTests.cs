@@ -1,5 +1,6 @@
 using NUnit.Framework;
 using Odyssey.Application.Identity;
+using Odyssey.Domain.Identity;
 
 namespace Odyssey.Tests.Unit
 {
