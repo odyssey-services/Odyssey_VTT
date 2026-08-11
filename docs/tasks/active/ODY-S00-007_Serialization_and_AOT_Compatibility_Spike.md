@@ -1,6 +1,6 @@
 # ODY-S00-007 - Serialization and AOT Compatibility Spike
 
-**Status:** Ready
+**Status:** Blocked
 **Roadmap stage / slice:** SLICE-00
 **Owner:** Codex
 **Requested by:** Product owner
@@ -8,7 +8,7 @@
 **Pull request:** Not opened
 **ExecPlan:** `docs/plans/active/ODY-S00-000_SLICE_00_Technical_Skeleton.md`
 **Created:** 2026-08-11
-**Last updated:** 2026-08-11 19:30 UTC
+**Last updated:** 2026-08-11 20:14 UTC
 
 ## 1. Goal
 
@@ -411,6 +411,10 @@ No new dependency, package, GitHub Action, executable, or downloadable tool is a
 | `git diff --check` | Passed | Contract-correction rerun exited 0; printed CRLF normalization warning for `docs/tasks/SLICE-00_BACKLOG.md` only. |
 | `git diff --cached --check` | Passed | Contract-correction pre-stage run exited 0 with no staged diff errors; printed inaccessible global ignore warning only. |
 | Targeted contract-correction assertions | Passed | Verified 007 remains Ready, no implementation paths changed, IL2CPP is mandatory, `TC-DIAG-001` exact meaning is preserved, `TC-DIAG-007`, `TC-DIAG-029`, `TC-DIAG-030`, `TC-DIAG-031`, and `TC-DIAG-032` are assigned to 007, `TC-DIAG-033` through `TC-DIAG-040` future ownership is recorded for 008, `TC-SER-001` through `TC-SER-024` are task-specific, Domain edit paths are removed, focused IL2CPP harness paths are recorded, and System.Text.Json/source-generation dependency changes require blocker plus owner approval. |
+| `powershell -NoProfile -ExecutionPolicy Bypass -File .\scripts\check-repository-policy.ps1` | Passed | Blocker-update rerun passed `REPO-POLICY-001` through `REPO-POLICY-005`, including controlled ErrorCode registry fixtures. |
+| `git diff --check` | Passed | Blocker-update rerun exited 0 with no whitespace errors. |
+| `git diff --cached --check` | Passed | Blocker-update pre-stage run exited 0 with no staged diff errors; printed inaccessible global ignore warning only. |
+| Targeted blocker-update assertions | Passed | Verified ODY-S00-007 is Blocked, only this task contract plus parent task/ExecPlan changed, `System.Text.Json` / `JsonSerializerContext` blocker wording is recorded, `CS0234` / `CS0246` and no-package evidence are recorded, no dependency/project/package changes were made, and ODY-S00-008 / ODY-S00-009 remain Draft. |
 
 ### Acceptance result
 
@@ -430,10 +434,11 @@ No new dependency, package, GitHub Action, executable, or downloadable tool is a
 - Production serialization code, tests, fixtures, contexts, canonical writer, JSONL sink, and focused IL2CPP serialization evidence are not implemented in this activation commit.
 - Focused IL2CPP serialization evidence is mandatory for implementation, but it must remain a `serialization-aot-smoke` harness/evidence path and must not claim the ODY-S00-009 application build artifact.
 - Full .NET restore/build/test, Unity batch/EditMode/PlayMode, and IL2CPP validation were not run for this docs-only activation because no `Assets/`, `Packages/`, `DotNet/`, test, or serialization implementation files changed.
+- Zero-commit feasibility probe found that `System.Text.Json` and `JsonSerializerContext` are unavailable in both the current pure .NET `Odyssey.Application` bridge and Unity `Odyssey.Application` compile contours. This is a dependency/toolchain blocker, not a serialization implementation failure.
 
 ### Follow-up tasks
 
-- ODY-S00-007 production implementation after owner approval.
+- Resolve the `System.Text.Json` runtime plus source-generator dependency/reference decision shared by the pure .NET bridge and Unity `6000.4.0f1` before ODY-S00-007 production implementation.
 - ODY-S00-008 BuildIdentity/CI and ODY-S00-009 Windows Development-Debug artifact remain deferred.
 
 ### Self-review summary
@@ -448,7 +453,12 @@ No new dependency, package, GitHub Action, executable, or downloadable tool is a
 
 ### Blockers
 
-- None for activation. Production implementation requires separate owner approval.
+- Current repository has no approved `System.Text.Json` runtime plus source-generator dependency/reference arrangement shared by the pure .NET bridge and Unity `6000.4.0f1`.
+- Zero-commit feasibility evidence: pure .NET `dotnet build DotNet\Projects\Odyssey.Application.csproj --no-restore -v:minimal` failed; Unity `6000.4.0f1` batch compile imported the same probe and logged the same compiler failures.
+- Compiler failures: `CS0234` for unavailable `System.Text.Json` namespace, `CS0246` for unavailable `JsonSerializerContext`, and `CS0246` for unavailable `JsonSerializableAttribute` / `JsonSerializable`.
+- `dotnet list DotNet\Projects\Odyssey.Application.csproj package --include-transitive` reported `[netstandard2.1]: no packages found`.
+- No dependency, project, package, Unity package, DLL, analyzer, serializer, test, fixture, or implementation changes were made. The temporary probe source and Unity-generated `.meta` file were removed, and final git status was clean.
+- ODY-S00-007 is Blocked until the dependency/toolchain decision is approved. ODY-S00-008 and ODY-S00-009 remain Draft.
 
 ### Decisions made during execution
 

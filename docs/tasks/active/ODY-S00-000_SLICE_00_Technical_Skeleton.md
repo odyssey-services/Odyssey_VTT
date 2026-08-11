@@ -8,7 +8,7 @@
 **Pull request:** Not opened  
 **ExecPlan:** `docs/plans/active/ODY-S00-000_SLICE_00_Technical_Skeleton.md`  
 **Created:** 2026-07-28  
-**Last updated:** 2026-08-11 19:30 UTC
+**Last updated:** 2026-08-11 20:14 UTC
 
 ## 1. Goal
 
@@ -55,7 +55,7 @@ Deliver the complete `SLICE-00` technical skeleton: a private authoritative repo
 - Repository Foundation is complete through merged PR #1.
 - Unity Project Foundation is complete through owner-merged PR #4; merge commit `70e7d49e217d4aecb7a2e873d31787d26001f47f` records the Unity `6000.4.0f1 (8cf496087c8f)` HDRP baseline.
 - Module and Test Skeleton is complete through owner-merged PR #6; merge commit `5e6f5e03ef022c5d7b0e6fef559c2383796d95be` records the Core module/test skeleton and dual .NET/Unity test foundation.
-- ODY-S00-004 is complete through owner-merged PR #8. ODY-S00-005 is complete through owner-merged PR #9, merge commit `7aa5cc972c48d9af6509895bb6d9ed1e18899fdf`. ODY-S00-006 is complete through owner-merged PR #10, merged head `b695bc09f344a36b45adb30ed7c0186bf71902d9`, merge commit `abb139c3c93115c468d020db3eb423c47cfdd83b`, merged at `2026-08-11T18:52:47Z`. ODY-S00-007 is the current Ready child task on `feat/ody-s00-007-serialization-aot-compatibility-spike`.
+- ODY-S00-004 is complete through owner-merged PR #8. ODY-S00-005 is complete through owner-merged PR #9, merge commit `7aa5cc972c48d9af6509895bb6d9ed1e18899fdf`. ODY-S00-006 is complete through owner-merged PR #10, merged head `b695bc09f344a36b45adb30ed7c0186bf71902d9`, merge commit `abb139c3c93115c468d020db3eb423c47cfdd83b`, merged at `2026-08-11T18:52:47Z`. ODY-S00-007 is the current Blocked child task on `feat/ody-s00-007-serialization-aot-compatibility-spike`.
 
 ### Assumptions
 
@@ -266,7 +266,7 @@ All additional dependencies require a child task update and explicit approval be
 
 ### Follow-up tasks
 
-- `ODY-S00-007` through `ODY-S00-010`; ODY-S00-001 through ODY-S00-006 are completed, and ODY-S00-007 is Ready.
+- `ODY-S00-007` through `ODY-S00-010`; ODY-S00-001 through ODY-S00-006 are completed, and ODY-S00-007 is Blocked pending a shared `System.Text.Json` / source-generation dependency decision.
 - ADR-010 diagnostic session/bundle scenarios `TC-DIAG-033`, `TC-DIAG-034`, `TC-DIAG-035`, `TC-DIAG-036`, `TC-DIAG-037`, `TC-DIAG-038`, `TC-DIAG-039`, and `TC-DIAG-040` are future ODY-S00-008 scope after BuildIdentity exists; ODY-S00-010 remains final reconciliation, not an implementation task.
 
 ### Self-review summary
@@ -281,7 +281,7 @@ All additional dependencies require a child task update and explicit approval be
 
 ### Blockers
 
-- ODY-S00-001 through ODY-S00-006 are complete. ODY-S00-007 is activated as Ready only; do not start ODY-S00-007 production implementation until separate owner approval.
+- ODY-S00-001 through ODY-S00-006 are complete. ODY-S00-007 is Blocked because the current repository has no approved `System.Text.Json` runtime plus source-generator dependency/reference arrangement shared by the pure .NET bridge and Unity `6000.4.0f1`. Zero-commit probe failed with `CS0234` for unavailable `System.Text.Json` and `CS0246` for unavailable `JsonSerializerContext` / `JsonSerializableAttribute`; `dotnet list package --include-transitive` for `Odyssey.Application` reported no packages for `netstandard2.1`.
 - ODY-S00-008 remains Draft and is the future owner for `TC-DIAG-033`, `TC-DIAG-034`, `TC-DIAG-035`, `TC-DIAG-036`, `TC-DIAG-037`, `TC-DIAG-038`, `TC-DIAG-039`, and `TC-DIAG-040` after BuildIdentity is available.
 
 ### Decisions made during execution

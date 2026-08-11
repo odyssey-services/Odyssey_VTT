@@ -4,7 +4,7 @@
 **Owner:** Codex
 **Branch:** `feat/ody-s00-007-serialization-aot-compatibility-spike`
 **Pull request:** Not opened
-**Last updated:** 2026-08-11 19:30 UTC
+**Last updated:** 2026-08-11 20:14 UTC
 
 ## 1. Purpose and user-visible outcome
 
@@ -181,6 +181,7 @@ Child task: `ODY-S00-010`.
 - 2026-08-11 14:15 UTC — ODY-S00-006 production implementation completed without commit/push/PR: Application diagnostics contracts and EventCode registry, one Unity Client composition root, process/presentation lifecycle, bounded diagnostics queue and ring buffer, emergency sink, crash marker, Developer Shell UI Toolkit presenter, and DeveloperShell-only non-gameplay probe command path are implemented. Validation passed for restore after escalated NuGet rerun, verify-format, verify-test-structure, test-fast, Unity batch/EditMode/PlayMode after corrections, verify-repository, repository policy, dotnet build/test, and diff checks. ODY-S00-006 is In Review.
 - 2026-08-11 — Addressed ODY-S00-006 owner review hardening without starting ODY-S00-007: diagnostic ErrorCode semantics were aligned to the registry, rejected DeveloperShell probe uses a dedicated code, public secret-producing log factories were removed, queue pressure now compares incoming priority, PresentationRuntime has one AppRuntime owner with scene-unload detach evidence, incident dedup/fatal hooks/shutdown budgets/partial-startup cleanup/disposal order/structured duplicate host rejection have executable evidence, production emergency sink writes an append-only emergency file with validated tokens, crash marker completion reports real success/failure before `diagnostics.crash.marker_completed`, mid-start cancellation cleans owned resources before diagnostics closes last, `BoundedText` preserves scalar limits, and crash marker filename is exactly `process-started.json`. Corrective validation is recorded in the child task evidence.
 - 2026-08-11 18:52 UTC - Owner merged PR #10, `ODY-S00-006 - Runtime Composition and Diagnostic Shell`, into `main` with GitHub merge-commit method as `abb139c3c93115c468d020db3eb423c47cfdd83b`; merged head `b695bc09f344a36b45adb30ed7c0186bf71902d9`. Local `main` was fast-forwarded to that commit, branch `feat/ody-s00-007-serialization-aot-compatibility-spike` was created, ODY-S00-006 moved to `Done` and `docs/tasks/completed/`, and ODY-S00-007 was activated as Ready only. No ODY-S00-007 production implementation has started.
+- 2026-08-11 20:14 UTC - ODY-S00-007 was marked Blocked after a zero-commit feasibility probe showed `System.Text.Json` / `JsonSerializerContext` are unavailable in both the current pure .NET `Odyssey.Application` bridge and Unity `Odyssey.Application` compile contours. The blocker requires a shared runtime plus source-generator dependency/reference decision before serialization implementation can start. ODY-S00-008 and ODY-S00-009 remain Draft.
 
 ## 7. Decisions
 
@@ -223,7 +224,7 @@ Post-merge limitation:
 - ODY-S00-004 evidence: PR #8 was owner-merged into `main`; local `main` fast-forwarded to `4fb20e9`. ODY-S00-004 implementation evidence recorded restore, verify-format, verify-test-structure, test-fast, test-unity, verify-repository, check-repository-policy, dotnet build/test, and diff checks as passed; Unity batch compile, EditMode, and PlayMode each reported exit code `0`; .NET tests totalled 30 passed, 0 failed, 0 skipped.
 - ODY-S00-005 evidence: command/event/clock/RNG contracts compile in pure .NET and Unity. Latest .NET validation includes Domain 1, Contracts 1, Unit 46, Architecture 2, all failed 0. test-unity.ps1 has passed after escalated Unity cache access: batch compile, EditMode, and PlayMode exit code 0; EditMode/PlayMode each ran 1 test with 1 passed, 0 failed, 0 skipped. Repository policy, architecture guard, SDK check, dotnet build/test, and diff checks are rerun after review corrections and recorded in the child task evidence. Owner merged PR #9 into `main` at `2026-08-11T12:31:50Z` as merge commit `7aa5cc972c48d9af6509895bb6d9ed1e18899fdf`.
 - ODY-S00-006 corrective evidence: Application diagnostics contracts compile in pure .NET and Unity; runtime starts `Starting` and reaches `Ready` only after AppShell entry point/presentation initialization; Developer Shell uses a narrow facade with accepted/rejected technical probe actions; EventCode registry uses canonical 3-segment codes plus `log.` message template keys; diagnostics properties split data classification from value kind; production emergency diagnostics use a minimal append-only file sink while tests use in-memory sinks; crash markers use the persistent diagnostics directory and exact `process-started.json` marker. Final validation results are recorded in `docs/tasks/completed/ODY-S00-006_Runtime_Composition_and_Diagnostic_Shell.md`; owner merge evidence is PR #10 / `abb139c3c93115c468d020db3eb423c47cfdd83b`.
-- ODY-S00-007 activation evidence: task contract `docs/tasks/active/ODY-S00-007_Serialization_and_AOT_Compatibility_Spike.md` is Ready on `feat/ody-s00-007-serialization-aot-compatibility-spike`. Scope is limited to ADR-003 serialization/AOT compatibility proof and explicitly excludes ODY-S00-009 Windows Development-Debug artifact ownership.
+- ODY-S00-007 activation evidence: task contract `docs/tasks/active/ODY-S00-007_Serialization_and_AOT_Compatibility_Spike.md` is Blocked on `feat/ody-s00-007-serialization-aot-compatibility-spike`. Scope is limited to ADR-003 serialization/AOT compatibility proof and explicitly excludes ODY-S00-009 Windows Development-Debug artifact ownership.
 - ODY-S00-007 correction evidence: focused Windows x64 IL2CPP serialization/AOT smoke is mandatory and must be labelled `serialization-aot-smoke` or equivalent; `TC-DIAG-001` keeps the exact ADR-010 meaning, JSONL sink/rotation/retention is required under the narrow Persistence diagnostics adapter scope, and `TC-DIAG-033`, `TC-DIAG-034`, `TC-DIAG-035`, `TC-DIAG-036`, `TC-DIAG-037`, `TC-DIAG-038`, `TC-DIAG-039`, and `TC-DIAG-040` are assigned to ODY-S00-008 after BuildIdentity is available.
 
 Record real commands, outputs and artifact paths here as child tasks complete.
@@ -240,13 +241,13 @@ Record real commands, outputs and artifact paths here as child tasks complete.
 
 - Repository identity, Private visibility, and PR #1 merge are verified. Exact branch protection/ruleset settings remain an owner-accepted limitation.
 - Unity `6000.4.0f1` is acceptable for local ODY-S00-002 development by owner decision.
-- ODY-S00-002 through ODY-S00-006 are Done. ODY-S00-007 is the current Ready child task on `feat/ody-s00-007-serialization-aot-compatibility-spike`; no pull request is opened and no production implementation has started.
+- ODY-S00-002 through ODY-S00-006 are Done. ODY-S00-007 is the current Blocked child task on `feat/ody-s00-007-serialization-aot-compatibility-spike`; no pull request is opened and no production implementation has started.
 - GitHub plan/settings may affect exact branch-protection options; the task must apply the strongest supported equivalent and record any unavailable setting.
 
-No current activation blocker is recorded for ODY-S00-007.
+- ODY-S00-007 blocker: current repository has no approved `System.Text.Json` runtime plus source-generator dependency/reference arrangement shared by the pure .NET bridge and Unity `6000.4.0f1`. Zero-commit probe failed with `CS0234` for unavailable `System.Text.Json` and `CS0246` for unavailable `JsonSerializerContext` / `JsonSerializableAttribute`; `dotnet list package --include-transitive` for `Odyssey.Application` reported no packages for `netstandard2.1`.
 
 ## 12. Outcome and follow-up
 
 Current outcome: ODY-S00-001 is Done after owner merge of PR #1. ODY-S00-002 is Done after owner merge of PR #4 and closure PR #5. ODY-S00-003 is Done after owner merge of PR #6 and closure PR #7. ODY-S00-004 is owner-merged through PR #8. ODY-S00-005 is owner-merged through PR #9. ODY-S00-006 is owner-merged through PR #10.
 
-Next action: owner approval to begin ODY-S00-007 production implementation. Do not open a PR, merge, or implement serialization code from this activation-only commit.
+Next action: resolve the ODY-S00-007 `System.Text.Json` / source-generation dependency decision. Do not open a PR, merge, or implement serialization code while ODY-S00-007 is Blocked.
