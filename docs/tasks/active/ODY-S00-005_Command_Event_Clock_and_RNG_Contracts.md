@@ -5,10 +5,10 @@
 **Owner:** Codex
 **Requested by:** Product owner
 **Branch:** `feat/ody-s00-005-command-event-clock-rng-primitives`
-**Pull request:** Not opened
+**Pull request:** https://github.com/odyssey-services/Odyssey_VTT/pull/9
 **ExecPlan:** `docs/plans/active/ODY-S00-000_SLICE_00_Technical_Skeleton.md`
 **Created:** 2026-08-10
-**Last updated:** 2026-08-11 02:12 UTC
+**Last updated:** 2026-08-11 02:25 UTC
 
 ## 1. Goal
 
@@ -378,7 +378,7 @@ Do not add production or development dependencies, GitHub Actions, executables, 
 
 ## 17. Completion evidence
 
-Implementation is complete and ready for owner review/commit permission. No commit, push, PR creation, or merge has been performed.
+Implementation is complete and ready for owner review in Draft PR #9. Codex has not merged.
 
 ### Changed files / areas
 
