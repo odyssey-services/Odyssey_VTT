@@ -1,6 +1,6 @@
 # ODY-S00-005 - Command, Event, Clock and RNG Contracts
 
-**Status:** In Review
+**Status:** Done
 **Roadmap stage / slice:** SLICE-00
 **Owner:** Codex
 **Requested by:** Product owner
@@ -8,7 +8,7 @@
 **Pull request:** https://github.com/odyssey-services/Odyssey_VTT/pull/9
 **ExecPlan:** `docs/plans/active/ODY-S00-000_SLICE_00_Technical_Skeleton.md`
 **Created:** 2026-08-10
-**Last updated:** 2026-08-11 02:25 UTC
+**Last updated:** 2026-08-11 12:31 UTC
 
 ## 1. Goal
 
@@ -511,6 +511,7 @@ Implementation validation:
 - Command receipt storage and transaction/outbox behavior are in-memory contracts only; no durable persistence or network transport exists in this task.
 - In-memory commit evidence stores event batches and command receipts atomically for successful accepted proposals, stores receipts without events for rejected durable outcomes, and stores neither on commit failure. Durable persistence semantics remain out of scope.
 - Durable persistence of post-commit `CompletedAtHost` is deferred; ODY-S00-005 only proves honest response-layer sampling after successful in-memory commit when an executor clock is injected.
+- Owner merged PR #9 into `main` at `2026-08-11T12:31:50Z` using GitHub merge commit `7aa5cc972c48d9af6509895bb6d9ed1e18899fdf`.
 
 ### Follow-up tasks
 
@@ -529,7 +530,7 @@ Implementation validation:
 
 ### Blockers
 
-- None currently. ODY-S00-005 implementation is ready for owner review in existing Draft PR #9.
+- None. ODY-S00-005 was owner-reviewed and merged through PR #9.
 
 ### Decisions made during execution
 
@@ -537,6 +538,7 @@ Implementation validation:
 - 2026-08-10 - Use `CommandId` as the sole Core command idempotency key; do not create a separate Core `IdempotencyKey` - Authority / approval: ADR-002.
 - 2026-08-10 - Use in-memory test adapters only; do not introduce SQLite or network transports - Authority / approval: SLICE-00 backlog and explicit ODY-S00-005 scope.
 - 2026-08-10 - Keep `CommandFingerprint` as a stable opaque in-memory/test abstraction for CommandId mismatch detection; do not use `GetHashCode()`, object identity, or process/runtime-dependent values; defer canonical JSON command serialization and canonical fingerprint computation to ODY-S00-007 - Authority / approval: product owner instruction and ADR-003 sequencing.
+- 2026-08-11 - Owner merged PR #9 into `main` with GitHub merge-commit method as `7aa5cc972c48d9af6509895bb6d9ed1e18899fdf` at `2026-08-11T12:31:50Z`; ODY-S00-005 is Done - Authority / approval: product owner merge.
 
 ### Approved task changes
 

@@ -567,6 +567,7 @@ try {
         'NuGet.Config',
         'Directory.Build.props',
         'Tests/Metadata/test-catalog.json',
+        'config/diagnostics/event-codes.json',
         'DotNet/Odyssey.Core.sln',
         'DotNet/Projects/Odyssey.Domain.csproj',
         'DotNet/Projects/Odyssey.Rules.csproj',
@@ -585,7 +586,8 @@ try {
         'docs/tasks/completed/ODY-S00-002_Unity_Project_Foundation.md',
         'docs/tasks/completed/ODY-S00-003_Module_and_Test_Skeleton.md',
         'docs/tasks/completed/ODY-S00-004_Identity_Version_and_Result_Primitives.md',
-        'docs/tasks/active/ODY-S00-005_Command_Event_Clock_and_RNG_Contracts.md',
+        'docs/tasks/completed/ODY-S00-005_Command_Event_Clock_and_RNG_Contracts.md',
+        'docs/tasks/active/ODY-S00-006_Runtime_Composition_and_Diagnostic_Shell.md',
         'docs/errors/ERROR_CODES.md',
         'docs/plans/README.md',
         'docs/plans/active/ODY-S00-000_SLICE_00_Technical_Skeleton.md'

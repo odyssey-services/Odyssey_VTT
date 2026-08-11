@@ -2,7 +2,8 @@
   "name": "Odyssey.Tests.Unity.PlayMode",
   "rootNamespace": "Odyssey.Tests.Unity.PlayMode",
   "references": [
-    "Odyssey.Unity.Client"
+    "Odyssey.Unity.Client",
+    "Odyssey.Application"
   ],
   "includePlatforms": [],
   "excludePlatforms": [],

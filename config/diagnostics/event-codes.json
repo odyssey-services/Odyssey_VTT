@@ -1,0 +1,169 @@
+{
+  "schemaVersion": 1,
+  "eventCodes": [
+    {
+      "eventCode": "app.startup.started",
+      "ownerSubsystem": "app",
+      "defaultLogLevel": "Information",
+      "messageTemplateKey": "log.app.startup.started",
+      "allowedProperties": [
+        { "key": "phase", "classification": "OperationalSafe", "valueKind": "Code" }
+      ],
+      "purpose": "Runtime startup began.",
+      "status": "Active"
+    },
+    {
+      "eventCode": "app.startup.completed",
+      "ownerSubsystem": "app",
+      "defaultLogLevel": "Information",
+      "messageTemplateKey": "log.app.startup.completed",
+      "allowedProperties": [
+        { "key": "state", "classification": "OperationalSafe", "valueKind": "Code" },
+        { "key": "duration_ms", "classification": "OperationalSafe", "valueKind": "Duration" }
+      ],
+      "purpose": "Runtime reached Ready.",
+      "status": "Active"
+    },
+    {
+      "eventCode": "app.startup.failed",
+      "ownerSubsystem": "app",
+      "defaultLogLevel": "Error",
+      "messageTemplateKey": "log.app.startup.failed",
+      "allowedProperties": [
+        { "key": "phase", "classification": "OperationalSafe", "valueKind": "Code" },
+        { "key": "reason", "classification": "OperationalSafe", "valueKind": "Code" },
+        { "key": "diagnostic_id", "classification": "OperationalSafe", "valueKind": "TechnicalIdentifier" }
+      ],
+      "purpose": "Runtime startup failed safely.",
+      "status": "Active"
+    },
+    {
+      "eventCode": "app.shutdown.requested",
+      "ownerSubsystem": "app",
+      "defaultLogLevel": "Information",
+      "messageTemplateKey": "log.app.shutdown.requested",
+      "allowedProperties": [
+        { "key": "state", "classification": "OperationalSafe", "valueKind": "Code" }
+      ],
+      "purpose": "Runtime shutdown was requested.",
+      "status": "Active"
+    },
+    {
+      "eventCode": "app.shutdown.completed",
+      "ownerSubsystem": "app",
+      "defaultLogLevel": "Information",
+      "messageTemplateKey": "log.app.shutdown.completed",
+      "allowedProperties": [
+        { "key": "duration_ms", "classification": "OperationalSafe", "valueKind": "Duration" }
+      ],
+      "purpose": "Runtime shutdown completed.",
+      "status": "Active"
+    },
+    {
+      "eventCode": "app.bootstrap.duplicate_rejected",
+      "ownerSubsystem": "app",
+      "defaultLogLevel": "Warning",
+      "messageTemplateKey": "log.app.bootstrap.duplicate_rejected",
+      "allowedProperties": [
+        { "key": "state", "classification": "OperationalSafe", "valueKind": "Code" }
+      ],
+      "purpose": "Duplicate bootstrap attempt was rejected.",
+      "status": "Active"
+    },
+    {
+      "eventCode": "diagnostics.queue.events_dropped",
+      "ownerSubsystem": "diagnostics",
+      "defaultLogLevel": "Warning",
+      "messageTemplateKey": "log.diagnostics.queue.events_dropped",
+      "allowedProperties": [
+        { "key": "trace_count", "classification": "OperationalSafe", "valueKind": "Integer" },
+        { "key": "debug_count", "classification": "OperationalSafe", "valueKind": "Integer" },
+        { "key": "information_count", "classification": "OperationalSafe", "valueKind": "Integer" }
+      ],
+      "purpose": "Diagnostics queue dropped lower-priority events under pressure.",
+      "status": "Active"
+    },
+    {
+      "eventCode": "diagnostics.sink.write_failed",
+      "ownerSubsystem": "diagnostics",
+      "defaultLogLevel": "Warning",
+      "messageTemplateKey": "log.diagnostics.sink.write_failed",
+      "allowedProperties": [
+        { "key": "sink", "classification": "OperationalSafe", "valueKind": "Code" },
+        { "key": "diagnostic_id", "classification": "OperationalSafe", "valueKind": "TechnicalIdentifier" }
+      ],
+      "purpose": "A diagnostics sink failed and fallback handled the event.",
+      "status": "Active"
+    },
+    {
+      "eventCode": "diagnostics.probe.emitted",
+      "ownerSubsystem": "diagnostics",
+      "defaultLogLevel": "Information",
+      "messageTemplateKey": "log.diagnostics.probe.emitted",
+      "allowedProperties": [
+        { "key": "probe", "classification": "OperationalSafe", "valueKind": "Code" }
+      ],
+      "purpose": "Developer Shell emitted a safe diagnostic probe.",
+      "status": "Active"
+    },
+    {
+      "eventCode": "diagnostics.crash.previous_unclean_detected",
+      "ownerSubsystem": "diagnostics",
+      "defaultLogLevel": "Warning",
+      "messageTemplateKey": "log.diagnostics.crash.previous_unclean_detected",
+      "allowedProperties": [
+        { "key": "marker", "classification": "OperationalSafe", "valueKind": "SanitizedPath" }
+      ],
+      "purpose": "A previous unfinished crash marker was detected.",
+      "status": "Active"
+    },
+    {
+      "eventCode": "diagnostics.crash.marker_completed",
+      "ownerSubsystem": "diagnostics",
+      "defaultLogLevel": "Information",
+      "messageTemplateKey": "log.diagnostics.crash.marker_completed",
+      "allowedProperties": [
+        { "key": "marker", "classification": "OperationalSafe", "valueKind": "SanitizedPath" }
+      ],
+      "purpose": "The crash marker was completed during clean shutdown.",
+      "status": "Active"
+    },
+    {
+      "eventCode": "diagnostics.incident.unexpected",
+      "ownerSubsystem": "diagnostics",
+      "defaultLogLevel": "Error",
+      "messageTemplateKey": "log.diagnostics.incident.unexpected",
+      "allowedProperties": [
+        { "key": "diagnostic_id", "classification": "OperationalSafe", "valueKind": "TechnicalIdentifier" },
+        { "key": "incident_category", "classification": "OperationalSafe", "valueKind": "Code" },
+        { "key": "repeat_count", "classification": "OperationalSafe", "valueKind": "Integer" }
+      ],
+      "purpose": "An unexpected incident was recorded safely.",
+      "status": "Active"
+    },
+    {
+      "eventCode": "developer.shell.probe_accepted",
+      "ownerSubsystem": "developer",
+      "defaultLogLevel": "Information",
+      "messageTemplateKey": "log.developer.shell.probe_accepted",
+      "allowedProperties": [
+        { "key": "command_id", "classification": "OperationalSafe", "valueKind": "TechnicalIdentifier" },
+        { "key": "result_status", "classification": "OperationalSafe", "valueKind": "Code" }
+      ],
+      "purpose": "DeveloperShell probe command was accepted.",
+      "status": "Active"
+    },
+    {
+      "eventCode": "developer.shell.probe_rejected",
+      "ownerSubsystem": "developer",
+      "defaultLogLevel": "Warning",
+      "messageTemplateKey": "log.developer.shell.probe_rejected",
+      "allowedProperties": [
+        { "key": "command_id", "classification": "OperationalSafe", "valueKind": "TechnicalIdentifier" },
+        { "key": "result_status", "classification": "OperationalSafe", "valueKind": "Code" }
+      ],
+      "purpose": "DeveloperShell probe command was rejected.",
+      "status": "Active"
+    }
+  ]
+}

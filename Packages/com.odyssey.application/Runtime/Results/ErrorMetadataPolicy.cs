@@ -14,6 +14,15 @@ namespace Odyssey.Application.Results
                 return false;
             }
 
+            if (code == ErrorCodes.ApplicationBootstrapConfigurationInvalid ||
+                code == ErrorCodes.ApplicationBootstrapInitializationCancelled ||
+                code == ErrorCodes.ApplicationBootstrapCompositionInvalid ||
+                code == ErrorCodes.ApplicationBootstrapUnexpected ||
+                code == ErrorCodes.ApplicationDeveloperProbeRejected)
+            {
+                return false;
+            }
+
             return false;
         }
     }

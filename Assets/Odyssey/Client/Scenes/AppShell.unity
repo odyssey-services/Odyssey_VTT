@@ -129,6 +129,7 @@ GameObject:
   m_Component:
   - component: {fileID: 1173327853}
   - component: {fileID: 1173327852}
+  - component: {fileID: 1173327854}
   m_Layer: 0
   m_Name: AppShell UI
   m_TagString: Untagged
@@ -159,6 +160,18 @@ MonoBehaviour:
   m_PivotReferenceSize: 0
   m_Pivot: 0
   m_WorldSpaceCollider: {fileID: 0}
+--- !u!114 &1173327854
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1173327851}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 7b2f0c6a19c446a8b9d4dfe72fd81a61, type: 3}
+  m_Name:
+  m_EditorClassIdentifier:
 --- !u!4 &1173327853
 Transform:
   m_ObjectHideFlags: 0
