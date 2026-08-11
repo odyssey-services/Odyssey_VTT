@@ -85,6 +85,17 @@ This task does not introduce SQLite, network transports, serialization DTOs, run
   - `CommandResultStatus` with exactly `Accepted`, `Pending`, and `Rejected`
   - `RootCommandId`
   - optional `ParentCommandId`
+- Domain-owned shared semantic primitives required by both Domain and Application:
+  - `CampaignId`
+  - `CorrelationId`
+  - `SessionId`
+  - `UserId`
+  - `CharacterId`
+  - `AggregateType`
+  - `AggregateId`
+  - `UtcInstant`
+- Application-owned boundary identity:
+  - `ClientInstanceId`
 - Domain-owned immutable event identity/envelope primitives required by ADR-002:
   - `DomainEventId`
   - `DomainEventType`
@@ -229,7 +240,7 @@ Owner approval for this activation step permits only the operational `ACTIVE_DOC
 - Duplicate command handling never re-enters the command handler, creates events, consumes RNG, or samples time for new events.
 - `CommandResult.Status` has exactly `Accepted`, `Pending`, and `Rejected`.
 - `Pending` is a committed terminal result for the original command and is not mutated by a future continuation.
-- DomainEvents are immutable, ordered, and never used as raw network DTOs.
+- DomainEvents are immutable, ordered, and never used as raw network DTOs or public `CommandResult` response payloads.
 - Domain and Rules do not depend on Application Result/Error, Application command pipeline, persistence, networking, logging, serializers, Unity, or global time/random APIs.
 - Test helpers, fakes, fixtures, and vectors do not enter Player runtime assemblies.
 
@@ -413,9 +424,9 @@ Implementation is complete and ready for owner review in Draft PR #9. Codex has 
 | Campaign/session context | ADR-002 §6 | Application | Optional `CampaignId` and optional `SessionId` fields | Implement | Present where applicable; synthetic operation uses campaign identity. |
 | Issuer / actor evidence | ADR-002 §6 | Application | `CommandIssuer` and Domain actor bridge | Implement | Required for command admission and event actor evidence. |
 | Root and parent causation | ADR-002 §6 | Application | `RootCommandId` and optional `ParentCommandId` | Implement | One authoritative root command; parent remains optional metadata. |
-| Correlation | ADR-002 §6 | Application | `CorrelationId`; Domain event uses `EventCorrelationId` carrying the same canonical string | Implement | Preserves Domain ownership while avoiding an Application dependency. |
-| Expected revision / sequence values | ADR-002 §6, §15 | Application | Optional expected aggregate/campaign revision and expected event sequence | Implement | In-memory contract fields only; no persistence or gameplay enforcement. |
-| Client and host timestamps | ADR-002 §6; ADR-008 §7 | Application | Optional `IssuedAtClient`; required `ReceivedAtHost`; `CompletedAtHost` on result | Implement | Uses injected UTC instant values; no global clock calls. |
+| Correlation | ADR-002 §6 | Domain/Application | One Domain-owned CorrelationId is used by Application command/error/result contracts and DomainEvent contracts | Implement | Owner refinement in ODY-S00-005 avoids duplicate semantic identity while preserving Application -> Domain direction. |
+| Expected revision / sequence values | ADR-002 §6, §15 | Application/Domain | Optional expected aggregate/campaign revision and expected event sequence with typed AggregateType/AggregateId | Implement | In-memory contract fields only; no persistence or gameplay enforcement. |
+| Client and host timestamps | ADR-002 §6; ADR-008 §7 | Domain/Application | Optional IssuedAtClient; required ReceivedAtHost; response-layer CompletedAtHost? only when sampled after commit | Implement / Optional | Durable persistence of post-commit CompletedAtHost is deferred to the Persistence task that owns physical transaction semantics. |
 | Payload version / immutable payload | ADR-002 §6 | Application | `CommandPayloadVersion` and `CommandPayload` abstraction | Implement | Opaque in-memory/test payload only; ADR-003 serialization deferred. |
 | `CommandFingerprint` | ADR-002 idempotency semantics; owner instruction | Application | Stable opaque in-memory/test value compared for mismatch | Implement | Canonical JSON/fingerprint computation deferred to ODY-S00-007. |
 | `CommandResult.Status` | ADR-002 §13 | Application | Exact enum: `Accepted`, `Pending`, `Rejected` | Implement | Durable command outcome vocabulary. |
@@ -427,7 +438,7 @@ Implementation is complete and ready for owner review in Draft PR #9. Codex has 
 | Campaign and aggregate identity/revision | ADR-002 §14, §15 | Domain | Campaign identity, aggregate type/id, aggregate revision, campaign revision | Implement | Enables ordered batch invariants without persistence. |
 | Event sequence | ADR-002 §14, §15 | Domain | `EventSequence` and contiguous batch range | Implement | Proves deterministic ordering for one synthetic transaction. |
 | Transaction and command causation | ADR-002 §14 | Domain | `TransactionId`, root command id, immediate causation command id | Implement | Event batch is causally linked to one root command. |
-| Actor / occurred-at host / visibility | ADR-002 §14; ADR-008 §7 | Domain | Actor evidence, host occurrence instant, `DomainEventVisibility` | Implement | Visibility is a contract marker only; no network projection. |
+| Actor / occurred-at host / visibility | ADR-002 §14; ADR-008 §7 | Domain | Typed actor evidence, host occurrence instant, visibility/audience contract markers | Implement | Visibility is a contract marker only; no network projection. |
 | Compensation / reason code / payload version / payload | ADR-002 §14 | Domain | Optional compensation id, optional reason code, payload version and immutable payload abstraction | Implement | Contract fields exist; real compensating command and serialization are deferred. |
 | RNG stream derivation context | ADR-008 stream derivation v1 | Application | `RandomDecisionContext` includes campaign, root command, decision ordinal, purpose, ruleset version, algorithm versions, bounded mapping version, key epoch | Implement | Matches ADR-008 canonical HMAC message; correlation is metadata only and not part of derivation. |
 | RNG proof data | ADR-008 §17 | Application | Algorithm/version ids, key epoch, seed commitment, stream id, decision/draw indexes, range, raw step count, result | Implement | Non-secret proof; raw key/state/future stream state are not exposed. |
@@ -439,6 +450,10 @@ Implementation is complete and ready for owner review in Draft PR #9. Codex has 
 - `StreamId`: `389f9e6e5dda289403d35697de46d10aec4258af1dec0a01f96436e083a1f27e`.
 - `SeedCommitment`: `a7dbf705ade53401bf502d86d2074569e55fd7d62a63769b8d42043dc2c07e00`.
 - First two xoshiro raw vector values are `fab52f556da9470b` and `c733a2a41b6283e7`; public consumers receive bounded `RandomSample` results, not raw stream state.
+
+### Authority tension and temporary resolution
+
+ADR-008 requires `CompletedAtHost` to be fixed after durable commit, while ADR-002 requires durable command result/receipt semantics. ODY-S00-005 has only in-memory commit contracts and does not own physical transaction semantics, so it does not claim durable persistence of post-commit `CompletedAtHost`. Handlers do not sample a pre-commit timestamp masquerading as `CompletedAtHost`; committed DomainEvents retain `OccurredAtHost`; `CommandExecutor` can return response-layer `CompletedAtHost` only when sampled after successful commit through an injected clock. Durable persistence of post-commit `CompletedAtHost` is deferred to the Persistence task that owns physical transaction semantics.
 
 ### Validation results
 
@@ -456,12 +471,12 @@ Implementation validation:
 | `powershell -NoProfile -ExecutionPolicy Bypass -File .\scripts\restore.ps1` | Passed | Projects restored; output reported projects up to date/restored under repository cache settings. |
 | `powershell -NoProfile -ExecutionPolicy Bypass -File .\scripts\verify-format.ps1` | Failed then Passed | First rerun caught CRLF line endings in `CommandEventClockRngContractTests.cs` after the review-correction vector edit; after normalizing to LF, `FORMAT-001 PASS repository text formatting checks passed`. |
 | `powershell -NoProfile -ExecutionPolicy Bypass -File .\scripts\verify-test-structure.ps1` | Passed | `TC-ARCH-001 PASS`; controlled invalid Domain->Rules, package version mismatch, and duplicate catalog ownership fixtures rejected. |
-| `powershell -NoProfile -ExecutionPolicy Bypass -File .\scripts\test-fast.ps1` | Passed | Build passed with 0 warnings/errors; TRX under `Logs/ODY-S00-005/dotnet/`: totals 1 Domain, 1 Contracts, 40 Unit, 2 Architecture; all failed 0. |
+| `powershell -NoProfile -ExecutionPolicy Bypass -File .\scripts\test-fast.ps1` | Passed | Build passed with 0 warnings/errors; TRX under `Logs/ODY-S00-005/dotnet/`: totals 1 Domain, 1 Contracts, 43 Unit, 2 Architecture; all failed 0. |
 | `powershell -NoProfile -ExecutionPolicy Bypass -File .\scripts\test-unity.ps1` | Failed then Passed | First sandboxed run failed before project compile on Unity user cache `CurlRequestCache.db`; rerun with escalated Unity cache access passed: batch compile exit 0, EditMode exit 0, PlayMode exit 0, EditMode total 1 passed 1 failed 0 skipped 0, PlayMode total 1 passed 1 failed 0 skipped 0. XML reports are under `Logs/ODY-S00-005/`. Unity-generated ProjectSettings whitespace churn was restored and is not part of this task. |
 | `powershell -NoProfile -ExecutionPolicy Bypass -File .\scripts\verify-repository.ps1` | Passed | Repository policy, architecture guard, and SDK check passed; configured/selected SDK `10.0.302`; registry fixtures passed. |
 | `powershell -NoProfile -ExecutionPolicy Bypass -File .\scripts\check-repository-policy.ps1` | Passed | `REPO-POLICY-001` through `REPO-POLICY-005` pass; registry lifecycle/literal/SafeReason/SemVer/UserMessageKey/length fixtures pass. |
 | `dotnet build DotNet\Odyssey.Core.sln --no-restore` | Passed | 0 warnings, 0 errors. |
-| `dotnet test DotNet\Odyssey.Core.sln --no-build --no-restore` | Passed | Unit 40, Domain 1, Contracts 1, Architecture 2; failed 0, skipped 0. |
+| `dotnet test DotNet\Odyssey.Core.sln --no-build --no-restore` | Passed | Unit 43, Domain 1, Contracts 1, Architecture 2; failed 0, skipped 0. |
 | `git diff --check` | Passed | No whitespace errors after restoring Unity-generated `ProjectSettings/ProjectSettings.asset` churn. |
 | `git diff --cached --check` | Passed | No staged diff errors; command reports only the local inaccessible global ignore warning when applicable. |
 | `git status --short --branch` | Passed | Branch `feat/ody-s00-005-command-event-clock-rng-primitives`; existing Draft PR #9 remains the review target; no merge performed. |
@@ -472,9 +487,9 @@ Implementation validation:
 |---|---|---|
 | AC-1 | Passed | New contracts are placed under owning package paths: Application command/time/RNG, Domain events. |
 | AC-2 | Passed | `CommandId` is the only Core command idempotency key; no `IdempotencyKey` type/field was added. |
-| AC-3 | Passed | `CommandResultStatus` has exactly `Accepted`, `Pending`, `Rejected`; `CommandExecutor.Submit` returns `Result<CommandResult>`. |
+| AC-3 | Passed | `CommandResultStatus` has exactly `Accepted`, `Pending`, `Rejected`; `CommandExecutor.Submit` returns `Result<CommandResult>`; raw `DomainEvent` collections are not exposed by `CommandResult`. |
 | AC-4 | Passed | Synthetic tests cover accepted command, rejected command with no events/RNG, exact duplicate replay without re-execution, and safe mismatch rejection. |
-| AC-5 | Passed | DomainEvent envelope/batch are Domain-owned, immutable/read-only, ordered, and causally linked through transaction and causation ids. |
+| AC-5 | Passed | DomainEvent envelope/batch are Domain-owned, immutable/read-only, ordered, and causally linked through transaction, campaign, root command, causation, correlation, and occurrence time invariants. |
 | AC-6 | Passed | Clock/scheduler contracts are injected; tests use fixed/virtual implementations without real waiting. |
 | AC-7 | Passed | HMAC-SHA-256 derivation, xoshiro256**, rejection mapping, deterministic vector outputs, and non-secret `RngProofData` are tested. |
 | AC-8 | Passed | Architecture guard rejects forbidden global time/random APIs in authoritative Core production paths; dependency graph remains valid. |
@@ -494,6 +509,8 @@ Implementation validation:
 - `docs/tasks/completed/ODY-S00-004_Identity_Version_and_Result_Primitives.md` was moved from `docs/tasks/active/` by owner confirmation before implementation.
 - `CommandFingerprint` is intentionally an opaque stable in-memory/test abstraction. Canonical JSON command serialization and canonical fingerprint computation remain ODY-S00-007.
 - Command receipt storage and transaction/outbox behavior are in-memory contracts only; no durable persistence or network transport exists in this task.
+- In-memory commit evidence stores event batches and command receipts atomically for successful accepted proposals, stores receipts without events for rejected durable outcomes, and stores neither on commit failure. Durable persistence semantics remain out of scope.
+- Durable persistence of post-commit `CompletedAtHost` is deferred; ODY-S00-005 only proves honest response-layer sampling after successful in-memory commit when an executor clock is injected.
 
 ### Follow-up tasks
 

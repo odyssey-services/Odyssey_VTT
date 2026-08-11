@@ -3,8 +3,8 @@ using System.Collections.Generic;
 using System.Security.Cryptography;
 using System.Text;
 using Odyssey.Application.Commands;
-using Odyssey.Application.Identity;
 using Odyssey.Application.Results;
+using Odyssey.Domain.Identity;
 using Odyssey.Rules.Versions;
 
 namespace Odyssey.Application.Random
@@ -33,24 +33,6 @@ namespace Odyssey.Application.Random
             Array.Copy(_bytes!, copy, ByteLength);
             return copy;
         }
-    }
-
-    public readonly struct CampaignId : IEquatable<CampaignId>
-    {
-        private const string Prefix = "camp_";
-        private const int HexLength = 32;
-        private readonly string _value;
-
-        private CampaignId(string value) => _value = value;
-        public bool IsValid => _value != null;
-        public static bool TryParse(string? value, out CampaignId id) => RngText.TryParsePrefixedHex(value, Prefix, HexLength, out id, static v => new CampaignId(v));
-        public static CampaignId Parse(string value) => TryParse(value, out CampaignId id) ? id : throw new FormatException("CampaignId is not canonical.");
-        public override string ToString() => _value ?? string.Empty;
-        public bool Equals(CampaignId other) => string.Equals(_value, other._value, StringComparison.Ordinal);
-        public override bool Equals(object? obj) => obj is CampaignId other && Equals(other);
-        public override int GetHashCode() => _value == null ? 0 : StringComparer.Ordinal.GetHashCode(_value);
-        public static bool operator ==(CampaignId left, CampaignId right) => left.Equals(right);
-        public static bool operator !=(CampaignId left, CampaignId right) => !left.Equals(right);
     }
 
     public readonly struct RngKeyEpochId : IEquatable<RngKeyEpochId>
@@ -252,9 +234,9 @@ namespace Odyssey.Application.Random
         }
     }
 
-    public static class HmacSha256StreamDeriverV1
+    internal static class HmacSha256StreamDeriverV1
     {
-        public static byte[] CreateCanonicalMessage(RandomDecisionContext context)
+        internal static byte[] CreateCanonicalMessage(RandomDecisionContext context)
         {
             if (context == null) throw new ArgumentNullException(nameof(context));
             List<byte> bytes = new List<byte>();
@@ -270,11 +252,21 @@ namespace Odyssey.Application.Random
             return bytes.ToArray();
         }
 
-        public static IAuthoritativeRandomStream Create(CampaignRngKey key, RandomDecisionContext context)
+        internal static IAuthoritativeRandomStream Create(CampaignRngKey key, RandomDecisionContext context)
+        {
+            return Create(key, context, ComputeHmac);
+        }
+
+        internal static IAuthoritativeRandomStream CreateForTest(CampaignRngKey key, RandomDecisionContext context, Func<byte[], byte[], byte[]> hmac)
+        {
+            return Create(key, context, hmac);
+        }
+
+        private static IAuthoritativeRandomStream Create(CampaignRngKey key, RandomDecisionContext context, Func<byte[], byte[], byte[]> hmac)
         {
             byte[] message = CreateCanonicalMessage(context);
             byte[] keyBytes = key.CopyBytes();
-            byte[] digest = ComputeHmac(keyBytes, message);
+            byte[] digest = hmac(keyBytes, message);
             ulong s0 = ReadUInt64LittleEndian(digest, 0);
             ulong s1 = ReadUInt64LittleEndian(digest, 8);
             ulong s2 = ReadUInt64LittleEndian(digest, 16);
@@ -284,7 +276,7 @@ namespace Odyssey.Application.Random
                 byte[] fallback = new byte[message.Length + 1];
                 Array.Copy(message, fallback, message.Length);
                 fallback[fallback.Length - 1] = 0x01;
-                digest = ComputeHmac(keyBytes, fallback);
+                digest = hmac(keyBytes, fallback);
                 s0 = ReadUInt64LittleEndian(digest, 0);
                 s1 = ReadUInt64LittleEndian(digest, 8);
                 s2 = ReadUInt64LittleEndian(digest, 16);
@@ -296,7 +288,7 @@ namespace Odyssey.Application.Random
                 new RandomStreamIdentity(context, RngHash.FromBytes(Sha256(message)), RngHash.FromBytes(CreateSeedCommitment(context.RngKeyEpochId, keyBytes))));
         }
 
-        public static byte[] CreateSeedCommitment(RngKeyEpochId keyEpochId, byte[] secretKeyMaterial)
+        private static byte[] CreateSeedCommitment(RngKeyEpochId keyEpochId, byte[] secretKeyMaterial)
         {
             if (!keyEpochId.IsValid) throw new ArgumentException("RNG key epoch id is required.", nameof(keyEpochId));
             if (secretKeyMaterial == null) throw new ArgumentNullException(nameof(secretKeyMaterial));

@@ -2,6 +2,7 @@ using System;
 using System.Collections.ObjectModel;
 using System.Collections.Generic;
 using Odyssey.Application.Identity;
+using Odyssey.Domain.Identity;
 
 namespace Odyssey.Application.Results
 {

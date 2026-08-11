@@ -6,6 +6,8 @@ using Odyssey.Application.Random;
 using Odyssey.Application.Results;
 using Odyssey.Application.Time;
 using Odyssey.Domain.Events;
+using Odyssey.Domain.Identity;
+using Odyssey.Domain.Time;
 
 namespace Odyssey.Application.Commands
 {
@@ -104,39 +106,67 @@ namespace Odyssey.Application.Commands
         Recovery = 4
     }
 
+    public readonly struct ClientInstanceId : IEquatable<ClientInstanceId>
+    {
+        private const string Prefix = "client_";
+        private const int HexLength = 32;
+        private readonly string _value;
+
+        private ClientInstanceId(string value) => _value = value;
+        public bool IsValid => _value != null;
+        public static bool TryParse(string? value, out ClientInstanceId id) => CommandText.TryParsePrefixedHex(value, Prefix, HexLength, out id, static v => new ClientInstanceId(v));
+        public static ClientInstanceId Parse(string value) => TryParse(value, out ClientInstanceId id) ? id : throw new FormatException("ClientInstanceId is not canonical.");
+        public override string ToString() => _value ?? string.Empty;
+        public bool Equals(ClientInstanceId other) => string.Equals(_value, other._value, StringComparison.Ordinal);
+        public override bool Equals(object? obj) => obj is ClientInstanceId other && Equals(other);
+        public override int GetHashCode() => _value == null ? 0 : StringComparer.Ordinal.GetHashCode(_value);
+    }
+
     public readonly struct CommandIssuer
     {
-        public CommandIssuer(CommandIssuerKind issuerKind, string? actorUserId, string? actorCharacterId)
+        public CommandIssuer(CommandIssuerKind issuerKind, UserId? actorUserId, CharacterId? actorCharacterId)
         {
-            if (issuerKind == default) throw new ArgumentException("Issuer kind is required.", nameof(issuerKind));
-            if (issuerKind == CommandIssuerKind.User && string.IsNullOrWhiteSpace(actorUserId)) throw new ArgumentException("User issuer requires actor user id.", nameof(actorUserId));
-            if (actorUserId != null && !CommandText.IsLowerToken(actorUserId, 64)) throw new ArgumentException("Actor user id is not canonical.", nameof(actorUserId));
-            if (actorCharacterId != null && !CommandText.IsLowerToken(actorCharacterId, 64)) throw new ArgumentException("Actor character id is not canonical.", nameof(actorCharacterId));
+            if (!Enum.IsDefined(typeof(CommandIssuerKind), issuerKind)) throw new ArgumentOutOfRangeException(nameof(issuerKind));
+            if (issuerKind == CommandIssuerKind.User && (!actorUserId.HasValue || !actorUserId.Value.IsValid)) throw new ArgumentException("User issuer requires actor user id.", nameof(actorUserId));
+            if (actorUserId.HasValue && !actorUserId.Value.IsValid) throw new ArgumentException("Actor user id must be valid.", nameof(actorUserId));
+            if (actorCharacterId.HasValue && !actorCharacterId.Value.IsValid) throw new ArgumentException("Actor character id must be valid.", nameof(actorCharacterId));
             IssuerKind = issuerKind;
             ActorUserId = actorUserId;
             ActorCharacterId = actorCharacterId;
         }
 
         public CommandIssuerKind IssuerKind { get; }
-        public string? ActorUserId { get; }
-        public string? ActorCharacterId { get; }
-        public DomainActor ToDomainActor() => new DomainActor(IssuerKind.ToString().ToLowerInvariant(), ActorUserId, ActorCharacterId);
+        public UserId? ActorUserId { get; }
+        public CharacterId? ActorCharacterId { get; }
+        public DomainActor ToDomainActor() => new DomainActor(ToDomainActorKind(IssuerKind), ActorUserId, ActorCharacterId);
+
+        private static DomainActorKind ToDomainActorKind(CommandIssuerKind kind)
+        {
+            switch (kind)
+            {
+                case CommandIssuerKind.User: return DomainActorKind.User;
+                case CommandIssuerKind.HostSystem: return DomainActorKind.HostSystem;
+                case CommandIssuerKind.Migration: return DomainActorKind.Migration;
+                case CommandIssuerKind.Recovery: return DomainActorKind.Recovery;
+                default: throw new ArgumentOutOfRangeException(nameof(kind));
+            }
+        }
     }
 
     public readonly struct ExpectedAggregateRevision
     {
-        public ExpectedAggregateRevision(string aggregateType, string aggregateId, long expectedRevision)
+        public ExpectedAggregateRevision(AggregateType aggregateType, AggregateId aggregateId, long expectedRevision)
         {
-            if (!CommandText.IsDottedLowerIdentifier(aggregateType, 96, 2)) throw new ArgumentException("Aggregate type is not canonical.", nameof(aggregateType));
-            if (!CommandText.IsLowerToken(aggregateId, 96)) throw new ArgumentException("Aggregate id is not canonical.", nameof(aggregateId));
+            if (!aggregateType.IsValid) throw new ArgumentException("Aggregate type is required.", nameof(aggregateType));
+            if (!aggregateId.IsValid) throw new ArgumentException("Aggregate id is required.", nameof(aggregateId));
             if (expectedRevision < 0) throw new ArgumentOutOfRangeException(nameof(expectedRevision));
             AggregateType = aggregateType;
             AggregateId = aggregateId;
             ExpectedRevision = expectedRevision;
         }
 
-        public string AggregateType { get; }
-        public string AggregateId { get; }
+        public AggregateType AggregateType { get; }
+        public AggregateId AggregateId { get; }
         public long ExpectedRevision { get; }
     }
 
@@ -160,9 +190,9 @@ namespace Odyssey.Application.Commands
             CommandType commandType,
             CommandVersion commandVersion,
             CampaignId? campaignId,
-            string? sessionId,
+            SessionId? sessionId,
             CommandIssuer issuer,
-            string? originClientInstanceId,
+            ClientInstanceId? originClientInstanceId,
             CommandId rootCommandId,
             CommandId? parentCommandId,
             CorrelationId correlationId,
@@ -199,9 +229,9 @@ namespace Odyssey.Application.Commands
         public CommandType CommandType { get; }
         public CommandVersion CommandVersion { get; }
         public CampaignId? CampaignId { get; }
-        public string? SessionId { get; }
+        public SessionId? SessionId { get; }
         public CommandIssuer Issuer { get; }
-        public string? OriginClientInstanceId { get; }
+        public ClientInstanceId? OriginClientInstanceId { get; }
         public CommandId RootCommandId { get; }
         public CommandId? ParentCommandId { get; }
         public CorrelationId CorrelationId { get; }
@@ -214,7 +244,7 @@ namespace Odyssey.Application.Commands
         public CommandPayload Payload { get; }
         public CommandFingerprint Fingerprint { get; }
 
-        public static ApplicationCommand Create(CommandId commandId, CommandType commandType, CommandVersion commandVersion, CommandFingerprint fingerprint, CorrelationId correlationId, UtcInstant receivedAtHost, CommandIssuer issuer, CommandPayloadVersion payloadVersion, CommandPayload payload, CampaignId? campaignId = null, string? sessionId = null, string? originClientInstanceId = null, CommandId? rootCommandId = null, CommandId? parentCommandId = null, long? expectedCampaignRevision = null, long? expectedSessionSequence = null, IReadOnlyList<ExpectedAggregateRevision>? expectedAggregateRevisions = null, UtcInstant? issuedAtClient = null)
+        public static ApplicationCommand Create(CommandId commandId, CommandType commandType, CommandVersion commandVersion, CommandFingerprint fingerprint, CorrelationId correlationId, UtcInstant receivedAtHost, CommandIssuer issuer, CommandPayloadVersion payloadVersion, CommandPayload payload, CampaignId? campaignId = null, SessionId? sessionId = null, ClientInstanceId? originClientInstanceId = null, CommandId? rootCommandId = null, CommandId? parentCommandId = null, long? expectedCampaignRevision = null, long? expectedSessionSequence = null, IReadOnlyList<ExpectedAggregateRevision>? expectedAggregateRevisions = null, UtcInstant? issuedAtClient = null)
         {
             if (!commandId.IsValid) throw new ArgumentException("Command id is required.", nameof(commandId));
             if (!commandType.IsValid) throw new ArgumentException("Command type is required.", nameof(commandType));
@@ -224,8 +254,8 @@ namespace Odyssey.Application.Commands
             if (!receivedAtHost.IsValid) throw new ArgumentException("ReceivedAtHost is required.", nameof(receivedAtHost));
             if (!payloadVersion.IsValid) throw new ArgumentException("Payload version is required.", nameof(payloadVersion));
             if (campaignId.HasValue && !campaignId.Value.IsValid) throw new ArgumentException("Campaign id must be valid.", nameof(campaignId));
-            if (sessionId != null && !CommandText.IsLowerToken(sessionId, 64)) throw new ArgumentException("Session id is not canonical.", nameof(sessionId));
-            if (originClientInstanceId != null && !CommandText.IsLowerToken(originClientInstanceId, 64)) throw new ArgumentException("Origin client instance id is not canonical.", nameof(originClientInstanceId));
+            if (sessionId.HasValue && !sessionId.Value.IsValid) throw new ArgumentException("Session id must be valid.", nameof(sessionId));
+            if (originClientInstanceId.HasValue && !originClientInstanceId.Value.IsValid) throw new ArgumentException("Origin client instance id must be valid.", nameof(originClientInstanceId));
             if (rootCommandId.HasValue && !rootCommandId.Value.IsValid) throw new ArgumentException("Root command id must be valid.", nameof(rootCommandId));
             if (parentCommandId.HasValue && !parentCommandId.Value.IsValid) throw new ArgumentException("Parent command id must be valid.", nameof(parentCommandId));
             if (expectedCampaignRevision.HasValue && expectedCampaignRevision.Value < 0) throw new ArgumentOutOfRangeException(nameof(expectedCampaignRevision));
@@ -254,9 +284,7 @@ namespace Odyssey.Application.Commands
 
     public sealed class CommandResult
     {
-        private readonly ReadOnlyCollection<DomainEvent> _events;
-
-        private CommandResult(CommandId commandId, CommandResultStatus status, CommandId rootCommandId, CorrelationId correlationId, TransactionId? transactionId, CampaignRevision? campaignRevision, EventSequence? eventSequenceFrom, EventSequence? eventSequenceTo, UtcInstant completedAtHost, ReadOnlyCollection<DomainEvent> events, Error? error)
+        private CommandResult(CommandId commandId, CommandResultStatus status, CommandId rootCommandId, CorrelationId correlationId, TransactionId? transactionId, CampaignRevision? campaignRevision, EventSequence? eventSequenceFrom, EventSequence? eventSequenceTo, UtcInstant? completedAtHost, Error? error)
         {
             CommandId = commandId;
             Status = status;
@@ -267,7 +295,6 @@ namespace Odyssey.Application.Commands
             EventSequenceFrom = eventSequenceFrom;
             EventSequenceTo = eventSequenceTo;
             CompletedAtHost = completedAtHost;
-            _events = events;
             Error = error;
         }
 
@@ -279,34 +306,37 @@ namespace Odyssey.Application.Commands
         public CampaignRevision? CampaignRevision { get; }
         public EventSequence? EventSequenceFrom { get; }
         public EventSequence? EventSequenceTo { get; }
-        public UtcInstant CompletedAtHost { get; }
-        public IReadOnlyList<DomainEvent> Events => _events;
+        public UtcInstant? CompletedAtHost { get; }
         public Error? Error { get; }
 
-        public static CommandResult Accepted(ApplicationCommand command, DomainEventBatch batch, UtcInstant completedAtHost)
+        public static CommandResult Accepted(ApplicationCommand command, DomainEventBatch batch)
         {
             if (command == null) throw new ArgumentNullException(nameof(command));
             if (batch == null) throw new ArgumentNullException(nameof(batch));
-            if (!completedAtHost.IsValid) throw new ArgumentException("CompletedAtHost is required.", nameof(completedAtHost));
             ValidateBatchCausation(command, batch);
-            return new CommandResult(command.CommandId, CommandResultStatus.Accepted, command.RootCommandId, command.CorrelationId, batch.TransactionId, batch.CampaignRevision, batch.EventSequenceFrom, batch.EventSequenceTo, completedAtHost, CopyEvents(batch.Events), null);
+            return new CommandResult(command.CommandId, CommandResultStatus.Accepted, command.RootCommandId, command.CorrelationId, batch.TransactionId, batch.CampaignRevision, batch.EventSequenceFrom, batch.EventSequenceTo, null, null);
         }
 
-        public static CommandResult Pending(ApplicationCommand command, DomainEventBatch batch, UtcInstant completedAtHost)
+        public static CommandResult Pending(ApplicationCommand command, DomainEventBatch batch)
         {
             if (command == null) throw new ArgumentNullException(nameof(command));
             if (batch == null) throw new ArgumentNullException(nameof(batch));
-            if (!completedAtHost.IsValid) throw new ArgumentException("CompletedAtHost is required.", nameof(completedAtHost));
             ValidateBatchCausation(command, batch);
-            return new CommandResult(command.CommandId, CommandResultStatus.Pending, command.RootCommandId, command.CorrelationId, batch.TransactionId, batch.CampaignRevision, batch.EventSequenceFrom, batch.EventSequenceTo, completedAtHost, CopyEvents(batch.Events), null);
+            return new CommandResult(command.CommandId, CommandResultStatus.Pending, command.RootCommandId, command.CorrelationId, batch.TransactionId, batch.CampaignRevision, batch.EventSequenceFrom, batch.EventSequenceTo, null, null);
         }
 
-        public static CommandResult Rejected(ApplicationCommand command, Error error, UtcInstant completedAtHost)
+        public static CommandResult Rejected(ApplicationCommand command, Error error)
         {
             if (command == null) throw new ArgumentNullException(nameof(command));
             if (error == null) throw new ArgumentNullException(nameof(error));
+            if (error.CorrelationId != command.CorrelationId) throw new ArgumentException("Rejected error correlation must match command.", nameof(error));
+            return new CommandResult(command.CommandId, CommandResultStatus.Rejected, command.RootCommandId, command.CorrelationId, null, null, null, null, null, error);
+        }
+
+        public CommandResult WithCompletedAtHost(UtcInstant completedAtHost)
+        {
             if (!completedAtHost.IsValid) throw new ArgumentException("CompletedAtHost is required.", nameof(completedAtHost));
-            return new CommandResult(command.CommandId, CommandResultStatus.Rejected, command.RootCommandId, command.CorrelationId, null, null, null, null, completedAtHost, EmptyEvents(), error);
+            return new CommandResult(CommandId, Status, RootCommandId, CorrelationId, TransactionId, CampaignRevision, EventSequenceFrom, EventSequenceTo, completedAtHost, Error);
         }
 
         private static void ValidateBatchCausation(ApplicationCommand command, DomainEventBatch batch)
@@ -315,41 +345,69 @@ namespace Odyssey.Application.Commands
             {
                 if (domainEvent.RootCommandId != command.RootCommandId.ToCausationCommandId()) throw new ArgumentException("Event root command does not match command.", nameof(batch));
                 if (domainEvent.CausationCommandId != command.CommandId.ToCausationCommandId()) throw new ArgumentException("Event causation command does not match command.", nameof(batch));
-                if (domainEvent.CorrelationId.ToString() != command.CorrelationId.ToString()) throw new ArgumentException("Event correlation does not match command.", nameof(batch));
+                if (domainEvent.CorrelationId != command.CorrelationId) throw new ArgumentException("Event correlation does not match command.", nameof(batch));
             }
         }
-
-        private static ReadOnlyCollection<DomainEvent> CopyEvents(IReadOnlyList<DomainEvent> events)
-        {
-            DomainEvent[] copy = new DomainEvent[events.Count];
-            for (int index = 0; index < events.Count; index++)
-            {
-                copy[index] = events[index] ?? throw new ArgumentException("Domain event is required.", nameof(events));
-            }
-
-            return Array.AsReadOnly(copy);
-        }
-
-        private static ReadOnlyCollection<DomainEvent> EmptyEvents() => Array.AsReadOnly(Array.Empty<DomainEvent>());
     }
 
     public sealed class CommandExecutionProposal
     {
-        private CommandExecutionProposal(CommandResult result, DomainEventBatch? eventBatch)
+        private readonly ReadOnlyCollection<RandomEvidence> _randomEvidence;
+
+        private CommandExecutionProposal(CommandResult result, DomainEventBatch? eventBatch, ReadOnlyCollection<RandomEvidence> randomEvidence)
         {
             Result = result;
             EventBatch = eventBatch;
+            _randomEvidence = randomEvidence;
         }
 
         public CommandResult Result { get; }
         public DomainEventBatch? EventBatch { get; }
-        public static CommandExecutionProposal FromResult(CommandResult result, DomainEventBatch? eventBatch)
+        public IReadOnlyList<RandomEvidence> RandomEvidence => _randomEvidence;
+        public static CommandExecutionProposal FromResult(CommandResult result, DomainEventBatch? eventBatch, IReadOnlyList<RandomEvidence>? randomEvidence = null)
         {
             if (result == null) throw new ArgumentNullException(nameof(result));
             if ((result.Status == CommandResultStatus.Accepted || result.Status == CommandResultStatus.Pending) && eventBatch == null) throw new ArgumentException("Accepted/Pending proposals require an event batch.", nameof(eventBatch));
             if (result.Status == CommandResultStatus.Rejected && eventBatch != null) throw new ArgumentException("Rejected proposals must not include events.", nameof(eventBatch));
-            return new CommandExecutionProposal(result, eventBatch);
+            if (eventBatch != null)
+            {
+                if (result.TransactionId != eventBatch.TransactionId) throw new ArgumentException("Result transaction id must match event batch.", nameof(eventBatch));
+                if (!result.CampaignRevision.HasValue || !result.CampaignRevision.Value.Equals(eventBatch.CampaignRevision)) throw new ArgumentException("Result campaign revision must match event batch.", nameof(eventBatch));
+                if (!result.EventSequenceFrom.HasValue || !result.EventSequenceFrom.Value.Equals(eventBatch.EventSequenceFrom)) throw new ArgumentException("Result sequence start must match event batch.", nameof(eventBatch));
+                if (!result.EventSequenceTo.HasValue || !result.EventSequenceTo.Value.Equals(eventBatch.EventSequenceTo)) throw new ArgumentException("Result sequence end must match event batch.", nameof(eventBatch));
+            }
+
+            return new CommandExecutionProposal(result, eventBatch, CopyRandomEvidence(randomEvidence));
         }
+
+        private static ReadOnlyCollection<RandomEvidence> CopyRandomEvidence(IReadOnlyList<RandomEvidence>? source)
+        {
+            if (source == null || source.Count == 0) return Array.AsReadOnly(Array.Empty<RandomEvidence>());
+            RandomEvidence[] copy = new RandomEvidence[source.Count];
+            for (int index = 0; index < source.Count; index++)
+            {
+                if (!source[index].IsValid) throw new ArgumentException("Random evidence is required.", nameof(source));
+                copy[index] = source[index];
+            }
+
+            return Array.AsReadOnly(copy);
+        }
+    }
+
+    public readonly struct RandomEvidence
+    {
+        public RandomEvidence(string purpose, int value, RngProofData proofData)
+        {
+            if (!CommandText.IsDottedLowerIdentifier(purpose, 96, 2)) throw new ArgumentException("Random evidence purpose is not canonical.", nameof(purpose));
+            Purpose = purpose;
+            Value = value;
+            ProofData = proofData;
+        }
+
+        public string Purpose { get; }
+        public int Value { get; }
+        public RngProofData ProofData { get; }
+        public bool IsValid => Purpose != null;
     }
 
     public interface ICommandHandler
@@ -371,6 +429,9 @@ namespace Odyssey.Application.Commands
             Execution = execution ?? throw new ArgumentNullException(nameof(execution));
             Fingerprint = fingerprint;
             if (execution.Result.CommandId != command.CommandId) throw new ArgumentException("Handler result command id must match submitted command.", nameof(execution));
+            if (execution.Result.RootCommandId != command.RootCommandId) throw new ArgumentException("Handler result root command id must match submitted command.", nameof(execution));
+            if (execution.Result.CorrelationId != command.CorrelationId) throw new ArgumentException("Handler result correlation id must match submitted command.", nameof(execution));
+            if (execution.Result.Status == CommandResultStatus.Rejected && execution.Result.Error != null && execution.Result.Error.CorrelationId != command.CorrelationId) throw new ArgumentException("Rejected result correlation id must match submitted command.", nameof(execution));
         }
 
         public ApplicationCommand Command { get; }
@@ -407,12 +468,14 @@ namespace Odyssey.Application.Commands
         private readonly ICommandReceiptStore _receipts;
         private readonly ICommandCommitter _committer;
         private readonly ICommandHandler _handler;
+        private readonly IWallClock? _completionClock;
 
-        public CommandExecutor(ICommandReceiptStore receipts, ICommandCommitter committer, ICommandHandler handler)
+        public CommandExecutor(ICommandReceiptStore receipts, ICommandCommitter committer, ICommandHandler handler, IWallClock? completionClock = null)
         {
             _receipts = receipts ?? throw new ArgumentNullException(nameof(receipts));
             _committer = committer ?? throw new ArgumentNullException(nameof(committer));
             _handler = handler ?? throw new ArgumentNullException(nameof(handler));
+            _completionClock = completionClock;
         }
 
         public Result<CommandResult> Submit(ApplicationCommand command)
@@ -447,7 +510,8 @@ namespace Odyssey.Application.Commands
                     return Result<CommandResult>.Failure(committed.Error);
                 }
 
-                return Result<CommandResult>.Success(committed.Value.Result);
+                CommandResult response = _completionClock == null ? committed.Value.Result : committed.Value.Result.WithCompletedAtHost(_completionClock.GetUtcNow());
+                return Result<CommandResult>.Success(response);
             }
         }
 

@@ -432,6 +432,8 @@ Final guard/parser hardening is addressed: production `ErrorCode.Parse`/`TryPars
 - Integer compatibility version dimensions remain deferred to the corresponding owning SLICE-00 tasks.
 - ADR-004 diagnostics runtime, mappings, command results, localization implementation, persistence/network adapters, and DTO serialization remain future scope.
 
+Follow-up ownership note from ODY-S00-005: ODY-S00-005 revealed that `CorrelationId` is required by both DomainEvent and Application Error/command contracts. To preserve ADR-001 dependency direction and one semantic identity, ownership was refined in ODY-S00-005 to `Odyssey.Domain`. This is an ownership refinement, not an ADR amendment; the original ODY-S00-004 implementation evidence above is preserved as historical evidence.
+
 ### Follow-up tasks
 
 - `ODY-S00-005` continues with command, event, clock, and RNG contracts after ODY-S00-004 is owner-reviewed and merged.

@@ -11,6 +11,8 @@ using Odyssey.Application.Random;
 using Odyssey.Application.Results;
 using Odyssey.Application.Time;
 using Odyssey.Domain.Events;
+using Odyssey.Domain.Identity;
+using Odyssey.Domain.Time;
 using Odyssey.Rules.Versions;
 
 namespace Odyssey.Tests.Unit
@@ -33,7 +35,10 @@ namespace Odyssey.Tests.Unit
             Assert.That(command.RootCommandId, Is.EqualTo(command.CommandId));
             Assert.That(command.ParentCommandId.HasValue, Is.False);
             Assert.That(command.CampaignId!.Value.ToString(), Is.EqualTo("camp_0123456789abcdef0123456789abcdef"));
+            Assert.That(command.SessionId!.Value.ToString(), Is.EqualTo("sess_0123456789abcdef0123456789abcdef"));
+            Assert.That(command.OriginClientInstanceId!.Value.ToString(), Is.EqualTo("client_0123456789abcdef0123456789abcdef"));
             Assert.That(command.Issuer.IssuerKind, Is.EqualTo(CommandIssuerKind.User));
+            Assert.That(command.Issuer.ActorUserId!.Value.ToString(), Is.EqualTo("user_0123456789abcdef0123456789abcdef"));
             Assert.That(command.ReceivedAtHost.ToString(), Is.EqualTo("2026-08-11T01:02:03.1234567Z"));
             Assert.That(command.PayloadVersion.Value, Is.EqualTo(1));
             Assert.That(command.Payload.PayloadType, Is.EqualTo("application.synthetic.payload"));
@@ -41,6 +46,27 @@ namespace Odyssey.Tests.Unit
             Assert.That(CommandType.TryParse("Application.Synthetic.Accept", out _), Is.False);
             AssertThrows<ArgumentOutOfRangeException>(() => CommandVersion.Create(0));
             Assert.That(CommandFingerprint.TryParse("fp_0123", out _), Is.False);
+            AssertThrows<ArgumentOutOfRangeException>(() => new CommandIssuer((CommandIssuerKind)0, null, null));
+            AssertThrows<ArgumentOutOfRangeException>(() => new CommandIssuer((CommandIssuerKind)999, null, null));
+        }
+
+        [Test]
+        public void SharedSemanticPrimitivesAreDomainOwnedAndTyped()
+        {
+            Assert.That(typeof(CampaignId).Namespace, Is.EqualTo("Odyssey.Domain.Identity"));
+            Assert.That(typeof(CorrelationId).Namespace, Is.EqualTo("Odyssey.Domain.Identity"));
+            Assert.That(typeof(UtcInstant).Namespace, Is.EqualTo("Odyssey.Domain.Time"));
+            Assert.That(typeof(SessionId).Namespace, Is.EqualTo("Odyssey.Domain.Identity"));
+            Assert.That(typeof(UserId).Namespace, Is.EqualTo("Odyssey.Domain.Identity"));
+            Assert.That(typeof(CharacterId).Namespace, Is.EqualTo("Odyssey.Domain.Identity"));
+            Assert.That(typeof(ClientInstanceId).Namespace, Is.EqualTo("Odyssey.Application.Commands"));
+            Assert.That(typeof(AggregateType).Namespace, Is.EqualTo("Odyssey.Domain.Identity"));
+            Assert.That(typeof(AggregateId).Namespace, Is.EqualTo("Odyssey.Domain.Identity"));
+            Assert.That(typeof(DomainEvent).Assembly.GetType("Odyssey.Domain.Events.DomainCampaignId"), Is.Null);
+            Assert.That(typeof(DomainEvent).Assembly.GetType("Odyssey.Domain.Events.EventCorrelationId"), Is.Null);
+            Assert.That(typeof(DomainEvent).Assembly.GetType("Odyssey.Domain.Events.DomainUtcInstant"), Is.Null);
+            Assert.That(typeof(DeterministicRandomStreamFactory).Assembly.GetType("Odyssey.Application.Random.CampaignId"), Is.Null);
+            Assert.That(typeof(DiagnosticId).Namespace, Is.EqualTo("Odyssey.Application.Identity"));
         }
 
         [Test]
@@ -48,12 +74,11 @@ namespace Odyssey.Tests.Unit
         {
             ApplicationCommand command = CreateCommand("application.synthetic.accept");
             DomainEventBatch batch = CreateBatch(command, UtcInstant.Parse("2026-08-11T01:02:04.0000000Z"));
-            UtcInstant completed = UtcInstant.Parse("2026-08-11T01:02:05.0000000Z");
             Error rejection = CreateValidationError(command.CorrelationId);
 
-            CommandResult accepted = CommandResult.Accepted(command, batch, completed);
-            CommandResult pending = CommandResult.Pending(command, batch, completed);
-            CommandResult rejected = CommandResult.Rejected(command, rejection, completed);
+            CommandResult accepted = CommandResult.Accepted(command, batch);
+            CommandResult pending = CommandResult.Pending(command, batch);
+            CommandResult rejected = CommandResult.Rejected(command, rejection);
 
             Assert.That(Enum.GetNames(typeof(CommandResultStatus)), Is.EqualTo(new[] { "Accepted", "Pending", "Rejected" }));
             Assert.That(accepted.Status, Is.EqualTo(CommandResultStatus.Accepted));
@@ -61,10 +86,11 @@ namespace Odyssey.Tests.Unit
             Assert.That(accepted.EventSequenceFrom!.Value.Value, Is.EqualTo(100));
             Assert.That(accepted.EventSequenceTo!.Value.Value, Is.EqualTo(101));
             Assert.That(pending.Status, Is.EqualTo(CommandResultStatus.Pending));
-            Assert.That(pending.Events, Has.Count.EqualTo(2));
+            Assert.That(typeof(CommandResult).GetProperty("Events"), Is.Null);
             Assert.That(rejected.Status, Is.EqualTo(CommandResultStatus.Rejected));
-            Assert.That(rejected.Events, Is.Empty);
             Assert.That(rejected.Error, Is.SameAs(rejection));
+            Assert.That(rejected.CompletedAtHost.HasValue, Is.False);
+            Assert.That(accepted.WithCompletedAtHost(UtcInstant.Parse("2026-08-11T01:02:05.0000000Z")).CompletedAtHost!.Value.ToString(), Is.EqualTo("2026-08-11T01:02:05.0000000Z"));
             Assert.That(Result<CommandResult>.Success(rejected).IsSuccess, Is.True);
         }
 
@@ -75,17 +101,20 @@ namespace Odyssey.Tests.Unit
             CountingRandomFactory randomFactory = new CountingRandomFactory(CreateKey());
             InMemoryCommitPort commit = new InMemoryCommitPort();
             SyntheticOperationHandler handler = new SyntheticOperationHandler(wallClock, randomFactory);
-            CommandExecutor executor = new CommandExecutor(commit, commit, handler);
+            CommandExecutor executor = new CommandExecutor(commit, commit, handler, wallClock);
             ApplicationCommand command = CreateCommand("application.synthetic.accept");
 
             Result<CommandResult> result = executor.Submit(command);
 
             Assert.That(result.IsSuccess, Is.True);
             Assert.That(result.Value.Status, Is.EqualTo(CommandResultStatus.Accepted));
-            Assert.That(result.Value.Events, Has.Count.EqualTo(1));
-            Assert.That(result.Value.Events[0].OccurredAtHost.ToString(), Is.EqualTo("2026-08-11T01:02:04.0000000Z"));
-            Assert.That(result.Value.Events[0].CausationCommandId.ToString(), Is.EqualTo(command.CommandId.ToString()));
-            Assert.That(result.Value.Events[0].RootCommandId.ToString(), Is.EqualTo(command.RootCommandId.ToString()));
+            Assert.That(result.Value.CompletedAtHost!.Value.ToString(), Is.EqualTo("2026-08-11T01:02:05.0000000Z"));
+            Assert.That(commit.CommittedBatchCount, Is.EqualTo(1));
+            Assert.That(commit.CommittedEventCount, Is.EqualTo(1));
+            Assert.That(commit.LastBatch!.Events[0].OccurredAtHost.ToString(), Is.EqualTo("2026-08-11T01:02:04.0000000Z"));
+            Assert.That(commit.LastBatch.Events[0].CausationCommandId.ToString(), Is.EqualTo(command.CommandId.ToString()));
+            Assert.That(commit.LastBatch.Events[0].RootCommandId.ToString(), Is.EqualTo(command.RootCommandId.ToString()));
+            Assert.That(commit.LastRandomEvidenceCount, Is.EqualTo(1));
             Assert.That(randomFactory.CreateCalls, Is.EqualTo(1));
             Assert.That(handler.EventBatchCreations, Is.EqualTo(1));
             Assert.That(wallClock.Calls, Is.EqualTo(2));
@@ -108,11 +137,11 @@ namespace Odyssey.Tests.Unit
 
             Assert.That(first.IsSuccess, Is.True);
             Assert.That(duplicate.IsSuccess, Is.True);
-            Assert.That(duplicate.Value, Is.SameAs(first.Value));
+            Assert.That(duplicate.Value.CommandId, Is.EqualTo(first.Value.CommandId));
             Assert.That(handler.Calls, Is.EqualTo(1));
             Assert.That(randomFactory.CreateCalls, Is.EqualTo(1));
             Assert.That(handler.EventBatchCreations, Is.EqualTo(1));
-            Assert.That(wallClock.Calls, Is.EqualTo(2));
+            Assert.That(wallClock.Calls, Is.EqualTo(1));
             Assert.That(commit.CommitCalls, Is.EqualTo(1));
             Assert.That(commit.ReceiptCount, Is.EqualTo(1));
         }
@@ -176,6 +205,8 @@ namespace Odyssey.Tests.Unit
             Assert.That(result.IsFailure, Is.True);
             Assert.That(commit.CommitCalls, Is.EqualTo(1));
             Assert.That(commit.ReceiptCount, Is.EqualTo(0));
+            Assert.That(commit.CommittedBatchCount, Is.EqualTo(0));
+            Assert.That(commit.CommittedEventCount, Is.EqualTo(0));
         }
 
         [Test]
@@ -191,12 +222,13 @@ namespace Odyssey.Tests.Unit
 
             Assert.That(result.IsSuccess, Is.True);
             Assert.That(result.Value.Status, Is.EqualTo(CommandResultStatus.Rejected));
-            Assert.That(result.Value.Events, Is.Empty);
             Assert.That(randomFactory.CreateCalls, Is.EqualTo(0));
             Assert.That(handler.EventBatchCreations, Is.EqualTo(0));
-            Assert.That(wallClock.Calls, Is.EqualTo(1));
+            Assert.That(wallClock.Calls, Is.EqualTo(0));
             Assert.That(commit.CommitCalls, Is.EqualTo(1));
             Assert.That(commit.ReceiptCount, Is.EqualTo(1));
+            Assert.That(commit.CommittedBatchCount, Is.EqualTo(0));
+            Assert.That(commit.CommittedEventCount, Is.EqualTo(0));
         }
 
         [Test]
@@ -220,6 +252,39 @@ namespace Odyssey.Tests.Unit
         }
 
         [Test]
+        public void ResultProposalAndCommitProposalRejectCoherenceMismatches()
+        {
+            ApplicationCommand command = CreateCommand("application.synthetic.accept");
+            DomainEventBatch batch = CreateBatch(command, UtcInstant.Parse("2026-08-11T01:02:04.0000000Z"));
+            CommandResult result = CommandResult.Accepted(command, batch);
+            DomainEventBatch sequenceMismatch = DomainEventBatch.Create(batch.TransactionId, new[] { CreateEvent("evt_00000000000000000000000000000003", command, EventSequence.Create(200), AggregateRevision.Create(9), batch.OccurredAtHost) });
+            DomainEventBatch transactionMismatch = DomainEventBatch.Create(
+                TransactionId.Parse("tx_fedcba9876543210fedcba9876543210"),
+                new[] { CreateEvent("evt_00000000000000000000000000000004", command, EventSequence.Create(100), AggregateRevision.Create(9), batch.OccurredAtHost, transactionId: TransactionId.Parse("tx_fedcba9876543210fedcba9876543210")) });
+
+            AssertThrows<ArgumentException>(() => CommandExecutionProposal.FromResult(result, sequenceMismatch));
+            AssertThrows<ArgumentException>(() => CommandExecutionProposal.FromResult(result, transactionMismatch));
+            AssertThrows<ArgumentException>(() => CommandExecutionProposal.FromResult(CommandResult.Rejected(command, CreateValidationError(command.CorrelationId)), batch));
+            AssertThrows<ArgumentException>(() => CommandResult.Rejected(command, CreateValidationError(CorrelationId.Parse("corr_fedcba9876543210fedcba9876543210"))));
+
+            ApplicationCommand otherCorrelation = CreateCommand("application.synthetic.accept", correlationId: CorrelationId.Parse("corr_fedcba9876543210fedcba9876543210"));
+            CommandExecutionProposal execution = CommandExecutionProposal.FromResult(result, batch);
+            AssertThrows<ArgumentException>(() => new CommandCommitProposal(otherCorrelation, otherCorrelation.Fingerprint, execution));
+        }
+
+        [Test]
+        public void DomainEventBatchRejectsSharedMetadataMismatches()
+        {
+            ApplicationCommand command = CreateCommand("application.synthetic.accept");
+            UtcInstant occurredAt = UtcInstant.Parse("2026-08-11T01:02:04.0000000Z");
+            DomainEvent first = CreateEvent("evt_00000000000000000000000000000001", command, EventSequence.Create(100), AggregateRevision.Create(7), occurredAt);
+            AssertThrows<ArgumentException>(() => DomainEventBatch.Create(first.TransactionId, new[] { first, CreateEvent("evt_00000000000000000000000000000002", command, EventSequence.Create(101), AggregateRevision.Create(8), occurredAt, campaignId: CampaignId.Parse("camp_fedcba9876543210fedcba9876543210")) }));
+            AssertThrows<ArgumentException>(() => DomainEventBatch.Create(first.TransactionId, new[] { first, CreateEvent("evt_00000000000000000000000000000002", command, EventSequence.Create(101), AggregateRevision.Create(8), occurredAt, rootCommandId: CausationCommandId.Parse("cmd_fedcba9876543210fedcba9876543210")) }));
+            AssertThrows<ArgumentException>(() => DomainEventBatch.Create(first.TransactionId, new[] { first, CreateEvent("evt_00000000000000000000000000000002", command, EventSequence.Create(101), AggregateRevision.Create(8), occurredAt, correlationId: CorrelationId.Parse("corr_fedcba9876543210fedcba9876543210")) }));
+            AssertThrows<ArgumentException>(() => DomainEventBatch.Create(first.TransactionId, new[] { first, CreateEvent("evt_00000000000000000000000000000002", command, EventSequence.Create(101), AggregateRevision.Create(8), UtcInstant.Parse("2026-08-11T01:02:05.0000000Z")) }));
+        }
+
+        [Test]
         public async Task InjectedClockAndVirtualSchedulerMatchAdr008Shape()
         {
             UtcInstant instant = UtcInstant.FromDateTimeOffset(new DateTimeOffset(2026, 8, 11, 3, 2, 3, 123, TimeSpan.FromHours(2)).AddTicks(4567));
@@ -240,13 +305,17 @@ namespace Odyssey.Tests.Unit
             scheduler.Advance(TimeSpan.FromSeconds(2));
             MonotonicTimestamp end = scheduler.GetTimestamp();
             Assert.That(scheduler.GetElapsedTime(start, end), Is.EqualTo(TimeSpan.FromSeconds(2)));
+            Assert.That(default(UtcInstant).IsValid, Is.False);
+            Assert.That(default(UtcInstant).Equals(default(UtcInstant)), Is.True);
+            Assert.That(default(UtcInstant).GetHashCode(), Is.EqualTo(0));
+            AssertThrows<InvalidOperationException>(() => default(UtcInstant).CompareTo(instant));
         }
 
         [Test]
         public void RngGoldenVectorsUseExactAdr008CanonicalMessageAndProofData()
         {
             RandomDecisionContext context = CreateRandomContext();
-            byte[] message = HmacSha256StreamDeriverV1.CreateCanonicalMessage(context);
+            byte[] message = CreateCanonicalMessage(context);
             byte[] key = CreateKeyBytes();
             byte[] digest = ComputeHmacReference(key, message);
             IAuthoritativeRandomStream stream = new DeterministicRandomStreamFactory(CampaignRngKey.FromBytes(key)).Create(context).Value;
@@ -314,21 +383,40 @@ namespace Odyssey.Tests.Unit
             Assert.That(IsAllZeroState(firstDigest), Is.True);
             Assert.That(IsAllZeroState(fallbackDigest), Is.False);
             Assert.That(ToHex(fallbackMessage), Does.EndWith("01"));
+
+            int hmacCalls = 0;
+            IAuthoritativeRandomStream stream = CreateStreamWithInjectedHmac((key, actualMessage) =>
+            {
+                hmacCalls++;
+                if (hmacCalls == 1)
+                {
+                    Assert.That(actualMessage, Is.EqualTo(message));
+                    return firstDigest;
+                }
+
+                Assert.That(actualMessage, Is.EqualTo(fallbackMessage));
+                return fallbackDigest;
+            });
+
+            Assert.That(stream.NextInclusive(1, 10, 0).IsSuccess, Is.True);
+            Assert.That(hmacCalls, Is.EqualTo(2));
         }
 
-        private static ApplicationCommand CreateCommand(string commandType, string fingerprint = "fp_0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef")
+        private static ApplicationCommand CreateCommand(string commandType, string fingerprint = "fp_0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef", CorrelationId? correlationId = null)
         {
             return ApplicationCommand.Create(
                 CommandId.Parse("cmd_0123456789abcdef0123456789abcdef"),
                 CommandType.Parse(commandType),
                 CommandVersion.Create(1),
                 CommandFingerprint.Parse(fingerprint),
-                CorrelationId.Parse("corr_0123456789abcdef0123456789abcdef"),
+                correlationId ?? CorrelationId.Parse("corr_0123456789abcdef0123456789abcdef"),
                 UtcInstant.Parse("2026-08-11T01:02:03.1234567Z"),
-                new CommandIssuer(CommandIssuerKind.User, "user_001", "character_001"),
+                new CommandIssuer(CommandIssuerKind.User, UserId.Parse("user_0123456789abcdef0123456789abcdef"), CharacterId.Parse("char_0123456789abcdef0123456789abcdef")),
                 CommandPayloadVersion.Create(1),
                 new CommandPayload("application.synthetic.payload"),
-                CampaignId.Parse("camp_0123456789abcdef0123456789abcdef"));
+                CampaignId.Parse("camp_0123456789abcdef0123456789abcdef"),
+                SessionId.Parse("sess_0123456789abcdef0123456789abcdef"),
+                ClientInstanceId.Parse("client_0123456789abcdef0123456789abcdef"));
         }
 
         private static RandomDecisionContext CreateRandomContext()
@@ -363,23 +451,23 @@ namespace Odyssey.Tests.Unit
             return DomainEventBatch.Create(first.TransactionId, new[] { first, second });
         }
 
-        private static DomainEvent CreateEvent(string id, ApplicationCommand command, EventSequence sequence, AggregateRevision aggregateRevision, UtcInstant occurredAt)
+        private static DomainEvent CreateEvent(string id, ApplicationCommand command, EventSequence sequence, AggregateRevision aggregateRevision, UtcInstant occurredAt, CampaignId? campaignId = null, TransactionId? transactionId = null, CausationCommandId? rootCommandId = null, CausationCommandId? causationCommandId = null, CorrelationId? correlationId = null)
         {
             return DomainEvent.Create(
                 DomainEventId.Parse(id),
                 DomainEventType.Parse("application.synthetic.accepted"),
                 DomainEventVersion.Create(1),
-                DomainCampaignId.Parse(command.CampaignId!.Value.ToString()),
-                new AggregateIdentity("application.synthetic", "synthetic_001"),
+                campaignId ?? command.CampaignId!.Value,
+                new AggregateIdentity(AggregateType.Parse("application.synthetic"), AggregateId.Parse("synthetic_001")),
                 aggregateRevision,
                 CampaignRevision.Create(42),
                 sequence,
-                TransactionId.Parse("tx_0123456789abcdef0123456789abcdef"),
-                command.RootCommandId.ToCausationCommandId(),
-                command.CommandId.ToCausationCommandId(),
-                EventCorrelationId.Parse(command.CorrelationId.ToString()),
+                transactionId ?? TransactionId.Parse("tx_0123456789abcdef0123456789abcdef"),
+                rootCommandId ?? command.RootCommandId.ToCausationCommandId(),
+                causationCommandId ?? command.CommandId.ToCausationCommandId(),
+                correlationId ?? command.CorrelationId,
                 command.Issuer.ToDomainActor(),
-                DomainUtcInstant.FromDateTimeOffset(occurredAt.Value),
+                occurredAt,
                 "gm_visible",
                 "public",
                 false,
@@ -447,6 +535,20 @@ namespace Odyssey.Tests.Unit
             {
                 return hmac.ComputeHash(message);
             }
+        }
+
+        private static byte[] CreateCanonicalMessage(RandomDecisionContext context)
+        {
+            Type type = typeof(DeterministicRandomStreamFactory).Assembly.GetType("Odyssey.Application.Random.HmacSha256StreamDeriverV1")!;
+            MethodInfo method = type.GetMethod("CreateCanonicalMessage", BindingFlags.Static | BindingFlags.NonPublic)!;
+            return (byte[])method.Invoke(null, new object[] { context })!;
+        }
+
+        private static IAuthoritativeRandomStream CreateStreamWithInjectedHmac(Func<byte[], byte[], byte[]> hmac)
+        {
+            Type type = typeof(DeterministicRandomStreamFactory).Assembly.GetType("Odyssey.Application.Random.HmacSha256StreamDeriverV1")!;
+            MethodInfo method = type.GetMethod("CreateForTest", BindingFlags.Static | BindingFlags.NonPublic)!;
+            return (IAuthoritativeRandomStream)method.Invoke(null, new object[] { CreateKey(), CreateRandomContext(), hmac })!;
         }
 
         private static bool IsAllZeroState(byte[] digest)
@@ -525,14 +627,13 @@ namespace Odyssey.Tests.Unit
             public Result<CommandExecutionProposal> Execute(ApplicationCommand command)
             {
                 Calls++;
-                UtcInstant completedAt = _wallClock.GetUtcNow();
                 if (command.CommandType.ToString() == "application.synthetic.reject")
                 {
-                    CommandResult rejected = CommandResult.Rejected(command, CreateValidationError(command.CorrelationId), completedAt);
+                    CommandResult rejected = CommandResult.Rejected(command, CreateValidationError(command.CorrelationId));
                     return Result<CommandExecutionProposal>.Success(CommandExecutionProposal.FromResult(rejected, null));
                 }
 
-                UtcInstant occurredAt = completedAt;
+                UtcInstant occurredAt = _wallClock.GetUtcNow();
                 Result<IAuthoritativeRandomStream> stream = _randomFactory.Create(CreateRandomContext());
                 if (stream.IsFailure)
                 {
@@ -552,9 +653,8 @@ namespace Odyssey.Tests.Unit
                     {
                         CreateEvent("evt_00000000000000000000000000000001", command, EventSequence.Create(100), AggregateRevision.Create(7), occurredAt)
                     });
-                UtcInstant commitCompletedAt = _wallClock.GetUtcNow();
-                CommandResult accepted = CommandResult.Accepted(command, batch, commitCompletedAt);
-                return Result<CommandExecutionProposal>.Success(CommandExecutionProposal.FromResult(accepted, batch));
+                CommandResult accepted = CommandResult.Accepted(command, batch);
+                return Result<CommandExecutionProposal>.Success(CommandExecutionProposal.FromResult(accepted, batch, new[] { new RandomEvidence("test.synthetic_roll", roll.Value.Value, roll.Value.ProofData) }));
             }
         }
 
@@ -574,7 +674,7 @@ namespace Odyssey.Tests.Unit
                     command.Payload,
                     command.CampaignId);
                 DomainEventBatch batch = CreateBatch(other, UtcInstant.Parse("2026-08-11T01:02:04.0000000Z"));
-                CommandResult result = CommandResult.Accepted(other, batch, UtcInstant.Parse("2026-08-11T01:02:05.0000000Z"));
+                CommandResult result = CommandResult.Accepted(other, batch);
                 return Result<CommandExecutionProposal>.Success(CommandExecutionProposal.FromResult(result, batch));
             }
         }
@@ -582,9 +682,14 @@ namespace Odyssey.Tests.Unit
         private sealed class InMemoryCommitPort : ICommandReceiptStore, ICommandCommitter
         {
             private readonly Dictionary<CommandId, CommandReceipt> _receipts = new Dictionary<CommandId, CommandReceipt>();
+            private readonly List<DomainEventBatch> _batches = new List<DomainEventBatch>();
 
             public int CommitCalls { get; private set; }
             public int ReceiptCount => _receipts.Count;
+            public int CommittedBatchCount => _batches.Count;
+            public int CommittedEventCount { get; private set; }
+            public int LastRandomEvidenceCount { get; private set; }
+            public DomainEventBatch? LastBatch => _batches.Count == 0 ? null : _batches[_batches.Count - 1];
             public bool FailCommit { get; set; }
 
             public bool TryGet(CommandId commandId, out CommandReceipt receipt)
@@ -601,6 +706,13 @@ namespace Odyssey.Tests.Unit
                 }
 
                 CommandReceipt receipt = new CommandReceipt(proposal.Command.CommandId, proposal.Fingerprint, proposal.Execution.Result);
+                if (proposal.Execution.EventBatch != null)
+                {
+                    _batches.Add(proposal.Execution.EventBatch);
+                    CommittedEventCount += proposal.Execution.EventBatch.Events.Count;
+                }
+
+                LastRandomEvidenceCount = proposal.Execution.RandomEvidence.Count;
                 _receipts.Add(receipt.CommandId, receipt);
                 return Result<CommandReceipt>.Success(receipt);
             }
