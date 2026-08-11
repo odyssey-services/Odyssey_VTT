@@ -312,7 +312,7 @@ namespace Odyssey.Application.Diagnostics
 
             int originalScalars = CountScalars(value);
             bool truncated = originalScalars > maxScalars;
-            string rendered = truncated ? TakeScalars(value, Math.Max(0, maxScalars - 11)) + "[truncated]" : value;
+            string rendered = truncated ? TruncateScalars(value, maxScalars) : value;
             return new SafeLogValue(classification, SafeLogValueKind.BoundedText, rendered, Encoding.UTF8.GetByteCount(rendered), originalScalars, truncated);
         }
 
@@ -356,6 +356,18 @@ namespace Odyssey.Application.Diagnostics
             }
 
             return value.Substring(0, index);
+        }
+
+        private static string TruncateScalars(string value, int maxScalars)
+        {
+            const string longMarker = "[truncated]";
+            const string shortMarker = "~";
+            if (maxScalars >= CountScalars(longMarker))
+            {
+                return TakeScalars(value, maxScalars - CountScalars(longMarker)) + longMarker;
+            }
+
+            return TakeScalars(value, maxScalars - 1) + shortMarker;
         }
     }
 

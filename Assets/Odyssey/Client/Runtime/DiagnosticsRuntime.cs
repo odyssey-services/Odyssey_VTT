@@ -29,7 +29,7 @@ namespace Odyssey.Unity.Client
             if (!timestampUtc.IsValid) throw new ArgumentException("Timestamp is required.", nameof(timestampUtc));
             if (!eventCode.IsValid) throw new ArgumentException("EventCode is required.", nameof(eventCode));
             if (diagnosticId.HasValue && !diagnosticId.Value.IsValid) throw new ArgumentException("DiagnosticId must be valid.", nameof(diagnosticId));
-            if (string.IsNullOrWhiteSpace(token) || token.Length > 64) throw new ArgumentException("Emergency token is required.", nameof(token));
+            if (!IsSafeToken(token)) throw new ArgumentException("Emergency token is not safe.", nameof(token));
             TimestampUtc = timestampUtc;
             EventCode = eventCode;
             DiagnosticId = diagnosticId;
@@ -40,6 +40,18 @@ namespace Odyssey.Unity.Client
         public EventCode EventCode { get; }
         public DiagnosticId? DiagnosticId { get; }
         public string Token { get; }
+
+        private static bool IsSafeToken(string? token)
+        {
+            if (string.IsNullOrWhiteSpace(token) || token!.Length > 64 || token.Trim() != token) return false;
+            for (int index = 0; index < token.Length; index++)
+            {
+                char c = token[index];
+                if (!((c >= 'a' && c <= 'z') || (c >= '0' && c <= '9') || c == '_' || c == '.' || c == '-')) return false;
+            }
+
+            return true;
+        }
     }
 
     public sealed class InMemoryDiagnosticRingBuffer : IDiagnosticSink

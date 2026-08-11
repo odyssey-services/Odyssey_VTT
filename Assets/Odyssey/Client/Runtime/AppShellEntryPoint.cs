@@ -13,20 +13,21 @@ namespace Odyssey.Unity.Client
 
         public bool IsInitialized => _presenter != null;
 
-        public Result<PresentationRuntime> Initialize(IDeveloperShellFacade facade)
+        public Result Initialize(IDeveloperShellFacade facade, PresentationRuntime presentationRuntime)
         {
             if (facade == null) throw new ArgumentNullException(nameof(facade));
+            if (presentationRuntime == null) throw new ArgumentNullException(nameof(presentationRuntime));
             _document = GetComponent<UIDocument>();
-            PresentationRuntime presentationRuntime = new PresentationRuntime();
             _presenter = new DeveloperShellPresenter(_document, facade, presentationRuntime);
             Result result = _presenter.Initialize();
             if (result.IsFailure)
             {
-                presentationRuntime.Dispose();
-                return Result<PresentationRuntime>.Failure(result.Error);
+                _presenter.Dispose();
+                _presenter = null;
+                return result;
             }
 
-            return Result<PresentationRuntime>.Success(presentationRuntime);
+            return Result.Success();
         }
 
         public void ShowStartupFailed(Error error)

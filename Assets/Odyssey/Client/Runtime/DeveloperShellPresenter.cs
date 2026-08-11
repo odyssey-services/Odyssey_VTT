@@ -56,7 +56,6 @@ namespace Odyssey.Unity.Client
         public void Dispose()
         {
             if (_disposed) return;
-            _presentationRuntime.Dispose();
             _disposed = true;
         }
 

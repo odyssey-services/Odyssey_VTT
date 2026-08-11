@@ -11,6 +11,7 @@ namespace Odyssey.Unity.Client
     {
         private readonly OdysseyRuntimeCompositionRoot _compositionRoot = new OdysseyRuntimeCompositionRoot();
         private AppRuntime? _runtime;
+        private Error? _startupFailure;
         private bool _leaseHeld;
 
         public AppRuntime? Runtime => _runtime;
@@ -32,6 +33,9 @@ namespace Odyssey.Unity.Client
             if (result.IsFailure)
             {
                 Debug.LogError(result.Error.UserMessageKey.ToString());
+                _startupFailure = result.Error;
+                SceneManager.sceneLoaded += OnFailureSceneLoaded;
+                SceneManager.LoadSceneAsync("Assets/Odyssey/Client/Scenes/AppShell.unity", LoadSceneMode.Additive);
                 RuntimeHostLease.Release();
                 _leaseHeld = false;
                 return;
@@ -39,6 +43,7 @@ namespace Odyssey.Unity.Client
 
             _runtime = result.Value;
             SceneManager.sceneLoaded += OnSceneLoaded;
+            SceneManager.sceneUnloaded += OnSceneUnloaded;
             SceneManager.LoadSceneAsync("Assets/Odyssey/Client/Scenes/AppShell.unity", LoadSceneMode.Additive);
         }
 
@@ -55,24 +60,40 @@ namespace Odyssey.Unity.Client
                 return;
             }
 
+            PresentationRuntime presentationRuntime = new PresentationRuntime();
             IDeveloperShellFacade facade = new DeveloperShellFacade(_runtime, RequestShutdownFromShell);
-            Result<PresentationRuntime> presentation = entryPoint.Initialize(facade);
-            if (presentation.IsFailure)
+            Result initialized = entryPoint.Initialize(facade, presentationRuntime);
+            if (initialized.IsFailure)
             {
-                entryPoint.ShowStartupFailed(presentation.Error);
-                _runtime.MarkStartupFailed(presentation.Error);
+                presentationRuntime.Dispose();
+                entryPoint.ShowStartupFailed(initialized.Error);
+                _runtime.MarkStartupFailed(initialized.Error);
                 return;
             }
 
-            Result attached = _runtime.AttachPresentationRuntime(presentation.Value);
+            Result attached = _runtime.AttachPresentationRuntime(presentationRuntime);
             if (attached.IsFailure)
             {
+                presentationRuntime.Dispose();
                 entryPoint.ShowStartupFailed(attached.Error);
                 _runtime.MarkStartupFailed(attached.Error);
                 return;
             }
 
             entryPoint.Refresh();
+        }
+
+        private void OnFailureSceneLoaded(Scene scene, LoadSceneMode mode)
+        {
+            if (_startupFailure == null || scene.name != "AppShell") return;
+            RenderStartupFailure(scene, _startupFailure);
+            SceneManager.sceneLoaded -= OnFailureSceneLoaded;
+        }
+
+        private void OnSceneUnloaded(Scene scene)
+        {
+            if (_runtime == null || scene.name != "AppShell") return;
+            _runtime.DetachPresentationRuntime();
         }
 
         private static AppShellEntryPoint? FindSingleEntryPoint(Scene scene)
@@ -109,11 +130,17 @@ namespace Odyssey.Unity.Client
             rootElement.Clear();
             rootElement.Add(new Label("State: StartupFailed") { name = "runtime-state" });
             rootElement.Add(new Label("Failure: " + error.SafeReasonCode) { name = "shell-result" });
+            if (error.DiagnosticId.HasValue)
+            {
+                rootElement.Add(new Label("DiagnosticId: " + error.DiagnosticId.Value) { name = "diagnostic-id" });
+            }
         }
 
         private void OnDestroy()
         {
             SceneManager.sceneLoaded -= OnSceneLoaded;
+            SceneManager.sceneLoaded -= OnFailureSceneLoaded;
+            SceneManager.sceneUnloaded -= OnSceneUnloaded;
             if (_runtime != null)
             {
                 _runtime.Shutdown();
@@ -135,6 +162,8 @@ namespace Odyssey.Unity.Client
             }
 
             SceneManager.sceneLoaded -= OnSceneLoaded;
+            SceneManager.sceneLoaded -= OnFailureSceneLoaded;
+            SceneManager.sceneUnloaded -= OnSceneUnloaded;
             if (_leaseHeld)
             {
                 RuntimeHostLease.Release();

@@ -55,10 +55,10 @@ namespace Odyssey.Unity.Client
         public void Complete()
         {
             if (_completed) return;
-            Directory.CreateDirectory(_directory);
-            File.WriteAllText(_markerPath, "{\"state\":\"completed\"}");
             try
             {
+                Directory.CreateDirectory(_directory);
+                File.WriteAllText(_markerPath, "{\"state\":\"completed\"}");
                 File.Delete(_markerPath);
             }
             catch (IOException)
@@ -67,6 +67,11 @@ namespace Odyssey.Unity.Client
                 return;
             }
             catch (UnauthorizedAccessException)
+            {
+                _completed = true;
+                return;
+            }
+            catch (Exception)
             {
                 _completed = true;
                 return;
@@ -97,10 +102,19 @@ namespace Odyssey.Unity.Client
                 return MarkerState.Malformed;
             }
 
-            if (text.Length > 512) return MarkerState.Malformed;
-            if (text.StartsWith("{\"state\":\"started\"", StringComparison.Ordinal) && text.Contains("\"process\":\"proc_")) return MarkerState.Started;
+            if (text.Length > 128) return MarkerState.Malformed;
+            if (TryReadStarted(text)) return MarkerState.Started;
             if (string.Equals(text, "{\"state\":\"completed\"}", StringComparison.Ordinal)) return MarkerState.Completed;
             return MarkerState.Malformed;
+        }
+
+        private static bool TryReadStarted(string text)
+        {
+            const string prefix = "{\"state\":\"started\",\"process\":\"";
+            const string suffix = "\"}";
+            if (!text.StartsWith(prefix, StringComparison.Ordinal) || !text.EndsWith(suffix, StringComparison.Ordinal)) return false;
+            string process = text.Substring(prefix.Length, text.Length - prefix.Length - suffix.Length);
+            return ProcessInstanceId.TryParse(process, out _);
         }
 
         private enum MarkerState

@@ -107,12 +107,25 @@ namespace Odyssey.Tests.Unit
             Assert.That(crossingBoundary.WasTruncated, Is.True);
             Assert.That(crossingBoundary.RenderedValue, Does.Not.Contain("\ud83d"));
             Assert.That(crossingBoundary.RenderedValue, Does.EndWith("[truncated]"));
-            Assert.That(crossingBoundary.RenderedValue.Length, Is.LessThanOrEqualTo(12));
+            Assert.That(CountScalars(crossingBoundary.RenderedValue), Is.LessThanOrEqualTo(12));
             Assert.That(SafeLogValue.BoundedText(new string('a', 300)).RenderedValue, Does.EndWith("[truncated]"));
             Action newline = () => SafeLogValue.BoundedText("line\nbreak");
             Action nullCharacter = () => SafeLogValue.BoundedText("null\0break");
             Assert.Throws<ArgumentException>(newline);
             Assert.Throws<ArgumentException>(nullCharacter);
+        }
+
+        [Test]
+        public void BoundedTextNeverExceedsRequestedScalarLimit()
+        {
+            string emoji = char.ConvertFromUtf32(0x1F600);
+            foreach (int maxScalars in new[] { 1, 5, 11, 12, 256 })
+            {
+                SafeLogValue value = SafeLogValue.BoundedText("abc" + emoji + "def" + emoji + new string('x', 300), maxScalars);
+                Assert.That(CountScalars(value.RenderedValue), Is.LessThanOrEqualTo(maxScalars), maxScalars.ToString());
+                Assert.That(value.RenderedValue, Does.Not.Contain("\ud83d"));
+                Assert.That(value.WasTruncated, Is.True);
+            }
         }
 
         [Test]
@@ -189,6 +202,18 @@ namespace Odyssey.Tests.Unit
             }
 
             throw new FileNotFoundException(relativePath);
+        }
+
+        private static int CountScalars(string value)
+        {
+            int count = 0;
+            for (int index = 0; index < value.Length; index++)
+            {
+                if (char.IsHighSurrogate(value[index]) && index + 1 < value.Length && char.IsLowSurrogate(value[index + 1])) index++;
+                count++;
+            }
+
+            return count;
         }
     }
 }

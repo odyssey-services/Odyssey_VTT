@@ -246,7 +246,7 @@
       "authority": "ADR-005; ODY-S00-006 AC-3",
       "runner": "Unity EditMode",
       "path": "Assets/Odyssey/Client/Tests/EditMode/RuntimeCompositionAndDiagnosticsTests.cs",
-      "check": "invalid bootstrap configuration returns safe failure"
+      "check": "invalid bootstrap configuration and composition-invalid semantics return safe failures"
     },
     {
       "testCaseId": "TC-CMP-003",
@@ -254,7 +254,7 @@
       "authority": "ADR-005; ODY-S00-006 AC-3/AC-4",
       "runner": "Unity EditMode",
       "path": "Assets/Odyssey/Client/Tests/EditMode/RuntimeCompositionAndDiagnosticsTests.cs",
-      "check": "mid-construction crash marker start failure disposes owned marker and records safe incident"
+      "check": "mid-construction crash marker failure keeps original safe failure and attempts all cleanup"
     },
     {
       "testCaseId": "TC-CMP-004",
@@ -268,9 +268,9 @@
       "testCaseId": "TC-CMP-009",
       "taskId": "ODY-S00-006",
       "authority": "ADR-005; ODY-S00-006 AC-4",
-      "runner": "Unity EditMode",
-      "path": "Assets/Odyssey/Client/Tests/EditMode/RuntimeCompositionAndDiagnosticsTests.cs",
-      "check": "presentation runtime unload disposes presentation resources"
+      "runner": "Unity PlayMode",
+      "path": "Assets/Odyssey/Client/Tests/PlayMode/OdysseyPlayModeFoundationSmokeTests.cs",
+      "check": "real AppShell scene unload detaches and disposes PresentationRuntime once"
     },
     {
       "testCaseId": "TC-CMP-010",
@@ -358,7 +358,7 @@
       "authority": "ADR-010; ODY-S00-006 AC-10/AC-11",
       "runner": "Unity EditMode",
       "path": "Assets/Odyssey/Client/Tests/EditMode/RuntimeCompositionAndDiagnosticsTests.cs",
-      "check": "secret fixture absent from memory sink"
+      "check": "secret fixture rejected before trust transition and absent from ring, emergency and capturing sinks"
     },
     {
       "testCaseId": "TC-DIAG-011",
@@ -446,7 +446,7 @@
       "authority": "ADR-010; ODY-S00-006 AC-12",
       "runner": "Unity EditMode",
       "path": "Assets/Odyssey/Client/Tests/EditMode/RuntimeCompositionAndDiagnosticsTests.cs",
-      "check": "Warning uses emergency fallback when priority path is unavailable"
+      "check": "protected Warning is not sacrificed and incoming high-priority event uses emergency queue_full fallback"
     },
     {
       "testCaseId": "TC-DIAG-023",
@@ -462,7 +462,7 @@
       "authority": "ADR-010; ODY-S00-006 AC-12",
       "runner": "Unity EditMode",
       "path": "Assets/Odyssey/Client/Tests/EditMode/RuntimeCompositionAndDiagnosticsTests.cs",
-      "check": "logger failure does not change successful probe result"
+      "check": "failing diagnostic sink does not change Accepted developer probe result or execute command twice"
     },
     {
       "testCaseId": "TC-DIAG-025",
@@ -518,7 +518,7 @@
       "authority": "ADR-005; ADR-009; ODY-S00-006 AC-5/AC-6",
       "runner": "Unity PlayMode",
       "path": "Assets/Odyssey/Client/Tests/PlayMode/OdysseyPlayModeFoundationSmokeTests.cs",
-      "check": "Bootstrap loads AppShell to visible Ready state, runs technical shell actions, rejects duplicate RuntimeHost, and reaches Stopped shutdown"
+      "check": "Bootstrap loads AppShell to visible Ready state, runs technical shell actions, rejects duplicate RuntimeHost, reaches Stopped shutdown, and releases lease"
     }
   ]
 }

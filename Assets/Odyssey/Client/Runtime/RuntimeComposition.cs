@@ -157,7 +157,7 @@ namespace Odyssey.Unity.Client
 
                 if (cancellationToken.IsCancellationRequested)
                 {
-                    CleanupOwned(owned);
+                    CleanupOwned(owned, diagnostics, settings.Clock, context.ProcessInstanceId, diagnosticIds, incidents, emergency);
                     return Result<AppRuntime>.Failure(RuntimeErrors.Cancelled());
                 }
 
@@ -177,14 +177,53 @@ namespace Odyssey.Unity.Client
                     emergency?.TryWrite(new EmergencyDiagnosticRecord(settings.Clock.GetUtcNow(), OdysseyEventCodes.AppStartupFailed, diagnosticId, "startup_unexpected"));
                 }
 
-                CleanupOwned(owned);
+                CleanupOwned(owned, diagnostics, settings.Clock, context?.ProcessInstanceId, diagnosticIds, incidents, emergency);
                 return Result<AppRuntime>.Failure(RuntimeErrors.Unexpected(diagnosticId));
             }
         }
 
-        private static void CleanupOwned(IReadOnlyList<IDisposable> owned)
+        private static void CleanupOwned(IReadOnlyList<IDisposable> owned, BoundedDiagnosticRuntime? diagnostics, IWallClock clock, ProcessInstanceId? processInstanceId, IDiagnosticIdGenerator diagnosticIds, IncidentDeduplicator incidents, IEmergencyDiagnosticSink? emergency)
         {
-            for (int index = owned.Count - 1; index >= 0; index--) owned[index].Dispose();
+            for (int index = owned.Count - 1; index >= 0; index--)
+            {
+                if (owned[index] is BoundedDiagnosticRuntime) continue;
+                TryDisposeOwned(owned[index], diagnostics, clock, processInstanceId, diagnosticIds, incidents, emergency);
+            }
+
+            for (int index = owned.Count - 1; index >= 0; index--)
+            {
+                if (owned[index] is BoundedDiagnosticRuntime)
+                {
+                    TryDisposeOwned(owned[index], null, clock, processInstanceId, diagnosticIds, incidents, emergency);
+                }
+            }
+        }
+
+        internal static void RecordCleanupFailure(BoundedDiagnosticRuntime? diagnostics, IWallClock clock, ProcessInstanceId? processInstanceId, IDiagnosticIdGenerator diagnosticIds, IncidentDeduplicator incidents, IEmergencyDiagnosticSink? emergency, Exception exception)
+        {
+            DiagnosticId diagnosticId = diagnosticIds.Create();
+            if (diagnostics != null && processInstanceId.HasValue)
+            {
+                incidents.Record(diagnostics, clock, processInstanceId.Value, diagnosticIds, exception, SubsystemName.Parse("app"), out diagnosticId);
+                diagnostics.RecordEmergency(OdysseyEventCodes.DiagnosticsIncidentUnexpected, diagnosticId, "cleanup_failure");
+                return;
+            }
+
+            emergency?.TryWrite(new EmergencyDiagnosticRecord(clock.GetUtcNow(), OdysseyEventCodes.DiagnosticsIncidentUnexpected, diagnosticId, "cleanup_failure"));
+        }
+
+        private static bool TryDisposeOwned(IDisposable disposable, BoundedDiagnosticRuntime? diagnostics, IWallClock clock, ProcessInstanceId? processInstanceId, IDiagnosticIdGenerator diagnosticIds, IncidentDeduplicator incidents, IEmergencyDiagnosticSink? emergency)
+        {
+            try
+            {
+                disposable.Dispose();
+                return true;
+            }
+            catch (Exception ex)
+            {
+                RecordCleanupFailure(diagnostics, clock, processInstanceId, diagnosticIds, incidents, emergency, ex);
+                return false;
+            }
         }
     }
 
@@ -239,7 +278,7 @@ namespace Odyssey.Unity.Client
             lock (_gate)
             {
                 if (State != OdysseyRuntimeState.Starting) return Result.Failure(RuntimeErrors.CompositionInvalid());
-                _presentationRuntime?.Dispose();
+                DetachPresentationRuntimeLocked(markStartupFailed: false);
                 _presentationRuntime = presentationRuntime;
                 State = OdysseyRuntimeState.Ready;
                 Diagnostics.Write(LogLevel.Information, OdysseyEventCodes.AppStartupCompleted, SubsystemName.Parse("app"), MessageTemplateKey.Parse("log.app.startup.completed"), new DiagnosticContext(ProcessInstanceId), () => new[]
@@ -262,8 +301,15 @@ namespace Odyssey.Unity.Client
                     new SafeLogProperty(SafePropertyKey.Parse("reason"), SafeLogValue.Code("startup_failed")),
                     new SafeLogProperty(SafePropertyKey.Parse("diagnostic_id"), SafeLogValue.TechnicalIdentifier(error.DiagnosticId.HasValue ? error.DiagnosticId.Value.ToString() : "diag_unavailable"))
                 });
-                _presentationRuntime?.Dispose();
-                _presentationRuntime = null;
+                DetachPresentationRuntimeLocked(markStartupFailed: false);
+            }
+        }
+
+        internal void DetachPresentationRuntime()
+        {
+            lock (_gate)
+            {
+                DetachPresentationRuntimeLocked(markStartupFailed: State == OdysseyRuntimeState.Ready);
             }
         }
 
@@ -305,18 +351,23 @@ namespace Odyssey.Unity.Client
                 {
                     new SafeLogProperty(SafePropertyKey.Parse("state"), SafeLogValue.Code("shutting_down"))
                 });
-                _presentationRuntime?.Dispose();
-                _presentationRuntime = null;
+                DetachPresentationRuntimeLocked(markStartupFailed: false);
+                bool crashMarkerCompleted = false;
                 for (int index = _owned.Count - 1; index >= 0; index--)
                 {
                     if (_owned[index] is BoundedDiagnosticRuntime) continue;
-                    _owned[index].Dispose();
+                    bool disposed = TryDisposeRuntimeOwned(_owned[index]);
+                    if (ReferenceEquals(_owned[index], CrashMarker)) crashMarkerCompleted = disposed;
                 }
 
-                Diagnostics.Write(LogLevel.Information, OdysseyEventCodes.DiagnosticsCrashMarkerCompleted, SubsystemName.Parse("diagnostics"), MessageTemplateKey.Parse("log.diagnostics.crash.marker_completed"), new DiagnosticContext(ProcessInstanceId), () => new[]
+                if (crashMarkerCompleted)
                 {
-                    new SafeLogProperty(SafePropertyKey.Parse("marker"), SafeLogValue.SanitizedPath(CrashMarker.SanitizedMarkerPath))
-                });
+                    Diagnostics.Write(LogLevel.Information, OdysseyEventCodes.DiagnosticsCrashMarkerCompleted, SubsystemName.Parse("diagnostics"), MessageTemplateKey.Parse("log.diagnostics.crash.marker_completed"), new DiagnosticContext(ProcessInstanceId), () => new[]
+                    {
+                        new SafeLogProperty(SafePropertyKey.Parse("marker"), SafeLogValue.SanitizedPath(CrashMarker.SanitizedMarkerPath))
+                    });
+                }
+
                 Diagnostics.Write(LogLevel.Information, OdysseyEventCodes.AppShutdownCompleted, SubsystemName.Parse("app"), MessageTemplateKey.Parse("log.app.shutdown.completed"), new DiagnosticContext(ProcessInstanceId), () => new[]
                 {
                     new SafeLogProperty(SafePropertyKey.Parse("duration_ms"), SafeLogValue.Duration(TimeSpan.Zero))
@@ -342,6 +393,40 @@ namespace Odyssey.Unity.Client
                 new SafeLogProperty(SafePropertyKey.Parse("result_status"), SafeLogValue.Code(rejected ? "rejected" : "accepted"))
             });
         }
+
+        private void DetachPresentationRuntimeLocked(bool markStartupFailed)
+        {
+            if (_presentationRuntime == null) return;
+            try
+            {
+                _presentationRuntime.Dispose();
+                if (_presentationRuntime.CleanupFailureCount > 0)
+                {
+                    OdysseyRuntimeCompositionRoot.RecordCleanupFailure(Diagnostics, Clock, ProcessInstanceId, DiagnosticIds, new IncidentDeduplicator(), EmergencySink, new InvalidOperationException("presentation_cleanup_failure"));
+                }
+            }
+            catch (Exception ex)
+            {
+                OdysseyRuntimeCompositionRoot.RecordCleanupFailure(Diagnostics, Clock, ProcessInstanceId, DiagnosticIds, new IncidentDeduplicator(), EmergencySink, ex);
+            }
+
+            _presentationRuntime = null;
+            if (markStartupFailed) State = OdysseyRuntimeState.StartupFailed;
+        }
+
+        private bool TryDisposeRuntimeOwned(IDisposable disposable)
+        {
+            try
+            {
+                disposable.Dispose();
+                return true;
+            }
+            catch (Exception ex)
+            {
+                OdysseyRuntimeCompositionRoot.RecordCleanupFailure(Diagnostics, Clock, ProcessInstanceId, DiagnosticIds, new IncidentDeduplicator(), EmergencySink, ex);
+                return false;
+            }
+        }
     }
 
     public sealed class PresentationRuntime : IDisposable
@@ -363,10 +448,23 @@ namespace Odyssey.Unity.Client
         {
             if (_disposed) return;
             DisposeCount++;
-            for (int index = _subscriptions.Count - 1; index >= 0; index--) _subscriptions[index].Dispose();
+            for (int index = _subscriptions.Count - 1; index >= 0; index--)
+            {
+                try
+                {
+                    _subscriptions[index].Dispose();
+                }
+                catch
+                {
+                    CleanupFailureCount++;
+                }
+            }
+
             _subscriptions.Clear();
             _disposed = true;
         }
+
+        public int CleanupFailureCount { get; private set; }
     }
 
     internal static class RuntimeErrors
