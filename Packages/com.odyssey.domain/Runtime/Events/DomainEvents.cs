@@ -155,6 +155,7 @@ namespace Odyssey.Domain.Events
 
         public AggregateType AggregateType { get; }
         public AggregateId AggregateId { get; }
+        public bool IsValid => AggregateType.IsValid && AggregateId.IsValid;
     }
 
     public enum DomainActorKind
@@ -181,6 +182,11 @@ namespace Odyssey.Domain.Events
         public DomainActorKind IssuerKind { get; }
         public UserId? ActorUserId { get; }
         public CharacterId? ActorCharacterId { get; }
+        public bool IsValid =>
+            Enum.IsDefined(typeof(DomainActorKind), IssuerKind) &&
+            (IssuerKind != DomainActorKind.User || (ActorUserId.HasValue && ActorUserId.Value.IsValid)) &&
+            (!ActorUserId.HasValue || ActorUserId.Value.IsValid) &&
+            (!ActorCharacterId.HasValue || ActorCharacterId.Value.IsValid);
     }
 
     public readonly struct DomainEventPayload
@@ -192,6 +198,7 @@ namespace Odyssey.Domain.Events
         }
 
         public string PayloadType { get; }
+        public bool IsValid => CanonicalText.IsDottedLowerIdentifier(PayloadType, 96, 3);
     }
 
     public sealed class DomainEvent
@@ -291,6 +298,7 @@ namespace Odyssey.Domain.Events
             if (!type.IsValid) throw new ArgumentException("Domain event type is required.", nameof(type));
             if (!version.IsValid) throw new ArgumentException("Domain event version is required.", nameof(version));
             if (!campaignId.IsValid) throw new ArgumentException("Campaign id is required.", nameof(campaignId));
+            if (!aggregate.IsValid) throw new ArgumentException("Aggregate identity is required.", nameof(aggregate));
             if (!aggregateRevision.IsValid) throw new ArgumentException("Aggregate revision is required.", nameof(aggregateRevision));
             if (!campaignRevision.IsValid) throw new ArgumentException("Campaign revision is required.", nameof(campaignRevision));
             if (!eventSequence.IsValid) throw new ArgumentException("Event sequence is required.", nameof(eventSequence));
@@ -298,11 +306,13 @@ namespace Odyssey.Domain.Events
             if (!rootCommandId.IsValid) throw new ArgumentException("Root command id is required.", nameof(rootCommandId));
             if (!causationCommandId.IsValid) throw new ArgumentException("Causation command id is required.", nameof(causationCommandId));
             if (!correlationId.IsValid) throw new ArgumentException("Correlation id is required.", nameof(correlationId));
+            if (!actor.IsValid) throw new ArgumentException("Actor is required.", nameof(actor));
             if (!occurredAtHost.IsValid) throw new ArgumentException("OccurredAtHost is required.", nameof(occurredAtHost));
             if (!CanonicalText.IsLowerToken(visibilityPolicy, 64)) throw new ArgumentException("Visibility policy is not canonical.", nameof(visibilityPolicy));
             if (!CanonicalText.IsLowerToken(audienceClassification, 64)) throw new ArgumentException("Audience classification is not canonical.", nameof(audienceClassification));
             if (reasonCode != null && !CanonicalText.IsDottedLowerIdentifier(reasonCode, 96, 2)) throw new ArgumentException("Reason code is not canonical.", nameof(reasonCode));
             if (!payloadVersion.IsValid) throw new ArgumentException("Payload version is required.", nameof(payloadVersion));
+            if (!payload.IsValid) throw new ArgumentException("Payload is required.", nameof(payload));
             return new DomainEvent(id, type, version, campaignId, aggregate, aggregateRevision, campaignRevision, eventSequence, transactionId, rootCommandId, causationCommandId, correlationId, actor, occurredAtHost, visibilityPolicy, audienceClassification, isCompensating, compensatesEventIds ?? Array.Empty<DomainEventId>(), reasonCode, payloadVersion, payload);
         }
 

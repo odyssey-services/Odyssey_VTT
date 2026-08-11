@@ -138,7 +138,14 @@ namespace Odyssey.Application.Commands
         public CommandIssuerKind IssuerKind { get; }
         public UserId? ActorUserId { get; }
         public CharacterId? ActorCharacterId { get; }
-        public DomainActor ToDomainActor() => new DomainActor(ToDomainActorKind(IssuerKind), ActorUserId, ActorCharacterId);
+        public bool IsValid =>
+            Enum.IsDefined(typeof(CommandIssuerKind), IssuerKind) &&
+            (IssuerKind != CommandIssuerKind.User || (ActorUserId.HasValue && ActorUserId.Value.IsValid)) &&
+            (!ActorUserId.HasValue || ActorUserId.Value.IsValid) &&
+            (!ActorCharacterId.HasValue || ActorCharacterId.Value.IsValid);
+
+        public DomainActor ToDomainActor() =>
+            IsValid ? new DomainActor(ToDomainActorKind(IssuerKind), ActorUserId, ActorCharacterId) : throw new InvalidOperationException("Command issuer is invalid.");
 
         private static DomainActorKind ToDomainActorKind(CommandIssuerKind kind)
         {
@@ -168,6 +175,7 @@ namespace Odyssey.Application.Commands
         public AggregateType AggregateType { get; }
         public AggregateId AggregateId { get; }
         public long ExpectedRevision { get; }
+        public bool IsValid => AggregateType.IsValid && AggregateId.IsValid && ExpectedRevision >= 0;
     }
 
     public readonly struct CommandPayload
@@ -179,6 +187,7 @@ namespace Odyssey.Application.Commands
         }
 
         public string PayloadType { get; }
+        public bool IsValid => CommandText.IsDottedLowerIdentifier(PayloadType, 96, 3);
     }
 
     public sealed class ApplicationCommand
@@ -252,7 +261,9 @@ namespace Odyssey.Application.Commands
             if (!fingerprint.IsValid) throw new ArgumentException("Command fingerprint is required.", nameof(fingerprint));
             if (!correlationId.IsValid) throw new ArgumentException("Correlation id is required.", nameof(correlationId));
             if (!receivedAtHost.IsValid) throw new ArgumentException("ReceivedAtHost is required.", nameof(receivedAtHost));
+            if (!issuer.IsValid) throw new ArgumentException("Issuer is required.", nameof(issuer));
             if (!payloadVersion.IsValid) throw new ArgumentException("Payload version is required.", nameof(payloadVersion));
+            if (!payload.IsValid) throw new ArgumentException("Payload is required.", nameof(payload));
             if (campaignId.HasValue && !campaignId.Value.IsValid) throw new ArgumentException("Campaign id must be valid.", nameof(campaignId));
             if (sessionId.HasValue && !sessionId.Value.IsValid) throw new ArgumentException("Session id must be valid.", nameof(sessionId));
             if (originClientInstanceId.HasValue && !originClientInstanceId.Value.IsValid) throw new ArgumentException("Origin client instance id must be valid.", nameof(originClientInstanceId));
@@ -268,6 +279,7 @@ namespace Odyssey.Application.Commands
             ExpectedAggregateRevision[] copy = new ExpectedAggregateRevision[source.Count];
             for (int index = 0; index < source.Count; index++)
             {
+                if (!source[index].IsValid) throw new ArgumentException("Expected aggregate revision is required.", nameof(source));
                 copy[index] = source[index];
             }
 
@@ -333,7 +345,7 @@ namespace Odyssey.Application.Commands
             return new CommandResult(command.CommandId, CommandResultStatus.Rejected, command.RootCommandId, command.CorrelationId, null, null, null, null, null, error);
         }
 
-        public CommandResult WithCompletedAtHost(UtcInstant completedAtHost)
+        internal CommandResult WithCompletedAtHost(UtcInstant completedAtHost)
         {
             if (!completedAtHost.IsValid) throw new ArgumentException("CompletedAtHost is required.", nameof(completedAtHost));
             return new CommandResult(CommandId, Status, RootCommandId, CorrelationId, TransactionId, CampaignRevision, EventSequenceFrom, EventSequenceTo, completedAtHost, Error);
@@ -399,6 +411,7 @@ namespace Odyssey.Application.Commands
         public RandomEvidence(string purpose, int value, RngProofData proofData)
         {
             if (!CommandText.IsDottedLowerIdentifier(purpose, 96, 2)) throw new ArgumentException("Random evidence purpose is not canonical.", nameof(purpose));
+            if (!proofData.IsValid) throw new ArgumentException("RNG proof data is required.", nameof(proofData));
             Purpose = purpose;
             Value = value;
             ProofData = proofData;
@@ -407,7 +420,7 @@ namespace Odyssey.Application.Commands
         public string Purpose { get; }
         public int Value { get; }
         public RngProofData ProofData { get; }
-        public bool IsValid => Purpose != null;
+        public bool IsValid => Purpose != null && ProofData.IsValid;
     }
 
     public interface ICommandHandler

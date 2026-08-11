@@ -453,7 +453,7 @@ Implementation is complete and ready for owner review in Draft PR #9. Codex has 
 
 ### Authority tension and temporary resolution
 
-ADR-008 requires `CompletedAtHost` to be fixed after durable commit, while ADR-002 requires durable command result/receipt semantics. ODY-S00-005 has only in-memory commit contracts and does not own physical transaction semantics, so it does not claim durable persistence of post-commit `CompletedAtHost`. Handlers do not sample a pre-commit timestamp masquerading as `CompletedAtHost`; committed DomainEvents retain `OccurredAtHost`; `CommandExecutor` can return response-layer `CompletedAtHost` only when sampled after successful commit through an injected clock. Durable persistence of post-commit `CompletedAtHost` is deferred to the Persistence task that owns physical transaction semantics.
+ADR-008 requires `CompletedAtHost` to be fixed after durable commit, while ADR-002 requires durable command result/receipt semantics. ODY-S00-005 has only in-memory commit contracts and does not own physical transaction semantics, so it does not claim durable persistence of post-commit `CompletedAtHost`. Handlers do not sample a pre-commit timestamp masquerading as `CompletedAtHost`; committed DomainEvents retain `OccurredAtHost`; `CommandExecutor` can return response-layer `CompletedAtHost` only when sampled after successful commit through an injected clock. The helper that stamps response-layer `CompletedAtHost` is internal to the Application assembly. Durable persistence of post-commit `CompletedAtHost` is deferred to the Persistence task that owns physical transaction semantics.
 
 ### Validation results
 
@@ -471,13 +471,13 @@ Implementation validation:
 | `powershell -NoProfile -ExecutionPolicy Bypass -File .\scripts\restore.ps1` | Passed | Projects restored; output reported projects up to date/restored under repository cache settings. |
 | `powershell -NoProfile -ExecutionPolicy Bypass -File .\scripts\verify-format.ps1` | Failed then Passed | First rerun caught CRLF line endings in `CommandEventClockRngContractTests.cs` after the review-correction vector edit; after normalizing to LF, `FORMAT-001 PASS repository text formatting checks passed`. |
 | `powershell -NoProfile -ExecutionPolicy Bypass -File .\scripts\verify-test-structure.ps1` | Passed | `TC-ARCH-001 PASS`; controlled invalid Domain->Rules, package version mismatch, and duplicate catalog ownership fixtures rejected. |
-| `powershell -NoProfile -ExecutionPolicy Bypass -File .\scripts\test-fast.ps1` | Passed | Build passed with 0 warnings/errors; TRX under `Logs/ODY-S00-005/dotnet/`: totals 1 Domain, 1 Contracts, 43 Unit, 2 Architecture; all failed 0. |
+| `powershell -NoProfile -ExecutionPolicy Bypass -File .\scripts\test-fast.ps1` | Passed | Build passed with 0 warnings/errors; TRX under `Logs/ODY-S00-005/dotnet/`: totals 1 Domain, 1 Contracts, 46 Unit, 2 Architecture; all failed 0. |
 | `powershell -NoProfile -ExecutionPolicy Bypass -File .\scripts\test-unity.ps1` | Failed then Passed | First sandboxed run failed before project compile on Unity user cache `CurlRequestCache.db`; rerun with escalated Unity cache access passed: batch compile exit 0, EditMode exit 0, PlayMode exit 0, EditMode total 1 passed 1 failed 0 skipped 0, PlayMode total 1 passed 1 failed 0 skipped 0. XML reports are under `Logs/ODY-S00-005/`. Unity-generated ProjectSettings whitespace churn was restored and is not part of this task. |
 | `powershell -NoProfile -ExecutionPolicy Bypass -File .\scripts\verify-repository.ps1` | Passed | Repository policy, architecture guard, and SDK check passed; configured/selected SDK `10.0.302`; registry fixtures passed. |
 | `powershell -NoProfile -ExecutionPolicy Bypass -File .\scripts\check-repository-policy.ps1` | Passed | `REPO-POLICY-001` through `REPO-POLICY-005` pass; registry lifecycle/literal/SafeReason/SemVer/UserMessageKey/length fixtures pass. |
 | `dotnet build DotNet\Odyssey.Core.sln --no-restore` | Passed | 0 warnings, 0 errors. |
-| `dotnet test DotNet\Odyssey.Core.sln --no-build --no-restore` | Passed | Unit 43, Domain 1, Contracts 1, Architecture 2; failed 0, skipped 0. |
-| `git diff --check` | Passed | No whitespace errors after restoring Unity-generated `ProjectSettings/ProjectSettings.asset` churn. |
+| `dotnet test DotNet\Odyssey.Core.sln --no-build --no-restore` | Passed | Unit 46, Domain 1, Contracts 1, Architecture 2; failed 0, skipped 0. |
+| `git diff --check` | Failed then Passed | First rerun caught Unity-generated `ProjectSettings/ProjectSettings.asset` trailing whitespace churn after Unity validation; the out-of-scope ProjectSettings churn was restored, then `git diff --check` passed with no output. |
 | `git diff --cached --check` | Passed | No staged diff errors; command reports only the local inaccessible global ignore warning when applicable. |
 | `git status --short --branch` | Passed | Branch `feat/ody-s00-005-command-event-clock-rng-primitives`; existing Draft PR #9 remains the review target; no merge performed. |
 
@@ -487,7 +487,7 @@ Implementation validation:
 |---|---|---|
 | AC-1 | Passed | New contracts are placed under owning package paths: Application command/time/RNG, Domain events. |
 | AC-2 | Passed | `CommandId` is the only Core command idempotency key; no `IdempotencyKey` type/field was added. |
-| AC-3 | Passed | `CommandResultStatus` has exactly `Accepted`, `Pending`, `Rejected`; `CommandExecutor.Submit` returns `Result<CommandResult>`; raw `DomainEvent` collections are not exposed by `CommandResult`. |
+| AC-3 | Passed | `CommandResultStatus` has exactly `Accepted`, `Pending`, `Rejected`; `CommandExecutor.Submit` returns `Result<CommandResult>`; raw `DomainEvent` collections are not exposed by `CommandResult`; post-commit `CompletedAtHost` stamping helper is not public API. |
 | AC-4 | Passed | Synthetic tests cover accepted command, rejected command with no events/RNG, exact duplicate replay without re-execution, and safe mismatch rejection. |
 | AC-5 | Passed | DomainEvent envelope/batch are Domain-owned, immutable/read-only, ordered, and causally linked through transaction, campaign, root command, causation, correlation, and occurrence time invariants. |
 | AC-6 | Passed | Clock/scheduler contracts are injected; tests use fixed/virtual implementations without real waiting. |

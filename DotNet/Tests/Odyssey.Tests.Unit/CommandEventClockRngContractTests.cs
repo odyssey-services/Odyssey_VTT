@@ -39,15 +39,38 @@ namespace Odyssey.Tests.Unit
             Assert.That(command.OriginClientInstanceId!.Value.ToString(), Is.EqualTo("client_0123456789abcdef0123456789abcdef"));
             Assert.That(command.Issuer.IssuerKind, Is.EqualTo(CommandIssuerKind.User));
             Assert.That(command.Issuer.ActorUserId!.Value.ToString(), Is.EqualTo("user_0123456789abcdef0123456789abcdef"));
+            Assert.That(command.Issuer.IsValid, Is.True);
             Assert.That(command.ReceivedAtHost.ToString(), Is.EqualTo("2026-08-11T01:02:03.1234567Z"));
             Assert.That(command.PayloadVersion.Value, Is.EqualTo(1));
             Assert.That(command.Payload.PayloadType, Is.EqualTo("application.synthetic.payload"));
+            Assert.That(command.Payload.IsValid, Is.True);
             Assert.That(CommandId.TryParse("cmd_0123456789ABCDEF0123456789abcdef", out _), Is.False);
             Assert.That(CommandType.TryParse("Application.Synthetic.Accept", out _), Is.False);
             AssertThrows<ArgumentOutOfRangeException>(() => CommandVersion.Create(0));
             Assert.That(CommandFingerprint.TryParse("fp_0123", out _), Is.False);
             AssertThrows<ArgumentOutOfRangeException>(() => new CommandIssuer((CommandIssuerKind)0, null, null));
             AssertThrows<ArgumentOutOfRangeException>(() => new CommandIssuer((CommandIssuerKind)999, null, null));
+        }
+
+        [Test]
+        public void ApplicationCommandRejectsDefaultValueStructInputs()
+        {
+            CommandId commandId = CommandId.Parse("cmd_0123456789abcdef0123456789abcdef");
+            CommandType commandType = CommandType.Parse("application.synthetic.accept");
+            CommandVersion commandVersion = CommandVersion.Create(1);
+            CommandFingerprint fingerprint = CommandFingerprint.Parse("fp_0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef");
+            CorrelationId correlationId = CorrelationId.Parse("corr_0123456789abcdef0123456789abcdef");
+            UtcInstant receivedAtHost = UtcInstant.Parse("2026-08-11T01:02:03.1234567Z");
+            CommandIssuer issuer = new CommandIssuer(CommandIssuerKind.User, UserId.Parse("user_0123456789abcdef0123456789abcdef"), null);
+            CommandPayloadVersion payloadVersion = CommandPayloadVersion.Create(1);
+            CommandPayload payload = new CommandPayload("application.synthetic.payload");
+
+            Assert.That(default(CommandIssuer).IsValid, Is.False);
+            Assert.That(default(CommandPayload).IsValid, Is.False);
+            Assert.That(default(ExpectedAggregateRevision).IsValid, Is.False);
+            AssertThrows<ArgumentException>(() => ApplicationCommand.Create(commandId, commandType, commandVersion, fingerprint, correlationId, receivedAtHost, default, payloadVersion, payload));
+            AssertThrows<ArgumentException>(() => ApplicationCommand.Create(commandId, commandType, commandVersion, fingerprint, correlationId, receivedAtHost, issuer, payloadVersion, default));
+            AssertThrows<ArgumentException>(() => ApplicationCommand.Create(commandId, commandType, commandVersion, fingerprint, correlationId, receivedAtHost, issuer, payloadVersion, payload, expectedAggregateRevisions: new[] { default(ExpectedAggregateRevision) }));
         }
 
         [Test]
@@ -87,10 +110,12 @@ namespace Odyssey.Tests.Unit
             Assert.That(accepted.EventSequenceTo!.Value.Value, Is.EqualTo(101));
             Assert.That(pending.Status, Is.EqualTo(CommandResultStatus.Pending));
             Assert.That(typeof(CommandResult).GetProperty("Events"), Is.Null);
+            Assert.That(typeof(CommandResult).GetMethod("WithCompletedAtHost", BindingFlags.Instance | BindingFlags.Public), Is.Null);
+            Assert.That(typeof(CommandResult).GetMethod("WithCompletedAtHost", BindingFlags.Instance | BindingFlags.NonPublic), Is.Not.Null);
             Assert.That(rejected.Status, Is.EqualTo(CommandResultStatus.Rejected));
             Assert.That(rejected.Error, Is.SameAs(rejection));
             Assert.That(rejected.CompletedAtHost.HasValue, Is.False);
-            Assert.That(accepted.WithCompletedAtHost(UtcInstant.Parse("2026-08-11T01:02:05.0000000Z")).CompletedAtHost!.Value.ToString(), Is.EqualTo("2026-08-11T01:02:05.0000000Z"));
+            Assert.That(accepted.CompletedAtHost.HasValue, Is.False);
             Assert.That(Result<CommandResult>.Success(rejected).IsSuccess, Is.True);
         }
 
@@ -285,6 +310,35 @@ namespace Odyssey.Tests.Unit
         }
 
         [Test]
+        public void DomainEventRejectsDefaultValueStructInputs()
+        {
+            ApplicationCommand command = CreateCommand("application.synthetic.accept");
+            DomainEventId eventId = DomainEventId.Parse("evt_00000000000000000000000000000001");
+            DomainEventType eventType = DomainEventType.Parse("application.synthetic.accepted");
+            DomainEventVersion eventVersion = DomainEventVersion.Create(1);
+            CampaignId campaignId = command.CampaignId!.Value;
+            AggregateIdentity aggregate = new AggregateIdentity(AggregateType.Parse("application.synthetic"), AggregateId.Parse("synthetic_001"));
+            AggregateRevision aggregateRevision = AggregateRevision.Create(7);
+            CampaignRevision campaignRevision = CampaignRevision.Create(42);
+            EventSequence eventSequence = EventSequence.Create(100);
+            TransactionId transactionId = TransactionId.Parse("tx_0123456789abcdef0123456789abcdef");
+            CausationCommandId rootCommandId = command.RootCommandId.ToCausationCommandId();
+            CausationCommandId causationCommandId = command.CommandId.ToCausationCommandId();
+            CorrelationId correlationId = command.CorrelationId;
+            DomainActor actor = command.Issuer.ToDomainActor();
+            UtcInstant occurredAtHost = UtcInstant.Parse("2026-08-11T01:02:04.0000000Z");
+            DomainEventPayloadVersion payloadVersion = DomainEventPayloadVersion.Create(1);
+            DomainEventPayload payload = new DomainEventPayload("application.synthetic.payload");
+
+            Assert.That(default(AggregateIdentity).IsValid, Is.False);
+            Assert.That(default(DomainActor).IsValid, Is.False);
+            Assert.That(default(DomainEventPayload).IsValid, Is.False);
+            AssertThrows<ArgumentException>(() => DomainEvent.Create(eventId, eventType, eventVersion, campaignId, default, aggregateRevision, campaignRevision, eventSequence, transactionId, rootCommandId, causationCommandId, correlationId, actor, occurredAtHost, "gm_visible", "public", false, Array.Empty<DomainEventId>(), null, payloadVersion, payload));
+            AssertThrows<ArgumentException>(() => DomainEvent.Create(eventId, eventType, eventVersion, campaignId, aggregate, aggregateRevision, campaignRevision, eventSequence, transactionId, rootCommandId, causationCommandId, correlationId, default, occurredAtHost, "gm_visible", "public", false, Array.Empty<DomainEventId>(), null, payloadVersion, payload));
+            AssertThrows<ArgumentException>(() => DomainEvent.Create(eventId, eventType, eventVersion, campaignId, aggregate, aggregateRevision, campaignRevision, eventSequence, transactionId, rootCommandId, causationCommandId, correlationId, actor, occurredAtHost, "gm_visible", "public", false, Array.Empty<DomainEventId>(), null, payloadVersion, default));
+        }
+
+        [Test]
         public async Task InjectedClockAndVirtualSchedulerMatchAdr008Shape()
         {
             UtcInstant instant = UtcInstant.FromDateTimeOffset(new DateTimeOffset(2026, 8, 11, 3, 2, 3, 123, TimeSpan.FromHours(2)).AddTicks(4567));
@@ -333,10 +387,18 @@ namespace Odyssey.Tests.Unit
             Assert.That(roll.ProofData.DrawIndex, Is.EqualTo(0));
             Assert.That(roll.ProofData.DecisionOrdinal, Is.EqualTo(2));
             Assert.That(roll.ProofData.RawStepCount, Is.EqualTo(1));
+            Assert.That(roll.ProofData.IsValid, Is.True);
             Assert.That(roll.ProofData.StreamId.ToString(), Is.EqualTo(GoldenStreamId));
             Assert.That(roll.ProofData.SeedCommitment.ToString(), Is.EqualTo(GoldenSeedCommitment));
             Assert.That(roll.ProofData.GetType().GetProperties(), Has.None.Property("Name").EqualTo("Key"));
             Assert.That(roll.ProofData.GetType().GetProperties(), Has.None.Property("Name").EqualTo("State0"));
+        }
+
+        [Test]
+        public void RandomEvidenceRejectsDefaultProofData()
+        {
+            Assert.That(default(RngProofData).IsValid, Is.False);
+            AssertThrows<ArgumentException>(() => new RandomEvidence("test.synthetic_roll", 4, default));
         }
 
         [Test]

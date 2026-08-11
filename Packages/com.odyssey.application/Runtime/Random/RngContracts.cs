@@ -192,6 +192,21 @@ namespace Odyssey.Application.Random
         public int RawStepCount { get; }
         public int RejectionCount { get; }
         public int Result { get; }
+        public bool IsValid =>
+            string.Equals(RngAlgorithmId, RandomDecisionContext.RngAlgorithmId, StringComparison.Ordinal) &&
+            RngAlgorithmVersion == RandomDecisionContext.RngAlgorithmVersion &&
+            RngDerivationVersion == RandomDecisionContext.RngDerivationVersion &&
+            BoundedMappingVersion == RandomDecisionContext.BoundedMappingVersion &&
+            RngKeyEpochId.IsValid &&
+            SeedCommitment.IsValid &&
+            StreamId.IsValid &&
+            DecisionOrdinal >= 0 &&
+            DrawIndex >= 0 &&
+            RequestedMin <= RequestedMax &&
+            RawStepCount > 0 &&
+            RejectionCount == RawStepCount - 1 &&
+            Result >= RequestedMin &&
+            Result <= RequestedMax;
     }
 
     public readonly struct RandomSample
