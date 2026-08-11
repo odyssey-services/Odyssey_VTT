@@ -4,7 +4,7 @@
 **Owner:** Codex
 **Branch:** `feat/ody-s00-006-runtime-composition-diagnostic-shell`
 **Pull request:** Not opened
-**Last updated:** 2026-08-11 12:31 UTC
+**Last updated:** 2026-08-11 13:10 UTC
 
 ## 1. Purpose and user-visible outcome
 
@@ -176,6 +176,7 @@ Child task: `ODY-S00-010`.
 - 2026-08-11 — Addressed final PR #9 ownership/invariant hardening: shared CampaignId/CorrelationId/UtcInstant and related typed IDs are Domain-owned, CommandResult no longer exposes raw DomainEvents, result/batch/commit coherence guards were added, in-memory commit evidence stores event batches and receipts atomically, and post-commit CompletedAtHost durability is explicitly deferred to Persistence. ODY-S00-005 remains In Review; ODY-S00-006 remains Draft/not activated.
 - 2026-08-11 — Addressed final PR #9 fail-closed validation corrections: default Application/Domain value structs are rejected at command/event factory boundaries, default RNG proof data is rejected by RandomEvidence, `CommandResult.WithCompletedAtHost` is internal Application API only, and regression tests cover the public API and default `UtcInstant` policy. Full validation rerun passed; ODY-S00-006 remains Draft/not activated.
 - 2026-08-11 12:31 UTC — Owner merged PR #9, `ODY-S00-005 — Establish command, event, clock and RNG contracts`, into `main` with GitHub merge-commit method as `7aa5cc972c48d9af6509895bb6d9ed1e18899fdf`. Local `main` was fast-forwarded to that commit, branch `feat/ody-s00-006-runtime-composition-diagnostic-shell` was created, ODY-S00-005 moved to `Done` and `docs/tasks/completed/`, and ODY-S00-006 was activated as Ready only. No ODY-S00-006 production implementation has started.
+- 2026-08-11 13:10 UTC — Corrected ODY-S00-006 task contract alignment without starting implementation: TestCase IDs now preserve ADR-005 `CMP-001..020` and ADR-010 `DIAG-001..050` meanings, `ProcessInstanceId` is mandatory in the logical log event contract, EventCode registry path/scope is explicit, diagnostic ring buffer/queue limits match ADR-010, Unity UI/scene permissions are exact, and deferred ADR-010 ownership is recorded. ODY-S00-006 remains Ready; no PR is opened.
 
 ## 7. Decisions
 

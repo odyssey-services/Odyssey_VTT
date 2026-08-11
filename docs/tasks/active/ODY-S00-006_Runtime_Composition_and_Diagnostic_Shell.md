@@ -8,7 +8,7 @@
 **Pull request:** Not opened
 **ExecPlan:** `docs/plans/active/ODY-S00-000_SLICE_00_Technical_Skeleton.md`
 **Created:** 2026-08-11
-**Last updated:** 2026-08-11 12:31 UTC
+**Last updated:** 2026-08-11 13:10 UTC
 
 ## 1. Goal
 
@@ -46,7 +46,7 @@ The resulting Unity Editor application should be interactable, but it is still a
 
 - Requirement IDs: `SLICE-00`, Milestone `M1`, PR-003C delivery group
 - Existing test IDs: `TC-ARCH-001`, `TC-ARCH-002`, `TC-DOTNET-001`, `TC-UNITY-ASM-001`, `TC-UNITY-TEST-001`, `TC-REPO-001`, ODY-S00-004 result/error IDs, ODY-S00-005 command/event/clock/RNG IDs
-- New test IDs to introduce: `TC-COMP-001`, `TC-LIFE-001`, `TC-LIFE-002`, `TC-LIFE-003`, `TC-LIFE-004`, `TC-DIAG-001`, `TC-DIAG-002`, `TC-DIAG-003`, `TC-DIAG-004`, `TC-CRASH-001`, `TC-UNITY-SHELL-001`
+- New test IDs to introduce: `TC-CMP-001`, `TC-CMP-002`, `TC-CMP-003`, `TC-CMP-004`, `TC-CMP-009`, `TC-CMP-010`, `TC-CMP-011`, `TC-CMP-015`, `TC-CMP-016`, `TC-CMP-018`, `TC-CMP-020`, `TC-DIAG-002`, `TC-DIAG-003`, `TC-DIAG-004`, `TC-DIAG-005`, `TC-DIAG-006`, `TC-DIAG-011`, `TC-DIAG-012`, `TC-DIAG-013`, `TC-DIAG-015`, `TC-DIAG-016`, `TC-DIAG-017`, `TC-DIAG-018`, `TC-DIAG-019`, `TC-DIAG-020`, `TC-DIAG-021`, `TC-DIAG-022`, `TC-DIAG-023`, `TC-DIAG-024`, `TC-DIAG-025`, `TC-DIAG-026`, `TC-DIAG-027`, `TC-DIAG-028`, `TC-DIAG-046`, `TC-DIAG-051`, `TC-UNITY-SHELL-001`
 
 ### Task-safe private context
 
@@ -65,7 +65,7 @@ The resulting Unity Editor application should be interactable, but it is still a
 
 ### Assumptions
 
-- The minimal Developer Shell may reuse the existing synthetic non-gameplay operation from ODY-S00-005 to visibly prove runtime composition without creating gameplay.
+- The ODY-S00-005 `SyntheticOperationHandler` exists only under `DotNet/Tests/Odyssey.Tests.Unit/**` and is not reusable production code. ODY-S00-006 may implement a minimal DeveloperShell-only non-gameplay probe adapter/handler under `Odyssey.Unity.Client`, explicitly selected only by the `DeveloperShell` profile, using production Application command/result contracts and in-memory development adapters.
 - BuildIdentity is not available until ODY-S00-008; diagnostics must represent that state explicitly instead of fabricating a version string.
 
 ## 5. Scope
@@ -78,21 +78,30 @@ The resulting Unity Editor application should be interactable, but it is still a
 - Startup phase sequence covering bootstrap/runtime host start, configuration/profile validation, diagnostics availability, Application/runtime graph composition, presentation shell initialization, and Ready.
 - Startup failure behavior that returns safe `Result`/`Error`, records diagnostic evidence when diagnostics exist, cleans up partially owned resources, and displays a safe failure state in Developer Shell.
 - Minimal Process and Presentation lifetimes only; each disposable resource created by the process root has one clear owner.
-- Application-owned diagnostics contracts/runtime baseline: `IOdysseyLogger`, `LogEventV1`, `LogLevel`, `EventCode`, message template key or approved equivalent, `SafeProperty`, diagnostic context/incident contracts where needed.
+- Explicit runtime profile `DeveloperShell`, using the same production composition mechanism while explicitly selecting development adapters. Non-developer/production profiles must be rejected if they request DeveloperShell fake adapters.
+- Application-owned diagnostics contracts: `IOdysseyLogger`, `LogEventV1` logical contract, `LogLevel`, `EventCode`, `ProcessInstanceId`, `MessageTemplateKey`, `SafeLogProperty` / `SafeLogValue`, `DiagnosticContext`, `ExceptionSummary`, and typed diagnostic builders/contracts.
 - `LogLevel` vocabulary exactly: `Trace`, `Debug`, `Information`, `Warning`, `Error`, `Critical`.
-- Log event baseline fields accounting for `SchemaVersion`, `TimestampUtc`, `Level`, `EventCode`, `Subsystem`, optional/unavailable BuildId boundary, optional `CorrelationId`, optional `DiagnosticId`, `MessageTemplateKey`, `SafeProperties`, and optional safe `ExceptionSummary`.
-- Allowlist-first typed/bounded safe properties and rejection of unsafe diagnostic payloads.
-- Bounded in-memory diagnostic ring buffer.
-- Development/Editor Unity Console diagnostic sink where appropriate.
-- Minimal emergency/crash marker semantics that are intentionally trivial and do not depend on ADR-003 serialization ownership.
+- `LogEventV1` logical fields: `SchemaVersion = 1`, `TimestampUtc`, `Level`, `EventCode`, `Subsystem`, `BuildId` when available, mandatory `ProcessInstanceId`, optional `CorrelationId`, optional `DiagnosticId`, optional `CommandId`, optional `SessionReference`, `MessageTemplateKey`, `SafeProperties`, and optional safe `ExceptionSummary`.
+- `ProcessInstanceId` value primitive owned by `Application.Diagnostics`: generated once per process startup, not persistent, not user/device identity, does not encode username, device id, path, or secret, and has a deterministic fake/injected generator for tests.
+- BuildIdentity/BuildId generation remains ODY-S00-008. ODY-S00-006 must represent BuildId absence honestly as unavailable/not-yet-composed and must not create a competing canonical BuildId primitive or fabricated version/hash/string.
+- Machine-readable EventCode registry at `config/diagnostics/event-codes.json`, with runtime/code registry and file registry semantic parity checks. Registry rows include EventCode, owner subsystem, default LogLevel, allowed property keys, property classifications, purpose, and status `Active` / `Deprecated` / `Reserved`.
+- Register only EventCodes actually used by ODY-S00-006; do not pre-register persistence, networking, or gameplay events. Validation must reject unknown EventCode, active code missing registry entry, unregistered property key, property classification mismatch, and reuse of Deprecated/Reserved code.
+- Allowlist-first typed/bounded safe properties and rejection of unsafe diagnostic payloads. Strings are unsafe by default.
+- Safe bounded string baseline: maximum 256 Unicode scalar values unless registry says smaller; truncation must use an explicit marker. Lists are maximum 20 items unless registry says smaller.
+- Explicit safe representations for at least bounded public/operational text, safe code/enum, integer/count, duration, UTC timestamp, byte count, safe technical identifier/fingerprint, sanitized path representation, and sanitized endpoint representation.
+- Unity Client-owned concrete diagnostic process runtime/sinks: bounded queue, in-memory ring-buffer sink, Development/Editor Console sink, emergency sink, crash marker platform adapter, fatal/unexpected Unity/platform hook adapter, and Developer Shell diagnostic presenter. One process root owns this runtime; no static global logger.
+- Bounded in-memory ring buffer with maximum 2000 events or 8 MiB estimated logical payload, first reached limit wins. Eviction removes oldest cleaned events first. Logical-size estimation is deterministic and does not depend on ODY-S00-007 JSON serialization. No raw/unredacted value may enter the buffer.
+- Bounded diagnostics queue/backpressure with maximum 4096 events or 16 MiB estimated logical payload, first reached limit wins. Under pressure, drop `Trace`, then `Debug`, then `Information`; `Warning`/`Error`/`Critical` use priority path or emergency fallback. After recovery, emit a bounded drop-counter event.
+- Diagnostics runtime constraints: no unbounded main-thread blocking, sink failure cannot recurse into itself, diagnostics failure must not change successful Application/Domain outcome, disabled level must not evaluate expensive/lazy property, concurrent enqueue must not corrupt ordering/state, normal shutdown drains within up to 2 seconds, fatal shutdown is best effort up to 500 ms.
+- Minimal emergency/crash marker semantics with canonical provisional file name `process-started.json`; format is intentionally trivial and does not depend on ADR-003 serialization ownership.
 - Minimal UI Toolkit Developer Shell showing runtime state and diagnostic visibility.
-- Minimal interactive controls to prove composition, such as executing one existing synthetic non-gameplay command, displaying safe Accepted/Rejected result, showing diagnostic ring-buffer entries, triggering a safe synthetic diagnostic event, and requesting clean runtime stop where practical in Editor.
+- Minimal interactive controls to prove composition, such as executing one DeveloperShell-only non-gameplay probe command path, displaying safe Accepted/Rejected result, showing diagnostic ring-buffer entries, triggering a safe synthetic diagnostic event, and requesting clean runtime stop where practical in Editor.
 - Lifecycle and diagnostics tests in existing .NET and Unity test assemblies.
 - Updates to `Tests/Metadata/test-catalog.json`, parent ExecPlan progress/evidence, task Completion Evidence, README status if needed, and repository policy/architecture guards only where required by the task.
 
 ### Out of scope
 
-- ODY-S00-007 implementation, serialization DTOs, canonical JSON, source-generated JSON contexts, diagnostic JSONL final format, diagnostic bundle manifest serialization, or IL2CPP diagnostic serialization proof.
+- ODY-S00-007 implementation, `TC-DIAG-001` LogEventV1 JSON serialization, serialization DTOs, canonical JSON, source-generated JSON contexts, JSONL file sink, JSONL secret vectors, log-schema compatibility parsing, duplicate JSON property handling, diagnostic JSONL final format, diagnostic bundle manifest serialization, or .NET/Unity serialization parity proof.
 - SQLite, database connections, real outbox, Persistence runtime implementation, Networking runtime implementation, relay, accounts/auth, telemetry, remote crash upload, or diagnostic bundle final implementation.
 - Real `CampaignRuntime`, `SessionRuntime`, Operation transaction scope, Persistence runtime, or Networking runtime instantiation.
 - BuildIdentity generation, Git metadata, GitHub Actions, Windows Player build, IL2CPP build, or release artifacts.
@@ -107,11 +116,20 @@ Packages/com.odyssey.application/Runtime/**
 Packages/com.odyssey.application/Tests/**
 Assets/Odyssey/Client/Runtime/**
 Assets/Odyssey/Client/Editor/**
+Assets/Odyssey/Client/UI/**
+Assets/Odyssey/Client/Scenes/Bootstrap.unity
+Assets/Odyssey/Client/Scenes/AppShell.unity
 Assets/Odyssey/Client/Tests/EditMode/**
 Assets/Odyssey/Client/Tests/PlayMode/**
 DotNet/Tests/Odyssey.Tests.Unit/**
 DotNet/Tests/Odyssey.Tests.Architecture/**
 Tests/Metadata/test-catalog.json
+config/diagnostics/event-codes.json
+docs/errors/ERROR_CODES.md
+scripts/verify-test-structure.ps1
+scripts/test-fast.ps1
+scripts/test-unity.ps1
+scripts/verify-repository.ps1
 scripts/check-repository-policy.ps1
 docs/tasks/active/ODY-S00-006_Runtime_Composition_and_Diagnostic_Shell.md
 docs/tasks/completed/ODY-S00-005_Command_Event_Clock_and_RNG_Contracts.md
@@ -134,14 +152,16 @@ DotNet/Odyssey.Core.sln
 DotNet/Projects/**
 Packages/com.odyssey.persistence/**
 Packages/com.odyssey.networking/**
-Assets/Odyssey/Client/Runtime/**/*.unity
 Assets/Odyssey/Client/Runtime/**/*.prefab
+Assets/Odyssey/Client/UI/OdysseyPanelSettings.asset
 version.json
 config/compatibility.json
 .github/**
 ```
 
 Owner approval for this activation step permits only the operational `ACTIVE_DOCUMENTATION_BASELINE_Odyssey_VTT_v1.8.md` active-task pointer update from ODY-S00-005 to ODY-S00-006. Further edits to paths listed above require separate approval.
+
+Implementation note: The exact scene edits above are owner-approved only for minimal changes required to attach one RuntimeHost/bootstrap component and one AppShell scene entry point / presentation initializer. Do not create a second composition root in AppShell. Do not edit `ProjectSettings/**`, `Packages/manifest.json`, `Packages/packages-lock.json`, or `Assets/Odyssey/Client/UI/OdysseyPanelSettings.asset` without a new explicit blocker/approval.
 
 ## 6. Technical constraints
 
@@ -153,6 +173,13 @@ Owner approval for this activation step permits only the operational `ACTIVE_DOC
 - Result/error boundary: Follow ADR-004. Startup failure and unexpected exception boundaries produce safe `Result`/`Error`; public errors do not expose stack traces, absolute paths, secrets, or raw exception text.
 - Time/RNG rule: Follow ADR-008. Runtime lifecycle and diagnostics use injected clocks where authoritative or test-deterministic behavior matters; no global time/random in authoritative Core logic.
 - Diagnostics/redaction: Follow ADR-010. Diagnostics are allowlist-first. Strings are unsafe by default unless they pass an explicit sanitizer/trust transition. Redact before every sink, not after writing.
+- Safe property model: Do not expose `object`, `params object[]`, `Dictionary<string, object>`, arbitrary JSON, `Exception` as property, DomainEvent or command payloads, UnityEngine.Object, byte arrays, or streams through logging APIs.
+- EventCode registry: No production diagnostic EventCode may be used without an Active registry row. Deprecated and Reserved codes remain reserved and cannot be reused. Runtime production does not need to deserialize `config/diagnostics/event-codes.json` through `System.Text.Json` in this task.
+- Diagnostic runtime ownership: Application owns diagnostics contracts. Unity Client composition/platform boundary owns concrete process diagnostic runtime and sinks. Domain, Rules, and Application must not hide a global logger singleton.
+- Developer profile: `DeveloperShell` is the current runtime profile. It uses production composition with explicit development adapters, not hidden environment switches, fake fallbacks, test assembly fallbacks, or editor singletons.
+- Test composition: Tests must use explicit test composition/builders with deterministic clocks, deterministic `ProcessInstanceId`/`DiagnosticId` generators where needed, isolated temporary crash-marker paths, explicit typed adapter overrides, no `Dictionary<Type, object>`, no production fallback, and a fresh owned graph per lifecycle test. Production/PlayMode tests preserve production wiring order and replace only explicitly selected adapters.
+- Developer probe command: If implemented, it is a Unity Client DeveloperShell-only non-gameplay probe adapter/handler. Production assemblies must not reference test source, Application must not gain a fake/developer repository implementation, and any development probe fingerprint remains opaque/development-only, not ADR-003/ODY-S00-007 evidence.
+- Crash marker: The canonical provisional file name is `process-started.json`. A leftover unfinished marker on next startup means suspected crash only; it does not prove crash cause. Correct shutdown clears, replaces, or marks it completed. Marker content contains no authoritative application state, secret, personal, hidden payload, or logged absolute path.
 - Serialization boundary: Do not implement canonical diagnostic JSONL or bundle serialization. ODY-S00-007 owns source-generated serialization work.
 - Dependency/licensing: No new dependencies, packages, GitHub Actions, executable tools, or downloadable artifacts.
 
@@ -196,13 +223,15 @@ Owner approval for this activation step permits only the operational `ACTIVE_DOC
 - No real CampaignRuntime, SessionRuntime, Operation transaction scope, Persistence runtime, or Networking runtime is created in this task.
 - Diagnostics never log arbitrary objects, DomainEvents, command payloads, serialized DTOs, raw exceptions, stack traces, absolute Windows paths, SQL, connection strings, credentials, RNG keys, private keys, relay secrets, hidden gameplay state, private chat, or GM-only payloads.
 - BuildId is represented as unavailable/not-yet-composed until ODY-S00-008; no fake BuildIdentity is created.
+- `ProcessInstanceId` is mandatory on every logical `LogEventV1`.
+- The EventCode registry and runtime/code EventCode definitions remain semantically aligned.
 
 ## 8. Deliverables
 
 - Production code: Unity Client composition root/runtime host, minimal Developer Shell runtime, Application diagnostics contracts/runtime baseline, minimal crash marker baseline.
 - Tests: Existing .NET and Unity test assemblies updated with ODY-S00-006 lifecycle/diagnostics coverage.
-- Scripts / CI: No new CI. Existing repository checks may be extended only if required to enforce ADR-005/ADR-010 guards.
-- Configuration: No Unity package/settings baseline changes.
+- Scripts / CI: No new CI. Existing repository checks may be extended only to register/enforce ODY-S00-006 test IDs, architecture/locator diagnostics guards, `Logs/ODY-S00-006` output paths, and EventCode registry validation integration.
+- Configuration: `config/diagnostics/event-codes.json` EventCode registry only; no Unity package/settings baseline changes.
 - Documentation: Task Completion Evidence, parent ExecPlan, test catalog, and status pointers.
 - Generated evidence or build artifacts: Test logs/results only.
 - Migration / recovery material: Minimal local crash marker cleanup behavior; no persistent campaign migration.
@@ -214,14 +243,18 @@ Owner approval for this activation step permits only the operational `ACTIVE_DOC
 3. Startup failure returns safe Result/Error data, records diagnostic evidence when diagnostics exist, and cleans up partially created resources.
 4. Shutdown is deterministic, reverse-order, idempotent, and disposes each owned resource at most once.
 5. Developer Shell is visible/interactable in Unity Editor and shows Starting, Ready, Startup Failed, and Shutting Down states where applicable.
-6. Developer Shell can prove composition through at least one existing synthetic non-gameplay command path and safe diagnostic event visibility without adding gameplay UI.
-7. Application diagnostics baseline exposes the required ADR-010 fields, exact `LogLevel` vocabulary, optional/unavailable BuildId contract state, and canonical shared `CorrelationId`, `DiagnosticId`, and `UtcInstant` usage without duplicate semantic identity types.
-8. Diagnostics are allowlist-first: safe typed/bounded properties pass; unsafe strings/objects/payloads/secrets/raw exceptions/stack traces/absolute paths are rejected or sanitized before every sink.
-9. Bounded in-memory diagnostic ring buffer behavior is deterministic and tested.
-10. Unexpected exception boundary can create a `DiagnosticId` and safe internal `ExceptionSummary` while outward Error remains ADR-004-safe.
-11. Minimal crash marker detects previous unclean startup/shutdown state, clean shutdown clears/finalizes it, repeated shutdown is safe, and marker content is not authoritative application state or secret/private payload.
-12. No serialization DTOs, canonical JSON, SQLite, Networking, Persistence runtime, BuildIdentity generation, telemetry, GitHub Actions, Player/IL2CPP build, gameplay, or Unity package/settings baseline changes are introduced.
-13. Required validation commands have real results recorded in Completion Evidence.
+6. Developer Shell can prove composition through at least one DeveloperShell-only non-gameplay probe command path and safe diagnostic event visibility without adding gameplay UI.
+7. Application diagnostics contracts expose the required ADR-010 logical fields, exact `LogLevel` vocabulary, mandatory `ProcessInstanceId`, optional/unavailable BuildId contract state, and canonical shared `CorrelationId`, `DiagnosticId`, `CommandId`, and `UtcInstant` usage without duplicate semantic identity types.
+8. `ProcessInstanceId` is generated once per process startup, is not persistent, does not identify user/device, encodes no username/device/path/secret, and has deterministic fake/injected generation for tests.
+9. EventCode registry at `config/diagnostics/event-codes.json` is machine-readable and semantically checked against runtime/code registry. Unknown EventCode, active code missing registry entry, unregistered property key, property classification mismatch, and Deprecated/Reserved reuse fail validation.
+10. Diagnostics are allowlist-first: safe typed/bounded properties pass; unsafe strings/objects/payloads/secrets/raw exceptions/stack traces/absolute paths are rejected or sanitized before every sink.
+11. Bounded in-memory ring buffer enforces 2000 events or 8 MiB estimated logical payload, deterministic oldest-cleaned-event eviction, deterministic logical-size estimation independent of JSON serialization, and secret fixture absence.
+12. Bounded queue/backpressure enforces 4096 events or 16 MiB estimated payload, Trace/Debug/Information pressure drop order, Warning/Error/Critical priority or emergency path, recovery drop-counter event, non-recursive sink failure, disabled-level lazy property non-evaluation, concurrent enqueue safety, and bounded shutdown budgets.
+13. Unexpected exception boundary can create a `DiagnosticId` and safe internal `ExceptionSummary` while outward Error remains ADR-004-safe and duplicate exceptions are not fully recorded repeatedly.
+14. Minimal crash marker `process-started.json` detects suspected previous unclean state, clean shutdown clears/finalizes it, repeated cleanup is safe, and marker content is not authoritative application state or secret/private payload.
+15. Domain and Rules have no diagnostics/logger dependency.
+16. No serialization DTOs, canonical JSON, JSONL file sink, SQLite, Networking, Persistence runtime, BuildIdentity generation, telemetry, GitHub Actions, Player/IL2CPP build, gameplay, or Unity package/settings baseline changes are introduced.
+17. Required validation commands have real results recorded in Completion Evidence.
 
 ## 10. Tests and validation
 
@@ -229,16 +262,41 @@ Owner approval for this activation step permits only the operational `ACTIVE_DOC
 
 | Test ID | Layer / runner | Behavior or contract proven | Required result |
 |---|---|---|---|
-| `TC-COMP-001` | Architecture / .NET | Single composition root and no service locator/DI/container/global registry/Unity lookup violations | Pass |
-| `TC-LIFE-001` | .NET Unit or Unity EditMode | Startup success reaches Ready only after required phases | Pass |
-| `TC-LIFE-002` | .NET Unit or Unity EditMode | Startup failure cleans partial resources and returns safe failure | Pass |
-| `TC-LIFE-003` | .NET Unit or Unity EditMode | Shutdown is idempotent | Pass |
-| `TC-LIFE-004` | .NET Unit or Unity EditMode | Reverse ownership disposal order is enforced | Pass |
-| `TC-DIAG-001` | .NET Unit | Diagnostics allowlisted/redacted safe fields are emitted correctly | Pass |
-| `TC-DIAG-002` | .NET Unit | Unsafe diagnostic data is rejected or sanitized before sinks | Pass |
-| `TC-DIAG-003` | .NET Unit | Bounded ring buffer capacity/eviction is deterministic | Pass |
-| `TC-DIAG-004` | .NET Unit | Unexpected boundary creates DiagnosticId and safe ExceptionSummary while outward Error is safe | Pass |
-| `TC-CRASH-001` | .NET Unit or Unity EditMode | Crash marker detects unclean state, clean shutdown clears/finalizes it, repeated shutdown is safe | Pass |
+| `TC-CMP-001` | .NET / Unity | Build minimal process graph -> Success, exactly one AppRuntime | Pass |
+| `TC-CMP-002` | .NET / Unity | Invalid bootstrap configuration -> safe Failure, graph unpublished | Pass |
+| `TC-CMP-003` | .NET / Unity | Adapter/resource creation fails midway -> partial resources cleaned | Pass |
+| `TC-CMP-004` | .NET / Unity | Duplicate bootstrap -> second graph not created | Pass |
+| `TC-CMP-009` | Unity EditMode or PlayMode | AppShell/PresentationRuntime load-unload -> presentation resources disposed | Pass |
+| `TC-CMP-010` | .NET / Unity | Shutdown called twice -> no duplicate side effects | Pass |
+| `TC-CMP-011` | .NET / Unity | Process cancellation during startup -> bounded cleanup + cancelled Result | Pass |
+| `TC-CMP-015` | .NET / Unity | Explicit test adapter override -> deterministic defaults otherwise preserved | Pass |
+| `TC-CMP-016` | .NET / Unity | Non-developer/production composition cannot silently request developer fake | Pass |
+| `TC-CMP-018` | Architecture / .NET | Static locator/container pattern -> architecture validation fails | Pass |
+| `TC-CMP-020` | .NET / Unity | Shutdown while PresentationRuntime active -> correct ownership order | Pass |
+| `TC-DIAG-002` | .NET Unit | Disabled Debug event does not evaluate lazy property | Pass |
+| `TC-DIAG-003` | .NET Unit / policy | EventCode outside registry rejected | Pass |
+| `TC-DIAG-004` | .NET Unit | Arbitrary object property rejected | Pass |
+| `TC-DIAG-005` | .NET Unit | Safe bounded string truncates with explicit marker | Pass |
+| `TC-DIAG-006` | .NET Unit | Secret fixture absent from memory sink | Pass |
+| `TC-DIAG-011` | .NET Unit | Absolute Windows path sanitized | Pass |
+| `TC-DIAG-012` | .NET Unit | Windows username absent from path representation | Pass |
+| `TC-DIAG-013` | .NET Unit | Network endpoint representation generalized/fingerprinted without networking runtime | Pass |
+| `TC-DIAG-015` | .NET Unit | CommandId remains distinct from CorrelationId | Pass |
+| `TC-DIAG-016` | .NET Unit | Unexpected exception creates DiagnosticId | Pass |
+| `TC-DIAG-017` | .NET Unit | Public Error contains no stack trace/raw exception | Pass |
+| `TC-DIAG-018` | .NET Unit | Duplicate exception is not fully recorded repeatedly | Pass |
+| `TC-DIAG-019` | .NET Unit | Diagnostic queue accepts concurrent events without corruption | Pass |
+| `TC-DIAG-020` | .NET Unit | Queue drops Trace before Warning under pressure | Pass |
+| `TC-DIAG-021` | .NET Unit | Drop counters emitted after recovery | Pass |
+| `TC-DIAG-022` | .NET Unit | Warning uses emergency fallback when priority path unavailable | Pass |
+| `TC-DIAG-023` | .NET Unit | Sink failure does not recurse infinitely | Pass |
+| `TC-DIAG-024` | .NET Unit | Logger failure does not change successful application/domain outcome | Pass |
+| `TC-DIAG-025` | .NET Unit | Normal shutdown drains diagnostic queue within bounded budget | Pass |
+| `TC-DIAG-026` | .NET Unit | Fatal/bounded shutdown does not wait indefinitely | Pass |
+| `TC-DIAG-027` | .NET Unit or Unity EditMode | Crash marker detected on next startup | Pass |
+| `TC-DIAG-028` | .NET Unit or Unity EditMode | Correct shutdown clears/completes process marker | Pass |
+| `TC-DIAG-046` | Architecture / .NET | Domain and Rules have no diagnostics/logger dependency | Pass |
+| `TC-DIAG-051` | .NET Unit | Task-specific extension: bounded ring buffer count/byte capacity and deterministic oldest eviction | Pass |
 | `TC-UNITY-SHELL-001` | Unity EditMode or PlayMode | Developer Shell lifecycle smoke proves visible runtime state without gameplay | Pass |
 
 ### Required commands
@@ -276,12 +334,14 @@ git status --short --branch
 - GitHub Actions: not present yet and assigned to ODY-S00-008.
 - Windows Player build / IL2CPP: assigned to later SLICE-00 tasks.
 - Serialization/AOT/canonical JSON/source-generated diagnostic serialization: assigned to ODY-S00-007.
+- ADR-010 deferred to ODY-S00-007: `TC-DIAG-001` LogEventV1 JSON serialization, JSONL file sink, source-generated `JsonSerializerContext`, JSONL secret vectors, log-schema compatibility parsing, duplicate JSON property handling, and serialization parity in .NET/Unity.
+- ADR-010 deferred to later SLICE-00 owners: BuildId integration to ODY-S00-008, Release/Player/IL2CPP profile evidence to ODY-S00-009, final traceability/applicability reconciliation to ODY-S00-010.
 - SQLite, Persistence, Networking, telemetry, remote crash upload, diagnostic bundle final implementation, BuildIdentity generation, and gameplay validation: out of scope.
 
 ## 11. Compatibility, migration, and rollback
 
-- Compatibility impact: Introduces initial runtime/diagnostic in-memory contracts only; no persisted campaign data or network protocol.
-- Version fields affected: None. BuildId remains unavailable/not-yet-composed until ODY-S00-008.
+- Compatibility impact: Introduces initial runtime/diagnostic in-memory contracts and machine-readable EventCode registry only; no persisted campaign data or network protocol.
+- Version fields affected: None. BuildId remains unavailable/not-yet-composed until ODY-S00-008; ODY-S00-006 must not create a competing canonical BuildId primitive.
 - Migration or upcaster: None.
 - Forward / backward behavior: Not applicable; no persisted user data.
 - Rollback method: Revert the ODY-S00-006 pull request. Minimal local crash markers are non-authoritative and must be safely ignored/cleaned by startup.
@@ -306,7 +366,7 @@ No new dependency, package, GitHub Action, executable, or downloadable tool is a
 - Redaction requirements: Allowlist-first; strings unsafe by default; redact/sanitize before every sink.
 - Log-safe fields: Bounded typed values and explicitly trusted/sanitized values only.
 - Abuse / malformed input limits: Bounded property names/values, bounded ring buffer capacity, unsafe object/string/payload rejection.
-- Security tests: `TC-DIAG-001`, `TC-DIAG-002`, `TC-DIAG-004`, `TC-CRASH-001`, plus repository policy checks.
+- Security tests: `TC-DIAG-004`, `TC-DIAG-005`, `TC-DIAG-006`, `TC-DIAG-011`, `TC-DIAG-012`, `TC-DIAG-013`, `TC-DIAG-016`, `TC-DIAG-017`, `TC-DIAG-027`, `TC-DIAG-028`, `TC-DIAG-046`, `TC-DIAG-051`, plus repository policy checks.
 
 ## 14. Planning and execution mode
 
@@ -359,12 +419,17 @@ No new dependency, package, GitHub Action, executable, or downloadable tool is a
 | `rg -n "docs/tasks/active/ODY-S00-005|docs/tasks/active/ODY-S00-006|current active task" ACTIVE_DOCUMENTATION_BASELINE_Odyssey_VTT_v1.8.md` | Passed | Active Baseline points at `docs/tasks/active/ODY-S00-006_Runtime_Composition_and_Diagnostic_Shell.md`; no active 005 path remains. |
 | `git diff --cached --check` | Passed | No staged diff errors; command printed only the local inaccessible global ignore warning. |
 | `git status --short --branch` | Passed | Branch `feat/ody-s00-006-runtime-composition-diagnostic-shell`; only activation docs and required policy-path update changed. |
+| `powershell -NoProfile -ExecutionPolicy Bypass -File .\scripts\check-repository-policy.ps1` | Passed | Contract-correction rerun passed `REPO-POLICY-001` through `REPO-POLICY-005`. |
+| `git diff --check` | Passed | Contract-correction rerun reported no whitespace errors. |
+| `git diff --name-only -- Assets/Odyssey/Client Packages/com.odyssey.application Packages/com.odyssey.domain Packages/com.odyssey.rules Packages/com.odyssey.content Packages/com.odyssey.persistence Packages/com.odyssey.networking DotNet Tests config ProjectSettings Packages/manifest.json Packages/packages-lock.json docs/errors` | Passed | No output; contract correction did not change production/test/UI/scene/config/error files. |
+| `rg -n "TC-(CO[M]P|LI[F]E|CRA[S]H)" docs/tasks/active/ODY-S00-006_Runtime_Composition_and_Diagnostic_Shell.md docs/plans/active/ODY-S00-000_SLICE_00_Technical_Skeleton.md` | Passed | No stale non-authority TestCase IDs remain. |
+| `rg -n "ProcessInstanceId|config/diagnostics/event-codes.json|2000 events|8 MiB|4096 events|16 MiB|Assets/Odyssey/Client/UI|Bootstrap.unity|AppShell.unity|process-started.json" docs/tasks/active/ODY-S00-006_Runtime_Composition_and_Diagnostic_Shell.md` | Passed | Required ProcessInstanceId, EventCode registry path, diagnostics limits, UI/scene permissions, and crash marker file name are recorded. |
 
 ### Acceptance result
 
 | Criterion | Status | Evidence |
 |---|---|---|
-| AC-1 through AC-13 | Not started | This activation commit defines the contract only; implementation has not begun. Targeted diff check confirmed no production/test/Unity implementation files changed. |
+| AC-1 through AC-17 | Not started | This activation/correction commit defines the contract only; implementation has not begun. Targeted diff check confirms no production/test/Unity implementation files changed. |
 
 ### Build and artifact evidence
 
