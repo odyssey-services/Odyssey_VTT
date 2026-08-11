@@ -1,6 +1,6 @@
 # ODY-S00-005 - Command, Event, Clock and RNG Contracts
 
-**Status:** Ready
+**Status:** In Progress
 **Roadmap stage / slice:** SLICE-00
 **Owner:** Codex
 **Requested by:** Product owner
@@ -34,7 +34,7 @@ This task does not introduce SQLite, network transports, serialization DTOs, run
 - `docs/tasks/SLICE-00_BACKLOG.md`
 - `docs/tasks/active/ODY-S00-000_SLICE_00_Technical_Skeleton.md`
 - `docs/plans/active/ODY-S00-000_SLICE_00_Technical_Skeleton.md`
-- `docs/tasks/active/ODY-S00-004_Identity_Version_and_Result_Primitives.md`
+- `docs/tasks/completed/ODY-S00-004_Identity_Version_and_Result_Primitives.md`
 - `docs/adr/ADR-001_Module_Boundaries_and_Dependency_Direction_v1.0.md`
 - `docs/adr/ADR-002_Command_and_Domain_Event_Model_v1.0.md`
 - `docs/adr/ADR-003_Serialization_Strategy_v1.0.md`, command fingerprint and DTO non-goals only
@@ -362,29 +362,42 @@ Do not add production or development dependencies, GitHub Actions, executables, 
 
 ## 16. Definition of Done
 
-- [ ] Goal is achieved without unapproved scope expansion.
-- [ ] All acceptance criteria are satisfied.
-- [ ] Required automated tests pass.
-- [ ] Required manual checks are completed.
-- [ ] Required commands and their real results are recorded.
-- [ ] Architecture and dependency rules remain valid.
-- [ ] Security, privacy, redaction, and audience rules are verified where applicable.
-- [ ] Compatibility, migration, rollback, and versioning obligations are complete where applicable.
-- [ ] No unapproved dependency, tool, GitHub Action, or license was introduced.
-- [ ] Documentation is updated only where materially required.
-- [ ] Codex/developer performed a self-review against this task and `AGENTS.md`.
+- [x] Goal is achieved without unapproved scope expansion.
+- [x] All acceptance criteria are satisfied.
+- [x] Required automated tests pass.
+- [x] Required manual checks are completed.
+- [x] Required commands and their real results are recorded.
+- [x] Architecture and dependency rules remain valid.
+- [x] Security, privacy, redaction, and audience rules are verified where applicable.
+- [x] Compatibility, migration, rollback, and versioning obligations are complete where applicable.
+- [x] No unapproved dependency, tool, GitHub Action, or license was introduced.
+- [x] Documentation is updated only where materially required.
+- [x] Codex/developer performed a self-review against this task and `AGENTS.md`.
 - [ ] Pull request explains changes, evidence, limitations, and follow-up work.
 - [ ] Product owner or authorized reviewer completes the required review; Codex does not merge into `main`.
 
 ## 17. Completion evidence
 
-Fill this section with real results before moving the task to `In Review`.
+Implementation is complete and ready for owner review/commit permission. No commit, push, PR creation, or merge has been performed.
 
 ### Changed files / areas
 
 - `docs/tasks/active/ODY-S00-005_Command_Event_Clock_and_RNG_Contracts.md` - task contract activated.
 - `ACTIVE_DOCUMENTATION_BASELINE_Odyssey_VTT_v1.8.md` - operational active-task pointer updated from ODY-S00-004 to ODY-S00-005.
 - `docs/plans/active/ODY-S00-000_SLICE_00_Technical_Skeleton.md` - PR-003B/current action updated for ODY-S00-005 activation.
+- `Packages/com.odyssey.application/Runtime/Commands/**` - Application command identity, envelope, fingerprint, command result, receipt store, and executor contracts.
+- `Packages/com.odyssey.application/Runtime/Time/**` - injected wall-clock, monotonic-clock, and scheduler contracts.
+- `Packages/com.odyssey.application/Runtime/Random/**` - ADR-008 deterministic RNG contracts, HMAC derivation, xoshiro256** stream, rejection mapping, and non-secret proof data.
+- `Packages/com.odyssey.application/Runtime/Results/ErrorCodes.cs` and `docs/errors/ERROR_CODES.md` - registered safe `application.command.identity_mismatch` ErrorCode.
+- `Packages/com.odyssey.domain/Runtime/Events/**` - DomainEvent identity/envelope and ordered immutable batch contracts.
+- `DotNet/Tests/Odyssey.Tests.Unit/CommandEventClockRngContractTests.cs` - synthetic in-memory operation, duplicate replay, mismatch rejection, clock/scheduler, event batch, and RNG vector tests.
+- `Tests/Metadata/test-catalog.json` - ODY-S00-005 TestCase IDs.
+- `scripts/verify-test-structure.ps1` - ODY-S00-005 required IDs and forbidden global time/random API guard.
+- `scripts/check-repository-policy.ps1` - required path update after moving ODY-S00-004 and activating ODY-S00-005.
+- `scripts/test-fast.ps1` - ODY-S00-005 TRX output path/prefix.
+- `scripts/test-unity.ps1` - ODY-S00-005 Unity XML/log output path.
+- `docs/tasks/completed/ODY-S00-004_Identity_Version_and_Result_Primitives.md` - moved from active by owner confirmation.
+- `README.md` - repository status updated.
 
 ### Validation results
 
@@ -393,25 +406,53 @@ Fill this section with real results before moving the task to `In Review`.
 | `git diff --check` | Passed | No whitespace errors in tracked diffs for this activation step. |
 | `rg -n "[ \t]$" docs/tasks/active/ODY-S00-005_Command_Event_Clock_and_RNG_Contracts.md` | Passed | No trailing whitespace after correcting template hard-break spacing. |
 | `rg -n "docs/tasks/active/ODY-S00-004_Identity_Version_and_Result_Primitives|ODY-S00-004.*текущей active task|current active task.*ODY-S00-004" ACTIVE_DOCUMENTATION_BASELINE_Odyssey_VTT_v1.8.md` | Passed | No stale ODY-S00-004 active-task pointer remains in Active Baseline v1.8. |
-| `git status --short --branch` | Passed | Branch `feat/ody-s00-005-command-event-clock-rng-primitives`; three documentation files changed/untracked; no production code or tests changed. |
+| `git status --short --branch` | Passed | Activation-only checkpoint before implementation confirmed branch `feat/ody-s00-005-command-event-clock-rng-primitives`; implementation changes are listed below. |
+
+Implementation validation:
+
+| Command / check | Result | Evidence / notes |
+|---|---|---|
+| `powershell -NoProfile -ExecutionPolicy Bypass -File .\scripts\restore.ps1` | Passed | Projects restored; output reported projects up to date/restored under repository cache settings. |
+| `powershell -NoProfile -ExecutionPolicy Bypass -File .\scripts\verify-format.ps1` | Passed | `FORMAT-001 PASS repository text formatting checks passed`. |
+| `powershell -NoProfile -ExecutionPolicy Bypass -File .\scripts\verify-test-structure.ps1` | Passed | `TC-ARCH-001 PASS`; controlled invalid Domain->Rules, package version mismatch, and duplicate catalog ownership fixtures rejected. |
+| `powershell -NoProfile -ExecutionPolicy Bypass -File .\scripts\test-fast.ps1` | Passed | Build passed with 0 warnings/errors; TRX under `Logs/ODY-S00-005/dotnet/`: totals 1 Domain, 1 Contracts, 34 Unit, 2 Architecture; all failed 0. |
+| `powershell -NoProfile -ExecutionPolicy Bypass -File .\scripts\test-unity.ps1` | Failed then Passed | First sandboxed run failed before project compile on Unity user cache `CurlRequestCache.db`; rerun with escalated Unity cache access passed: batch compile exit 0, EditMode exit 0, PlayMode exit 0, EditMode total 1 passed 1 failed 0 skipped 0, PlayMode total 1 passed 1 failed 0 skipped 0. XML reports are under `Logs/ODY-S00-005/`. Unity-generated ProjectSettings whitespace churn was restored and is not part of this task. |
+| `powershell -NoProfile -ExecutionPolicy Bypass -File .\scripts\verify-repository.ps1` | Passed | Repository policy, architecture guard, and SDK check passed; configured/selected SDK `10.0.302`; registry fixtures passed. |
+| `powershell -NoProfile -ExecutionPolicy Bypass -File .\scripts\check-repository-policy.ps1` | Passed | `REPO-POLICY-001` through `REPO-POLICY-005` pass; registry lifecycle/literal/SafeReason/SemVer/UserMessageKey/length fixtures pass. |
+| `dotnet build DotNet\Odyssey.Core.sln --no-restore` | Passed | 0 warnings, 0 errors. |
+| `dotnet test DotNet\Odyssey.Core.sln --no-build --no-restore` | Passed | Unit 34, Domain 1, Contracts 1, Architecture 2; failed 0, skipped 0. |
+| `git diff --check` | Passed | No whitespace errors after restoring Unity-generated `ProjectSettings/ProjectSettings.asset` churn. |
+| `git diff --cached --check` | Passed | No staged diff errors; command reports only the local inaccessible global ignore warning when applicable. |
+| `git status --short --branch` | Passed | Branch `feat/ody-s00-005-command-event-clock-rng-primitives`; changes are unstaged as requested; no commit, push, PR, or merge performed. |
 
 ### Acceptance result
 
 | Criterion | Status | Evidence |
 |---|---|---|
-| AC-1 through AC-11 | Deferred | Implementation not started; this activation step only creates the task contract and pointers. |
+| AC-1 | Passed | New contracts are placed under owning package paths: Application command/time/RNG, Domain events. |
+| AC-2 | Passed | `CommandId` is the only Core command idempotency key; no `IdempotencyKey` type/field was added. |
+| AC-3 | Passed | `CommandResultStatus` has exactly `Accepted`, `Pending`, `Rejected`; `CommandExecutor.Submit` returns `Result<CommandResult>`. |
+| AC-4 | Passed | Synthetic tests cover accepted command, rejected command with no events/RNG, exact duplicate replay without re-execution, and safe mismatch rejection. |
+| AC-5 | Passed | DomainEvent envelope/batch are Domain-owned, immutable/read-only, ordered, and causally linked through transaction and causation ids. |
+| AC-6 | Passed | Clock/scheduler contracts are injected; tests use fixed/virtual implementations without real waiting. |
+| AC-7 | Passed | HMAC-SHA-256 derivation, xoshiro256**, rejection mapping, deterministic vector outputs, and non-secret `RngProofData` are tested. |
+| AC-8 | Passed | Architecture guard rejects forbidden global time/random APIs in authoritative Core production paths; dependency graph remains valid. |
+| AC-9 | Passed | ODY-S00-005 TestCase IDs are registered in `Tests/Metadata/test-catalog.json` and covered by tests/checks. |
+| AC-10 | Passed | No SQLite, networking, serialization DTO/upcaster/context, runtime composition, diagnostics runtime, gameplay, Unity package/settings, GitHub Action, dependency, ADR/TDB change, or version bump was introduced. |
+| AC-11 | Passed | Required validation commands have real pass/fail/pass-after-rerun evidence recorded. |
 
 ### Build and artifact evidence
 
 - Build identity: Not created.
 - Artifact path / name: None.
 - Checksums: None.
-- Test or quality report: None yet.
+- Test or quality report: `Logs/ODY-S00-005/dotnet/*.trx`, `Logs/ODY-S00-005/editmode-results.xml`, `Logs/ODY-S00-005/playmode-results.xml`.
 
 ### Known limitations
 
-- This activation contract is owner-approved, but implementation scope should be confirmed before production code begins.
-- `docs/tasks/active/ODY-S00-004_Identity_Version_and_Result_Primitives.md` remains in active history until a separate closure task moves it to `docs/tasks/completed/`, unless the owner approves moving it in ODY-S00-005.
+- `docs/tasks/completed/ODY-S00-004_Identity_Version_and_Result_Primitives.md` was moved from `docs/tasks/active/` by owner confirmation before implementation.
+- `CommandFingerprint` is intentionally an opaque stable in-memory/test abstraction. Canonical JSON command serialization and canonical fingerprint computation remain ODY-S00-007.
+- Command receipt storage and transaction/outbox behavior are in-memory contracts only; no durable persistence or network transport exists in this task.
 
 ### Follow-up tasks
 
@@ -420,23 +461,24 @@ Fill this section with real results before moving the task to `In Review`.
 
 ### Self-review summary
 
-- Scope review: Pending after implementation.
-- Architecture review: Pending after implementation.
-- Test review: Pending after implementation.
-- Security/privacy review: Pending after implementation.
-- Documentation/version review: Pending after implementation.
+- Scope review: Implementation stayed within command/event/idempotency, injected clock/scheduler, RNG vectors, in-memory synthetic operation, tests, guards, and required docs/status updates.
+- Architecture review: Domain owns events and remains Application-free; Application owns command/time/RNG orchestration contracts; no Common/Shared/Utils module, dependency edge, persistence/network adapter, or Unity dependency was added.
+- Test review: ODY-S00-005 TestCase IDs are registered and covered by focused .NET tests, architecture guard, repository policy, and Unity compile/test validation.
+- Security/privacy review: CommandId mismatch returns a safe Error without stored result/fingerprint/payload disclosure; `RngProofData` excludes raw campaign RNG key material; no secrets/private paths were added.
+- Documentation/version review: Active Baseline pointer and parent ExecPlan were updated operationally; no ADR/TDB/application/schema/format/contract/protocol/ruleset version was changed.
 
 ## 18. Blockers, decisions, and change control
 
 ### Blockers
 
-- Owner confirmation is required before implementation starts because this task creates public Core command/event/clock/RNG contracts.
+- None currently. ODY-S00-005 implementation is ready for owner review and commit permission.
 
 ### Decisions made during execution
 
 - 2026-08-10 - Activate ODY-S00-005 task contract on branch `feat/ody-s00-005-command-event-clock-rng-primitives` without production code or tests - Authority / approval: explicit product owner instruction.
 - 2026-08-10 - Use `CommandId` as the sole Core command idempotency key; do not create a separate Core `IdempotencyKey` - Authority / approval: ADR-002.
 - 2026-08-10 - Use in-memory test adapters only; do not introduce SQLite or network transports - Authority / approval: SLICE-00 backlog and explicit ODY-S00-005 scope.
+- 2026-08-10 - Keep `CommandFingerprint` as a stable opaque in-memory/test abstraction for CommandId mismatch detection; do not use `GetHashCode()`, object identity, or process/runtime-dependent values; defer canonical JSON command serialization and canonical fingerprint computation to ODY-S00-007 - Authority / approval: product owner instruction and ADR-003 sequencing.
 
 ### Approved task changes
 

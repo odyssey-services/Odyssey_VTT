@@ -111,6 +111,94 @@
       "runner": "dotnet test",
       "path": "DotNet/Tests/Odyssey.Tests.Unit/ResultErrorPrimitiveTests.cs",
       "check": "ValidationDetail, safe arguments, and metadata are bounded and allowlisted"
+    },
+    {
+      "testCaseId": "TC-CMD-001",
+      "taskId": "ODY-S00-005",
+      "authority": "ADR-002; ODY-S00-005 AC-1/AC-2",
+      "runner": "dotnet test",
+      "path": "DotNet/Tests/Odyssey.Tests.Unit/CommandEventClockRngContractTests.cs",
+      "check": "command identity, type, version, root, parent, fingerprint, and envelope validation"
+    },
+    {
+      "testCaseId": "TC-CMD-002",
+      "taskId": "ODY-S00-005",
+      "authority": "ADR-002; ADR-004; ODY-S00-005 AC-3",
+      "runner": "dotnet test",
+      "path": "DotNet/Tests/Odyssey.Tests.Unit/CommandEventClockRngContractTests.cs",
+      "check": "CommandResult terminal statuses and outer Result semantics"
+    },
+    {
+      "testCaseId": "TC-CMD-003",
+      "taskId": "ODY-S00-005",
+      "authority": "ADR-002; ADR-008; ODY-S00-005 AC-4",
+      "runner": "dotnet test",
+      "path": "DotNet/Tests/Odyssey.Tests.Unit/CommandEventClockRngContractTests.cs",
+      "check": "duplicate command replay does not re-enter handler or create new clock, RNG, or event effects"
+    },
+    {
+      "testCaseId": "TC-CMD-004",
+      "taskId": "ODY-S00-005",
+      "authority": "ADR-002; ADR-004; ODY-S00-005 AC-4",
+      "runner": "dotnet test",
+      "path": "DotNet/Tests/Odyssey.Tests.Unit/CommandEventClockRngContractTests.cs",
+      "check": "same CommandId with different fingerprint is rejected safely"
+    },
+    {
+      "testCaseId": "TC-EVENT-001",
+      "taskId": "ODY-S00-005",
+      "authority": "ADR-001; ADR-002; ODY-S00-005 AC-5",
+      "runner": "dotnet test",
+      "path": "DotNet/Tests/Odyssey.Tests.Unit/CommandEventClockRngContractTests.cs",
+      "check": "DomainEvent envelope and ordered batch are immutable, Domain-owned, causally linked, and deterministic"
+    },
+    {
+      "testCaseId": "TC-CLOCK-001",
+      "taskId": "ODY-S00-005",
+      "authority": "ADR-008; ODY-S00-005 AC-6",
+      "runner": "dotnet test",
+      "path": "DotNet/Tests/Odyssey.Tests.Unit/CommandEventClockRngContractTests.cs",
+      "check": "wall-clock and monotonic clock contracts use injected values"
+    },
+    {
+      "testCaseId": "TC-CLOCK-002",
+      "taskId": "ODY-S00-005",
+      "authority": "ADR-008; ODY-S00-005 AC-6",
+      "runner": "dotnet test",
+      "path": "DotNet/Tests/Odyssey.Tests.Unit/CommandEventClockRngContractTests.cs",
+      "check": "virtual scheduler completes in deterministic order without real waiting"
+    },
+    {
+      "testCaseId": "TC-RNG-001",
+      "taskId": "ODY-S00-005",
+      "authority": "ADR-008; ODY-S00-005 AC-7",
+      "runner": "dotnet test",
+      "path": "DotNet/Tests/Odyssey.Tests.Unit/CommandEventClockRngContractTests.cs",
+      "check": "HMAC-SHA-256 stream derivation v1 produces stable state vectors"
+    },
+    {
+      "testCaseId": "TC-RNG-002",
+      "taskId": "ODY-S00-005",
+      "authority": "ADR-008; ODY-S00-005 AC-7",
+      "runner": "dotnet test",
+      "path": "DotNet/Tests/Odyssey.Tests.Unit/CommandEventClockRngContractTests.cs",
+      "check": "xoshiro256** v1 produces stable raw output vectors"
+    },
+    {
+      "testCaseId": "TC-RNG-003",
+      "taskId": "ODY-S00-005",
+      "authority": "ADR-008; ODY-S00-005 AC-7",
+      "runner": "dotnet test",
+      "path": "DotNet/Tests/Odyssey.Tests.Unit/CommandEventClockRngContractTests.cs",
+      "check": "rejection mapping for inclusive integer ranges records deterministic bounded output and rejection evidence"
+    },
+    {
+      "testCaseId": "TC-RNG-004",
+      "taskId": "ODY-S00-005",
+      "authority": "ADR-008; ADR-010; ODY-S00-005 AC-7",
+      "runner": "dotnet test",
+      "path": "DotNet/Tests/Odyssey.Tests.Unit/CommandEventClockRngContractTests.cs",
+      "check": "RngProofData contains non-secret reproducibility metadata and no raw campaign RNG key material"
     }
   ]
 }

@@ -48,7 +48,18 @@ $requiredTestCaseIds = @(
     'TC-RESULT-001',
     'TC-RESULT-002',
     'TC-RESULT-003',
-    'TC-RESULT-004'
+    'TC-RESULT-004',
+    'TC-CMD-001',
+    'TC-CMD-002',
+    'TC-CMD-003',
+    'TC-CMD-004',
+    'TC-EVENT-001',
+    'TC-CLOCK-001',
+    'TC-CLOCK-002',
+    'TC-RNG-001',
+    'TC-RNG-002',
+    'TC-RNG-003',
+    'TC-RNG-004'
 )
 $testProjects = @('Odyssey.Tests.Unit', 'Odyssey.Tests.Domain', 'Odyssey.Tests.Contracts', 'Odyssey.Tests.Architecture')
 $baselinePackageVersion = '0.1.0'
@@ -381,6 +392,38 @@ function Test-TestCatalog([System.Collections.Generic.List[string]] $Errors) {
     }
 }
 
+function Test-ForbiddenGlobalApis([System.Collections.Generic.List[string]] $Errors) {
+    $forbiddenApiPatterns = [ordered]@{
+        'DateTime.Now' = '\bDateTime\.Now\b'
+        'DateTime.UtcNow' = '\bDateTime\.UtcNow\b'
+        'DateTimeOffset.Now' = '\bDateTimeOffset\.Now\b'
+        'DateTimeOffset.UtcNow' = '\bDateTimeOffset\.UtcNow\b'
+        'Stopwatch' = '\bStopwatch\b'
+        'Environment.TickCount' = '\bEnvironment\.TickCount(?:64)?\b'
+        'Task.Delay' = '\bTask\.Delay\b'
+        'System.Random' = '\b(?:System\.)?Random\s*(?:\(|[A-Za-z0-9_]+\s*=)'
+        'UnityEngine.Time' = '\bUnityEngine\.Time\b|\bTime\.deltaTime\b|\bTime\.time\b'
+        'UnityEngine.Random' = '\bUnityEngine\.Random\b|\bRandom\.(?:Range|value|state)\b'
+    }
+
+    foreach ($module in $modulePackages.Keys) {
+        $sourceRoot = Join-Path $RootPath "Packages/$($modulePackages[$module])/Runtime"
+        if (-not (Test-Path -LiteralPath $sourceRoot)) {
+            continue
+        }
+
+        foreach ($source in Get-ChildItem -LiteralPath $sourceRoot -Recurse -File -Filter '*.cs') {
+            $relativePath = Get-RelativePath $source.FullName
+            $text = Get-Content -LiteralPath $source.FullName -Raw
+            foreach ($entry in $forbiddenApiPatterns.GetEnumerator()) {
+                if ($text -match $entry.Value) {
+                    $Errors.Add("Forbidden global time/random API '$($entry.Key)' in production source: $relativePath.")
+                }
+            }
+        }
+    }
+}
+
 function Test-RepositoryStructure {
     $errors = New-Object System.Collections.Generic.List[string]
     $asmdefGraph = @{}
@@ -537,6 +580,7 @@ function Test-RepositoryStructure {
 
     Test-Cycles $asmdefGraph $errors
     Test-TestCatalog $errors
+    Test-ForbiddenGlobalApis $errors
     return ,$errors
 }
 
@@ -771,7 +815,18 @@ function New-SyntheticFixture([string] $FixtureRoot, [bool] $InvalidDomainDepend
     { "testCaseId": "TC-RESULT-001", "taskId": "ODY-S00-004", "authority": "ADR-004", "runner": "dotnet test", "path": "DotNet/Tests/Odyssey.Tests.Unit", "check": "result invariants" },
     { "testCaseId": "TC-RESULT-002", "taskId": "ODY-S00-004", "authority": "ADR-004", "runner": "dotnet test", "path": "DotNet/Tests/Odyssey.Tests.Unit", "check": "error safe fields" },
     { "testCaseId": "TC-RESULT-003", "taskId": "ODY-S00-004", "authority": "ADR-004", "runner": "dotnet test", "path": "DotNet/Tests/Odyssey.Tests.Unit", "check": "retry vocabulary" },
-    { "testCaseId": "TC-RESULT-004", "taskId": "ODY-S00-004", "authority": "ADR-004", "runner": "dotnet test", "path": "DotNet/Tests/Odyssey.Tests.Unit", "check": "bounded safe details" }
+    { "testCaseId": "TC-RESULT-004", "taskId": "ODY-S00-004", "authority": "ADR-004", "runner": "dotnet test", "path": "DotNet/Tests/Odyssey.Tests.Unit", "check": "bounded safe details" },
+    { "testCaseId": "TC-CMD-001", "taskId": "ODY-S00-005", "authority": "ADR-002", "runner": "dotnet test", "path": "DotNet/Tests/Odyssey.Tests.Unit", "check": "command envelope" },
+    { "testCaseId": "TC-CMD-002", "taskId": "ODY-S00-005", "authority": "ADR-002", "runner": "dotnet test", "path": "DotNet/Tests/Odyssey.Tests.Unit", "check": "command result" },
+    { "testCaseId": "TC-CMD-003", "taskId": "ODY-S00-005", "authority": "ADR-002", "runner": "dotnet test", "path": "DotNet/Tests/Odyssey.Tests.Unit", "check": "duplicate replay" },
+    { "testCaseId": "TC-CMD-004", "taskId": "ODY-S00-005", "authority": "ADR-002", "runner": "dotnet test", "path": "DotNet/Tests/Odyssey.Tests.Unit", "check": "mismatch rejection" },
+    { "testCaseId": "TC-EVENT-001", "taskId": "ODY-S00-005", "authority": "ADR-002", "runner": "dotnet test", "path": "DotNet/Tests/Odyssey.Tests.Unit", "check": "event batch" },
+    { "testCaseId": "TC-CLOCK-001", "taskId": "ODY-S00-005", "authority": "ADR-008", "runner": "dotnet test", "path": "DotNet/Tests/Odyssey.Tests.Unit", "check": "clock injection" },
+    { "testCaseId": "TC-CLOCK-002", "taskId": "ODY-S00-005", "authority": "ADR-008", "runner": "dotnet test", "path": "DotNet/Tests/Odyssey.Tests.Unit", "check": "virtual scheduler" },
+    { "testCaseId": "TC-RNG-001", "taskId": "ODY-S00-005", "authority": "ADR-008", "runner": "dotnet test", "path": "DotNet/Tests/Odyssey.Tests.Unit", "check": "HMAC vector" },
+    { "testCaseId": "TC-RNG-002", "taskId": "ODY-S00-005", "authority": "ADR-008", "runner": "dotnet test", "path": "DotNet/Tests/Odyssey.Tests.Unit", "check": "xoshiro vector" },
+    { "testCaseId": "TC-RNG-003", "taskId": "ODY-S00-005", "authority": "ADR-008", "runner": "dotnet test", "path": "DotNet/Tests/Odyssey.Tests.Unit", "check": "rejection mapping" },
+    { "testCaseId": "TC-RNG-004", "taskId": "ODY-S00-005", "authority": "ADR-008", "runner": "dotnet test", "path": "DotNet/Tests/Odyssey.Tests.Unit", "check": "proof data secrets" }
   ]
 }
 "@
@@ -779,7 +834,8 @@ function New-SyntheticFixture([string] $FixtureRoot, [bool] $InvalidDomainDepend
     Write-Utf8NoBom (Join-Path $FixtureRoot 'scripts/verify-test-structure.ps1') "`n"
     Write-Utf8NoBom (Join-Path $FixtureRoot 'scripts/verify-repository.ps1') "`n"
     Write-Utf8NoBom (Join-Path $FixtureRoot 'docs/tasks/completed/ODY-S00-003_Module_and_Test_Skeleton.md') "`n"
-    Write-Utf8NoBom (Join-Path $FixtureRoot 'docs/tasks/active/ODY-S00-004_Identity_Version_and_Result_Primitives.md') "`n"
+    Write-Utf8NoBom (Join-Path $FixtureRoot 'docs/tasks/completed/ODY-S00-004_Identity_Version_and_Result_Primitives.md') "`n"
+    Write-Utf8NoBom (Join-Path $FixtureRoot 'docs/tasks/active/ODY-S00-005_Command_Event_Clock_and_RNG_Contracts.md') "`n"
 }
 
 function Set-FixturePackageVersionMismatch([string] $FixtureRoot) {

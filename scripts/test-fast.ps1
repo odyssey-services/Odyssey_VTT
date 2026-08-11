@@ -19,7 +19,7 @@ try {
         exit $LASTEXITCODE
     }
 
-    $resultsDir = Join-Path $repoRoot 'Logs/ODY-S00-004/dotnet'
+    $resultsDir = Join-Path $repoRoot 'Logs/ODY-S00-005/dotnet'
     $packagesPath = Join-Path $repoRoot 'artifacts/nuget-packages'
     $nugetHome = Join-Path $repoRoot 'artifacts/nuget-home'
     $httpCache = Join-Path $repoRoot 'artifacts/nuget-http-cache'
@@ -38,14 +38,14 @@ try {
     New-Item -ItemType Directory -Force -Path $resultsDir | Out-Null
     Get-ChildItem -LiteralPath $resultsDir -Filter '*.trx' -File -ErrorAction SilentlyContinue | Remove-Item -Force
 
-    dotnet test .\DotNet\Odyssey.Core.sln --no-build --no-restore --logger 'trx;LogFilePrefix=ody-s00-004' --results-directory $resultsDir
+    dotnet test .\DotNet\Odyssey.Core.sln --no-build --no-restore --logger 'trx;LogFilePrefix=ody-s00-005' --results-directory $resultsDir
     if ($LASTEXITCODE -ne 0) {
         exit $LASTEXITCODE
     }
 
     $resultFiles = @(Get-ChildItem -LiteralPath $resultsDir -Filter '*.trx' -File)
     if ($resultFiles.Count -eq 0) {
-        Write-Error "No .NET TRX result files were created under Logs/ODY-S00-004/dotnet."
+        Write-Error "No .NET TRX result files were created under Logs/ODY-S00-005/dotnet."
         exit 1
     }
 

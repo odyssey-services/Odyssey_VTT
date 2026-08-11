@@ -4,7 +4,7 @@
 **Owner:** Codex
 **Branch:** `feat/ody-s00-005-command-event-clock-rng-primitives`
 **Pull request:** Not opened
-**Last updated:** 2026-08-10 22:57 UTC
+**Last updated:** 2026-08-10 23:29 UTC
 
 ## 1. Purpose and user-visible outcome
 
@@ -99,8 +99,8 @@ Child task: `ODY-S00-003`.
 Child tasks: `ODY-S00-004`, `ODY-S00-005`, `ODY-S00-006`.
 
 - [x] Typed IDs, version values, `Result/Error`, safe reason and retry contracts pass unit tests.
-- [ ] One synthetic command operation exercises accepted/rejected/duplicate behavior and ordered events.
-- [ ] Virtual clocks/scheduler and authoritative RNG vectors are deterministic without global APIs.
+- [x] One synthetic command operation exercises accepted/rejected/duplicate behavior and ordered events.
+- [x] Virtual clocks/scheduler and authoritative RNG vectors are deterministic without global APIs.
 - [ ] Manual composition creates and disposes the Developer Shell without service location or hidden state.
 - [ ] Structured diagnostics produce allowlisted/redacted records, crash markers and clean shutdown evidence.
 - Evidence: ADR-specific test IDs, architecture guards, .NET/Unity vector parity and PlayMode lifecycle smoke.
@@ -169,6 +169,7 @@ Child task: `ODY-S00-010`.
 - 2026-08-10 21:55 UTC — Addressed PR #8 foundation review blockers: true read-only Error/ValidationDetail collections, Error reference identity, enum fail-fast validation, ADR-004 SafeReason vocabulary, ValidationSeverity, indexed FieldPath validation, per-ErrorCode metadata allowlist, explicit safe message argument trust factories, and corrected ErrorCode registry lifecycle/version/message metadata policy. Full validation rerun passed with 28 .NET tests and Unity batch/EditMode/PlayMode exit code 0.
 - 2026-08-10 22:15 UTC — Addressed final PR #8 guard/parser hardening: repository policy now scans all production literal `ErrorCode.Parse`/`TryParse` usages for Active registry rows, enforces canonical no-leading-zero SemVer and runtime length limits, and covers registered Active literal, unregistered literal, Deprecated literal, leading-zero version, overlong ErrorCode, and overlong metadata-key fixtures. FieldPath and UserMessageKey parser regressions are covered by unit tests. Full validation rerun passed with 30 .NET tests and Unity batch/EditMode/PlayMode exit code 0.
 - 2026-08-10 22:57 UTC — Owner merged PR #8 into `main`; local `main` fast-forwarded to `4fb20e9`, branch `feat/ody-s00-005-command-event-clock-rng-primitives` was created, and owner approved preparing/activating ODY-S00-005 without production code or tests. ODY-S00-005 task contract was created as Ready and Active Baseline v1.8 active-task pointer was updated operationally.
+- 2026-08-10 23:29 UTC — ODY-S00-005 implementation completed without commit/push/PR: Application command/idempotency contracts, DomainEvent envelope/batch, injected clock/scheduler contracts, ADR-008 deterministic RNG contracts/vectors, one synthetic in-memory test operation, duplicate replay, safe mismatch rejection, global time/random architecture guard, and ODY-S00-005 test catalog entries are in place. Validation passed for restore, verify-format, verify-test-structure, test-fast, Unity batch/EditMode/PlayMode after rerun outside sandbox, verify-repository, repository policy, dotnet build/test, and diff checks.
 
 ## 7. Decisions
 
@@ -209,6 +210,7 @@ Post-merge limitation:
 - Owner merge evidence: PR #4 was merged into `main` on `2026-08-10T16:21:33+02:00` as merge commit `70e7d49e217d4aecb7a2e873d31787d26001f47f` using the GitHub merge-commit method.
 - ODY-S00-003 evidence: after owner-installed .NET SDK `10.0.302`, `global.json` selects stable SDK `10.0.302`; `.\scripts\restore.ps1`, `.\scripts\verify-format.ps1`, `.\scripts\verify-test-structure.ps1`, `.\scripts\test-fast.ps1`, `.\scripts\test-unity.ps1`, `.\scripts\verify-repository.ps1`, `.\scripts\check-repository-policy.ps1`, `dotnet build DotNet/Odyssey.Core.sln --no-restore`, `dotnet test DotNet/Odyssey.Core.sln --no-build --no-restore`, and `git diff --check` passed. Architecture guard validates the normal graph plus controlled negative `Domain -> Rules`, package version mismatch, and duplicate catalog ownership fixtures. The selected Unity executable reports `6000.4.0f1`; Unity batch compile, EditMode, and PlayMode each returned exit code `0`; EditMode and PlayMode each ran `1` test with `1` passed, `0` failed, `0` skipped. `test-fast.ps1` exported four .NET TRX files under `Logs/ODY-S00-003/dotnet/`. Owner merged PR #6 into `main` as merge commit `5e6f5e03ef022c5d7b0e6fef559c2383796d95be` on `2026-08-10T19:07:16Z`.
 - ODY-S00-004 evidence: PR #8 was owner-merged into `main`; local `main` fast-forwarded to `4fb20e9`. ODY-S00-004 implementation evidence recorded restore, verify-format, verify-test-structure, test-fast, test-unity, verify-repository, check-repository-policy, dotnet build/test, and diff checks as passed; Unity batch compile, EditMode, and PlayMode each reported exit code `0`; .NET tests totalled 30 passed, 0 failed, 0 skipped.
+- ODY-S00-005 evidence: command/event/clock/RNG contracts compile in pure .NET and Unity. `test-fast.ps1` passed with TRX under `Logs/ODY-S00-005/dotnet/`: Domain 1, Contracts 1, Unit 34, Architecture 2, all failed 0. `test-unity.ps1` first failed in sandbox before compile on Unity cache access and then passed with escalated Unity cache access: batch compile, EditMode, and PlayMode exit code 0; EditMode/PlayMode each ran 1 test with 1 passed, 0 failed, 0 skipped. Repository policy, architecture guard, SDK check, dotnet build/test, and diff checks passed.
 
 Record real commands, outputs and artifact paths here as child tasks complete.
 
@@ -224,13 +226,13 @@ Record real commands, outputs and artifact paths here as child tasks complete.
 
 - Repository identity, Private visibility, and PR #1 merge are verified. Exact branch protection/ruleset settings remain an owner-accepted limitation.
 - Unity `6000.4.0f1` is acceptable for local ODY-S00-002 development by owner decision.
-- ODY-S00-002 and ODY-S00-003 are Done. ODY-S00-004 was owner-merged into `main`. ODY-S00-005 is Ready on `feat/ody-s00-005-command-event-clock-rng-primitives`; implementation waits for owner confirmation of the task plan.
+- ODY-S00-002 and ODY-S00-003 are Done. ODY-S00-004 was owner-merged into `main`. ODY-S00-005 implementation is complete on `feat/ody-s00-005-command-event-clock-rng-primitives`; commit/push/PR waits for owner permission.
 - GitHub plan/settings may affect exact branch-protection options; the task must apply the strongest supported equivalent and record any unavailable setting.
 
-No current implementation blocker is recorded for ODY-S00-005 beyond required owner confirmation before production code begins.
+No current implementation blocker is recorded for ODY-S00-005.
 
 ## 12. Outcome and follow-up
 
-Current outcome: ODY-S00-001 is Done after owner merge of PR #1. ODY-S00-002 is Done after owner merge of PR #4 and closure PR #5. ODY-S00-003 is Done after owner merge of PR #6 and closure PR #7. ODY-S00-004 is implemented and owner-merged through PR #8. ODY-S00-005 is activated as Ready.
+Current outcome: ODY-S00-001 is Done after owner merge of PR #1. ODY-S00-002 is Done after owner merge of PR #4 and closure PR #5. ODY-S00-003 is Done after owner merge of PR #6 and closure PR #7. ODY-S00-004 is implemented and owner-merged through PR #8. ODY-S00-005 implementation is complete locally and awaiting commit/PR permission.
 
-Next action: owner confirmation of ODY-S00-005 scope, Acceptance Criteria, non-goals, and implementation plan. Do not start ODY-S00-006.
+Next action: owner review of ODY-S00-005 local diff and permission to commit/open PR. Do not start ODY-S00-006.
