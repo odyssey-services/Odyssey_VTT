@@ -1,5 +1,7 @@
 using System.Collections;
+using System.Linq;
 using NUnit.Framework;
+using Odyssey.Application.Diagnostics;
 using Odyssey.Unity.Client;
 using UnityEngine;
 using UnityEngine.SceneManagement;
@@ -33,8 +35,10 @@ namespace Odyssey.Tests.Unity.PlayMode
             OdysseyRuntimeHost duplicateHost = duplicateHostObject.AddComponent<OdysseyRuntimeHost>();
             yield return null;
             yield return null;
+            yield return WaitUntil(() => FindAcceptedHost()!.Runtime!.GetRecentDiagnostics().Any(entry => entry.EventCode == OdysseyEventCodes.AppBootstrapDuplicateRejected));
             Assert.That(FindAcceptedHosts(), Is.EqualTo(1));
             Assert.That(duplicateHost == null || !duplicateHost.IsAcceptedHost, Is.True);
+            Assert.That(FindAcceptedHost()!.Runtime!.GetRecentDiagnostics(), Has.Some.Matches<LogEventV1>(entry => entry.EventCode == OdysseyEventCodes.AppBootstrapDuplicateRejected));
             if (duplicateHostObject != null) Object.Destroy(duplicateHostObject);
 
             Click(document, "accepted-probe-button");

@@ -265,7 +265,23 @@ namespace Odyssey.Unity.Client
 
         public void Shutdown(TimeSpan budget)
         {
+            if (_isDisposed) return;
             FlushUntil(budget);
+            for (int index = _sinks.Count - 1; index >= 0; index--)
+            {
+                if (_sinks[index] is IDisposable disposable)
+                {
+                    try
+                    {
+                        disposable.Dispose();
+                    }
+                    catch
+                    {
+                        WriteEmergency(OdysseyEventCodes.DiagnosticsSinkWriteFailed, null, "sink_exception");
+                    }
+                }
+            }
+
             _isDisposed = true;
         }
 

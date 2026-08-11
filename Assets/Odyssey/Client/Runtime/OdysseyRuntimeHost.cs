@@ -22,7 +22,6 @@ namespace Odyssey.Unity.Client
             DontDestroyOnLoad(gameObject);
             if (!RuntimeHostLease.TryAcquire())
             {
-                Debug.LogWarning(OdysseyEventCodes.AppBootstrapDuplicateRejected.ToString());
                 Destroy(gameObject);
                 return;
             }
@@ -45,6 +44,13 @@ namespace Odyssey.Unity.Client
             SceneManager.sceneLoaded += OnSceneLoaded;
             SceneManager.sceneUnloaded += OnSceneUnloaded;
             SceneManager.LoadSceneAsync("Assets/Odyssey/Client/Scenes/AppShell.unity", LoadSceneMode.Additive);
+        }
+
+        private void Update()
+        {
+            if (_runtime == null || !_leaseHeld) return;
+            if (!RuntimeHostLease.TryConsumeDuplicateAttempt(out int count)) return;
+            _runtime.RecordDuplicateBootstrapRejected(count);
         }
 
         private void OnSceneLoaded(Scene scene, LoadSceneMode mode)
@@ -175,10 +181,16 @@ namespace Odyssey.Unity.Client
     internal static class RuntimeHostLease
     {
         private static bool _isHeld;
+        private static int _pendingDuplicateAttempts;
 
         internal static bool TryAcquire()
         {
-            if (_isHeld) return false;
+            if (_isHeld)
+            {
+                if (_pendingDuplicateAttempts < 16) _pendingDuplicateAttempts++;
+                return false;
+            }
+
             _isHeld = true;
             return true;
         }
@@ -186,6 +198,14 @@ namespace Odyssey.Unity.Client
         internal static void Release()
         {
             _isHeld = false;
+            _pendingDuplicateAttempts = 0;
+        }
+
+        internal static bool TryConsumeDuplicateAttempt(out int count)
+        {
+            count = _pendingDuplicateAttempts;
+            _pendingDuplicateAttempts = 0;
+            return count > 0;
         }
 
         internal static bool IsHeld => _isHeld;

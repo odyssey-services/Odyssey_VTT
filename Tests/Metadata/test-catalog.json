@@ -238,7 +238,7 @@
       "authority": "ADR-005; ODY-S00-006 AC-1/AC-2",
       "runner": "Unity EditMode",
       "path": "Assets/Odyssey/Client/Tests/EditMode/RuntimeCompositionAndDiagnosticsTests.cs",
-      "check": "minimal process graph starts Ready with one AppRuntime"
+      "check": "minimal process graph returns Success with exactly one AppRuntime in Starting state; Ready is gated by presentation initialization"
     },
     {
       "testCaseId": "TC-CMP-002",
@@ -262,7 +262,7 @@
       "authority": "ADR-005; ODY-S00-006 AC-1",
       "runner": "Unity PlayMode",
       "path": "Assets/Odyssey/Client/Tests/PlayMode/OdysseyPlayModeFoundationSmokeTests.cs",
-      "check": "independent duplicate RuntimeHost is rejected while accepted graph remains one and clean shutdown releases the lease"
+      "check": "independent duplicate RuntimeHost is rejected, accepted graph remains one, structured duplicate diagnostic is recorded, and clean shutdown releases the lease"
     },
     {
       "testCaseId": "TC-CMP-009",
@@ -286,7 +286,7 @@
       "authority": "ADR-005; ODY-S00-006 AC-3",
       "runner": "Unity EditMode",
       "path": "Assets/Odyssey/Client/Tests/EditMode/RuntimeCompositionAndDiagnosticsTests.cs",
-      "check": "cancelled startup returns safe cancelled failure"
+      "check": "mid-start cancellation returns safe cancelled failure, publishes no AppRuntime, and cleans already-owned resources before diagnostics closes last"
     },
     {
       "testCaseId": "TC-CMP-015",
@@ -319,6 +319,14 @@
       "runner": "Unity EditMode",
       "path": "Assets/Odyssey/Client/Tests/EditMode/RuntimeCompositionAndDiagnosticsTests.cs",
       "check": "shutdown while PresentationRuntime active disposes presentation subscription before crash marker before diagnostics"
+    },
+    {
+      "testCaseId": "TC-CMP-021",
+      "taskId": "ODY-S00-006",
+      "authority": "ODY-S00-006 task-specific extension; ADR-004; ADR-005",
+      "runner": "Unity EditMode",
+      "path": "Assets/Odyssey/Client/Tests/EditMode/RuntimeCompositionAndDiagnosticsTests.cs",
+      "check": "presentation/composition invalid failure uses exact registered safe Error semantics"
     },
     {
       "testCaseId": "TC-DIAG-002",

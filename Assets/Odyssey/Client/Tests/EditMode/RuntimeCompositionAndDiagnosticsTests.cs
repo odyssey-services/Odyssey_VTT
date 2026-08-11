@@ -56,6 +56,35 @@ namespace Odyssey.Tests.Unity.EditMode
         }
 
         [Test]
+        public void MidStartupCancellationCleansOwnedResourcesAndClosesDiagnosticsLast()
+        {
+            using TemporaryDirectory directory = new TemporaryDirectory();
+            using CancellationTokenSource cancellation = new CancellationTokenSource();
+            List<string> order = new List<string>();
+            CapturingSink sink = new CapturingSink(order);
+            RecordingCrashMarkerStore marker = new RecordingCrashMarkerStore(order);
+            RuntimeCompositionSettings settings = DeterministicSettings(
+                extraSinks: new IDiagnosticSink[] { sink },
+                markerFactory: new FixedCrashMarkerStoreFactory(marker),
+                processIds: new CancellingProcessIds(cancellation));
+
+            Result<AppRuntime> cancelled = new OdysseyRuntimeCompositionRoot().Start(
+                OdysseyRuntimeConfiguration.DeveloperShell(directory.Path),
+                settings,
+                cancellation.Token);
+
+            Assert.That(cancelled.IsFailure, Is.True);
+            Assert.That(cancelled.Error.Code, Is.EqualTo(ErrorCodes.ApplicationBootstrapInitializationCancelled));
+            Assert.That(cancelled.Error.SafeReasonCode, Is.EqualTo(SafeReasonCode.OperationCancelled));
+            Assert.That(cancelled.Error.UserMessageKey.ToString(), Is.EqualTo("errors.runtime.startup_cancelled"));
+            Assert.That(cancelled.Error.RetryDirective, Is.EqualTo(RetryDirective.DoNotRetry));
+            Assert.That(order, Does.Contain("marker"));
+            Assert.That(order, Does.Contain("diagnostics"));
+            Assert.That(order.IndexOf("marker"), Is.LessThan(order.IndexOf("diagnostics")));
+            Assert.That(ContainsMarker(sink.Events, "raw"), Is.False);
+        }
+
+        [Test]
         public void PresentationSuccessTransitionsRuntimeReadyAndShutdownIsIdempotent()
         {
             using TemporaryDirectory directory = new TemporaryDirectory();
@@ -423,6 +452,32 @@ namespace Odyssey.Tests.Unity.EditMode
         }
 
         [Test]
+        public void RuntimeShutdownDoesNotEmitMarkerCompletedWhenCrashMarkerCannotComplete()
+        {
+            using TemporaryDirectory directory = new TemporaryDirectory();
+            List<string> order = new List<string>();
+            CapturingSink sink = new CapturingSink(order);
+            EmergencyDiagnosticSink emergency = new EmergencyDiagnosticSink();
+            FailingCompletionCrashMarkerStore marker = new FailingCompletionCrashMarkerStore(order);
+            RuntimeCompositionSettings settings = DeterministicSettings(
+                extraSinks: new IDiagnosticSink[] { sink },
+                emergencySinkFactory: _ => emergency,
+                markerFactory: new FixedCrashMarkerStoreFactory(marker));
+            Result<AppRuntime> result = new OdysseyRuntimeCompositionRoot().Start(OdysseyRuntimeConfiguration.DeveloperShell(directory.Path), settings);
+            Assert.That(result.IsSuccess, Is.True);
+
+            result.Value.Shutdown();
+
+            Assert.That(result.Value.State, Is.EqualTo(OdysseyRuntimeState.Stopped));
+            Assert.That(order, Does.Contain("marker"));
+            Assert.That(order, Does.Contain("diagnostics"));
+            Assert.That(order.IndexOf("marker"), Is.LessThan(order.IndexOf("diagnostics")));
+            Assert.That(sink.Events, Has.None.Matches<LogEventV1>(entry => entry.EventCode == OdysseyEventCodes.DiagnosticsCrashMarkerCompleted));
+            Assert.That(emergency.Snapshot(), Has.Some.Matches<EmergencyDiagnosticRecord>(record => record.Token == "cleanup_failure"));
+            Assert.That(ContainsMarker(sink.Events, "raw marker failure"), Is.False);
+        }
+
+        [Test]
         public void StartupFailureFallbackRendersSingleSceneDocumentWithSafeReasonOnly()
         {
             Scene scene = SceneManager.GetActiveScene();
@@ -492,8 +547,8 @@ namespace Odyssey.Tests.Unity.EditMode
                 marker.Start(TestIds.Process);
                 Assert.That(marker.PreviousMarkerWasUnfinished, Is.False);
                 Assert.That(marker.PreviousMarkerWasMalformed, Is.True);
-                marker.Complete();
-                marker.Complete();
+                Assert.That(marker.TryComplete(), Is.True);
+                Assert.That(marker.TryComplete(), Is.True);
             }
 
             File.WriteAllText(Path.Combine(directory.Path, CrashMarkerStore.MarkerFileName), "{\"state\":\"started\",\"process\":\"proc_0123456789abcdef0123456789abcdef\"");
@@ -560,12 +615,13 @@ namespace Odyssey.Tests.Unity.EditMode
             IReadOnlyList<IDiagnosticSink>? extraSinks = null,
             Func<string, IEmergencyDiagnosticSink>? emergencySinkFactory = null,
             ICrashMarkerStoreFactory? markerFactory = null,
-            Func<IPlatformExceptionHookSource>? hookSourceFactory = null)
+            Func<IPlatformExceptionHookSource>? hookSourceFactory = null,
+            IProcessInstanceIdGenerator? processIds = null)
         {
             return new RuntimeCompositionSettings(
                 new TestClock(),
                 new TestMonotonicClock(),
-                new TestProcessIds(),
+                processIds ?? new TestProcessIds(),
                 new TestDiagnosticIds(),
                 new TestTechnicalIds(),
                 extraSinks ?? Array.Empty<IDiagnosticSink>(),
@@ -687,6 +743,21 @@ namespace Odyssey.Tests.Unity.EditMode
             public ProcessInstanceId Create() => TestIds.Process;
         }
 
+        private sealed class CancellingProcessIds : IProcessInstanceIdGenerator
+        {
+            private readonly CancellationTokenSource _cancellation;
+            public CancellingProcessIds(CancellationTokenSource cancellation)
+            {
+                _cancellation = cancellation;
+            }
+
+            public ProcessInstanceId Create()
+            {
+                _cancellation.Cancel();
+                return TestIds.Process;
+            }
+        }
+
         private sealed class TestDiagnosticIds : IDiagnosticIdGenerator
         {
             public DiagnosticId Create() => DiagnosticId.Parse("diag_0123456789abcdef0123456789abcdef");
@@ -707,7 +778,7 @@ namespace Odyssey.Tests.Unity.EditMode
             public bool TryWrite(LogEventV1 logEvent) => throw new InvalidOperationException("sink_failed");
         }
 
-        private sealed class CapturingSink : IDiagnosticSink
+        private sealed class CapturingSink : IDiagnosticSink, IDisposable
         {
             private readonly List<LogEventV1> _events = new List<LogEventV1>();
             private readonly List<string>? _order;
@@ -730,6 +801,7 @@ namespace Odyssey.Tests.Unity.EditMode
             }
 
             public void Clear() => _events.Clear();
+            public void Dispose() => _order?.Add("diagnostics");
         }
 
         private sealed class AdvancingSink : IDiagnosticSink
@@ -812,12 +884,13 @@ namespace Odyssey.Tests.Unity.EditMode
             public bool PreviousMarkerWasUnfinished => false;
             public bool PreviousMarkerWasMalformed => false;
             public void Start(ProcessInstanceId processInstanceId) { }
-            public void Complete()
+            public bool TryComplete()
             {
                 _order.Add("marker");
+                return true;
             }
 
-            public void Dispose() => Complete();
+            public void Dispose() => TryComplete();
         }
 
         private sealed class ThrowingCrashMarkerStore : ICrashMarkerStore
@@ -846,17 +919,39 @@ namespace Odyssey.Tests.Unity.EditMode
                 if (_throwOnStart) throw new InvalidOperationException("raw startup secret");
             }
 
-            public void Complete()
+            public bool TryComplete()
             {
                 _order?.Add("marker_dispose");
                 if (_throwOnDispose) throw new InvalidOperationException("raw dispose secret");
+                return true;
             }
 
             public void Dispose()
             {
                 Disposed = true;
-                Complete();
+                TryComplete();
             }
+        }
+
+        private sealed class FailingCompletionCrashMarkerStore : ICrashMarkerStore
+        {
+            private readonly List<string> _order;
+            public FailingCompletionCrashMarkerStore(List<string> order)
+            {
+                _order = order;
+            }
+
+            public string SanitizedMarkerPath => "Diagnostics/process-started.json";
+            public bool PreviousMarkerWasUnfinished => false;
+            public bool PreviousMarkerWasMalformed => false;
+            public void Start(ProcessInstanceId processInstanceId) { }
+            public bool TryComplete()
+            {
+                _order.Add("marker");
+                return false;
+            }
+
+            public void Dispose() => TryComplete();
         }
 
         private sealed class RecordingDisposable : IDisposable

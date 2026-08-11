@@ -46,7 +46,7 @@ The resulting Unity Editor application should be interactable, but it is still a
 
 - Requirement IDs: `SLICE-00`, Milestone `M1`, PR-003C delivery group
 - Existing test IDs: `TC-ARCH-001`, `TC-ARCH-002`, `TC-DOTNET-001`, `TC-UNITY-ASM-001`, `TC-UNITY-TEST-001`, `TC-REPO-001`, ODY-S00-004 result/error IDs, ODY-S00-005 command/event/clock/RNG IDs
-- New test IDs to introduce: `TC-CMP-001`, `TC-CMP-002`, `TC-CMP-003`, `TC-CMP-004`, `TC-CMP-009`, `TC-CMP-010`, `TC-CMP-011`, `TC-CMP-015`, `TC-CMP-016`, `TC-CMP-018`, `TC-CMP-020`, `TC-DIAG-002`, `TC-DIAG-003`, `TC-DIAG-004`, `TC-DIAG-005`, `TC-DIAG-006`, `TC-DIAG-011`, `TC-DIAG-012`, `TC-DIAG-013`, `TC-DIAG-015`, `TC-DIAG-016`, `TC-DIAG-017`, `TC-DIAG-018`, `TC-DIAG-019`, `TC-DIAG-020`, `TC-DIAG-021`, `TC-DIAG-022`, `TC-DIAG-023`, `TC-DIAG-024`, `TC-DIAG-025`, `TC-DIAG-026`, `TC-DIAG-027`, `TC-DIAG-028`, `TC-DIAG-046`, `TC-DIAG-051`, `TC-UNITY-SHELL-001`
+- New test IDs to introduce: `TC-CMP-001`, `TC-CMP-002`, `TC-CMP-003`, `TC-CMP-004`, `TC-CMP-009`, `TC-CMP-010`, `TC-CMP-011`, `TC-CMP-015`, `TC-CMP-016`, `TC-CMP-018`, `TC-CMP-020`, task-specific extension `TC-CMP-021`, `TC-DIAG-002`, `TC-DIAG-003`, `TC-DIAG-004`, `TC-DIAG-005`, `TC-DIAG-006`, `TC-DIAG-011`, `TC-DIAG-012`, `TC-DIAG-013`, `TC-DIAG-015`, `TC-DIAG-016`, `TC-DIAG-017`, `TC-DIAG-018`, `TC-DIAG-019`, `TC-DIAG-020`, `TC-DIAG-021`, `TC-DIAG-022`, `TC-DIAG-023`, `TC-DIAG-024`, `TC-DIAG-025`, `TC-DIAG-026`, `TC-DIAG-027`, `TC-DIAG-028`, `TC-DIAG-046`, `TC-DIAG-051`, `TC-UNITY-SHELL-001`
 
 ### Task-safe private context
 
@@ -93,7 +93,7 @@ The resulting Unity Editor application should be interactable, but it is still a
 - Bounded in-memory ring buffer with maximum 2000 events or 8 MiB estimated logical payload, first reached limit wins. Eviction removes oldest cleaned events first. Logical-size estimation is deterministic and does not depend on ODY-S00-007 JSON serialization. No raw/unredacted value may enter the buffer.
 - Bounded diagnostics queue/backpressure with maximum 4096 events or 16 MiB estimated logical payload, first reached limit wins. Under pressure, drop `Trace`, then `Debug`, then `Information`; `Warning`/`Error`/`Critical` use priority path or emergency fallback. After recovery, emit a bounded drop-counter event.
 - Diagnostics runtime constraints: no unbounded main-thread blocking, sink failure cannot recurse into itself, diagnostics failure must not change successful Application/Domain outcome, disabled level must not evaluate expensive/lazy property, concurrent enqueue must not corrupt ordering/state, normal shutdown drains within up to 2 seconds, fatal shutdown is best effort up to 500 ms.
-- Minimal emergency/crash marker semantics with canonical provisional file name `process-started.json`; format is intentionally trivial and does not depend on ADR-003 serialization ownership.
+- Minimal emergency/crash marker semantics with canonical provisional file name `process-started.json`; format is intentionally trivial and does not depend on ADR-003 serialization ownership. Crash marker completion reports a real success/failure outcome; `diagnostics.crash.marker_completed` is emitted only after successful completion.
 - Minimal UI Toolkit Developer Shell showing runtime state and diagnostic visibility.
 - Minimal interactive controls to prove composition, such as executing one DeveloperShell-only non-gameplay probe command path, displaying safe Accepted/Rejected result, showing diagnostic ring-buffer entries, triggering a safe synthetic diagnostic event, and requesting clean runtime stop where practical in Editor.
 - Lifecycle and diagnostics tests in existing .NET and Unity test assemblies.
@@ -262,17 +262,18 @@ Implementation note: The exact scene edits above are owner-approved only for min
 
 | Test ID | Layer / runner | Behavior or contract proven | Required result |
 |---|---|---|---|
-| `TC-CMP-001` | .NET / Unity | Build minimal process graph -> Success, exactly one AppRuntime | Pass |
+| `TC-CMP-001` | .NET / Unity | Build minimal process graph -> Success, exactly one AppRuntime in Starting; Ready gated by presentation initialization | Pass |
 | `TC-CMP-002` | .NET / Unity | Invalid bootstrap/composition configuration -> safe Failure, graph unpublished | Pass |
 | `TC-CMP-003` | Unity EditMode | Crash marker store fails after ownership -> graph unpublished, cleanup continues, original safe failure preserved | Pass |
-| `TC-CMP-004` | Unity PlayMode | Duplicate RuntimeHost rejected while accepted graph remains one; clean shutdown releases lease | Pass |
+| `TC-CMP-004` | Unity PlayMode | Duplicate RuntimeHost rejected, structured diagnostic recorded, accepted graph remains one, clean shutdown releases lease | Pass |
 | `TC-CMP-009` | Unity PlayMode | Real AppShell scene unload -> PresentationRuntime detached/disposed once | Pass |
 | `TC-CMP-010` | .NET / Unity | Shutdown called twice -> no duplicate side effects | Pass |
-| `TC-CMP-011` | .NET / Unity | Process cancellation during startup -> bounded cleanup + cancelled Result | Pass |
+| `TC-CMP-011` | .NET / Unity | Mid-start process cancellation after owned resources exist -> bounded cleanup + cancelled Result | Pass |
 | `TC-CMP-015` | Unity EditMode | Typed test adapter override changes only requested adapter; deterministic defaults otherwise preserved | Pass |
 | `TC-CMP-016` | .NET / Unity | Non-developer/production composition cannot silently request developer fake | Pass |
 | `TC-CMP-018` | Architecture / .NET | Static locator/container pattern -> architecture validation fails | Pass |
 | `TC-CMP-020` | Unity EditMode | Shutdown while PresentationRuntime active -> presentation subscription before marker before diagnostics | Pass |
+| `TC-CMP-021` | Unity EditMode | Task-specific extension: composition-invalid failure uses exact registered safe Error semantics | Pass |
 | `TC-DIAG-002` | .NET Unit | Disabled Debug event does not evaluate lazy property | Pass |
 | `TC-DIAG-003` | .NET Unit / policy | EventCode outside registry rejected | Pass |
 | `TC-DIAG-004` | .NET Unit | Arbitrary object property rejected | Pass |
@@ -421,9 +422,9 @@ No new dependency, package, GitHub Action, executable, or downloadable tool is a
 | `powershell -NoProfile -ExecutionPolicy Bypass -File .\scripts\verify-format.ps1` | Passed | `FORMAT-001 PASS repository text formatting checks passed`. |
 | `powershell -NoProfile -ExecutionPolicy Bypass -File .\scripts\verify-test-structure.ps1` | Passed | `TC-ARCH-001` passed; controlled invalid Domain->Rules, package version mismatch, and duplicate catalog ownership fixtures were rejected with exit code 1. ODY-S00-006 composition/diagnostics guards also passed. |
 | `powershell -NoProfile -ExecutionPolicy Bypass -File .\scripts\test-fast.ps1` | Passed | Structure guard passed; `dotnet build` succeeded with 0 warnings / 0 errors; TRX evidence under `Logs/ODY-S00-006/dotnet/`: Unit 54/54, Domain 1/1, Contracts 1/1, Architecture 2/2, failed 0. |
-| `powershell -NoProfile -ExecutionPolicy Bypass -File .\scripts\test-unity.ps1` | Failed then Passed | Sandbox run failed before compile on Unity global cache access; escalated corrective runs exposed compile errors, then EditMode and PlayMode issues. Final run passed Unity `6000.4.0f1`, batch compile exit code 0, EditMode total 25 passed 25 failed 0 skipped 0, PlayMode total 2 passed 2 failed 0 skipped 0. Logs under `Logs/ODY-S00-006/`. |
-| `powershell -NoProfile -ExecutionPolicy Bypass -File .\scripts\verify-repository.ps1` | Failed then Passed | Corrective run initially failed because `application.developer.probe_rejected` referenced missing catalog ID `TC-CMP-006`; after registry evidence fix, repository policy passed, test structure passed, SDK configured `10.0.302`, selected `10.0.302`, rollForward `latestPatch`, allowPrerelease `False`; `REPOSITORY-VERIFY PASS`. |
-| `powershell -NoProfile -ExecutionPolicy Bypass -File .\scripts\check-repository-policy.ps1` | Failed then Passed | Corrective run initially failed on missing catalog ID `TC-CMP-006`; after registry evidence fix, `REPO-POLICY-001` through `REPO-POLICY-005` passed, including controlled ErrorCode registry fixtures. |
+| `powershell -NoProfile -ExecutionPolicy Bypass -File .\scripts\test-unity.ps1` | Failed then Passed | Sandbox run failed before compile on Unity global cache access; escalated corrective runs exposed a PlayMode test assembly reference gap and a mid-start cancellation evidence gap. After fixes, final run passed Unity `6000.4.0f1`, batch compile exit code 0, EditMode total 27 passed 27 failed 0 skipped 0, PlayMode total 2 passed 2 failed 0 skipped 0. Logs under `Logs/ODY-S00-006/`. |
+| `powershell -NoProfile -ExecutionPolicy Bypass -File .\scripts\verify-repository.ps1` | Passed | Repository policy passed, test structure passed, SDK configured `10.0.302`, selected `10.0.302`, rollForward `latestPatch`, allowPrerelease `False`; `REPOSITORY-VERIFY PASS`. |
+| `powershell -NoProfile -ExecutionPolicy Bypass -File .\scripts\check-repository-policy.ps1` | Passed | `REPO-POLICY-001` through `REPO-POLICY-005` passed, including controlled ErrorCode registry fixtures and the `TC-CMP-021` composition-invalid mapping. |
 | `dotnet build DotNet\Odyssey.Core.sln --no-restore` | Passed | Build succeeded with 0 warnings / 0 errors. |
 | `dotnet test DotNet\Odyssey.Core.sln --no-build --no-restore` | Passed | Contracts 1, Domain 1, Unit 54, Architecture 2; total 58 passed, 0 failed, 0 skipped. |
 | `git diff --check` | Failed then Passed | Initial final run failed due Unity-generated `ProjectSettings/ProjectSettings.asset` whitespace churn and task-doc blank EOF; ProjectSettings was restored to HEAD and EOF corrected. Final rerun exited 0 with only the CRLF normalization warning for this task document. |
@@ -436,9 +437,9 @@ No new dependency, package, GitHub Action, executable, or downloadable tool is a
 |---|---|---|
 | AC-1 | Satisfied | One `OdysseyRuntimeCompositionRoot` exists in `Odyssey.Unity.Client`; `verify-test-structure.ps1` rejects DI/service locator/search patterns and duplicate composition-root classes. |
 | AC-2 | Satisfied | `OdysseyRuntimeCompositionRoot.Start` publishes `Starting`; runtime reaches `Ready` only after AppShell entry point and presentation initialization succeed. |
-| AC-3 | Satisfied | Startup failures return safe `Result<Error>`, can emit diagnostic evidence when diagnostics exist, attempt all partial cleanup in reverse order, preserve the original safe failure, and render scene-local StartupFailed fallback where exactly one UIDocument exists. |
-| AC-4 | Satisfied | `AppRuntime.Shutdown` detaches presentation first, attempts process resources in reverse order even when one cleanup throws, emits crash-marker completed only after successful marker cleanup, shuts diagnostics last, reaches `Stopped`, and remains idempotent. |
-| AC-5 | Satisfied | `AppShellEntryPoint` initializes the UI Toolkit Developer Shell; PlayMode `TC-UNITY-SHELL-001` verifies visible Ready, profile, build identity unavailable, accepted/rejected probes, diagnostic emission, duplicate host rejection, Stopped shutdown, and released host lease. |
+| AC-3 | Satisfied | Startup failures return safe `Result<Error>`, can emit diagnostic evidence when diagnostics exist, attempt all partial cleanup in reverse order, preserve the original safe failure, cover real mid-start cancellation after owned resources exist, and render scene-local StartupFailed fallback where exactly one UIDocument exists. |
+| AC-4 | Satisfied | `AppRuntime.Shutdown` detaches presentation first, attempts process resources in reverse order even when one cleanup throws, emits crash-marker completed only after successful marker cleanup, records safe evidence when marker completion fails, shuts diagnostics last, reaches `Stopped`, and remains idempotent. |
+| AC-5 | Satisfied | `AppShellEntryPoint` initializes the UI Toolkit Developer Shell; PlayMode `TC-UNITY-SHELL-001` verifies visible Ready, profile, build identity unavailable, accepted/rejected probes, diagnostic emission, structured duplicate host rejection, Stopped shutdown, and released host lease. |
 | AC-6 | Satisfied | DeveloperShell-only probe uses Application command/result contracts and an in-memory commit adapter that records receipt plus accepted event batch; UI exposes separate accepted and rejected probe actions. |
 | AC-7 | Satisfied | Application diagnostics contracts expose required `LogEventV1` fields, exact `LogLevel` vocabulary, `ProcessInstanceId`, unavailable BuildId state, and shared `CorrelationId`/`DiagnosticId`/`CommandId`/`UtcInstant`. |
 | AC-8 | Satisfied | `ProcessInstanceId` is generated per startup; deterministic typed test composition is internal/friend-only; no username/device/path/secret is encoded. |
@@ -447,7 +448,7 @@ No new dependency, package, GitHub Action, executable, or downloadable tool is a
 | AC-11 | Satisfied | `InMemoryDiagnosticRingBuffer` enforces count/byte limits with oldest-event eviction and rejects oversized events; Unity EditMode covers count/byte capacity. |
 | AC-12 | Satisfied | `BoundedDiagnosticRuntime` covers lazy filtering by level/event code, incoming-priority-aware Trace/Debug/Information pressure policy, exact per-level drop counters, high-priority emergency fallback without sacrificing protected Warning, sink failure result isolation, concurrent producers, and bounded shutdown paths. |
 | AC-13 | Satisfied | Startup and fatal-hook unexpected failures attach `DiagnosticId`, emit safe normalized incident evidence, deduplicate repeats without second full summary, and keep public `Error` ADR-004-safe without stack/raw exception text. |
-| AC-14 | Satisfied | `CrashMarkerStore` uses exact `process-started.json` in `Application.persistentDataPath/Diagnostics/`; Unity EditMode covers valid started, exact completed, truncated JSON, invalid ProcessInstanceId, extra malformed suffix, malformed marker states, and repeated best-effort clean finalization. |
+| AC-14 | Satisfied | `CrashMarkerStore` uses exact `process-started.json` in `Application.persistentDataPath/Diagnostics/`; Unity EditMode covers valid started, exact completed, truncated JSON, invalid ProcessInstanceId, extra malformed suffix, malformed marker states, repeated best-effort clean finalization, and absence of `diagnostics.crash.marker_completed` when completion fails. |
 | AC-15 | Satisfied | Repository guard scans Domain and Rules runtime source for diagnostics/logger dependencies; no violations. |
 | AC-16 | Satisfied | No serialization DTOs/JSONL, SQLite, Networking/Persistence runtime, BuildIdentity generation, telemetry, CI, Player/IL2CPP build, gameplay, Unity package, manifest, lock, or ProjectSettings baseline changes are introduced. |
 | AC-17 | Satisfied | Required validation commands have real pass/fail/pass evidence recorded above. |

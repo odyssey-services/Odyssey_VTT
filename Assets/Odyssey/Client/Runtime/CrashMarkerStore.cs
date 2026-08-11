@@ -10,7 +10,7 @@ namespace Odyssey.Unity.Client
         bool PreviousMarkerWasUnfinished { get; }
         bool PreviousMarkerWasMalformed { get; }
         void Start(ProcessInstanceId processInstanceId);
-        void Complete();
+        bool TryComplete();
     }
 
     public interface ICrashMarkerStoreFactory
@@ -52,9 +52,9 @@ namespace Odyssey.Unity.Client
             _completed = false;
         }
 
-        public void Complete()
+        public bool TryComplete()
         {
-            if (_completed) return;
+            if (_completed) return true;
             try
             {
                 Directory.CreateDirectory(_directory);
@@ -63,26 +63,24 @@ namespace Odyssey.Unity.Client
             }
             catch (IOException)
             {
-                _completed = true;
-                return;
+                return false;
             }
             catch (UnauthorizedAccessException)
             {
-                _completed = true;
-                return;
+                return false;
             }
             catch (Exception)
             {
-                _completed = true;
-                return;
+                return false;
             }
 
             _completed = true;
+            return true;
         }
 
         public void Dispose()
         {
-            Complete();
+            TryComplete();
         }
 
         private MarkerState ReadPreviousMarker()

@@ -335,6 +335,15 @@ namespace Odyssey.Unity.Client
             });
         }
 
+        internal void RecordDuplicateBootstrapRejected(int count)
+        {
+            if (count <= 0) return;
+            Diagnostics.Write(LogLevel.Warning, OdysseyEventCodes.AppBootstrapDuplicateRejected, SubsystemName.Parse("app"), MessageTemplateKey.Parse("log.app.bootstrap.duplicate_rejected"), new DiagnosticContext(ProcessInstanceId), () => new[]
+            {
+                new SafeLogProperty(SafePropertyKey.Parse("state"), SafeLogValue.Code("duplicate_rejected"))
+            });
+        }
+
         public IReadOnlyList<LogEventV1> GetRecentDiagnostics()
         {
             return RingBuffer.Snapshot();
@@ -356,8 +365,13 @@ namespace Odyssey.Unity.Client
                 for (int index = _owned.Count - 1; index >= 0; index--)
                 {
                     if (_owned[index] is BoundedDiagnosticRuntime) continue;
-                    bool disposed = TryDisposeRuntimeOwned(_owned[index]);
-                    if (ReferenceEquals(_owned[index], CrashMarker)) crashMarkerCompleted = disposed;
+                    if (ReferenceEquals(_owned[index], CrashMarker))
+                    {
+                        crashMarkerCompleted = TryCompleteCrashMarker();
+                        continue;
+                    }
+
+                    TryDisposeRuntimeOwned(_owned[index]);
                 }
 
                 if (crashMarkerCompleted)
@@ -420,6 +434,25 @@ namespace Odyssey.Unity.Client
             {
                 disposable.Dispose();
                 return true;
+            }
+            catch (Exception ex)
+            {
+                OdysseyRuntimeCompositionRoot.RecordCleanupFailure(Diagnostics, Clock, ProcessInstanceId, DiagnosticIds, new IncidentDeduplicator(), EmergencySink, ex);
+                return false;
+            }
+        }
+
+        private bool TryCompleteCrashMarker()
+        {
+            try
+            {
+                bool completed = CrashMarker.TryComplete();
+                if (!completed)
+                {
+                    OdysseyRuntimeCompositionRoot.RecordCleanupFailure(Diagnostics, Clock, ProcessInstanceId, DiagnosticIds, new IncidentDeduplicator(), EmergencySink, new InvalidOperationException("crash_marker_completion_failed"));
+                }
+
+                return completed;
             }
             catch (Exception ex)
             {
