@@ -5,7 +5,7 @@
 **Parent task:** `docs/tasks/active/ODY-S00-000_SLICE_00_Technical_Skeleton.md`
 **ExecPlan:** `docs/plans/active/ODY-S00-000_SLICE_00_Technical_Skeleton.md`
 **Created:** 2026-07-28
-**Last updated:** 2026-08-11 18:52 UTC
+**Last updated:** 2026-08-11 19:30 UTC
 
 ## 1. Purpose
 
@@ -99,6 +99,7 @@ Perform a clean-checkout rehearsal, reconcile all acceptance criteria and TestCa
 - `ODY-S00-006` may not invent persistence/network adapters; only explicitly permitted in-memory/developer adapters are allowed.
 - `ODY-S00-007` must finish before the slice can claim IL2CPP compatibility.
 - `ODY-S00-008` may be developed incrementally, but required status checks become authoritative only after the commands they invoke exist.
+- `ODY-S00-008` owns ADR-010 `TC-DIAG-033`, `TC-DIAG-034`, `TC-DIAG-035`, `TC-DIAG-036`, `TC-DIAG-037`, `TC-DIAG-038`, `TC-DIAG-039`, and `TC-DIAG-040` after BuildIdentity is available; `ODY-S00-010` only reconciles final evidence and must not implement missing diagnostics work inline.
 - `ODY-S00-010` cannot waive failed criteria. It may only close them, defer a non-blocking check already marked non-required by authority, or create a follow-up task with owner approval.
 
 ## 6. Global non-goals

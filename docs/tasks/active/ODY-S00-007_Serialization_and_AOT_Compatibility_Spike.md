@@ -8,7 +8,7 @@
 **Pull request:** Not opened
 **ExecPlan:** `docs/plans/active/ODY-S00-000_SLICE_00_Technical_Skeleton.md`
 **Created:** 2026-08-11
-**Last updated:** 2026-08-11 18:52 UTC
+**Last updated:** 2026-08-11 19:30 UTC
 
 ## 1. Goal
 
@@ -52,7 +52,7 @@ This is a compatibility spike only. It must not implement Persistence, Networkin
 
 - Requirement IDs: `SLICE-00`, Milestone `M1`, PR-004 delivery group.
 - Existing test IDs: `TC-CMD-*`, `TC-EVENT-001`, `TC-CLOCK-*`, `TC-RNG-*`, `TC-DIAG-*`, architecture/repository IDs from prior tasks.
-- New test IDs to introduce: `TC-SER-001` through `TC-SER-024`, `TC-DIAG-001` with the ADR-010 meaning, `TC-DIAG-041`, `TC-DIAG-042`, `TC-DIAG-043`, `TC-DIAG-044`, and task-specific extensions only if required. Do not repurpose existing IDs.
+- New test IDs to introduce: `TC-SER-001` through `TC-SER-024` as ODY-S00-007 task-specific serialization extensions, plus ADR-010 diagnostic IDs `TC-DIAG-001`, `TC-DIAG-007`, `TC-DIAG-029`, `TC-DIAG-030`, `TC-DIAG-031`, `TC-DIAG-032`, `TC-DIAG-041`, `TC-DIAG-042`, `TC-DIAG-043`, and `TC-DIAG-044`. Do not repurpose existing IDs.
 
 ### Task-safe private context
 
@@ -69,10 +69,11 @@ This is a compatibility spike only. It must not implement Persistence, Networkin
 - ODY-S00-006 provides `LogEventV1`, `EventCode`, `MessageTemplateKey`, `SafeLogProperty`, `SafeLogValue`, `ProcessInstanceId`, `ExceptionSummary`, EventCode registry, and runtime diagnostics contracts.
 - `Tests/Metadata/test-catalog.json` currently has no `TC-SER-*` entries and preserves ADR-010 diagnostic IDs including `TC-DIAG-001` for `LogEventV1` JSON serialization.
 - No production serialization DTOs, canonical JSON writer, source-generated contexts, contract registry, upcaster chain, JSONL diagnostic sink, or serialization fixtures exist yet.
+- Repository-safe search found no `16_Test_Strategy_Odyssey_VTT_*` file in this repository. Until an accepted repository-accessible Test Strategy source proves exact `TC-SER-*` meanings, `TC-SER-001` through `TC-SER-024` are task-specific ODY-S00-007 serialization extensions, not ADR-defined IDs.
 
 ### Assumptions
 
-- A focused temporary/test Windows x64 IL2CPP serialization smoke target is acceptable if ADR-003 evidence requires it, but it must be named and documented as ODY-S00-007 serialization evidence only, not as the ODY-S00-009 Development-Debug build artifact.
+- ADR-003 requires focused Windows x64 IL2CPP serialization/AOT smoke evidence for ODY-S00-007. The harness/artifact must be named `serialization-aot-smoke` or an equivalent name that cannot be confused with the ODY-S00-009 Development-Debug application build artifact.
 
 ## 5. Scope
 
@@ -95,16 +96,19 @@ This is a compatibility spike only. It must not implement Persistence, Networkin
 - Missing upcast path returns a controlled compatibility failure before mutation.
 - Invalid input/parser limit tests: duplicate property, unknown `ContractType`, unknown mandatory `ContractVersion`, missing required field, invalid enum token, invalid typed ID, invalid timestamp, trailing comma, comment, depth greater than max, payload larger than ceiling, NaN/Infinity, invalid UTF-8 where applicable, and BOM policy.
 - Initial parser ceilings: command payload 256 KiB, single event payload 1 MiB, manifest JSON 4 MiB, diagnostic JSON record 1 MiB.
-- Diagnostic serialization ownership: `TC-DIAG-001` `LogEventV1` JSON serialization, `DiagnosticJson` profile, source-generated diagnostic DTO/context, redacted `LogEventV1` JSON, secret/redaction vectors, duplicate-property rejection, parser ceilings, and .NET/Unity parity.
-- If ADR-010 requires rolling JSONL sink for SLICE-00, ODY-S00-007 owns only serialization-dependent JSONL implementation/integration. Do not redesign ODY-S00-006 diagnostics runtime.
-- `.odcamp` spike scope: manifest DTO, source-generated serialization, fixture/round-trip, no secrets/absolute paths, and path-safety helpers/negative fixture if required by ADR-003.
-- Focused serialization/AOT compatibility proof in .NET, Unity Mono/EditMode, and serialization-specific Windows x64 IL2CPP smoke if required by ADR-003.
+- Diagnostic serialization ownership: `TC-DIAG-001` is exactly "Information event serializes as `LogEventV1`".
+- Diagnostic parity and compatibility ownership: `TC-DIAG-041` owns .NET/Unity Mono diagnostic vector parity, `TC-DIAG-042` owns Windows x64 IL2CPP diagnostic vector parity, `TC-DIAG-043` owns unknown future major log schema compatibility error, and `TC-DIAG-044` owns duplicate JSON property rejection by the diagnostic reader.
+- Rolling JSONL diagnostic sink completion is required by ADR-010 and owned by ODY-S00-007 on top of the ODY-S00-006 diagnostic runtime. Baseline: one UTF-8 JSON record per line, no BOM, UTC date-change rotation, 10 MiB size rotation, new process rotation after a previous unclean active file where applicable, and retention by the first reached limit among 10 files, 14 days, or 100 MiB total. No telemetry or upload.
+- Narrow JSONL storage adapter scope is allowed only under `Packages/com.odyssey.persistence/Runtime/Diagnostics/**` for rolling JSONL diagnostic sink, rotation, retention, and diagnostic file ownership helpers. This does not authorize SQLite, database, campaign persistence, event store, schema, migration, repository implementation, outbox, backup, or general Persistence runtime work.
+- `.odcamp` spike scope: versioned manifest DTO, `InterchangeJson` profile, source-generated serialization, fixture/round-trip, no secrets/absolute paths, and path-safety validation. Use the owning interchange/persistence boundary defined by accepted authorities; if exact production module ownership cannot be determined without contradicting ADR-001/ADR-003, stop and report the ownership blocker before implementation.
+- Focused serialization/AOT compatibility proof in .NET, Unity Mono/EditMode, and mandatory serialization-specific Windows x64 IL2CPP smoke.
+- Before substantive implementation, verify that accepted production source can compile `System.Text.Json` and `JsonSerializerContext` source generation in both `DotNet/Projects/Odyssey.Application.csproj` (`netstandard2.1`) and the Unity `6000.4.0f1` compile path. Do not add `PackageReference`, NuGet package, Unity package, DLL, analyzer, or .NET project/reference changes silently. If current references are insufficient, stop and report the exact missing assembly/reference/analyzer, affected project/Unity assembly, minimal pinned dependency/reference change, and Unity/.NET compatibility impact for owner approval.
 - Contract registry: compile-time `(ContractType, ContractVersion) -> DTO metadata -> JsonTypeInfo -> validator -> mapper/upcaster`; no CLR name lookup, assembly-qualified names, reflection scanning, `IServiceProvider`, `Resolve<T>`, or arbitrary `object` deserialization.
 - Test catalog entries, architecture guards, parent ExecPlan evidence, task Completion Evidence, README status if needed, and repository policy checks required by this task.
 
 ### Out of scope
 
-- SQLite provider, database schema, migrations, current-state tables, real Persistence runtime, and database round-trip implementation.
+- SQLite provider, database schema, migrations, current-state tables, real Persistence runtime beyond the narrow ADR-010 JSONL diagnostic storage adapter, and database round-trip implementation.
 - Networking runtime, transport codec, relay, accounts/auth, permissions, protocol implementation, or network DTO finalization.
 - Gameplay events, gameplay commands, campaign runtime, session runtime, operation runtime, WorldClock gameplay mechanics, map/tokens/combat/dice/characters/content/chat/audio behavior.
 - Full `.odcamp` importer/exporter/archive codec/campaign DB/SQLite backup/asset streaming.
@@ -118,12 +122,13 @@ This is a compatibility spike only. It must not implement Persistence, Networkin
 Packages/com.odyssey.application/Runtime/Serialization/**
 Packages/com.odyssey.application/Runtime/Diagnostics/**
 Packages/com.odyssey.application/Runtime/Commands/**
-Packages/com.odyssey.domain/Runtime/Events/**
-Packages/com.odyssey.domain/Runtime/Time/**
 Packages/com.odyssey.content/Runtime/Serialization/**
+Packages/com.odyssey.persistence/Runtime/Diagnostics/**
 Assets/Odyssey/Client/Runtime/Serialization/**
 Assets/Odyssey/Client/Runtime/Diagnostics/**
+Assets/Odyssey/Client/Editor/Serialization/**
 Assets/Odyssey/Client/Tests/EditMode/**
+Assets/Odyssey/Client/Tests/SerializationAot/**
 DotNet/Tests/Odyssey.Tests.Unit/**
 DotNet/Tests/Odyssey.Tests.Contracts/**
 DotNet/Tests/Odyssey.Tests.Architecture/**
@@ -133,6 +138,7 @@ config/diagnostics/**
 scripts/verify-test-structure.ps1
 scripts/test-fast.ps1
 scripts/test-unity.ps1
+scripts/test-serialization-aot.ps1
 scripts/verify-repository.ps1
 scripts/check-repository-policy.ps1
 docs/tasks/active/ODY-S00-007_Serialization_and_AOT_Compatibility_Spike.md
@@ -153,7 +159,7 @@ Packages/packages-lock.json
 ProjectSettings/**
 DotNet/Odyssey.Core.sln
 DotNet/Projects/**
-Packages/com.odyssey.persistence/**
+Packages/com.odyssey.persistence/** except Packages/com.odyssey.persistence/Runtime/Diagnostics/**
 Packages/com.odyssey.networking/**
 Assets/Odyssey/Client/Scenes/**
 Assets/Odyssey/Client/UI/**
@@ -174,7 +180,9 @@ Owner approval for this activation step permits only the operational `ACTIVE_DOC
 - Test boundary: Follow ADR-006. Production source has one physical copy; tests/fixtures do not enter Player builds.
 - Version boundary: Follow ADR-007. Do not change application/schema/format/contract/protocol/ruleset versions except explicit task-owned synthetic contract versions.
 - Time/RNG rule: Follow ADR-008. Upcasters and serialization mappers are pure and do not use injected or global clock/RNG unless explicitly serializing already-provided values.
-- Unity/AOT boundary: Follow ADR-009. Focused IL2CPP evidence may be used only for serialization compatibility and must not be labeled as the ODY-S00-009 build artifact.
+- Unity/AOT boundary: Follow ADR-009. Focused IL2CPP evidence is mandatory for serialization compatibility and must not be labeled as the ODY-S00-009 build artifact. Use `serialization-aot-smoke` or equivalent naming.
+- Domain read-only rule: ODY-S00-007 may read/reuse Domain types, but must not add `JsonPropertyName`, `JsonConverter`, `JsonSerializable`, `System.Text.Json` dependency, serialization DTO, manifest DTO, or serializer helper to `Odyssey.Domain`.
+- Persistence boundary rule: Only the ADR-010 JSONL diagnostic file adapter sub-scope under `Packages/com.odyssey.persistence/Runtime/Diagnostics/**` is allowed; all other Persistence runtime/database work remains out of scope.
 - Diagnostics/redaction: Follow ADR-010. Redaction happens before diagnostic serialization; `DiagnosticJson` must not expose secrets, hidden gameplay data, raw exception text, absolute paths, or arbitrary objects.
 - Dependencies/licensing: No new dependency, package, GitHub Action, executable, or downloadable tool is approved.
 
@@ -214,11 +222,11 @@ Owner approval for this activation step permits only the operational `ACTIVE_DOC
 ## 8. Deliverables
 
 - Production code: Minimal serialization contracts, profiles, converters, registry, canonical writer/hash helpers, mappers/upcasters, and diagnostic serialization integration needed for the spike.
-- Tests: .NET, Unity EditMode/Mono, architecture, parser-limit, fixture, parity, and focused IL2CPP serialization evidence if required.
+- Tests: .NET, Unity EditMode/Mono, architecture, parser-limit, fixture, parity, and mandatory focused IL2CPP serialization evidence.
 - Scripts / CI: Existing scripts only; may extend repository policy/architecture guards. No GitHub Actions.
 - Configuration: Test fixtures and registry/config entries required by the spike only.
 - Documentation: Task Completion Evidence, parent ExecPlan evidence, test catalog, README/active pointers if needed.
-- Generated evidence or build artifacts: Golden fixture hashes, test logs, and focused serialization AOT smoke output if run; no ODY-S00-009 build artifact.
+- Generated evidence or build artifacts: Golden fixture hashes, test logs, and mandatory focused `serialization-aot-smoke` output; no ODY-S00-009 build artifact.
 - Migration / recovery material: None.
 
 ## 9. Acceptance criteria
@@ -231,12 +239,13 @@ Owner approval for this activation step permits only the operational `ACTIVE_DOC
 6. A minimal synthetic technical event payload proves `ContractType`, `ContractVersion`, immutable canonical `PayloadJson`, `PayloadHash`, round-trip, and hash verification without gameplay semantics or SQLite.
 7. The upcaster spike has a pure explicit interface, synthetic v1-to-v2 fixture, unchanged raw fixture bytes, deterministic transform, and controlled failure for missing paths.
 8. Parser limits and invalid-input cases listed in scope fail safely before mutation.
-9. `TC-DIAG-001` proves `LogEventV1` DiagnosticJson serialization with source-generated context, redaction vectors, duplicate-property rejection, parser ceilings, and .NET/Unity parity; ADR-010 diagnostic IDs keep their original meaning.
-10. `.odcamp` work is limited to a spike manifest DTO/fixture/path-safety proof with no full importer/exporter/archive codec or campaign data.
-11. AOT evidence is explicitly scoped to serialization compatibility. The task does not claim the ODY-S00-009 Windows Development-Debug artifact, packaging, checksum, startup/shutdown smoke, or release build result.
-12. Architecture guards prevent direct Domain serialization annotations/dependencies, arbitrary object graph serialization, service-locator registry resolution, and test fixtures entering Player builds where applicable.
-13. Required validation commands and real results are recorded; unrun full .NET/Unity/IL2CPP checks are listed honestly.
-14. No SQLite, Persistence runtime, Networking runtime, gameplay, BuildIdentity, CI, Unity package/version, ProjectSettings, ADR, or Technical Baseline changes are introduced.
+9. `TC-DIAG-001` preserves the ADR-010 meaning exactly: Information event serializes as `LogEventV1`.
+10. Diagnostic redaction/JSONL/parity/compatibility cases are proven by their own diagnostic IDs: `TC-DIAG-007`, `TC-DIAG-029`, `TC-DIAG-030`, `TC-DIAG-031`, `TC-DIAG-032`, `TC-DIAG-041`, `TC-DIAG-042`, `TC-DIAG-043`, and `TC-DIAG-044`.
+11. `.odcamp` work is limited to a spike manifest DTO/fixture/path-safety proof with no full importer/exporter/archive codec or campaign data.
+12. Mandatory Windows x64 IL2CPP AOT evidence is explicitly scoped to focused serialization compatibility and named `serialization-aot-smoke` or equivalent. The task does not claim the ODY-S00-009 Windows Development-Debug artifact, packaging, checksum, startup/shutdown smoke, or release build result.
+13. Architecture guards prevent direct Domain serialization annotations/dependencies, arbitrary object graph serialization, service-locator registry resolution, and test fixtures entering Player builds where applicable.
+14. Required validation commands and real results are recorded; unrun full .NET/Unity/IL2CPP checks are listed honestly.
+15. No SQLite, Persistence runtime beyond the narrow JSONL diagnostic storage adapter, Networking runtime, gameplay, BuildIdentity, CI, Unity package/version, committed ProjectSettings change, ADR, or Technical Baseline changes are introduced.
 
 ## 10. Tests and validation
 
@@ -244,33 +253,38 @@ Owner approval for this activation step permits only the operational `ACTIVE_DOC
 
 | Test ID | Layer / runner | Behavior or contract proven | Required result |
 |---|---|---|---|
-| `TC-SER-001` | .NET Unit | System.Text.Json-only default and centralized profile existence | Pass |
-| `TC-SER-002` | .NET Unit | ContractType/ContractVersion parsing and registry lookup semantics | Pass |
-| `TC-SER-003` | .NET Unit | source-generated context is used for registered DTO roots | Pass |
-| `TC-SER-004` | .NET Unit | stable typed-ID conversion for existing IDs | Pass |
-| `TC-SER-005` | .NET Unit | UTC timestamp conversion/validation for `UtcInstant` | Pass |
-| `TC-SER-006` | .NET Unit | stable enum token conversion example | Pass |
-| `TC-SER-007` | .NET Unit | canonical UTF-8 writer property order/no BOM/no whitespace/null/default semantics | Pass |
-| `TC-SER-008` | .NET Unit | duplicate properties, comments, trailing commas, invalid UTF-8/BOM policy rejected as specified | Pass |
-| `TC-SER-009` | .NET Unit | max depth and payload byte ceilings enforced | Pass |
-| `TC-SER-010` | .NET Unit | NaN/Infinity rejected and `-0` normalized where applicable | Pass |
-| `TC-SER-011` | .NET Unit | SHA-256 lowercase canonical hash fixture stable | Pass |
-| `TC-SER-012` | .NET Unit | `CommandFingerprintMaterialV1` inclusion/exclusion and expected revision ordering | Pass |
-| `TC-SER-013` | .NET Unit | CommandFingerprint vector stable and not based on runtime identity/GetHashCode | Pass |
-| `TC-SER-014` | .NET Unit | synthetic event payload canonical JSON/hash round-trip | Pass |
-| `TC-SER-015` | .NET Unit | event read/upcast preserves original fixture bytes | Pass |
-| `TC-SER-016` | .NET Unit | pure v1-to-v2 upcaster and missing-path controlled compatibility failure | Pass |
-| `TC-SER-017` | .NET Unit | unknown ContractType/version and missing required fields rejected before mutation | Pass |
-| `TC-SER-018` | .NET Unit | `.odcamp` spike manifest fixture/path safety/no secrets/no absolute paths | Pass |
-| `TC-SER-019` | Architecture / script | Domain has no serializer annotations/dependencies and no Domain aggregate root registration | Pass |
-| `TC-SER-020` | Architecture / script | contract registry has no CLR type-name lookup, scanning, service locator, or object graph fallback | Pass |
-| `TC-SER-021` | Unity EditMode | Unity Mono serialization vectors match .NET vectors | Pass |
-| `TC-SER-022` | Player / IL2CPP or documented focused smoke | serialization-specific Windows x64 IL2CPP vectors match when required by ADR-003 | Pass |
-| `TC-SER-023` | .NET Unit | test fixtures/golden hashes are stable and not auto-updated | Pass |
-| `TC-SER-024` | Repository policy | no disallowed serializer dependency, Unity package change, or production/test boundary violation | Pass |
-| `TC-DIAG-001` | .NET + Unity | `LogEventV1` JSON serialization, redaction vectors, parser ceilings, duplicate-property rejection, parity | Pass |
+| `TC-SER-001` | .NET Unit | ODY-S00-007 task-specific: System.Text.Json-only default and centralized profile existence | Pass |
+| `TC-SER-002` | .NET Unit | ODY-S00-007 task-specific: ContractType/ContractVersion parsing and registry lookup semantics | Pass |
+| `TC-SER-003` | .NET Unit | ODY-S00-007 task-specific: source-generated context is used for registered DTO roots | Pass |
+| `TC-SER-004` | .NET Unit | ODY-S00-007 task-specific: stable typed-ID conversion for existing IDs | Pass |
+| `TC-SER-005` | .NET Unit | ODY-S00-007 task-specific: UTC timestamp conversion/validation for `UtcInstant` | Pass |
+| `TC-SER-006` | .NET Unit | ODY-S00-007 task-specific: stable enum token conversion example | Pass |
+| `TC-SER-007` | .NET Unit | ODY-S00-007 task-specific: canonical UTF-8 writer property order/no BOM/no whitespace/null/default semantics | Pass |
+| `TC-SER-008` | .NET Unit | ODY-S00-007 task-specific: duplicate properties, comments, trailing commas, invalid UTF-8/BOM policy rejected as specified | Pass |
+| `TC-SER-009` | .NET Unit | ODY-S00-007 task-specific: max depth and payload byte ceilings enforced | Pass |
+| `TC-SER-010` | .NET Unit | ODY-S00-007 task-specific: NaN/Infinity rejected and `-0` normalized where applicable | Pass |
+| `TC-SER-011` | .NET Unit | ODY-S00-007 task-specific: SHA-256 lowercase canonical hash fixture stable | Pass |
+| `TC-SER-012` | .NET Unit | ODY-S00-007 task-specific: `CommandFingerprintMaterialV1` inclusion/exclusion and expected revision ordering | Pass |
+| `TC-SER-013` | .NET Unit | ODY-S00-007 task-specific: CommandFingerprint vector stable and not based on runtime identity/GetHashCode | Pass |
+| `TC-SER-014` | .NET Unit | ODY-S00-007 task-specific: synthetic event payload canonical JSON/hash round-trip | Pass |
+| `TC-SER-015` | .NET Unit | ODY-S00-007 task-specific: event read/upcast preserves original fixture bytes | Pass |
+| `TC-SER-016` | .NET Unit | ODY-S00-007 task-specific: pure v1-to-v2 upcaster and missing-path controlled compatibility failure | Pass |
+| `TC-SER-017` | .NET Unit | ODY-S00-007 task-specific: unknown ContractType/version and missing required fields rejected before mutation | Pass |
+| `TC-SER-018` | .NET Unit | ODY-S00-007 task-specific: `.odcamp` spike manifest fixture/path safety/no secrets/no absolute paths | Pass |
+| `TC-SER-019` | Architecture / script | ODY-S00-007 task-specific: Domain has no serializer annotations/dependencies and no Domain aggregate root registration | Pass |
+| `TC-SER-020` | Architecture / script | ODY-S00-007 task-specific: contract registry has no CLR type-name lookup, scanning, service locator, or object graph fallback | Pass |
+| `TC-SER-021` | Unity EditMode | ODY-S00-007 task-specific: Unity Mono serialization vectors match .NET vectors | Pass |
+| `TC-SER-022` | Player / IL2CPP focused smoke | ODY-S00-007 task-specific: serialization-specific Windows x64 IL2CPP vectors match .NET/Mono vectors | Pass |
+| `TC-SER-023` | .NET Unit | ODY-S00-007 task-specific: test fixtures/golden hashes are stable and not auto-updated | Pass |
+| `TC-SER-024` | Repository policy | ODY-S00-007 task-specific: no disallowed serializer dependency, Unity package change, or production/test boundary violation | Pass |
+| `TC-DIAG-001` | .NET Unit | Information event serializes as `LogEventV1` | Pass |
+| `TC-DIAG-007` | JSONL sink | Secret fixture is absent from JSONL sink | Pass |
+| `TC-DIAG-029` | JSONL sink | Daily UTC rotation creates a new file | Pass |
+| `TC-DIAG-030` | JSONL sink | Size rotation occurs at configured 10 MiB threshold | Pass |
+| `TC-DIAG-031` | JSONL sink | Retention removes oldest closed files when a limit is reached | Pass |
+| `TC-DIAG-032` | JSONL sink | Active file is not deleted by retention | Pass |
 | `TC-DIAG-041` | .NET + Unity | same diagnostic contract vector serializes identically in .NET and Unity Mono | Pass |
-| `TC-DIAG-042` | IL2CPP focused smoke | same diagnostic contract vector serializes identically in IL2CPP Windows x64 when required | Pass |
+| `TC-DIAG-042` | IL2CPP focused smoke | same diagnostic contract vector serializes identically in Windows x64 IL2CPP | Pass |
 | `TC-DIAG-043` | .NET Unit | unknown future major log schema returns compatibility error | Pass |
 | `TC-DIAG-044` | .NET Unit | duplicate JSON property rejected by diagnostic reader | Pass |
 
@@ -282,6 +296,7 @@ powershell -NoProfile -ExecutionPolicy Bypass -File .\scripts\verify-format.ps1
 powershell -NoProfile -ExecutionPolicy Bypass -File .\scripts\verify-test-structure.ps1
 powershell -NoProfile -ExecutionPolicy Bypass -File .\scripts\test-fast.ps1
 powershell -NoProfile -ExecutionPolicy Bypass -File .\scripts\test-unity.ps1
+powershell -NoProfile -ExecutionPolicy Bypass -File .\scripts\test-serialization-aot.ps1
 powershell -NoProfile -ExecutionPolicy Bypass -File .\scripts\verify-repository.ps1
 powershell -NoProfile -ExecutionPolicy Bypass -File .\scripts\check-repository-policy.ps1
 dotnet build DotNet\Odyssey.Core.sln --no-restore
@@ -291,7 +306,7 @@ git diff --cached --check
 git status --short --branch
 ```
 
-If a focused Windows x64 IL2CPP serialization smoke is implemented for ADR-003 evidence, record its exact repository command, output path, and result here before review.
+If the implementation uses a different repository entry point for the focused Windows x64 IL2CPP serialization smoke, record the exact command, output path, and result here before review. The output/artifact naming must include `serialization-aot-smoke` or equivalent.
 
 ### Manual validation
 
@@ -301,8 +316,8 @@ If a focused Windows x64 IL2CPP serialization smoke is implemented for ADR-003 e
 ### Required environments / profiles
 
 - OS / architecture: Windows 10/11 x64.
-- Unity editor or Player profile: Unity `6000.4.0f1`; Unity Editor/Mono plus focused serialization IL2CPP if required.
-- Scripting backend: .NET test host, Unity Mono/EditMode, focused IL2CPP for serialization compatibility if required.
+- Unity editor or Player profile: Unity `6000.4.0f1`; Unity Editor/Mono plus focused serialization IL2CPP.
+- Scripting backend: .NET test host, Unity Mono/EditMode, focused IL2CPP for serialization compatibility.
 - Network topology or database fixture: None.
 - Other: Existing .NET SDK `10.0.302`.
 
@@ -310,7 +325,7 @@ If a focused Windows x64 IL2CPP serialization smoke is implemented for ADR-003 e
 
 - Full ODY-S00-009 Windows Development-Debug build artifact, packaging, checksum, startup/shutdown Player smoke, and release packaging.
 - GitHub Actions CI and branch protection checks; assigned to ODY-S00-008.
-- SQLite database implementation, migrations, Persistence/Networking runtime, transport codec, gameplay behavior, full `.odcamp` import/export, telemetry/upload, installer/updater, and BuildIdentity.
+- SQLite database implementation, migrations, Persistence runtime outside `Packages/com.odyssey.persistence/Runtime/Diagnostics/**`, Networking runtime, transport codec, gameplay behavior, full `.odcamp` import/export, telemetry/upload, installer/updater, and BuildIdentity.
 
 ## 11. Compatibility, migration, and rollback
 
@@ -340,7 +355,7 @@ No new dependency, package, GitHub Action, executable, or downloadable tool is a
 - Redaction requirements: Diagnostic serialization must use already safe/allowlisted/redacted values and must not log raw commands, DomainEvents, exceptions, hidden data, secrets, absolute paths, user names, tokens, or RNG secrets.
 - Log-safe fields: Existing ADR-010 `SafeLogValue`/`SafeLogProperty` values only.
 - Abuse / malformed input limits: Depth, payload byte ceilings, duplicate properties, invalid encoding, unsupported type/version, and invalid primitive tokens.
-- Security tests: `TC-SER-008`, `TC-SER-009`, `TC-SER-017`, `TC-SER-018`, `TC-SER-019`, `TC-SER-020`, `TC-DIAG-001`, `TC-DIAG-043`, `TC-DIAG-044`, plus repository policy checks.
+- Security tests: `TC-SER-008`, `TC-SER-009`, `TC-SER-017`, `TC-SER-018`, `TC-SER-019`, `TC-SER-020`, `TC-DIAG-001`, `TC-DIAG-007`, `TC-DIAG-043`, `TC-DIAG-044`, plus repository policy checks.
 
 ## 14. Planning and execution mode
 
@@ -382,6 +397,7 @@ No new dependency, package, GitHub Action, executable, or downloadable tool is a
 - ODY-S00-006 task contract moved from `docs/tasks/active/` to `docs/tasks/completed/` and closure metadata updated.
 - ODY-S00-007 active task contract created at `docs/tasks/active/ODY-S00-007_Serialization_and_AOT_Compatibility_Spike.md`.
 - Operational pointers updated in Active Baseline v1.8, SLICE-00 backlog, parent task, parent ExecPlan, README, and repository policy required-path list.
+- Contract correction updated ODY-S00-007 IL2CPP, diagnostic JSONL, TestCase ownership, Domain read-only, focused AOT harness, and System.Text.Json/source-generation feasibility requirements. Parent task, parent ExecPlan, and backlog record future ODY-S00-008 ownership for `TC-DIAG-033`, `TC-DIAG-034`, `TC-DIAG-035`, `TC-DIAG-036`, `TC-DIAG-037`, `TC-DIAG-038`, `TC-DIAG-039`, and `TC-DIAG-040`.
 
 ### Validation results
 
@@ -391,6 +407,10 @@ No new dependency, package, GitHub Action, executable, or downloadable tool is a
 | `git diff --check` | Passed | Exited 0; printed CRLF normalization warnings for Active Baseline and backlog only. |
 | `git diff --cached --check` | Passed | Exited 0 with no staged diff errors; printed inaccessible global ignore warning only. |
 | Targeted activation assertions | Passed | Verified 006 active path absent, 006 completed/Done, PR #10 merge SHA recorded, 007 active/Ready, backlog 006 Done / 007 Ready / 008 Draft, Active Baseline pointer to 007, and no production/test/config serialization implementation paths changed. |
+| `powershell -NoProfile -ExecutionPolicy Bypass -File .\scripts\check-repository-policy.ps1` | Passed | Contract-correction rerun passed `REPO-POLICY-001` through `REPO-POLICY-005`, including controlled ErrorCode registry fixtures. |
+| `git diff --check` | Passed | Contract-correction rerun exited 0; printed CRLF normalization warning for `docs/tasks/SLICE-00_BACKLOG.md` only. |
+| `git diff --cached --check` | Passed | Contract-correction pre-stage run exited 0 with no staged diff errors; printed inaccessible global ignore warning only. |
+| Targeted contract-correction assertions | Passed | Verified 007 remains Ready, no implementation paths changed, IL2CPP is mandatory, `TC-DIAG-001` exact meaning is preserved, `TC-DIAG-007`, `TC-DIAG-029`, `TC-DIAG-030`, `TC-DIAG-031`, and `TC-DIAG-032` are assigned to 007, `TC-DIAG-033` through `TC-DIAG-040` future ownership is recorded for 008, `TC-SER-001` through `TC-SER-024` are task-specific, Domain edit paths are removed, focused IL2CPP harness paths are recorded, and System.Text.Json/source-generation dependency changes require blocker plus owner approval. |
 
 ### Acceptance result
 
@@ -408,7 +428,7 @@ No new dependency, package, GitHub Action, executable, or downloadable tool is a
 ### Known limitations
 
 - Production serialization code, tests, fixtures, contexts, canonical writer, JSONL sink, and focused IL2CPP serialization evidence are not implemented in this activation commit.
-- If ADR-003 focused IL2CPP evidence conflicts with ODY-S00-009 build ownership during implementation, stop and record the conflict before building.
+- Focused IL2CPP serialization evidence is mandatory for implementation, but it must remain a `serialization-aot-smoke` harness/evidence path and must not claim the ODY-S00-009 application build artifact.
 - Full .NET restore/build/test, Unity batch/EditMode/PlayMode, and IL2CPP validation were not run for this docs-only activation because no `Assets/`, `Packages/`, `DotNet/`, test, or serialization implementation files changed.
 
 ### Follow-up tasks
@@ -435,6 +455,11 @@ No new dependency, package, GitHub Action, executable, or downloadable tool is a
 - 2026-08-11 - Activate ODY-S00-007 only after owner merge of ODY-S00-006 PR #10; do not begin production implementation in the activation commit - Authority / approval: product owner instruction.
 - 2026-08-11 - ODY-S00-007 owns canonical implementation behind ODY-S00-005 `CommandFingerprint`, while full command serialization and canonical command DTO evolution beyond the synthetic spike remain later work - Authority / approval: product owner instruction and ADR-003.
 - 2026-08-11 - ODY-S00-007 may provide focused serialization/AOT compatibility evidence but must not claim the ODY-S00-009 Windows Development-Debug artifact - Authority / approval: product owner instruction and ADR-003/ADR-009 sequencing.
+- 2026-08-11 - Focused Windows x64 IL2CPP serialization/AOT smoke, command/event/canonical vectors, and diagnostic vector `TC-DIAG-042` are mandatory for ODY-S00-007; ODY-S00-009 retains ownership of the real Windows Development-Debug application artifact, packaging, checksum, and startup/shutdown Player smoke - Authority / approval: product owner instruction and ADR-003.
+- 2026-08-11 - `TC-DIAG-001` preserves its ADR-010 meaning exactly - Authority / approval: product owner instruction and ADR-010.
+- 2026-08-11 - `TC-DIAG-007`, `TC-DIAG-029` through `TC-DIAG-032`, and `TC-DIAG-041` through `TC-DIAG-044` cover the additional JSONL/parity/compatibility diagnostic scope - Authority / approval: product owner instruction and ADR-010.
+- 2026-08-11 - `TC-SER-001` through `TC-SER-024` are ODY-S00-007 task-specific serialization extensions because no repository-accessible accepted Test Strategy source currently defines those exact IDs - Authority / approval: product owner instruction and repository-safe authority audit.
+- 2026-08-11 - `Packages/com.odyssey.persistence/Runtime/Diagnostics/**` is allowed only for ADR-010 rolling JSONL diagnostic sink, rotation, retention, and diagnostic file ownership helpers; all other Persistence runtime/database work remains out of scope - Authority / approval: product owner instruction and ADR-010.
 
 ### Approved task changes
 

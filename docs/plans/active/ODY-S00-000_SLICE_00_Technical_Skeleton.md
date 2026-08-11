@@ -4,7 +4,7 @@
 **Owner:** Codex
 **Branch:** `feat/ody-s00-007-serialization-aot-compatibility-spike`
 **Pull request:** Not opened
-**Last updated:** 2026-08-11 18:52 UTC
+**Last updated:** 2026-08-11 19:30 UTC
 
 ## 1. Purpose and user-visible outcome
 
@@ -122,6 +122,7 @@ Child tasks: `ODY-S00-008`, `ODY-S00-009`.
 
 - [ ] Fast CI runs repository policy, formatting, .NET build/tests, architecture and Unity compile/EditMode checks.
 - [ ] BuildIdentity is generated from canonical sources and exposed to client/logs/artifact metadata.
+- [ ] After BuildIdentity is available, ODY-S00-008 owns ADR-010 diagnostic session/bundle evidence for `TC-DIAG-033`, `TC-DIAG-034`, `TC-DIAG-035`, `TC-DIAG-036`, `TC-DIAG-037`, `TC-DIAG-038`, `TC-DIAG-039`, and `TC-DIAG-040`: session expiry, secret-field guard, bundle manifest include/exclude categories, bundle checksums, 50 MiB truncation report, campaign database absence, closed/private documentation absence, and machine name / persistent device ID absence from system summary.
 - [ ] Windows Development-Debug build is produced by repository entry point.
 - [ ] Player smoke verifies startup, AppShell, build identity, diagnostics and idempotent shutdown.
 - [ ] Artifacts have checksums and bounded retention.
@@ -223,6 +224,7 @@ Post-merge limitation:
 - ODY-S00-005 evidence: command/event/clock/RNG contracts compile in pure .NET and Unity. Latest .NET validation includes Domain 1, Contracts 1, Unit 46, Architecture 2, all failed 0. test-unity.ps1 has passed after escalated Unity cache access: batch compile, EditMode, and PlayMode exit code 0; EditMode/PlayMode each ran 1 test with 1 passed, 0 failed, 0 skipped. Repository policy, architecture guard, SDK check, dotnet build/test, and diff checks are rerun after review corrections and recorded in the child task evidence. Owner merged PR #9 into `main` at `2026-08-11T12:31:50Z` as merge commit `7aa5cc972c48d9af6509895bb6d9ed1e18899fdf`.
 - ODY-S00-006 corrective evidence: Application diagnostics contracts compile in pure .NET and Unity; runtime starts `Starting` and reaches `Ready` only after AppShell entry point/presentation initialization; Developer Shell uses a narrow facade with accepted/rejected technical probe actions; EventCode registry uses canonical 3-segment codes plus `log.` message template keys; diagnostics properties split data classification from value kind; production emergency diagnostics use a minimal append-only file sink while tests use in-memory sinks; crash markers use the persistent diagnostics directory and exact `process-started.json` marker. Final validation results are recorded in `docs/tasks/completed/ODY-S00-006_Runtime_Composition_and_Diagnostic_Shell.md`; owner merge evidence is PR #10 / `abb139c3c93115c468d020db3eb423c47cfdd83b`.
 - ODY-S00-007 activation evidence: task contract `docs/tasks/active/ODY-S00-007_Serialization_and_AOT_Compatibility_Spike.md` is Ready on `feat/ody-s00-007-serialization-aot-compatibility-spike`. Scope is limited to ADR-003 serialization/AOT compatibility proof and explicitly excludes ODY-S00-009 Windows Development-Debug artifact ownership.
+- ODY-S00-007 correction evidence: focused Windows x64 IL2CPP serialization/AOT smoke is mandatory and must be labelled `serialization-aot-smoke` or equivalent; `TC-DIAG-001` keeps the exact ADR-010 meaning, JSONL sink/rotation/retention is required under the narrow Persistence diagnostics adapter scope, and `TC-DIAG-033`, `TC-DIAG-034`, `TC-DIAG-035`, `TC-DIAG-036`, `TC-DIAG-037`, `TC-DIAG-038`, `TC-DIAG-039`, and `TC-DIAG-040` are assigned to ODY-S00-008 after BuildIdentity is available.
 
 Record real commands, outputs and artifact paths here as child tasks complete.
 

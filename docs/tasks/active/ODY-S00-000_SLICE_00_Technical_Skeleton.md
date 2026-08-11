@@ -8,7 +8,7 @@
 **Pull request:** Not opened  
 **ExecPlan:** `docs/plans/active/ODY-S00-000_SLICE_00_Technical_Skeleton.md`  
 **Created:** 2026-07-28  
-**Last updated:** 2026-08-11 18:52 UTC
+**Last updated:** 2026-08-11 19:30 UTC
 
 ## 1. Goal
 
@@ -267,6 +267,7 @@ All additional dependencies require a child task update and explicit approval be
 ### Follow-up tasks
 
 - `ODY-S00-007` through `ODY-S00-010`; ODY-S00-001 through ODY-S00-006 are completed, and ODY-S00-007 is Ready.
+- ADR-010 diagnostic session/bundle scenarios `TC-DIAG-033`, `TC-DIAG-034`, `TC-DIAG-035`, `TC-DIAG-036`, `TC-DIAG-037`, `TC-DIAG-038`, `TC-DIAG-039`, and `TC-DIAG-040` are future ODY-S00-008 scope after BuildIdentity exists; ODY-S00-010 remains final reconciliation, not an implementation task.
 
 ### Self-review summary
 
@@ -281,6 +282,7 @@ All additional dependencies require a child task update and explicit approval be
 ### Blockers
 
 - ODY-S00-001 through ODY-S00-006 are complete. ODY-S00-007 is activated as Ready only; do not start ODY-S00-007 production implementation until separate owner approval.
+- ODY-S00-008 remains Draft and is the future owner for `TC-DIAG-033`, `TC-DIAG-034`, `TC-DIAG-035`, `TC-DIAG-036`, `TC-DIAG-037`, `TC-DIAG-038`, `TC-DIAG-039`, and `TC-DIAG-040` after BuildIdentity is available.
 
 ### Decisions made during execution
 
