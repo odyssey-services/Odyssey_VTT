@@ -173,6 +173,8 @@ config/compatibility.json
 .github/**
 ```
 
+Exception: `DotNet/Projects/Odyssey.Application.csproj` is explicitly implementation-approved for adding the pure .NET `Newtonsoft.Json 13.0.2` reference required by ADR-003 v1.1. All other `DotNet/Projects/**` paths remain approval-required and out of scope unless separately authorized.
+
 Owner approval on 2026-08-12 permits the documentation/authority alignment to ADR-003 v1.1, ADR-010 v1.1, Technical Development Baseline v0.4, and Active Baseline v1.9. Production implementation starts only after this docs-only decision commit.
 
 ## 6. Technical constraints
@@ -348,9 +350,10 @@ If the implementation uses a different repository entry point for the focused Wi
 
 | Dependency | Version / source | Purpose | License | Approved by |
 |---|---|---|---|---|
-| None | - | - | - | - |
+| Unity `com.unity.nuget.newtonsoft-json` | `3.2.2`; underlying Newtonsoft.Json product version `13.0.2`; AssemblyVersion `13.0.0.0` | Explicit deterministic release-critical JSON streaming codecs | MIT | Product owner / ADR-003 v1.1 / Technical Development Baseline v0.4 |
+| Pure .NET `Newtonsoft.Json` | `13.0.2` | Pure .NET bridge parity for explicit deterministic release-critical JSON streaming codecs | MIT | Product owner / ADR-003 v1.1 / Technical Development Baseline v0.4 |
 
-No new dependency, package, GitHub Action, executable, or downloadable tool is approved for this task.
+The Newtonsoft dependency model above is APPROVED for ODY-S00-007 implementation. This docs-only correction does not install the Unity package, add the NuGet package, edit project files, or update package locks. Implementation must update `THIRD_PARTY_NOTICES.md`, must not add Newtonsoft to `Odyssey.Domain`, and must keep automatic reflection/object serialization prohibited.
 
 ## 13. Security, privacy, and hidden information
 
@@ -372,11 +375,11 @@ No new dependency, package, GitHub Action, executable, or downloadable tool is a
 
 ## 15. Documentation and versioning impact
 
-- Documents that must change: This task contract, parent ExecPlan, backlog status, Active Baseline operational pointer, README status if used as active-task pointer, test catalog during implementation, Completion Evidence.
-- Documents that must not change: ADR-001 through ADR-010, Technical Development Baseline v0.3, application/schema/format/protocol/ruleset version documents unless explicit owner approval is recorded.
+- Documents that must change during implementation: This task contract Completion Evidence and test catalog entries; parent ExecPlan/backlog/README only if implementation evidence or active-task status requires it.
+- Documents that must not change during implementation without a new material conflict and owner approval: ADR-001 through ADR-010, `ACTIVE_DOCUMENTATION_BASELINE_Odyssey_VTT_v1.9.md`, `TECHNICAL_DEVELOPMENT_BASELINE_Odyssey_VTT_v0.4.md`, and application/schema/format/protocol/ruleset version documents.
 - Application version change: No.
 - Schema / format / contract / protocol / ruleset version change: No global version change; only task-owned synthetic `ContractVersion` fixtures may be introduced.
-- Documentation version changes: Active Baseline v1.8 is not bumped for operational pointer updates.
+- Documentation version changes: No document version bump for this task-contract correction. `TECHNICAL_DEVELOPMENT_BASELINE_Odyssey_VTT_v0.3.md` and `ACTIVE_DOCUMENTATION_BASELINE_Odyssey_VTT_v1.8.md` remain historical only.
 - Changelog or release-note requirement: None.
 
 ## 16. Definition of Done
@@ -401,7 +404,7 @@ No new dependency, package, GitHub Action, executable, or downloadable tool is a
 
 - ODY-S00-006 task contract moved from `docs/tasks/active/` to `docs/tasks/completed/` and closure metadata updated.
 - ODY-S00-007 active task contract created at `docs/tasks/active/ODY-S00-007_Serialization_and_AOT_Compatibility_Spike.md`.
-- Operational pointers updated in Active Baseline v1.8, SLICE-00 backlog, parent task, parent ExecPlan, README, and repository policy required-path list.
+- Historical activation pointer update originally touched Active Baseline v1.8, SLICE-00 backlog, parent task, parent ExecPlan, README, and repository policy required-path list; current authority is Active Baseline v1.9.
 - Contract correction updated ODY-S00-007 IL2CPP, diagnostic JSONL, TestCase ownership, Domain read-only, focused AOT harness, and System.Text.Json/source-generation feasibility requirements. Parent task, parent ExecPlan, and backlog record future ODY-S00-008 ownership for `TC-DIAG-033`, `TC-DIAG-034`, `TC-DIAG-035`, `TC-DIAG-036`, `TC-DIAG-037`, `TC-DIAG-038`, `TC-DIAG-039`, and `TC-DIAG-040`.
 - Permanent .NET SDK build-layout correction added `UseArtifactsOutput=true` and a repository guard so sibling bridge projects no longer share `DotNet/Projects/obj/project.assets.json`.
 - Docs-only blocker evidence update records final `System.Text.Json` `10.0.11` feasibility status as rejected/discovery evidence: pure .NET PASS, Unity Editor/Mono PASS, and Windows Standalone x64 Player managed compilation FAIL before IL2CPP conversion. No production, test, dependency, project, Unity package, asmdef, or ProjectSettings files were changed.
