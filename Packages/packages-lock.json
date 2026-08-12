@@ -7,7 +7,8 @@
       "dependencies": {
         "com.odyssey.domain": "0.1.0",
         "com.odyssey.rules": "0.1.0",
-        "com.odyssey.content": "0.1.0"
+        "com.odyssey.content": "0.1.0",
+        "com.unity.nuget.newtonsoft-json": "3.2.2"
       }
     },
     "com.odyssey.content": {
@@ -100,6 +101,13 @@
     "com.unity.nuget.mono-cecil": {
       "version": "1.11.6",
       "depth": 3,
+      "source": "registry",
+      "dependencies": {},
+      "url": "https://packages.unity.com"
+    },
+    "com.unity.nuget.newtonsoft-json": {
+      "version": "3.2.2",
+      "depth": 0,
       "source": "registry",
       "dependencies": {},
       "url": "https://packages.unity.com"

@@ -1,6 +1,6 @@
 # ODY-S00-007 - Serialization and AOT Compatibility Spike
 
-**Status:** Ready
+**Status:** In Review
 **Roadmap stage / slice:** SLICE-00
 **Owner:** Codex
 **Requested by:** Product owner
@@ -370,8 +370,8 @@ The Newtonsoft dependency model above is APPROVED for ODY-S00-007 implementation
 - Planning mode: `ExecPlan`
 - Reason for selected mode: This task changes public serialization contracts, canonical hashes/fingerprints, diagnostic serialization, compatibility fixtures, parser limits, and AOT validation.
 - ExecPlan path: `docs/plans/active/ODY-S00-000_SLICE_00_Technical_Skeleton.md`
-- Expected pull request count: One implementation PR after this activation commit.
-- Milestone or sequencing constraints: This activation commit creates the contract only. Production implementation begins only after owner approval.
+- Expected pull request count: One implementation PR after owner review of this implementation report.
+- Milestone or sequencing constraints: Production implementation is complete for ODY-S00-007 only. Do not open a PR, merge, or begin ODY-S00-008/009 until owner review.
 
 ## 15. Documentation and versioning impact
 
@@ -384,21 +384,84 @@ The Newtonsoft dependency model above is APPROVED for ODY-S00-007 implementation
 
 ## 16. Definition of Done
 
-- [ ] Goal is achieved without unapproved scope expansion.
-- [ ] All acceptance criteria are satisfied.
-- [ ] Required automated tests pass.
-- [ ] Required manual checks are completed or honestly marked not required.
-- [ ] Required commands and their real results are recorded.
-- [ ] Architecture and dependency rules remain valid.
-- [ ] Security, privacy, redaction, parser-limit, and audience rules are verified.
-- [ ] Compatibility, migration, rollback, and versioning obligations are complete.
-- [ ] No unapproved dependency, tool, GitHub Action, Unity package/version, or license was introduced.
-- [ ] Documentation is updated only where materially required.
-- [ ] Codex/developer performed a self-review against this task and `AGENTS.md`.
+- [x] Goal is achieved without unapproved scope expansion.
+- [x] All acceptance criteria are satisfied.
+- [x] Required automated tests pass.
+- [x] Required manual checks are completed or honestly marked not required.
+- [x] Required commands and their real results are recorded.
+- [x] Architecture and dependency rules remain valid.
+- [x] Security, privacy, redaction, parser-limit, and audience rules are verified.
+- [x] Compatibility, migration, rollback, and versioning obligations are complete.
+- [x] No unapproved dependency, tool, GitHub Action, Unity package/version, or license was introduced.
+- [x] Documentation is updated only where materially required.
+- [x] Codex/developer performed a self-review against this task and `AGENTS.md`.
 - [ ] Pull request explains contract changes, evidence, limitations, and follow-up work.
 - [ ] Product owner or authorized reviewer completes required review; Codex does not merge into `main`.
 
 ## 17. Completion evidence
+
+### Final implementation snapshot - 2026-08-12
+
+- Status: ODY-S00-007 implementation complete and ready for owner review; no PR is opened.
+- Dependency model implemented: Unity `com.unity.nuget.newtonsoft-json@3.2.2`; pure .NET `Newtonsoft.Json 13.0.2`; Newtonsoft.Json AssemblyVersion `13.0.0.0`; `THIRD_PARTY_NOTICES.md` updated.
+- Production ownership: explicit deterministic streaming codecs live in `Odyssey.Application`; a narrow JSONL diagnostics adapter lives in `Odyssey.Persistence`; `Odyssey.Domain` remains serializer-free.
+- Serialization behavior implemented: explicit contract keys/versions, canonical UTF-8 JSON, parser limits, duplicate-property rejection, unsupported-version rejection, stable SHA-256 payload hashes, stable command fingerprint material, v1-to-v2 synthetic payload upcast, manifest fixture codec, and explicit diagnostic log codec.
+- AOT behavior implemented: focused Windows Standalone x64 IL2CPP serialization smoke build/player path named `serialization-aot-smoke`; no ODY-S00-009 application build artifact is claimed.
+- Scope guard: no SQLite, networking, gameplay, CI, BuildIdentity, full `.odcamp` import/export, ProjectSettings/HDRP baseline change, or ODY-S00-008/009 implementation.
+
+### Final changed files / areas
+
+- Dependency pins and license notices: `Directory.Build.props`, `DotNet/Projects/Odyssey.Application.csproj`, `Packages/manifest.json`, `Packages/packages-lock.json`, `Packages/com.odyssey.application/package.json`, `Packages/com.odyssey.application/Runtime/Odyssey.Application.asmdef`, `THIRD_PARTY_NOTICES.md`.
+- Application serialization contracts/codecs: `Packages/com.odyssey.application/Runtime/Serialization/**`.
+- Persistence diagnostic JSONL adapter: `Packages/com.odyssey.persistence/Runtime/Diagnostics/**`.
+- Unity parity and focused AOT harness: `Assets/Odyssey/Client/Tests/EditMode/SerializationParityEditModeTests.cs`, `Assets/Odyssey/Client/Tests/SerializationAot/**`, `Assets/Odyssey/Client/Editor/Serialization/**`.
+- Pure .NET tests and fixtures: `DotNet/Tests/Odyssey.Tests.Unit/SerializationContractTests.cs`, `Tests/Fixtures/Serialization/**`.
+- Guards/catalog/docs: `scripts/verify-test-structure.ps1`, `scripts/test-serialization-aot.ps1`, `Tests/Metadata/test-catalog.json`, `docs/errors/ERROR_CODES.md`, this task contract, and the parent ExecPlan.
+
+### Final validation results
+
+| Command / check | Result | Evidence / notes |
+|---|---|---|
+| `powershell -NoProfile -ExecutionPolicy Bypass -File .\scripts\restore.ps1` | Passed | Final rerun passed after an earlier sandbox-only NuGet/cache access failure; restore completed successfully. |
+| `powershell -NoProfile -ExecutionPolicy Bypass -File .\scripts\verify-format.ps1` | Passed | `FORMAT-001 PASS repository text formatting checks passed`. |
+| `powershell -NoProfile -ExecutionPolicy Bypass -File .\scripts\verify-test-structure.ps1` | Passed | Architecture fixtures passed/rejected as expected; serialization guards and TC-SER/TC-DIAG catalog ownership passed. |
+| `powershell -NoProfile -ExecutionPolicy Bypass -File .\scripts\test-fast.ps1` | Passed | Build 0 warnings / 0 errors; tests passed: Contracts 1, Domain 1, Unit 62, Architecture 2; total 66, failed 0, skipped 0. |
+| `dotnet build .\DotNet\Odyssey.Core.sln --no-restore` | Passed | Solution build completed with 0 warnings / 0 errors. |
+| `dotnet test .\DotNet\Odyssey.Core.sln --no-build --no-restore` | Passed | Contracts 1, Domain 1, Unit 62, Architecture 2; total 66, failed 0, skipped 0. |
+| `powershell -NoProfile -ExecutionPolicy Bypass -File .\scripts\test-unity.ps1` | Passed | Unity `6000.4.0f1`; batch compile exit code 0; EditMode 29 passed / 0 failed / 0 skipped; PlayMode 2 passed / 0 failed / 0 skipped. |
+| `powershell -NoProfile -ExecutionPolicy Bypass -File .\scripts\test-serialization-aot.ps1` | Passed | `TC-SER-022 serialization-aot-smoke build PASS exit code 0`; `TC-DIAG-042 serialization-aot-smoke player PASS exit code 0`. |
+| `powershell -NoProfile -ExecutionPolicy Bypass -File .\scripts\verify-repository.ps1` | Passed | Repository policy, architecture guard, and SDK checks passed; selected SDK `10.0.302`. |
+| `powershell -NoProfile -ExecutionPolicy Bypass -File .\scripts\check-repository-policy.ps1` | Passed | `REPO-POLICY-001` through `REPO-POLICY-005` passed. |
+| `git diff --check` | Passed | Final rerun exited 0 with no whitespace errors after cleaning Unity-generated ProjectSettings/HDRP drift. |
+| `git diff --cached --check` | Passed | Exited 0; printed inaccessible global ignore warning only. |
+| Targeted scope assertions | Passed | `ProjectSettings/` and `Assets/Odyssey/Client/Rendering/` have no final diff; package-lock diff is limited to the approved Newtonsoft package; no ODY-S00-008/009 paths were implemented. |
+
+### Final acceptance result
+
+| Criterion | Status | Evidence |
+|---|---|---|
+| AC-1 through AC-15 | Passed | Explicit Newtonsoft streaming codecs, deterministic vectors, malformed-input guards, compatibility fixtures, diagnostic JSONL adapter, pure .NET/Unity Mono/Windows x64 IL2CPP evidence, dependency/license notices, architecture guards, and test catalog entries are implemented and validated. |
+
+### Final artifact evidence
+
+- Build identity: Not created; ODY-S00-008/009 ownership.
+- Focused AOT artifact: `artifacts/serialization-aot-smoke/serialization-aot-smoke.exe`, generated by `scripts/test-serialization-aot.ps1`; not committed.
+- Player log: `Logs/ODY-S00-007/serialization-aot-player.log`.
+- Smoke vector output: `serialization-aot-smoke PASS fp_f495646d5e0d4096e791e58d3b5516d5c10fbdb3145304ed9bfc34bd3721e813 297210561a33067f767e70b9529e758bba64d4994519a8de02f33d2de9d9308b e0279f2bcdb200315330e4f5dd32dcea99f38ad70375d516d3391fcca7fe8d8ab ab596e69df0d4a59e3940d36006edf04782c4998e8c51e66b4facd5f2d4cbf92`.
+
+### Final known limitations
+
+- The focused IL2CPP smoke proves serialization/AOT compatibility only; it is not the ODY-S00-009 Windows Development-Debug build.
+- JSONL diagnostics in this task are a narrow Persistence adapter and codec proof, not a full runtime diagnostic bundle or CI artifact.
+- `scripts/test-fast.ps1` still writes TRX evidence under the historical `Logs/ODY-S00-006/dotnet/` folder name; test results themselves are current.
+- Unity AOT validation may temporarily rewrite generated ProjectSettings/HDRP files during the run; those generated drifts were restored and the final diff has no ProjectSettings/HDRP changes.
+
+### Final self-review summary
+
+- Acceptance review: AC-1 through AC-15 are satisfied.
+- Architecture review: Domain has no serializer dependency; Newtonsoft is limited to approved Application and Unity package references; Persistence addition is the approved diagnostics adapter only.
+- Security/privacy review: codecs reject duplicate/invalid/oversized/unsupported payloads, diagnostic serialization uses safe values only, and no private data or absolute local paths are serialized into fixtures.
+- Scope review: ODY-S00-008 and ODY-S00-009 remain unstarted; no CI, BuildIdentity, SQLite, networking, gameplay, runtime composition, or Unity baseline/settings changes were added.
 
 ### Changed files / areas
 
@@ -451,7 +514,7 @@ The Newtonsoft dependency model above is APPROVED for ODY-S00-007 implementation
 
 | Criterion | Status | Evidence |
 |---|---|---|
-| AC-1 through AC-15 | Pending | Production implementation has not started. Docs-only architecture alignment scope is satisfied and ODY-S00-007 is Ready under ADR-003 v1.1. |
+| AC-1 through AC-15 | Passed | Superseded by final implementation evidence above. |
 
 ### Build and artifact evidence
 
@@ -481,7 +544,7 @@ The Newtonsoft dependency model above is APPROVED for ODY-S00-007 implementation
 - `System.Text.Json` `10.0.11` is proven compatible with the project's pure .NET bridge and Unity Editor/Mono contour, but it is not approved as an ODY-S00-007 production dependency because the current Unity `6000.4.0f1` Player compilation path has not provided a supportable dependency/reference layout that reaches the mandatory Windows x64 IL2CPP proof.
 - No further `System.Text.Json` `10.0.11` DLL-location, AutoReference, or precompiledReference experimentation is authorized under the current blocker.
 - Unity-supported legacy line research context: Unity documentation for this Unity generation identifies `System.Text.Json` `6.0.0-preview` as the supported line. No exact preview version is selected or approved, and it is not the new baseline. Exact version selection plus maintenance/security acceptability require a separate owner architectural decision.
-- Owner selected and approved the ADR-003 v1.1 direction: explicit hand-written Newtonsoft streaming codecs preserving determinism, canonical JSON, versioned DTOs, AOT safety, fixtures, hashes, and compatibility behavior. ODY-S00-007 is Ready under this direction; no further STJ probing is authorized for this task.
+- Owner selected and approved the ADR-003 v1.1 direction: explicit hand-written Newtonsoft streaming codecs preserving determinism, canonical JSON, versioned DTOs, AOT safety, fixtures, hashes, and compatibility behavior. Production implementation is complete under this direction; no further STJ probing is authorized for this task.
 - Explicit Newtonsoft streaming feasibility result:
   - Unity package: `com.unity.nuget.newtonsoft-json@3.2.2`.
   - Newtonsoft.Json product version: `13.0.2`; AssemblyVersion `13.0.0.0`.
@@ -523,7 +586,7 @@ The Newtonsoft dependency model above is APPROVED for ODY-S00-007 implementation
 - Unity Editor/Mono `System.Text.Json` `10.0.11` feasibility passed when the coherent runtime closure and roslyn4.0 source generator were scoped to `Odyssey.Application`; `CS0534` was absent and generated-context round-trip passed without reflection fallback.
 - Windows Standalone x64 Player managed compilation failed before IL2CPP conversion because the Player compile received the `System.Text.Json.SourceGeneration` analyzer but did not receive the required STJ runtime references. Representative failures: `CS0234` for missing `System.Text.Json`, `CS0246` for missing `JsonSerializerContext`, and `CS0246` for missing `JsonSerializableAttribute` / `JsonSerializable`.
 - Blocker classification: `UNITY PLAYER MANAGED REFERENCE/GENERATOR BLOCKER`. IL2CPP conversion, native C++ compile/link, and Player runtime were not reached.
-- `System.Text.Json` `10.0.11` is not approved as a production dependency for ODY-S00-007. No exact `System.Text.Json` `6.0.0-preview` version is selected or approved. Owner approved ADR-003 v1.1 explicit Newtonsoft streaming codecs instead. ODY-S00-007 is Ready; ODY-S00-008 and ODY-S00-009 remain Draft.
+- `System.Text.Json` `10.0.11` is not approved as a production dependency for ODY-S00-007. No exact `System.Text.Json` `6.0.0-preview` version is selected or approved. Owner approved ADR-003 v1.1 explicit Newtonsoft streaming codecs instead. ODY-S00-007 implementation is complete; ODY-S00-008 and ODY-S00-009 remain Draft.
 
 ### Decisions made during execution
 

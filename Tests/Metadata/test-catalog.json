@@ -521,6 +521,278 @@
       "check": "ring buffer count and byte capacity evicts oldest events"
     },
     {
+      "testCaseId": "TC-DIAG-001",
+      "taskId": "ODY-S00-007",
+      "authority": "ADR-010; ODY-S00-007",
+      "runner": "dotnet test",
+      "path": "DotNet/Tests/Odyssey.Tests.Unit/SerializationContractTests.cs",
+      "check": "Information event serializes as LogEventV1"
+    },
+    {
+      "testCaseId": "TC-DIAG-007",
+      "taskId": "ODY-S00-007",
+      "authority": "ADR-010; ODY-S00-007",
+      "runner": "Unity EditMode",
+      "path": "Assets/Odyssey/Client/Tests/EditMode/SerializationParityEditModeTests.cs",
+      "check": "rolling JSONL writes one UTF-8 LF-delimited diagnostic record"
+    },
+    {
+      "testCaseId": "TC-DIAG-029",
+      "taskId": "ODY-S00-007",
+      "authority": "ADR-010; ODY-S00-007",
+      "runner": "Unity EditMode",
+      "path": "Assets/Odyssey/Client/Tests/EditMode/SerializationParityEditModeTests.cs",
+      "check": "rolling JSONL performs UTC date file ownership"
+    },
+    {
+      "testCaseId": "TC-DIAG-030",
+      "taskId": "ODY-S00-007",
+      "authority": "ADR-010; ODY-S00-007",
+      "runner": "Unity EditMode",
+      "path": "Assets/Odyssey/Client/Tests/EditMode/SerializationParityEditModeTests.cs",
+      "check": "rolling JSONL preserves active file during retention"
+    },
+    {
+      "testCaseId": "TC-DIAG-031",
+      "taskId": "ODY-S00-007",
+      "authority": "ADR-010; ODY-S00-007",
+      "runner": "Unity EditMode",
+      "path": "Assets/Odyssey/Client/Tests/EditMode/SerializationParityEditModeTests.cs",
+      "check": "rolling JSONL removes expired inactive files"
+    },
+    {
+      "testCaseId": "TC-DIAG-032",
+      "taskId": "ODY-S00-007",
+      "authority": "ADR-010; ODY-S00-007",
+      "runner": "Unity EditMode",
+      "path": "Assets/Odyssey/Client/Tests/EditMode/SerializationParityEditModeTests.cs",
+      "check": "rolling JSONL retention uses bounded file set semantics"
+    },
+    {
+      "testCaseId": "TC-DIAG-041",
+      "taskId": "ODY-S00-007",
+      "authority": "ADR-010; ODY-S00-007",
+      "runner": "Unity EditMode",
+      "path": "Assets/Odyssey/Client/Tests/EditMode/SerializationParityEditModeTests.cs",
+      "check": "diagnostic JSON vector parity in Unity Mono"
+    },
+    {
+      "testCaseId": "TC-DIAG-042",
+      "taskId": "ODY-S00-007",
+      "authority": "ADR-010; ADR-003; ODY-S00-007",
+      "runner": "PowerShell",
+      "path": "scripts/test-serialization-aot.ps1",
+      "check": "diagnostic JSON vector parity in Windows x64 IL2CPP player"
+    },
+    {
+      "testCaseId": "TC-DIAG-043",
+      "taskId": "ODY-S00-007",
+      "authority": "ADR-010; ADR-004; ODY-S00-007",
+      "runner": "dotnet test",
+      "path": "DotNet/Tests/Odyssey.Tests.Unit/SerializationContractTests.cs",
+      "check": "future LogEventV1 schema returns controlled compatibility failure"
+    },
+    {
+      "testCaseId": "TC-DIAG-044",
+      "taskId": "ODY-S00-007",
+      "authority": "ADR-010; ADR-004; ODY-S00-007",
+      "runner": "dotnet test",
+      "path": "DotNet/Tests/Odyssey.Tests.Unit/SerializationContractTests.cs",
+      "check": "diagnostic reader rejects duplicate JSON properties"
+    },
+    {
+      "testCaseId": "TC-SER-001",
+      "taskId": "ODY-S00-007",
+      "authority": "ADR-003; ODY-S00-007",
+      "runner": "dotnet test",
+      "path": "DotNet/Tests/Odyssey.Tests.Unit/SerializationContractTests.cs",
+      "check": "canonical UTF-8 JSON uses deterministic property order"
+    },
+    {
+      "testCaseId": "TC-SER-002",
+      "taskId": "ODY-S00-007",
+      "authority": "ADR-003; ODY-S00-007",
+      "runner": "dotnet test",
+      "path": "DotNet/Tests/Odyssey.Tests.Unit/SerializationContractTests.cs",
+      "check": "canonical payload has no BOM or trailing newline"
+    },
+    {
+      "testCaseId": "TC-SER-003",
+      "taskId": "ODY-S00-007",
+      "authority": "ADR-003; ODY-S00-007",
+      "runner": "dotnet test",
+      "path": "DotNet/Tests/Odyssey.Tests.Unit/SerializationContractTests.cs",
+      "check": "typed ID JSON vectors parse through existing value objects"
+    },
+    {
+      "testCaseId": "TC-SER-004",
+      "taskId": "ODY-S00-007",
+      "authority": "ADR-003; ADR-008; ODY-S00-007",
+      "runner": "dotnet test",
+      "path": "DotNet/Tests/Odyssey.Tests.Unit/SerializationContractTests.cs",
+      "check": "UtcInstant and enum tokens use stable canonical text"
+    },
+    {
+      "testCaseId": "TC-SER-005",
+      "taskId": "ODY-S00-007",
+      "authority": "ADR-003; ADR-002; ODY-S00-007",
+      "runner": "dotnet test",
+      "path": "DotNet/Tests/Odyssey.Tests.Unit/SerializationContractTests.cs",
+      "check": "CommandFingerprintMaterialV1 excludes CommandId and transport fields"
+    },
+    {
+      "testCaseId": "TC-SER-006",
+      "taskId": "ODY-S00-007",
+      "authority": "ADR-003; ADR-004; ODY-S00-007",
+      "runner": "dotnet test",
+      "path": "DotNet/Tests/Odyssey.Tests.Unit/SerializationContractTests.cs",
+      "check": "synthetic event payload hash mismatch returns safe failure"
+    },
+    {
+      "testCaseId": "TC-SER-007",
+      "taskId": "ODY-S00-007",
+      "authority": "ADR-003; ODY-S00-007",
+      "runner": "dotnet test",
+      "path": "DotNet/Tests/Odyssey.Tests.Unit/SerializationContractTests.cs",
+      "check": "synthetic event contract round-trips payload JSON and hash"
+    },
+    {
+      "testCaseId": "TC-SER-008",
+      "taskId": "ODY-S00-007",
+      "authority": "ADR-003; ODY-S00-007",
+      "runner": "dotnet test",
+      "path": "DotNet/Tests/Odyssey.Tests.Unit/SerializationContractTests.cs",
+      "check": "pure v1 to v2 synthetic upcaster preserves original bytes"
+    },
+    {
+      "testCaseId": "TC-SER-009",
+      "taskId": "ODY-S00-007",
+      "authority": "ADR-003; ADR-004; ODY-S00-007",
+      "runner": "dotnet test",
+      "path": "DotNet/Tests/Odyssey.Tests.Unit/SerializationContractTests.cs",
+      "check": "strict reader rejects malformed JSON and unsupported tokens"
+    },
+    {
+      "testCaseId": "TC-SER-010",
+      "taskId": "ODY-S00-007",
+      "authority": "ADR-003; ODY-S00-007",
+      "runner": "dotnet test",
+      "path": "DotNet/Tests/Odyssey.Tests.Unit/SerializationContractTests.cs",
+      "check": "duplicate property rejection"
+    },
+    {
+      "testCaseId": "TC-SER-011",
+      "taskId": "ODY-S00-007",
+      "authority": "ADR-003; ODY-S00-007",
+      "runner": "dotnet test",
+      "path": "DotNet/Tests/Odyssey.Tests.Unit/SerializationContractTests.cs",
+      "check": "trailing comma rejection"
+    },
+    {
+      "testCaseId": "TC-SER-012",
+      "taskId": "ODY-S00-007",
+      "authority": "ADR-003; ODY-S00-007",
+      "runner": "dotnet test",
+      "path": "DotNet/Tests/Odyssey.Tests.Unit/SerializationContractTests.cs",
+      "check": "comment rejection"
+    },
+    {
+      "testCaseId": "TC-SER-013",
+      "taskId": "ODY-S00-007",
+      "authority": "ADR-003; ODY-S00-007",
+      "runner": "dotnet test",
+      "path": "DotNet/Tests/Odyssey.Tests.Unit/SerializationContractTests.cs",
+      "check": "BOM and invalid UTF-8 rejection"
+    },
+    {
+      "testCaseId": "TC-SER-014",
+      "taskId": "ODY-S00-007",
+      "authority": "ADR-003; ODY-S00-007",
+      "runner": "dotnet test",
+      "path": "DotNet/Tests/Odyssey.Tests.Unit/SerializationContractTests.cs",
+      "check": "payload byte ceiling rejection"
+    },
+    {
+      "testCaseId": "TC-SER-015",
+      "taskId": "ODY-S00-007",
+      "authority": "ADR-003; ODY-S00-007",
+      "runner": "dotnet test",
+      "path": "DotNet/Tests/Odyssey.Tests.Unit/SerializationContractTests.cs",
+      "check": "invalid enum token rejection"
+    },
+    {
+      "testCaseId": "TC-SER-016",
+      "taskId": "ODY-S00-007",
+      "authority": "ADR-003; ODY-S00-007",
+      "runner": "dotnet test",
+      "path": "DotNet/Tests/Odyssey.Tests.Unit/SerializationContractTests.cs",
+      "check": "NaN and Infinity token rejection"
+    },
+    {
+      "testCaseId": "TC-SER-017",
+      "taskId": "ODY-S00-007",
+      "authority": "ADR-003; ADR-004; ODY-S00-007",
+      "runner": "dotnet test",
+      "path": "DotNet/Tests/Odyssey.Tests.Unit/SerializationContractTests.cs",
+      "check": "unsupported contract version returns compatibility failure"
+    },
+    {
+      "testCaseId": "TC-SER-018",
+      "taskId": "ODY-S00-007",
+      "authority": "ADR-003; ODY-S00-007",
+      "runner": "dotnet test",
+      "path": "DotNet/Tests/Odyssey.Tests.Unit/SerializationContractTests.cs",
+      "check": "odcamp manifest codec rejects unsafe paths"
+    },
+    {
+      "testCaseId": "TC-SER-019",
+      "taskId": "ODY-S00-007",
+      "authority": "ADR-001; ADR-003; ODY-S00-007",
+      "runner": "PowerShell",
+      "path": "scripts/verify-test-structure.ps1",
+      "check": "Domain has no Newtonsoft or serializer annotations"
+    },
+    {
+      "testCaseId": "TC-SER-020",
+      "taskId": "ODY-S00-007",
+      "authority": "ADR-003; ODY-S00-007",
+      "runner": "dotnet test",
+      "path": "DotNet/Tests/Odyssey.Tests.Unit/SerializationContractTests.cs",
+      "check": "explicit codec registry contains compile-time codec keys"
+    },
+    {
+      "testCaseId": "TC-SER-021",
+      "taskId": "ODY-S00-007",
+      "authority": "ADR-003; ADR-009; ODY-S00-007",
+      "runner": "Unity EditMode",
+      "path": "Assets/Odyssey/Client/Tests/EditMode/SerializationParityEditModeTests.cs",
+      "check": "serialization vector parity in Unity Mono"
+    },
+    {
+      "testCaseId": "TC-SER-022",
+      "taskId": "ODY-S00-007",
+      "authority": "ADR-003; ADR-009; ODY-S00-007",
+      "runner": "PowerShell",
+      "path": "scripts/test-serialization-aot.ps1",
+      "check": "serialization vector parity in Windows x64 IL2CPP player"
+    },
+    {
+      "testCaseId": "TC-SER-023",
+      "taskId": "ODY-S00-007",
+      "authority": "ADR-003; ODY-S00-007",
+      "runner": "dotnet test",
+      "path": "DotNet/Tests/Odyssey.Tests.Unit/SerializationContractTests.cs",
+      "check": "approved Newtonsoft streaming codec smoke uses no automatic object mapping"
+    },
+    {
+      "testCaseId": "TC-SER-024",
+      "taskId": "ODY-S00-007",
+      "authority": "ADR-001; ADR-003; ODY-S00-007",
+      "runner": "PowerShell",
+      "path": "scripts/verify-test-structure.ps1",
+      "check": "Application is the only bridge project with approved Newtonsoft PackageReference"
+    },
+    {
       "testCaseId": "TC-UNITY-SHELL-001",
       "taskId": "ODY-S00-006",
       "authority": "ADR-005; ADR-009; ODY-S00-006 AC-5/AC-6",

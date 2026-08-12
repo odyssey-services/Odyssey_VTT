@@ -8,6 +8,7 @@
   "dependencies": {
     "com.odyssey.domain": "0.1.0",
     "com.odyssey.rules": "0.1.0",
-    "com.odyssey.content": "0.1.0"
+    "com.odyssey.content": "0.1.0",
+    "com.unity.nuget.newtonsoft-json": "3.2.2"
   }
 }
