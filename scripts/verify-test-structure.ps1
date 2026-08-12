@@ -175,6 +175,15 @@ function Assert-SetEquals([System.Collections.Generic.List[string]] $Errors, [st
     }
 }
 
+function Write-StructureErrors([System.Collections.Generic.List[string]] $Errors) {
+    if ($env:ODYSSEY_VERIFY_TEST_STRUCTURE_RAW_ERRORS -eq '1') {
+        $Errors | ForEach-Object { [Console]::Error.WriteLine($_) }
+        return
+    }
+
+    $Errors | ForEach-Object { Write-Error $_ }
+}
+
 function Test-StableExactVersion([string] $Version) {
     return $Version -match '^[0-9]+(\.[0-9]+){2}$'
 }
@@ -1020,22 +1029,58 @@ function Set-FixtureDuplicateCatalogOwnership([string] $FixtureRoot) {
 }
 
 function Invoke-GuardFixture([string] $FixtureRoot) {
-    $previousErrorActionPreference = $ErrorActionPreference
-    $ErrorActionPreference = 'Continue'
-    $output = & powershell -NoProfile -ExecutionPolicy Bypass -File $PSCommandPath -RootPath $FixtureRoot -SkipNegativeFixture 2>&1
-    $exitCode = $LASTEXITCODE
-    $ErrorActionPreference = $previousErrorActionPreference
+    $powershellPath = (Get-Command powershell.exe -ErrorAction Stop).Source
+    $escapedScriptPath = $PSCommandPath.Replace("'", "''")
+    $escapedFixtureRoot = $FixtureRoot.Replace("'", "''")
+    $command = @"
+`$env:ODYSSEY_VERIFY_TEST_STRUCTURE_RAW_ERRORS = '1'
+& '$escapedScriptPath' -RootPath '$escapedFixtureRoot' -SkipNegativeFixture
+exit `$LASTEXITCODE
+"@
+    $encodedCommand = [Convert]::ToBase64String([System.Text.Encoding]::Unicode.GetBytes($command))
+
+    $processStartInfo = New-Object System.Diagnostics.ProcessStartInfo
+    $processStartInfo.FileName = $powershellPath
+    $processStartInfo.UseShellExecute = $false
+    $processStartInfo.CreateNoWindow = $true
+    $processStartInfo.RedirectStandardOutput = $true
+    $processStartInfo.RedirectStandardError = $true
+    $processStartInfo.Arguments = @(
+        '-NoProfile',
+        '-ExecutionPolicy',
+        'Bypass',
+        '-EncodedCommand',
+        $encodedCommand
+    ) -join ' '
+
+    $process = New-Object System.Diagnostics.Process
+    $process.StartInfo = $processStartInfo
+    [void] $process.Start()
+    $stdout = $process.StandardOutput.ReadToEnd()
+    $stderr = $process.StandardError.ReadToEnd()
+    $process.WaitForExit()
+    $exitCode = $process.ExitCode
+    $process.Dispose()
+
+    $text = @($stdout, $stderr) -join "`n"
+    $output = if ([string]::IsNullOrEmpty($text)) {
+        @()
+    }
+    else {
+        @($text -split "`r?`n")
+    }
+
     return @{
         ExitCode = $exitCode
         Output = @($output)
-        Text = ($output -join "`n")
+        Text = $text
     }
 }
 
 $errors = Test-RepositoryStructure
 if ($errors.Count -gt 0) {
     Write-Host 'TC-ARCH-001 FAIL valid ADR-001 graph check failed'
-    $errors | ForEach-Object { Write-Error $_ }
+    Write-StructureErrors $errors
     exit 1
 }
 
