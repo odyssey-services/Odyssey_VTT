@@ -55,7 +55,7 @@ Deliver the complete `SLICE-00` technical skeleton: a private authoritative repo
 - Repository Foundation is complete through merged PR #1.
 - Unity Project Foundation is complete through owner-merged PR #4; merge commit `70e7d49e217d4aecb7a2e873d31787d26001f47f` records the Unity `6000.4.0f1 (8cf496087c8f)` HDRP baseline.
 - Module and Test Skeleton is complete through owner-merged PR #6; merge commit `5e6f5e03ef022c5d7b0e6fef559c2383796d95be` records the Core module/test skeleton and dual .NET/Unity test foundation.
-- ODY-S00-004 is complete through owner-merged PR #8. ODY-S00-005 is complete through owner-merged PR #9, merge commit `7aa5cc972c48d9af6509895bb6d9ed1e18899fdf`. ODY-S00-006 is complete through owner-merged PR #10, merged head `b695bc09f344a36b45adb30ed7c0186bf71902d9`, merge commit `abb139c3c93115c468d020db3eb423c47cfdd83b`, merged at `2026-08-11T18:52:47Z`. ODY-S00-007 is the current Ready child task on `feat/ody-s00-007-serialization-aot-compatibility-spike`.
+- ODY-S00-004 is complete through owner-merged PR #8. ODY-S00-005 is complete through owner-merged PR #9, merge commit `7aa5cc972c48d9af6509895bb6d9ed1e18899fdf`. ODY-S00-006 is complete through owner-merged PR #10, merged head `b695bc09f344a36b45adb30ed7c0186bf71902d9`, merge commit `abb139c3c93115c468d020db3eb423c47cfdd83b`, merged at `2026-08-11T18:52:47Z`. ODY-S00-007 is the current In Review child task in Draft PR #11 (https://github.com/odyssey-services/Odyssey_VTT/pull/11), audited implementation HEAD `224813d24823082fb539df1317c93bbff8dde2d6`, independent audit result `GO FOR DRAFT PR`.
 
 ### Assumptions
 
@@ -266,7 +266,7 @@ All additional dependencies require a child task update and explicit approval be
 
 ### Follow-up tasks
 
-- `ODY-S00-007` through `ODY-S00-010`; ODY-S00-001 through ODY-S00-006 are completed, and ODY-S00-007 is Ready under ADR-003 v1.1 explicit Newtonsoft streaming codec architecture.
+- `ODY-S00-007` through `ODY-S00-010`; ODY-S00-001 through ODY-S00-006 are completed, and ODY-S00-007 is In Review in Draft PR #11 under ADR-003 v1.1 explicit Newtonsoft streaming codec architecture.
 - ADR-010 diagnostic session/bundle scenarios `TC-DIAG-033`, `TC-DIAG-034`, `TC-DIAG-035`, `TC-DIAG-036`, `TC-DIAG-037`, `TC-DIAG-038`, `TC-DIAG-039`, and `TC-DIAG-040` are future ODY-S00-008 scope after BuildIdentity exists; ODY-S00-010 remains final reconciliation, not an implementation task.
 
 ### Self-review summary
@@ -281,8 +281,8 @@ All additional dependencies require a child task update and explicit approval be
 
 ### Blockers
 
-- ODY-S00-001 through ODY-S00-006 are complete. ODY-S00-007 is Ready after owner accepted ADR-003 v1.1 explicit Newtonsoft streaming codec architecture. System.Text.Json 10.0.11 evidence remains discovery context, not the production decision.
-- ODY-S00-008 remains Draft and is the future owner for `TC-DIAG-033`, `TC-DIAG-034`, `TC-DIAG-035`, `TC-DIAG-036`, `TC-DIAG-037`, `TC-DIAG-038`, `TC-DIAG-039`, and `TC-DIAG-040` after BuildIdentity is available.
+- ODY-S00-001 through ODY-S00-006 are complete. ODY-S00-007 is In Review in Draft PR #11 after implementation and independent audit result `GO FOR DRAFT PR`; no active ODY-S00-007 implementation blocker remains. System.Text.Json 10.0.11 evidence remains discovery context, not the production decision.
+- ODY-S00-008 remains Draft and may not start before owner merge plus separate closure/activation work. It remains the future owner for `TC-DIAG-033`, `TC-DIAG-034`, `TC-DIAG-035`, `TC-DIAG-036`, `TC-DIAG-037`, `TC-DIAG-038`, `TC-DIAG-039`, and `TC-DIAG-040` after BuildIdentity is available.
 
 ### Decisions made during execution
 

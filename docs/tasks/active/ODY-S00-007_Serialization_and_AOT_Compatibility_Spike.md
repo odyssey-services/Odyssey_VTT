@@ -5,7 +5,7 @@
 **Owner:** Codex
 **Requested by:** Product owner
 **Branch:** `feat/ody-s00-007-serialization-aot-compatibility-spike`
-**Pull request:** Not opened
+**Pull request:** Draft PR #11 - https://github.com/odyssey-services/Odyssey_VTT/pull/11
 **ExecPlan:** `docs/plans/active/ODY-S00-000_SLICE_00_Technical_Skeleton.md`
 **Created:** 2026-08-11
 **Last updated:** 2026-08-12
@@ -395,14 +395,26 @@ The Newtonsoft dependency model above is APPROVED for ODY-S00-007 implementation
 - [x] No unapproved dependency, tool, GitHub Action, Unity package/version, or license was introduced.
 - [x] Documentation is updated only where materially required.
 - [x] Codex/developer performed a self-review against this task and `AGENTS.md`.
-- [ ] Pull request explains contract changes, evidence, limitations, and follow-up work.
+- [x] Pull request explains contract changes, evidence, limitations, and follow-up work.
 - [ ] Product owner or authorized reviewer completes required review; Codex does not merge into `main`.
 
 ## 17. Completion evidence
 
+### Draft PR metadata snapshot - 2026-08-12
+
+- Pull request: Draft PR #11 - https://github.com/odyssey-services/Odyssey_VTT/pull/11.
+- PR created: 2026-08-12T12:34:07Z.
+- Initial PR head: `224813d24823082fb539df1317c93bbff8dde2d6`.
+- Independent pre-PR audit time: 2026-08-12 14:19 Europe/Berlin.
+- Audited implementation HEAD: `224813d24823082fb539df1317c93bbff8dde2d6`.
+- Audit result: GO FOR DRAFT PR.
+- Audit validation summary: .NET 69/69 passed; Unity EditMode 31/31 passed; Unity PlayMode 2/2 passed; IL2CPP build exit 0; Player exit 0; exact vector comparison PASS.
+- Audit scope result: generated seven-file Unity ProjectSettings/HDRP drift was restored; no audit correction commit was required.
+- Current follow-up: product-owner review of Draft PR #11. Owner review/merge remains incomplete; ODY-S00-008 and ODY-S00-009 remain Draft and unstarted.
+
 ### Final implementation snapshot - 2026-08-12
 
-- Status: ODY-S00-007 implementation complete and ready for owner review; no PR is opened.
+- Status: ODY-S00-007 implementation complete and in Draft PR #11 for owner review.
 - Dependency model implemented: Unity `com.unity.nuget.newtonsoft-json@3.2.2`; pure .NET `Newtonsoft.Json 13.0.2`; Newtonsoft.Json AssemblyVersion `13.0.0.0`; `THIRD_PARTY_NOTICES.md` updated.
 - Production ownership: explicit deterministic streaming codecs live in `Odyssey.Application`; a narrow JSONL diagnostics adapter lives in `Odyssey.Persistence`; `Odyssey.Domain` remains serializer-free.
 - Serialization behavior implemented: explicit contract keys/versions, canonical UTF-8 JSON, parser limits, duplicate-property rejection, unsupported-version rejection, stable SHA-256 payload hashes, stable command fingerprint material, v1-to-v2 synthetic payload upcast, manifest fixture codec, and explicit diagnostic log codec.
@@ -575,18 +587,18 @@ The Newtonsoft dependency model above is APPROVED for ODY-S00-007 implementation
   - SHA-256: `75efac616f7b29a8aa2c9690dcdf85fae122848125092b81ac4443958baa7e68`.
 - All feasibility probes ended with ProjectSettings restored, `Odyssey.Application.asmdef` restored, temporary runtime DLLs/analyzer/probe source/meta removed, external build outputs removed, repository clean, and no permanent dependency changes.
 
-### Follow-up tasks
+### Historical activation follow-up
 
-- Resolve the Unity Player managed reference/generator blocker through an owner-approved architecture/toolchain direction before approving any serialization dependency or starting ODY-S00-007 production implementation.
+- Historical pre-implementation follow-up was superseded by owner approval of ADR-003 v1.1 explicit Newtonsoft streaming codecs and the completed ODY-S00-007 implementation. Current follow-up is product-owner review of Draft PR #11.
 - ODY-S00-008 BuildIdentity/CI and ODY-S00-009 Windows Development-Debug artifact remain deferred.
 
-### Self-review summary
+### Historical activation self-review summary
 
-- Scope review: Activation-only contract; no production or test serialization implementation.
-- Architecture review: Contract preserves ADR-001 ownership and does not grant Domain serializer dependencies.
-- Test review: TestCase IDs are reserved/proposed without modifying tests yet.
-- Security/privacy review: Fixture and diagnostic redaction requirements are explicit.
-- Documentation/version review: No ADR, Technical Baseline, application/schema/format/protocol/ruleset, package, or Unity baseline change is authorized.
+- Historical activation-only scope review: no production or test serialization implementation was included in the activation commit.
+- Architecture review: Contract preserved ADR-001 ownership and did not grant Domain serializer dependencies.
+- Test review: TestCase IDs were reserved/proposed before implementation evidence was added.
+- Security/privacy review: Fixture and diagnostic redaction requirements were explicit.
+- Documentation/version review: No ADR, Technical Baseline, application/schema/format/protocol/ruleset, package, or Unity baseline change was authorized in the activation-only step.
 
 ## 18. Blockers, decisions, and change control
 

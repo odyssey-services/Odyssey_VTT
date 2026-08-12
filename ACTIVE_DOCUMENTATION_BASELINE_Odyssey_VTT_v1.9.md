@@ -81,7 +81,7 @@ docs/adr/ADR-010_Logging_Diagnostics_and_Redaction_v1.1.md
 
 `docs/adr/ADR-010_Logging_Diagnostics_and_Redaction_v1.1.md` is the active authority for logging, diagnostics, and redaction. It preserves ADR-010 v1.0 semantics while routing `LogEventV1` JSON through ADR-003 v1.1 explicit DiagnosticJson codecs.
 
-`docs/tasks/active/ODY-S00-007_Serialization_and_AOT_Compatibility_Spike.md` is the current active child task. It is Ready for production implementation under the explicit Newtonsoft streaming codec architecture. It may add the approved pinned serialization dependencies only in the implementation commit, with licensing notices, architecture guards, and .NET / Unity Mono / Windows x64 IL2CPP evidence. It must not start ODY-S00-008 or ODY-S00-009.
+`docs/tasks/active/ODY-S00-007_Serialization_and_AOT_Compatibility_Spike.md` is the current active child task. Production implementation is complete, the independent pre-PR audit passed with result `GO FOR DRAFT PR`, and Draft PR #11 is open at https://github.com/odyssey-services/Odyssey_VTT/pull/11. Status is `In Review`; audited implementation HEAD is `224813d24823082fb539df1317c93bbff8dde2d6`. ODY-S00-008 and ODY-S00-009 remain unstarted / Draft. Owner review and owner-controlled merge are still required.
 
 # 5. Non-Normative Files
 
