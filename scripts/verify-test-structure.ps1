@@ -34,6 +34,19 @@ $allowed = @{
 }
 
 $coreBridgeModules = @('Odyssey.Domain', 'Odyssey.Rules', 'Odyssey.Content', 'Odyssey.Application')
+$approvedExternalPackageDependencies = @{
+    'com.odyssey.application' = @{
+        'com.unity.nuget.newtonsoft-json' = '3.2.2'
+    }
+}
+$approvedExternalAsmdefReferences = @{
+    'Odyssey.Application' = @('Unity.Newtonsoft.Json')
+}
+$approvedBridgePackageReferences = @{
+    'Odyssey.Application' = @{
+        'Newtonsoft.Json' = '$(NewtonsoftJsonVersion)'
+    }
+}
 $requiredTestCaseIds = @(
     'TC-ARCH-001',
     'TC-ARCH-002',
@@ -97,8 +110,42 @@ $requiredTestCaseIds = @(
     'TC-DIAG-026',
     'TC-DIAG-027',
     'TC-DIAG-028',
+    'TC-DIAG-001',
+    'TC-DIAG-007',
+    'TC-DIAG-029',
+    'TC-DIAG-030',
+    'TC-DIAG-031',
+    'TC-DIAG-032',
+    'TC-DIAG-041',
+    'TC-DIAG-042',
+    'TC-DIAG-043',
+    'TC-DIAG-044',
     'TC-DIAG-046',
     'TC-DIAG-051',
+    'TC-SER-001',
+    'TC-SER-002',
+    'TC-SER-003',
+    'TC-SER-004',
+    'TC-SER-005',
+    'TC-SER-006',
+    'TC-SER-007',
+    'TC-SER-008',
+    'TC-SER-009',
+    'TC-SER-010',
+    'TC-SER-011',
+    'TC-SER-012',
+    'TC-SER-013',
+    'TC-SER-014',
+    'TC-SER-015',
+    'TC-SER-016',
+    'TC-SER-017',
+    'TC-SER-018',
+    'TC-SER-019',
+    'TC-SER-020',
+    'TC-SER-021',
+    'TC-SER-022',
+    'TC-SER-023',
+    'TC-SER-024',
     'TC-UNITY-SHELL-001'
 )
 $testProjects = @('Odyssey.Tests.Unit', 'Odyssey.Tests.Domain', 'Odyssey.Tests.Contracts', 'Odyssey.Tests.Architecture')
@@ -175,6 +222,15 @@ function Assert-SetEquals([System.Collections.Generic.List[string]] $Errors, [st
     }
 }
 
+function Write-StructureErrors([System.Collections.Generic.List[string]] $Errors) {
+    if ($env:ODYSSEY_VERIFY_TEST_STRUCTURE_RAW_ERRORS -eq '1') {
+        $Errors | ForEach-Object { [Console]::Error.WriteLine($_) }
+        return
+    }
+
+    $Errors | ForEach-Object { Write-Error $_ }
+}
+
 function Test-StableExactVersion([string] $Version) {
     return $Version -match '^[0-9]+(\.[0-9]+){2}$'
 }
@@ -198,9 +254,24 @@ function Get-PackageReferences([string] $AssemblyName) {
             if ([string]::IsNullOrWhiteSpace($dependency)) {
                 continue
             }
-            $moduleName = ($modulePackages.GetEnumerator() | Where-Object { $_.Value -eq $dependency }).Key
+            $moduleName = $null
+            foreach ($entry in $modulePackages.GetEnumerator()) {
+                if ($entry.Value -eq $dependency) {
+                    $moduleName = $entry.Key
+                    break
+                }
+            }
             if (-not $moduleName) {
-                throw "Unexpected package dependency '$dependency' in Packages/$packageName/package.json."
+                if ($packageName -ne 'com.odyssey.application' -or $dependency -ne 'com.unity.nuget.newtonsoft-json') {
+                    throw "Unexpected package dependency '$dependency' in Packages/$packageName/package.json."
+                }
+
+                $dependencyVersion = [string] $dependencyProperty.Value
+                if ($dependencyVersion -ne '3.2.2') {
+                    throw "External package dependency version mismatch in Packages/$packageName/package.json: $dependency=$dependencyVersion, expected 3.2.2."
+                }
+
+                continue
             }
             $dependencyVersion = [string] $dependencyProperty.Value
             $targetPackageName = $modulePackages[$moduleName]
@@ -242,6 +313,10 @@ function Get-AsmdefReferences([string] $AssemblyName, [string] $AsmdefPath, [boo
         if ($reference -like 'GUID:*') {
             throw "GUID asmdef reference is not allowed in $(Get-RelativePath $AsmdefPath)."
         }
+        if ($AssemblyName -eq 'Odyssey.Application' -and $reference -eq 'Unity.Newtonsoft.Json') {
+            continue
+        }
+
         if ($reference -notin $allowed.Keys) {
             throw "Unexpected asmdef reference '$reference' in $(Get-RelativePath $AsmdefPath)."
         }
@@ -322,8 +397,26 @@ function Test-BridgeProject([System.Collections.Generic.List[string]] $Errors, [
         }
 
         $packageRefs = @($xml.SelectNodes('//PackageReference'))
-        if ($packageRefs.Count -ne 0) {
-            $Errors.Add("$projectName must not contain PackageReference entries.")
+        $approvedPackages = @{}
+        if ($approvedBridgePackageReferences.ContainsKey($Module)) {
+            $approvedPackages = $approvedBridgePackageReferences[$Module]
+        }
+
+        if ($packageRefs.Count -ne $approvedPackages.Count) {
+            $Errors.Add("$projectName PackageReference count mismatch. Expected $($approvedPackages.Count), actual $($packageRefs.Count).")
+        }
+
+        foreach ($packageRef in $packageRefs) {
+            $packageName = [string] $packageRef.Include
+            $version = [string] $packageRef.Version
+            if (-not $approvedPackages.ContainsKey($packageName)) {
+                $Errors.Add("$projectName has unapproved PackageReference $packageName.")
+                continue
+            }
+
+            if ($version -ne $approvedPackages[$packageName]) {
+                $Errors.Add("$projectName PackageReference $packageName must use Version=`"$($approvedPackages[$packageName])`", got `"$version`".")
+            }
         }
 
         $compileIncludes = @($xml.SelectNodes('//Compile') | ForEach-Object { $_.Include.Replace('\', '/') })
@@ -356,6 +449,11 @@ function Test-CentralPackageVersions([System.Collections.Generic.List[string]] $
     $propsPath = Join-Path $RootPath 'Directory.Build.props'
     try {
         $xml = Read-XmlFile $propsPath
+        $useArtifactsOutput = [string] $xml.Project.PropertyGroup.UseArtifactsOutput
+        if ($useArtifactsOutput -ne 'true') {
+            $Errors.Add("Directory.Build.props UseArtifactsOutput must be true, got $useArtifactsOutput.")
+        }
+
         foreach ($packageName in $testPackageVersions.Keys) {
             $propertyName = $testPackageVersions[$packageName].Property
             $expectedVersion = $testPackageVersions[$packageName].Version
@@ -363,6 +461,11 @@ function Test-CentralPackageVersions([System.Collections.Generic.List[string]] $
             if ($propertyValue -ne $expectedVersion) {
                 $Errors.Add("Directory.Build.props $propertyName must be $expectedVersion, got $propertyValue.")
             }
+        }
+
+        $newtonsoftJsonVersion = [string] $xml.Project.PropertyGroup.NewtonsoftJsonVersion
+        if ($newtonsoftJsonVersion -ne '13.0.2') {
+            $Errors.Add("Directory.Build.props NewtonsoftJsonVersion must be 13.0.2, got $newtonsoftJsonVersion.")
         }
     }
     catch {
@@ -460,6 +563,42 @@ function Test-ForbiddenGlobalApis([System.Collections.Generic.List[string]] $Err
             foreach ($entry in $forbiddenApiPatterns.GetEnumerator()) {
                 if ($text -match $entry.Value) {
                     $Errors.Add("Forbidden global time/random API '$($entry.Key)' in production source: $relativePath.")
+                }
+            }
+        }
+    }
+}
+
+function Test-SerializationGuards([System.Collections.Generic.List[string]] $Errors) {
+    $domainRoot = Join-Path $RootPath 'Packages/com.odyssey.domain/Runtime'
+    foreach ($source in Get-ChildItem -LiteralPath $domainRoot -Recurse -File -Filter '*.cs') {
+        $text = Get-Content -LiteralPath $source.FullName -Raw
+        if ($text -match 'Newtonsoft\.Json|System\.Text\.Json|JsonProperty|JsonConverter') {
+            $Errors.Add("Domain must not contain serializer dependency or annotations: $(Get-RelativePath $source.FullName).")
+        }
+    }
+
+    $serializationRoot = Join-Path $RootPath 'Packages/com.odyssey.application/Runtime/Serialization'
+    if (Test-Path -LiteralPath $serializationRoot) {
+        $forbidden = [ordered]@{
+            'JsonConvert.SerializeObject' = '\bJsonConvert\.SerializeObject\b'
+            'JsonConvert.DeserializeObject' = '\bJsonConvert\.DeserializeObject\b'
+            'JsonSerializer automatic mapping' = '\bJsonSerializer\s*\.\s*(Serialize|Deserialize)\b|new\s+JsonSerializer\s*\('
+            'TypeNameHandling' = '\bTypeNameHandling\b'
+            'DefaultContractResolver' = '\bDefaultContractResolver\b'
+            'JToken ToObject' = '\b(JObject|JToken)\b.*\bToObject\s*<'
+            'Type.GetType' = '\bType\.GetType\s*\('
+            'Assembly.GetAssemblies' = '\bAssembly\.GetAssemblies\s*\('
+            'Activator.CreateInstance' = '\bActivator\.CreateInstance\s*\('
+            'IServiceProvider' = '\bIServiceProvider\b'
+            'Dictionary<Type,' = 'Dictionary\s*<\s*Type\s*,'
+        }
+
+        foreach ($source in Get-ChildItem -LiteralPath $serializationRoot -Recurse -File -Filter '*.cs') {
+            $text = Get-Content -LiteralPath $source.FullName -Raw
+            foreach ($entry in $forbidden.GetEnumerator()) {
+                if ($text -match $entry.Value) {
+                    $Errors.Add("Forbidden serialization API '$($entry.Key)' in production source: $(Get-RelativePath $source.FullName).")
                 }
             }
         }
@@ -736,6 +875,7 @@ function Test-RepositoryStructure {
     Test-Cycles $asmdefGraph $errors
     Test-TestCatalog $errors
     Test-ForbiddenGlobalApis $errors
+    Test-SerializationGuards $errors
     Test-CompositionAndDiagnosticsGuards $errors
     Test-DiagnosticsEventCodeRegistry $errors
     return ,$errors
@@ -752,6 +892,9 @@ function New-FixturePackage([string] $FixtureRoot, [string] $Module, [bool] $Inv
     foreach ($dependency in $dependencyModules) {
         $dependencyLines += "    `"$($modulePackages[$dependency])`": `"0.1.0`""
     }
+    if ($Module -eq 'Odyssey.Application') {
+        $dependencyLines += '    "com.unity.nuget.newtonsoft-json": "3.2.2"'
+    }
     $dependencyBlock = '{}'
     if ($dependencyLines.Count -gt 0) {
         $dependencyBlock = "{`n$($dependencyLines -join ",`n")`n  }"
@@ -760,6 +903,9 @@ function New-FixturePackage([string] $FixtureRoot, [string] $Module, [bool] $Inv
     $referenceLines = @()
     foreach ($dependency in $dependencyModules) {
         $referenceLines += "    `"$dependency`""
+    }
+    if ($Module -eq 'Odyssey.Application') {
+        $referenceLines += '    "Unity.Newtonsoft.Json"'
     }
     $referenceBlock = '[]'
     if ($referenceLines.Count -gt 0) {
@@ -825,6 +971,15 @@ $($referenceLines -join "`n")
     }
 
     $packageName = $modulePackages[$Module]
+    $packageReferenceBlock = ''
+    if ($Module -eq 'Odyssey.Application') {
+        $packageReferenceBlock = @"
+
+  <ItemGroup>
+    <PackageReference Include="Newtonsoft.Json" Version="`$(NewtonsoftJsonVersion)" />
+  </ItemGroup>
+"@
+    }
     Write-Utf8NoBom (Join-Path $FixtureRoot "DotNet/Projects/$Module.csproj") @"
 <Project Sdk="Microsoft.NET.Sdk">
   <PropertyGroup>
@@ -832,7 +987,7 @@ $($referenceLines -join "`n")
     <AssemblyName>$Module</AssemblyName>
     <RootNamespace>$Module</RootNamespace>
     <EnableDefaultCompileItems>false</EnableDefaultCompileItems>
-  </PropertyGroup>$referenceBlock
+  </PropertyGroup>$referenceBlock$packageReferenceBlock
 
   <ItemGroup>
     <Compile Include="..\..\Packages\$packageName\Runtime\**\*.cs" />
@@ -873,9 +1028,11 @@ function New-SyntheticFixture([string] $FixtureRoot, [bool] $InvalidDomainDepend
     <LangVersion>9.0</LangVersion>
     <Nullable>enable</Nullable>
     <ImplicitUsings>disable</ImplicitUsings>
+    <UseArtifactsOutput>true</UseArtifactsOutput>
     <Deterministic>true</Deterministic>
     <ContinuousIntegrationBuild>true</ContinuousIntegrationBuild>
     <TreatWarningsAsErrors>true</TreatWarningsAsErrors>
+    <NewtonsoftJsonVersion>13.0.2</NewtonsoftJsonVersion>
     <MicrosoftNETTestSdkVersion>18.8.1</MicrosoftNETTestSdkVersion>
     <NUnitVersion>4.6.1</NUnitVersion>
     <NUnit3TestAdapterVersion>6.2.0</NUnit3TestAdapterVersion>
@@ -1014,22 +1171,58 @@ function Set-FixtureDuplicateCatalogOwnership([string] $FixtureRoot) {
 }
 
 function Invoke-GuardFixture([string] $FixtureRoot) {
-    $previousErrorActionPreference = $ErrorActionPreference
-    $ErrorActionPreference = 'Continue'
-    $output = & powershell -NoProfile -ExecutionPolicy Bypass -File $PSCommandPath -RootPath $FixtureRoot -SkipNegativeFixture 2>&1
-    $exitCode = $LASTEXITCODE
-    $ErrorActionPreference = $previousErrorActionPreference
+    $powershellPath = (Get-Command powershell.exe -ErrorAction Stop).Source
+    $escapedScriptPath = $PSCommandPath.Replace("'", "''")
+    $escapedFixtureRoot = $FixtureRoot.Replace("'", "''")
+    $command = @"
+`$env:ODYSSEY_VERIFY_TEST_STRUCTURE_RAW_ERRORS = '1'
+& '$escapedScriptPath' -RootPath '$escapedFixtureRoot' -SkipNegativeFixture
+exit `$LASTEXITCODE
+"@
+    $encodedCommand = [Convert]::ToBase64String([System.Text.Encoding]::Unicode.GetBytes($command))
+
+    $processStartInfo = New-Object System.Diagnostics.ProcessStartInfo
+    $processStartInfo.FileName = $powershellPath
+    $processStartInfo.UseShellExecute = $false
+    $processStartInfo.CreateNoWindow = $true
+    $processStartInfo.RedirectStandardOutput = $true
+    $processStartInfo.RedirectStandardError = $true
+    $processStartInfo.Arguments = @(
+        '-NoProfile',
+        '-ExecutionPolicy',
+        'Bypass',
+        '-EncodedCommand',
+        $encodedCommand
+    ) -join ' '
+
+    $process = New-Object System.Diagnostics.Process
+    $process.StartInfo = $processStartInfo
+    [void] $process.Start()
+    $stdout = $process.StandardOutput.ReadToEnd()
+    $stderr = $process.StandardError.ReadToEnd()
+    $process.WaitForExit()
+    $exitCode = $process.ExitCode
+    $process.Dispose()
+
+    $text = @($stdout, $stderr) -join "`n"
+    $output = if ([string]::IsNullOrEmpty($text)) {
+        @()
+    }
+    else {
+        @($text -split "`r?`n")
+    }
+
     return @{
         ExitCode = $exitCode
         Output = @($output)
-        Text = ($output -join "`n")
+        Text = $text
     }
 }
 
 $errors = Test-RepositoryStructure
 if ($errors.Count -gt 0) {
     Write-Host 'TC-ARCH-001 FAIL valid ADR-001 graph check failed'
-    $errors | ForEach-Object { Write-Error $_ }
+    Write-StructureErrors $errors
     exit 1
 }
 

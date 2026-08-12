@@ -257,6 +257,11 @@ namespace Odyssey.Application.Diagnostics
             return new ExceptionSummary(category, subsystem, CountInnerExceptions(exception), transient, diagnosticId);
         }
 
+        public static ExceptionSummary Rehydrate(ExceptionCategory category, SubsystemName subsystem, int innerExceptionCount, bool transient, DiagnosticId diagnosticId)
+        {
+            return new ExceptionSummary(category, subsystem, innerExceptionCount, transient, diagnosticId);
+        }
+
         private static int CountInnerExceptions(Exception exception)
         {
             int count = 0;
@@ -302,6 +307,16 @@ namespace Odyssey.Application.Diagnostics
         public static SafeLogValue Fingerprint(string value) => DiagnosticText.IsSafeFingerprint(value, 128) ? Create(DiagnosticDataClassification.OperationalSafe, SafeLogValueKind.Fingerprint, value) : throw new ArgumentException("Fingerprint is not safe.", nameof(value));
         public static SafeLogValue SanitizedPath(string value) => Create(DiagnosticDataClassification.OperationalSafe, SafeLogValueKind.SanitizedPath, PathSanitizer.Sanitize(value));
         public static SafeLogValue SanitizedEndpoint(string value) => Create(DiagnosticDataClassification.OperationalSafe, SafeLogValueKind.SanitizedEndpoint, EndpointSanitizer.Sanitize(value));
+
+        public static SafeLogValue Rehydrate(DiagnosticDataClassification classification, SafeLogValueKind kind, string renderedValue, int logicalSize, int originalScalarCount, bool wasTruncated)
+        {
+            if (renderedValue == null) throw new ArgumentNullException(nameof(renderedValue));
+            if (classification != DiagnosticDataClassification.Public && classification != DiagnosticDataClassification.OperationalSafe) throw new ArgumentException("Only safe diagnostic classifications can be rehydrated.", nameof(classification));
+            if (!Enum.IsDefined(typeof(SafeLogValueKind), kind)) throw new ArgumentOutOfRangeException(nameof(kind));
+            if (logicalSize < 0 || originalScalarCount < 0) throw new ArgumentOutOfRangeException(nameof(logicalSize));
+            if (ContainsControlCharacter(renderedValue)) throw new ArgumentException("Rendered value must not contain control characters.", nameof(renderedValue));
+            return new SafeLogValue(classification, kind, renderedValue, logicalSize, originalScalarCount, wasTruncated);
+        }
 
         public static SafeLogValue BoundedText(string value, int maxScalars = 256, DiagnosticDataClassification classification = DiagnosticDataClassification.OperationalSafe)
         {

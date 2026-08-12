@@ -1,0 +1,20 @@
+{
+  "name": "Odyssey.Tests.SerializationAot",
+  "rootNamespace": "Odyssey.Tests.SerializationAot",
+  "references": [
+    "Odyssey.Application"
+  ],
+  "includePlatforms": [
+    "WindowsStandalone64"
+  ],
+  "excludePlatforms": [],
+  "allowUnsafeCode": false,
+  "overrideReferences": false,
+  "precompiledReferences": [],
+  "autoReferenced": true,
+  "defineConstraints": [
+    "ODYSSEY_SERIALIZATION_AOT_SMOKE"
+  ],
+  "versionDefines": [],
+  "noEngineReferences": false
+}

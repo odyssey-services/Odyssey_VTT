@@ -521,6 +521,278 @@
       "check": "ring buffer count and byte capacity evicts oldest events"
     },
     {
+      "testCaseId": "TC-DIAG-001",
+      "taskId": "ODY-S00-007",
+      "authority": "ADR-010; ODY-S00-007",
+      "runner": "dotnet test",
+      "path": "DotNet/Tests/Odyssey.Tests.Unit/SerializationContractTests.cs",
+      "check": "Information event serializes as LogEventV1"
+    },
+    {
+      "testCaseId": "TC-DIAG-007",
+      "taskId": "ODY-S00-007",
+      "authority": "ADR-010; ODY-S00-007",
+      "runner": "Unity EditMode",
+      "path": "Assets/Odyssey/Client/Tests/EditMode/SerializationParityEditModeTests.cs",
+      "check": "secret fixture absent from JSONL"
+    },
+    {
+      "testCaseId": "TC-DIAG-029",
+      "taskId": "ODY-S00-007",
+      "authority": "ADR-010; ODY-S00-007",
+      "runner": "Unity EditMode",
+      "path": "Assets/Odyssey/Client/Tests/EditMode/SerializationParityEditModeTests.cs",
+      "check": "daily UTC rotation creates new file"
+    },
+    {
+      "testCaseId": "TC-DIAG-030",
+      "taskId": "ODY-S00-007",
+      "authority": "ADR-010; ODY-S00-007",
+      "runner": "Unity EditMode",
+      "path": "Assets/Odyssey/Client/Tests/EditMode/SerializationParityEditModeTests.cs",
+      "check": "10 MiB size rotation"
+    },
+    {
+      "testCaseId": "TC-DIAG-031",
+      "taskId": "ODY-S00-007",
+      "authority": "ADR-010; ODY-S00-007",
+      "runner": "Unity EditMode",
+      "path": "Assets/Odyssey/Client/Tests/EditMode/SerializationParityEditModeTests.cs",
+      "check": "retention removes oldest closed file when a limit is reached"
+    },
+    {
+      "testCaseId": "TC-DIAG-032",
+      "taskId": "ODY-S00-007",
+      "authority": "ADR-010; ODY-S00-007",
+      "runner": "Unity EditMode",
+      "path": "Assets/Odyssey/Client/Tests/EditMode/SerializationParityEditModeTests.cs",
+      "check": "active file is never deleted"
+    },
+    {
+      "testCaseId": "TC-DIAG-041",
+      "taskId": "ODY-S00-007",
+      "authority": "ADR-010; ODY-S00-007",
+      "runner": "Unity EditMode",
+      "path": "Assets/Odyssey/Client/Tests/EditMode/SerializationParityEditModeTests.cs",
+      "check": "diagnostic JSON vector parity in Unity Mono"
+    },
+    {
+      "testCaseId": "TC-DIAG-042",
+      "taskId": "ODY-S00-007",
+      "authority": "ADR-010; ADR-003; ODY-S00-007",
+      "runner": "PowerShell",
+      "path": "scripts/test-serialization-aot.ps1",
+      "check": "diagnostic JSON vector parity in Windows x64 IL2CPP player"
+    },
+    {
+      "testCaseId": "TC-DIAG-043",
+      "taskId": "ODY-S00-007",
+      "authority": "ADR-010; ADR-004; ODY-S00-007",
+      "runner": "dotnet test",
+      "path": "DotNet/Tests/Odyssey.Tests.Unit/SerializationContractTests.cs",
+      "check": "future LogEventV1 schema returns controlled compatibility failure"
+    },
+    {
+      "testCaseId": "TC-DIAG-044",
+      "taskId": "ODY-S00-007",
+      "authority": "ADR-010; ADR-004; ODY-S00-007",
+      "runner": "dotnet test",
+      "path": "DotNet/Tests/Odyssey.Tests.Unit/SerializationContractTests.cs",
+      "check": "diagnostic reader rejects duplicate JSON properties"
+    },
+    {
+      "testCaseId": "TC-SER-001",
+      "taskId": "ODY-S00-007",
+      "authority": "ADR-003; ODY-S00-007",
+      "runner": "dotnet test",
+      "path": "DotNet/Tests/Odyssey.Tests.Unit/SerializationContractTests.cs",
+      "check": "explicit Newtonsoft streaming codec baseline and centralized profiles"
+    },
+    {
+      "testCaseId": "TC-SER-002",
+      "taskId": "ODY-S00-007",
+      "authority": "ADR-003; ODY-S00-007",
+      "runner": "dotnet test",
+      "path": "DotNet/Tests/Odyssey.Tests.Unit/SerializationContractTests.cs",
+      "check": "ContractType / ContractVersion parsing and registry lookup"
+    },
+    {
+      "testCaseId": "TC-SER-003",
+      "taskId": "ODY-S00-007",
+      "authority": "ADR-003; ODY-S00-007",
+      "runner": "dotnet test",
+      "path": "DotNet/Tests/Odyssey.Tests.Unit/SerializationContractTests.cs",
+      "check": "explicit codec used without automatic object mapping"
+    },
+    {
+      "testCaseId": "TC-SER-004",
+      "taskId": "ODY-S00-007",
+      "authority": "ADR-003; ADR-008; ODY-S00-007",
+      "runner": "dotnet test",
+      "path": "DotNet/Tests/Odyssey.Tests.Unit/SerializationContractTests.cs",
+      "check": "stable typed-ID conversion"
+    },
+    {
+      "testCaseId": "TC-SER-005",
+      "taskId": "ODY-S00-007",
+      "authority": "ADR-003; ADR-002; ODY-S00-007",
+      "runner": "dotnet test",
+      "path": "DotNet/Tests/Odyssey.Tests.Unit/SerializationContractTests.cs",
+      "check": "UtcInstant conversion/validation"
+    },
+    {
+      "testCaseId": "TC-SER-006",
+      "taskId": "ODY-S00-007",
+      "authority": "ADR-003; ADR-004; ODY-S00-007",
+      "runner": "dotnet test",
+      "path": "DotNet/Tests/Odyssey.Tests.Unit/SerializationContractTests.cs",
+      "check": "stable enum token"
+    },
+    {
+      "testCaseId": "TC-SER-007",
+      "taskId": "ODY-S00-007",
+      "authority": "ADR-003; ODY-S00-007",
+      "runner": "dotnet test",
+      "path": "DotNet/Tests/Odyssey.Tests.Unit/SerializationContractTests.cs",
+      "check": "canonical UTF-8/order/BOM/whitespace/null/default"
+    },
+    {
+      "testCaseId": "TC-SER-008",
+      "taskId": "ODY-S00-007",
+      "authority": "ADR-003; ODY-S00-007",
+      "runner": "dotnet test",
+      "path": "DotNet/Tests/Odyssey.Tests.Unit/SerializationContractTests.cs",
+      "check": "duplicate/comment/trailing comma/UTF-8/BOM rejection"
+    },
+    {
+      "testCaseId": "TC-SER-009",
+      "taskId": "ODY-S00-007",
+      "authority": "ADR-003; ADR-004; ODY-S00-007",
+      "runner": "dotnet test",
+      "path": "DotNet/Tests/Odyssey.Tests.Unit/SerializationContractTests.cs",
+      "check": "max depth and byte ceilings"
+    },
+    {
+      "testCaseId": "TC-SER-010",
+      "taskId": "ODY-S00-007",
+      "authority": "ADR-003; ODY-S00-007",
+      "runner": "dotnet test",
+      "path": "DotNet/Tests/Odyssey.Tests.Unit/SerializationContractTests.cs",
+      "check": "NaN/Infinity rejection and -0 normalization where applicable"
+    },
+    {
+      "testCaseId": "TC-SER-011",
+      "taskId": "ODY-S00-007",
+      "authority": "ADR-003; ODY-S00-007",
+      "runner": "dotnet test",
+      "path": "DotNet/Tests/Odyssey.Tests.Unit/SerializationContractTests.cs",
+      "check": "stable SHA-256 golden fixture"
+    },
+    {
+      "testCaseId": "TC-SER-012",
+      "taskId": "ODY-S00-007",
+      "authority": "ADR-003; ODY-S00-007",
+      "runner": "dotnet test",
+      "path": "DotNet/Tests/Odyssey.Tests.Unit/SerializationContractTests.cs",
+      "check": "CommandFingerprintMaterialV1 exact inclusion/exclusion/order"
+    },
+    {
+      "testCaseId": "TC-SER-013",
+      "taskId": "ODY-S00-007",
+      "authority": "ADR-003; ODY-S00-007",
+      "runner": "dotnet test",
+      "path": "DotNet/Tests/Odyssey.Tests.Unit/SerializationContractTests.cs",
+      "check": "stable golden CommandFingerprint vector"
+    },
+    {
+      "testCaseId": "TC-SER-014",
+      "taskId": "ODY-S00-007",
+      "authority": "ADR-003; ODY-S00-007",
+      "runner": "dotnet test",
+      "path": "DotNet/Tests/Odyssey.Tests.Unit/SerializationContractTests.cs",
+      "check": "event canonical JSON/hash round-trip"
+    },
+    {
+      "testCaseId": "TC-SER-015",
+      "taskId": "ODY-S00-007",
+      "authority": "ADR-003; ODY-S00-007",
+      "runner": "dotnet test",
+      "path": "DotNet/Tests/Odyssey.Tests.Unit/SerializationContractTests.cs",
+      "check": "event raw fixture bytes remain unchanged"
+    },
+    {
+      "testCaseId": "TC-SER-016",
+      "taskId": "ODY-S00-007",
+      "authority": "ADR-003; ODY-S00-007",
+      "runner": "dotnet test",
+      "path": "DotNet/Tests/Odyssey.Tests.Unit/SerializationContractTests.cs",
+      "check": "pure v1->v2 upcaster AND missing-path compatibility failure"
+    },
+    {
+      "testCaseId": "TC-SER-017",
+      "taskId": "ODY-S00-007",
+      "authority": "ADR-003; ADR-004; ODY-S00-007",
+      "runner": "dotnet test",
+      "path": "DotNet/Tests/Odyssey.Tests.Unit/SerializationContractTests.cs",
+      "check": "unknown type/version/missing required field rejected"
+    },
+    {
+      "testCaseId": "TC-SER-018",
+      "taskId": "ODY-S00-007",
+      "authority": "ADR-003; ODY-S00-007",
+      "runner": "dotnet test",
+      "path": "DotNet/Tests/Odyssey.Tests.Unit/SerializationContractTests.cs",
+      "check": ".odcamp manifest/path safety/no secrets/no absolute paths"
+    },
+    {
+      "testCaseId": "TC-SER-019",
+      "taskId": "ODY-S00-007",
+      "authority": "ADR-001; ADR-003; ODY-S00-007",
+      "runner": "PowerShell",
+      "path": "scripts/verify-test-structure.ps1",
+      "check": "Domain serializer-free"
+    },
+    {
+      "testCaseId": "TC-SER-020",
+      "taskId": "ODY-S00-007",
+      "authority": "ADR-003; ODY-S00-007",
+      "runner": "dotnet test",
+      "path": "DotNet/Tests/Odyssey.Tests.Unit/SerializationContractTests.cs",
+      "check": "registry has no CLR lookup/scanning/service locator/object fallback"
+    },
+    {
+      "testCaseId": "TC-SER-021",
+      "taskId": "ODY-S00-007",
+      "authority": "ADR-003; ADR-009; ODY-S00-007",
+      "runner": "Unity EditMode",
+      "path": "Assets/Odyssey/Client/Tests/EditMode/SerializationParityEditModeTests.cs",
+      "check": "Unity Mono parity with .NET vectors"
+    },
+    {
+      "testCaseId": "TC-SER-022",
+      "taskId": "ODY-S00-007",
+      "authority": "ADR-003; ADR-009; ODY-S00-007",
+      "runner": "PowerShell",
+      "path": "scripts/test-serialization-aot.ps1",
+      "check": "Windows x64 IL2CPP parity with .NET/Mono vectors"
+    },
+    {
+      "testCaseId": "TC-SER-023",
+      "taskId": "ODY-S00-007",
+      "authority": "ADR-003; ODY-S00-007",
+      "runner": "dotnet test",
+      "path": "DotNet/Tests/Odyssey.Tests.Unit/SerializationContractTests.cs",
+      "check": "golden fixtures/hashes stable and never auto-updated"
+    },
+    {
+      "testCaseId": "TC-SER-024",
+      "taskId": "ODY-S00-007",
+      "authority": "ADR-001; ADR-003; ODY-S00-007",
+      "runner": "PowerShell",
+      "path": "scripts/verify-test-structure.ps1",
+      "check": "repository/dependency/boundary policy"
+    },
+    {
       "testCaseId": "TC-UNITY-SHELL-001",
       "taskId": "ODY-S00-006",
       "authority": "ADR-005; ADR-009; ODY-S00-006 AC-5/AC-6",

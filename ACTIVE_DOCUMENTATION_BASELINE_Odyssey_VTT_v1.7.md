@@ -3,7 +3,7 @@
 **Документ:** `ACTIVE_DOCUMENTATION_BASELINE_Odyssey_VTT_v1.7.md`  
 **Версия:** 1.7  
 **Дата:** 1 августа 2026 года  
-**Статус:** Active authority register
+**Статус:** Superseded by `ACTIVE_DOCUMENTATION_BASELINE_Odyssey_VTT_v1.8.md`, then `ACTIVE_DOCUMENTATION_BASELINE_Odyssey_VTT_v1.9.md`
 
 **Материальное изменение v1.7:** зарегистрирован `TECHNICAL_DEVELOPMENT_BASELINE_Odyssey_VTT_v0.2.md`, который фиксирует решение владельца: `odyssey-services/Odyssey_VTT` остаётся Private и является единственным authoritative code repository. Private visibility не ослабляет запрет на private product documentation, secrets и archives в Git history; дальнейшие substantive changes проходят только через branch → pull request → owner review → owner merge.
 

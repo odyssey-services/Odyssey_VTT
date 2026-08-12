@@ -12,5 +12,8 @@ namespace Odyssey.Application.Results
         public static readonly ErrorCode CommandIdentityMismatch = ErrorCode.Parse("application.command.identity_mismatch");
         public static readonly ErrorCode RandomInvalidRange = ErrorCode.Parse("application.random.invalid_range");
         public static readonly ErrorCode RandomDrawIndexMismatch = ErrorCode.Parse("application.random.draw_index_mismatch");
+        public static readonly ErrorCode SerializationInvalidPayload = ErrorCode.Parse("application.serialization.invalid_payload");
+        public static readonly ErrorCode SerializationUnsupportedContract = ErrorCode.Parse("application.serialization.unsupported_contract");
+        public static readonly ErrorCode SerializationIntegrityMismatch = ErrorCode.Parse("application.serialization.integrity_mismatch");
     }
 }

@@ -3,7 +3,7 @@
 **Документ:** `ACTIVE_DOCUMENTATION_BASELINE_Odyssey_VTT_v1.8.md`
 **Версия:** 1.8
 **Дата:** 10 августа 2026 года
-**Статус:** Active authority register
+**Статус:** Superseded by `ACTIVE_DOCUMENTATION_BASELINE_Odyssey_VTT_v1.9.md`
 
 **Материальное изменение v1.8:** принят `docs/adr/ADR-009_Unity_Project_and_Build_Baseline_v1.1.md`, который supersedes ADR-009 v1.0 only for the Unity Editor/package baseline and pins Unity `6000.4.0f1 (8cf496087c8f)` with HDRP `com.unity.render-pipelines.high-definition` `17.4.0`. Registered `TECHNICAL_DEVELOPMENT_BASELINE_Odyssey_VTT_v0.3.md`; no MVP scope, repository privacy, or architecture boundary is changed.
 
@@ -94,7 +94,7 @@ PLANS.md
 docs/tasks/TASK_TEMPLATE.md
 docs/tasks/SLICE-00_BACKLOG.md
 docs/tasks/active/ODY-S00-000_SLICE_00_Technical_Skeleton.md
-docs/tasks/active/ODY-S00-006_Runtime_Composition_and_Diagnostic_Shell.md
+docs/tasks/active/ODY-S00-007_Serialization_and_AOT_Compatibility_Spike.md
 docs/plans/active/ODY-S00-000_SLICE_00_Technical_Skeleton.md
 docs/adr/ADR-001_Module_Boundaries_and_Dependency_Direction_v1.0.md
 docs/adr/ADR-002_Command_and_Domain_Event_Model_v1.0.md
@@ -124,7 +124,7 @@ docs/adr/ADR-010_Logging_Diagnostics_and_Redaction_v1.0.md
 
 `docs/plans/active/ODY-S00-000_SLICE_00_Technical_Skeleton.md` является living ExecPlan для исполнения `SLICE-00`. Он ведёт milestones, progress, decisions, deviations, evidence, recovery и blockers; до начала разработки имеет статус Draft и не является доказательством выполнения кода или тестов.
 
-`docs/tasks/active/ODY-S00-006_Runtime_Composition_and_Diagnostic_Shell.md` является текущей active task исполнения Runtime Composition and Diagnostic Shell. Она ограничена one Unity Client production composition root, explicit process/presentation lifecycle, minimal Developer Shell, Application-owned structured diagnostics baseline, allowlisted/redacted diagnostic events, bounded in-memory diagnostic visibility, development/editor Unity Console adapter where appropriate, minimal crash marker baseline, and lifecycle/diagnostic tests; она прямо запрещает ODY-S00-007 serialization work, SQLite, real Persistence/Networking runtime, telemetry, BuildIdentity generation, GitHub Actions, Player/IL2CPP build, gameplay behavior, Unity package/version baseline changes, and any product UI commitments.
+`docs/tasks/active/ODY-S00-007_Serialization_and_AOT_Compatibility_Spike.md` is the current active task for Serialization and AOT Compatibility Spike. It is limited to ADR-003 System.Text.Json boundary DTOs, centralized serializer profiles, source-generated contexts, canonical UTF-8 JSON, parser limits, command fingerprint material, synthetic event payload hash evidence, pure upcaster spike, DiagnosticJson/LogEventV1 serialization evidence, spike-level `.odcamp` manifest fixture, and focused serialization/AOT compatibility proof; it explicitly forbids SQLite/Persistence runtime, Networking runtime, gameplay, full `.odcamp` import/export, BuildIdentity generation, GitHub Actions, ODY-S00-009 Windows Development-Debug artifact claims, Unity package/version baseline changes, and new serializer dependencies.
 
 `docs/adr/ADR-001_Module_Boundaries_and_Dependency_Direction_v1.0.md` является принятым authority по module ownership, compile-time dependency graph, ports/adapters и assembly enforcement. Его точная матрица заменяет предварительные формулировки `limited contracts` в Technical Development Baseline.
 

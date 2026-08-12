@@ -1,14 +1,17 @@
 # ODY-S00-006 - Runtime Composition and Diagnostic Shell
 
-**Status:** In Review
+**Status:** Done
 **Roadmap stage / slice:** SLICE-00
 **Owner:** Codex
 **Requested by:** Product owner
 **Branch:** `feat/ody-s00-006-runtime-composition-diagnostic-shell`
-**Pull request:** Draft PR #10 - https://github.com/odyssey-services/Odyssey_VTT/pull/10
+**Pull request:** PR #10 - https://github.com/odyssey-services/Odyssey_VTT/pull/10 (owner-merged)
 **ExecPlan:** `docs/plans/active/ODY-S00-000_SLICE_00_Technical_Skeleton.md`
 **Created:** 2026-08-11
-**Last updated:** 2026-08-11 14:15 UTC
+**Last updated:** 2026-08-11 18:52 UTC
+**Merged head:** `b695bc09f344a36b45adb30ed7c0186bf71902d9`
+**Merge commit:** `abb139c3c93115c468d020db3eb423c47cfdd83b`
+**Merged at:** 2026-08-11T18:52:47Z
 
 ## 1. Goal
 
@@ -131,7 +134,7 @@ scripts/test-fast.ps1
 scripts/test-unity.ps1
 scripts/verify-repository.ps1
 scripts/check-repository-policy.ps1
-docs/tasks/active/ODY-S00-006_Runtime_Composition_and_Diagnostic_Shell.md
+docs/tasks/completed/ODY-S00-006_Runtime_Composition_and_Diagnostic_Shell.md
 docs/tasks/completed/ODY-S00-005_Command_Event_Clock_and_RNG_Contracts.md
 docs/tasks/active/ODY-S00-000_SLICE_00_Technical_Skeleton.md
 docs/plans/active/ODY-S00-000_SLICE_00_Technical_Skeleton.md
@@ -400,7 +403,7 @@ No new dependency, package, GitHub Action, executable, or downloadable tool is a
 - [x] Documentation is updated only where materially required.
 - [x] Codex/developer performed a self-review against this task and `AGENTS.md`.
 - [x] Pull request explains changes, evidence, limitations, and follow-up work.
-- [ ] Product owner or authorized reviewer completes the required review; Codex does not merge into `main`.
+- [x] Product owner or authorized reviewer completes the required review; Codex does not merge into `main`.
 
 ## 17. Completion evidence
 
@@ -485,12 +488,13 @@ No new dependency, package, GitHub Action, executable, or downloadable tool is a
 
 ### Blockers
 
-- None for activation. Implementation requires separate owner approval after this contract is reviewed.
+- None. PR #10 was owner-reviewed and owner-merged.
 
 ### Decisions made during execution
 
 - 2026-08-11 - Activate ODY-S00-006 only after owner merge of ODY-S00-005 PR #9; do not begin production implementation in the activation commit - Authority / approval: product owner instruction.
 - 2026-08-11 - BuildId must remain unavailable/not-yet-composed until ODY-S00-008 instead of using a fabricated version string - Authority / approval: product owner instruction and ADR-007/ADR-010 sequencing.
+- 2026-08-11 - Owner merged PR #10 for ODY-S00-006 with merge commit `abb139c3c93115c468d020db3eb423c47cfdd83b`; manual interactive Editor validation remains Not Run and automated PlayMode validation remains Passed - Authority / approval: product owner merge record.
 
 ### Approved task changes
 

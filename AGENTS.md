@@ -15,7 +15,7 @@ Use sources in this order:
 1. Explicit current decision from the product owner in the task.
 2. `ACTIVE_DOCUMENTATION_BASELINE_Odyssey_VTT_*.md`.
 3. Accepted ADR for the technical question.
-4. `TECHNICAL_DEVELOPMENT_BASELINE_Odyssey_VTT_v0.3.md`.
+4. `TECHNICAL_DEVELOPMENT_BASELINE_Odyssey_VTT_v0.4.md`.
 5. Task-specific requirement excerpts and acceptance criteria.
 6. Public subsystem documentation explicitly named by the task.
 7. Product Requirements, MVP Scope, Domain Model, Vision, Roadmap, Test Strategy.
@@ -124,17 +124,21 @@ Follow ADR-002.
 
 ## 7. Serialization and persistence boundaries
 
-Follow ADR-003.
+Follow ADR-003 v1.1.
 
-- Use `System.Text.Json` with explicit, versioned DTOs and source-generated contexts for production contracts.
+- Use explicit, versioned DTOs for production contracts.
+- Release-critical JSON uses explicit hand-written codecs backed by pinned Newtonsoft.Json low-level streaming primitives approved by ADR-003 v1.1.
+- Do not use Newtonsoft automatic object serialization, `JsonConvert`, `TypeNameHandling`, reflection contract discovery, runtime type discovery, or arbitrary object graph deserialization for release-critical contracts.
+- Do not add serializer annotations to Domain types.
 - Do not serialize Domain aggregates directly as file, database, or network contracts.
 - Do not use CLR type or assembly names as contract identifiers.
 - Keep database schema, event payload, network protocol, manifest, and application versions independent.
 - Persist old event payloads unchanged; read them through pure upcasters.
 - Use SQLite constraints and typed columns for searchable/invariant data; JSON is not a replacement for relational integrity.
 - Do not embed binary assets as base64 JSON.
+- Canonical JSON and compatibility vectors are mandatory where bytes feed fingerprints, hashes, persistence, interchange, diagnostics, or parity evidence.
 - Enforce input size, depth, count, duplicate-property, checksum, and compatibility limits.
-- Serialization must pass Mono, pure .NET, and Windows IL2CPP compatibility tests where applicable.
+- Serialization must pass pure .NET, Unity Mono, and Windows IL2CPP compatibility tests where applicable.
 
 ## 8. Result and error model
 
@@ -208,7 +212,7 @@ Follow ADR-009.
 
 The authoritative repository is Private and the code is All Rights Reserved.
 
-- Do not add a production or development dependency, GitHub Action, executable, or downloadable tool unless the task explicitly allows it or an ADR approves it.
+- Do not add a production or development dependency, GitHub Action, executable, or downloadable tool unless the task explicitly allows it or an ADR approves it. The ADR-003 v1.1 Newtonsoft.Json serialization baseline is approved only at the exact pinned versions and still requires task-scoped dependency/license updates when implemented.
 - Allowed licenses by default: MIT, BSD, Apache-2.0, Unity Companion License.
 - GPL, AGPL, unclear, custom-restrictive, or incompatible licenses require explicit owner approval.
 - Update `THIRD_PARTY_NOTICES.md` for every accepted third-party dependency.

@@ -215,6 +215,18 @@ namespace Odyssey.Unity.Client
         public long DroppedDebugCount { get { lock (_gate) return _droppedDebug; } }
         public long DroppedInformationCount { get { lock (_gate) return _droppedInformation; } }
         public long DroppedLowerPriorityCount => DroppedTraceCount + DroppedDebugCount + DroppedInformationCount;
+        public IReadOnlyList<string> SinkNames
+        {
+            get
+            {
+                lock (_gate)
+                {
+                    string[] names = new string[_sinks.Count];
+                    for (int index = 0; index < _sinks.Count; index++) names[index] = _sinks[index].Name;
+                    return names;
+                }
+            }
+        }
 
         public bool IsEnabled(LogLevel level, EventCode eventCode)
         {

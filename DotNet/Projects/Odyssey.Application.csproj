@@ -13,6 +13,10 @@
   </ItemGroup>
 
   <ItemGroup>
+    <PackageReference Include="Newtonsoft.Json" Version="$(NewtonsoftJsonVersion)" />
+  </ItemGroup>
+
+  <ItemGroup>
     <Compile Include="..\..\Packages\com.odyssey.application\Runtime\**\*.cs" />
   </ItemGroup>
 </Project>
