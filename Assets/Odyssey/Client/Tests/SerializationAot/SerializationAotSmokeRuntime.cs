@@ -19,7 +19,7 @@ namespace Odyssey.Tests.SerializationAot
                 return;
             }
 
-            Debug.Log("serialization-aot-smoke PASS " + result.Value.Fingerprint + " " + result.Value.PayloadHash + " " + result.Value.DiagnosticHash + " " + result.Value.ManifestHash);
+            Debug.Log("serialization-aot-smoke PASS payloadHash=" + result.Value.PayloadHash + " fingerprint=" + result.Value.Fingerprint + " diagnosticHash=" + result.Value.DiagnosticHash + " manifestHash=" + result.Value.ManifestHash);
             UnityApplication.Quit(0);
         }
     }

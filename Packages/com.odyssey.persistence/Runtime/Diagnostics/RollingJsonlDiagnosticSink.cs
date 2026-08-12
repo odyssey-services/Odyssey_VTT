@@ -52,7 +52,8 @@ namespace Odyssey.Persistence.Diagnostics
                 byte[] newline = Encoding.UTF8.GetBytes("\n");
                 FileInfo activeFile = new FileInfo(_activePath!);
                 long currentLength = activeFile.Exists ? activeFile.Length : 0;
-                long projected = currentLength + payload.Bytes.Length + newline.Length;
+                byte[] payloadBytes = payload.Bytes;
+                long projected = currentLength + payloadBytes.Length + newline.Length;
                 if (projected > MaxFileBytes)
                 {
                     _activeSequence++;
@@ -60,7 +61,7 @@ namespace Odyssey.Persistence.Diagnostics
                 }
 
                 using FileStream stream = new FileStream(_activePath!, FileMode.Append, FileAccess.Write, FileShare.Read);
-                stream.Write(payload.Bytes, 0, payload.Bytes.Length);
+                stream.Write(payloadBytes, 0, payloadBytes.Length);
                 stream.Write(newline, 0, newline.Length);
                 ApplyRetention();
             }
@@ -98,8 +99,19 @@ namespace Odyssey.Persistence.Diagnostics
         {
             if (_activePath != null && _activeDateUtc == utcDate && File.Exists(_activePath)) return;
             _activeDateUtc = utcDate;
-            _activeSequence = 0;
+            _activeSequence = FindNewProcessSequence(utcDate);
             _activePath = CreatePath(utcDate, _activeSequence);
+        }
+
+        private int FindNewProcessSequence(DateTime utcDate)
+        {
+            int sequence = 0;
+            while (File.Exists(CreatePath(utcDate, sequence)))
+            {
+                sequence++;
+            }
+
+            return sequence;
         }
 
         private string CreatePath(DateTime utcDate, int sequence)

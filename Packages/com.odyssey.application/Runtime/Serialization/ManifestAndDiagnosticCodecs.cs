@@ -1,5 +1,9 @@
 using System;
 using System.Collections.Generic;
+using System.Globalization;
+using System.IO;
+using System.Text;
+using Newtonsoft.Json;
 using Odyssey.Application.Commands;
 using Odyssey.Application.Diagnostics;
 using Odyssey.Application.Identity;
@@ -65,6 +69,8 @@ namespace Odyssey.Application.Serialization
         {
             Result<JsonObjectReader> reader = JsonObjectReader.Read(utf8Json, JsonPayloadLimits.ManifestBytes);
             if (reader.IsFailure) return Result<OdcampManifestV1>.Failure(reader.Error);
+            Result schema = reader.Value.EnsureOnly("contractType", "contractVersion", "manifestId", "displayName", "relativeAssetPath");
+            if (schema.IsFailure) return Result<OdcampManifestV1>.Failure(schema.Error);
             Result<string> type = reader.Value.RequiredString("contractType");
             Result<int> version = reader.Value.RequiredInt32("contractVersion");
             Result<string> manifestId = reader.Value.RequiredString("manifestId");
@@ -89,78 +95,65 @@ namespace Odyssey.Application.Serialization
 
     public sealed class LogEventV1JsonCodec : IJsonContractCodec<LogEventV1>
     {
-        public static readonly ContractType Type = ContractType.Parse("odyssey.diagnostics.log_event");
+        public static readonly ContractType Type = ContractType.Parse("odyssey.diagnostics.log.event");
         public JsonContractKey Key { get; } = new JsonContractKey(SerializationProfile.DiagnosticJson, Type, ContractVersion.Create(1));
 
         public Result<JsonPayload> Write(LogEventV1 value)
         {
             if (value == null) throw new ArgumentNullException(nameof(value));
-            JsonPayload payload = new CanonicalJsonWriter().StartObject()
-                .String("contractType", Type.ToString())
-                .Int32("contractVersion", LogEventV1.SchemaVersionValue)
-                .String("timestampUtc", value.TimestampUtc.ToString())
-                .String("level", value.Level.ToString())
-                .String("eventCode", value.EventCode.ToString())
-                .String("subsystem", value.Subsystem.ToString())
-                .String("buildIdAvailability", value.BuildIdAvailability.ToString())
-                .String("processInstanceId", value.ProcessInstanceId.ToString())
-                .NullableString("correlationId", value.CorrelationId?.ToString())
-                .NullableString("diagnosticId", value.DiagnosticId?.ToString())
-                .NullableString("commandId", value.CommandId?.ToString())
-                .NullableString("sessionReference", value.SessionReference?.ToString())
-                .String("messageTemplateKey", value.MessageTemplateKey.ToString())
-                .String("safeProperties", EncodeProperties(value.SafeProperties))
-                .NullableString("exceptionSummary", EncodeException(value.ExceptionSummary))
-                .EndObject()
-                .ToPayload();
-            return Result<JsonPayload>.Success(payload);
+            StringWriter stringWriter = new StringWriter(CultureInfo.InvariantCulture);
+            using (JsonTextWriter writer = CreateWriter(stringWriter))
+            {
+                writer.WriteStartObject();
+                WriteString(writer, "contractType", Type.ToString());
+                WriteInt(writer, "contractVersion", LogEventV1.SchemaVersionValue);
+                WriteString(writer, "timestampUtc", value.TimestampUtc.ToString());
+                WriteString(writer, "level", ToLogLevelToken(value.Level));
+                WriteString(writer, "eventCode", value.EventCode.ToString());
+                WriteString(writer, "subsystem", value.Subsystem.ToString());
+                WriteString(writer, "buildIdAvailability", ToBuildIdAvailabilityToken(value.BuildIdAvailability));
+                WriteString(writer, "processInstanceId", value.ProcessInstanceId.ToString());
+                if (value.CorrelationId.HasValue) WriteString(writer, "correlationId", value.CorrelationId.Value.ToString());
+                if (value.DiagnosticId.HasValue) WriteString(writer, "diagnosticId", value.DiagnosticId.Value.ToString());
+                if (value.CommandId.HasValue) WriteString(writer, "commandId", value.CommandId.Value.ToString());
+                if (value.SessionReference.HasValue) WriteString(writer, "sessionReference", value.SessionReference.Value.ToString());
+                WriteString(writer, "messageTemplateKey", value.MessageTemplateKey.ToString());
+                WriteProperties(writer, value.SafeProperties);
+                if (value.ExceptionSummary.HasValue) WriteException(writer, value.ExceptionSummary.Value);
+                writer.WriteEndObject();
+            }
+
+            return Result<JsonPayload>.Success(new JsonPayload(CanonicalJson.ToUtf8Bytes(stringWriter.ToString())));
         }
 
         public Result<LogEventV1> Read(byte[] utf8Json)
         {
-            Result<JsonObjectReader> reader = JsonObjectReader.Read(utf8Json, JsonPayloadLimits.DiagnosticRecordBytes);
-            if (reader.IsFailure) return Result<LogEventV1>.Failure(reader.Error);
-            Result<string> type = reader.Value.RequiredString("contractType");
-            Result<int> version = reader.Value.RequiredInt32("contractVersion");
-            if (type.IsFailure) return Result<LogEventV1>.Failure(type.Error);
-            if (version.IsFailure) return Result<LogEventV1>.Failure(version.Error);
-            if (type.Value != Type.ToString() || version.Value != LogEventV1.SchemaVersionValue) return Result<LogEventV1>.Failure(SerializationFailures.UnsupportedContract());
-
             try
             {
-                Result<string> timestamp = reader.Value.RequiredString("timestampUtc");
-                Result<string> level = reader.Value.RequiredString("level");
-                Result<string> eventCode = reader.Value.RequiredString("eventCode");
-                Result<string> subsystem = reader.Value.RequiredString("subsystem");
-                Result<string> buildIdAvailability = reader.Value.RequiredString("buildIdAvailability");
-                Result<string> processInstanceId = reader.Value.RequiredString("processInstanceId");
-                Result<string> messageTemplateKey = reader.Value.RequiredString("messageTemplateKey");
-                Result<string> safeProperties = reader.Value.RequiredString("safeProperties");
-                if (timestamp.IsFailure || level.IsFailure || eventCode.IsFailure || subsystem.IsFailure || buildIdAvailability.IsFailure || processInstanceId.IsFailure || messageTemplateKey.IsFailure || safeProperties.IsFailure) return Result<LogEventV1>.Failure(SerializationFailures.InvalidPayload());
-                reader.Value.TryGetString("correlationId", out string? correlation);
-                reader.Value.TryGetString("diagnosticId", out string? diagnostic);
-                reader.Value.TryGetString("commandId", out string? command);
-                reader.Value.TryGetString("sessionReference", out string? session);
-                reader.Value.TryGetString("exceptionSummary", out string? exception);
+                if (utf8Json == null) throw new ArgumentNullException(nameof(utf8Json));
+                Result structural = JsonObjectReader.ValidateJson(utf8Json, JsonPayloadLimits.DiagnosticRecordBytes);
+                if (structural.IsFailure) return Result<LogEventV1>.Failure(structural.Error);
+                DiagnosticReadModel model = ReadDiagnosticModel(utf8Json);
+                if (model.ContractType != Type.ToString() || model.ContractVersion != LogEventV1.SchemaVersionValue) return Result<LogEventV1>.Failure(SerializationFailures.UnsupportedContract());
 
                 LogEventV1 logEvent = new LogEventV1(
-                    UtcInstant.Parse(timestamp.Value),
-                    (LogLevel)Enum.Parse(typeof(LogLevel), level.Value, false),
-                    EventCode.Parse(eventCode.Value),
-                    SubsystemName.Parse(subsystem.Value),
-                    (BuildIdAvailability)Enum.Parse(typeof(BuildIdAvailability), buildIdAvailability.Value, false),
-                    ProcessInstanceId.Parse(processInstanceId.Value),
-                    MessageTemplateKey.Parse(messageTemplateKey.Value),
-                    DecodeProperties(safeProperties.Value),
-                    correlation == null ? (CorrelationId?)null : CorrelationId.Parse(correlation),
-                    diagnostic == null ? (DiagnosticId?)null : DiagnosticId.Parse(diagnostic),
-                    command == null ? (CommandId?)null : CommandId.Parse(command),
-                    session == null ? (SessionReference?)null : SessionReference.Parse(session),
-                    DecodeException(exception));
+                    UtcInstant.Parse(model.TimestampUtc!),
+                    ParseLogLevelToken(model.Level!),
+                    EventCode.Parse(model.EventCode!),
+                    SubsystemName.Parse(model.Subsystem!),
+                    ParseBuildIdAvailabilityToken(model.BuildIdAvailability!),
+                    ProcessInstanceId.Parse(model.ProcessInstanceId!),
+                    MessageTemplateKey.Parse(model.MessageTemplateKey!),
+                    model.SafeProperties,
+                    model.CorrelationId == null ? (CorrelationId?)null : CorrelationId.Parse(model.CorrelationId),
+                    model.DiagnosticId == null ? (DiagnosticId?)null : DiagnosticId.Parse(model.DiagnosticId),
+                    model.CommandId == null ? (CommandId?)null : CommandId.Parse(model.CommandId),
+                    model.SessionReference == null ? (SessionReference?)null : SessionReference.Parse(model.SessionReference),
+                    model.ExceptionSummary);
                 Result registry = EventCodeRegistry.CreateDefault().Validate(logEvent);
                 return registry.IsFailure ? Result<LogEventV1>.Failure(registry.Error) : Result<LogEventV1>.Success(logEvent);
             }
-            catch (ArgumentException)
+            catch (DecoderFallbackException)
             {
                 return Result<LogEventV1>.Failure(SerializationFailures.InvalidPayload());
             }
@@ -168,76 +161,388 @@ namespace Odyssey.Application.Serialization
             {
                 return Result<LogEventV1>.Failure(SerializationFailures.InvalidPayload());
             }
+            catch (JsonException)
+            {
+                return Result<LogEventV1>.Failure(SerializationFailures.InvalidPayload());
+            }
+            catch (ArgumentException)
+            {
+                return Result<LogEventV1>.Failure(SerializationFailures.InvalidPayload());
+            }
         }
 
-        private static string EncodeProperties(IReadOnlyList<SafeLogProperty> properties)
+        private static JsonTextWriter CreateWriter(TextWriter textWriter)
         {
-            string[] rows = new string[properties.Count];
+            return new JsonTextWriter(textWriter)
+            {
+                Formatting = Formatting.None,
+                Culture = CultureInfo.InvariantCulture,
+                FloatFormatHandling = FloatFormatHandling.Symbol,
+                StringEscapeHandling = StringEscapeHandling.Default
+            };
+        }
+
+        private static void WriteString(JsonTextWriter writer, string name, string value)
+        {
+            writer.WritePropertyName(name);
+            writer.WriteValue(value);
+        }
+
+        private static void WriteInt(JsonTextWriter writer, string name, int value)
+        {
+            writer.WritePropertyName(name);
+            writer.WriteValue(value);
+        }
+
+        private static void WriteProperties(JsonTextWriter writer, IReadOnlyList<SafeLogProperty> properties)
+        {
+            writer.WritePropertyName("safeProperties");
+            writer.WriteStartArray();
             for (int index = 0; index < properties.Count; index++)
             {
                 SafeLogProperty property = properties[index];
-                rows[index] = property.Key + "," + property.Value.Classification + "," + property.Value.ValueKind + "," + property.Value.RenderedValue.Replace("|", "%7C").Replace(",", "%2C");
+                writer.WriteStartObject();
+                WriteString(writer, "key", property.Key.ToString());
+                WriteString(writer, "classification", ToClassificationToken(property.Value.Classification));
+                WriteString(writer, "valueKind", ToValueKindToken(property.Value.ValueKind));
+                WriteString(writer, "renderedValue", property.Value.RenderedValue);
+                WriteInt(writer, "logicalSize", property.Value.LogicalSize);
+                WriteInt(writer, "originalScalarCount", property.Value.OriginalScalarCount);
+                writer.WritePropertyName("wasTruncated");
+                writer.WriteValue(property.Value.WasTruncated);
+                writer.WriteEndObject();
             }
 
-            return string.Join("|", rows);
+            writer.WriteEndArray();
         }
 
-        private static IReadOnlyList<SafeLogProperty> DecodeProperties(string encoded)
+        private static void WriteException(JsonTextWriter writer, ExceptionSummary exception)
         {
-            if (encoded.Length == 0) return Array.Empty<SafeLogProperty>();
-            string[] rows = encoded.Split('|');
-            SafeLogProperty[] properties = new SafeLogProperty[rows.Length];
-            for (int index = 0; index < rows.Length; index++)
+            writer.WritePropertyName("exceptionSummary");
+            writer.WriteStartObject();
+            WriteString(writer, "category", ToExceptionCategoryToken(exception.Category));
+            WriteString(writer, "subsystem", exception.Subsystem.ToString());
+            WriteInt(writer, "innerExceptionCount", exception.InnerExceptionCount);
+            writer.WritePropertyName("isTransient");
+            writer.WriteValue(exception.IsTransient);
+            WriteString(writer, "diagnosticId", exception.DiagnosticId.ToString());
+            writer.WriteEndObject();
+        }
+
+        private static DiagnosticReadModel ReadDiagnosticModel(byte[] utf8Json)
+        {
+            JsonTextReader reader = new JsonTextReader(new StringReader(new UTF8Encoding(false, true).GetString(utf8Json)))
             {
-                string[] parts = rows[index].Split(',');
-                if (parts.Length != 4) throw new FormatException("Diagnostic property row is not canonical.");
-                DiagnosticDataClassification classification = (DiagnosticDataClassification)Enum.Parse(typeof(DiagnosticDataClassification), parts[1], false);
-                SafeLogValueKind kind = (SafeLogValueKind)Enum.Parse(typeof(SafeLogValueKind), parts[2], false);
-                string value = parts[3].Replace("%2C", ",").Replace("%7C", "|");
-                properties[index] = new SafeLogProperty(SafePropertyKey.Parse(parts[0]), CreateValue(classification, kind, value));
-            }
-
-            return properties;
-        }
-
-        private static SafeLogValue CreateValue(DiagnosticDataClassification classification, SafeLogValueKind kind, string value)
-        {
-            switch (kind)
+                DateParseHandling = DateParseHandling.None,
+                FloatParseHandling = FloatParseHandling.Decimal,
+                MaxDepth = JsonPayloadLimits.MaxDepth
+            };
+            DiagnosticReadModel model = new DiagnosticReadModel();
+            HashSet<string> seen = new HashSet<string>(StringComparer.Ordinal);
+            if (!reader.Read() || reader.TokenType != JsonToken.StartObject) throw new JsonSerializationException("Expected object.");
+            while (reader.Read())
             {
-                case SafeLogValueKind.Boolean: return SafeLogValue.Boolean(value == "true");
-                case SafeLogValueKind.Integer: return SafeLogValue.Count(long.Parse(value, System.Globalization.CultureInfo.InvariantCulture));
-                case SafeLogValueKind.Code: return SafeLogValue.Code(value);
-                case SafeLogValueKind.Duration:
-                case SafeLogValueKind.Timestamp:
-                case SafeLogValueKind.ByteCount:
-                case SafeLogValueKind.TechnicalIdentifier:
-                case SafeLogValueKind.Fingerprint:
-                case SafeLogValueKind.BoundedText:
-                case SafeLogValueKind.SanitizedPath:
-                case SafeLogValueKind.SanitizedEndpoint:
-                    return SafeLogValue.BoundedText(value, 256, classification);
-                default:
-                    throw new FormatException("Unsupported safe property kind.");
+                if (reader.TokenType == JsonToken.EndObject)
+                {
+                    if (reader.Read()) throw new JsonSerializationException("Trailing token.");
+                    model.ValidateRequired();
+                    return model;
+                }
+
+                if (reader.TokenType != JsonToken.PropertyName) throw new JsonSerializationException("Expected property.");
+                string name = (string)reader.Value!;
+                if (!seen.Add(name)) throw new JsonSerializationException("Duplicate property.");
+                if (!reader.Read()) throw new JsonSerializationException("Missing value.");
+                switch (name)
+                {
+                    case "contractType": model.ContractType = ReadStringValue(reader); break;
+                    case "contractVersion": model.ContractVersion = ReadInt32Value(reader); break;
+                    case "timestampUtc": model.TimestampUtc = ReadStringValue(reader); break;
+                    case "level": model.Level = ReadStringValue(reader); break;
+                    case "eventCode": model.EventCode = ReadStringValue(reader); break;
+                    case "subsystem": model.Subsystem = ReadStringValue(reader); break;
+                    case "buildIdAvailability": model.BuildIdAvailability = ReadStringValue(reader); break;
+                    case "processInstanceId": model.ProcessInstanceId = ReadStringValue(reader); break;
+                    case "correlationId": model.CorrelationId = ReadStringValue(reader); break;
+                    case "diagnosticId": model.DiagnosticId = ReadStringValue(reader); break;
+                    case "commandId": model.CommandId = ReadStringValue(reader); break;
+                    case "sessionReference": model.SessionReference = ReadStringValue(reader); break;
+                    case "messageTemplateKey": model.MessageTemplateKey = ReadStringValue(reader); break;
+                    case "safeProperties": model.SafeProperties = ReadProperties(reader); break;
+                    case "exceptionSummary": model.ExceptionSummary = ReadException(reader); break;
+                    default: throw new JsonSerializationException("Unexpected property.");
+                }
+            }
+
+            throw new JsonSerializationException("Unclosed object.");
+        }
+
+        private static IReadOnlyList<SafeLogProperty> ReadProperties(JsonTextReader reader)
+        {
+            if (reader.TokenType != JsonToken.StartArray) throw new JsonSerializationException("Expected safeProperties array.");
+            List<SafeLogProperty> properties = new List<SafeLogProperty>();
+            while (reader.Read())
+            {
+                if (reader.TokenType == JsonToken.EndArray) return properties;
+                if (reader.TokenType != JsonToken.StartObject) throw new JsonSerializationException("Expected property object.");
+                properties.Add(ReadProperty(reader));
+            }
+
+            throw new JsonSerializationException("Unclosed safeProperties array.");
+        }
+
+        private static SafeLogProperty ReadProperty(JsonTextReader reader)
+        {
+            string? key = null;
+            string? classification = null;
+            string? kind = null;
+            string? renderedValue = null;
+            int? logicalSize = null;
+            int? originalScalarCount = null;
+            bool? wasTruncated = null;
+            HashSet<string> seen = new HashSet<string>(StringComparer.Ordinal);
+            while (reader.Read())
+            {
+                if (reader.TokenType == JsonToken.EndObject)
+                {
+                    if (key == null || classification == null || kind == null || renderedValue == null || !logicalSize.HasValue || !originalScalarCount.HasValue || !wasTruncated.HasValue) throw new JsonSerializationException("Missing safe property field.");
+                    return new SafeLogProperty(
+                        SafePropertyKey.Parse(key),
+                        SafeLogValue.Rehydrate(ParseClassificationToken(classification), ParseValueKindToken(kind), renderedValue, logicalSize.Value, originalScalarCount.Value, wasTruncated.Value));
+                }
+
+                if (reader.TokenType != JsonToken.PropertyName) throw new JsonSerializationException("Expected safe property field.");
+                string name = (string)reader.Value!;
+                if (!seen.Add(name)) throw new JsonSerializationException("Duplicate safe property field.");
+                if (!reader.Read()) throw new JsonSerializationException("Missing safe property value.");
+                switch (name)
+                {
+                    case "key": key = ReadStringValue(reader); break;
+                    case "classification": classification = ReadStringValue(reader); break;
+                    case "valueKind": kind = ReadStringValue(reader); break;
+                    case "renderedValue": renderedValue = ReadStringValue(reader); break;
+                    case "logicalSize": logicalSize = ReadInt32Value(reader); break;
+                    case "originalScalarCount": originalScalarCount = ReadInt32Value(reader); break;
+                    case "wasTruncated": wasTruncated = ReadBooleanValue(reader); break;
+                    default: throw new JsonSerializationException("Unexpected safe property field.");
+                }
+            }
+
+            throw new JsonSerializationException("Unclosed safe property.");
+        }
+
+        private static ExceptionSummary ReadException(JsonTextReader reader)
+        {
+            if (reader.TokenType != JsonToken.StartObject) throw new JsonSerializationException("Expected exceptionSummary object.");
+            string? category = null;
+            string? subsystem = null;
+            int? innerExceptionCount = null;
+            bool? isTransient = null;
+            string? diagnosticId = null;
+            HashSet<string> seen = new HashSet<string>(StringComparer.Ordinal);
+            while (reader.Read())
+            {
+                if (reader.TokenType == JsonToken.EndObject)
+                {
+                    if (category == null || subsystem == null || !innerExceptionCount.HasValue || !isTransient.HasValue || diagnosticId == null) throw new JsonSerializationException("Missing exceptionSummary field.");
+                    return ExceptionSummary.Rehydrate(ParseExceptionCategoryToken(category), SubsystemName.Parse(subsystem), innerExceptionCount.Value, isTransient.Value, DiagnosticId.Parse(diagnosticId));
+                }
+
+                if (reader.TokenType != JsonToken.PropertyName) throw new JsonSerializationException("Expected exceptionSummary field.");
+                string name = (string)reader.Value!;
+                if (!seen.Add(name)) throw new JsonSerializationException("Duplicate exceptionSummary field.");
+                if (!reader.Read()) throw new JsonSerializationException("Missing exceptionSummary value.");
+                switch (name)
+                {
+                    case "category": category = ReadStringValue(reader); break;
+                    case "subsystem": subsystem = ReadStringValue(reader); break;
+                    case "innerExceptionCount": innerExceptionCount = ReadInt32Value(reader); break;
+                    case "isTransient": isTransient = ReadBooleanValue(reader); break;
+                    case "diagnosticId": diagnosticId = ReadStringValue(reader); break;
+                    default: throw new JsonSerializationException("Unexpected exceptionSummary field.");
+                }
+            }
+
+            throw new JsonSerializationException("Unclosed exceptionSummary.");
+        }
+
+        private static string ReadStringValue(JsonTextReader reader)
+        {
+            if (reader.TokenType != JsonToken.String) throw new JsonSerializationException("Expected string.");
+            return (string)reader.Value!;
+        }
+
+        private static int ReadInt32Value(JsonTextReader reader)
+        {
+            if (reader.TokenType != JsonToken.Integer) throw new JsonSerializationException("Expected integer.");
+            return Convert.ToInt32(reader.Value, CultureInfo.InvariantCulture);
+        }
+
+        private static bool ReadBooleanValue(JsonTextReader reader)
+        {
+            if (reader.TokenType != JsonToken.Boolean) throw new JsonSerializationException("Expected boolean.");
+            return (bool)reader.Value!;
+        }
+
+        private static string ToLogLevelToken(LogLevel value)
+        {
+            switch (value)
+            {
+                case LogLevel.Trace: return "trace";
+                case LogLevel.Debug: return "debug";
+                case LogLevel.Information: return "information";
+                case LogLevel.Warning: return "warning";
+                case LogLevel.Error: return "error";
+                case LogLevel.Critical: return "critical";
+                default: throw new ArgumentOutOfRangeException(nameof(value));
             }
         }
 
-        private static string? EncodeException(ExceptionSummary? exception)
+        private static LogLevel ParseLogLevelToken(string value)
         {
-            if (!exception.HasValue) return null;
-            ExceptionSummary value = exception.Value;
-            return value.Category + "," + value.Subsystem + "," + value.InnerExceptionCount.ToString(System.Globalization.CultureInfo.InvariantCulture) + "," + (value.IsTransient ? "true" : "false") + "," + value.DiagnosticId;
+            switch (value)
+            {
+                case "trace": return LogLevel.Trace;
+                case "debug": return LogLevel.Debug;
+                case "information": return LogLevel.Information;
+                case "warning": return LogLevel.Warning;
+                case "error": return LogLevel.Error;
+                case "critical": return LogLevel.Critical;
+                default: throw new FormatException("Unknown LogLevel token.");
+            }
         }
 
-        private static ExceptionSummary? DecodeException(string? encoded)
+        private static string ToBuildIdAvailabilityToken(BuildIdAvailability value)
         {
-            if (encoded == null) return null;
-            string[] parts = encoded.Split(',');
-            if (parts.Length != 5) throw new FormatException("ExceptionSummary is not canonical.");
-            Exception ex = new InvalidOperationException("safe");
-            if (parts[0] == nameof(ExceptionCategory.IoFailure)) ex = new System.IO.IOException("safe");
-            if (parts[0] == nameof(ExceptionCategory.Cancelled)) ex = new OperationCanceledException();
-            if (parts[0] == nameof(ExceptionCategory.AccessDenied)) ex = new UnauthorizedAccessException("safe");
-            return ExceptionSummary.FromException(ex, SubsystemName.Parse(parts[1]), DiagnosticId.Parse(parts[4]));
+            switch (value)
+            {
+                case BuildIdAvailability.UnavailableNotYetComposed: return "unavailable_not_yet_composed";
+                case BuildIdAvailability.Available: return "available";
+                default: throw new ArgumentOutOfRangeException(nameof(value));
+            }
+        }
+
+        private static BuildIdAvailability ParseBuildIdAvailabilityToken(string value)
+        {
+            switch (value)
+            {
+                case "unavailable_not_yet_composed": return BuildIdAvailability.UnavailableNotYetComposed;
+                case "available": return BuildIdAvailability.Available;
+                default: throw new FormatException("Unknown BuildIdAvailability token.");
+            }
+        }
+
+        private static string ToClassificationToken(DiagnosticDataClassification value)
+        {
+            switch (value)
+            {
+                case DiagnosticDataClassification.Public: return "public";
+                case DiagnosticDataClassification.OperationalSafe: return "operational_safe";
+                default: throw new ArgumentOutOfRangeException(nameof(value));
+            }
+        }
+
+        private static DiagnosticDataClassification ParseClassificationToken(string value)
+        {
+            switch (value)
+            {
+                case "public": return DiagnosticDataClassification.Public;
+                case "operational_safe": return DiagnosticDataClassification.OperationalSafe;
+                default: throw new FormatException("Unsafe or unknown diagnostic classification.");
+            }
+        }
+
+        private static string ToValueKindToken(SafeLogValueKind value)
+        {
+            switch (value)
+            {
+                case SafeLogValueKind.Boolean: return "boolean";
+                case SafeLogValueKind.Integer: return "integer";
+                case SafeLogValueKind.Decimal: return "decimal";
+                case SafeLogValueKind.Code: return "code";
+                case SafeLogValueKind.Duration: return "duration";
+                case SafeLogValueKind.Timestamp: return "timestamp";
+                case SafeLogValueKind.ByteCount: return "byte_count";
+                case SafeLogValueKind.TechnicalIdentifier: return "technical_identifier";
+                case SafeLogValueKind.Fingerprint: return "fingerprint";
+                case SafeLogValueKind.BoundedText: return "bounded_text";
+                case SafeLogValueKind.SanitizedPath: return "sanitized_path";
+                case SafeLogValueKind.SanitizedEndpoint: return "sanitized_endpoint";
+                default: throw new ArgumentOutOfRangeException(nameof(value));
+            }
+        }
+
+        private static SafeLogValueKind ParseValueKindToken(string value)
+        {
+            switch (value)
+            {
+                case "boolean": return SafeLogValueKind.Boolean;
+                case "integer": return SafeLogValueKind.Integer;
+                case "decimal": return SafeLogValueKind.Decimal;
+                case "code": return SafeLogValueKind.Code;
+                case "duration": return SafeLogValueKind.Duration;
+                case "timestamp": return SafeLogValueKind.Timestamp;
+                case "byte_count": return SafeLogValueKind.ByteCount;
+                case "technical_identifier": return SafeLogValueKind.TechnicalIdentifier;
+                case "fingerprint": return SafeLogValueKind.Fingerprint;
+                case "bounded_text": return SafeLogValueKind.BoundedText;
+                case "sanitized_path": return SafeLogValueKind.SanitizedPath;
+                case "sanitized_endpoint": return SafeLogValueKind.SanitizedEndpoint;
+                default: throw new FormatException("Unknown SafeLogValueKind token.");
+            }
+        }
+
+        private static string ToExceptionCategoryToken(ExceptionCategory value)
+        {
+            switch (value)
+            {
+                case ExceptionCategory.InvalidOperation: return "invalid_operation";
+                case ExceptionCategory.IoFailure: return "io_failure";
+                case ExceptionCategory.AccessDenied: return "access_denied";
+                case ExceptionCategory.Cancelled: return "cancelled";
+                case ExceptionCategory.Unexpected: return "unexpected";
+                default: throw new ArgumentOutOfRangeException(nameof(value));
+            }
+        }
+
+        private static ExceptionCategory ParseExceptionCategoryToken(string value)
+        {
+            switch (value)
+            {
+                case "invalid_operation": return ExceptionCategory.InvalidOperation;
+                case "io_failure": return ExceptionCategory.IoFailure;
+                case "access_denied": return ExceptionCategory.AccessDenied;
+                case "cancelled": return ExceptionCategory.Cancelled;
+                case "unexpected": return ExceptionCategory.Unexpected;
+                default: throw new FormatException("Unknown ExceptionCategory token.");
+            }
+        }
+
+        private sealed class DiagnosticReadModel
+        {
+            public string? ContractType { get; set; }
+            public int ContractVersion { get; set; }
+            public string? TimestampUtc { get; set; }
+            public string? Level { get; set; }
+            public string? EventCode { get; set; }
+            public string? Subsystem { get; set; }
+            public string? BuildIdAvailability { get; set; }
+            public string? ProcessInstanceId { get; set; }
+            public string? CorrelationId { get; set; }
+            public string? DiagnosticId { get; set; }
+            public string? CommandId { get; set; }
+            public string? SessionReference { get; set; }
+            public string? MessageTemplateKey { get; set; }
+            public IReadOnlyList<SafeLogProperty> SafeProperties { get; set; } = Array.Empty<SafeLogProperty>();
+            public ExceptionSummary? ExceptionSummary { get; set; }
+
+            public void ValidateRequired()
+            {
+                if (ContractType == null || ContractVersion == 0 || TimestampUtc == null || Level == null || EventCode == null || Subsystem == null || BuildIdAvailability == null || ProcessInstanceId == null || MessageTemplateKey == null || SafeProperties == null)
+                {
+                    throw new JsonSerializationException("Missing required diagnostic field.");
+                }
+            }
         }
     }
 }

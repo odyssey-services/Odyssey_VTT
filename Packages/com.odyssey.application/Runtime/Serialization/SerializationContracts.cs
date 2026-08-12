@@ -18,14 +18,14 @@ namespace Odyssey.Application.Serialization
 
     public readonly struct ContractType : IEquatable<ContractType>
     {
-        public const int MaxLength = 96;
+        public const int MaxLength = 128;
         private readonly string _value;
 
         private ContractType(string value) => _value = value;
         public bool IsValid => _value != null;
         public static bool TryParse(string? value, out ContractType type)
         {
-            if (SerializationText.IsDottedLowerIdentifier(value, MaxLength, 3))
+            if (SerializationText.IsContractType(value))
             {
                 type = new ContractType(value!);
                 return true;
@@ -81,13 +81,16 @@ namespace Odyssey.Application.Serialization
 
     public sealed class JsonPayload
     {
+        private readonly byte[] _bytes;
+
         public JsonPayload(byte[] bytes)
         {
-            Bytes = bytes == null ? throw new ArgumentNullException(nameof(bytes)) : Copy(bytes);
+            _bytes = bytes == null ? throw new ArgumentNullException(nameof(bytes)) : Copy(bytes);
         }
 
-        public byte[] Bytes { get; }
-        public string Utf8Text => CanonicalJson.ToUtf8Text(Bytes);
+        public ReadOnlyMemory<byte> BytesMemory => _bytes;
+        public byte[] Bytes => Copy(_bytes);
+        public string Utf8Text => CanonicalJson.ToUtf8Text(_bytes);
         private static byte[] Copy(byte[] source)
         {
             byte[] copy = new byte[source.Length];
@@ -197,6 +200,27 @@ namespace Odyssey.Application.Serialization
             for (int index = 0; index < segments.Length; index++)
             {
                 if (!IsLowerToken(segments[index], maxLength)) return false;
+            }
+
+            return true;
+        }
+
+        internal static bool IsContractType(string? value)
+        {
+            if (string.IsNullOrWhiteSpace(value) || value!.Length > ContractType.MaxLength || value.Trim() != value) return false;
+            string[] segments = value.Split('.');
+            if (segments.Length < 2) return false;
+            for (int segmentIndex = 0; segmentIndex < segments.Length; segmentIndex++)
+            {
+                string segment = segments[segmentIndex];
+                if (segment.Length == 0) return false;
+                char first = segment[0];
+                if (first < 'a' || first > 'z') return false;
+                for (int index = 1; index < segment.Length; index++)
+                {
+                    char c = segment[index];
+                    if (!((c >= 'a' && c <= 'z') || (c >= '0' && c <= '9'))) return false;
+                }
             }
 
             return true;

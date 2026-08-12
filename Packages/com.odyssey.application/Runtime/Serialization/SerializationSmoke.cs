@@ -1,5 +1,6 @@
 using Odyssey.Application.Commands;
 using Odyssey.Application.Diagnostics;
+using Odyssey.Application.Identity;
 using Odyssey.Application.Results;
 using Odyssey.Domain.Identity;
 using Odyssey.Domain.Time;
@@ -8,15 +9,23 @@ namespace Odyssey.Application.Serialization
 {
     public sealed class SerializationSmokeResult
     {
-        public SerializationSmokeResult(string fingerprint, string payloadHash, string diagnosticHash, string manifestHash)
+        public SerializationSmokeResult(string payloadJson, string payloadHash, string fingerprintMaterialJson, string fingerprint, string diagnosticJson, string diagnosticHash, string manifestJson, string manifestHash)
         {
+            PayloadJson = payloadJson;
             Fingerprint = fingerprint;
+            FingerprintMaterialJson = fingerprintMaterialJson;
+            DiagnosticJson = diagnosticJson;
+            ManifestJson = manifestJson;
             PayloadHash = payloadHash;
             DiagnosticHash = diagnosticHash;
             ManifestHash = manifestHash;
         }
 
+        public string PayloadJson { get; }
         public string Fingerprint { get; }
+        public string FingerprintMaterialJson { get; }
+        public string DiagnosticJson { get; }
+        public string ManifestJson { get; }
         public string PayloadHash { get; }
         public string DiagnosticHash { get; }
         public string ManifestHash { get; }
@@ -48,6 +57,8 @@ namespace Odyssey.Application.Serialization
                     new ExpectedAggregateRevisionMaterial(AggregateType.Parse("synthetic.operation"), AggregateId.Parse("alpha"), 3)
                 });
             CommandFingerprintMaterialV1Codec commandCodec = new CommandFingerprintMaterialV1Codec();
+            Result<JsonPayload> fingerprintMaterialJson = commandCodec.Write(material);
+            if (fingerprintMaterialJson.IsFailure) return Result<SerializationSmokeResult>.Failure(fingerprintMaterialJson.Error);
             Result<CommandFingerprint> fingerprint = commandCodec.ComputeFingerprint(material);
             if (fingerprint.IsFailure) return Result<SerializationSmokeResult>.Failure(fingerprint.Error);
 
@@ -79,9 +90,13 @@ namespace Odyssey.Application.Serialization
             if (manifestRoundTrip.IsFailure) return Result<SerializationSmokeResult>.Failure(manifestRoundTrip.Error);
 
             return Result<SerializationSmokeResult>.Success(new SerializationSmokeResult(
-                fingerprint.Value.ToString(),
+                payload.Utf8Text,
                 payloadHash,
+                fingerprintMaterialJson.Value.Utf8Text,
+                fingerprint.Value.ToString(),
+                diagnosticJson.Value.Utf8Text,
                 CanonicalJson.Sha256LowerHex(diagnosticJson.Value.Bytes),
+                manifestJson.Value.Utf8Text,
                 CanonicalJson.Sha256LowerHex(manifestJson.Value.Bytes)));
         }
     }

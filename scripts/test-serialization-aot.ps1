@@ -66,6 +66,19 @@ try {
     }
 
     Invoke-Process $playerPath @('-batchmode', '-nographics', '-logFile', (Join-Path $logDir 'serialization-aot-player.log')) 'TC-DIAG-042 serialization-aot-smoke player'
+
+    $expected = Get-Content -Raw -LiteralPath (Join-Path $repoRoot 'Tests/Fixtures/Serialization/golden-vectors.json') | ConvertFrom-Json
+    $playerLog = Get-Content -Raw -LiteralPath (Join-Path $logDir 'serialization-aot-player.log')
+    $match = [regex]::Match($playerLog, 'serialization-aot-smoke PASS payloadHash=([0-9a-f]{64}) fingerprint=(fp_[0-9a-f]{64}) diagnosticHash=([0-9a-f]{64}) manifestHash=([0-9a-f]{64})')
+    if (-not $match.Success) {
+        throw 'serialization-aot-smoke did not emit the exact vector marker.'
+    }
+
+    if ($match.Groups[1].Value -ne $expected.syntheticPayloadV2Sha256) { throw 'TC-SER-022 payload hash mismatch.' }
+    if ($match.Groups[2].Value -ne $expected.commandFingerprint) { throw 'TC-SER-022 command fingerprint mismatch.' }
+    if ($match.Groups[3].Value -ne $expected.diagnosticLogEventV1Sha256) { throw 'TC-DIAG-042 diagnostic hash mismatch.' }
+    if ($match.Groups[4].Value -ne $expected.odcampManifestV1Sha256) { throw 'TC-SER-022 manifest hash mismatch.' }
+    Write-Host 'TC-SER-022/TC-DIAG-042 serialization-aot-smoke exact vector comparison PASS'
 }
 finally {
     Pop-Location

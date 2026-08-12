@@ -15,7 +15,7 @@ namespace Odyssey.Application.Serialization
         public const int EventPayloadBytes = 1024 * 1024;
         public const int ManifestBytes = 4 * 1024 * 1024;
         public const int DiagnosticRecordBytes = 1024 * 1024;
-        public const int MaxDepth = 32;
+        public const int MaxDepth = 64;
     }
 
     public sealed class JsonObjectReader
@@ -36,7 +36,7 @@ namespace Odyssey.Application.Serialization
             try
             {
                 string json = new UTF8Encoding(false, true).GetString(utf8Json);
-                if (json.Contains(",}", StringComparison.Ordinal) || json.Contains(",]", StringComparison.Ordinal)) return Result<JsonObjectReader>.Failure(SerializationFailures.InvalidPayload());
+                if (HasStructuralTrailingComma(json)) return Result<JsonObjectReader>.Failure(SerializationFailures.InvalidPayload());
                 JsonTextReader reader = new JsonTextReader(new StringReader(json))
                 {
                     DateParseHandling = DateParseHandling.None,
@@ -86,6 +86,17 @@ namespace Odyssey.Application.Serialization
 
         public bool TryGetString(string name, out string? value) => _values.TryGetValue(name, out value);
 
+        public Result EnsureOnly(params string[] allowedNames)
+        {
+            HashSet<string> allowed = new HashSet<string>(allowedNames, StringComparer.Ordinal);
+            foreach (string name in _values.Keys)
+            {
+                if (!allowed.Contains(name)) return Result.Failure(SerializationFailures.InvalidPayload());
+            }
+
+            return Result.Success();
+        }
+
         public Result<string> RequiredString(string name)
         {
             if (!_values.TryGetValue(name, out string? value) || value == null) return Result<string>.Failure(SerializationFailures.InvalidPayload());
@@ -117,7 +128,79 @@ namespace Odyssey.Application.Serialization
             return Result<bool>.Failure(SerializationFailures.InvalidPayload());
         }
 
+        public static Result ValidateJson(byte[] utf8Json, int maxBytes, int maxDepth = JsonPayloadLimits.MaxDepth)
+        {
+            if (utf8Json == null) throw new ArgumentNullException(nameof(utf8Json));
+            if (utf8Json.Length == 0 || utf8Json.Length > maxBytes) return Result.Failure(SerializationFailures.InvalidPayload());
+            if (HasUtf8Bom(utf8Json)) return Result.Failure(SerializationFailures.InvalidPayload());
+            try
+            {
+                string json = new UTF8Encoding(false, true).GetString(utf8Json);
+                if (HasStructuralTrailingComma(json)) return Result.Failure(SerializationFailures.InvalidPayload());
+                JsonTextReader reader = new JsonTextReader(new StringReader(json))
+                {
+                    DateParseHandling = DateParseHandling.None,
+                    FloatParseHandling = FloatParseHandling.Decimal,
+                    MaxDepth = maxDepth
+                };
+                while (reader.Read())
+                {
+                    if (reader.TokenType == JsonToken.Comment) return Result.Failure(SerializationFailures.InvalidPayload());
+                }
+
+                return Result.Success();
+            }
+            catch (JsonException)
+            {
+                return Result.Failure(SerializationFailures.InvalidPayload());
+            }
+            catch (DecoderFallbackException)
+            {
+                return Result.Failure(SerializationFailures.InvalidPayload());
+            }
+        }
+
         private static bool HasUtf8Bom(byte[] value) => value.Length >= 3 && value[0] == 0xEF && value[1] == 0xBB && value[2] == 0xBF;
+
+        private static bool HasStructuralTrailingComma(string json)
+        {
+            bool inString = false;
+            bool escaping = false;
+            for (int index = 0; index < json.Length; index++)
+            {
+                char c = json[index];
+                if (inString)
+                {
+                    if (escaping)
+                    {
+                        escaping = false;
+                    }
+                    else if (c == '\\')
+                    {
+                        escaping = true;
+                    }
+                    else if (c == '"')
+                    {
+                        inString = false;
+                    }
+
+                    continue;
+                }
+
+                if (c == '"')
+                {
+                    inString = true;
+                    continue;
+                }
+
+                if (c != ',') continue;
+                int next = index + 1;
+                while (next < json.Length && char.IsWhiteSpace(json[next])) next++;
+                if (next < json.Length && (json[next] == '}' || json[next] == ']')) return true;
+            }
+
+            return false;
+        }
     }
 
     public sealed class CanonicalJsonWriter
@@ -179,6 +262,14 @@ namespace Odyssey.Application.Serialization
             return this;
         }
 
+        public CanonicalJsonWriter NullableInt64(string name, long? value)
+        {
+            WriteName(name);
+            if (value.HasValue) _writer.WriteValue(value.Value);
+            else _writer.WriteNull();
+            return this;
+        }
+
         public CanonicalJsonWriter Boolean(string name, bool value)
         {
             WriteName(name);
@@ -186,10 +277,42 @@ namespace Odyssey.Application.Serialization
             return this;
         }
 
+        public CanonicalJsonWriter Null(string name)
+        {
+            WriteName(name);
+            _writer.WriteNull();
+            return this;
+        }
+
         public CanonicalJsonWriter RawJson(string name, string json)
         {
             WriteName(name);
             _writer.WriteRawValue(json);
+            return this;
+        }
+
+        public CanonicalJsonWriter StartArray(string name)
+        {
+            WriteName(name);
+            _writer.WriteStartArray();
+            return this;
+        }
+
+        public CanonicalJsonWriter EndArray()
+        {
+            _writer.WriteEndArray();
+            return this;
+        }
+
+        public CanonicalJsonWriter StartArrayObject()
+        {
+            _writer.WriteStartObject();
+            return this;
+        }
+
+        public CanonicalJsonWriter EndArrayObject()
+        {
+            _writer.WriteEndObject();
             return this;
         }
 

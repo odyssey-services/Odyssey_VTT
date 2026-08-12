@@ -113,7 +113,7 @@ namespace Odyssey.Application.Serialization
 
     public sealed class CommandFingerprintMaterialV1Codec : IJsonContractCodec<CommandFingerprintMaterialV1>
     {
-        public static readonly ContractType Type = ContractType.Parse("odyssey.command.fingerprint_material");
+        public static readonly ContractType Type = ContractType.Parse("odyssey.command.fingerprint.material");
         public JsonContractKey Key { get; } = new JsonContractKey(SerializationProfile.AuthoritativePayloadJson, Type, ContractVersion.Create(1));
 
         public Result<JsonPayload> Write(CommandFingerprintMaterialV1 value)
@@ -131,9 +131,20 @@ namespace Odyssey.Application.Serialization
                 .String("rootCommandId", value.RootCommandId.ToString())
                 .NullableString("parentCommandId", value.ParentCommandId?.ToString())
                 .String("correlationId", value.CorrelationId.ToString())
-                .NullableString("expectedCampaignRevision", value.ExpectedCampaignRevision?.ToString(System.Globalization.CultureInfo.InvariantCulture))
-                .NullableString("expectedSessionSequence", value.ExpectedSessionSequence?.ToString(System.Globalization.CultureInfo.InvariantCulture))
-                .String("expectedAggregateRevisions", JoinExpected(value.ExpectedAggregateRevisions))
+                .NullableInt64("expectedCampaignRevision", value.ExpectedCampaignRevision)
+                .NullableInt64("expectedSessionSequence", value.ExpectedSessionSequence)
+                .StartArray("expectedAggregateRevisions");
+            for (int index = 0; index < value.ExpectedAggregateRevisions.Count; index++)
+            {
+                ExpectedAggregateRevisionMaterial revision = value.ExpectedAggregateRevisions[index];
+                writer.StartArrayObject()
+                    .String("aggregateType", revision.AggregateType.ToString())
+                    .String("aggregateId", revision.AggregateId.ToString())
+                    .Int64("expectedRevision", revision.ExpectedRevision)
+                    .EndArrayObject();
+            }
+
+            writer.EndArray()
                 .String("payloadContractType", value.PayloadContractType.ToString())
                 .Int32("payloadContractVersion", value.PayloadContractVersion.Value)
                 .RawJson("canonicalPayload", value.CanonicalPayload.Utf8Text)
@@ -168,16 +179,6 @@ namespace Odyssey.Application.Serialization
             }
         }
 
-        private static string JoinExpected(IReadOnlyList<ExpectedAggregateRevisionMaterial> revisions)
-        {
-            string[] values = new string[revisions.Count];
-            for (int index = 0; index < revisions.Count; index++)
-            {
-                values[index] = revisions[index].AggregateType + ":" + revisions[index].AggregateId + ":" + revisions[index].ExpectedRevision.ToString(System.Globalization.CultureInfo.InvariantCulture);
-            }
-
-            return string.Join("|", values);
-        }
     }
 
     public sealed class SyntheticEventRecord
@@ -214,7 +215,7 @@ namespace Odyssey.Application.Serialization
 
     public sealed class SyntheticEventRecordCodec : IJsonContractCodec<SyntheticEventRecord>
     {
-        public static readonly ContractType Type = ContractType.Parse("odyssey.synthetic.event_record");
+        public static readonly ContractType Type = ContractType.Parse("odyssey.synthetic.event.record");
         public JsonContractKey Key { get; } = new JsonContractKey(SerializationProfile.PersistenceJson, Type, ContractVersion.Create(1));
 
         public Result<JsonPayload> Write(SyntheticEventRecord value)
@@ -234,6 +235,8 @@ namespace Odyssey.Application.Serialization
         {
             Result<JsonObjectReader> reader = JsonObjectReader.Read(utf8Json, JsonPayloadLimits.EventPayloadBytes);
             if (reader.IsFailure) return Result<SyntheticEventRecord>.Failure(reader.Error);
+            Result schema = reader.Value.EnsureOnly("contractType", "contractVersion", "payloadJson", "payloadHash");
+            if (schema.IsFailure) return Result<SyntheticEventRecord>.Failure(schema.Error);
             Result<string> type = reader.Value.RequiredString("contractType");
             Result<int> version = reader.Value.RequiredInt32("contractVersion");
             Result<string> payloadJson = reader.Value.RequiredString("payloadJson");
@@ -283,6 +286,8 @@ namespace Odyssey.Application.Serialization
         {
             Result<JsonObjectReader> reader = JsonObjectReader.Read(json, JsonPayloadLimits.EventPayloadBytes);
             if (reader.IsFailure) return Result<SyntheticPayloadV2>.Failure(reader.Error);
+            Result schema = reader.Value.EnsureOnly("name", "count", "mode");
+            if (schema.IsFailure) return Result<SyntheticPayloadV2>.Failure(schema.Error);
             Result<string> name = reader.Value.RequiredString("name");
             Result<int> count = reader.Value.RequiredInt32("count");
             Result<string> mode = reader.Value.RequiredString("mode");
@@ -297,6 +302,8 @@ namespace Odyssey.Application.Serialization
         {
             Result<JsonObjectReader> reader = JsonObjectReader.Read(v1Json, JsonPayloadLimits.EventPayloadBytes);
             if (reader.IsFailure) return Result<JsonPayload>.Failure(reader.Error);
+            Result schema = reader.Value.EnsureOnly("name", "count");
+            if (schema.IsFailure) return Result<JsonPayload>.Failure(schema.Error);
             Result<string> name = reader.Value.RequiredString("name");
             Result<int> count = reader.Value.RequiredInt32("count");
             if (name.IsFailure) return Result<JsonPayload>.Failure(name.Error);
@@ -330,6 +337,77 @@ namespace Odyssey.Application.Serialization
 
             mode = default;
             return false;
+        }
+    }
+
+    public interface IJsonPayloadUpcaster
+    {
+        ContractType ContractType { get; }
+        ContractVersion FromVersion { get; }
+        ContractVersion ToVersion { get; }
+        Result<JsonPayload> Upcast(byte[] sourceUtf8Json);
+    }
+
+    public sealed class SyntheticPayloadV1ToV2Upcaster : IJsonPayloadUpcaster
+    {
+        public ContractType ContractType => SyntheticEventRecordCodec.Type;
+        public ContractVersion FromVersion => ContractVersion.Create(1);
+        public ContractVersion ToVersion => ContractVersion.Create(2);
+        public Result<JsonPayload> Upcast(byte[] sourceUtf8Json) => SyntheticPayloadCodec.UpcastV1ToV2(sourceUtf8Json);
+    }
+
+    public sealed class JsonPayloadUpcasterRegistry
+    {
+        private readonly IReadOnlyList<IJsonPayloadUpcaster> _upcasters;
+
+        public JsonPayloadUpcasterRegistry(IReadOnlyList<IJsonPayloadUpcaster> upcasters)
+        {
+            if (upcasters == null) throw new ArgumentNullException(nameof(upcasters));
+            IJsonPayloadUpcaster[] copy = new IJsonPayloadUpcaster[upcasters.Count];
+            for (int index = 0; index < upcasters.Count; index++)
+            {
+                copy[index] = upcasters[index] ?? throw new ArgumentException("Upcaster is required.", nameof(upcasters));
+            }
+
+            _upcasters = Array.AsReadOnly(copy);
+        }
+
+        public Result<JsonPayload> Upcast(ContractType contractType, ContractVersion fromVersion, ContractVersion toVersion, byte[] sourceUtf8Json)
+        {
+            if (!contractType.IsValid) throw new ArgumentException("ContractType is required.", nameof(contractType));
+            if (!fromVersion.IsValid) throw new ArgumentException("FromVersion is required.", nameof(fromVersion));
+            if (!toVersion.IsValid) throw new ArgumentException("ToVersion is required.", nameof(toVersion));
+            if (sourceUtf8Json == null) throw new ArgumentNullException(nameof(sourceUtf8Json));
+            ContractVersion current = fromVersion;
+            byte[] currentBytes = Copy(sourceUtf8Json);
+            while (current.CompareTo(toVersion) < 0)
+            {
+                IJsonPayloadUpcaster? next = null;
+                for (int index = 0; index < _upcasters.Count; index++)
+                {
+                    IJsonPayloadUpcaster candidate = _upcasters[index];
+                    if (candidate.ContractType == contractType && candidate.FromVersion.Equals(current))
+                    {
+                        next = candidate;
+                        break;
+                    }
+                }
+
+                if (next == null) return Result<JsonPayload>.Failure(SerializationFailures.UnsupportedContract());
+                Result<JsonPayload> upcasted = next.Upcast(currentBytes);
+                if (upcasted.IsFailure) return upcasted;
+                currentBytes = upcasted.Value.Bytes;
+                current = next.ToVersion;
+            }
+
+            return current.Equals(toVersion) ? Result<JsonPayload>.Success(new JsonPayload(currentBytes)) : Result<JsonPayload>.Failure(SerializationFailures.UnsupportedContract());
+        }
+
+        private static byte[] Copy(byte[] source)
+        {
+            byte[] copy = new byte[source.Length];
+            Buffer.BlockCopy(source, 0, copy, 0, source.Length);
+            return copy;
         }
     }
 }

@@ -7,6 +7,7 @@ using Odyssey.Application.Identity;
 using Odyssey.Application.Results;
 using Odyssey.Application.Time;
 using Odyssey.Domain.Identity;
+using Odyssey.Persistence.Diagnostics;
 
 namespace Odyssey.Unity.Client
 {
@@ -132,6 +133,9 @@ namespace Odyssey.Unity.Client
                 emergency = settings.EmergencySinkFactory(configuration.CrashMarkerDirectory);
                 List<IDiagnosticSink> sinks = new List<IDiagnosticSink> { ring };
                 sinks.AddRange(settings.ExtraSinks);
+                RollingJsonlDiagnosticSink rollingJsonl = new RollingJsonlDiagnosticSink(configuration.CrashMarkerDirectory, new DiagnosticSinkWallClockAdapter(settings.Clock));
+                owned.Add(rollingJsonl);
+                sinks.Add(new RollingJsonlUnityDiagnosticSink(rollingJsonl));
                 if (settings.IncludeConsoleSink) sinks.Add(new UnityConsoleDiagnosticSink());
 
                 diagnostics = new BoundedDiagnosticRuntime(registry, settings.Clock, settings.MonotonicClock, sinks, emergency);
@@ -222,6 +226,43 @@ namespace Odyssey.Unity.Client
             catch (Exception ex)
             {
                 RecordCleanupFailure(diagnostics, clock, processInstanceId, diagnosticIds, incidents, emergency, ex);
+                return false;
+            }
+        }
+    }
+
+    internal sealed class DiagnosticSinkWallClockAdapter : IDiagnosticSinkClock
+    {
+        private readonly IWallClock _clock;
+
+        public DiagnosticSinkWallClockAdapter(IWallClock clock)
+        {
+            _clock = clock ?? throw new ArgumentNullException(nameof(clock));
+        }
+
+        public DateTimeOffset GetUtcNow() => DateTimeOffset.Parse(_clock.GetUtcNow().ToString(), System.Globalization.CultureInfo.InvariantCulture, System.Globalization.DateTimeStyles.AssumeUniversal);
+    }
+
+    internal sealed class RollingJsonlUnityDiagnosticSink : IDiagnosticSink
+    {
+        private readonly RollingJsonlDiagnosticSink _sink;
+
+        public RollingJsonlUnityDiagnosticSink(RollingJsonlDiagnosticSink sink)
+        {
+            _sink = sink ?? throw new ArgumentNullException(nameof(sink));
+        }
+
+        public string Name => "rolling_jsonl";
+
+        public bool TryWrite(LogEventV1 logEvent)
+        {
+            try
+            {
+                _sink.Write(logEvent);
+                return true;
+            }
+            catch
+            {
                 return false;
             }
         }

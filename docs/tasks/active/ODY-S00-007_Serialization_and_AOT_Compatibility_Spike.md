@@ -409,6 +409,18 @@ The Newtonsoft dependency model above is APPROVED for ODY-S00-007 implementation
 - AOT behavior implemented: focused Windows Standalone x64 IL2CPP serialization smoke build/player path named `serialization-aot-smoke`; no ODY-S00-009 application build artifact is claimed.
 - Scope guard: no SQLite, networking, gameplay, CI, BuildIdentity, full `.odcamp` import/export, ProjectSettings/HDRP baseline change, or ODY-S00-008/009 implementation.
 
+### Pre-PR contract-gap correction snapshot - 2026-08-12
+
+- TestCase authority: `Tests/Metadata/test-catalog.json` restored `TC-SER-001` through `TC-SER-024` and `TC-DIAG-007`, `TC-DIAG-029`, `TC-DIAG-030`, `TC-DIAG-031`, `TC-DIAG-032`, `TC-DIAG-041`, `TC-DIAG-042`, `TC-DIAG-043`, and `TC-DIAG-044` meanings to match section 10 exactly; no TestCase ID was repurposed.
+- ContractType grammar: implemented ADR-003 preserved grammar `[a-z][a-z0-9]*(\.[a-z][a-z0-9]*)+`, maximum length 128, minimum two segments, no underscore, no hyphen, and no digit-leading segment. ContractType values were corrected to `odyssey.command.fingerprint.material`, `odyssey.synthetic.event.record`, and `odyssey.diagnostics.log.event`.
+- Strict reader: production `MaxDepth` is 64, structural trailing-comma detection ignores string contents, comments/BOM/invalid UTF-8/duplicates/unknown fields are rejected, and valid strings containing `,}` are accepted.
+- Immutable payload: `JsonPayload` keeps canonical bytes private and returns defensive copies/read-only memory; tests prove source/exposed byte mutation does not change retained payload/hash.
+- Command fingerprint material: canonical fixture uses explicit nullable integer fields, explicit `expectedAggregateRevisions` array objects sorted by `aggregateType` then `aggregateId`, and nested `canonicalPayload`. Frozen fingerprint is `fp_34cb57ecc14fe9985455ed66e42a75e641c7dda3131274d1e8b15a6a0d1ba347`.
+- Upcaster: explicit pure `IJsonPayloadUpcaster` plus deterministic registry/chain proves synthetic v1-to-v2 PASS, missing path controlled failure, and original fixture bytes unchanged.
+- Diagnostic JSON: `safeProperties` and `exceptionSummary` are structured JSON, optional `CorrelationId`/`DiagnosticId`/`CommandId`/`SessionReference` are omitted when absent, durable enum tokens use explicit mappings, and comma/pipe percent-looking strings are not custom-delimiter escaped.
+- JSONL/runtime wiring: production DeveloperShell composition now contains memory ring, rolling JSONL sink, Unity console sink, and emergency sink. Unity EditMode evidence proves rolling sink appears exactly once, is disposed through runtime shutdown, performs daily UTC rotation, 10 MiB size rotation, retention, active-file preservation, secret absence, and new-process same-day file rotation.
+- Frozen vectors: `Tests/Fixtures/Serialization/**` now owns canonical payload JSON/hash, canonical fingerprint material JSON, exact CommandFingerprint, canonical diagnostic JSON/hash, canonical manifest JSON/hash. IL2CPP smoke parses the Player result marker and compares exact values against `golden-vectors.json`.
+
 ### Final changed files / areas
 
 - Dependency pins and license notices: `Directory.Build.props`, `DotNet/Projects/Odyssey.Application.csproj`, `Packages/manifest.json`, `Packages/packages-lock.json`, `Packages/com.odyssey.application/package.json`, `Packages/com.odyssey.application/Runtime/Odyssey.Application.asmdef`, `THIRD_PARTY_NOTICES.md`.
@@ -425,11 +437,11 @@ The Newtonsoft dependency model above is APPROVED for ODY-S00-007 implementation
 | `powershell -NoProfile -ExecutionPolicy Bypass -File .\scripts\restore.ps1` | Passed | Final rerun passed after an earlier sandbox-only NuGet/cache access failure; restore completed successfully. |
 | `powershell -NoProfile -ExecutionPolicy Bypass -File .\scripts\verify-format.ps1` | Passed | `FORMAT-001 PASS repository text formatting checks passed`. |
 | `powershell -NoProfile -ExecutionPolicy Bypass -File .\scripts\verify-test-structure.ps1` | Passed | Architecture fixtures passed/rejected as expected; serialization guards and TC-SER/TC-DIAG catalog ownership passed. |
-| `powershell -NoProfile -ExecutionPolicy Bypass -File .\scripts\test-fast.ps1` | Passed | Build 0 warnings / 0 errors; tests passed: Contracts 1, Domain 1, Unit 62, Architecture 2; total 66, failed 0, skipped 0. |
+| `powershell -NoProfile -ExecutionPolicy Bypass -File .\scripts\test-fast.ps1` | Passed | Build 0 warnings / 0 errors; tests passed: Contracts 1, Domain 1, Unit 65, Architecture 2; total 69, failed 0, skipped 0. |
 | `dotnet build .\DotNet\Odyssey.Core.sln --no-restore` | Passed | Solution build completed with 0 warnings / 0 errors. |
-| `dotnet test .\DotNet\Odyssey.Core.sln --no-build --no-restore` | Passed | Contracts 1, Domain 1, Unit 62, Architecture 2; total 66, failed 0, skipped 0. |
-| `powershell -NoProfile -ExecutionPolicy Bypass -File .\scripts\test-unity.ps1` | Passed | Unity `6000.4.0f1`; batch compile exit code 0; EditMode 29 passed / 0 failed / 0 skipped; PlayMode 2 passed / 0 failed / 0 skipped. |
-| `powershell -NoProfile -ExecutionPolicy Bypass -File .\scripts\test-serialization-aot.ps1` | Passed | `TC-SER-022 serialization-aot-smoke build PASS exit code 0`; `TC-DIAG-042 serialization-aot-smoke player PASS exit code 0`. |
+| `dotnet test .\DotNet\Odyssey.Core.sln --no-build --no-restore` | Passed | Contracts 1, Domain 1, Unit 65, Architecture 2; total 69, failed 0, skipped 0. |
+| `powershell -NoProfile -ExecutionPolicy Bypass -File .\scripts\test-unity.ps1` | Passed | Unity `6000.4.0f1`; batch compile exit code 0; EditMode 31 passed / 0 failed / 0 skipped; PlayMode 2 passed / 0 failed / 0 skipped. |
+| `powershell -NoProfile -ExecutionPolicy Bypass -File .\scripts\test-serialization-aot.ps1` | Passed | `TC-SER-022 serialization-aot-smoke build PASS exit code 0`; `TC-DIAG-042 serialization-aot-smoke player PASS exit code 0`; exact vector comparison PASS. |
 | `powershell -NoProfile -ExecutionPolicy Bypass -File .\scripts\verify-repository.ps1` | Passed | Repository policy, architecture guard, and SDK checks passed; selected SDK `10.0.302`. |
 | `powershell -NoProfile -ExecutionPolicy Bypass -File .\scripts\check-repository-policy.ps1` | Passed | `REPO-POLICY-001` through `REPO-POLICY-005` passed. |
 | `git diff --check` | Passed | Final rerun exited 0 with no whitespace errors after cleaning Unity-generated ProjectSettings/HDRP drift. |
@@ -447,7 +459,7 @@ The Newtonsoft dependency model above is APPROVED for ODY-S00-007 implementation
 - Build identity: Not created; ODY-S00-008/009 ownership.
 - Focused AOT artifact: `artifacts/serialization-aot-smoke/serialization-aot-smoke.exe`, generated by `scripts/test-serialization-aot.ps1`; not committed.
 - Player log: `Logs/ODY-S00-007/serialization-aot-player.log`.
-- Smoke vector output: `serialization-aot-smoke PASS fp_f495646d5e0d4096e791e58d3b5516d5c10fbdb3145304ed9bfc34bd3721e813 297210561a33067f767e70b9529e758bba64d4994519a8de02f33d2de9d9308b e0279f2bcdb200315330e4f5dd32dcea99f38ad70375d516d3391fcca7fe8d8ab ab596e69df0d4a59e3940d36006edf04782c4998e8c51e66b4facd5f2d4cbf92`.
+- Smoke vector output: `serialization-aot-smoke PASS payloadHash=297210561a33067f767e70b9529e758bba64d4994519a8de02f33d2de9d9308b fingerprint=fp_34cb57ecc14fe9985455ed66e42a75e641c7dda3131274d1e8b15a6a0d1ba347 diagnosticHash=95a9b6007c2add9f0faf00f55519dd1abff72d41b19ae7469d07131324111c52 manifestHash=ab596e69df0d4a59e3940d36006edf04782c4998e8c51e66b4facd5f2d4cbf92`.
 
 ### Final known limitations
 
