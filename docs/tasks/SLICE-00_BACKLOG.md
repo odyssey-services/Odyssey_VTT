@@ -45,7 +45,7 @@ The delivery-group labels `PR-000–PR-005` come from Technical Development Base
 | 4 | `ODY-S00-004` | PR-003A | Identity, Version and Result Primitives | Done | 003 | Brief plan | Typed IDs, version value objects, `Result/Error`, registries and unit tests |
 | 5 | `ODY-S00-005` | PR-003B | Command, Event, Clock and RNG Contracts | Done | 004 | ExecPlan update | Deterministic test operation, idempotency contracts, virtual time and RNG vectors |
 | 6 | `ODY-S00-006` | PR-003C | Runtime Composition and Diagnostic Shell | Done | 005 | ExecPlan update | Manual composition, process lifecycle, minimal UI shell, structured safe diagnostics |
-| 7 | `ODY-S00-007` | PR-004 | Serialization and AOT Compatibility Spike | Blocked | 005, 006 | ExecPlan update | Canonical DTOs, source generation, invalid-input tests and Mono/IL2CPP parity evidence |
+| 7 | `ODY-S00-007` | PR-004 | Serialization and AOT Compatibility Spike | Ready | 005, 006 | ExecPlan update | Explicit canonical JSON codecs, invalid-input tests and Mono/IL2CPP parity evidence |
 | 8 | `ODY-S00-008` | PR-005A | Fast CI and Build Identity | Draft | 003–007 | ExecPlan update | Required .NET/Unity checks, version generation, provenance and repository-policy gates |
 | 9 | `ODY-S00-009` | PR-005B | Windows Development Build and Player Smoke | Draft | 008 | ExecPlan update | Scripted Windows x64 build, artifact/checksum, startup/shutdown and diagnostics smoke |
 | 10 | `ODY-S00-010` | Gate | SLICE-00 Acceptance and M1 Closure | Draft | 001–009 | Brief plan | Traceability matrix, quality report, clean-checkout rehearsal and owner acceptance |
@@ -78,7 +78,7 @@ Create explicit manual composition, lifecycle ownership, minimal Developer Shell
 
 ### ODY-S00-007 — Serialization and AOT Compatibility Spike
 
-Prove ADR-003 compatibility with explicit DTOs, canonical JSON, source-generated contexts, parser ceilings, golden vectors, Mono and IL2CPP x64. The spike may not silently select a persistence or networking implementation.
+Prove ADR-003 v1.1 compatibility with explicit DTOs, canonical JSON, hand-written Newtonsoft streaming codecs, parser ceilings, golden vectors, Mono and IL2CPP x64. The spike may not silently select a persistence or networking implementation.
 
 ### ODY-S00-008 — Fast CI and Build Identity
 
@@ -111,7 +111,7 @@ The entire `SLICE-00` excludes:
 - network transport, relay, accounts, authentication, E2EE, or permissions runtime;
 - map editor, tokens, combat, dice UI, character system, content tools, chat, or audio features;
 - Addressables, installer/updater, distribution channel, remote telemetry, or crash-upload service;
-- external DI, mocking, versioning, logging, or serialization frameworks unless separately approved by task and authority;
+- external DI, mocking, versioning, logging, or serialization frameworks unless separately approved by task and authority; ADR-003 v1.1 approves only the pinned Newtonsoft JSON codec baseline for ODY-S00-007 serialization work;
 - public release or compatibility promises to end users.
 
 ## 7. Backlog change control

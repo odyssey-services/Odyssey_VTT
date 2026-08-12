@@ -3,7 +3,7 @@
 **Документ:** `ACTIVE_DOCUMENTATION_BASELINE_Odyssey_VTT_v1.8.md`
 **Версия:** 1.8
 **Дата:** 10 августа 2026 года
-**Статус:** Active authority register
+**Статус:** Superseded by `ACTIVE_DOCUMENTATION_BASELINE_Odyssey_VTT_v1.9.md`
 
 **Материальное изменение v1.8:** принят `docs/adr/ADR-009_Unity_Project_and_Build_Baseline_v1.1.md`, который supersedes ADR-009 v1.0 only for the Unity Editor/package baseline and pins Unity `6000.4.0f1 (8cf496087c8f)` with HDRP `com.unity.render-pipelines.high-definition` `17.4.0`. Registered `TECHNICAL_DEVELOPMENT_BASELINE_Odyssey_VTT_v0.3.md`; no MVP scope, repository privacy, or architecture boundary is changed.
 

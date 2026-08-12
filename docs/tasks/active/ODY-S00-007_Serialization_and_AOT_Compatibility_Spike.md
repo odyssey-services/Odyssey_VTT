@@ -1,6 +1,6 @@
 # ODY-S00-007 - Serialization and AOT Compatibility Spike
 
-**Status:** Blocked
+**Status:** Ready
 **Roadmap stage / slice:** SLICE-00
 **Owner:** Codex
 **Requested by:** Product owner
@@ -8,11 +8,11 @@
 **Pull request:** Not opened
 **ExecPlan:** `docs/plans/active/ODY-S00-000_SLICE_00_Technical_Skeleton.md`
 **Created:** 2026-08-11
-**Last updated:** 2026-08-11 23:33 UTC
+**Last updated:** 2026-08-12
 
 ## 1. Goal
 
-Prove the SLICE-00 serialization contract and serialization-specific AOT compatibility required by ADR-003, using explicit DTOs, canonical UTF-8 JSON, source-generated `System.Text.Json` contexts, compatibility fixtures, and focused .NET/Unity/IL2CPP evidence.
+Prove the SLICE-00 serialization contract and serialization-specific AOT compatibility required by ADR-003 v1.1, using explicit DTOs, canonical UTF-8 JSON, hand-written deterministic Newtonsoft streaming codecs, compatibility fixtures, and focused .NET/Unity/IL2CPP evidence.
 
 This is a compatibility spike only. It must not implement Persistence, Networking, gameplay, full `.odcamp` import/export, or the ODY-S00-009 Windows Development-Debug artifact.
 
@@ -26,8 +26,8 @@ This is a compatibility spike only. It must not implement Persistence, Networkin
 
 ### Required authorities
 
-- `ACTIVE_DOCUMENTATION_BASELINE_Odyssey_VTT_v1.8.md`
-- `TECHNICAL_DEVELOPMENT_BASELINE_Odyssey_VTT_v0.3.md`
+- `ACTIVE_DOCUMENTATION_BASELINE_Odyssey_VTT_v1.9.md`
+- `TECHNICAL_DEVELOPMENT_BASELINE_Odyssey_VTT_v0.4.md`
 - `AGENTS.md`
 - `PLANS.md`
 - `docs/tasks/TASK_TEMPLATE.md`
@@ -38,14 +38,14 @@ This is a compatibility spike only. It must not implement Persistence, Networkin
 - `docs/tasks/completed/ODY-S00-006_Runtime_Composition_and_Diagnostic_Shell.md`
 - `docs/adr/ADR-001_Module_Boundaries_and_Dependency_Direction_v1.0.md`
 - `docs/adr/ADR-002_Command_and_Domain_Event_Model_v1.0.md`
-- `docs/adr/ADR-003_Serialization_Strategy_v1.0.md`
+- `docs/adr/ADR-003_Serialization_Strategy_v1.1.md`
 - `docs/adr/ADR-004_Result_and_Error_Model_v1.0.md`
 - `docs/adr/ADR-005_Dependency_Composition_v1.0.md`
 - `docs/adr/ADR-006_Test_Project_Structure_and_Dual_Unity_DotNet_Compilation_v1.0.md`
 - `docs/adr/ADR-007_Versioning_and_Build_Identity_v1.0.md`
 - `docs/adr/ADR-008_Deterministic_Clock_and_RNG_v1.0.md`
 - `docs/adr/ADR-009_Unity_Project_and_Build_Baseline_v1.1.md`
-- `docs/adr/ADR-010_Logging_Diagnostics_and_Redaction_v1.0.md`
+- `docs/adr/ADR-010_Logging_Diagnostics_and_Redaction_v1.1.md`
 - Existing production contracts from ODY-S00-004/005/006 must be inspected before adding primitives; do not duplicate existing ID, version, result, command, event, clock, RNG, or diagnostic types.
 
 ### Requirement and test IDs
@@ -68,7 +68,7 @@ This is a compatibility spike only. It must not implement Persistence, Networkin
 - ODY-S00-005 provides `ApplicationCommand`, `CommandId`, `CommandType`, `CommandVersion`, `CommandPayloadVersion`, opaque `CommandFingerprint`, `CommandResult`, `DomainEvent`, `DomainEventBatch`, clock/scheduler contracts, and RNG vector contracts.
 - ODY-S00-006 provides `LogEventV1`, `EventCode`, `MessageTemplateKey`, `SafeLogProperty`, `SafeLogValue`, `ProcessInstanceId`, `ExceptionSummary`, EventCode registry, and runtime diagnostics contracts.
 - `Tests/Metadata/test-catalog.json` currently has no `TC-SER-*` entries and preserves ADR-010 diagnostic IDs including `TC-DIAG-001` for `LogEventV1` JSON serialization.
-- No production serialization DTOs, canonical JSON writer, source-generated contexts, contract registry, upcaster chain, JSONL diagnostic sink, or serialization fixtures exist yet.
+- No production serialization DTOs, canonical JSON writer, explicit codecs, contract registry, upcaster chain, JSONL diagnostic sink, or serialization fixtures exist yet.
 - Repository-safe search found no `16_Test_Strategy_Odyssey_VTT_*` file in this repository. Until an accepted repository-accessible Test Strategy source proves exact `TC-SER-*` meanings, `TC-SER-001` through `TC-SER-024` are task-specific ODY-S00-007 serialization extensions, not ADR-defined IDs.
 
 ### Assumptions
@@ -79,11 +79,11 @@ This is a compatibility spike only. It must not implement Persistence, Networkin
 
 ### In scope
 
-- `System.Text.Json` as the only default JSON serializer.
+- Explicit deterministic JSON codecs using pinned Newtonsoft.Json low-level streaming primitives as approved by ADR-003 v1.1.
 - Explicit boundary DTOs for the spike; do not serialize Domain aggregates or complete `ApplicationCommand` object graphs directly.
 - Stable `ContractType` and `ContractVersion` semantics where required by ADR-003.
 - Centralized serializer profiles for at least authoritative payload, diagnostics, interchange/fixture, and test fixture use.
-- Source-generated `JsonSerializerContext` for release-critical serialization paths; no reflection fallback on those paths.
+- Hand-written encode/decode paths for release-critical serialization; no automatic CLR object mapping or reflection fallback on those paths.
 - Stable typed-ID JSON conversion using existing typed IDs rather than duplicating them.
 - Stable UTC timestamp conversion and validation using existing `UtcInstant`.
 - Stable enum-token example.
@@ -100,10 +100,10 @@ This is a compatibility spike only. It must not implement Persistence, Networkin
 - Diagnostic parity and compatibility ownership: `TC-DIAG-041` owns .NET/Unity Mono diagnostic vector parity, `TC-DIAG-042` owns Windows x64 IL2CPP diagnostic vector parity, `TC-DIAG-043` owns unknown future major log schema compatibility error, and `TC-DIAG-044` owns duplicate JSON property rejection by the diagnostic reader.
 - Rolling JSONL diagnostic sink completion is required by ADR-010 and owned by ODY-S00-007 on top of the ODY-S00-006 diagnostic runtime. Baseline: one UTF-8 JSON record per line, no BOM, UTC date-change rotation, 10 MiB size rotation, new process rotation after a previous unclean active file where applicable, and retention by the first reached limit among 10 files, 14 days, or 100 MiB total. No telemetry or upload.
 - Narrow JSONL storage adapter scope is allowed only under `Packages/com.odyssey.persistence/Runtime/Diagnostics/**` for rolling JSONL diagnostic sink, rotation, retention, and diagnostic file ownership helpers. This does not authorize SQLite, database, campaign persistence, event store, schema, migration, repository implementation, outbox, backup, or general Persistence runtime work.
-- `.odcamp` spike scope: versioned manifest DTO, `InterchangeJson` profile, source-generated serialization, fixture/round-trip, no secrets/absolute paths, and path-safety validation. Use the owning interchange/persistence boundary defined by accepted authorities; if exact production module ownership cannot be determined without contradicting ADR-001/ADR-003, stop and report the ownership blocker before implementation.
+- `.odcamp` spike scope: versioned manifest DTO, `InterchangeJson` profile, explicit codec serialization, fixture/round-trip, no secrets/absolute paths, and path-safety validation. `Odyssey.Application` owns manifest contract DTO, `ContractType`/`ContractVersion`, semantic validation, compatibility result, and interchange codec contract; `Odyssey.Persistence` later owns archive/file I/O, the physical `.odcamp` container, SQLite backup packaging/restoration, filesystem paths, and atomic replacement.
 - Focused serialization/AOT compatibility proof in .NET, Unity Mono/EditMode, and mandatory serialization-specific Windows x64 IL2CPP smoke.
-- Before substantive implementation, verify that accepted production source can compile `System.Text.Json` and `JsonSerializerContext` source generation in both `DotNet/Projects/Odyssey.Application.csproj` (`netstandard2.1`) and the Unity `6000.4.0f1` compile path. Do not add `PackageReference`, NuGet package, Unity package, DLL, analyzer, or .NET project/reference changes silently. If current references are insufficient, stop and report the exact missing assembly/reference/analyzer, affected project/Unity assembly, minimal pinned dependency/reference change, and Unity/.NET compatibility impact for owner approval.
-- Contract registry: compile-time `(ContractType, ContractVersion) -> DTO metadata -> JsonTypeInfo -> validator -> mapper/upcaster`; no CLR name lookup, assembly-qualified names, reflection scanning, `IServiceProvider`, `Resolve<T>`, or arbitrary `object` deserialization.
+- Approved dependency model for implementation: Unity runtime `com.unity.nuget.newtonsoft-json@3.2.2`; pure .NET bridge `Newtonsoft.Json 13.0.2`; `Odyssey.Application` owns canonical JSON codec implementation. Do not add Newtonsoft to Domain, and do not add Domain serializer annotations.
+- Contract registry: compile-time `(ContractType, ContractVersion) -> explicit codec -> validator -> mapper/upcaster`; no CLR name lookup, assembly-qualified names, reflection scanning, `IServiceProvider`, `Resolve<T>`, or arbitrary `object` deserialization.
 - Test catalog entries, architecture guards, parent ExecPlan evidence, task Completion Evidence, README status if needed, and repository policy checks required by this task.
 
 ### Out of scope
@@ -113,7 +113,7 @@ This is a compatibility spike only. It must not implement Persistence, Networkin
 - Gameplay events, gameplay commands, campaign runtime, session runtime, operation runtime, WorldClock gameplay mechanics, map/tokens/combat/dice/characters/content/chat/audio behavior.
 - Full `.odcamp` importer/exporter/archive codec/campaign DB/SQLite backup/asset streaming.
 - BuildIdentity generation, GitHub Actions CI, required status checks, release artifact, installer/updater, telemetry, remote crash upload, or diagnostic upload service.
-- New serializer dependency, Newtonsoft.Json, external JSON libraries, new Unity package/version changes, ProjectSettings changes, or package lock changes.
+- Serializer dependency experimentation beyond the ADR-003 v1.1 approved Newtonsoft baseline; Unity package/version baseline changes; ProjectSettings changes.
 - ODY-S00-009 Windows Development-Debug build artifact, packaging, checksum, startup/shutdown Player smoke, or release build profile proof.
 
 ### Allowed paths
@@ -122,6 +122,7 @@ This is a compatibility spike only. It must not implement Persistence, Networkin
 Packages/com.odyssey.application/Runtime/Serialization/**
 Packages/com.odyssey.application/Runtime/Diagnostics/**
 Packages/com.odyssey.application/Runtime/Commands/**
+Packages/com.odyssey.application/package.json
 Packages/com.odyssey.content/Runtime/Serialization/**
 Packages/com.odyssey.persistence/Runtime/Diagnostics/**
 Assets/Odyssey/Client/Runtime/Serialization/**
@@ -135,6 +136,12 @@ DotNet/Tests/Odyssey.Tests.Architecture/**
 Tests/Fixtures/Serialization/**
 Tests/Metadata/test-catalog.json
 config/diagnostics/**
+docs/errors/ERROR_CODES.md
+Directory.Build.props
+DotNet/Projects/Odyssey.Application.csproj
+Packages/manifest.json
+Packages/packages-lock.json
+THIRD_PARTY_NOTICES.md
 scripts/verify-test-structure.ps1
 scripts/test-fast.ps1
 scripts/test-unity.ps1
@@ -154,8 +161,6 @@ README.md
 docs/adr/**
 TECHNICAL_DEVELOPMENT_BASELINE_Odyssey_VTT_v*.md
 ACTIVE_DOCUMENTATION_BASELINE_Odyssey_VTT_v*.md
-Packages/manifest.json
-Packages/packages-lock.json
 ProjectSettings/**
 DotNet/Odyssey.Core.sln
 DotNet/Projects/**
@@ -168,12 +173,12 @@ config/compatibility.json
 .github/**
 ```
 
-Owner approval for this activation step permits only the operational `ACTIVE_DOCUMENTATION_BASELINE_Odyssey_VTT_v1.8.md` active-task pointer update from ODY-S00-006 to ODY-S00-007. Production implementation starts only after separate owner approval.
+Owner approval on 2026-08-12 permits the documentation/authority alignment to ADR-003 v1.1, ADR-010 v1.1, Technical Development Baseline v0.4, and Active Baseline v1.9. Production implementation starts only after this docs-only decision commit.
 
 ## 6. Technical constraints
 
-- Module ownership and dependency direction: Follow ADR-001. Domain must not acquire serializer annotations, serializer converters, `System.Text.Json` dependencies, persistence annotations, or logging dependencies.
-- Serialization / compatibility boundary: Follow ADR-003. Boundary-owning modules own their DTOs and contexts; Domain aggregates are not serialized directly; CLR names are not contract identifiers.
+- Module ownership and dependency direction: Follow ADR-001. Domain must not acquire serializer annotations, serializer converters, Newtonsoft.Json dependencies, System.Text.Json dependencies, persistence annotations, or logging dependencies.
+- Serialization / compatibility boundary: Follow ADR-003 v1.1. Boundary-owning modules own their DTOs and explicit codecs; Domain aggregates are not serialized directly; CLR names are not contract identifiers.
 - Command/event boundary: Follow ADR-002. `CommandFingerprint` semantic meaning remains stable; ODY-S00-007 provides canonical bytes behind the ODY-S00-005 opaque abstraction.
 - Result/error boundary: Follow ADR-004. Parser, compatibility, validation, and size/depth failures return typed safe failures, not raw exceptions or internal details.
 - Composition/lifetime boundary: Follow ADR-005. Registry construction is compile-time/explicit and not service-locator or reflection-scan based.
@@ -181,10 +186,10 @@ Owner approval for this activation step permits only the operational `ACTIVE_DOC
 - Version boundary: Follow ADR-007. Do not change application/schema/format/contract/protocol/ruleset versions except explicit task-owned synthetic contract versions.
 - Time/RNG rule: Follow ADR-008. Upcasters and serialization mappers are pure and do not use injected or global clock/RNG unless explicitly serializing already-provided values.
 - Unity/AOT boundary: Follow ADR-009. Focused IL2CPP evidence is mandatory for serialization compatibility and must not be labeled as the ODY-S00-009 build artifact. Use `serialization-aot-smoke` or equivalent naming.
-- Domain read-only rule: ODY-S00-007 may read/reuse Domain types, but must not add `JsonPropertyName`, `JsonConverter`, `JsonSerializable`, `System.Text.Json` dependency, serialization DTO, manifest DTO, or serializer helper to `Odyssey.Domain`.
+- Domain read-only rule: ODY-S00-007 may read/reuse Domain types, but must not add serializer attributes, Newtonsoft.Json dependency, System.Text.Json dependency, serialization DTO, manifest DTO, or serializer helper to `Odyssey.Domain`.
 - Persistence boundary rule: Only the ADR-010 JSONL diagnostic file adapter sub-scope under `Packages/com.odyssey.persistence/Runtime/Diagnostics/**` is allowed; all other Persistence runtime/database work remains out of scope.
 - Diagnostics/redaction: Follow ADR-010. Redaction happens before diagnostic serialization; `DiagnosticJson` must not expose secrets, hidden gameplay data, raw exception text, absolute paths, or arbitrary objects.
-- Dependencies/licensing: No new dependency, package, GitHub Action, executable, or downloadable tool is approved.
+- Dependencies/licensing: ADR-003 v1.1 approves only `com.unity.nuget.newtonsoft-json@3.2.2` and pure .NET `Newtonsoft.Json 13.0.2`; implementation must update license notices and guards. No GitHub Action, executable, downloadable tool, or unrelated dependency is approved.
 
 ## 7. Expected behavior
 
@@ -231,8 +236,8 @@ Owner approval for this activation step permits only the operational `ACTIVE_DOC
 
 ## 9. Acceptance criteria
 
-1. `System.Text.Json` is the only default JSON serializer used by new serialization code; no Newtonsoft.Json or external serializer is added.
-2. Boundary serialization uses explicit DTOs, explicit profiles, source-generated contexts, and compile-time registry metadata without CLR type-name discriminators, assembly scanning, unrestricted polymorphism, or reflection fallback on release-critical paths.
+1. Release-critical JSON uses explicit deterministic codecs backed by approved pinned Newtonsoft.Json low-level streaming primitives; automatic object serialization is not used.
+2. Boundary serialization uses explicit DTOs, explicit profiles, explicit codecs, and compile-time registry metadata without CLR type-name discriminators, assembly scanning, unrestricted polymorphism, automatic object mapping, or reflection fallback on release-critical paths.
 3. Existing ODY-S00-004/005/006 primitives are reused; no duplicate ID/version/result/diagnostic primitive is introduced.
 4. Canonical UTF-8 JSON produces deterministic property order, no BOM, no insignificant whitespace, canonical null/default behavior, normalized numeric edge cases, and lowercase SHA-256 hashes.
 5. `CommandFingerprintMaterialV1` produces stable canonical bytes and fingerprint vectors, excludes `CommandId` and transport/retry/runtime metadata, and canonicalizes `ExpectedAggregateRevisions` order without serializing the complete `ApplicationCommand` graph.
@@ -243,9 +248,9 @@ Owner approval for this activation step permits only the operational `ACTIVE_DOC
 10. Diagnostic redaction/JSONL/parity/compatibility cases are proven by their own diagnostic IDs: `TC-DIAG-007`, `TC-DIAG-029`, `TC-DIAG-030`, `TC-DIAG-031`, `TC-DIAG-032`, `TC-DIAG-041`, `TC-DIAG-042`, `TC-DIAG-043`, and `TC-DIAG-044`.
 11. `.odcamp` work is limited to a spike manifest DTO/fixture/path-safety proof with no full importer/exporter/archive codec or campaign data.
 12. Mandatory Windows x64 IL2CPP AOT evidence is explicitly scoped to focused serialization compatibility and named `serialization-aot-smoke` or equivalent. The task does not claim the ODY-S00-009 Windows Development-Debug artifact, packaging, checksum, startup/shutdown smoke, or release build result.
-13. Architecture guards prevent direct Domain serialization annotations/dependencies, arbitrary object graph serialization, service-locator registry resolution, and test fixtures entering Player builds where applicable.
+13. Architecture guards prevent direct Domain serialization annotations/dependencies, arbitrary object graph serialization, service-locator registry resolution, and test fixtures entering Player builds where applicable. `Odyssey.Application` may use the one ADR-approved Newtonsoft dependency; unapproved external dependencies still fail.
 14. Required validation commands and real results are recorded; unrun full .NET/Unity/IL2CPP checks are listed honestly.
-15. No SQLite, Persistence runtime beyond the narrow JSONL diagnostic storage adapter, Networking runtime, gameplay, BuildIdentity, CI, Unity package/version, committed ProjectSettings change, ADR, or Technical Baseline changes are introduced.
+15. No SQLite, Persistence runtime beyond the narrow JSONL diagnostic storage adapter, Networking runtime, gameplay, BuildIdentity, CI, Unity baseline/version change, or committed ProjectSettings change is introduced.
 
 ## 10. Tests and validation
 
@@ -253,9 +258,9 @@ Owner approval for this activation step permits only the operational `ACTIVE_DOC
 
 | Test ID | Layer / runner | Behavior or contract proven | Required result |
 |---|---|---|---|
-| `TC-SER-001` | .NET Unit | ODY-S00-007 task-specific: System.Text.Json-only default and centralized profile existence | Pass |
+| `TC-SER-001` | .NET Unit | ODY-S00-007 task-specific: explicit Newtonsoft streaming codec baseline and centralized profile existence | Pass |
 | `TC-SER-002` | .NET Unit | ODY-S00-007 task-specific: ContractType/ContractVersion parsing and registry lookup semantics | Pass |
-| `TC-SER-003` | .NET Unit | ODY-S00-007 task-specific: source-generated context is used for registered DTO roots | Pass |
+| `TC-SER-003` | .NET Unit | ODY-S00-007 task-specific: explicit codec is used for registered DTO roots without automatic object mapping | Pass |
 | `TC-SER-004` | .NET Unit | ODY-S00-007 task-specific: stable typed-ID conversion for existing IDs | Pass |
 | `TC-SER-005` | .NET Unit | ODY-S00-007 task-specific: UTC timestamp conversion/validation for `UtcInstant` | Pass |
 | `TC-SER-006` | .NET Unit | ODY-S00-007 task-specific: stable enum token conversion example | Pass |
@@ -399,7 +404,9 @@ No new dependency, package, GitHub Action, executable, or downloadable tool is a
 - Operational pointers updated in Active Baseline v1.8, SLICE-00 backlog, parent task, parent ExecPlan, README, and repository policy required-path list.
 - Contract correction updated ODY-S00-007 IL2CPP, diagnostic JSONL, TestCase ownership, Domain read-only, focused AOT harness, and System.Text.Json/source-generation feasibility requirements. Parent task, parent ExecPlan, and backlog record future ODY-S00-008 ownership for `TC-DIAG-033`, `TC-DIAG-034`, `TC-DIAG-035`, `TC-DIAG-036`, `TC-DIAG-037`, `TC-DIAG-038`, `TC-DIAG-039`, and `TC-DIAG-040`.
 - Permanent .NET SDK build-layout correction added `UseArtifactsOutput=true` and a repository guard so sibling bridge projects no longer share `DotNet/Projects/obj/project.assets.json`.
-- Docs-only blocker evidence update records final `System.Text.Json` `10.0.11` feasibility status: pure .NET PASS, Unity Editor/Mono PASS, and Windows Standalone x64 Player managed compilation FAIL before IL2CPP conversion. No production, test, dependency, project, Unity package, asmdef, or ProjectSettings files were changed.
+- Docs-only blocker evidence update records final `System.Text.Json` `10.0.11` feasibility status as rejected/discovery evidence: pure .NET PASS, Unity Editor/Mono PASS, and Windows Standalone x64 Player managed compilation FAIL before IL2CPP conversion. No production, test, dependency, project, Unity package, asmdef, or ProjectSettings files were changed.
+- Docs-only architecture alignment accepts ADR-003 v1.1 explicit Newtonsoft streaming codec architecture, ADR-010 v1.1 DiagnosticJson alignment, Technical Development Baseline v0.4, and Active Baseline v1.9. No production, dependency, Unity package, project, or lock files were changed in the docs-only decision commit.
+- Current docs-only alignment changed `AGENTS.md`, `ACTIVE_DOCUMENTATION_BASELINE_Odyssey_VTT_v1.7.md`, `ACTIVE_DOCUMENTATION_BASELINE_Odyssey_VTT_v1.8.md`, `ACTIVE_DOCUMENTATION_BASELINE_Odyssey_VTT_v1.9.md`, `TECHNICAL_DEVELOPMENT_BASELINE_Odyssey_VTT_v0.4.md`, `docs/adr/ADR-003_Serialization_Strategy_v1.1.md`, `docs/adr/ADR-010_Logging_Diagnostics_and_Redaction_v1.1.md`, this task contract, SLICE-00 backlog, parent task, and parent ExecPlan.
 
 ### Validation results
 
@@ -416,7 +423,7 @@ No new dependency, package, GitHub Action, executable, or downloadable tool is a
 | `powershell -NoProfile -ExecutionPolicy Bypass -File .\scripts\check-repository-policy.ps1` | Passed | Blocker-update rerun passed `REPO-POLICY-001` through `REPO-POLICY-005`, including controlled ErrorCode registry fixtures. |
 | `git diff --check` | Passed | Blocker-update rerun exited 0 with no whitespace errors. |
 | `git diff --cached --check` | Passed | Blocker-update pre-stage run exited 0 with no staged diff errors; printed inaccessible global ignore warning only. |
-| Targeted blocker-update assertions | Passed | Verified ODY-S00-007 is Blocked, only this task contract plus parent task/ExecPlan changed, `System.Text.Json` / `JsonSerializerContext` blocker wording is recorded, `CS0234` / `CS0246` and no-package evidence are recorded, no dependency/project/package changes were made, and ODY-S00-008 / ODY-S00-009 remain Draft. |
+| Targeted blocker-update assertions | Passed | Historical pre-v1.1 check verified ODY-S00-007 was blocked at that time, only this task contract plus parent task/ExecPlan changed, `System.Text.Json` / `JsonSerializerContext` blocker wording was recorded, `CS0234` / `CS0246` and no-package evidence were recorded, no dependency/project/package changes were made, and ODY-S00-008 / ODY-S00-009 remained Draft. |
 | `powershell -NoProfile -ExecutionPolicy Bypass -File .\scripts\restore.ps1` | Passed | First sandbox run failed with `NU1900` NuGet vulnerability-index access; rerun outside sandbox passed. Normal restore now creates project-isolated `artifacts/obj/<Project>/project.assets.json` files. |
 | Artifact layout inspection | Passed | Confirmed `artifacts/obj/Odyssey.Domain/project.assets.json`, `artifacts/obj/Odyssey.Rules/project.assets.json`, `artifacts/obj/Odyssey.Content/project.assets.json`, `artifacts/obj/Odyssey.Application/project.assets.json`, and four test-project assets files exist. `DotNet/Projects/obj/project.assets.json`, `DotNet/Projects/obj`, and `DotNet/Projects/bin` are absent after cleanup/restore. |
 | `powershell -NoProfile -ExecutionPolicy Bypass -File .\scripts\verify-format.ps1` | Passed | `FORMAT-001 PASS repository text formatting checks passed`. |
@@ -431,13 +438,17 @@ No new dependency, package, GitHub Action, executable, or downloadable tool is a
 | `powershell -NoProfile -ExecutionPolicy Bypass -File .\scripts\check-repository-policy.ps1` | Passed | Docs-only final blocker evidence rerun passed `REPO-POLICY-001` through `REPO-POLICY-005`, including controlled ErrorCode registry fixtures. |
 | `git diff --check` | Passed | Docs-only final blocker evidence rerun exited 0 with no whitespace errors; printed CRLF normalization warning for `docs/tasks/SLICE-00_BACKLOG.md` only. |
 | `git diff --cached --check` | Passed | Docs-only final blocker evidence pre-stage run exited 0 with no staged diff errors; printed inaccessible global ignore warning only. |
-| Targeted final blocker assertions | Passed | Verified ODY-S00-007 remains Blocked, backlog marks 007 Blocked, pure .NET PASS is recorded, Unity Editor/Mono PASS is recorded, Player managed compile blocker is recorded, IL2CPP conversion is explicitly not reached, no exact STJ 6 preview is approved, no serialization implementation started, ODY-S00-008/009 remain Draft, and parent ExecPlan records `UNITY PLAYER MANAGED REFERENCE/GENERATOR BLOCKER`. |
+| Targeted final blocker assertions | Passed | Historical evidence verified ODY-S00-007 was Blocked before ADR-003 v1.1; pure .NET PASS, Unity Editor/Mono PASS, Player managed compile blocker, no STJ 6 preview approval, no serialization implementation, and ODY-S00-008/009 Draft state were recorded. |
+| `powershell -NoProfile -ExecutionPolicy Bypass -File .\scripts\check-repository-policy.ps1` | Passed | Docs-only architecture alignment rerun passed `REPO-POLICY-001` through `REPO-POLICY-005`, including controlled ErrorCode registry fixtures. |
+| `powershell -NoProfile -ExecutionPolicy Bypass -File .\scripts\verify-test-structure.ps1` | Passed | `TC-ARCH-001` valid ADR-001 graph passed; `TC-ARCH-002` controlled invalid Domain->Rules, package version mismatch, and duplicate catalog ownership fixtures were rejected. |
+| `git diff --check` | Passed | Docs-only architecture alignment rerun exited 0 with no whitespace errors; printed CRLF normalization warnings for Active Baseline v1.8 and SLICE-00 backlog only. |
+| Targeted authority/stale searches | Passed | Verified only `ACTIVE_DOCUMENTATION_BASELINE_Odyssey_VTT_v1.9.md` claims `Active authority register`; v1.7/v1.8 are superseded. Verified active authorities, AGENTS, task contract, active backlog, and active plan do not present System.Text.Json/source generation as the current production decision. Remaining STJ/source-generation matches are historical discovery/rejected evidence or explicit prohibitions. |
 
 ### Acceptance result
 
 | Criterion | Status | Evidence |
 |---|---|---|
-| AC-1 through AC-14 | Pending | Production implementation has not started. Activation-only scope is satisfied. |
+| AC-1 through AC-15 | Pending | Production implementation has not started. Docs-only architecture alignment scope is satisfied and ODY-S00-007 is Ready under ADR-003 v1.1. |
 
 ### Build and artifact evidence
 
@@ -467,7 +478,23 @@ No new dependency, package, GitHub Action, executable, or downloadable tool is a
 - `System.Text.Json` `10.0.11` is proven compatible with the project's pure .NET bridge and Unity Editor/Mono contour, but it is not approved as an ODY-S00-007 production dependency because the current Unity `6000.4.0f1` Player compilation path has not provided a supportable dependency/reference layout that reaches the mandatory Windows x64 IL2CPP proof.
 - No further `System.Text.Json` `10.0.11` DLL-location, AutoReference, or precompiledReference experimentation is authorized under the current blocker.
 - Unity-supported legacy line research context: Unity documentation for this Unity generation identifies `System.Text.Json` `6.0.0-preview` as the supported line. No exact preview version is selected or approved, and it is not the new baseline. Exact version selection plus maintenance/security acceptability require a separate owner architectural decision.
-- ODY-S00-007 cannot return to Ready until the owner chooses and proves one supported direction: evaluate an exact Unity-supported `System.Text.Json` `6.0.0-preview` candidate with maintenance/security acceptance and full .NET + Mono + Windows x64 IL2CPP proof; amend or supersede ADR-003 for a different maintained serialization strategy preserving determinism, canonical JSON, versioned DTOs, AOT safety, fixtures, hashes, and compatibility behavior; or move to another supported Unity Editor baseline that demonstrably supports a maintained STJ dependency arrangement. A Unity baseline move requires ADR-009 amendment/supersession.
+- Owner selected and approved the ADR-003 v1.1 direction: explicit hand-written Newtonsoft streaming codecs preserving determinism, canonical JSON, versioned DTOs, AOT safety, fixtures, hashes, and compatibility behavior. ODY-S00-007 is Ready under this direction; no further STJ probing is authorized for this task.
+- Explicit Newtonsoft streaming feasibility result:
+  - Unity package: `com.unity.nuget.newtonsoft-json@3.2.2`.
+  - Newtonsoft.Json product version: `13.0.2`; AssemblyVersion `13.0.0.0`.
+  - Pure .NET `Newtonsoft.Json 13.0.2` parity: PASS.
+  - Pure .NET compile/round-trip: PASS.
+  - Unity Mono/EditMode: PASS.
+  - Windows x64 IL2CPP build: PASS.
+  - Player launch: PASS.
+  - Canonical vector parity: PASS.
+  - Duplicate property rejection: PASS.
+  - Missing required property rejection: PASS.
+  - Wrong-token rejection: PASS.
+  - Reflection object serialization: NOT USED.
+  - Linker/preservation workaround: NOT REQUIRED.
+  - Evidence vector only, not future product contract: `{"contractType":"odyssey.serialization-aot-smoke","contractVersion":1,"sequence":42,"message":"Ready","note":null}`.
+  - SHA-256: `75efac616f7b29a8aa2c9690dcdf85fae122848125092b81ac4443958baa7e68`.
 - All feasibility probes ended with ProjectSettings restored, `Odyssey.Application.asmdef` restored, temporary runtime DLLs/analyzer/probe source/meta removed, external build outputs removed, repository clean, and no permanent dependency changes.
 
 ### Follow-up tasks
@@ -487,11 +514,13 @@ No new dependency, package, GitHub Action, executable, or downloadable tool is a
 
 ### Blockers
 
+- No active blocker remains for beginning ODY-S00-007 production implementation after this docs-only architecture alignment commit. The former STJ blocker is retained below as historical decision evidence only.
+
 - Pure .NET `System.Text.Json` `10.0.11` feasibility passed after isolating project artifacts with `UseArtifactsOutput=true`; no permanent `System.Text.Json` dependency was added.
 - Unity Editor/Mono `System.Text.Json` `10.0.11` feasibility passed when the coherent runtime closure and roslyn4.0 source generator were scoped to `Odyssey.Application`; `CS0534` was absent and generated-context round-trip passed without reflection fallback.
 - Windows Standalone x64 Player managed compilation failed before IL2CPP conversion because the Player compile received the `System.Text.Json.SourceGeneration` analyzer but did not receive the required STJ runtime references. Representative failures: `CS0234` for missing `System.Text.Json`, `CS0246` for missing `JsonSerializerContext`, and `CS0246` for missing `JsonSerializableAttribute` / `JsonSerializable`.
 - Blocker classification: `UNITY PLAYER MANAGED REFERENCE/GENERATOR BLOCKER`. IL2CPP conversion, native C++ compile/link, and Player runtime were not reached.
-- `System.Text.Json` `10.0.11` is not approved as a production dependency for ODY-S00-007. No exact `System.Text.Json` `6.0.0-preview` version is selected or approved. ODY-S00-007 remains Blocked until the owner chooses and proves an approved serialization/toolchain direction. ODY-S00-008 and ODY-S00-009 remain Draft.
+- `System.Text.Json` `10.0.11` is not approved as a production dependency for ODY-S00-007. No exact `System.Text.Json` `6.0.0-preview` version is selected or approved. Owner approved ADR-003 v1.1 explicit Newtonsoft streaming codecs instead. ODY-S00-007 is Ready; ODY-S00-008 and ODY-S00-009 remain Draft.
 
 ### Decisions made during execution
 
@@ -503,6 +532,7 @@ No new dependency, package, GitHub Action, executable, or downloadable tool is a
 - 2026-08-11 - `TC-DIAG-007`, `TC-DIAG-029` through `TC-DIAG-032`, and `TC-DIAG-041` through `TC-DIAG-044` cover the additional JSONL/parity/compatibility diagnostic scope - Authority / approval: product owner instruction and ADR-010.
 - 2026-08-11 - `TC-SER-001` through `TC-SER-024` are ODY-S00-007 task-specific serialization extensions because no repository-accessible accepted Test Strategy source currently defines those exact IDs - Authority / approval: product owner instruction and repository-safe authority audit.
 - 2026-08-11 - `Packages/com.odyssey.persistence/Runtime/Diagnostics/**` is allowed only for ADR-010 rolling JSONL diagnostic sink, rotation, retention, and diagnostic file ownership helpers; all other Persistence runtime/database work remains out of scope - Authority / approval: product owner instruction and ADR-010.
+- 2026-08-12 - Adopt explicit hand-written Newtonsoft.Json streaming codecs as the ODY-S00-007 production serialization architecture; STJ 10.0.11 and Unity 6.5 probes are retained only as discovery evidence; Unity baseline remains 6000.4.0f1 - Authority / approval: product owner instruction, ADR-003 v1.1, ADR-010 v1.1, Technical Development Baseline v0.4, Active Baseline v1.9.
 
 ### Approved task changes
 

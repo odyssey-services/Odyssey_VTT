@@ -4,7 +4,7 @@
 **Owner:** Codex
 **Branch:** `feat/ody-s00-007-serialization-aot-compatibility-spike`
 **Pull request:** Not opened
-**Last updated:** 2026-08-11 23:33 UTC
+**Last updated:** 2026-08-12
 
 ## 1. Purpose and user-visible outcome
 
@@ -109,7 +109,7 @@ Child tasks: `ODY-S00-004`, `ODY-S00-005`, `ODY-S00-006`.
 
 Child task: `ODY-S00-007`.
 
-- [ ] Explicit versioned DTOs and source-generated contexts exist for the synthetic operation.
+- [ ] Explicit versioned DTOs and hand-written canonical JSON codecs exist for the synthetic operation.
 - [ ] Canonical JSON/fingerprint/hash vectors are stable.
 - [ ] Invalid/oversized/duplicate-property/unsupported-version payloads fail safely.
 - [ ] Pure .NET, Unity Mono and Windows IL2CPP x64 produce matching compatibility results.
@@ -184,6 +184,7 @@ Child task: `ODY-S00-010`.
 - 2026-08-11 20:14 UTC - ODY-S00-007 was marked Blocked after a zero-commit feasibility probe showed `System.Text.Json` / `JsonSerializerContext` are unavailable in both the current pure .NET `Odyssey.Application` bridge and Unity `Odyssey.Application` compile contours. The blocker requires a shared runtime plus source-generator dependency/reference decision before serialization implementation can start. ODY-S00-008 and ODY-S00-009 remain Draft.
 - 2026-08-11 20:52 UTC - Applied the permanent .NET SDK build-layout correction proven by the zero-commit isolation probe: `Directory.Build.props` now sets `UseArtifactsOutput=true`, and repository structure validation guards that setting. The pure .NET `System.Text.Json` `10.0.11` plus `JsonSerializerContext` probe passed with isolated project artifacts; ODY-S00-007 remains Blocked because Unity `6000.4.0f1` Mono/source-generation and Windows x64 IL2CPP compatibility are not yet proven.
 - 2026-08-11 23:33 UTC - Recorded final `System.Text.Json` `10.0.11` blocker evidence without production/dependency changes: pure .NET passed, Unity Editor/Mono passed with the application-scoped roslyn4.0 source generator and coherent runtime closure, and Windows Standalone x64 Player managed compilation failed before IL2CPP conversion because the Player compile received the analyzer but not the required STJ runtime references. The blocker is classified as `UNITY PLAYER MANAGED REFERENCE/GENERATOR BLOCKER`; STJ `10.0.11` is not approved as production dependency, no STJ `6.0.0-preview` version is selected, and ODY-S00-008/009 remain Draft.
+- 2026-08-12 - Owner accepted explicit Newtonsoft JSON codec architecture for ODY-S00-007. ADR-003 v1.1, ADR-010 v1.1, Technical Development Baseline v0.4, and Active Baseline v1.9 record the active direction: hand-written deterministic codecs backed by pinned Newtonsoft.Json 13.0.2 low-level streaming primitives. Unity baseline stays `6000.4.0f1 (8cf496087c8f)`; Unity 6.5 is feasibility evidence only. ODY-S00-007 returns to Ready; ODY-S00-008/009 remain Draft.
 
 ## 7. Decisions
 
@@ -226,10 +227,11 @@ Post-merge limitation:
 - ODY-S00-004 evidence: PR #8 was owner-merged into `main`; local `main` fast-forwarded to `4fb20e9`. ODY-S00-004 implementation evidence recorded restore, verify-format, verify-test-structure, test-fast, test-unity, verify-repository, check-repository-policy, dotnet build/test, and diff checks as passed; Unity batch compile, EditMode, and PlayMode each reported exit code `0`; .NET tests totalled 30 passed, 0 failed, 0 skipped.
 - ODY-S00-005 evidence: command/event/clock/RNG contracts compile in pure .NET and Unity. Latest .NET validation includes Domain 1, Contracts 1, Unit 46, Architecture 2, all failed 0. test-unity.ps1 has passed after escalated Unity cache access: batch compile, EditMode, and PlayMode exit code 0; EditMode/PlayMode each ran 1 test with 1 passed, 0 failed, 0 skipped. Repository policy, architecture guard, SDK check, dotnet build/test, and diff checks are rerun after review corrections and recorded in the child task evidence. Owner merged PR #9 into `main` at `2026-08-11T12:31:50Z` as merge commit `7aa5cc972c48d9af6509895bb6d9ed1e18899fdf`.
 - ODY-S00-006 corrective evidence: Application diagnostics contracts compile in pure .NET and Unity; runtime starts `Starting` and reaches `Ready` only after AppShell entry point/presentation initialization; Developer Shell uses a narrow facade with accepted/rejected technical probe actions; EventCode registry uses canonical 3-segment codes plus `log.` message template keys; diagnostics properties split data classification from value kind; production emergency diagnostics use a minimal append-only file sink while tests use in-memory sinks; crash markers use the persistent diagnostics directory and exact `process-started.json` marker. Final validation results are recorded in `docs/tasks/completed/ODY-S00-006_Runtime_Composition_and_Diagnostic_Shell.md`; owner merge evidence is PR #10 / `abb139c3c93115c468d020db3eb423c47cfdd83b`.
-- ODY-S00-007 activation evidence: task contract `docs/tasks/active/ODY-S00-007_Serialization_and_AOT_Compatibility_Spike.md` is Blocked on `feat/ody-s00-007-serialization-aot-compatibility-spike`. Scope is limited to ADR-003 serialization/AOT compatibility proof and explicitly excludes ODY-S00-009 Windows Development-Debug artifact ownership.
+- ODY-S00-007 activation evidence: task contract `docs/tasks/active/ODY-S00-007_Serialization_and_AOT_Compatibility_Spike.md` is Ready on `feat/ody-s00-007-serialization-aot-compatibility-spike`. Scope is limited to ADR-003 v1.1 serialization/AOT compatibility proof and explicitly excludes ODY-S00-009 Windows Development-Debug artifact ownership.
 - ODY-S00-007 correction evidence: focused Windows x64 IL2CPP serialization/AOT smoke is mandatory and must be labelled `serialization-aot-smoke` or equivalent; `TC-DIAG-001` keeps the exact ADR-010 meaning, JSONL sink/rotation/retention is required under the narrow Persistence diagnostics adapter scope, and `TC-DIAG-033`, `TC-DIAG-034`, `TC-DIAG-035`, `TC-DIAG-036`, `TC-DIAG-037`, `TC-DIAG-038`, `TC-DIAG-039`, and `TC-DIAG-040` are assigned to ODY-S00-008 after BuildIdentity is available.
 - ODY-S00-007 .NET build-layout evidence: sibling bridge projects now use standard SDK artifacts output instead of sharing `DotNet/Projects/obj/project.assets.json`; normal restore creates project-isolated `artifacts/obj/Odyssey.Domain`, `artifacts/obj/Odyssey.Rules`, `artifacts/obj/Odyssey.Content`, and `artifacts/obj/Odyssey.Application` intermediates. No permanent `System.Text.Json` dependency is added in this correction.
-- ODY-S00-007 final STJ feasibility evidence: pure .NET `System.Text.Json` `10.0.11` source-generation passed; Unity Editor/Mono passed on Unity `6000.4.0f1 (8cf496087c8f)` with Unity Roslyn `4.3`, the STJ roslyn4.0 analyzer scoped to `Odyssey.Application`, coherent runtime closure, `CS0534` absent, generated-context serialize/deserialize PASS, semantic equality PASS, and no reflection fallback. Windows Build Support IL2CPP, Windows x64 IL2CPP variations, native C++ toolchain, and Windows SDK `10.0.26100.0` are present. Windows Standalone x64 Player managed compilation failed before IL2CPP conversion: the compile response included `System.Text.Json.SourceGeneration`, but did not receive required STJ runtime references, producing `CS0234` / `CS0246`. Classification: `UNITY PLAYER MANAGED REFERENCE/GENERATOR BLOCKER`.
+- ODY-S00-007 final STJ feasibility evidence: pure .NET `System.Text.Json` `10.0.11` source-generation passed; Unity 6000.4 Editor/Mono passed; Unity 6000.4 Player managed compilation failed before IL2CPP conversion because required STJ runtime references were absent; Unity 6000.5.7f1 baseline passed but its actual script compiler is `Microsoft.CodeAnalysis 3.7.0.0`, and the oldest STJ 10.0.11 source generator variant still requires newer Roslyn. This evidence is retained as rejected/discovery context only.
+- ODY-S00-007 explicit Newtonsoft streaming evidence: Unity package `com.unity.nuget.newtonsoft-json@3.2.2` / Newtonsoft.Json `13.0.2` / AssemblyVersion `13.0.0.0`; pure .NET compile/round-trip PASS; Unity Mono/EditMode PASS; Windows x64 IL2CPP build PASS; Player launch PASS; canonical vector parity PASS; duplicate property rejection PASS; missing required property rejection PASS; wrong-token rejection PASS; reflection object serialization NOT USED; linker/preservation workaround NOT REQUIRED. Evidence vector SHA-256: `75efac616f7b29a8aa2c9690dcdf85fae122848125092b81ac4443958baa7e68`.
 
 Record real commands, outputs and artifact paths here as child tasks complete.
 
@@ -245,13 +247,13 @@ Record real commands, outputs and artifact paths here as child tasks complete.
 
 - Repository identity, Private visibility, and PR #1 merge are verified. Exact branch protection/ruleset settings remain an owner-accepted limitation.
 - Unity `6000.4.0f1` is acceptable for local ODY-S00-002 development by owner decision.
-- ODY-S00-002 through ODY-S00-006 are Done. ODY-S00-007 is the current Blocked child task on `feat/ody-s00-007-serialization-aot-compatibility-spike`; no pull request is opened and no production implementation has started.
+- ODY-S00-002 through ODY-S00-006 are Done. ODY-S00-007 is the current Ready child task on `feat/ody-s00-007-serialization-aot-compatibility-spike`; no pull request is opened and no production implementation has started.
 - GitHub plan/settings may affect exact branch-protection options; the task must apply the strongest supported equivalent and record any unavailable setting.
 
-- ODY-S00-007 blocker: pure .NET and Unity Editor/Mono `System.Text.Json` `10.0.11` feasibility passed, but Windows Standalone x64 Player managed compilation failed before IL2CPP conversion because the Player compile did not receive the required STJ runtime references. The blocker is `UNITY PLAYER MANAGED REFERENCE/GENERATOR BLOCKER`; STJ `10.0.11` is not approved as a production dependency, no exact STJ `6.0.0-preview` version is selected, and no further STJ `10.0.11` DLL-location / AutoReference / precompiledReference experimentation is authorized under the current blocker.
+- ODY-S00-007 blocker resolved by owner decision: production serialization uses ADR-003 v1.1 explicit Newtonsoft streaming codecs. No further STJ version probing is authorized for this task.
 
 ## 12. Outcome and follow-up
 
 Current outcome: ODY-S00-001 is Done after owner merge of PR #1. ODY-S00-002 is Done after owner merge of PR #4 and closure PR #5. ODY-S00-003 is Done after owner merge of PR #6 and closure PR #7. ODY-S00-004 is owner-merged through PR #8. ODY-S00-005 is owner-merged through PR #9. ODY-S00-006 is owner-merged through PR #10.
 
-Next action: owner must choose and approve a serialization/toolchain direction for ODY-S00-007. Do not open a PR, merge, run more STJ dependency-layout probes, or implement serialization code while ODY-S00-007 is Blocked.
+Next action: implement ODY-S00-007 under ADR-003 v1.1 after this docs-only architecture alignment commit. Do not open a PR, merge, run more STJ dependency-layout probes, or start ODY-S00-008/009.
