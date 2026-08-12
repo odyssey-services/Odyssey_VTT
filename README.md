@@ -8,7 +8,7 @@ The private GitHub repository `odyssey-services/Odyssey_VTT` is the single autho
 
 Current stage: `SLICE-00 — Technical Skeleton`.
 
-Repository Foundation, Unity Project Foundation, Module/Test Skeleton, Identity/Version/Result Primitives, Command/Event/Clock/RNG Contracts, Runtime Composition/Diagnostic Shell, and Serialization/AOT Compatibility are complete. The active task is `docs/tasks/active/ODY-S00-008_Fast_CI_and_Build_Identity.md`, currently Ready on `feat/ody-s00-008-fast-ci-build-identity`. Fast CI and BuildIdentity implementation has not started.
+Repository Foundation, Unity Project Foundation, Module/Test Skeleton, Identity/Version/Result Primitives, Command/Event/Clock/RNG Contracts, Runtime Composition/Diagnostic Shell, and Serialization/AOT Compatibility are complete. The active task is `docs/tasks/active/ODY-S00-008_Fast_CI_and_Build_Identity.md`, currently Ready on `feat/ody-s00-008-fast-ci-build-identity`. The ODY-S00-008 CI licensing decision is recorded: no-secret GitHub Actions gates plus mandatory local Unity merge validation. Fast CI and BuildIdentity implementation has not started.
 
 ## Rights
 
@@ -20,8 +20,8 @@ Repository access through GitHub does not grant rights beyond those required to 
 
 - `AGENTS.md` — operating rules for Codex and contributors.
 - `PLANS.md` — execution plan rules.
-- `TECHNICAL_DEVELOPMENT_BASELINE_Odyssey_VTT_v0.4.md` — approved technical baseline.
-- `ACTIVE_DOCUMENTATION_BASELINE_Odyssey_VTT_v1.9.md` — active authority register.
+- `TECHNICAL_DEVELOPMENT_BASELINE_Odyssey_VTT_v0.5.md` — approved technical baseline.
+- `ACTIVE_DOCUMENTATION_BASELINE_Odyssey_VTT_v2.0.md` — active authority register.
 - `docs/adr/` — accepted architecture decisions.
 - `docs/tasks/` — task contracts and execution backlog.
 - `scripts/check-repository-policy.ps1` — repository foundation policy check.

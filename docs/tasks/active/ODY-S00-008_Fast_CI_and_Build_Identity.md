@@ -8,13 +8,13 @@
 **Pull request:** Not opened
 **ExecPlan:** `docs/plans/active/ODY-S00-000_SLICE_00_Technical_Skeleton.md`
 **Created:** 2026-08-12 13:02 UTC
-**Last updated:** 2026-08-12 13:02 UTC
+**Last updated:** 2026-08-12 15:45 UTC
 
 ## 1. Goal
 
 Create the SLICE-00 fast pull-request CI gates and canonical BuildIdentity pipeline so every checked repository state is tied to exact source, toolchain, compatibility, and provenance metadata.
 
-The resulting CI must reject invalid repository states and expose one generated BuildIdentity consistently to the Developer Shell, diagnostics, and generated metadata. It must not create or publish a Release.
+Fast CI is split into no-secret GitHub Actions gates and mandatory local Unity merge validation under the current Unity Personal constraint. The resulting no-secret CI must reject invalid repository states and expose one generated BuildIdentity consistently to the Developer Shell, diagnostics, and generated metadata. It must not create or publish a Release or pretend Unity compiled in GitHub Actions.
 
 ## 2. Why this task exists
 
@@ -28,8 +28,8 @@ The Developer Shell currently represents BuildIdentity as unavailable. M5 cannot
 
 ### Required authorities
 
-- `ACTIVE_DOCUMENTATION_BASELINE_Odyssey_VTT_v1.9.md`
-- `TECHNICAL_DEVELOPMENT_BASELINE_Odyssey_VTT_v0.4.md`
+- `ACTIVE_DOCUMENTATION_BASELINE_Odyssey_VTT_v2.0.md`
+- `TECHNICAL_DEVELOPMENT_BASELINE_Odyssey_VTT_v0.5.md`
 - Preserved CI/build requirements of Technical Development Baseline v0.3 where v0.4 does not replace them
 - `AGENTS.md`
 - `PLANS.md`
@@ -64,13 +64,13 @@ Before implementation assigns new IDs to `Tests/Metadata/test-catalog.json`, aud
 | `TC-CI-003` | Pull-request workflow invokes test-structure/architecture entry point and invalid fixture fails. |
 | `TC-CI-004` | Pull-request workflow invokes source-inventory parity/toolchain validation. |
 | `TC-CI-005` | Pull-request workflow invokes restore, .NET build, and fast .NET tests. |
-| `TC-CI-006` | Pull-request workflow validates exact Unity project/package/toolchain state. |
-| `TC-CI-007` | Pull-request workflow invokes Unity compile/EditMode checks without false-green fallback. |
+| `TC-CI-006` | Pull-request workflow validates exact Unity project/package/toolchain source state without claiming compile evidence. |
+| `TC-CI-007` | Mandatory local Unity merge gate invokes `scripts/test-unity.ps1` and records compile/EditMode/PlayMode evidence without false-green fallback. |
 | `TC-CI-008` | Workflow permissions are minimal and fork PRs receive no secrets. |
 | `TC-CI-009` | External actions are pinned to immutable SHAs with license/source evidence. |
 | `TC-CI-010` | Artifact retention is bounded and excludes private/local files. |
 | `TC-CI-011` | Required check names are stable and documented for `main`. |
-| `TC-CI-012` | Unavailable Unity/toolchain execution fails closed. |
+| `TC-CI-012` | Missing, failed, or wrong-version local Unity validation blocks completion and PR readiness. |
 | `TC-VERSION-001` | `version.json` schema v1 is valid and application version is `0.1.0`. |
 | `TC-VERSION-002` | `config/compatibility.json` schema v1 and required fields are valid. |
 | `TC-VERSION-003` | Unknown schema or required version field errors fail safely. |
@@ -112,11 +112,15 @@ Before implementation assigns new IDs to `Tests/Metadata/test-catalog.json`, aud
 - Existing repository entry-point scripts include restore, formatting, test-structure, fast .NET tests, Unity tests, repository verification, repository policy, and serialization AOT smoke.
 - `.github/workflows/**`, root `version.json`, root `config/compatibility.json`, generated BuildIdentity files, and required PR CI workflows are not created by this activation commit.
 - ODY-S00-009 remains Draft and owns the real Windows Development-Debug application artifact and Player smoke.
+- Zero-write CI/Unity runner preflight completed with verdict `GO AFTER OWNER DECISION`.
+- Owner decision: Unity Personal is available; a dedicated isolated self-hosted runner is unavailable; a paid Unity serial and Unity Licensing Server are unavailable.
+- Selected path: no-secret GitHub Actions gates plus mandatory local Unity merge validation.
+- GameCI Personal `.ulf` workaround is considered but not approved; Unity credentials and license files are not added to GitHub Secrets.
 
 ### Assumptions
 
-- A secure, reproducible, and approved Unity execution path for GitHub Actions is available or can be established by zero-write preflight before workflow implementation. If not, implementation must stop.
 - Branch protection/ruleset settings may require owner action or higher GitHub permissions; implementation must verify directly before claiming enforcement.
+- Automated Unity execution in GitHub Actions remains unavailable until a future owner-approved licensing/runner amendment.
 
 ## 5. Scope
 
@@ -126,12 +130,13 @@ Before implementation assigns new IDs to `Tests/Metadata/test-catalog.json`, aud
 - Root `config/compatibility.json` following ADR-007 with strict schema and required version validation.
 - One canonical BuildIdentity generator for Local, PullRequest, and required Development identities.
 - Generated identity outputs used consistently by Developer Shell, startup diagnostics, and generated `build-identity.json`.
-- Fast repository-controlled GitHub Actions workflows for pull requests and required main/development verification scope.
+- Fast repository-controlled no-secret GitHub Actions workflows for pull requests and required main/development verification scope.
+- Mandatory local Unity merge validation using exact Unity `6000.4.0f1 (8cf496087c8f)` and `scripts/test-unity.ps1`.
 - Stable required-check names and documentation of intended `main` required checks.
 - BuildIdentity/provenance evidence with SHA-256 checksums and bounded retention.
 - ADR-010 diagnostic session/bundle evidence for `TC-DIAG-033` through `TC-DIAG-040`.
 - Architecture guards and tests proving invalid fixtures fail the owning gate.
-- Zero-write Unity runner/licensing preflight before workflow implementation selects any Unity action or license handling.
+- Zero-write Unity runner/licensing preflight decision record before implementation; current result prohibits Unity Editor execution in GitHub Actions.
 
 ### Out of scope
 
@@ -161,7 +166,7 @@ Tests/Metadata/test-catalog.json
 scripts/**
 README.md
 THIRD_PARTY_NOTICES.md
-ACTIVE_DOCUMENTATION_BASELINE_Odyssey_VTT_v1.9.md
+ACTIVE_DOCUMENTATION_BASELINE_Odyssey_VTT_v2.0.md
 docs/tasks/**
 docs/plans/active/ODY-S00-000_SLICE_00_Technical_Skeleton.md
 ```
@@ -173,12 +178,12 @@ ProjectSettings/**
 Packages/manifest.json
 Packages/packages-lock.json
 docs/adr/**
-TECHNICAL_DEVELOPMENT_BASELINE_Odyssey_VTT_v0.4.md
+TECHNICAL_DEVELOPMENT_BASELINE_Odyssey_VTT_v0.5.md
 AGENTS.md
 PLANS.md
 ```
 
-Any new dependency, GitHub Action, Unity package, or architecture decision requires exact approval and license evidence before implementation.
+Any new dependency, GitHub Action, Unity package, or architecture decision requires exact approval and license evidence before implementation. GameCI actions are not approved by this contract.
 
 ## 6. Technical constraints
 
@@ -187,10 +192,10 @@ Any new dependency, GitHub Action, Unity package, or architecture decision requi
 - Serialization / compatibility boundary: Follow ADR-003 v1.1 and ADR-007. `version.json`, `compatibility.json`, generated `build-identity.json`, and diagnostic bundle metadata must be explicit versioned contracts and not Domain aggregate serialization.
 - Time / RNG rule: Build timestamps are generated by the build identity pipeline as UTC metadata; authoritative gameplay time/RNG remains out of scope.
 - Unity / thread / lifetime rule: Follow ADR-005 and ADR-009. Runtime BuildIdentity exposure must not introduce service locator behavior or mutable global state.
-- Dependency / licensing rule: New GitHub Actions, dependencies, executables, or downloaded tools are blocked until exact source, immutable SHA/version, license, necessity, and owner approval are recorded.
+- Dependency / licensing rule: New GitHub Actions, dependencies, executables, or downloaded tools are blocked until exact source, immutable SHA/version, license, necessity, and owner approval are recorded. GameCI and Unity license secrets are not approved.
 - Security / privacy / redaction rule: Follow ADR-010. BuildIdentity and diagnostics must exclude username, machine name, absolute local path, persistent device ID, secrets, environment dumps, private documentation, and hidden campaign content.
 - Performance or platform constraint: CI is a fast gate. Do not silently add PlayMode, full IL2CPP, or ODY-S00-009 Player build to the fast PR gate unless an accepted authority explicitly requires it.
-- Other: Mandatory criteria cannot be silently deferred. If Unity runner/licensing cannot be established securely, stop instead of adding unapproved actions or leaking secrets.
+- Other: Mandatory criteria cannot be silently deferred. Current Unity Personal licensing means GitHub Actions do not run Unity; local Unity validation is the required merge gate. If local Unity validation cannot prove the exact version and pass, stop instead of claiming readiness.
 
 ## 7. Expected behavior
 
@@ -198,7 +203,13 @@ Any new dependency, GitHub Action, Unity package, or architecture decision requi
 
 **Given** a pull request against `main`  
 **When** GitHub Actions run the required fast gate  
-**Then** repository policy, formatting, structure/architecture, source inventory, toolchain, restore, .NET build/tests, Unity compile/EditMode, package integrity, and BuildIdentity validation execute through repository entry-point scripts and fail closed on invalid state.
+**Then** repository policy, formatting, structure/architecture, source inventory, toolchain, restore, .NET build/tests, static Unity project/package integrity, and BuildIdentity validation execute through repository entry-point scripts and fail closed on invalid state. GitHub Actions do not run or emulate Unity Editor under the current licensing decision.
+
+### Scenario 1b - Local Unity merge gate
+
+**Given** ODY-S00-008 is being prepared for Draft PR readiness or owner merge  
+**When** local Unity validation is run  
+**Then** `scripts/test-unity.ps1` uses exact Unity `6000.4.0f1 (8cf496087c8f)` and records Unity compile, EditMode, and PlayMode evidence. Missing evidence, wrong Unity version, failure, or generated drift that is not cleaned blocks completion and PR readiness.
 
 ### Scenario 2 - Canonical identity
 
@@ -220,14 +231,15 @@ Any new dependency, GitHub Action, Unity package, or architecture decision requi
 - A new build execution receives a new BuildId.
 - Generated identity records the exact source commit.
 - Fork pull requests receive no secrets.
-- CI does not produce false-green results when Unity or toolchain validation cannot actually run.
+- CI does not produce false-green results or substitute static validation for Unity compile.
+- Local Unity merge evidence is mandatory while Unity CI is unavailable.
 - No ODY-S00-009 application artifact, Release, Release Candidate, Git tag, SQLite, networking, gameplay, telemetry, or private documentation is introduced.
 
 ## 8. Deliverables
 
 - Production code: BuildIdentity contracts/generator integration and Developer Shell/diagnostic exposure needed by ADR-007.
 - Tests: .NET and Unity tests for version sources, BuildIdentity, diagnostics, and architecture/security guards.
-- Scripts / CI: GitHub Actions workflows and repository entry-point script updates needed for fast gates and identity/provenance generation.
+- Scripts / CI: No-secret GitHub Actions workflows and repository entry-point script updates needed for fast gates and identity/provenance generation.
 - Configuration: root `version.json` and `config/compatibility.json`.
 - Documentation: task Completion Evidence, parent ExecPlan evidence, README/status updates, check-name/branch-protection evidence, and license/action evidence where applicable.
 - Generated evidence or build artifacts: `build-identity.json`, evidence checksums, bounded CI artifacts. No Release and no ODY-S00-009 application artifact.
@@ -243,18 +255,21 @@ Any new dependency, GitHub Action, Unity package, or architecture decision requi
 6. Generated identity points to the exact source commit and toolchain.
 7. The same identity is exposed to Developer Shell, diagnostics, and `build-identity.json`.
 8. Machine name, username, absolute local path, and persistent device ID are absent.
-9. Required fast CI gates call repository entry-point scripts.
+9. Required no-secret fast CI gates call repository entry-point scripts.
 10. An invalid architecture/repository fixture causes its owning check to fail.
-11. Exact Unity and .NET toolchains are validated without false-green behavior.
-12. Action dependencies use immutable SHAs, minimal permissions, and verified licenses.
-13. Fork PRs receive no secrets.
-14. Artifact/evidence retention is bounded.
-15. Generated evidence has BuildId/commit linkage and SHA-256 checksums.
-16. `TC-DIAG-033` through `TC-DIAG-040` pass with their preserved meanings.
-17. No Release, tag, or ODY-S00-009 application artifact is produced.
-18. No SQLite, networking, gameplay, telemetry, or private documentation enters the task.
-19. Required commands have real evidence.
-20. PR remains owner-merged only; Codex never merges.
+11. Exact .NET toolchain and static Unity project/package state are validated in GitHub Actions without claiming Unity compile evidence.
+12. Exact Unity `6000.4.0f1 (8cf496087c8f)` local validation through `scripts/test-unity.ps1` is recorded before completion and PR readiness.
+13. Local Unity failure, missing evidence, wrong Unity version, or unclean generated drift blocks completion and PR readiness.
+14. Action dependencies use immutable SHAs, minimal permissions, and verified licenses.
+15. GameCI and Unity license secrets are absent from the implementation.
+16. Fork PRs receive no secrets.
+17. Artifact/evidence retention is bounded.
+18. Generated evidence has BuildId/commit linkage and SHA-256 checksums.
+19. `TC-DIAG-033` through `TC-DIAG-040` pass with their preserved meanings.
+20. No Release, tag, or ODY-S00-009 application artifact is produced.
+21. No SQLite, networking, gameplay, telemetry, or private documentation enters the task.
+22. Required commands have real evidence.
+23. PR remains owner-merged only; Codex never merges.
 
 The task is not complete while any mandatory criterion is unverified, failed, or silently deferred.
 
@@ -304,10 +319,10 @@ Additional workflow validation must retrieve real GitHub Actions results after w
 ### Required environments / profiles
 
 - OS / architecture: Windows 10/11 x64 for local validation; GitHub-hosted or approved runner profile for CI.
-- Unity editor or Player profile: Unity `6000.4.0f1`; Unity compile/EditMode fast gate required. Full Player build belongs to ODY-S00-009.
+- Unity editor or Player profile: Unity `6000.4.0f1`; Unity compile/EditMode/PlayMode evidence is required through the local merge gate. Full Player build belongs to ODY-S00-009.
 - Scripting backend: Validate configured Unity project/backend metadata; do not claim ODY-S00-009 Player build.
 - Network topology or database fixture: None for gameplay/persistence; diagnostic bundle tests must prove campaign database absence.
-- Other: GitHub Actions runner/licensing and action dependency evidence must be explicit.
+- Other: GitHub Actions runner/licensing and action dependency evidence must be explicit. Current authority prohibits Unity Editor execution in GitHub Actions.
 
 ### Validation not required by this task
 
@@ -334,12 +349,14 @@ Additional workflow validation must retrieve real GitHub Actions results after w
 |---|---|---|---|---|
 | None approved by activation | Not applicable | Implementation must verify exact action/dependency source before use | Not applicable | Not applicable |
 
-Official or third-party GitHub Actions are not automatically approved by this activation. Their exact repository, immutable SHA, license, and necessity must be verified during implementation before use.
+Official GitHub Actions are not automatically approved by this activation. Their exact repository, immutable SHA, license, and necessity must be verified during implementation before use.
+
+GameCI actions were considered during zero-write preflight and are not approved. Reason: the current Unity Personal activation path does not match an owner-approved unattended CI mechanism for this repository. `UNITY_LICENSE`, `UNITY_EMAIL`, and `UNITY_PASSWORD` secrets are not created. Approved implementation actions are currently limited to official GitHub Actions after immutable-SHA and license verification.
 
 ## 13. Security, privacy, and hidden information
 
 - Data classes handled: Build metadata, Git metadata, toolchain metadata, compatibility config, diagnostic bundle metadata, CI logs/artifacts.
-- Trust boundaries: Pull requests may be untrusted; fork PRs must not receive secrets. Local machine data must not enter committed files, logs, generated identity, diagnostics, or artifacts.
+- Trust boundaries: Pull requests may be untrusted; fork PRs must not receive secrets. Unity credentials/license files must not be added to GitHub Secrets. Local machine data must not enter committed files, logs, generated identity, diagnostics, or artifacts.
 - Authorization / audience checks: Not a gameplay permissions task; CI token permissions must be minimal and explicit.
 - Redaction requirements: No secret values in logs; no environment dumps; no private documentation; no hidden campaign content.
 - Log-safe fields: BuildId, safe product/version/channel values, commit SHA, ref, toolchain versions, configuration, target, compatibility versions and digests.
@@ -357,10 +374,10 @@ Official or third-party GitHub Actions are not automatically approved by this ac
 ## 15. Documentation and versioning impact
 
 - Documents that must change: This task contract, parent ExecPlan evidence, backlog, README/status pointers, test catalog during implementation, branch protection/check-name evidence, task Completion Evidence, and license/action evidence when dependencies/actions are selected.
-- Documents that must not change: ADR files, `TECHNICAL_DEVELOPMENT_BASELINE_Odyssey_VTT_v0.4.md`, `AGENTS.md`, and `PLANS.md` unless a material conflict requires owner approval.
+- Documents that must not change: ADR files, `AGENTS.md`, and `PLANS.md` unless a material conflict requires owner approval.
 - Application version change: Yes - create initial ADR-007 `version.json` with `0.1.0`; no automatic bump.
 - Schema / format / contract / protocol / ruleset version change: Add ADR-007 `version.json`, `config/compatibility.json`, generated BuildIdentity, and diagnostic bundle evidence contracts. No database schema, network protocol, ruleset, campaign format, or Release publication.
-- Documentation version changes: Active Baseline v1.9 pointer update only during activation; no v2.0 bump.
+- Documentation version changes: Technical Baseline v0.5 and Active Baseline v2.0 record the owner Unity Personal CI decision.
 - Changelog or release-note requirement: None; record evidence in task and ExecPlan only.
 
 ## 16. Definition of Done
@@ -381,11 +398,21 @@ Official or third-party GitHub Actions are not automatically approved by this ac
 
 ## 17. Completion evidence
 
-Not started. This activation commit is documentation-only and intentionally creates no workflow, BuildIdentity, `version.json`, `config/compatibility.json`, production code, tests, scripts, packages, Unity settings, or PR.
+Not started. This decision commit is documentation/policy-only and intentionally creates no workflow, BuildIdentity, `version.json`, `config/compatibility.json`, production code, tests, packages, Unity settings, Unity secrets, GameCI integration, or PR.
+
+### Zero-write preflight and owner decision
+
+```text
+Verdict: GO AFTER OWNER DECISION
+Owner decision: Unity Personal; no isolated self-hosted runner.
+Selected path: no-secret GitHub CI plus mandatory local Unity merge validation.
+```
+
+After this decision is recorded, the licensing blocker is resolved for starting no-secret ODY-S00-008 implementation after PM review. Automated Unity CI remains unapproved until a later owner decision.
 
 ### Changed files / areas
 
-- None for implementation.
+- Documentation and repository policy decision record only.
 
 ### Validation results
 
@@ -397,7 +424,7 @@ Not started. This activation commit is documentation-only and intentionally crea
 
 | Criterion | Status | Evidence |
 |---|---|---|
-| AC-1 through AC-20 | Not started | Owner review of activation contract is the next action. |
+| AC-1 through AC-23 | Not started | PM review of the amended contract is the next action. |
 
 ### Build and artifact evidence
 
@@ -408,7 +435,7 @@ Not started. This activation commit is documentation-only and intentionally crea
 
 ### Known limitations
 
-- Unity runner/licensing method for GitHub Actions is not selected. It must be established by zero-write preflight before workflow implementation.
+- Unity Editor execution in GitHub Actions is not approved under the current Unity Personal constraint.
 - Branch protection/ruleset settings may require owner action or unavailable permissions and must be recorded honestly.
 
 ### Follow-up tasks
@@ -421,19 +448,20 @@ Not started. This activation commit is documentation-only and intentionally crea
 - Architecture review: Contract follows ADR-001, ADR-005, ADR-006, ADR-007, ADR-009, and ADR-010 without changing ADRs.
 - Test review: Existing IDs preserved; proposed CI/BuildIdentity/version/provenance IDs require catalog/authority audit before implementation.
 - Security/privacy review: CI secrets, local identifiers, machine data, private docs, and hidden campaign content are explicitly prohibited.
-- Documentation/version review: No Active Baseline version bump and no Technical Baseline/ADR change.
+- Documentation/version review: Active Baseline v2.0 and Technical Baseline v0.5 record the owner decision without ADR change.
 
 ## 18. Blockers, decisions, and change control
 
 ### Blockers
 
-- None for activation. Implementation must stop if Unity runner/licensing cannot be established securely or if a required GitHub Action/dependency lacks approval/license evidence.
+- None for starting no-secret implementation after PM review. Automated Unity CI remains blocked until a future owner-approved licensing or runner amendment.
 
 ### Decisions made during execution
 
 - 2026-08-12 - Activate ODY-S00-008 only after owner-merged PR #11; do not begin implementation in the activation commit - Authority / approval: product owner instruction.
 - 2026-08-12 - ODY-S00-008 owns `TC-DIAG-033` through `TC-DIAG-040` after BuildIdentity exists; ODY-S00-009 owns the real Windows Development-Debug application artifact and Player smoke - Authority / approval: product owner instruction and ADR-010.
+- 2026-08-12 - Under Unity Personal with no isolated self-hosted runner, paid serial, or Unity Licensing Server, ODY-S00-008 uses no-secret GitHub Actions plus mandatory local Unity merge validation; GameCI and Unity secrets are not approved - Authority / approval: product owner instruction and Technical Development Baseline v0.5.
 
 ### Approved task changes
 
-- None.
+- Record Personal-license CI decision; no implementation started.

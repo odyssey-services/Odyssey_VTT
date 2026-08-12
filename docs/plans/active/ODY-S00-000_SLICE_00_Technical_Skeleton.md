@@ -120,7 +120,7 @@ Child task: `ODY-S00-007`.
 
 Child tasks: `ODY-S00-008`, `ODY-S00-009`.
 
-- [ ] Fast CI runs repository policy, formatting, .NET build/tests, architecture and Unity compile/EditMode checks.
+- [ ] Fast CI runs no-secret repository policy, formatting, .NET build/tests, architecture, static Unity project/package validation, and BuildIdentity/provenance checks; Unity compile/EditMode evidence is mandatory local merge evidence under the current Unity Personal constraint.
 - [ ] BuildIdentity is generated from canonical sources and exposed to client/logs/artifact metadata.
 - [ ] After BuildIdentity is available, ODY-S00-008 owns ADR-010 diagnostic session/bundle evidence for `TC-DIAG-033`, `TC-DIAG-034`, `TC-DIAG-035`, `TC-DIAG-036`, `TC-DIAG-037`, `TC-DIAG-038`, `TC-DIAG-039`, and `TC-DIAG-040`: session expiry, secret-field guard, bundle manifest include/exclude categories, bundle checksums, 50 MiB truncation report, campaign database absence, closed/private documentation absence, and machine name / persistent device ID absence from system summary.
 - [ ] Windows Development-Debug build is produced by repository entry point.
@@ -191,6 +191,7 @@ Child task: `ODY-S00-010`.
 - 2026-08-12T12:34:07Z - Draft PR #11 opened at https://github.com/odyssey-services/Odyssey_VTT/pull/11 with initial PR head `224813d24823082fb539df1317c93bbff8dde2d6`. ODY-S00-007 remains `In Review`; ODY-S00-008 and ODY-S00-009 remain Draft.
 - 2026-08-12 12:50:33 UTC - Owner merged PR #11, `ODY-S00-007 - Serialization and AOT Compatibility Spike`, into `main` with GitHub merge-commit method as `88382217a1053fbe5eb631024063800f45e69926`; merged head `555c7adbead725cf84658588d3777a3827f39dd6`.
 - 2026-08-12 13:02 UTC - ODY-S00-007 moved to `Done` and `docs/tasks/completed/`; ODY-S00-008 was activated docs-only as `Ready` on `feat/ody-s00-008-fast-ci-build-identity`. No ODY-S00-008 implementation, workflow, BuildIdentity, `version.json`, or `config/compatibility.json` was created.
+- 2026-08-12 15:45 UTC - Personal-license CI decision recorded for ODY-S00-008: Unity Personal is available; no isolated self-hosted runner, paid serial, or Unity Licensing Server is available; GitHub Actions are limited to no-secret gates and Unity validation remains mandatory local merge evidence. No workflow, BuildIdentity, version/config source, production code, tests, Unity settings, secrets, push settings, or PR was created by this decision record.
 
 ## 7. Decisions
 
@@ -203,7 +204,7 @@ Child task: `ODY-S00-010`.
 
 - The accepted Technical Baseline groups a large amount of foundational work under PR-003 and PR-005. The execution backlog splits these into PR-003A/B/C and PR-005A/B while preserving dependencies and exit criteria.
 - Canonical repository scripts do not exist yet. Plans and tasks must state them as future deliverables and cannot claim they were run.
-- Repository identity is verified as `odyssey-services/Odyssey_VTT`; Unity runner availability remains an execution-time fact.
+- Repository identity is verified as `odyssey-services/Odyssey_VTT`; automated Unity CI is not approved under the current Unity Personal constraint, and local Unity validation remains mandatory merge evidence.
 - Owner added the foundation directly to `main` as commit `82de52e9cb47bd7a1fa8952ac5cba2b9c88456f5` in Private repository `odyssey-services/Odyssey_VTT`. No separate foundation branch or PR existed. This is a recorded one-time deviation, not a precedent; no history rewrite or retroactive PR is required.
 
 ## 9. Validation and acceptance evidence
@@ -234,7 +235,7 @@ Post-merge limitation:
 - ODY-S00-005 evidence: command/event/clock/RNG contracts compile in pure .NET and Unity. Latest .NET validation includes Domain 1, Contracts 1, Unit 46, Architecture 2, all failed 0. test-unity.ps1 has passed after escalated Unity cache access: batch compile, EditMode, and PlayMode exit code 0; EditMode/PlayMode each ran 1 test with 1 passed, 0 failed, 0 skipped. Repository policy, architecture guard, SDK check, dotnet build/test, and diff checks are rerun after review corrections and recorded in the child task evidence. Owner merged PR #9 into `main` at `2026-08-11T12:31:50Z` as merge commit `7aa5cc972c48d9af6509895bb6d9ed1e18899fdf`.
 - ODY-S00-006 corrective evidence: Application diagnostics contracts compile in pure .NET and Unity; runtime starts `Starting` and reaches `Ready` only after AppShell entry point/presentation initialization; Developer Shell uses a narrow facade with accepted/rejected technical probe actions; EventCode registry uses canonical 3-segment codes plus `log.` message template keys; diagnostics properties split data classification from value kind; production emergency diagnostics use a minimal append-only file sink while tests use in-memory sinks; crash markers use the persistent diagnostics directory and exact `process-started.json` marker. Final validation results are recorded in `docs/tasks/completed/ODY-S00-006_Runtime_Composition_and_Diagnostic_Shell.md`; owner merge evidence is PR #10 / `abb139c3c93115c468d020db3eb423c47cfdd83b`.
 - ODY-S00-007 completion evidence: task contract `docs/tasks/completed/ODY-S00-007_Serialization_and_AOT_Compatibility_Spike.md` is Done through owner-merged PR #11, merged head `555c7adbead725cf84658588d3777a3827f39dd6`, merge commit `88382217a1053fbe5eb631024063800f45e69926`.
-- ODY-S00-008 activation evidence: task contract `docs/tasks/active/ODY-S00-008_Fast_CI_and_Build_Identity.md` is Ready on `feat/ody-s00-008-fast-ci-build-identity`; no PR is opened and no implementation has started.
+- ODY-S00-008 activation evidence: task contract `docs/tasks/active/ODY-S00-008_Fast_CI_and_Build_Identity.md` is Ready on `feat/ody-s00-008-fast-ci-build-identity`; Personal-license CI decision is recorded as no-secret GitHub Actions plus mandatory local Unity merge validation; no PR is opened and no implementation has started.
 - ODY-S00-007 correction evidence: focused Windows x64 IL2CPP serialization/AOT smoke is mandatory and must be labelled `serialization-aot-smoke` or equivalent; `TC-DIAG-001` keeps the exact ADR-010 meaning, JSONL sink/rotation/retention is required under the narrow Persistence diagnostics adapter scope, and `TC-DIAG-033`, `TC-DIAG-034`, `TC-DIAG-035`, `TC-DIAG-036`, `TC-DIAG-037`, `TC-DIAG-038`, `TC-DIAG-039`, and `TC-DIAG-040` are assigned to ODY-S00-008 after BuildIdentity is available.
 - ODY-S00-007 .NET build-layout evidence: sibling bridge projects now use standard SDK artifacts output instead of sharing `DotNet/Projects/obj/project.assets.json`; normal restore creates project-isolated `artifacts/obj/Odyssey.Domain`, `artifacts/obj/Odyssey.Rules`, `artifacts/obj/Odyssey.Content`, and `artifacts/obj/Odyssey.Application` intermediates. No permanent `System.Text.Json` dependency is added in this correction.
 - ODY-S00-007 final STJ feasibility evidence: pure .NET `System.Text.Json` `10.0.11` source-generation passed; Unity 6000.4 Editor/Mono passed; Unity 6000.4 Player managed compilation failed before IL2CPP conversion because required STJ runtime references were absent; Unity 6000.5.7f1 baseline passed but its actual script compiler is `Microsoft.CodeAnalysis 3.7.0.0`, and the oldest STJ 10.0.11 source generator variant still requires newer Roslyn. This evidence is retained as rejected/discovery context only.
@@ -256,13 +257,13 @@ Record real commands, outputs and artifact paths here as child tasks complete.
 
 - Repository identity, Private visibility, and PR #1 merge are verified. Exact branch protection/ruleset settings remain an owner-accepted limitation.
 - Unity `6000.4.0f1` is acceptable for local ODY-S00-002 development by owner decision.
-- ODY-S00-002 through ODY-S00-007 are Done. ODY-S00-008 is the current Ready child task on `feat/ody-s00-008-fast-ci-build-identity`; no pull request is opened yet.
+- ODY-S00-002 through ODY-S00-007 are Done. ODY-S00-008 is the current Ready child task on `feat/ody-s00-008-fast-ci-build-identity`; the CI licensing decision is recorded; no pull request is opened yet.
 - GitHub plan/settings may affect exact branch-protection options; the task must apply the strongest supported equivalent and record any unavailable setting.
 
 - ODY-S00-007 blocker resolved by owner decision: production serialization uses ADR-003 v1.1 explicit Newtonsoft streaming codecs. No further STJ version probing is authorized for this task.
 
 ## 12. Outcome and follow-up
 
-Current outcome: ODY-S00-001 is Done after owner merge of PR #1. ODY-S00-002 is Done after owner merge of PR #4 and closure PR #5. ODY-S00-003 is Done after owner merge of PR #6 and closure PR #7. ODY-S00-004 is owner-merged through PR #8. ODY-S00-005 is owner-merged through PR #9. ODY-S00-006 is owner-merged through PR #10. ODY-S00-007 is owner-merged through PR #11. ODY-S00-008 is Ready for owner review of its activation contract.
+Current outcome: ODY-S00-001 is Done after owner merge of PR #1. ODY-S00-002 is Done after owner merge of PR #4 and closure PR #5. ODY-S00-003 is Done after owner merge of PR #6 and closure PR #7. ODY-S00-004 is owner-merged through PR #8. ODY-S00-005 is owner-merged through PR #9. ODY-S00-006 is owner-merged through PR #10. ODY-S00-007 is owner-merged through PR #11. ODY-S00-008 is Ready for PM review of its amended Personal-license CI contract.
 
-Next action: product-owner review of the ODY-S00-008 activation contract before implementation. Do not open a PR, implement workflows, create BuildIdentity or version/config sources, or start ODY-S00-009.
+Next action: PM review of the amended ODY-S00-008 contract before implementation. Do not open a PR, implement workflows, create BuildIdentity or version/config sources, or start ODY-S00-009.

@@ -1,11 +1,11 @@
 # Odyssey VTT - Active Documentation Baseline
 
-**Document:** `ACTIVE_DOCUMENTATION_BASELINE_Odyssey_VTT_v1.9.md`  
-**Version:** 1.9  
+**Document:** `ACTIVE_DOCUMENTATION_BASELINE_Odyssey_VTT_v2.0.md`  
+**Version:** 2.0  
 **Date:** 12 August 2026  
-**Status:** Superseded by `ACTIVE_DOCUMENTATION_BASELINE_Odyssey_VTT_v2.0.md`
+**Status:** Active authority register
 
-**Material change v1.9:** Accepted `docs/adr/ADR-003_Serialization_Strategy_v1.1.md`, `docs/adr/ADR-010_Logging_Diagnostics_and_Redaction_v1.1.md`, and `TECHNICAL_DEVELOPMENT_BASELINE_Odyssey_VTT_v0.4.md`. The active ODY-S00-007 serialization architecture is explicit deterministic JSON codecs backed by pinned Newtonsoft.Json 13.0.2 low-level streaming primitives. System.Text.Json 10.0.11 feasibility evidence is retained as discovery only; it is not the active production decision. Unity baseline remains `6000.4.0f1 (8cf496087c8f)` with HDRP `17.4.0`; Unity 6.5 is not adopted.
+**Material change v2.0:** Accepted `TECHNICAL_DEVELOPMENT_BASELINE_Odyssey_VTT_v0.5.md`. Under the current owner decision, Unity Personal is the available Unity license, a dedicated isolated self-hosted runner is unavailable, and a paid serial or Unity Licensing Server is unavailable. GitHub Actions remain the CI provider for no-secret automated gates, but Unity Editor execution is not approved for GitHub Actions. Unity validation is a mandatory local merge gate using Unity `6000.4.0f1 (8cf496087c8f)` and `scripts/test-unity.ps1`.
 
 ---
 
@@ -53,7 +53,7 @@ When sources conflict, apply this order:
 15_Legacy_Prototype_Reference_Odyssey_VTT_v0.1.md
 16_Test_Strategy_Odyssey_VTT_v0.1.md
 17_Roadmap_Odyssey_VTT_v0.11.md
-TECHNICAL_DEVELOPMENT_BASELINE_Odyssey_VTT_v0.4.md
+TECHNICAL_DEVELOPMENT_BASELINE_Odyssey_VTT_v0.5.md
 AGENTS.md
 PLANS.md
 docs/tasks/TASK_TEMPLATE.md
@@ -75,7 +75,7 @@ docs/adr/ADR-010_Logging_Diagnostics_and_Redaction_v1.1.md
 
 # 4. Active Technical Authorities
 
-`TECHNICAL_DEVELOPMENT_BASELINE_Odyssey_VTT_v0.4.md` is the active technical baseline for the private authoritative repository, Unity 6.4 Update release HDRP/UI Toolkit/Input System project, CI model, and Codex workflow. It preserves v0.3 except for TDB-DEC-025, which now points to ADR-003 v1.1 explicit Newtonsoft streaming codecs.
+`TECHNICAL_DEVELOPMENT_BASELINE_Odyssey_VTT_v0.5.md` is the active technical baseline for the private authoritative repository, Unity 6.4 Update release HDRP/UI Toolkit/Input System project, CI model, Unity Personal licensing constraint, and Codex workflow. It preserves v0.4 except for the CI/Unity licensing decision recorded in v0.5.
 
 `docs/adr/ADR-003_Serialization_Strategy_v1.1.md` is the active authority for JSON profiles, explicit versioned DTOs, canonical serialization, command fingerprints, event payload hashes/upcasting, parser limits, AOT/IL2CPP compatibility, and the approved release-critical JSON codec mechanism.
 
@@ -85,7 +85,30 @@ docs/adr/ADR-010_Logging_Diagnostics_and_Redaction_v1.1.md
 
 `docs/tasks/active/ODY-S00-008_Fast_CI_and_Build_Identity.md` is the current `Ready` child task on branch `feat/ody-s00-008-fast-ci-build-identity`. No PR is opened and no ODY-S00-008 implementation has started. ODY-S00-009 remains `Draft`.
 
-# 5. Non-Normative Files
+# 5. CI and Unity Validation Authority
+
+Automated GitHub Actions gates for ODY-S00-008 are limited to no-secret checks:
+
+- repository policy;
+- formatting;
+- test structure and architecture;
+- source, toolchain, and package validation;
+- .NET restore, build, and tests;
+- BuildIdentity and provenance validation.
+
+Mandatory local Unity merge validation remains separate from GitHub Actions:
+
+- exact Unity `6000.4.0f1 (8cf496087c8f)`;
+- `scripts/test-unity.ps1`;
+- Unity compile;
+- EditMode;
+- PlayMode when invoked by the repository entry-point script;
+- clean worktree after generated drift is removed;
+- evidence recorded in the task before Draft PR readiness and independently reviewed before owner merge.
+
+GitHub Actions must not claim that Unity CI exists or that Unity compiled unless an owner-approved future amendment provides a secure automated Unity path. Static Unity project validation is allowed, but it is not Unity compile evidence.
+
+# 6. Non-Normative Files
 
 The following are not requirements sources unless explicitly named by a task:
 
@@ -95,6 +118,6 @@ The following are not requirements sources unless explicitly named by a task:
 - templates or placeholder evidence;
 - private product documentation not included in the task bundle.
 
-# 6. Historical Baselines
+# 7. Historical Baselines
 
-`ACTIVE_DOCUMENTATION_BASELINE_Odyssey_VTT_v1.8.md`, `TECHNICAL_DEVELOPMENT_BASELINE_Odyssey_VTT_v0.3.md`, `docs/adr/ADR-003_Serialization_Strategy_v1.0.md`, and `docs/adr/ADR-010_Logging_Diagnostics_and_Redaction_v1.0.md` remain historical context. They must not be treated as current authority where they conflict with this v1.9 baseline.
+`ACTIVE_DOCUMENTATION_BASELINE_Odyssey_VTT_v1.9.md`, `TECHNICAL_DEVELOPMENT_BASELINE_Odyssey_VTT_v0.4.md`, earlier active baselines, earlier technical baselines, `docs/adr/ADR-003_Serialization_Strategy_v1.0.md`, and `docs/adr/ADR-010_Logging_Diagnostics_and_Redaction_v1.0.md` remain historical context. They must not be treated as current authority where they conflict with this v2.0 baseline.
