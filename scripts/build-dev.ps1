@@ -36,14 +36,9 @@ function Invoke-Git([string] $Arguments) {
 }
 
 function Assert-CleanTrackedWorktree {
-    & git -C $repoRoot diff --quiet
-    if ($LASTEXITCODE -ne 0) {
-        throw 'Tracked worktree has unstaged changes; build provenance requires a clean tracked tree.'
-    }
-
-    & git -C $repoRoot diff --cached --quiet
-    if ($LASTEXITCODE -ne 0) {
-        throw 'Index has staged changes; build provenance requires a clean tracked index.'
+    $status = Invoke-Git 'status --porcelain=v1 --untracked-files=all --ignore-submodules=none'
+    if (-not [string]::IsNullOrWhiteSpace($status)) {
+        throw 'Repository has staged, unstaged, submodule, or non-ignored untracked changes; build provenance requires a clean repository state.'
     }
 }
 

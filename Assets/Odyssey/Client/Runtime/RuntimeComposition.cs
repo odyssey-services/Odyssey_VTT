@@ -331,12 +331,7 @@ namespace Odyssey.Unity.Client
                 DetachPresentationRuntimeLocked(markStartupFailed: false);
                 _presentationRuntime = presentationRuntime;
                 State = OdysseyRuntimeState.Ready;
-                Diagnostics.Write(LogLevel.Information, OdysseyEventCodes.AppStartupCompleted, SubsystemName.Parse("app"), MessageTemplateKey.Parse("log.app.startup.completed"), new DiagnosticContext(ProcessInstanceId), () => new[]
-                {
-                    new SafeLogProperty(SafePropertyKey.Parse("state"), SafeLogValue.Code("ready")),
-                    new SafeLogProperty(SafePropertyKey.Parse("duration_ms"), SafeLogValue.Duration(TimeSpan.Zero)),
-                    new SafeLogProperty(SafePropertyKey.Parse("build_id"), SafeLogValue.BoundedText(BuildIdentity == null ? "build_unavailable" : BuildIdentity.BuildId))
-                });
+                Diagnostics.Write(LogLevel.Information, OdysseyEventCodes.AppStartupCompleted, SubsystemName.Parse("app"), MessageTemplateKey.Parse("log.app.startup.completed"), new DiagnosticContext(ProcessInstanceId), () => CreateStartupCompletedProperties(BuildIdentity));
                 return Result.Success();
             }
         }
@@ -510,6 +505,21 @@ namespace Odyssey.Unity.Client
                 OdysseyRuntimeCompositionRoot.RecordCleanupFailure(Diagnostics, Clock, ProcessInstanceId, DiagnosticIds, new IncidentDeduplicator(), EmergencySink, ex);
                 return false;
             }
+        }
+
+        private static IReadOnlyList<SafeLogProperty> CreateStartupCompletedProperties(BuildIdentity? buildIdentity)
+        {
+            List<SafeLogProperty> properties = new List<SafeLogProperty>
+            {
+                new SafeLogProperty(SafePropertyKey.Parse("state"), SafeLogValue.Code("ready")),
+                new SafeLogProperty(SafePropertyKey.Parse("duration_ms"), SafeLogValue.Duration(TimeSpan.Zero))
+            };
+            if (buildIdentity != null)
+            {
+                properties.Add(new SafeLogProperty(SafePropertyKey.Parse("build_id"), SafeLogValue.BuildId(buildIdentity.BuildId)));
+            }
+
+            return properties;
         }
     }
 

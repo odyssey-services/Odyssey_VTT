@@ -65,6 +65,7 @@ Owner-approved TestCaseId/catalog mapping for the mandatory ADR-009 Windows buil
 - `scripts/test-player-smoke.ps1` exists as the ODY-S00-009 built Player smoke entry point.
 - `scripts/build-release.ps1` does not exist and is not in ODY-S00-009 scope.
 - `Tests/Metadata/test-catalog.json` contains owner-approved ODY-S00-009 `TC-PLAYER-001` through `TC-PLAYER-010` entries that preserve the mandatory ADR-009 Windows build and Player smoke meanings.
+- Independent pre-PR implementation audit of HEAD `8b792c245fe5ca1d21555f32e3ef4480d444953b` returned `NO-GO` with five P1 blockers: untracked source drift was not rejected by `scripts/build-dev.ps1`; Player smoke activation lacked a Development Player/debug-build guard; smoke evidence replacement used delete-before-move; the Unity Editor build entry point trusted `-odysseyBuildOutput` without independently proving canonical containment; diagnostic property `build_id` used generic `BoundedText`.
 
 ### Assumptions
 
@@ -315,6 +316,7 @@ No new dependency, GitHub Action, Unity package, executable, external tool, or d
 ### Changed files / areas
 
 - This task contract was created during ODY-S00-008 closure / ODY-S00-009 creation, moved to Ready after owner-approved `TC-PLAYER-001` through `TC-PLAYER-010` mapping, and moved to In Progress for implementation.
+- Audit blocker correction scope is limited to build/smoke scripts and Unity Client build/smoke/diagnostics integration, Application diagnostics/BuildIdentity contract validation, focused .NET/Unity tests, `scripts/verify-test-structure.ps1`, this task evidence, and the parent ExecPlan. Pull request remains not opened.
 
 ### Validation results
 
@@ -325,19 +327,19 @@ No new dependency, GitHub Action, Unity package, executable, external tool, or d
 | `.\scripts\verify-test-structure.ps1` | Passed | `TC-ARCH-001 PASS`; controlled invalid Domain->Rules, package version mismatch, duplicate catalog ownership, and duplicate TestCaseId fixtures rejected; ODY-S00-009 `TC-PLAYER` script guards passed. |
 | `.\scripts\test-fast.ps1` | Passed | Initial sandbox run was environment-blocked by denied access to `Microsoft SDKs`; escalated rerun passed .NET tests: 86 total, 86 passed, 0 failed, 0 skipped. |
 | `dotnet build .\DotNet\Odyssey.Core.sln --no-restore` | Passed | Escalated rerun passed: 0 warnings, 0 errors. |
-| `dotnet test .\DotNet\Odyssey.Core.sln --no-build --no-restore` | Passed | Escalated rerun passed: 86 total, 86 passed, 0 failed, 0 skipped. |
+| `dotnet test .\DotNet\Odyssey.Core.sln --no-build --no-restore` | Passed | Escalated rerun passed before correction: 86 total, 86 passed, 0 failed, 0 skipped. Audit correction focused rerun after strict BuildId tests: 88 total, 88 passed, 0 failed, 0 skipped. |
 | `.\scripts\verify-ci.ps1` | Passed | `TC-CI-001` through `TC-CI-012` passed; controlled invalid workflow fixtures rejected. |
 | `.\scripts\verify-unity-project.ps1` | Passed | Static Unity project/package/toolchain source validation passed; Unity Editor compile is not claimed. |
 | `.\scripts\check-repository-policy.ps1` | Passed | `REPO-POLICY-001` through `REPO-POLICY-005` passed; nested CI/static Unity checks passed. |
 | `.\scripts\verify-repository.ps1` | Passed | Repository policy, test structure, CI verifier, static Unity verifier, and SDK check passed; selected SDK `10.0.302`. |
-| `.\scripts\test-unity.ps1` | Passed | Escalated rerun passed with Unity `6000.4.0f1`: compile exit code 0, EditMode 33/33, PlayMode 2/2. |
+| `.\scripts\test-unity.ps1` | Passed | Escalated rerun before correction passed with Unity `6000.4.0f1`: compile exit code 0, EditMode 33/33, PlayMode 2/2. Audit correction rerun passed: compile exit code 0, EditMode 36/36, PlayMode 2/2. |
 | `git diff --check` | Passed | No whitespace errors after restoring Unity batchmode `ProjectSettings/ProjectSettings.asset` drift. |
 
 ### Acceptance result
 
 | Criterion | Status | Evidence |
 |---|---|---|
-| AC-1 through AC-15 | Implemented / pending final clean-HEAD Player evidence | Build/smoke scripts, Unity build entry point, runtime smoke hook, catalog paths, and guards are implemented. Pre-commit .NET, static, repository, and Unity compile/EditMode/PlayMode gates passed. Final `TC-PLAYER` build/smoke evidence must be produced from the clean committed HEAD before push. |
+| AC-1 through AC-15 | Implemented / pending final clean-HEAD Player evidence | Build/smoke scripts, Unity build entry point, runtime smoke hook, catalog paths, audit-blocker corrections, and guards are implemented. Pre-commit .NET, static, repository, and Unity compile/EditMode/PlayMode gates passed. Final `TC-PLAYER` build/smoke evidence must be produced from the clean committed HEAD before push. |
 
 ### Build and artifact evidence
 
@@ -368,7 +370,7 @@ No new dependency, GitHub Action, Unity package, executable, external tool, or d
 
 ### Blockers
 
-- None known at implementation start.
+- Independent pre-PR implementation audit of HEAD `8b792c245fe5ca1d21555f32e3ef4480d444953b` returned `NO-GO`, blockers 5 P1. Audit-blocker correction pre-commit gates passed; final clean-HEAD build/smoke evidence remains pending before push.
 
 ### Decisions made during execution
 
@@ -376,6 +378,7 @@ No new dependency, GitHub Action, Unity package, executable, external tool, or d
 - 2026-08-14 - Keep ODY-S00-009 Draft rather than Ready while TestCaseId/catalog mapping is missing - Authority / approval: product owner instruction in this task contract transition.
 - 2026-08-14 - Approve `TC-PLAYER-001` through `TC-PLAYER-010`, canonical output layout `artifacts/builds/<BuildId>/Windows-x64/`, smoke timeouts, exit/process cleanup rules, and mandatory automated Input System Submit/Cancel evidence - Authority / approval: product owner instruction.
 - 2026-08-14 - Start ODY-S00-009 implementation in the existing task branch; status moved to In Progress - Authority / approval: product owner implementation ТЗ.
+- 2026-08-14 - Correct the five independent pre-PR audit P1 blockers without opening a PR and keep ODY-S00-009 In Progress - Authority / approval: product owner audit-blocker remediation ТЗ.
 
 ### Approved task changes
 

@@ -9,6 +9,7 @@ using Odyssey.Application.Commands;
 using Odyssey.Application.Diagnostics;
 using Odyssey.Application.Identity;
 using Odyssey.Application.Results;
+using Odyssey.Application.Versions;
 using Odyssey.Domain.Identity;
 using Odyssey.Domain.Time;
 
@@ -154,6 +155,49 @@ namespace Odyssey.Tests.Unit
         }
 
         [Test]
+        public void BuildIdDiagnosticKindUsesCanonicalBuildIdentityRules()
+        {
+            string local = BuildIdentity(BuildChannel.Local).BuildId;
+            string pullRequest = BuildIdentity(BuildChannel.PullRequest).BuildId;
+            string development = BuildIdentity(BuildChannel.Development).BuildId;
+
+            Assert.That(SafeLogValue.BuildId(local).ValueKind, Is.EqualTo(SafeLogValueKind.BuildId));
+            Assert.That(SafeLogValue.BuildId(pullRequest).RenderedValue, Is.EqualTo(pullRequest));
+            Assert.That(SafeLogValue.BuildId(development).RenderedValue, Is.EqualTo(development));
+
+            foreach (string invalid in new[]
+            {
+                "plain bounded text",
+                "odyssey-super-secret-token",
+                "build-development-1.1-g0123456789ab",
+                @"C:\Users\alice\secret",
+                "https://example.test/build",
+                "odyssey-development-1.1-g0123456789ab\n",
+                " odyssey-development-1.1-g0123456789ab",
+                "odyssey-" + new string('a', 180)
+            })
+            {
+                Action action = () => SafeLogValue.BuildId(invalid);
+                Assert.Throws<ArgumentException>(action, invalid);
+            }
+
+            Action rehydrate = () => SafeLogValue.Rehydrate(DiagnosticDataClassification.OperationalSafe, SafeLogValueKind.BuildId, "odyssey-super-secret-token", 26, 26, false);
+            Assert.Throws<ArgumentException>(rehydrate);
+        }
+
+        [Test]
+        public void StartupCompletedRegistryRequiresBuildIdKindForBuildIdProperty()
+        {
+            EventCodeRegistry registry = EventCodeRegistry.CreateDefault();
+            string buildId = BuildIdentity(BuildChannel.Development).BuildId;
+            LogEventV1 accepted = CreateStartupCompleted(new SafeLogProperty(SafePropertyKey.Parse("build_id"), SafeLogValue.BuildId(buildId)));
+            LogEventV1 rejected = CreateStartupCompleted(new SafeLogProperty(SafePropertyKey.Parse("build_id"), SafeLogValue.BoundedText(buildId)));
+
+            Assert.That(registry.Validate(accepted).IsSuccess, Is.True);
+            Assert.That(registry.Validate(rejected).IsFailure, Is.True);
+        }
+
+        [Test]
         public void DiagnosticIdentityTypesStayDistinctAndPublicErrorRemainsSafe()
         {
             CommandId commandId = CommandId.Parse("cmd_0123456789abcdef0123456789abcdef");
@@ -189,6 +233,61 @@ namespace Odyssey.Tests.Unit
                 MessageTemplateKey.Parse("log.diagnostics.probe.emitted"),
                 properties,
                 CorrelationId.Parse("corr_0123456789abcdef0123456789abcdef"));
+        }
+
+        private static LogEventV1 CreateStartupCompleted(SafeLogProperty buildId)
+        {
+            return new LogEventV1(
+                UtcInstant.Parse("2026-08-11T00:00:00.0000000Z"),
+                LogLevel.Information,
+                OdysseyEventCodes.AppStartupCompleted,
+                SubsystemName.Parse("app"),
+                BuildIdAvailability.Available,
+                ProcessInstanceId.Parse("proc_0123456789abcdef0123456789abcdef"),
+                MessageTemplateKey.Parse("log.app.startup.completed"),
+                new[]
+                {
+                    new SafeLogProperty(SafePropertyKey.Parse("state"), SafeLogValue.Code("ready")),
+                    new SafeLogProperty(SafePropertyKey.Parse("duration_ms"), SafeLogValue.Duration(TimeSpan.Zero)),
+                    buildId
+                });
+        }
+
+        private static BuildIdentity BuildIdentity(BuildChannel channel)
+        {
+            long? pullRequestNumber = channel == BuildChannel.PullRequest ? 12 : null;
+            return BuildIdentityCodec.Create(
+                new VersionSource(ApplicationVersion.Parse("0.1.0")),
+                StandardCompatibility(),
+                channel,
+                31799960601,
+                1,
+                "0123456789abcdef0123456789abcdef01234567",
+                channel == BuildChannel.PullRequest ? "refs/pull/12/merge" : "refs/heads/main",
+                WorkingTreeState.Clean,
+                "20260812T1200000000001Z",
+                "6000.4.0f1",
+                "8cf496087c8f",
+                "10.0.302",
+                "Development-Debug",
+                "WindowsStandalone",
+                "x86_64",
+                "Mono",
+                "NETStandard2.1",
+                pullRequestNumber);
+        }
+
+        private static CompatibilityConfig StandardCompatibility()
+        {
+            return new CompatibilityConfig(
+                new CompatibilityRange(1, 1),
+                new CompatibilityRange(1, 1),
+                new CompatibilityRange(1, 1),
+                new CompatibilityRange(1, 1),
+                new CompatibilityRange(1, 1),
+                new CompatibilityRange(1, 1),
+                new CompatibilityRange(1, 1),
+                new ProtocolCompatibilityRange(1, 1, 1));
         }
 
         private static string FindRepositoryFile(string relativePath)

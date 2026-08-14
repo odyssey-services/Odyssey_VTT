@@ -33,11 +33,31 @@ namespace Odyssey.Unity.Client
 
         internal static bool TryCreateFromCommandLine(out PlayerSmokeMode? smokeMode)
         {
+#if DEVELOPMENT_BUILD
+            const bool developmentBuild = true;
+#else
+            const bool developmentBuild = false;
+#endif
+            return TryCreateFromCommandLine(developmentBuild, Debug.isDebugBuild, Environment.GetCommandLineArgs(), out smokeMode);
+        }
+
+        internal static bool TryCreateFromCommandLine(bool developmentBuild, bool debugBuild, string[] args, out PlayerSmokeMode? smokeMode)
+        {
             smokeMode = null;
-            string[] args = Environment.GetCommandLineArgs();
+            if (!TryParseActivation(developmentBuild, debugBuild, args, out string? evidenceName, out int runNumber)) return false;
+            string path = Path.Combine(Directory.GetCurrentDirectory(), evidenceName!);
+            smokeMode = new PlayerSmokeMode(path, runNumber);
+            smokeMode.WriteEvidence();
+            return true;
+        }
+
+        internal static bool TryParseActivation(bool developmentBuild, bool debugBuild, string[] args, out string? evidenceName, out int runNumber)
+        {
+            evidenceName = null;
+            runNumber = 0;
+            if (!developmentBuild || !debugBuild || args == null) return false;
+
             bool enabled = false;
-            string? evidenceName = null;
-            int runNumber = 0;
             for (int index = 0; index < args.Length; index++)
             {
                 if (args[index] == SmokeArg)
@@ -60,9 +80,6 @@ namespace Odyssey.Unity.Client
 
             if (!enabled) return false;
             if (!IsSafeEvidenceFileName(evidenceName) || runNumber <= 0) return false;
-            string path = Path.Combine(Directory.GetCurrentDirectory(), evidenceName!);
-            smokeMode = new PlayerSmokeMode(path, runNumber);
-            smokeMode.WriteEvidence();
             return true;
         }
 
@@ -114,15 +131,47 @@ namespace Odyssey.Unity.Client
 
         private void WriteEvidence()
         {
-            string json = _evidence.ToJson();
-            string tempPath = _evidencePath + ".tmp";
-            File.WriteAllText(tempPath, json, new UTF8Encoding(false));
-            if (File.Exists(_evidencePath))
-            {
-                File.Delete(_evidencePath);
-            }
+            WriteEvidenceFile(_evidencePath, _evidence.ToJson());
+        }
 
-            File.Move(tempPath, _evidencePath);
+        internal static void WriteEvidenceFile(string targetPath, string json)
+        {
+            string directory = Path.GetDirectoryName(targetPath);
+            if (string.IsNullOrWhiteSpace(directory)) throw new ArgumentException("Evidence directory is required.", nameof(targetPath));
+            string tempPath = Path.Combine(directory, Path.GetFileName(targetPath) + "." + Guid.NewGuid().ToString("N") + ".tmp");
+            WriteEvidenceFile(targetPath, json, tempPath);
+        }
+
+        internal static void WriteEvidenceFile(string targetPath, string json, string tempPath)
+        {
+            try
+            {
+                using (FileStream stream = new FileStream(tempPath, FileMode.CreateNew, FileAccess.Write, FileShare.None))
+                using (StreamWriter writer = new StreamWriter(stream, new UTF8Encoding(false)))
+                {
+                    writer.Write(json);
+                    writer.Flush();
+                    stream.Flush(true);
+                }
+
+                if (File.Exists(targetPath))
+                {
+                    File.Replace(tempPath, targetPath, null);
+                }
+                else
+                {
+                    File.Move(tempPath, targetPath);
+                }
+            }
+            catch
+            {
+                if (File.Exists(tempPath))
+                {
+                    File.Delete(tempPath);
+                }
+
+                throw;
+            }
         }
 
         private static string UtcNow()

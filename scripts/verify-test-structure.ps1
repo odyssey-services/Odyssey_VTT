@@ -890,15 +890,23 @@ function Test-PlayerBuildSmokeGuards([System.Collections.Generic.List[string]] $
     $runtimeSmoke = Get-Content -LiteralPath $runtimeSmokePath -Raw
     $appShell = Get-Content -LiteralPath $appShellPath -Raw
 
-    foreach ($needle in @('6000.4.0f1', 'artifacts/builds', 'Windows-x64', 'Odyssey.exe', 'Development-Debug', 'Mono', 'Assert-CleanTrackedWorktree', 'generate-build-identity.ps1', 'BuildNumber', 'RunAttempt', 'PassThru')) {
+    foreach ($needle in @('6000.4.0f1', 'artifacts/builds', 'Windows-x64', 'Odyssey.exe', 'Development-Debug', 'Mono', 'Assert-CleanTrackedWorktree', 'status --porcelain=v1 --untracked-files=all --ignore-submodules=none', 'generate-build-identity.ps1', 'BuildNumber', 'RunAttempt', 'PassThru')) {
         if ($buildScript -notlike "*$needle*") {
             $Errors.Add("scripts/build-dev.ps1 missing required token: $needle")
         }
     }
-    foreach ($needle in @('BuildPipeline.BuildPlayer', 'BuildTarget.StandaloneWindows64', 'ScriptingImplementation.Mono2x', 'BuildOptions.Development', 'BuildOptions.AllowDebugging', 'BuildResult.Succeeded')) {
+    foreach ($needle in @('BuildPipeline.BuildPlayer', 'BuildTarget.StandaloneWindows64', 'ScriptingImplementation.Mono2x', 'BuildOptions.Development', 'BuildOptions.AllowDebugging', 'BuildResult.Succeeded', 'Assets', 'StreamingAssets', 'build-identity.json', 'artifacts', 'builds', 'Windows-x64', 'Odyssey.exe', 'ValidateBuildOutputPathForTest')) {
         if ($editorBuild -notlike "*$needle*") {
             $Errors.Add("OdysseyDevelopmentBuild.cs missing required token: $needle")
         }
+    }
+    foreach ($needle in @('DEVELOPMENT_BUILD', 'Debug.isDebugBuild', 'TryParseActivation', 'File.Replace')) {
+        if ($runtimeSmoke -notlike "*$needle*") {
+            $Errors.Add("PlayerSmokeMode.cs missing required token: $needle")
+        }
+    }
+    if ($runtimeSmoke -match 'File\.Delete\s*\(\s*_evidencePath\s*\)') {
+        $Errors.Add('Player smoke evidence must not delete the target before replacement.')
     }
     foreach ($needle in @('Wait-PlayerEvidenceBootstrapReady', '120', '15', '150', 'ExitCode', 'Stop-ProcessTree', 'Get-CimInstance Win32_Process', 'Assert-NoOrphans', 'submitPerformed', 'cancelPerformed', 'buildIdentityLoaded')) {
         if ($smokeScript -notlike "*$needle*") {

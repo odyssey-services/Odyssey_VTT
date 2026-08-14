@@ -468,6 +468,7 @@ namespace Odyssey.Application.Serialization
                 case SafeLogValueKind.BoundedText: return "bounded_text";
                 case SafeLogValueKind.SanitizedPath: return "sanitized_path";
                 case SafeLogValueKind.SanitizedEndpoint: return "sanitized_endpoint";
+                case SafeLogValueKind.BuildId: return "build_id";
                 default: throw new ArgumentOutOfRangeException(nameof(value));
             }
         }
@@ -488,6 +489,7 @@ namespace Odyssey.Application.Serialization
                 case "bounded_text": return SafeLogValueKind.BoundedText;
                 case "sanitized_path": return SafeLogValueKind.SanitizedPath;
                 case "sanitized_endpoint": return SafeLogValueKind.SanitizedEndpoint;
+                case "build_id": return SafeLogValueKind.BuildId;
                 default: throw new FormatException("Unknown SafeLogValueKind token.");
             }
         }
