@@ -59,18 +59,18 @@ Before implementation assigns new IDs to `Tests/Metadata/test-catalog.json`, aud
 
 | Proposed ID | Meaning |
 |---|---|
-| `TC-CI-001` | Pull-request workflow invokes repository policy entry point. |
-| `TC-CI-002` | Pull-request workflow invokes formatting entry point. |
-| `TC-CI-003` | Pull-request workflow invokes test-structure/architecture entry point and invalid fixture fails. |
-| `TC-CI-004` | Pull-request workflow invokes source-inventory parity/toolchain validation. |
-| `TC-CI-005` | Pull-request workflow invokes restore, .NET build, and fast .NET tests. |
-| `TC-CI-006` | Pull-request workflow validates exact Unity project/package/toolchain source state without claiming compile evidence. |
-| `TC-CI-007` | Mandatory local Unity merge gate invokes `scripts/test-unity.ps1` and records compile/EditMode/PlayMode evidence without false-green fallback. |
-| `TC-CI-008` | Workflow permissions are minimal and fork PRs receive no secrets. |
-| `TC-CI-009` | External actions are pinned to immutable SHAs with license/source evidence. |
-| `TC-CI-010` | Artifact retention is bounded and excludes private/local files. |
-| `TC-CI-011` | Required check names are stable and documented for `main`. |
-| `TC-CI-012` | Missing, failed, or wrong-version local Unity validation blocks completion and PR readiness. |
+| `TC-CI-001` | Required `pull_request`/`main` and `push`/`main` triggers. |
+| `TC-CI-002` | Top-level `contents: read` permissions. |
+| `TC-CI-003` | Immutable approved Action SHAs. |
+| `TC-CI-004` | Repository policy, format, and test-structure scripts wired to the owning job. |
+| `TC-CI-005` | .NET restore, build, and test scripts wired to the owning job. |
+| `TC-CI-006` | Static Unity version/package check does not run Unity. |
+| `TC-CI-007` | BuildIdentity/provenance job wired for PR and `push`/`main` evidence. |
+| `TC-CI-008` | No `pull_request_target`, write token, or fork secrets. |
+| `TC-CI-009` | No GameCI or Unity secrets. |
+| `TC-CI-010` | Invalid workflow fixture makes the owning check fail. |
+| `TC-CI-011` | Unavailable toolchain or non-zero script cannot false-green. |
+| `TC-CI-012` | Stable check names, bounded time/retention, and no required-job skip trick. |
 | `TC-VERSION-003` | Valid strict root `version.json` schema v1 is accepted. |
 | `TC-VERSION-004` | Malformed JSON, duplicate properties, unknown schema, unknown fields and missing required version-source fields are rejected. |
 | `TC-VERSION-005` | Exact SemVer source rules are enforced and tracked ApplicationVersion remains `0.1.0`. |
@@ -431,11 +431,35 @@ After this decision is recorded, the licensing blocker is resolved for starting 
 | `powershell -NoProfile -ExecutionPolicy Bypass -File .\scripts\verify-repository.ps1` | Pass | Repository policy, test structure, CI verifier, static Unity verifier, and SDK check passed; selected SDK `10.0.302`. |
 | `dotnet build .\DotNet\Odyssey.Core.sln --no-restore` | Pass | Escalated rerun passed: 0 warnings, 0 errors. |
 | `dotnet test .\DotNet\Odyssey.Core.sln --no-build --no-restore` | Pass | Escalated rerun passed: Contracts 1, Domain 1, Unit 77, Architecture 2; 0 failed. |
-| `powershell -NoProfile -ExecutionPolicy Bypass -File .\scripts\verify-ci.ps1` | Pass | `TC-CI-001` through `TC-CI-006` and `TC-CI-008` through `TC-CI-011` passed. |
+| `powershell -NoProfile -ExecutionPolicy Bypass -File .\scripts\verify-ci.ps1` | Pass | `TC-CI-001` through `TC-CI-012` passed; controlled invalid workflow fixtures rejected old single-job shape, missing `push`, `windows-latest`, missing job, floating Action tag, `continue-on-error`, unapproved Unity Action, excessive retention, and required-job skip condition. |
 | `powershell -NoProfile -ExecutionPolicy Bypass -File .\scripts\verify-unity-project.ps1` | Pass | Static Unity project/package/toolchain source validation passed; Unity compile not claimed. |
 | `powershell -NoProfile -ExecutionPolicy Bypass -File .\scripts\generate-build-identity.ps1 -Channel local -GitRef heads/local -BuildNumber 1 -RunAttempt 1 -TimestampUtc 20260812T120000Z` | Pass | Generated dirty Local BuildId `odyssey-local-20260812t120000z-g4a989c318380-dirty` for commit `4a989c3183808b0e0e0a2faabf610305e8fa1904`. |
 | `powershell -NoProfile -ExecutionPolicy Bypass -File .\scripts\verify-build-identity.ps1` | Pass | Latest Unity-gate identity parity/checksum passed for BuildId `odyssey-local-20260812t151454z-g4a989c318380-dirty`; checksum `fa0f4cfe0fd49ba86bfac7cb98897df4bf00511499c8354e3bc40fa62f8140dc`. |
 | `powershell -NoProfile -ExecutionPolicy Bypass -File .\scripts\test-unity.ps1` | Pass | Escalated local Unity gate passed: generated Local BuildIdentity, Unity Editor `6000.4.0f1`, batch compile exit 0, EditMode exit 0, PlayMode exit 0, EditMode 33/33, PlayMode 2/2. |
+
+### CI contract correction validation
+
+Independent pre-PR audit of implementation HEAD `eea58a01e63179061f21ad44fabbc27a1a1c880d` returned `NO-GO` for one blocker: the workflow/verifier contract still used the earlier single-job `odyssey-fast-ci` shape. The correction replaces it with workflow `ci`, triggers `pull_request`/`main` and `push`/`main`, and four required `windows-2022` jobs: `repository-policy-format-structure`, `dotnet-restore-build-test`, `unity-project-package-static`, and `buildidentity-provenance`.
+
+| Command / check | Result | Evidence / notes |
+|---|---|---|
+| `powershell -NoProfile -ExecutionPolicy Bypass -File .\scripts\restore.ps1` | Pass | Initial sandbox run failed on SDK access to `C:\Users\alexx\AppData\Local\Microsoft SDKs`; escalated rerun restored 4 of 8 projects and found the rest up to date. |
+| `powershell -NoProfile -ExecutionPolicy Bypass -File .\scripts\verify-format.ps1` | Pass | `FORMAT-001 PASS repository text formatting checks passed`. |
+| `powershell -NoProfile -ExecutionPolicy Bypass -File .\scripts\verify-test-structure.ps1` | Pass | `TC-ARCH-001 PASS`; controlled invalid Domain->Rules, package mismatch, duplicate catalog ownership, and duplicate TestCaseId fixtures all rejected. |
+| `powershell -NoProfile -ExecutionPolicy Bypass -File .\scripts\test-fast.ps1` | Pass | Initial sandbox run failed on SDK access; escalated rerun passed. Build: 0 warnings, 0 errors. Tests: Contracts 1/1, Domain 1/1, Unit 77/77, Architecture 2/2. |
+| `dotnet build .\DotNet\Odyssey.Core.sln --no-restore` | Pass | 0 warnings, 0 errors. |
+| `dotnet test .\DotNet\Odyssey.Core.sln --no-build --no-restore` | Pass | Contracts 1, Domain 1, Unit 77, Architecture 2; 0 failed. |
+| `powershell -NoProfile -ExecutionPolicy Bypass -File .\scripts\verify-ci.ps1` | Pass | `TC-CI-001` through `TC-CI-012` passed; negative fixtures rejected old single-job shape, missing `push`, `windows-latest`, missing job, floating Action tag, `continue-on-error`, unapproved Unity Action, excessive retention, and required-job skip condition. |
+| `powershell -NoProfile -ExecutionPolicy Bypass -File .\scripts\verify-unity-project.ps1` | Pass | Static Unity project/package/toolchain source validation passed; Unity Editor compile not claimed. |
+| `powershell -NoProfile -ExecutionPolicy Bypass -File .\scripts\check-repository-policy.ps1` | Pass | Repository policy and nested CI/static Unity checks passed. |
+| `powershell -NoProfile -ExecutionPolicy Bypass -File .\scripts\verify-repository.ps1` | Pass | Repository policy, structure, CI verifier, static Unity verifier, and SDK check passed; selected SDK `10.0.302`. |
+| `powershell -NoProfile -ExecutionPolicy Bypass -File .\scripts\generate-build-identity.ps1 -Channel pull_request -GitRef refs/pull/8/merge -BuildNumber 1008 -PullRequestNumber 8 -RunAttempt 1 -TimestampUtc 20260814T012000Z` | Pass | Generated `odyssey-pr-1008.1-geea58a01e631` for commit `eea58a01e63179061f21ad44fabbc27a1a1c880d`. |
+| `powershell -NoProfile -ExecutionPolicy Bypass -File .\scripts\verify-build-identity.ps1 -BuildIdentityPath .\artifacts\build-identity\odyssey-pr-1008.1-geea58a01e631\build-identity.json` | Pass | Checksum `0423ba22feb1cde59bc4d44995b82c68633fdd41a4c5566c6a708a45292baa19`; commit link verified. |
+| `powershell -NoProfile -ExecutionPolicy Bypass -File .\scripts\generate-build-identity.ps1 -Channel development -GitRef refs/heads/main -BuildNumber 2008 -RunAttempt 2 -TimestampUtc 20260814T012500Z` | Pass | Generated `odyssey-development-2008.2-geea58a01e631` for commit `eea58a01e63179061f21ad44fabbc27a1a1c880d`. |
+| `powershell -NoProfile -ExecutionPolicy Bypass -File .\scripts\verify-build-identity.ps1 -BuildIdentityPath .\artifacts\build-identity\odyssey-development-2008.2-geea58a01e631\build-identity.json` | Pass | Checksum `edfaa2ee4e9d3c2ca43f1ea8e3d67982209f05bc5b1ad3f6d2c6a67212dd976d`; commit link verified. |
+| `powershell -NoProfile -ExecutionPolicy Bypass -File .\scripts\test-unity.ps1` | Pass | Unity Editor `6000.4.0f1`; generated Local BuildIdentity `odyssey-local-20260814t012620z-geea58a01e631-dirty`; batch compile exit 0; EditMode 33/33; PlayMode 2/2; Player build not run. |
+
+Unity batchmode produced ProjectSettings whitespace drift in `ProjectSettings/ProjectSettings.asset`; the path was clean before Unity, contained no semantic settings change, and was restored after validation. No Release/RC identity outputs were produced.
 
 ### Acceptance result
 
@@ -462,6 +486,7 @@ After this decision is recorded, the licensing blocker is resolved for starting 
 
 ### Self-review summary
 
+- Independent pre-PR audit on implementation HEAD `eea58a01e63179061f21ad44fabbc27a1a1c880d` returned `NO-GO` for one blocker: workflow/verifier contract mismatch. Correction scope is limited to CI workflow contract, CI verifier, `TC-CI-001` through `TC-CI-012` meanings, and evidence documentation. Real GitHub Actions run remains `Pending Draft PR`; branch protection/ruleset remains `Owner action/evidence pending`; PR remains `Not opened`.
 - Scope review: Implementation is limited to ODY-S00-008 fast CI, BuildIdentity, provenance, static Unity validation, and ADR-010 diagnostic session/bundle evidence.
 - Architecture review: Contract follows ADR-001, ADR-005, ADR-006, ADR-007, ADR-009, and ADR-010 without changing ADRs.
 - Test review: Existing `TC-VERSION-001` and `TC-VERSION-002` remain owned by ODY-S00-004; ODY-S00-008 owns `TC-VERSION-003` through `TC-VERSION-008`.
@@ -473,7 +498,8 @@ After this decision is recorded, the licensing blocker is resolved for starting 
 
 ### Blockers
 
-- None for ODY-S00-008 implementation completion. Automated Unity CI remains blocked until a future owner-approved licensing or runner amendment.
+- Pre-PR audit `NO-GO` finding for workflow/verifier contract mismatch is being corrected in a scoped correction commit. A repeat full independent pre-PR audit is still required before Draft PR GO.
+- Automated Unity CI remains blocked until a future owner-approved licensing or runner amendment.
 
 ### Decisions made during execution
 
@@ -486,3 +512,4 @@ After this decision is recorded, the licensing blocker is resolved for starting 
 
 - Record Personal-license CI decision.
 - Implement ODY-S00-008 Fast CI, BuildIdentity, provenance, and diagnostic session/bundle evidence.
+- Correct CI workflow contract after independent pre-PR audit `NO-GO`; correction commit SHA is reported in final handoff for this scoped correction.

@@ -966,7 +966,7 @@
                           "authority":  "Technical Development Baseline v0.5; ODY-S00-008",
                           "runner":  "PowerShell",
                           "path":  ".github/workflows/ci.yml",
-                          "check":  "pull-request workflow invokes repository policy entry point"
+                          "check":  "required pull_request/main and push/main triggers"
                       },
                       {
                           "testCaseId":  "TC-CI-002",
@@ -974,7 +974,7 @@
                           "authority":  "Technical Development Baseline v0.5; ODY-S00-008",
                           "runner":  "PowerShell",
                           "path":  ".github/workflows/ci.yml",
-                          "check":  "pull-request workflow invokes formatting entry point"
+                          "check":  "top-level contents: read"
                       },
                       {
                           "testCaseId":  "TC-CI-003",
@@ -982,7 +982,7 @@
                           "authority":  "Technical Development Baseline v0.5; ODY-S00-008",
                           "runner":  "PowerShell",
                           "path":  "scripts/verify-test-structure.ps1",
-                          "check":  "pull-request workflow invokes test-structure/architecture entry point and invalid fixture fails"
+                          "check":  "immutable approved Action SHAs"
                       },
                       {
                           "testCaseId":  "TC-CI-004",
@@ -990,7 +990,7 @@
                           "authority":  "Technical Development Baseline v0.5; ODY-S00-008",
                           "runner":  "PowerShell",
                           "path":  ".github/workflows/ci.yml",
-                          "check":  "pull-request workflow invokes source-inventory parity/toolchain validation"
+                          "check":  "repository policy/format/test-structure scripts wired"
                       },
                       {
                           "testCaseId":  "TC-CI-005",
@@ -998,7 +998,7 @@
                           "authority":  "Technical Development Baseline v0.5; ODY-S00-008",
                           "runner":  "PowerShell",
                           "path":  ".github/workflows/ci.yml",
-                          "check":  "pull-request workflow invokes restore, .NET build, and fast .NET tests"
+                          "check":  ".NET restore/build/test scripts wired"
                       },
                       {
                           "testCaseId":  "TC-CI-006",
@@ -1006,15 +1006,15 @@
                           "authority":  "Technical Development Baseline v0.5; ODY-S00-008",
                           "runner":  "PowerShell",
                           "path":  "scripts/verify-unity-project.ps1",
-                          "check":  "pull-request workflow validates exact Unity project/package/toolchain source state without claiming compile evidence"
+                          "check":  "static Unity version/package check does not run Unity"
                       },
                       {
                           "testCaseId":  "TC-CI-007",
                           "taskId":  "ODY-S00-008",
                           "authority":  "Technical Development Baseline v0.5; ODY-S00-008",
                           "runner":  "PowerShell",
-                          "path":  "scripts/test-unity.ps1",
-                          "check":  "mandatory local Unity merge gate invokes scripts/test-unity.ps1 and records compile/EditMode/PlayMode evidence without false-green fallback"
+                          "path":  ".github/workflows/ci.yml",
+                          "check":  "BuildIdentity/provenance job wired"
                       },
                       {
                           "testCaseId":  "TC-CI-008",
@@ -1022,7 +1022,7 @@
                           "authority":  "Technical Development Baseline v0.5; ODY-S00-008",
                           "runner":  "PowerShell",
                           "path":  ".github/workflows/ci.yml",
-                          "check":  "workflow permissions are minimal and fork PRs receive no secrets"
+                          "check":  "no pull_request_target, write token or fork secrets"
                       },
                       {
                           "testCaseId":  "TC-CI-009",
@@ -1030,31 +1030,31 @@
                           "authority":  "Technical Development Baseline v0.5; ODY-S00-008",
                           "runner":  "PowerShell",
                           "path":  ".github/workflows/ci.yml",
-                          "check":  "external actions are pinned to immutable SHAs with license/source evidence"
+                          "check":  "no GameCI or Unity secrets"
                       },
                       {
                           "testCaseId":  "TC-CI-010",
                           "taskId":  "ODY-S00-008",
                           "authority":  "Technical Development Baseline v0.5; ODY-S00-008",
                           "runner":  "PowerShell",
-                          "path":  ".github/workflows/ci.yml",
-                          "check":  "artifact retention is bounded and excludes private/local files"
+                          "path":  "scripts/verify-ci.ps1",
+                          "check":  "invalid fixture makes owning check fail"
                       },
                       {
                           "testCaseId":  "TC-CI-011",
                           "taskId":  "ODY-S00-008",
                           "authority":  "Technical Development Baseline v0.5; ODY-S00-008",
                           "runner":  "PowerShell",
-                          "path":  ".github/workflows/ci.yml",
-                          "check":  "required check names are stable and documented for main"
+                          "path":  "scripts/verify-ci.ps1",
+                          "check":  "unavailable toolchain/non-zero script cannot false-green"
                       },
                       {
                           "testCaseId":  "TC-CI-012",
                           "taskId":  "ODY-S00-008",
                           "authority":  "Technical Development Baseline v0.5; ODY-S00-008",
                           "runner":  "PowerShell",
-                          "path":  "scripts/test-unity.ps1",
-                          "check":  "missing, failed, or wrong-version local Unity validation blocks completion and PR readiness"
+                          "path":  ".github/workflows/ci.yml",
+                          "check":  "stable check names, bounded time/retention and no required-job skip trick"
                       },
                       {
                           "testCaseId":  "TC-PROVENANCE-001",
