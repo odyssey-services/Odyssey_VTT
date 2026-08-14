@@ -55,12 +55,12 @@ Deliver the complete `SLICE-00` technical skeleton: a private authoritative repo
 - Repository Foundation is complete through merged PR #1.
 - Unity Project Foundation is complete through owner-merged PR #4; merge commit `70e7d49e217d4aecb7a2e873d31787d26001f47f` records the Unity `6000.4.0f1 (8cf496087c8f)` HDRP baseline.
 - Module and Test Skeleton is complete through owner-merged PR #6; merge commit `5e6f5e03ef022c5d7b0e6fef559c2383796d95be` records the Core module/test skeleton and dual .NET/Unity test foundation.
-- ODY-S00-004 is complete through owner-merged PR #8. ODY-S00-005 is complete through owner-merged PR #9, merge commit `7aa5cc972c48d9af6509895bb6d9ed1e18899fdf`. ODY-S00-006 is complete through owner-merged PR #10, merged head `b695bc09f344a36b45adb30ed7c0186bf71902d9`, merge commit `abb139c3c93115c468d020db3eb423c47cfdd83b`, merged at `2026-08-11T18:52:47Z`. ODY-S00-007 is the current In Review child task in Draft PR #11 (https://github.com/odyssey-services/Odyssey_VTT/pull/11), audited implementation HEAD `224813d24823082fb539df1317c93bbff8dde2d6`, independent audit result `GO FOR DRAFT PR`.
+- ODY-S00-004 is complete through owner-merged PR #8. ODY-S00-005 is complete through owner-merged PR #9, merge commit `7aa5cc972c48d9af6509895bb6d9ed1e18899fdf`. ODY-S00-006 is complete through owner-merged PR #10, merged head `b695bc09f344a36b45adb30ed7c0186bf71902d9`, merge commit `abb139c3c93115c468d020db3eb423c47cfdd83b`, merged at `2026-08-11T18:52:47Z`. ODY-S00-007 is complete through owner-merged PR #11, merge commit `88382217a1053fbe5eb631024063800f45e69926`. ODY-S00-008 is the current In Review child task on `feat/ody-s00-008-fast-ci-build-identity`; PR #12 is Ready for Review, blockers are 0, and merge is not requested.
 
 ### Assumptions
 
 - The owner-selected repository is `odyssey-services/Odyssey_VTT`; it remains Private until a separate owner decision.
-- A licensed Unity installation/runner can execute the accepted Unity `6000.4.0f1` baseline on Windows for later Unity validation tasks.
+- A licensed local Unity installation can execute the accepted Unity `6000.4.0f1` baseline on Windows for mandatory local Unity validation. Automated Unity CI is not approved under the current Unity Personal constraint.
 
 ## 5. Scope
 
@@ -108,7 +108,7 @@ Application/schema/format/contract/protocol/ruleset versions
 
 **Given** a clean Windows workstation with the pinned prerequisites  
 **When** the repository bootstrap and validation entry points are run  
-**Then** the exact Unity project opens, Core compiles/tests without Unity, required checks pass, and a Windows development artifact is produced with BuildIdentity.
+**Then** the exact Unity project validates through the mandatory local Unity merge gate, Core compiles/tests without Unity, required no-secret checks pass, and a Windows development artifact is produced with BuildIdentity.
 
 ### Scenario 2 — Invalid architecture change
 
@@ -127,7 +127,7 @@ Application/schema/format/contract/protocol/ruleset versions
 
 - Production code: Minimal technical skeleton only.
 - Tests: ADR-required unit, contract, architecture, EditMode, PlayMode, and Player smoke coverage.
-- Scripts / CI: Repository entry points and required GitHub Actions checks.
+- Scripts / CI: Repository entry points, required no-secret GitHub Actions checks, and mandatory local Unity merge evidence.
 - Configuration: Unity, packages, versions, compatibility and build profiles.
 - Documentation: Public-safe technical authorities, task contracts, ExecPlan, traceability and quality report.
 - Generated evidence or build artifacts: Windows development build, BuildIdentity, checksums, test reports.
@@ -262,11 +262,11 @@ All additional dependencies require a child task update and explicit approval be
 
 ### Known limitations
 
-- Unity runner availability and exact branch protection/ruleset settings remain unverified; the latter is an owner-accepted ODY-S00-001 limitation.
+- Automated Unity CI is not approved under the current Unity Personal constraint; exact branch protection/ruleset settings remain unverified and must be recorded honestly.
 
 ### Follow-up tasks
 
-- `ODY-S00-007` through `ODY-S00-010`; ODY-S00-001 through ODY-S00-006 are completed, and ODY-S00-007 is In Review in Draft PR #11 under ADR-003 v1.1 explicit Newtonsoft streaming codec architecture.
+- `ODY-S00-008` through `ODY-S00-010`; ODY-S00-001 through ODY-S00-007 are completed, and ODY-S00-008 is In Review for Fast CI and Build Identity after owner approval.
 - ADR-010 diagnostic session/bundle scenarios `TC-DIAG-033`, `TC-DIAG-034`, `TC-DIAG-035`, `TC-DIAG-036`, `TC-DIAG-037`, `TC-DIAG-038`, `TC-DIAG-039`, and `TC-DIAG-040` are future ODY-S00-008 scope after BuildIdentity exists; ODY-S00-010 remains final reconciliation, not an implementation task.
 
 ### Self-review summary
@@ -281,8 +281,9 @@ All additional dependencies require a child task update and explicit approval be
 
 ### Blockers
 
-- ODY-S00-001 through ODY-S00-006 are complete. ODY-S00-007 is In Review in Draft PR #11 after implementation and independent audit result `GO FOR DRAFT PR`; no active ODY-S00-007 implementation blocker remains. System.Text.Json 10.0.11 evidence remains discovery context, not the production decision.
-- ODY-S00-008 remains Draft and may not start before owner merge plus separate closure/activation work. It remains the future owner for `TC-DIAG-033`, `TC-DIAG-034`, `TC-DIAG-035`, `TC-DIAG-036`, `TC-DIAG-037`, `TC-DIAG-038`, `TC-DIAG-039`, and `TC-DIAG-040` after BuildIdentity is available.
+- ODY-S00-001 through ODY-S00-007 are complete. ODY-S00-008 is In Review on `feat/ody-s00-008-fast-ci-build-identity`; PR #12 is Ready for Review; the Personal-license CI decision is recorded; merge is not requested.
+- ODY-S00-008 implementation evidence is recorded in its active task contract: no-secret Fast CI, BuildIdentity generation/parity, static Unity validation, and local Unity compile/EditMode/PlayMode gates passed. ODY-S00-009 remains blocked and unstarted until owner review/merge of ODY-S00-008.
+- ODY-S00-008 owns `TC-DIAG-033`, `TC-DIAG-034`, `TC-DIAG-035`, `TC-DIAG-036`, `TC-DIAG-037`, `TC-DIAG-038`, `TC-DIAG-039`, and `TC-DIAG-040` after BuildIdentity exists. ODY-S00-009 remains blocked by ODY-S00-008.
 
 ### Decisions made during execution
 

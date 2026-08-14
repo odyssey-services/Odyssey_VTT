@@ -14,6 +14,16 @@ try {
         exit $LASTEXITCODE
     }
 
+    & .\scripts\verify-ci.ps1
+    if ($LASTEXITCODE -ne 0) {
+        exit $LASTEXITCODE
+    }
+
+    & .\scripts\verify-unity-project.ps1
+    if ($LASTEXITCODE -ne 0) {
+        exit $LASTEXITCODE
+    }
+
     $globalJsonPath = Join-Path $repoRoot 'global.json'
     $globalJson = Get-Content -LiteralPath $globalJsonPath -Raw | ConvertFrom-Json
     $configuredVersion = [string] $globalJson.sdk.version

@@ -3,7 +3,7 @@
 **Document:** `ACTIVE_DOCUMENTATION_BASELINE_Odyssey_VTT_v1.9.md`  
 **Version:** 1.9  
 **Date:** 12 August 2026  
-**Status:** Active authority register
+**Status:** Superseded by `ACTIVE_DOCUMENTATION_BASELINE_Odyssey_VTT_v2.0.md`
 
 **Material change v1.9:** Accepted `docs/adr/ADR-003_Serialization_Strategy_v1.1.md`, `docs/adr/ADR-010_Logging_Diagnostics_and_Redaction_v1.1.md`, and `TECHNICAL_DEVELOPMENT_BASELINE_Odyssey_VTT_v0.4.md`. The active ODY-S00-007 serialization architecture is explicit deterministic JSON codecs backed by pinned Newtonsoft.Json 13.0.2 low-level streaming primitives. System.Text.Json 10.0.11 feasibility evidence is retained as discovery only; it is not the active production decision. Unity baseline remains `6000.4.0f1 (8cf496087c8f)` with HDRP `17.4.0`; Unity 6.5 is not adopted.
 
@@ -59,7 +59,7 @@ PLANS.md
 docs/tasks/TASK_TEMPLATE.md
 docs/tasks/SLICE-00_BACKLOG.md
 docs/tasks/active/ODY-S00-000_SLICE_00_Technical_Skeleton.md
-docs/tasks/active/ODY-S00-007_Serialization_and_AOT_Compatibility_Spike.md
+docs/tasks/active/ODY-S00-008_Fast_CI_and_Build_Identity.md
 docs/plans/active/ODY-S00-000_SLICE_00_Technical_Skeleton.md
 docs/adr/ADR-001_Module_Boundaries_and_Dependency_Direction_v1.0.md
 docs/adr/ADR-002_Command_and_Domain_Event_Model_v1.0.md
@@ -81,7 +81,9 @@ docs/adr/ADR-010_Logging_Diagnostics_and_Redaction_v1.1.md
 
 `docs/adr/ADR-010_Logging_Diagnostics_and_Redaction_v1.1.md` is the active authority for logging, diagnostics, and redaction. It preserves ADR-010 v1.0 semantics while routing `LogEventV1` JSON through ADR-003 v1.1 explicit DiagnosticJson codecs.
 
-`docs/tasks/active/ODY-S00-007_Serialization_and_AOT_Compatibility_Spike.md` is the current active child task. Production implementation is complete, the independent pre-PR audit passed with result `GO FOR DRAFT PR`, and Draft PR #11 is open at https://github.com/odyssey-services/Odyssey_VTT/pull/11. Status is `In Review`; audited implementation HEAD is `224813d24823082fb539df1317c93bbff8dde2d6`. ODY-S00-008 and ODY-S00-009 remain unstarted / Draft. Owner review and owner-controlled merge are still required.
+`docs/tasks/completed/ODY-S00-007_Serialization_and_AOT_Compatibility_Spike.md` is complete through owner-merged PR #11, merged head `555c7adbead725cf84658588d3777a3827f39dd6`, merge commit `88382217a1053fbe5eb631024063800f45e69926`.
+
+`docs/tasks/active/ODY-S00-008_Fast_CI_and_Build_Identity.md` is the current `Ready` child task on branch `feat/ody-s00-008-fast-ci-build-identity`. No PR is opened and no ODY-S00-008 implementation has started. ODY-S00-009 remains `Draft`.
 
 # 5. Non-Normative Files
 

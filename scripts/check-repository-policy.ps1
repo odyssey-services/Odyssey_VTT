@@ -550,22 +550,33 @@ try {
         'PLANS.md',
         'TECHNICAL_DEVELOPMENT_BASELINE_Odyssey_VTT_v0.2.md',
         'TECHNICAL_DEVELOPMENT_BASELINE_Odyssey_VTT_v0.3.md',
+        'TECHNICAL_DEVELOPMENT_BASELINE_Odyssey_VTT_v0.4.md',
+        'TECHNICAL_DEVELOPMENT_BASELINE_Odyssey_VTT_v0.5.md',
         'ACTIVE_DOCUMENTATION_BASELINE_Odyssey_VTT_v1.7.md',
         'ACTIVE_DOCUMENTATION_BASELINE_Odyssey_VTT_v1.8.md',
+        'ACTIVE_DOCUMENTATION_BASELINE_Odyssey_VTT_v1.9.md',
+        'ACTIVE_DOCUMENTATION_BASELINE_Odyssey_VTT_v2.0.md',
         '.gitignore',
         '.gitattributes',
         '.editorconfig',
         '.github/PULL_REQUEST_TEMPLATE.md',
+        '.github/workflows/ci.yml',
         'scripts/check-repository-policy.ps1',
+        'scripts/generate-build-identity.ps1',
         'scripts/restore.ps1',
         'scripts/verify-format.ps1',
         'scripts/verify-test-structure.ps1',
+        'scripts/verify-ci.ps1',
+        'scripts/verify-unity-project.ps1',
+        'scripts/verify-build-identity.ps1',
         'scripts/test-fast.ps1',
         'scripts/test-unity.ps1',
         'scripts/verify-repository.ps1',
+        'version.json',
         'global.json',
         'NuGet.Config',
         'Directory.Build.props',
+        'config/compatibility.json',
         'Tests/Metadata/test-catalog.json',
         'config/diagnostics/event-codes.json',
         'DotNet/Odyssey.Core.sln',
@@ -587,7 +598,9 @@ try {
         'docs/tasks/completed/ODY-S00-003_Module_and_Test_Skeleton.md',
         'docs/tasks/completed/ODY-S00-004_Identity_Version_and_Result_Primitives.md',
         'docs/tasks/completed/ODY-S00-005_Command_Event_Clock_and_RNG_Contracts.md',
-        'docs/tasks/active/ODY-S00-007_Serialization_and_AOT_Compatibility_Spike.md',
+        'docs/tasks/completed/ODY-S00-006_Runtime_Composition_and_Diagnostic_Shell.md',
+        'docs/tasks/completed/ODY-S00-007_Serialization_and_AOT_Compatibility_Spike.md',
+        'docs/tasks/active/ODY-S00-008_Fast_CI_and_Build_Identity.md',
         'docs/errors/ERROR_CODES.md',
         'docs/plans/README.md',
         'docs/plans/active/ODY-S00-000_SLICE_00_Technical_Skeleton.md'
@@ -696,6 +709,26 @@ try {
         foreach ($failure in $registryFixtureFailures) {
             $failures.Add($failure)
         }
+    }
+
+    try {
+        & (Join-Path $RepositoryRoot 'scripts/verify-ci.ps1')
+        if ($LASTEXITCODE -ne 0) {
+            $failures.Add('scripts/verify-ci.ps1 failed.')
+        }
+    }
+    catch {
+        $failures.Add($_.Exception.Message)
+    }
+
+    try {
+        & (Join-Path $RepositoryRoot 'scripts/verify-unity-project.ps1')
+        if ($LASTEXITCODE -ne 0) {
+            $failures.Add('scripts/verify-unity-project.ps1 failed.')
+        }
+    }
+    catch {
+        $failures.Add($_.Exception.Message)
     }
 
     if ($failures.Count -gt 0) {

@@ -6,6 +6,7 @@ using Odyssey.Application.Diagnostics;
 using Odyssey.Application.Identity;
 using Odyssey.Application.Results;
 using Odyssey.Application.Time;
+using Odyssey.Application.Versions;
 using Odyssey.Domain.Identity;
 using Odyssey.Persistence.Diagnostics;
 
@@ -55,13 +56,14 @@ namespace Odyssey.Unity.Client
 
     internal sealed class RuntimeCompositionSettings
     {
-        internal RuntimeCompositionSettings(IWallClock clock, IMonotonicClock monotonicClock, IProcessInstanceIdGenerator processInstanceIds, IDiagnosticIdGenerator diagnosticIds, ITechnicalIdGenerator technicalIds, IReadOnlyList<IDiagnosticSink> extraSinks, Func<string, IEmergencyDiagnosticSink> emergencySinkFactory, ICrashMarkerStoreFactory crashMarkerStoreFactory, Func<IPlatformExceptionHookSource> platformHookSourceFactory, bool includeConsoleSink)
+        internal RuntimeCompositionSettings(IWallClock clock, IMonotonicClock monotonicClock, IProcessInstanceIdGenerator processInstanceIds, IDiagnosticIdGenerator diagnosticIds, ITechnicalIdGenerator technicalIds, IBuildIdentityProvider buildIdentityProvider, IReadOnlyList<IDiagnosticSink> extraSinks, Func<string, IEmergencyDiagnosticSink> emergencySinkFactory, ICrashMarkerStoreFactory crashMarkerStoreFactory, Func<IPlatformExceptionHookSource> platformHookSourceFactory, bool includeConsoleSink)
         {
             Clock = clock ?? throw new ArgumentNullException(nameof(clock));
             MonotonicClock = monotonicClock ?? throw new ArgumentNullException(nameof(monotonicClock));
             ProcessInstanceIds = processInstanceIds ?? throw new ArgumentNullException(nameof(processInstanceIds));
             DiagnosticIds = diagnosticIds ?? throw new ArgumentNullException(nameof(diagnosticIds));
             TechnicalIds = technicalIds ?? throw new ArgumentNullException(nameof(technicalIds));
+            BuildIdentityProvider = buildIdentityProvider ?? throw new ArgumentNullException(nameof(buildIdentityProvider));
             ExtraSinks = extraSinks ?? throw new ArgumentNullException(nameof(extraSinks));
             EmergencySinkFactory = emergencySinkFactory ?? throw new ArgumentNullException(nameof(emergencySinkFactory));
             CrashMarkerStoreFactory = crashMarkerStoreFactory ?? throw new ArgumentNullException(nameof(crashMarkerStoreFactory));
@@ -74,6 +76,7 @@ namespace Odyssey.Unity.Client
         internal IProcessInstanceIdGenerator ProcessInstanceIds { get; }
         internal IDiagnosticIdGenerator DiagnosticIds { get; }
         internal ITechnicalIdGenerator TechnicalIds { get; }
+        internal IBuildIdentityProvider BuildIdentityProvider { get; }
         internal IReadOnlyList<IDiagnosticSink> ExtraSinks { get; }
         internal Func<string, IEmergencyDiagnosticSink> EmergencySinkFactory { get; }
         internal ICrashMarkerStoreFactory CrashMarkerStoreFactory { get; }
@@ -88,6 +91,7 @@ namespace Odyssey.Unity.Client
                 new GuidProcessInstanceIdGenerator(),
                 new GuidDiagnosticIdGenerator(),
                 new GuidTechnicalIdGenerator(),
+                new GeneratedBuildIdentityProvider(),
                 Array.Empty<IDiagnosticSink>(),
                 directory => new FileEmergencyDiagnosticSink(directory),
                 new DefaultCrashMarkerStoreFactory(),
@@ -138,7 +142,8 @@ namespace Odyssey.Unity.Client
                 sinks.Add(new RollingJsonlUnityDiagnosticSink(rollingJsonl));
                 if (settings.IncludeConsoleSink) sinks.Add(new UnityConsoleDiagnosticSink());
 
-                diagnostics = new BoundedDiagnosticRuntime(registry, settings.Clock, settings.MonotonicClock, sinks, emergency);
+                BuildIdentity? buildIdentity = settings.BuildIdentityProvider.Current;
+                diagnostics = new BoundedDiagnosticRuntime(registry, settings.Clock, settings.MonotonicClock, sinks, emergency, buildIdentity);
                 owned.Add(diagnostics);
                 ICrashMarkerStore crashMarker = settings.CrashMarkerStoreFactory.Create(configuration.CrashMarkerDirectory);
                 owned.Add(crashMarker);
@@ -166,7 +171,7 @@ namespace Odyssey.Unity.Client
                 }
 
                 DeveloperShellProbe probe = new DeveloperShellProbe(settings.Clock, settings.TechnicalIds);
-                AppRuntime runtime = new AppRuntime(configuration.Profile, processInstanceId, settings.Clock, diagnostics, ring, emergency, crashMarker, probe, diagnosticIds, owned);
+                AppRuntime runtime = new AppRuntime(configuration.Profile, processInstanceId, buildIdentity, settings.Clock, diagnostics, ring, emergency, crashMarker, probe, diagnosticIds, owned);
                 return Result<AppRuntime>.Success(runtime);
             }
             catch (Exception ex)
@@ -278,6 +283,7 @@ namespace Odyssey.Unity.Client
         internal AppRuntime(
             OdysseyRuntimeProfile profile,
             ProcessInstanceId processInstanceId,
+            BuildIdentity? buildIdentity,
             IWallClock clock,
             BoundedDiagnosticRuntime diagnostics,
             InMemoryDiagnosticRingBuffer ringBuffer,
@@ -289,6 +295,7 @@ namespace Odyssey.Unity.Client
         {
             Profile = profile;
             ProcessInstanceId = processInstanceId;
+            BuildIdentity = buildIdentity;
             Clock = clock;
             Diagnostics = diagnostics;
             RingBuffer = ringBuffer;
@@ -302,6 +309,8 @@ namespace Odyssey.Unity.Client
 
         public OdysseyRuntimeProfile Profile { get; }
         public ProcessInstanceId ProcessInstanceId { get; }
+        public BuildIdentity? BuildIdentity { get; }
+        public BuildIdAvailability BuildIdentityAvailability => BuildIdentity == null ? BuildIdAvailability.UnavailableNotYetComposed : BuildIdAvailability.Available;
         public IWallClock Clock { get; }
         public BoundedDiagnosticRuntime Diagnostics { get; }
         public InMemoryDiagnosticRingBuffer RingBuffer { get; }
@@ -325,7 +334,8 @@ namespace Odyssey.Unity.Client
                 Diagnostics.Write(LogLevel.Information, OdysseyEventCodes.AppStartupCompleted, SubsystemName.Parse("app"), MessageTemplateKey.Parse("log.app.startup.completed"), new DiagnosticContext(ProcessInstanceId), () => new[]
                 {
                     new SafeLogProperty(SafePropertyKey.Parse("state"), SafeLogValue.Code("ready")),
-                    new SafeLogProperty(SafePropertyKey.Parse("duration_ms"), SafeLogValue.Duration(TimeSpan.Zero))
+                    new SafeLogProperty(SafePropertyKey.Parse("duration_ms"), SafeLogValue.Duration(TimeSpan.Zero)),
+                    new SafeLogProperty(SafePropertyKey.Parse("build_id"), SafeLogValue.TechnicalIdentifier(BuildIdentity == null ? "build_unavailable" : BuildIdentity.BuildId))
                 });
                 return Result.Success();
             }

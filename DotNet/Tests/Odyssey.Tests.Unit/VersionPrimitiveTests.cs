@@ -40,16 +40,20 @@ namespace Odyssey.Tests.Unit
         [Test]
         public void VersionDimensionsRemainTypeSafeAndDoNotCreateVersionSources()
         {
+            string root = FindRepositoryRoot();
+            string versionPath = System.IO.Path.Combine(root, "version.json");
+            string compatibilityPath = System.IO.Path.Combine(root, "config", "compatibility.json");
+            string? versionBefore = System.IO.File.Exists(versionPath) ? System.IO.File.ReadAllText(versionPath) : null;
+            string? compatibilityBefore = System.IO.File.Exists(compatibilityPath) ? System.IO.File.ReadAllText(compatibilityPath) : null;
             object app = ApplicationVersion.Parse("1.0.0");
             object ruleset = RulesetVersion.Parse("1.0.0");
             object content = ContentPackageVersion.Parse("1.0.0");
-            string root = FindRepositoryRoot();
 
             Assert.That(app, Is.Not.EqualTo(ruleset));
             Assert.That(app, Is.Not.EqualTo(content));
             Assert.That(ruleset, Is.Not.EqualTo(content));
-            Assert.That(System.IO.File.Exists(System.IO.Path.Combine(root, "version.json")), Is.False);
-            Assert.That(System.IO.File.Exists(System.IO.Path.Combine(root, "config", "compatibility.json")), Is.False);
+            Assert.That(System.IO.File.Exists(versionPath) ? System.IO.File.ReadAllText(versionPath) : null, Is.EqualTo(versionBefore));
+            Assert.That(System.IO.File.Exists(compatibilityPath) ? System.IO.File.ReadAllText(compatibilityPath) : null, Is.EqualTo(compatibilityBefore));
         }
 
         private static string FindRepositoryRoot()

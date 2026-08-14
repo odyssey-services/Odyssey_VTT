@@ -8,7 +8,7 @@ The private GitHub repository `odyssey-services/Odyssey_VTT` is the single autho
 
 Current stage: `SLICE-00 — Technical Skeleton`.
 
-Repository Foundation, Unity Project Foundation, Module/Test Skeleton, Identity/Version/Result Primitives, Command/Event/Clock/RNG Contracts, and Runtime Composition/Diagnostic Shell are complete. The active task is `docs/tasks/active/ODY-S00-007_Serialization_and_AOT_Compatibility_Spike.md`, currently Ready on `feat/ody-s00-007-serialization-aot-compatibility-spike`. This repository state contains the Unity 6000.4/HDRP project foundation, accepted Core module/test skeleton, ODY-S00-004 primitive foundation, ODY-S00-005 command/event/clock/RNG contracts, and ODY-S00-006 runtime composition/diagnostic shell implementation.
+Repository Foundation, Unity Project Foundation, Module/Test Skeleton, Identity/Version/Result Primitives, Command/Event/Clock/RNG Contracts, Runtime Composition/Diagnostic Shell, and Serialization/AOT Compatibility are complete. The active task is `docs/tasks/active/ODY-S00-008_Fast_CI_and_Build_Identity.md`, currently In Review on `feat/ody-s00-008-fast-ci-build-identity` through PR #12 Ready for Review. ODY-S00-008 implements no-secret GitHub Actions gates plus mandatory local Unity merge validation, Fast CI, and BuildIdentity.
 
 ## Rights
 
@@ -20,8 +20,8 @@ Repository access through GitHub does not grant rights beyond those required to 
 
 - `AGENTS.md` — operating rules for Codex and contributors.
 - `PLANS.md` — execution plan rules.
-- `TECHNICAL_DEVELOPMENT_BASELINE_Odyssey_VTT_v0.3.md` — approved technical baseline.
-- `ACTIVE_DOCUMENTATION_BASELINE_Odyssey_VTT_v1.8.md` — active authority register.
+- `TECHNICAL_DEVELOPMENT_BASELINE_Odyssey_VTT_v0.5.md` — approved technical baseline.
+- `ACTIVE_DOCUMENTATION_BASELINE_Odyssey_VTT_v2.0.md` — active authority register.
 - `docs/adr/` — accepted architecture decisions.
 - `docs/tasks/` — task contracts and execution backlog.
 - `scripts/check-repository-policy.ps1` — repository foundation policy check.

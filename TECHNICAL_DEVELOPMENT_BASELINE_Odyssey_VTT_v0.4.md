@@ -3,7 +3,7 @@
 **Document:** `TECHNICAL_DEVELOPMENT_BASELINE_Odyssey_VTT_v0.4.md`  
 **Version:** 0.4  
 **Date:** 12 August 2026  
-**Status:** Approved baseline for M0 / M1  
+**Status:** Superseded by `TECHNICAL_DEVELOPMENT_BASELINE_Odyssey_VTT_v0.5.md`  
 **Supersedes:** `TECHNICAL_DEVELOPMENT_BASELINE_Odyssey_VTT_v0.3.md` for active technical authority. v0.3 remains historical context.
 
 ---

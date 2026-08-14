@@ -58,6 +58,12 @@ $requiredTestCaseIds = @(
     'TC-ID-002',
     'TC-VERSION-001',
     'TC-VERSION-002',
+    'TC-VERSION-003',
+    'TC-VERSION-004',
+    'TC-VERSION-005',
+    'TC-VERSION-006',
+    'TC-VERSION-007',
+    'TC-VERSION-008',
     'TC-RESULT-001',
     'TC-RESULT-002',
     'TC-RESULT-003',
@@ -116,6 +122,14 @@ $requiredTestCaseIds = @(
     'TC-DIAG-030',
     'TC-DIAG-031',
     'TC-DIAG-032',
+    'TC-DIAG-033',
+    'TC-DIAG-034',
+    'TC-DIAG-035',
+    'TC-DIAG-036',
+    'TC-DIAG-037',
+    'TC-DIAG-038',
+    'TC-DIAG-039',
+    'TC-DIAG-040',
     'TC-DIAG-041',
     'TC-DIAG-042',
     'TC-DIAG-043',
@@ -146,6 +160,38 @@ $requiredTestCaseIds = @(
     'TC-SER-022',
     'TC-SER-023',
     'TC-SER-024',
+    'TC-CI-001',
+    'TC-CI-002',
+    'TC-CI-003',
+    'TC-CI-004',
+    'TC-CI-005',
+    'TC-CI-006',
+    'TC-CI-007',
+    'TC-CI-008',
+    'TC-CI-009',
+    'TC-CI-010',
+    'TC-CI-011',
+    'TC-CI-012',
+    'TC-BUILDID-001',
+    'TC-BUILDID-002',
+    'TC-BUILDID-003',
+    'TC-BUILDID-004',
+    'TC-BUILDID-005',
+    'TC-BUILDID-006',
+    'TC-BUILDID-007',
+    'TC-BUILDID-008',
+    'TC-BUILDID-009',
+    'TC-BUILDID-010',
+    'TC-BUILDID-011',
+    'TC-BUILDID-012',
+    'TC-BUILDID-013',
+    'TC-BUILDID-014',
+    'TC-PROVENANCE-001',
+    'TC-PROVENANCE-002',
+    'TC-PROVENANCE-003',
+    'TC-PROVENANCE-004',
+    'TC-PROVENANCE-005',
+    'TC-PROVENANCE-006',
     'TC-UNITY-SHELL-001'
 )
 $testProjects = @('Odyssey.Tests.Unit', 'Odyssey.Tests.Domain', 'Odyssey.Tests.Contracts', 'Odyssey.Tests.Architecture')
@@ -521,6 +567,51 @@ function Test-TestCatalog([System.Collections.Generic.List[string]] $Errors) {
             $ownershipKey = "$($case.runner)|$($case.path)|$($case.check)"
             if (-not $ownershipKeys.Add($ownershipKey)) {
                 $Errors.Add("Duplicate test catalog ownership entry for runner/path/check: $ownershipKey.")
+            }
+        }
+
+        $caseById = @{}
+        foreach ($case in @($json.testCases)) {
+            $caseById[[string] $case.testCaseId] = $case
+        }
+
+        if (-not $SkipNegativeFixture) {
+            foreach ($id in @('TC-VERSION-001', 'TC-VERSION-002')) {
+                if ($caseById.ContainsKey($id)) {
+                    $case = $caseById[$id]
+                    if ([string] $case.taskId -ne 'ODY-S00-004') {
+                        $Errors.Add("$id must remain owned by ODY-S00-004.")
+                    }
+                    if ([string] $case.path -ne 'DotNet/Tests/Odyssey.Tests.Unit/VersionPrimitiveTests.cs') {
+                        $Errors.Add("$id must keep the ODY-S00-004 version primitive test path.")
+                    }
+                }
+            }
+
+            $version008Meanings = @{
+                'TC-VERSION-003' = 'valid strict root version.json schema v1 is accepted'
+                'TC-VERSION-004' = 'malformed JSON, duplicate properties, unknown schema, unknown fields and missing required version-source fields are rejected'
+                'TC-VERSION-005' = 'exact SemVer source rules are enforced and tracked ApplicationVersion remains 0.1.0'
+                'TC-VERSION-006' = 'valid config/compatibility.json schema v1 and range invariants are accepted'
+                'TC-VERSION-007' = 'malformed/duplicate/unknown compatibility configuration, non-positive values and invalid ranges are rejected'
+                'TC-VERSION-008' = 'canonical compatibility representation and SHA-256 digest are stable for identical validated inputs'
+            }
+            foreach ($id in $version008Meanings.Keys) {
+                if ($caseById.ContainsKey($id)) {
+                    $case = $caseById[$id]
+                    if ([string] $case.taskId -ne 'ODY-S00-008') {
+                        $Errors.Add("$id must be owned by ODY-S00-008.")
+                    }
+                    if ([string] $case.authority -ne 'ADR-007; ODY-S00-008') {
+                        $Errors.Add("$id must use ADR-007; ODY-S00-008 authority.")
+                    }
+                    if ([string] $case.path -ne 'DotNet/Tests/Odyssey.Tests.Unit/BuildIdentityContractTests.cs') {
+                        $Errors.Add("$id must point to BuildIdentityContractTests.cs.")
+                    }
+                    if ([string] $case.check -ne $version008Meanings[$id]) {
+                        $Errors.Add("$id check meaning mismatch.")
+                    }
+                }
             }
         }
 
@@ -1170,6 +1261,13 @@ function Set-FixtureDuplicateCatalogOwnership([string] $FixtureRoot) {
     Write-Utf8NoBom $catalogPath ($json | ConvertTo-Json -Depth 10)
 }
 
+function Set-FixtureDuplicateCatalogId([string] $FixtureRoot) {
+    $catalogPath = Join-Path $FixtureRoot 'Tests/Metadata/test-catalog.json'
+    $json = Read-JsonFile $catalogPath
+    $json.testCases[1].testCaseId = $json.testCases[0].testCaseId
+    Write-Utf8NoBom $catalogPath ($json | ConvertTo-Json -Depth 10)
+}
+
 function Invoke-GuardFixture([string] $FixtureRoot) {
     $powershellPath = (Get-Command powershell.exe -ErrorAction Stop).Source
     $escapedScriptPath = $PSCommandPath.Replace("'", "''")
@@ -1271,6 +1369,17 @@ if (-not $SkipNegativeFixture) {
             exit 1
         }
         Write-Host "TC-ARCH-002 PASS controlled duplicate catalog ownership rejected with exit code $($catalogResult.ExitCode)"
+
+        Remove-Item -LiteralPath $fixtureRoot -Recurse -Force
+        New-SyntheticFixture $fixtureRoot $false
+        Set-FixtureDuplicateCatalogId $fixtureRoot
+        $catalogIdResult = Invoke-GuardFixture $fixtureRoot
+        if ($catalogIdResult.ExitCode -eq 0 -or $catalogIdResult.Text -notmatch 'Duplicate test case ID') {
+            Write-Host 'TC-ARCH-002 FAIL controlled duplicate TestCaseId was not rejected for expected reason'
+            $catalogIdResult.Output | ForEach-Object { Write-Host $_ }
+            exit 1
+        }
+        Write-Host "TC-ARCH-002 PASS controlled duplicate TestCaseId rejected with exit code $($catalogIdResult.ExitCode)"
     }
     finally {
         if (Test-Path -LiteralPath $fixtureRoot) {

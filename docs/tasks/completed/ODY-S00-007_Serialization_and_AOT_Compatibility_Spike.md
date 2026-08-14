@@ -1,11 +1,11 @@
 # ODY-S00-007 - Serialization and AOT Compatibility Spike
 
-**Status:** In Review
+**Status:** Done
 **Roadmap stage / slice:** SLICE-00
 **Owner:** Codex
 **Requested by:** Product owner
 **Branch:** `feat/ody-s00-007-serialization-aot-compatibility-spike`
-**Pull request:** Draft PR #11 - https://github.com/odyssey-services/Odyssey_VTT/pull/11
+**Pull request:** PR #11 - https://github.com/odyssey-services/Odyssey_VTT/pull/11
 **ExecPlan:** `docs/plans/active/ODY-S00-000_SLICE_00_Technical_Skeleton.md`
 **Created:** 2026-08-11
 **Last updated:** 2026-08-12
@@ -396,7 +396,7 @@ The Newtonsoft dependency model above is APPROVED for ODY-S00-007 implementation
 - [x] Documentation is updated only where materially required.
 - [x] Codex/developer performed a self-review against this task and `AGENTS.md`.
 - [x] Pull request explains contract changes, evidence, limitations, and follow-up work.
-- [ ] Product owner or authorized reviewer completes required review; Codex does not merge into `main`.
+- [x] Product owner or authorized reviewer completes required review; Codex does not merge into `main`.
 
 ## 17. Completion evidence
 
@@ -410,11 +410,24 @@ The Newtonsoft dependency model above is APPROVED for ODY-S00-007 implementation
 - Audit result: GO FOR DRAFT PR.
 - Audit validation summary: .NET 69/69 passed; Unity EditMode 31/31 passed; Unity PlayMode 2/2 passed; IL2CPP build exit 0; Player exit 0; exact vector comparison PASS.
 - Audit scope result: generated seven-file Unity ProjectSettings/HDRP drift was restored; no audit correction commit was required.
-- Current follow-up: product-owner review of Draft PR #11. Owner review/merge remains incomplete; ODY-S00-008 and ODY-S00-009 remain Draft and unstarted.
+- Historical follow-up at PR creation time: product-owner review of Draft PR #11. This was completed by the owner merge recorded below.
+
+### Owner merge snapshot - 2026-08-12
+
+- Owner review completed and PR #11 was merged.
+- Merged PR head: `555c7adbead725cf84658588d3777a3827f39dd6`.
+- Merge commit: `88382217a1053fbe5eb631024063800f45e69926`.
+- Merged at: 2026-08-12 12:50:33 UTC.
+- Merge method: GitHub merge commit.
+- Independent pre-PR implementation audit: `GO FOR DRAFT PR`.
+- Audited implementation HEAD: `224813d24823082fb539df1317c93bbff8dde2d6`.
+- Final review metadata HEAD: `555c7adbead725cf84658588d3777a3827f39dd6`.
+- GitHub Actions were not present for ODY-S00-007 and are not claimed as passed; local validation and focused IL2CPP evidence remain the recorded proof.
+- Next task: ODY-S00-008 Fast CI and Build Identity. BuildIdentity, required CI, `TC-DIAG-033` through `TC-DIAG-040`, and artifact provenance remain ODY-S00-008 scope. Windows Development-Debug application build remains ODY-S00-009.
 
 ### Final implementation snapshot - 2026-08-12
 
-- Status: ODY-S00-007 implementation complete and in Draft PR #11 for owner review.
+- Status: ODY-S00-007 implementation complete; PR #11 was owner-merged.
 - Dependency model implemented: Unity `com.unity.nuget.newtonsoft-json@3.2.2`; pure .NET `Newtonsoft.Json 13.0.2`; Newtonsoft.Json AssemblyVersion `13.0.0.0`; `THIRD_PARTY_NOTICES.md` updated.
 - Production ownership: explicit deterministic streaming codecs live in `Odyssey.Application`; a narrow JSONL diagnostics adapter lives in `Odyssey.Persistence`; `Odyssey.Domain` remains serializer-free.
 - Serialization behavior implemented: explicit contract keys/versions, canonical UTF-8 JSON, parser limits, duplicate-property rejection, unsupported-version rejection, stable SHA-256 payload hashes, stable command fingerprint material, v1-to-v2 synthetic payload upcast, manifest fixture codec, and explicit diagnostic log codec.
@@ -589,7 +602,7 @@ The Newtonsoft dependency model above is APPROVED for ODY-S00-007 implementation
 
 ### Historical activation follow-up
 
-- Historical pre-implementation follow-up was superseded by owner approval of ADR-003 v1.1 explicit Newtonsoft streaming codecs and the completed ODY-S00-007 implementation. Current follow-up is product-owner review of Draft PR #11.
+- Historical pre-implementation follow-up was superseded by owner approval of ADR-003 v1.1 explicit Newtonsoft streaming codecs and the completed ODY-S00-007 implementation. Current follow-up is ODY-S00-008 Fast CI and Build Identity.
 - ODY-S00-008 BuildIdentity/CI and ODY-S00-009 Windows Development-Debug artifact remain deferred.
 
 ### Historical activation self-review summary

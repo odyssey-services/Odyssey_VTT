@@ -1,0 +1,126 @@
+name: ci
+
+on:
+  pull_request:
+    branches:
+      - main
+  push:
+    branches:
+      - main
+
+permissions:
+  contents: read
+
+jobs:
+  repository-policy-format-structure:
+    name: repository-policy-format-structure
+    runs-on: windows-2022
+    timeout-minutes: 10
+    steps:
+      - name: Checkout
+        uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803
+
+      - name: Repository policy
+        shell: powershell
+        run: powershell -NoProfile -ExecutionPolicy Bypass -File .\scripts\check-repository-policy.ps1
+
+      - name: Format
+        shell: powershell
+        run: powershell -NoProfile -ExecutionPolicy Bypass -File .\scripts\verify-format.ps1
+
+      - name: Test structure
+        shell: powershell
+        run: powershell -NoProfile -ExecutionPolicy Bypass -File .\scripts\verify-test-structure.ps1
+
+      - name: CI workflow validation
+        shell: powershell
+        run: powershell -NoProfile -ExecutionPolicy Bypass -File .\scripts\verify-ci.ps1
+
+  dotnet-restore-build-test:
+    name: dotnet-restore-build-test
+    runs-on: windows-2022
+    timeout-minutes: 15
+    steps:
+      - name: Checkout
+        uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803
+
+      - name: Setup .NET
+        uses: actions/setup-dotnet@26b0ec14cb23fa6904739307f278c14f94c95bf1
+        with:
+          dotnet-version: 10.0.302
+
+      - name: Restore
+        shell: powershell
+        run: powershell -NoProfile -ExecutionPolicy Bypass -File .\scripts\restore.ps1
+
+      - name: Build
+        shell: powershell
+        run: dotnet build .\DotNet\Odyssey.Core.sln --no-restore
+
+      - name: Fast tests
+        shell: powershell
+        run: powershell -NoProfile -ExecutionPolicy Bypass -File .\scripts\test-fast.ps1
+
+  unity-project-package-static:
+    name: unity-project-package-static
+    runs-on: windows-2022
+    timeout-minutes: 10
+    steps:
+      - name: Checkout
+        uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803
+
+      - name: Static Unity project validation
+        shell: powershell
+        run: powershell -NoProfile -ExecutionPolicy Bypass -File .\scripts\verify-unity-project.ps1
+
+  buildidentity-provenance:
+    name: buildidentity-provenance
+    runs-on: windows-2022
+    timeout-minutes: 15
+    steps:
+      - name: Checkout
+        uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803
+
+      - name: Setup .NET
+        uses: actions/setup-dotnet@26b0ec14cb23fa6904739307f278c14f94c95bf1
+        with:
+          dotnet-version: 10.0.302
+
+      - name: Build identity
+        shell: powershell
+        run: |
+          $timestamp = (Get-Date).ToUniversalTime().ToString('yyyyMMddTHHmmssZ', [System.Globalization.CultureInfo]::InvariantCulture)
+          $eventName = "${{ github.event_name }}"
+          $gitRef = "${{ github.ref }}"
+          $buildNumber = "${{ github.run_id }}"
+          $runAttempt = "${{ github.run_attempt }}"
+          if ($eventName -eq 'pull_request') {
+              $pullRequestNumber = "${{ github.event.pull_request.number }}"
+              powershell -NoProfile -ExecutionPolicy Bypass -File .\scripts\generate-build-identity.ps1 -Channel pull_request -GitRef $gitRef -BuildNumber $buildNumber -PullRequestNumber $pullRequestNumber -RunAttempt $runAttempt -TimestampUtc $timestamp
+          }
+          elseif ($eventName -eq 'push') {
+              powershell -NoProfile -ExecutionPolicy Bypass -File .\scripts\generate-build-identity.ps1 -Channel development -GitRef $gitRef -BuildNumber $buildNumber -RunAttempt $runAttempt -TimestampUtc $timestamp
+          }
+          else {
+              throw "Unsupported GitHub event: $eventName"
+          }
+          powershell -NoProfile -ExecutionPolicy Bypass -File .\scripts\verify-build-identity.ps1
+          $identityPath = Get-ChildItem -LiteralPath .\artifacts\build-identity -Filter build-identity.json -Recurse | Sort-Object LastWriteTimeUtc -Descending | Select-Object -First 1
+          if ($null -eq $identityPath) {
+              throw 'Missing build-identity.json evidence.'
+          }
+          $identity = Get-Content -LiteralPath $identityPath.FullName -Raw | ConvertFrom-Json
+          $checkoutSha = git rev-parse HEAD
+          if ($identity.gitCommitSha -ne $checkoutSha) {
+              throw "BuildIdentity commit '$($identity.gitCommitSha)' does not match checkout '$checkoutSha'."
+          }
+
+      - name: Upload build identity evidence
+        uses: actions/upload-artifact@330a01c490aca151604b8cf639adc76d48f6c5d4
+        with:
+          name: odyssey-build-identity
+          path: |
+            artifacts/build-identity/**/build-identity.json
+            artifacts/build-identity/**/checksums.sha256
+          retention-days: 7
+          if-no-files-found: error

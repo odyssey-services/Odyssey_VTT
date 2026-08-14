@@ -1,804 +1,1172 @@
 {
-  "testCases": [
-    {
-      "testCaseId": "TC-ARCH-001",
-      "taskId": "ODY-S00-003",
-      "authority": "ADR-001; ADR-006; ODY-S00-003 AC-2/AC-6",
-      "runner": "PowerShell",
-      "path": "scripts/verify-test-structure.ps1",
-      "check": "valid repository and synthetic graph pass"
-    },
-    {
-      "testCaseId": "TC-ARCH-002",
-      "taskId": "ODY-S00-003",
-      "authority": "ADR-001; ADR-006; ODY-S00-003 AC-6",
-      "runner": "PowerShell",
-      "path": "scripts/verify-test-structure.ps1",
-      "check": "controlled invalid Domain-to-Rules graph is rejected"
-    },
-    {
-      "testCaseId": "TC-DOTNET-001",
-      "taskId": "ODY-S00-003",
-      "authority": "ADR-006; Technical Development Baseline v0.3",
-      "runner": "dotnet test",
-      "path": "DotNet/Odyssey.Core.sln",
-      "check": "pure .NET bridge build and tests"
-    },
-    {
-      "testCaseId": "TC-UNITY-ASM-001",
-      "taskId": "ODY-S00-003",
-      "authority": "ADR-001; ADR-009; ODY-S00-003 AC-1/AC-3",
-      "runner": "Unity batchmode",
-      "path": "scripts/test-unity.ps1",
-      "check": "Unity assembly graph compile smoke"
-    },
-    {
-      "testCaseId": "TC-UNITY-TEST-001",
-      "taskId": "ODY-S00-003",
-      "authority": "ADR-006; ADR-009; ODY-S00-003 AC-5",
-      "runner": "Unity Test Framework",
-      "path": "Assets/Odyssey/Client/Tests",
-      "check": "Unity EditMode and PlayMode test assemblies run with nonzero tests"
-    },
-    {
-      "testCaseId": "TC-REPO-001",
-      "taskId": "ODY-S00-003",
-      "authority": "AGENTS.md; ODY-S00-003 AC-7/AC-9",
-      "runner": "PowerShell",
-      "path": "scripts/verify-repository.ps1",
-      "check": "repository policy, architecture guard, and SDK configuration"
-    },
-    {
-      "testCaseId": "TC-ID-001",
-      "taskId": "ODY-S00-004",
-      "authority": "TDB section 15.1; ADR-004; ODY-S00-004 AC-1/AC-2",
-      "runner": "dotnet test",
-      "path": "DotNet/Tests/Odyssey.Tests.Unit/IdentityPrimitiveTests.cs",
-      "check": "identity construction, equality, hash, canonical format, and parse round-trip"
-    },
-    {
-      "testCaseId": "TC-ID-002",
-      "taskId": "ODY-S00-004",
-      "authority": "TDB section 15.1; ADR-004; ODY-S00-004 AC-2",
-      "runner": "dotnet test",
-      "path": "DotNet/Tests/Odyssey.Tests.Unit/IdentityPrimitiveTests.cs",
-      "check": "default, empty, malformed, non-canonical, and wrong-form identities are rejected"
-    },
-    {
-      "testCaseId": "TC-VERSION-001",
-      "taskId": "ODY-S00-004",
-      "authority": "ADR-007; ODY-S00-004 AC-3",
-      "runner": "dotnet test",
-      "path": "DotNet/Tests/Odyssey.Tests.Unit/VersionPrimitiveTests.cs",
-      "check": "ApplicationVersion, RulesetVersion, and ContentPackageVersion parse, format, and compare canonical SemVer"
-    },
-    {
-      "testCaseId": "TC-VERSION-002",
-      "taskId": "ODY-S00-004",
-      "authority": "ADR-007; ODY-S00-004 AC-3",
-      "runner": "dotnet test",
-      "path": "DotNet/Tests/Odyssey.Tests.Unit/VersionPrimitiveTests.cs",
-      "check": "version dimensions are type-safe and no automatic version source generation occurs"
-    },
-    {
-      "testCaseId": "TC-RESULT-001",
-      "taskId": "ODY-S00-004",
-      "authority": "ADR-004; ODY-S00-004 AC-4",
-      "runner": "dotnet test",
-      "path": "DotNet/Tests/Odyssey.Tests.Unit/ResultErrorPrimitiveTests.cs",
-      "check": "Result and Result<T> success/failure invariants and invalid default state"
-    },
-    {
-      "testCaseId": "TC-RESULT-002",
-      "taskId": "ODY-S00-004",
-      "authority": "ADR-004; ODY-S00-004 AC-4/AC-6",
-      "runner": "dotnet test",
-      "path": "DotNet/Tests/Odyssey.Tests.Unit/ResultErrorPrimitiveTests.cs",
-      "check": "Error requires safe fields and excludes unsafe internal detail"
-    },
-    {
-      "testCaseId": "TC-RESULT-003",
-      "taskId": "ODY-S00-004",
-      "authority": "ADR-004; ODY-S00-004 AC-4",
-      "runner": "dotnet test",
-      "path": "DotNet/Tests/Odyssey.Tests.Unit/ResultErrorPrimitiveTests.cs",
-      "check": "RetryDirective vocabulary is exact"
-    },
-    {
-      "testCaseId": "TC-RESULT-004",
-      "taskId": "ODY-S00-004",
-      "authority": "ADR-004; ODY-S00-004 AC-4/AC-6",
-      "runner": "dotnet test",
-      "path": "DotNet/Tests/Odyssey.Tests.Unit/ResultErrorPrimitiveTests.cs",
-      "check": "ValidationDetail, safe arguments, and metadata are bounded and allowlisted"
-    },
-    {
-      "testCaseId": "TC-CMD-001",
-      "taskId": "ODY-S00-005",
-      "authority": "ADR-002; ODY-S00-005 AC-1/AC-2",
-      "runner": "dotnet test",
-      "path": "DotNet/Tests/Odyssey.Tests.Unit/CommandEventClockRngContractTests.cs",
-      "check": "command identity, type, version, root, parent, fingerprint, and envelope validation"
-    },
-    {
-      "testCaseId": "TC-CMD-002",
-      "taskId": "ODY-S00-005",
-      "authority": "ADR-002; ADR-004; ODY-S00-005 AC-3",
-      "runner": "dotnet test",
-      "path": "DotNet/Tests/Odyssey.Tests.Unit/CommandEventClockRngContractTests.cs",
-      "check": "CommandResult terminal statuses and outer Result semantics"
-    },
-    {
-      "testCaseId": "TC-CMD-003",
-      "taskId": "ODY-S00-005",
-      "authority": "ADR-002; ADR-008; ODY-S00-005 AC-4",
-      "runner": "dotnet test",
-      "path": "DotNet/Tests/Odyssey.Tests.Unit/CommandEventClockRngContractTests.cs",
-      "check": "duplicate command replay does not re-enter handler or create new clock, RNG, or event effects"
-    },
-    {
-      "testCaseId": "TC-CMD-004",
-      "taskId": "ODY-S00-005",
-      "authority": "ADR-002; ADR-004; ODY-S00-005 AC-4",
-      "runner": "dotnet test",
-      "path": "DotNet/Tests/Odyssey.Tests.Unit/CommandEventClockRngContractTests.cs",
-      "check": "same CommandId with different fingerprint is rejected safely"
-    },
-    {
-      "testCaseId": "TC-CMD-005",
-      "taskId": "ODY-S00-005",
-      "authority": "ADR-002; ADR-008; ODY-S00-005 AC-4",
-      "runner": "dotnet test",
-      "path": "DotNet/Tests/Odyssey.Tests.Unit/CommandEventClockRngContractTests.cs",
-      "check": "concurrent same CommandId and fingerprint is single-flight in the current process"
-    },
-    {
-      "testCaseId": "TC-CMD-006",
-      "taskId": "ODY-S00-005",
-      "authority": "ADR-002; ODY-S00-005 AC-4",
-      "runner": "dotnet test",
-      "path": "DotNet/Tests/Odyssey.Tests.Unit/CommandEventClockRngContractTests.cs",
-      "check": "atomic commit failure returns outer failure and stores no durable receipt"
-    },
-    {
-      "testCaseId": "TC-EVENT-001",
-      "taskId": "ODY-S00-005",
-      "authority": "ADR-001; ADR-002; ODY-S00-005 AC-5",
-      "runner": "dotnet test",
-      "path": "DotNet/Tests/Odyssey.Tests.Unit/CommandEventClockRngContractTests.cs",
-      "check": "DomainEvent envelope and ordered batch are immutable, Domain-owned, causally linked, and deterministic"
-    },
-    {
-      "testCaseId": "TC-CLOCK-001",
-      "taskId": "ODY-S00-005",
-      "authority": "ADR-008; ODY-S00-005 AC-6",
-      "runner": "dotnet test",
-      "path": "DotNet/Tests/Odyssey.Tests.Unit/CommandEventClockRngContractTests.cs",
-      "check": "wall-clock and monotonic clock contracts use injected values"
-    },
-    {
-      "testCaseId": "TC-CLOCK-002",
-      "taskId": "ODY-S00-005",
-      "authority": "ADR-008; ODY-S00-005 AC-6",
-      "runner": "dotnet test",
-      "path": "DotNet/Tests/Odyssey.Tests.Unit/CommandEventClockRngContractTests.cs",
-      "check": "virtual scheduler completes in deterministic order without real waiting"
-    },
-    {
-      "testCaseId": "TC-CLOCK-003",
-      "taskId": "ODY-S00-005",
-      "authority": "ADR-008; ODY-S00-005 AC-6",
-      "runner": "dotnet test",
-      "path": "DotNet/Tests/Odyssey.Tests.Unit/CommandEventClockRngContractTests.cs",
-      "check": "ADR-008 clock contract shape preserves UTC tick precision and deterministic scheduler cancellation"
-    },
-    {
-      "testCaseId": "TC-RNG-001",
-      "taskId": "ODY-S00-005",
-      "authority": "ADR-008; ODY-S00-005 AC-7",
-      "runner": "dotnet test",
-      "path": "DotNet/Tests/Odyssey.Tests.Unit/CommandEventClockRngContractTests.cs",
-      "check": "HMAC-SHA-256 stream derivation v1 produces stable state vectors"
-    },
-    {
-      "testCaseId": "TC-RNG-002",
-      "taskId": "ODY-S00-005",
-      "authority": "ADR-008; ODY-S00-005 AC-7",
-      "runner": "dotnet test",
-      "path": "DotNet/Tests/Odyssey.Tests.Unit/CommandEventClockRngContractTests.cs",
-      "check": "xoshiro256** v1 produces stable raw output vectors"
-    },
-    {
-      "testCaseId": "TC-RNG-003",
-      "taskId": "ODY-S00-005",
-      "authority": "ADR-008; ODY-S00-005 AC-7",
-      "runner": "dotnet test",
-      "path": "DotNet/Tests/Odyssey.Tests.Unit/CommandEventClockRngContractTests.cs",
-      "check": "rejection mapping for inclusive integer ranges records deterministic bounded output and rejection evidence"
-    },
-    {
-      "testCaseId": "TC-RNG-004",
-      "taskId": "ODY-S00-005",
-      "authority": "ADR-008; ADR-010; ODY-S00-005 AC-7",
-      "runner": "dotnet test",
-      "path": "DotNet/Tests/Odyssey.Tests.Unit/CommandEventClockRngContractTests.cs",
-      "check": "RngProofData contains non-secret reproducibility metadata and no raw campaign RNG key material"
-    },
-    {
-      "testCaseId": "TC-RNG-005",
-      "taskId": "ODY-S00-005",
-      "authority": "ADR-008; ODY-S00-005 AC-7",
-      "runner": "dotnet test",
-      "path": "DotNet/Tests/Odyssey.Tests.Unit/CommandEventClockRngContractTests.cs",
-      "check": "canonical ADR-008 message, StreamId, SeedCommitment, draw accounting, and zero-state fallback evidence"
-    },
-    {
-      "testCaseId": "TC-CMP-001",
-      "taskId": "ODY-S00-006",
-      "authority": "ADR-005; ODY-S00-006 AC-1/AC-2",
-      "runner": "Unity EditMode",
-      "path": "Assets/Odyssey/Client/Tests/EditMode/RuntimeCompositionAndDiagnosticsTests.cs",
-      "check": "minimal process graph returns Success with exactly one AppRuntime in Starting state; Ready is gated by presentation initialization"
-    },
-    {
-      "testCaseId": "TC-CMP-002",
-      "taskId": "ODY-S00-006",
-      "authority": "ADR-005; ODY-S00-006 AC-3",
-      "runner": "Unity EditMode",
-      "path": "Assets/Odyssey/Client/Tests/EditMode/RuntimeCompositionAndDiagnosticsTests.cs",
-      "check": "invalid bootstrap configuration and composition-invalid semantics return safe failures"
-    },
-    {
-      "testCaseId": "TC-CMP-003",
-      "taskId": "ODY-S00-006",
-      "authority": "ADR-005; ODY-S00-006 AC-3/AC-4",
-      "runner": "Unity EditMode",
-      "path": "Assets/Odyssey/Client/Tests/EditMode/RuntimeCompositionAndDiagnosticsTests.cs",
-      "check": "mid-construction crash marker failure keeps original safe failure and attempts all cleanup"
-    },
-    {
-      "testCaseId": "TC-CMP-004",
-      "taskId": "ODY-S00-006",
-      "authority": "ADR-005; ODY-S00-006 AC-1",
-      "runner": "Unity PlayMode",
-      "path": "Assets/Odyssey/Client/Tests/PlayMode/OdysseyPlayModeFoundationSmokeTests.cs",
-      "check": "independent duplicate RuntimeHost is rejected, accepted graph remains one, structured duplicate diagnostic is recorded, and clean shutdown releases the lease"
-    },
-    {
-      "testCaseId": "TC-CMP-009",
-      "taskId": "ODY-S00-006",
-      "authority": "ADR-005; ODY-S00-006 AC-4",
-      "runner": "Unity PlayMode",
-      "path": "Assets/Odyssey/Client/Tests/PlayMode/OdysseyPlayModeFoundationSmokeTests.cs",
-      "check": "real AppShell scene unload detaches and disposes PresentationRuntime once"
-    },
-    {
-      "testCaseId": "TC-CMP-010",
-      "taskId": "ODY-S00-006",
-      "authority": "ADR-005; ODY-S00-006 AC-4",
-      "runner": "Unity EditMode",
-      "path": "Assets/Odyssey/Client/Tests/EditMode/RuntimeCompositionAndDiagnosticsTests.cs",
-      "check": "shutdown is idempotent"
-    },
-    {
-      "testCaseId": "TC-CMP-011",
-      "taskId": "ODY-S00-006",
-      "authority": "ADR-005; ODY-S00-006 AC-3",
-      "runner": "Unity EditMode",
-      "path": "Assets/Odyssey/Client/Tests/EditMode/RuntimeCompositionAndDiagnosticsTests.cs",
-      "check": "mid-start cancellation returns safe cancelled failure, publishes no AppRuntime, and cleans already-owned resources before diagnostics closes last"
-    },
-    {
-      "testCaseId": "TC-CMP-015",
-      "taskId": "ODY-S00-006",
-      "authority": "ADR-005; ODY-S00-006 AC-8",
-      "runner": "Unity EditMode",
-      "path": "Assets/Odyssey/Client/Tests/EditMode/RuntimeCompositionAndDiagnosticsTests.cs",
-      "check": "typed adapter override changes only the requested adapter and preserves deterministic defaults"
-    },
-    {
-      "testCaseId": "TC-CMP-016",
-      "taskId": "ODY-S00-006",
-      "authority": "ADR-005; ODY-S00-006 AC-16",
-      "runner": "Unity EditMode",
-      "path": "Assets/Odyssey/Client/Tests/EditMode/RuntimeCompositionAndDiagnosticsTests.cs",
-      "check": "production profile rejects developer fake adapters"
-    },
-    {
-      "testCaseId": "TC-CMP-018",
-      "taskId": "ODY-S00-006",
-      "authority": "ADR-005; ODY-S00-006 AC-1",
-      "runner": "PowerShell",
-      "path": "scripts/verify-test-structure.ps1",
-      "check": "composition guard rejects service locator and DI container patterns"
-    },
-    {
-      "testCaseId": "TC-CMP-020",
-      "taskId": "ODY-S00-006",
-      "authority": "ADR-005; ODY-S00-006 AC-4",
-      "runner": "Unity EditMode",
-      "path": "Assets/Odyssey/Client/Tests/EditMode/RuntimeCompositionAndDiagnosticsTests.cs",
-      "check": "shutdown while PresentationRuntime active disposes presentation subscription before crash marker before diagnostics"
-    },
-    {
-      "testCaseId": "TC-CMP-021",
-      "taskId": "ODY-S00-006",
-      "authority": "ODY-S00-006 task-specific extension; ADR-004; ADR-005",
-      "runner": "Unity EditMode",
-      "path": "Assets/Odyssey/Client/Tests/EditMode/RuntimeCompositionAndDiagnosticsTests.cs",
-      "check": "presentation/composition invalid failure uses exact registered safe Error semantics"
-    },
-    {
-      "testCaseId": "TC-DIAG-002",
-      "taskId": "ODY-S00-006",
-      "authority": "ADR-010; ODY-S00-006 AC-12",
-      "runner": "Unity EditMode",
-      "path": "Assets/Odyssey/Client/Tests/EditMode/RuntimeCompositionAndDiagnosticsTests.cs",
-      "check": "disabled Debug event does not evaluate lazy property"
-    },
-    {
-      "testCaseId": "TC-DIAG-003",
-      "taskId": "ODY-S00-006",
-      "authority": "ADR-010; ODY-S00-006 AC-9",
-      "runner": "dotnet test",
-      "path": "DotNet/Tests/Odyssey.Tests.Unit/DiagnosticsContractTests.cs",
-      "check": "unknown EventCode is rejected by registry"
-    },
-    {
-      "testCaseId": "TC-DIAG-004",
-      "taskId": "ODY-S00-006",
-      "authority": "ADR-010; ODY-S00-006 AC-10",
-      "runner": "dotnet test",
-      "path": "DotNet/Tests/Odyssey.Tests.Unit/DiagnosticsContractTests.cs",
-      "check": "safe property API exposes no arbitrary object or exception payload"
-    },
-    {
-      "testCaseId": "TC-DIAG-005",
-      "taskId": "ODY-S00-006",
-      "authority": "ADR-010; ODY-S00-006 AC-10",
-      "runner": "dotnet test",
-      "path": "DotNet/Tests/Odyssey.Tests.Unit/DiagnosticsContractTests.cs",
-      "check": "safe bounded string truncates with marker"
-    },
-    {
-      "testCaseId": "TC-DIAG-006",
-      "taskId": "ODY-S00-006",
-      "authority": "ADR-010; ODY-S00-006 AC-10/AC-11",
-      "runner": "Unity EditMode",
-      "path": "Assets/Odyssey/Client/Tests/EditMode/RuntimeCompositionAndDiagnosticsTests.cs",
-      "check": "secret fixture rejected before trust transition and absent from ring, emergency and capturing sinks"
-    },
-    {
-      "testCaseId": "TC-DIAG-011",
-      "taskId": "ODY-S00-006",
-      "authority": "ADR-010; ODY-S00-006 AC-10",
-      "runner": "dotnet test",
-      "path": "DotNet/Tests/Odyssey.Tests.Unit/DiagnosticsContractTests.cs",
-      "check": "absolute Windows path is sanitized"
-    },
-    {
-      "testCaseId": "TC-DIAG-012",
-      "taskId": "ODY-S00-006",
-      "authority": "ADR-010; ODY-S00-006 AC-10",
-      "runner": "dotnet test",
-      "path": "DotNet/Tests/Odyssey.Tests.Unit/DiagnosticsContractTests.cs",
-      "check": "Windows username absent from path representation"
-    },
-    {
-      "testCaseId": "TC-DIAG-013",
-      "taskId": "ODY-S00-006",
-      "authority": "ADR-010; ODY-S00-006 AC-10",
-      "runner": "dotnet test",
-      "path": "DotNet/Tests/Odyssey.Tests.Unit/DiagnosticsContractTests.cs",
-      "check": "network endpoint representation is generalized"
-    },
-    {
-      "testCaseId": "TC-DIAG-015",
-      "taskId": "ODY-S00-006",
-      "authority": "ADR-010; ODY-S00-006 AC-7",
-      "runner": "dotnet test",
-      "path": "DotNet/Tests/Odyssey.Tests.Unit/DiagnosticsContractTests.cs",
-      "check": "CommandId remains distinct from CorrelationId"
-    },
-    {
-      "testCaseId": "TC-DIAG-016",
-      "taskId": "ODY-S00-006",
-      "authority": "ADR-010; ODY-S00-006 AC-13",
-      "runner": "dotnet test",
-      "path": "DotNet/Tests/Odyssey.Tests.Unit/DiagnosticsContractTests.cs",
-      "check": "unexpected exception boundary can attach DiagnosticId"
-    },
-    {
-      "testCaseId": "TC-DIAG-017",
-      "taskId": "ODY-S00-006",
-      "authority": "ADR-004; ADR-010; ODY-S00-006 AC-13",
-      "runner": "dotnet test",
-      "path": "DotNet/Tests/Odyssey.Tests.Unit/DiagnosticsContractTests.cs",
-      "check": "public Error contains no stack trace or raw exception text"
-    },
-    {
-      "testCaseId": "TC-DIAG-018",
-      "taskId": "ODY-S00-006",
-      "authority": "ADR-010; ODY-S00-006 AC-13",
-      "runner": "Unity EditMode",
-      "path": "Assets/Odyssey/Client/Tests/EditMode/RuntimeCompositionAndDiagnosticsTests.cs",
-      "check": "bounded incident dedup records full safe ExceptionSummary once and repeats as counter-only"
-    },
-    {
-      "testCaseId": "TC-DIAG-019",
-      "taskId": "ODY-S00-006",
-      "authority": "ADR-010; ODY-S00-006 AC-12",
-      "runner": "Unity EditMode",
-      "path": "Assets/Odyssey/Client/Tests/EditMode/RuntimeCompositionAndDiagnosticsTests.cs",
-      "check": "diagnostic queue accepts concurrent Task producers without corruption or Unity API use in workers"
-    },
-    {
-      "testCaseId": "TC-DIAG-020",
-      "taskId": "ODY-S00-006",
-      "authority": "ADR-010; ODY-S00-006 AC-12",
-      "runner": "Unity EditMode",
-      "path": "Assets/Odyssey/Client/Tests/EditMode/RuntimeCompositionAndDiagnosticsTests.cs",
-      "check": "queue pressure compares incoming priority and sacrifices Trace then Debug then Information"
-    },
-    {
-      "testCaseId": "TC-DIAG-021",
-      "taskId": "ODY-S00-006",
-      "authority": "ADR-010; ODY-S00-006 AC-12",
-      "runner": "Unity EditMode",
-      "path": "Assets/Odyssey/Client/Tests/EditMode/RuntimeCompositionAndDiagnosticsTests.cs",
-      "check": "drop counters emit exact per-level counts after recovery and then reset"
-    },
-    {
-      "testCaseId": "TC-DIAG-022",
-      "taskId": "ODY-S00-006",
-      "authority": "ADR-010; ODY-S00-006 AC-12",
-      "runner": "Unity EditMode",
-      "path": "Assets/Odyssey/Client/Tests/EditMode/RuntimeCompositionAndDiagnosticsTests.cs",
-      "check": "protected Warning is not sacrificed and incoming high-priority event uses emergency queue_full fallback"
-    },
-    {
-      "testCaseId": "TC-DIAG-023",
-      "taskId": "ODY-S00-006",
-      "authority": "ADR-010; ODY-S00-006 AC-12",
-      "runner": "Unity EditMode",
-      "path": "Assets/Odyssey/Client/Tests/EditMode/RuntimeCompositionAndDiagnosticsTests.cs",
-      "check": "sink failure does not recurse infinitely"
-    },
-    {
-      "testCaseId": "TC-DIAG-024",
-      "taskId": "ODY-S00-006",
-      "authority": "ADR-010; ODY-S00-006 AC-12",
-      "runner": "Unity EditMode",
-      "path": "Assets/Odyssey/Client/Tests/EditMode/RuntimeCompositionAndDiagnosticsTests.cs",
-      "check": "failing diagnostic sink does not change Accepted developer probe result or execute command twice"
-    },
-    {
-      "testCaseId": "TC-DIAG-025",
-      "taskId": "ODY-S00-006",
-      "authority": "ADR-010; ODY-S00-006 AC-12",
-      "runner": "Unity EditMode",
-      "path": "Assets/Odyssey/Client/Tests/EditMode/RuntimeCompositionAndDiagnosticsTests.cs",
-      "check": "normal shutdown drains diagnostic queue within 2 second fake-monotonic budget"
-    },
-    {
-      "testCaseId": "TC-DIAG-026",
-      "taskId": "ODY-S00-006",
-      "authority": "ADR-010; ODY-S00-006 AC-12",
-      "runner": "Unity EditMode",
-      "path": "Assets/Odyssey/Client/Tests/EditMode/RuntimeCompositionAndDiagnosticsTests.cs",
-      "check": "fatal bounded shutdown stops at 500ms fake-monotonic budget and writes emergency evidence"
-    },
-    {
-      "testCaseId": "TC-DIAG-027",
-      "taskId": "ODY-S00-006",
-      "authority": "ADR-010; ODY-S00-006 AC-14",
-      "runner": "Unity EditMode",
-      "path": "Assets/Odyssey/Client/Tests/EditMode/RuntimeCompositionAndDiagnosticsTests.cs",
-      "check": "crash marker detected on next startup"
-    },
-    {
-      "testCaseId": "TC-DIAG-028",
-      "taskId": "ODY-S00-006",
-      "authority": "ADR-010; ODY-S00-006 AC-14",
-      "runner": "Unity EditMode",
-      "path": "Assets/Odyssey/Client/Tests/EditMode/RuntimeCompositionAndDiagnosticsTests.cs",
-      "check": "clean shutdown clears crash marker"
-    },
-    {
-      "testCaseId": "TC-DIAG-046",
-      "taskId": "ODY-S00-006",
-      "authority": "ADR-001; ADR-010; ODY-S00-006 AC-15",
-      "runner": "PowerShell",
-      "path": "scripts/verify-test-structure.ps1",
-      "check": "Domain and Rules have no diagnostics dependency"
-    },
-    {
-      "testCaseId": "TC-DIAG-051",
-      "taskId": "ODY-S00-006",
-      "authority": "ADR-010; ODY-S00-006 AC-11",
-      "runner": "Unity EditMode",
-      "path": "Assets/Odyssey/Client/Tests/EditMode/RuntimeCompositionAndDiagnosticsTests.cs",
-      "check": "ring buffer count and byte capacity evicts oldest events"
-    },
-    {
-      "testCaseId": "TC-DIAG-001",
-      "taskId": "ODY-S00-007",
-      "authority": "ADR-010; ODY-S00-007",
-      "runner": "dotnet test",
-      "path": "DotNet/Tests/Odyssey.Tests.Unit/SerializationContractTests.cs",
-      "check": "Information event serializes as LogEventV1"
-    },
-    {
-      "testCaseId": "TC-DIAG-007",
-      "taskId": "ODY-S00-007",
-      "authority": "ADR-010; ODY-S00-007",
-      "runner": "Unity EditMode",
-      "path": "Assets/Odyssey/Client/Tests/EditMode/SerializationParityEditModeTests.cs",
-      "check": "secret fixture absent from JSONL"
-    },
-    {
-      "testCaseId": "TC-DIAG-029",
-      "taskId": "ODY-S00-007",
-      "authority": "ADR-010; ODY-S00-007",
-      "runner": "Unity EditMode",
-      "path": "Assets/Odyssey/Client/Tests/EditMode/SerializationParityEditModeTests.cs",
-      "check": "daily UTC rotation creates new file"
-    },
-    {
-      "testCaseId": "TC-DIAG-030",
-      "taskId": "ODY-S00-007",
-      "authority": "ADR-010; ODY-S00-007",
-      "runner": "Unity EditMode",
-      "path": "Assets/Odyssey/Client/Tests/EditMode/SerializationParityEditModeTests.cs",
-      "check": "10 MiB size rotation"
-    },
-    {
-      "testCaseId": "TC-DIAG-031",
-      "taskId": "ODY-S00-007",
-      "authority": "ADR-010; ODY-S00-007",
-      "runner": "Unity EditMode",
-      "path": "Assets/Odyssey/Client/Tests/EditMode/SerializationParityEditModeTests.cs",
-      "check": "retention removes oldest closed file when a limit is reached"
-    },
-    {
-      "testCaseId": "TC-DIAG-032",
-      "taskId": "ODY-S00-007",
-      "authority": "ADR-010; ODY-S00-007",
-      "runner": "Unity EditMode",
-      "path": "Assets/Odyssey/Client/Tests/EditMode/SerializationParityEditModeTests.cs",
-      "check": "active file is never deleted"
-    },
-    {
-      "testCaseId": "TC-DIAG-041",
-      "taskId": "ODY-S00-007",
-      "authority": "ADR-010; ODY-S00-007",
-      "runner": "Unity EditMode",
-      "path": "Assets/Odyssey/Client/Tests/EditMode/SerializationParityEditModeTests.cs",
-      "check": "diagnostic JSON vector parity in Unity Mono"
-    },
-    {
-      "testCaseId": "TC-DIAG-042",
-      "taskId": "ODY-S00-007",
-      "authority": "ADR-010; ADR-003; ODY-S00-007",
-      "runner": "PowerShell",
-      "path": "scripts/test-serialization-aot.ps1",
-      "check": "diagnostic JSON vector parity in Windows x64 IL2CPP player"
-    },
-    {
-      "testCaseId": "TC-DIAG-043",
-      "taskId": "ODY-S00-007",
-      "authority": "ADR-010; ADR-004; ODY-S00-007",
-      "runner": "dotnet test",
-      "path": "DotNet/Tests/Odyssey.Tests.Unit/SerializationContractTests.cs",
-      "check": "future LogEventV1 schema returns controlled compatibility failure"
-    },
-    {
-      "testCaseId": "TC-DIAG-044",
-      "taskId": "ODY-S00-007",
-      "authority": "ADR-010; ADR-004; ODY-S00-007",
-      "runner": "dotnet test",
-      "path": "DotNet/Tests/Odyssey.Tests.Unit/SerializationContractTests.cs",
-      "check": "diagnostic reader rejects duplicate JSON properties"
-    },
-    {
-      "testCaseId": "TC-SER-001",
-      "taskId": "ODY-S00-007",
-      "authority": "ADR-003; ODY-S00-007",
-      "runner": "dotnet test",
-      "path": "DotNet/Tests/Odyssey.Tests.Unit/SerializationContractTests.cs",
-      "check": "explicit Newtonsoft streaming codec baseline and centralized profiles"
-    },
-    {
-      "testCaseId": "TC-SER-002",
-      "taskId": "ODY-S00-007",
-      "authority": "ADR-003; ODY-S00-007",
-      "runner": "dotnet test",
-      "path": "DotNet/Tests/Odyssey.Tests.Unit/SerializationContractTests.cs",
-      "check": "ContractType / ContractVersion parsing and registry lookup"
-    },
-    {
-      "testCaseId": "TC-SER-003",
-      "taskId": "ODY-S00-007",
-      "authority": "ADR-003; ODY-S00-007",
-      "runner": "dotnet test",
-      "path": "DotNet/Tests/Odyssey.Tests.Unit/SerializationContractTests.cs",
-      "check": "explicit codec used without automatic object mapping"
-    },
-    {
-      "testCaseId": "TC-SER-004",
-      "taskId": "ODY-S00-007",
-      "authority": "ADR-003; ADR-008; ODY-S00-007",
-      "runner": "dotnet test",
-      "path": "DotNet/Tests/Odyssey.Tests.Unit/SerializationContractTests.cs",
-      "check": "stable typed-ID conversion"
-    },
-    {
-      "testCaseId": "TC-SER-005",
-      "taskId": "ODY-S00-007",
-      "authority": "ADR-003; ADR-002; ODY-S00-007",
-      "runner": "dotnet test",
-      "path": "DotNet/Tests/Odyssey.Tests.Unit/SerializationContractTests.cs",
-      "check": "UtcInstant conversion/validation"
-    },
-    {
-      "testCaseId": "TC-SER-006",
-      "taskId": "ODY-S00-007",
-      "authority": "ADR-003; ADR-004; ODY-S00-007",
-      "runner": "dotnet test",
-      "path": "DotNet/Tests/Odyssey.Tests.Unit/SerializationContractTests.cs",
-      "check": "stable enum token"
-    },
-    {
-      "testCaseId": "TC-SER-007",
-      "taskId": "ODY-S00-007",
-      "authority": "ADR-003; ODY-S00-007",
-      "runner": "dotnet test",
-      "path": "DotNet/Tests/Odyssey.Tests.Unit/SerializationContractTests.cs",
-      "check": "canonical UTF-8/order/BOM/whitespace/null/default"
-    },
-    {
-      "testCaseId": "TC-SER-008",
-      "taskId": "ODY-S00-007",
-      "authority": "ADR-003; ODY-S00-007",
-      "runner": "dotnet test",
-      "path": "DotNet/Tests/Odyssey.Tests.Unit/SerializationContractTests.cs",
-      "check": "duplicate/comment/trailing comma/UTF-8/BOM rejection"
-    },
-    {
-      "testCaseId": "TC-SER-009",
-      "taskId": "ODY-S00-007",
-      "authority": "ADR-003; ADR-004; ODY-S00-007",
-      "runner": "dotnet test",
-      "path": "DotNet/Tests/Odyssey.Tests.Unit/SerializationContractTests.cs",
-      "check": "max depth and byte ceilings"
-    },
-    {
-      "testCaseId": "TC-SER-010",
-      "taskId": "ODY-S00-007",
-      "authority": "ADR-003; ODY-S00-007",
-      "runner": "dotnet test",
-      "path": "DotNet/Tests/Odyssey.Tests.Unit/SerializationContractTests.cs",
-      "check": "NaN/Infinity rejection and -0 normalization where applicable"
-    },
-    {
-      "testCaseId": "TC-SER-011",
-      "taskId": "ODY-S00-007",
-      "authority": "ADR-003; ODY-S00-007",
-      "runner": "dotnet test",
-      "path": "DotNet/Tests/Odyssey.Tests.Unit/SerializationContractTests.cs",
-      "check": "stable SHA-256 golden fixture"
-    },
-    {
-      "testCaseId": "TC-SER-012",
-      "taskId": "ODY-S00-007",
-      "authority": "ADR-003; ODY-S00-007",
-      "runner": "dotnet test",
-      "path": "DotNet/Tests/Odyssey.Tests.Unit/SerializationContractTests.cs",
-      "check": "CommandFingerprintMaterialV1 exact inclusion/exclusion/order"
-    },
-    {
-      "testCaseId": "TC-SER-013",
-      "taskId": "ODY-S00-007",
-      "authority": "ADR-003; ODY-S00-007",
-      "runner": "dotnet test",
-      "path": "DotNet/Tests/Odyssey.Tests.Unit/SerializationContractTests.cs",
-      "check": "stable golden CommandFingerprint vector"
-    },
-    {
-      "testCaseId": "TC-SER-014",
-      "taskId": "ODY-S00-007",
-      "authority": "ADR-003; ODY-S00-007",
-      "runner": "dotnet test",
-      "path": "DotNet/Tests/Odyssey.Tests.Unit/SerializationContractTests.cs",
-      "check": "event canonical JSON/hash round-trip"
-    },
-    {
-      "testCaseId": "TC-SER-015",
-      "taskId": "ODY-S00-007",
-      "authority": "ADR-003; ODY-S00-007",
-      "runner": "dotnet test",
-      "path": "DotNet/Tests/Odyssey.Tests.Unit/SerializationContractTests.cs",
-      "check": "event raw fixture bytes remain unchanged"
-    },
-    {
-      "testCaseId": "TC-SER-016",
-      "taskId": "ODY-S00-007",
-      "authority": "ADR-003; ODY-S00-007",
-      "runner": "dotnet test",
-      "path": "DotNet/Tests/Odyssey.Tests.Unit/SerializationContractTests.cs",
-      "check": "pure v1->v2 upcaster AND missing-path compatibility failure"
-    },
-    {
-      "testCaseId": "TC-SER-017",
-      "taskId": "ODY-S00-007",
-      "authority": "ADR-003; ADR-004; ODY-S00-007",
-      "runner": "dotnet test",
-      "path": "DotNet/Tests/Odyssey.Tests.Unit/SerializationContractTests.cs",
-      "check": "unknown type/version/missing required field rejected"
-    },
-    {
-      "testCaseId": "TC-SER-018",
-      "taskId": "ODY-S00-007",
-      "authority": "ADR-003; ODY-S00-007",
-      "runner": "dotnet test",
-      "path": "DotNet/Tests/Odyssey.Tests.Unit/SerializationContractTests.cs",
-      "check": ".odcamp manifest/path safety/no secrets/no absolute paths"
-    },
-    {
-      "testCaseId": "TC-SER-019",
-      "taskId": "ODY-S00-007",
-      "authority": "ADR-001; ADR-003; ODY-S00-007",
-      "runner": "PowerShell",
-      "path": "scripts/verify-test-structure.ps1",
-      "check": "Domain serializer-free"
-    },
-    {
-      "testCaseId": "TC-SER-020",
-      "taskId": "ODY-S00-007",
-      "authority": "ADR-003; ODY-S00-007",
-      "runner": "dotnet test",
-      "path": "DotNet/Tests/Odyssey.Tests.Unit/SerializationContractTests.cs",
-      "check": "registry has no CLR lookup/scanning/service locator/object fallback"
-    },
-    {
-      "testCaseId": "TC-SER-021",
-      "taskId": "ODY-S00-007",
-      "authority": "ADR-003; ADR-009; ODY-S00-007",
-      "runner": "Unity EditMode",
-      "path": "Assets/Odyssey/Client/Tests/EditMode/SerializationParityEditModeTests.cs",
-      "check": "Unity Mono parity with .NET vectors"
-    },
-    {
-      "testCaseId": "TC-SER-022",
-      "taskId": "ODY-S00-007",
-      "authority": "ADR-003; ADR-009; ODY-S00-007",
-      "runner": "PowerShell",
-      "path": "scripts/test-serialization-aot.ps1",
-      "check": "Windows x64 IL2CPP parity with .NET/Mono vectors"
-    },
-    {
-      "testCaseId": "TC-SER-023",
-      "taskId": "ODY-S00-007",
-      "authority": "ADR-003; ODY-S00-007",
-      "runner": "dotnet test",
-      "path": "DotNet/Tests/Odyssey.Tests.Unit/SerializationContractTests.cs",
-      "check": "golden fixtures/hashes stable and never auto-updated"
-    },
-    {
-      "testCaseId": "TC-SER-024",
-      "taskId": "ODY-S00-007",
-      "authority": "ADR-001; ADR-003; ODY-S00-007",
-      "runner": "PowerShell",
-      "path": "scripts/verify-test-structure.ps1",
-      "check": "repository/dependency/boundary policy"
-    },
-    {
-      "testCaseId": "TC-UNITY-SHELL-001",
-      "taskId": "ODY-S00-006",
-      "authority": "ADR-005; ADR-009; ODY-S00-006 AC-5/AC-6",
-      "runner": "Unity PlayMode",
-      "path": "Assets/Odyssey/Client/Tests/PlayMode/OdysseyPlayModeFoundationSmokeTests.cs",
-      "check": "Bootstrap loads AppShell to visible Ready state, runs technical shell actions, rejects duplicate RuntimeHost, reaches Stopped shutdown, and releases lease"
-    }
-  ]
+    "testCases":  [
+                      {
+                          "testCaseId":  "TC-ARCH-001",
+                          "taskId":  "ODY-S00-003",
+                          "authority":  "ADR-001; ADR-006; ODY-S00-003 AC-2/AC-6",
+                          "runner":  "PowerShell",
+                          "path":  "scripts/verify-test-structure.ps1",
+                          "check":  "valid repository and synthetic graph pass"
+                      },
+                      {
+                          "testCaseId":  "TC-ARCH-002",
+                          "taskId":  "ODY-S00-003",
+                          "authority":  "ADR-001; ADR-006; ODY-S00-003 AC-6",
+                          "runner":  "PowerShell",
+                          "path":  "scripts/verify-test-structure.ps1",
+                          "check":  "controlled invalid Domain-to-Rules graph is rejected"
+                      },
+                      {
+                          "testCaseId":  "TC-DOTNET-001",
+                          "taskId":  "ODY-S00-003",
+                          "authority":  "ADR-006; Technical Development Baseline v0.3",
+                          "runner":  "dotnet test",
+                          "path":  "DotNet/Odyssey.Core.sln",
+                          "check":  "pure .NET bridge build and tests"
+                      },
+                      {
+                          "testCaseId":  "TC-UNITY-ASM-001",
+                          "taskId":  "ODY-S00-003",
+                          "authority":  "ADR-001; ADR-009; ODY-S00-003 AC-1/AC-3",
+                          "runner":  "Unity batchmode",
+                          "path":  "scripts/test-unity.ps1",
+                          "check":  "Unity assembly graph compile smoke"
+                      },
+                      {
+                          "testCaseId":  "TC-UNITY-TEST-001",
+                          "taskId":  "ODY-S00-003",
+                          "authority":  "ADR-006; ADR-009; ODY-S00-003 AC-5",
+                          "runner":  "Unity Test Framework",
+                          "path":  "Assets/Odyssey/Client/Tests",
+                          "check":  "Unity EditMode and PlayMode test assemblies run with nonzero tests"
+                      },
+                      {
+                          "testCaseId":  "TC-REPO-001",
+                          "taskId":  "ODY-S00-003",
+                          "authority":  "AGENTS.md; ODY-S00-003 AC-7/AC-9",
+                          "runner":  "PowerShell",
+                          "path":  "scripts/verify-repository.ps1",
+                          "check":  "repository policy, architecture guard, and SDK configuration"
+                      },
+                      {
+                          "testCaseId":  "TC-ID-001",
+                          "taskId":  "ODY-S00-004",
+                          "authority":  "TDB section 15.1; ADR-004; ODY-S00-004 AC-1/AC-2",
+                          "runner":  "dotnet test",
+                          "path":  "DotNet/Tests/Odyssey.Tests.Unit/IdentityPrimitiveTests.cs",
+                          "check":  "identity construction, equality, hash, canonical format, and parse round-trip"
+                      },
+                      {
+                          "testCaseId":  "TC-ID-002",
+                          "taskId":  "ODY-S00-004",
+                          "authority":  "TDB section 15.1; ADR-004; ODY-S00-004 AC-2",
+                          "runner":  "dotnet test",
+                          "path":  "DotNet/Tests/Odyssey.Tests.Unit/IdentityPrimitiveTests.cs",
+                          "check":  "default, empty, malformed, non-canonical, and wrong-form identities are rejected"
+                      },
+                      {
+                          "testCaseId":  "TC-VERSION-001",
+                          "taskId":  "ODY-S00-004",
+                          "authority":  "ADR-007; ODY-S00-004 AC-3",
+                          "runner":  "dotnet test",
+                          "path":  "DotNet/Tests/Odyssey.Tests.Unit/VersionPrimitiveTests.cs",
+                          "check":  "ApplicationVersion, RulesetVersion, and ContentPackageVersion parse, format, and compare canonical SemVer"
+                      },
+                      {
+                          "testCaseId":  "TC-VERSION-002",
+                          "taskId":  "ODY-S00-004",
+                          "authority":  "ADR-007; ODY-S00-004 AC-3",
+                          "runner":  "dotnet test",
+                          "path":  "DotNet/Tests/Odyssey.Tests.Unit/VersionPrimitiveTests.cs",
+                          "check":  "version dimensions are type-safe and no automatic version source generation occurs"
+                      },
+                      {
+                          "testCaseId":  "TC-RESULT-001",
+                          "taskId":  "ODY-S00-004",
+                          "authority":  "ADR-004; ODY-S00-004 AC-4",
+                          "runner":  "dotnet test",
+                          "path":  "DotNet/Tests/Odyssey.Tests.Unit/ResultErrorPrimitiveTests.cs",
+                          "check":  "Result and Result\u003cT\u003e success/failure invariants and invalid default state"
+                      },
+                      {
+                          "testCaseId":  "TC-RESULT-002",
+                          "taskId":  "ODY-S00-004",
+                          "authority":  "ADR-004; ODY-S00-004 AC-4/AC-6",
+                          "runner":  "dotnet test",
+                          "path":  "DotNet/Tests/Odyssey.Tests.Unit/ResultErrorPrimitiveTests.cs",
+                          "check":  "Error requires safe fields and excludes unsafe internal detail"
+                      },
+                      {
+                          "testCaseId":  "TC-RESULT-003",
+                          "taskId":  "ODY-S00-004",
+                          "authority":  "ADR-004; ODY-S00-004 AC-4",
+                          "runner":  "dotnet test",
+                          "path":  "DotNet/Tests/Odyssey.Tests.Unit/ResultErrorPrimitiveTests.cs",
+                          "check":  "RetryDirective vocabulary is exact"
+                      },
+                      {
+                          "testCaseId":  "TC-RESULT-004",
+                          "taskId":  "ODY-S00-004",
+                          "authority":  "ADR-004; ODY-S00-004 AC-4/AC-6",
+                          "runner":  "dotnet test",
+                          "path":  "DotNet/Tests/Odyssey.Tests.Unit/ResultErrorPrimitiveTests.cs",
+                          "check":  "ValidationDetail, safe arguments, and metadata are bounded and allowlisted"
+                      },
+                      {
+                          "testCaseId":  "TC-CMD-001",
+                          "taskId":  "ODY-S00-005",
+                          "authority":  "ADR-002; ODY-S00-005 AC-1/AC-2",
+                          "runner":  "dotnet test",
+                          "path":  "DotNet/Tests/Odyssey.Tests.Unit/CommandEventClockRngContractTests.cs",
+                          "check":  "command identity, type, version, root, parent, fingerprint, and envelope validation"
+                      },
+                      {
+                          "testCaseId":  "TC-CMD-002",
+                          "taskId":  "ODY-S00-005",
+                          "authority":  "ADR-002; ADR-004; ODY-S00-005 AC-3",
+                          "runner":  "dotnet test",
+                          "path":  "DotNet/Tests/Odyssey.Tests.Unit/CommandEventClockRngContractTests.cs",
+                          "check":  "CommandResult terminal statuses and outer Result semantics"
+                      },
+                      {
+                          "testCaseId":  "TC-CMD-003",
+                          "taskId":  "ODY-S00-005",
+                          "authority":  "ADR-002; ADR-008; ODY-S00-005 AC-4",
+                          "runner":  "dotnet test",
+                          "path":  "DotNet/Tests/Odyssey.Tests.Unit/CommandEventClockRngContractTests.cs",
+                          "check":  "duplicate command replay does not re-enter handler or create new clock, RNG, or event effects"
+                      },
+                      {
+                          "testCaseId":  "TC-CMD-004",
+                          "taskId":  "ODY-S00-005",
+                          "authority":  "ADR-002; ADR-004; ODY-S00-005 AC-4",
+                          "runner":  "dotnet test",
+                          "path":  "DotNet/Tests/Odyssey.Tests.Unit/CommandEventClockRngContractTests.cs",
+                          "check":  "same CommandId with different fingerprint is rejected safely"
+                      },
+                      {
+                          "testCaseId":  "TC-CMD-005",
+                          "taskId":  "ODY-S00-005",
+                          "authority":  "ADR-002; ADR-008; ODY-S00-005 AC-4",
+                          "runner":  "dotnet test",
+                          "path":  "DotNet/Tests/Odyssey.Tests.Unit/CommandEventClockRngContractTests.cs",
+                          "check":  "concurrent same CommandId and fingerprint is single-flight in the current process"
+                      },
+                      {
+                          "testCaseId":  "TC-CMD-006",
+                          "taskId":  "ODY-S00-005",
+                          "authority":  "ADR-002; ODY-S00-005 AC-4",
+                          "runner":  "dotnet test",
+                          "path":  "DotNet/Tests/Odyssey.Tests.Unit/CommandEventClockRngContractTests.cs",
+                          "check":  "atomic commit failure returns outer failure and stores no durable receipt"
+                      },
+                      {
+                          "testCaseId":  "TC-EVENT-001",
+                          "taskId":  "ODY-S00-005",
+                          "authority":  "ADR-001; ADR-002; ODY-S00-005 AC-5",
+                          "runner":  "dotnet test",
+                          "path":  "DotNet/Tests/Odyssey.Tests.Unit/CommandEventClockRngContractTests.cs",
+                          "check":  "DomainEvent envelope and ordered batch are immutable, Domain-owned, causally linked, and deterministic"
+                      },
+                      {
+                          "testCaseId":  "TC-CLOCK-001",
+                          "taskId":  "ODY-S00-005",
+                          "authority":  "ADR-008; ODY-S00-005 AC-6",
+                          "runner":  "dotnet test",
+                          "path":  "DotNet/Tests/Odyssey.Tests.Unit/CommandEventClockRngContractTests.cs",
+                          "check":  "wall-clock and monotonic clock contracts use injected values"
+                      },
+                      {
+                          "testCaseId":  "TC-CLOCK-002",
+                          "taskId":  "ODY-S00-005",
+                          "authority":  "ADR-008; ODY-S00-005 AC-6",
+                          "runner":  "dotnet test",
+                          "path":  "DotNet/Tests/Odyssey.Tests.Unit/CommandEventClockRngContractTests.cs",
+                          "check":  "virtual scheduler completes in deterministic order without real waiting"
+                      },
+                      {
+                          "testCaseId":  "TC-CLOCK-003",
+                          "taskId":  "ODY-S00-005",
+                          "authority":  "ADR-008; ODY-S00-005 AC-6",
+                          "runner":  "dotnet test",
+                          "path":  "DotNet/Tests/Odyssey.Tests.Unit/CommandEventClockRngContractTests.cs",
+                          "check":  "ADR-008 clock contract shape preserves UTC tick precision and deterministic scheduler cancellation"
+                      },
+                      {
+                          "testCaseId":  "TC-RNG-001",
+                          "taskId":  "ODY-S00-005",
+                          "authority":  "ADR-008; ODY-S00-005 AC-7",
+                          "runner":  "dotnet test",
+                          "path":  "DotNet/Tests/Odyssey.Tests.Unit/CommandEventClockRngContractTests.cs",
+                          "check":  "HMAC-SHA-256 stream derivation v1 produces stable state vectors"
+                      },
+                      {
+                          "testCaseId":  "TC-RNG-002",
+                          "taskId":  "ODY-S00-005",
+                          "authority":  "ADR-008; ODY-S00-005 AC-7",
+                          "runner":  "dotnet test",
+                          "path":  "DotNet/Tests/Odyssey.Tests.Unit/CommandEventClockRngContractTests.cs",
+                          "check":  "xoshiro256** v1 produces stable raw output vectors"
+                      },
+                      {
+                          "testCaseId":  "TC-RNG-003",
+                          "taskId":  "ODY-S00-005",
+                          "authority":  "ADR-008; ODY-S00-005 AC-7",
+                          "runner":  "dotnet test",
+                          "path":  "DotNet/Tests/Odyssey.Tests.Unit/CommandEventClockRngContractTests.cs",
+                          "check":  "rejection mapping for inclusive integer ranges records deterministic bounded output and rejection evidence"
+                      },
+                      {
+                          "testCaseId":  "TC-RNG-004",
+                          "taskId":  "ODY-S00-005",
+                          "authority":  "ADR-008; ADR-010; ODY-S00-005 AC-7",
+                          "runner":  "dotnet test",
+                          "path":  "DotNet/Tests/Odyssey.Tests.Unit/CommandEventClockRngContractTests.cs",
+                          "check":  "RngProofData contains non-secret reproducibility metadata and no raw campaign RNG key material"
+                      },
+                      {
+                          "testCaseId":  "TC-RNG-005",
+                          "taskId":  "ODY-S00-005",
+                          "authority":  "ADR-008; ODY-S00-005 AC-7",
+                          "runner":  "dotnet test",
+                          "path":  "DotNet/Tests/Odyssey.Tests.Unit/CommandEventClockRngContractTests.cs",
+                          "check":  "canonical ADR-008 message, StreamId, SeedCommitment, draw accounting, and zero-state fallback evidence"
+                      },
+                      {
+                          "testCaseId":  "TC-CMP-001",
+                          "taskId":  "ODY-S00-006",
+                          "authority":  "ADR-005; ODY-S00-006 AC-1/AC-2",
+                          "runner":  "Unity EditMode",
+                          "path":  "Assets/Odyssey/Client/Tests/EditMode/RuntimeCompositionAndDiagnosticsTests.cs",
+                          "check":  "minimal process graph returns Success with exactly one AppRuntime in Starting state; Ready is gated by presentation initialization"
+                      },
+                      {
+                          "testCaseId":  "TC-CMP-002",
+                          "taskId":  "ODY-S00-006",
+                          "authority":  "ADR-005; ODY-S00-006 AC-3",
+                          "runner":  "Unity EditMode",
+                          "path":  "Assets/Odyssey/Client/Tests/EditMode/RuntimeCompositionAndDiagnosticsTests.cs",
+                          "check":  "invalid bootstrap configuration and composition-invalid semantics return safe failures"
+                      },
+                      {
+                          "testCaseId":  "TC-CMP-003",
+                          "taskId":  "ODY-S00-006",
+                          "authority":  "ADR-005; ODY-S00-006 AC-3/AC-4",
+                          "runner":  "Unity EditMode",
+                          "path":  "Assets/Odyssey/Client/Tests/EditMode/RuntimeCompositionAndDiagnosticsTests.cs",
+                          "check":  "mid-construction crash marker failure keeps original safe failure and attempts all cleanup"
+                      },
+                      {
+                          "testCaseId":  "TC-CMP-004",
+                          "taskId":  "ODY-S00-006",
+                          "authority":  "ADR-005; ODY-S00-006 AC-1",
+                          "runner":  "Unity PlayMode",
+                          "path":  "Assets/Odyssey/Client/Tests/PlayMode/OdysseyPlayModeFoundationSmokeTests.cs",
+                          "check":  "independent duplicate RuntimeHost is rejected, accepted graph remains one, structured duplicate diagnostic is recorded, and clean shutdown releases the lease"
+                      },
+                      {
+                          "testCaseId":  "TC-CMP-009",
+                          "taskId":  "ODY-S00-006",
+                          "authority":  "ADR-005; ODY-S00-006 AC-4",
+                          "runner":  "Unity PlayMode",
+                          "path":  "Assets/Odyssey/Client/Tests/PlayMode/OdysseyPlayModeFoundationSmokeTests.cs",
+                          "check":  "real AppShell scene unload detaches and disposes PresentationRuntime once"
+                      },
+                      {
+                          "testCaseId":  "TC-CMP-010",
+                          "taskId":  "ODY-S00-006",
+                          "authority":  "ADR-005; ODY-S00-006 AC-4",
+                          "runner":  "Unity EditMode",
+                          "path":  "Assets/Odyssey/Client/Tests/EditMode/RuntimeCompositionAndDiagnosticsTests.cs",
+                          "check":  "shutdown is idempotent"
+                      },
+                      {
+                          "testCaseId":  "TC-CMP-011",
+                          "taskId":  "ODY-S00-006",
+                          "authority":  "ADR-005; ODY-S00-006 AC-3",
+                          "runner":  "Unity EditMode",
+                          "path":  "Assets/Odyssey/Client/Tests/EditMode/RuntimeCompositionAndDiagnosticsTests.cs",
+                          "check":  "mid-start cancellation returns safe cancelled failure, publishes no AppRuntime, and cleans already-owned resources before diagnostics closes last"
+                      },
+                      {
+                          "testCaseId":  "TC-CMP-015",
+                          "taskId":  "ODY-S00-006",
+                          "authority":  "ADR-005; ODY-S00-006 AC-8",
+                          "runner":  "Unity EditMode",
+                          "path":  "Assets/Odyssey/Client/Tests/EditMode/RuntimeCompositionAndDiagnosticsTests.cs",
+                          "check":  "typed adapter override changes only the requested adapter and preserves deterministic defaults"
+                      },
+                      {
+                          "testCaseId":  "TC-CMP-016",
+                          "taskId":  "ODY-S00-006",
+                          "authority":  "ADR-005; ODY-S00-006 AC-16",
+                          "runner":  "Unity EditMode",
+                          "path":  "Assets/Odyssey/Client/Tests/EditMode/RuntimeCompositionAndDiagnosticsTests.cs",
+                          "check":  "production profile rejects developer fake adapters"
+                      },
+                      {
+                          "testCaseId":  "TC-CMP-018",
+                          "taskId":  "ODY-S00-006",
+                          "authority":  "ADR-005; ODY-S00-006 AC-1",
+                          "runner":  "PowerShell",
+                          "path":  "scripts/verify-test-structure.ps1",
+                          "check":  "composition guard rejects service locator and DI container patterns"
+                      },
+                      {
+                          "testCaseId":  "TC-CMP-020",
+                          "taskId":  "ODY-S00-006",
+                          "authority":  "ADR-005; ODY-S00-006 AC-4",
+                          "runner":  "Unity EditMode",
+                          "path":  "Assets/Odyssey/Client/Tests/EditMode/RuntimeCompositionAndDiagnosticsTests.cs",
+                          "check":  "shutdown while PresentationRuntime active disposes presentation subscription before crash marker before diagnostics"
+                      },
+                      {
+                          "testCaseId":  "TC-CMP-021",
+                          "taskId":  "ODY-S00-006",
+                          "authority":  "ODY-S00-006 task-specific extension; ADR-004; ADR-005",
+                          "runner":  "Unity EditMode",
+                          "path":  "Assets/Odyssey/Client/Tests/EditMode/RuntimeCompositionAndDiagnosticsTests.cs",
+                          "check":  "presentation/composition invalid failure uses exact registered safe Error semantics"
+                      },
+                      {
+                          "testCaseId":  "TC-DIAG-002",
+                          "taskId":  "ODY-S00-006",
+                          "authority":  "ADR-010; ODY-S00-006 AC-12",
+                          "runner":  "Unity EditMode",
+                          "path":  "Assets/Odyssey/Client/Tests/EditMode/RuntimeCompositionAndDiagnosticsTests.cs",
+                          "check":  "disabled Debug event does not evaluate lazy property"
+                      },
+                      {
+                          "testCaseId":  "TC-DIAG-003",
+                          "taskId":  "ODY-S00-006",
+                          "authority":  "ADR-010; ODY-S00-006 AC-9",
+                          "runner":  "dotnet test",
+                          "path":  "DotNet/Tests/Odyssey.Tests.Unit/DiagnosticsContractTests.cs",
+                          "check":  "unknown EventCode is rejected by registry"
+                      },
+                      {
+                          "testCaseId":  "TC-DIAG-004",
+                          "taskId":  "ODY-S00-006",
+                          "authority":  "ADR-010; ODY-S00-006 AC-10",
+                          "runner":  "dotnet test",
+                          "path":  "DotNet/Tests/Odyssey.Tests.Unit/DiagnosticsContractTests.cs",
+                          "check":  "safe property API exposes no arbitrary object or exception payload"
+                      },
+                      {
+                          "testCaseId":  "TC-DIAG-005",
+                          "taskId":  "ODY-S00-006",
+                          "authority":  "ADR-010; ODY-S00-006 AC-10",
+                          "runner":  "dotnet test",
+                          "path":  "DotNet/Tests/Odyssey.Tests.Unit/DiagnosticsContractTests.cs",
+                          "check":  "safe bounded string truncates with marker"
+                      },
+                      {
+                          "testCaseId":  "TC-DIAG-006",
+                          "taskId":  "ODY-S00-006",
+                          "authority":  "ADR-010; ODY-S00-006 AC-10/AC-11",
+                          "runner":  "Unity EditMode",
+                          "path":  "Assets/Odyssey/Client/Tests/EditMode/RuntimeCompositionAndDiagnosticsTests.cs",
+                          "check":  "secret fixture rejected before trust transition and absent from ring, emergency and capturing sinks"
+                      },
+                      {
+                          "testCaseId":  "TC-DIAG-011",
+                          "taskId":  "ODY-S00-006",
+                          "authority":  "ADR-010; ODY-S00-006 AC-10",
+                          "runner":  "dotnet test",
+                          "path":  "DotNet/Tests/Odyssey.Tests.Unit/DiagnosticsContractTests.cs",
+                          "check":  "absolute Windows path is sanitized"
+                      },
+                      {
+                          "testCaseId":  "TC-DIAG-012",
+                          "taskId":  "ODY-S00-006",
+                          "authority":  "ADR-010; ODY-S00-006 AC-10",
+                          "runner":  "dotnet test",
+                          "path":  "DotNet/Tests/Odyssey.Tests.Unit/DiagnosticsContractTests.cs",
+                          "check":  "Windows username absent from path representation"
+                      },
+                      {
+                          "testCaseId":  "TC-DIAG-013",
+                          "taskId":  "ODY-S00-006",
+                          "authority":  "ADR-010; ODY-S00-006 AC-10",
+                          "runner":  "dotnet test",
+                          "path":  "DotNet/Tests/Odyssey.Tests.Unit/DiagnosticsContractTests.cs",
+                          "check":  "network endpoint representation is generalized"
+                      },
+                      {
+                          "testCaseId":  "TC-DIAG-015",
+                          "taskId":  "ODY-S00-006",
+                          "authority":  "ADR-010; ODY-S00-006 AC-7",
+                          "runner":  "dotnet test",
+                          "path":  "DotNet/Tests/Odyssey.Tests.Unit/DiagnosticsContractTests.cs",
+                          "check":  "CommandId remains distinct from CorrelationId"
+                      },
+                      {
+                          "testCaseId":  "TC-DIAG-016",
+                          "taskId":  "ODY-S00-006",
+                          "authority":  "ADR-010; ODY-S00-006 AC-13",
+                          "runner":  "dotnet test",
+                          "path":  "DotNet/Tests/Odyssey.Tests.Unit/DiagnosticsContractTests.cs",
+                          "check":  "unexpected exception boundary can attach DiagnosticId"
+                      },
+                      {
+                          "testCaseId":  "TC-DIAG-017",
+                          "taskId":  "ODY-S00-006",
+                          "authority":  "ADR-004; ADR-010; ODY-S00-006 AC-13",
+                          "runner":  "dotnet test",
+                          "path":  "DotNet/Tests/Odyssey.Tests.Unit/DiagnosticsContractTests.cs",
+                          "check":  "public Error contains no stack trace or raw exception text"
+                      },
+                      {
+                          "testCaseId":  "TC-DIAG-018",
+                          "taskId":  "ODY-S00-006",
+                          "authority":  "ADR-010; ODY-S00-006 AC-13",
+                          "runner":  "Unity EditMode",
+                          "path":  "Assets/Odyssey/Client/Tests/EditMode/RuntimeCompositionAndDiagnosticsTests.cs",
+                          "check":  "bounded incident dedup records full safe ExceptionSummary once and repeats as counter-only"
+                      },
+                      {
+                          "testCaseId":  "TC-DIAG-019",
+                          "taskId":  "ODY-S00-006",
+                          "authority":  "ADR-010; ODY-S00-006 AC-12",
+                          "runner":  "Unity EditMode",
+                          "path":  "Assets/Odyssey/Client/Tests/EditMode/RuntimeCompositionAndDiagnosticsTests.cs",
+                          "check":  "diagnostic queue accepts concurrent Task producers without corruption or Unity API use in workers"
+                      },
+                      {
+                          "testCaseId":  "TC-DIAG-020",
+                          "taskId":  "ODY-S00-006",
+                          "authority":  "ADR-010; ODY-S00-006 AC-12",
+                          "runner":  "Unity EditMode",
+                          "path":  "Assets/Odyssey/Client/Tests/EditMode/RuntimeCompositionAndDiagnosticsTests.cs",
+                          "check":  "queue pressure compares incoming priority and sacrifices Trace then Debug then Information"
+                      },
+                      {
+                          "testCaseId":  "TC-DIAG-021",
+                          "taskId":  "ODY-S00-006",
+                          "authority":  "ADR-010; ODY-S00-006 AC-12",
+                          "runner":  "Unity EditMode",
+                          "path":  "Assets/Odyssey/Client/Tests/EditMode/RuntimeCompositionAndDiagnosticsTests.cs",
+                          "check":  "drop counters emit exact per-level counts after recovery and then reset"
+                      },
+                      {
+                          "testCaseId":  "TC-DIAG-022",
+                          "taskId":  "ODY-S00-006",
+                          "authority":  "ADR-010; ODY-S00-006 AC-12",
+                          "runner":  "Unity EditMode",
+                          "path":  "Assets/Odyssey/Client/Tests/EditMode/RuntimeCompositionAndDiagnosticsTests.cs",
+                          "check":  "protected Warning is not sacrificed and incoming high-priority event uses emergency queue_full fallback"
+                      },
+                      {
+                          "testCaseId":  "TC-DIAG-023",
+                          "taskId":  "ODY-S00-006",
+                          "authority":  "ADR-010; ODY-S00-006 AC-12",
+                          "runner":  "Unity EditMode",
+                          "path":  "Assets/Odyssey/Client/Tests/EditMode/RuntimeCompositionAndDiagnosticsTests.cs",
+                          "check":  "sink failure does not recurse infinitely"
+                      },
+                      {
+                          "testCaseId":  "TC-DIAG-024",
+                          "taskId":  "ODY-S00-006",
+                          "authority":  "ADR-010; ODY-S00-006 AC-12",
+                          "runner":  "Unity EditMode",
+                          "path":  "Assets/Odyssey/Client/Tests/EditMode/RuntimeCompositionAndDiagnosticsTests.cs",
+                          "check":  "failing diagnostic sink does not change Accepted developer probe result or execute command twice"
+                      },
+                      {
+                          "testCaseId":  "TC-DIAG-025",
+                          "taskId":  "ODY-S00-006",
+                          "authority":  "ADR-010; ODY-S00-006 AC-12",
+                          "runner":  "Unity EditMode",
+                          "path":  "Assets/Odyssey/Client/Tests/EditMode/RuntimeCompositionAndDiagnosticsTests.cs",
+                          "check":  "normal shutdown drains diagnostic queue within 2 second fake-monotonic budget"
+                      },
+                      {
+                          "testCaseId":  "TC-DIAG-026",
+                          "taskId":  "ODY-S00-006",
+                          "authority":  "ADR-010; ODY-S00-006 AC-12",
+                          "runner":  "Unity EditMode",
+                          "path":  "Assets/Odyssey/Client/Tests/EditMode/RuntimeCompositionAndDiagnosticsTests.cs",
+                          "check":  "fatal bounded shutdown stops at 500ms fake-monotonic budget and writes emergency evidence"
+                      },
+                      {
+                          "testCaseId":  "TC-DIAG-027",
+                          "taskId":  "ODY-S00-006",
+                          "authority":  "ADR-010; ODY-S00-006 AC-14",
+                          "runner":  "Unity EditMode",
+                          "path":  "Assets/Odyssey/Client/Tests/EditMode/RuntimeCompositionAndDiagnosticsTests.cs",
+                          "check":  "crash marker detected on next startup"
+                      },
+                      {
+                          "testCaseId":  "TC-DIAG-028",
+                          "taskId":  "ODY-S00-006",
+                          "authority":  "ADR-010; ODY-S00-006 AC-14",
+                          "runner":  "Unity EditMode",
+                          "path":  "Assets/Odyssey/Client/Tests/EditMode/RuntimeCompositionAndDiagnosticsTests.cs",
+                          "check":  "clean shutdown clears crash marker"
+                      },
+                      {
+                          "testCaseId":  "TC-DIAG-046",
+                          "taskId":  "ODY-S00-006",
+                          "authority":  "ADR-001; ADR-010; ODY-S00-006 AC-15",
+                          "runner":  "PowerShell",
+                          "path":  "scripts/verify-test-structure.ps1",
+                          "check":  "Domain and Rules have no diagnostics dependency"
+                      },
+                      {
+                          "testCaseId":  "TC-DIAG-051",
+                          "taskId":  "ODY-S00-006",
+                          "authority":  "ADR-010; ODY-S00-006 AC-11",
+                          "runner":  "Unity EditMode",
+                          "path":  "Assets/Odyssey/Client/Tests/EditMode/RuntimeCompositionAndDiagnosticsTests.cs",
+                          "check":  "ring buffer count and byte capacity evicts oldest events"
+                      },
+                      {
+                          "testCaseId":  "TC-DIAG-001",
+                          "taskId":  "ODY-S00-007",
+                          "authority":  "ADR-010; ODY-S00-007",
+                          "runner":  "dotnet test",
+                          "path":  "DotNet/Tests/Odyssey.Tests.Unit/SerializationContractTests.cs",
+                          "check":  "Information event serializes as LogEventV1"
+                      },
+                      {
+                          "testCaseId":  "TC-DIAG-007",
+                          "taskId":  "ODY-S00-007",
+                          "authority":  "ADR-010; ODY-S00-007",
+                          "runner":  "Unity EditMode",
+                          "path":  "Assets/Odyssey/Client/Tests/EditMode/SerializationParityEditModeTests.cs",
+                          "check":  "secret fixture absent from JSONL"
+                      },
+                      {
+                          "testCaseId":  "TC-DIAG-029",
+                          "taskId":  "ODY-S00-007",
+                          "authority":  "ADR-010; ODY-S00-007",
+                          "runner":  "Unity EditMode",
+                          "path":  "Assets/Odyssey/Client/Tests/EditMode/SerializationParityEditModeTests.cs",
+                          "check":  "daily UTC rotation creates new file"
+                      },
+                      {
+                          "testCaseId":  "TC-DIAG-030",
+                          "taskId":  "ODY-S00-007",
+                          "authority":  "ADR-010; ODY-S00-007",
+                          "runner":  "Unity EditMode",
+                          "path":  "Assets/Odyssey/Client/Tests/EditMode/SerializationParityEditModeTests.cs",
+                          "check":  "10 MiB size rotation"
+                      },
+                      {
+                          "testCaseId":  "TC-DIAG-031",
+                          "taskId":  "ODY-S00-007",
+                          "authority":  "ADR-010; ODY-S00-007",
+                          "runner":  "Unity EditMode",
+                          "path":  "Assets/Odyssey/Client/Tests/EditMode/SerializationParityEditModeTests.cs",
+                          "check":  "retention removes oldest closed file when a limit is reached"
+                      },
+                      {
+                          "testCaseId":  "TC-DIAG-032",
+                          "taskId":  "ODY-S00-007",
+                          "authority":  "ADR-010; ODY-S00-007",
+                          "runner":  "Unity EditMode",
+                          "path":  "Assets/Odyssey/Client/Tests/EditMode/SerializationParityEditModeTests.cs",
+                          "check":  "active file is never deleted"
+                      },
+                      {
+                          "testCaseId":  "TC-DIAG-041",
+                          "taskId":  "ODY-S00-007",
+                          "authority":  "ADR-010; ODY-S00-007",
+                          "runner":  "Unity EditMode",
+                          "path":  "Assets/Odyssey/Client/Tests/EditMode/SerializationParityEditModeTests.cs",
+                          "check":  "diagnostic JSON vector parity in Unity Mono"
+                      },
+                      {
+                          "testCaseId":  "TC-DIAG-042",
+                          "taskId":  "ODY-S00-007",
+                          "authority":  "ADR-010; ADR-003; ODY-S00-007",
+                          "runner":  "PowerShell",
+                          "path":  "scripts/test-serialization-aot.ps1",
+                          "check":  "diagnostic JSON vector parity in Windows x64 IL2CPP player"
+                      },
+                      {
+                          "testCaseId":  "TC-DIAG-043",
+                          "taskId":  "ODY-S00-007",
+                          "authority":  "ADR-010; ADR-004; ODY-S00-007",
+                          "runner":  "dotnet test",
+                          "path":  "DotNet/Tests/Odyssey.Tests.Unit/SerializationContractTests.cs",
+                          "check":  "future LogEventV1 schema returns controlled compatibility failure"
+                      },
+                      {
+                          "testCaseId":  "TC-DIAG-044",
+                          "taskId":  "ODY-S00-007",
+                          "authority":  "ADR-010; ADR-004; ODY-S00-007",
+                          "runner":  "dotnet test",
+                          "path":  "DotNet/Tests/Odyssey.Tests.Unit/SerializationContractTests.cs",
+                          "check":  "diagnostic reader rejects duplicate JSON properties"
+                      },
+                      {
+                          "testCaseId":  "TC-SER-001",
+                          "taskId":  "ODY-S00-007",
+                          "authority":  "ADR-003; ODY-S00-007",
+                          "runner":  "dotnet test",
+                          "path":  "DotNet/Tests/Odyssey.Tests.Unit/SerializationContractTests.cs",
+                          "check":  "explicit Newtonsoft streaming codec baseline and centralized profiles"
+                      },
+                      {
+                          "testCaseId":  "TC-SER-002",
+                          "taskId":  "ODY-S00-007",
+                          "authority":  "ADR-003; ODY-S00-007",
+                          "runner":  "dotnet test",
+                          "path":  "DotNet/Tests/Odyssey.Tests.Unit/SerializationContractTests.cs",
+                          "check":  "ContractType / ContractVersion parsing and registry lookup"
+                      },
+                      {
+                          "testCaseId":  "TC-SER-003",
+                          "taskId":  "ODY-S00-007",
+                          "authority":  "ADR-003; ODY-S00-007",
+                          "runner":  "dotnet test",
+                          "path":  "DotNet/Tests/Odyssey.Tests.Unit/SerializationContractTests.cs",
+                          "check":  "explicit codec used without automatic object mapping"
+                      },
+                      {
+                          "testCaseId":  "TC-SER-004",
+                          "taskId":  "ODY-S00-007",
+                          "authority":  "ADR-003; ADR-008; ODY-S00-007",
+                          "runner":  "dotnet test",
+                          "path":  "DotNet/Tests/Odyssey.Tests.Unit/SerializationContractTests.cs",
+                          "check":  "stable typed-ID conversion"
+                      },
+                      {
+                          "testCaseId":  "TC-SER-005",
+                          "taskId":  "ODY-S00-007",
+                          "authority":  "ADR-003; ADR-002; ODY-S00-007",
+                          "runner":  "dotnet test",
+                          "path":  "DotNet/Tests/Odyssey.Tests.Unit/SerializationContractTests.cs",
+                          "check":  "UtcInstant conversion/validation"
+                      },
+                      {
+                          "testCaseId":  "TC-SER-006",
+                          "taskId":  "ODY-S00-007",
+                          "authority":  "ADR-003; ADR-004; ODY-S00-007",
+                          "runner":  "dotnet test",
+                          "path":  "DotNet/Tests/Odyssey.Tests.Unit/SerializationContractTests.cs",
+                          "check":  "stable enum token"
+                      },
+                      {
+                          "testCaseId":  "TC-SER-007",
+                          "taskId":  "ODY-S00-007",
+                          "authority":  "ADR-003; ODY-S00-007",
+                          "runner":  "dotnet test",
+                          "path":  "DotNet/Tests/Odyssey.Tests.Unit/SerializationContractTests.cs",
+                          "check":  "canonical UTF-8/order/BOM/whitespace/null/default"
+                      },
+                      {
+                          "testCaseId":  "TC-SER-008",
+                          "taskId":  "ODY-S00-007",
+                          "authority":  "ADR-003; ODY-S00-007",
+                          "runner":  "dotnet test",
+                          "path":  "DotNet/Tests/Odyssey.Tests.Unit/SerializationContractTests.cs",
+                          "check":  "duplicate/comment/trailing comma/UTF-8/BOM rejection"
+                      },
+                      {
+                          "testCaseId":  "TC-SER-009",
+                          "taskId":  "ODY-S00-007",
+                          "authority":  "ADR-003; ADR-004; ODY-S00-007",
+                          "runner":  "dotnet test",
+                          "path":  "DotNet/Tests/Odyssey.Tests.Unit/SerializationContractTests.cs",
+                          "check":  "max depth and byte ceilings"
+                      },
+                      {
+                          "testCaseId":  "TC-SER-010",
+                          "taskId":  "ODY-S00-007",
+                          "authority":  "ADR-003; ODY-S00-007",
+                          "runner":  "dotnet test",
+                          "path":  "DotNet/Tests/Odyssey.Tests.Unit/SerializationContractTests.cs",
+                          "check":  "NaN/Infinity rejection and -0 normalization where applicable"
+                      },
+                      {
+                          "testCaseId":  "TC-SER-011",
+                          "taskId":  "ODY-S00-007",
+                          "authority":  "ADR-003; ODY-S00-007",
+                          "runner":  "dotnet test",
+                          "path":  "DotNet/Tests/Odyssey.Tests.Unit/SerializationContractTests.cs",
+                          "check":  "stable SHA-256 golden fixture"
+                      },
+                      {
+                          "testCaseId":  "TC-SER-012",
+                          "taskId":  "ODY-S00-007",
+                          "authority":  "ADR-003; ODY-S00-007",
+                          "runner":  "dotnet test",
+                          "path":  "DotNet/Tests/Odyssey.Tests.Unit/SerializationContractTests.cs",
+                          "check":  "CommandFingerprintMaterialV1 exact inclusion/exclusion/order"
+                      },
+                      {
+                          "testCaseId":  "TC-SER-013",
+                          "taskId":  "ODY-S00-007",
+                          "authority":  "ADR-003; ODY-S00-007",
+                          "runner":  "dotnet test",
+                          "path":  "DotNet/Tests/Odyssey.Tests.Unit/SerializationContractTests.cs",
+                          "check":  "stable golden CommandFingerprint vector"
+                      },
+                      {
+                          "testCaseId":  "TC-SER-014",
+                          "taskId":  "ODY-S00-007",
+                          "authority":  "ADR-003; ODY-S00-007",
+                          "runner":  "dotnet test",
+                          "path":  "DotNet/Tests/Odyssey.Tests.Unit/SerializationContractTests.cs",
+                          "check":  "event canonical JSON/hash round-trip"
+                      },
+                      {
+                          "testCaseId":  "TC-SER-015",
+                          "taskId":  "ODY-S00-007",
+                          "authority":  "ADR-003; ODY-S00-007",
+                          "runner":  "dotnet test",
+                          "path":  "DotNet/Tests/Odyssey.Tests.Unit/SerializationContractTests.cs",
+                          "check":  "event raw fixture bytes remain unchanged"
+                      },
+                      {
+                          "testCaseId":  "TC-SER-016",
+                          "taskId":  "ODY-S00-007",
+                          "authority":  "ADR-003; ODY-S00-007",
+                          "runner":  "dotnet test",
+                          "path":  "DotNet/Tests/Odyssey.Tests.Unit/SerializationContractTests.cs",
+                          "check":  "pure v1-\u003ev2 upcaster AND missing-path compatibility failure"
+                      },
+                      {
+                          "testCaseId":  "TC-SER-017",
+                          "taskId":  "ODY-S00-007",
+                          "authority":  "ADR-003; ADR-004; ODY-S00-007",
+                          "runner":  "dotnet test",
+                          "path":  "DotNet/Tests/Odyssey.Tests.Unit/SerializationContractTests.cs",
+                          "check":  "unknown type/version/missing required field rejected"
+                      },
+                      {
+                          "testCaseId":  "TC-SER-018",
+                          "taskId":  "ODY-S00-007",
+                          "authority":  "ADR-003; ODY-S00-007",
+                          "runner":  "dotnet test",
+                          "path":  "DotNet/Tests/Odyssey.Tests.Unit/SerializationContractTests.cs",
+                          "check":  ".odcamp manifest/path safety/no secrets/no absolute paths"
+                      },
+                      {
+                          "testCaseId":  "TC-SER-019",
+                          "taskId":  "ODY-S00-007",
+                          "authority":  "ADR-001; ADR-003; ODY-S00-007",
+                          "runner":  "PowerShell",
+                          "path":  "scripts/verify-test-structure.ps1",
+                          "check":  "Domain serializer-free"
+                      },
+                      {
+                          "testCaseId":  "TC-SER-020",
+                          "taskId":  "ODY-S00-007",
+                          "authority":  "ADR-003; ODY-S00-007",
+                          "runner":  "dotnet test",
+                          "path":  "DotNet/Tests/Odyssey.Tests.Unit/SerializationContractTests.cs",
+                          "check":  "registry has no CLR lookup/scanning/service locator/object fallback"
+                      },
+                      {
+                          "testCaseId":  "TC-SER-021",
+                          "taskId":  "ODY-S00-007",
+                          "authority":  "ADR-003; ADR-009; ODY-S00-007",
+                          "runner":  "Unity EditMode",
+                          "path":  "Assets/Odyssey/Client/Tests/EditMode/SerializationParityEditModeTests.cs",
+                          "check":  "Unity Mono parity with .NET vectors"
+                      },
+                      {
+                          "testCaseId":  "TC-SER-022",
+                          "taskId":  "ODY-S00-007",
+                          "authority":  "ADR-003; ADR-009; ODY-S00-007",
+                          "runner":  "PowerShell",
+                          "path":  "scripts/test-serialization-aot.ps1",
+                          "check":  "Windows x64 IL2CPP parity with .NET/Mono vectors"
+                      },
+                      {
+                          "testCaseId":  "TC-SER-023",
+                          "taskId":  "ODY-S00-007",
+                          "authority":  "ADR-003; ODY-S00-007",
+                          "runner":  "dotnet test",
+                          "path":  "DotNet/Tests/Odyssey.Tests.Unit/SerializationContractTests.cs",
+                          "check":  "golden fixtures/hashes stable and never auto-updated"
+                      },
+                      {
+                          "testCaseId":  "TC-SER-024",
+                          "taskId":  "ODY-S00-007",
+                          "authority":  "ADR-001; ADR-003; ODY-S00-007",
+                          "runner":  "PowerShell",
+                          "path":  "scripts/verify-test-structure.ps1",
+                          "check":  "repository/dependency/boundary policy"
+                      },
+                      {
+                          "testCaseId":  "TC-UNITY-SHELL-001",
+                          "taskId":  "ODY-S00-006",
+                          "authority":  "ADR-005; ADR-009; ODY-S00-006 AC-5/AC-6",
+                          "runner":  "Unity PlayMode",
+                          "path":  "Assets/Odyssey/Client/Tests/PlayMode/OdysseyPlayModeFoundationSmokeTests.cs",
+                          "check":  "Bootstrap loads AppShell to visible Ready state, runs technical shell actions, rejects duplicate RuntimeHost, reaches Stopped shutdown, and releases lease"
+                      },
+                      {
+                          "testCaseId":  "TC-VERSION-003",
+                          "taskId":  "ODY-S00-008",
+                          "authority":  "ADR-007; ODY-S00-008",
+                          "runner":  "dotnet test",
+                          "path":  "DotNet/Tests/Odyssey.Tests.Unit/BuildIdentityContractTests.cs",
+                          "check":  "valid strict root version.json schema v1 is accepted"
+                      },
+                      {
+                          "testCaseId":  "TC-VERSION-004",
+                          "taskId":  "ODY-S00-008",
+                          "authority":  "ADR-007; ODY-S00-008",
+                          "runner":  "dotnet test",
+                          "path":  "DotNet/Tests/Odyssey.Tests.Unit/BuildIdentityContractTests.cs",
+                          "check":  "malformed JSON, duplicate properties, unknown schema, unknown fields and missing required version-source fields are rejected"
+                      },
+                      {
+                          "testCaseId":  "TC-VERSION-005",
+                          "taskId":  "ODY-S00-008",
+                          "authority":  "ADR-007; ODY-S00-008",
+                          "runner":  "dotnet test",
+                          "path":  "DotNet/Tests/Odyssey.Tests.Unit/BuildIdentityContractTests.cs",
+                          "check":  "exact SemVer source rules are enforced and tracked ApplicationVersion remains 0.1.0"
+                      },
+                      {
+                          "testCaseId":  "TC-VERSION-006",
+                          "taskId":  "ODY-S00-008",
+                          "authority":  "ADR-007; ODY-S00-008",
+                          "runner":  "dotnet test",
+                          "path":  "DotNet/Tests/Odyssey.Tests.Unit/BuildIdentityContractTests.cs",
+                          "check":  "valid config/compatibility.json schema v1 and range invariants are accepted"
+                      },
+                      {
+                          "testCaseId":  "TC-VERSION-007",
+                          "taskId":  "ODY-S00-008",
+                          "authority":  "ADR-007; ODY-S00-008",
+                          "runner":  "dotnet test",
+                          "path":  "DotNet/Tests/Odyssey.Tests.Unit/BuildIdentityContractTests.cs",
+                          "check":  "malformed/duplicate/unknown compatibility configuration, non-positive values and invalid ranges are rejected"
+                      },
+                      {
+                          "testCaseId":  "TC-VERSION-008",
+                          "taskId":  "ODY-S00-008",
+                          "authority":  "ADR-007; ODY-S00-008",
+                          "runner":  "dotnet test",
+                          "path":  "DotNet/Tests/Odyssey.Tests.Unit/BuildIdentityContractTests.cs",
+                          "check":  "canonical compatibility representation and SHA-256 digest are stable for identical validated inputs"
+                      },
+                      {
+                          "testCaseId":  "TC-BUILDID-001",
+                          "taskId":  "ODY-S00-008",
+                          "authority":  "ADR-007; ODY-S00-008",
+                          "runner":  "dotnet test",
+                          "path":  "DotNet/Tests/Odyssey.Tests.Unit/BuildIdentityContractTests.cs",
+                          "check":  "canonical BuildIdentity generator creates Local identity"
+                      },
+                      {
+                          "testCaseId":  "TC-BUILDID-002",
+                          "taskId":  "ODY-S00-008",
+                          "authority":  "ADR-007; ODY-S00-008",
+                          "runner":  "dotnet test",
+                          "path":  "DotNet/Tests/Odyssey.Tests.Unit/BuildIdentityContractTests.cs",
+                          "check":  "canonical BuildIdentity generator creates PullRequest identity"
+                      },
+                      {
+                          "testCaseId":  "TC-BUILDID-003",
+                          "taskId":  "ODY-S00-008",
+                          "authority":  "ADR-007; ODY-S00-008",
+                          "runner":  "dotnet test",
+                          "path":  "DotNet/Tests/Odyssey.Tests.Unit/BuildIdentityContractTests.cs",
+                          "check":  "Development identity exists where required for CI/main evidence"
+                      },
+                      {
+                          "testCaseId":  "TC-BUILDID-004",
+                          "taskId":  "ODY-S00-008",
+                          "authority":  "ADR-007; ODY-S00-008",
+                          "runner":  "dotnet test",
+                          "path":  "DotNet/Tests/Odyssey.Tests.Unit/BuildIdentityContractTests.cs",
+                          "check":  "BuildId changes for a new build execution"
+                      },
+                      {
+                          "testCaseId":  "TC-BUILDID-005",
+                          "taskId":  "ODY-S00-008",
+                          "authority":  "ADR-007; ODY-S00-008",
+                          "runner":  "dotnet test",
+                          "path":  "DotNet/Tests/Odyssey.Tests.Unit/BuildIdentityContractTests.cs",
+                          "check":  "full and short Git SHA, ref, and working-tree state are exact"
+                      },
+                      {
+                          "testCaseId":  "TC-BUILDID-006",
+                          "taskId":  "ODY-S00-008",
+                          "authority":  "ADR-007; ODY-S00-008",
+                          "runner":  "dotnet test",
+                          "path":  "DotNet/Tests/Odyssey.Tests.Unit/BuildIdentityContractTests.cs",
+                          "check":  "Unity version, .NET SDK version, configuration, target, architecture, scripting backend, and API compatibility are recorded"
+                      },
+                      {
+                          "testCaseId":  "TC-BUILDID-007",
+                          "taskId":  "ODY-S00-008",
+                          "authority":  "ADR-007; ODY-S00-008",
+                          "runner":  "dotnet test",
+                          "path":  "DotNet/Tests/Odyssey.Tests.Unit/BuildIdentityContractTests.cs",
+                          "check":  "dirty Local build is explicitly marked"
+                      },
+                      {
+                          "testCaseId":  "TC-BUILDID-008",
+                          "taskId":  "ODY-S00-008",
+                          "authority":  "ADR-007; ODY-S00-008",
+                          "runner":  "dotnet test",
+                          "path":  "DotNet/Tests/Odyssey.Tests.Unit/BuildIdentityContractTests.cs",
+                          "check":  "PR/CI identity cannot claim Release or ReleaseCandidate"
+                      },
+                      {
+                          "testCaseId":  "TC-BUILDID-009",
+                          "taskId":  "ODY-S00-008",
+                          "authority":  "ADR-007; ODY-S00-008",
+                          "runner":  "PowerShell",
+                          "path":  "scripts/verify-build-identity.ps1",
+                          "check":  "generated C# and JSON describe the same identity"
+                      },
+                      {
+                          "testCaseId":  "TC-BUILDID-010",
+                          "taskId":  "ODY-S00-008",
+                          "authority":  "ADR-007; ODY-S00-008",
+                          "runner":  "Unity EditMode",
+                          "path":  "Assets/Odyssey/Client/Tests/EditMode/RuntimeCompositionAndDiagnosticsTests.cs",
+                          "check":  "Developer Shell displays supplied BuildIdentity"
+                      },
+                      {
+                          "testCaseId":  "TC-BUILDID-011",
+                          "taskId":  "ODY-S00-008",
+                          "authority":  "ADR-007; ODY-S00-008",
+                          "runner":  "Unity EditMode",
+                          "path":  "Assets/Odyssey/Client/Tests/EditMode/RuntimeCompositionAndDiagnosticsTests.cs",
+                          "check":  "Developer Shell has explicit unavailable/failure state when identity cannot be loaded"
+                      },
+                      {
+                          "testCaseId":  "TC-BUILDID-012",
+                          "taskId":  "ODY-S00-008",
+                          "authority":  "ADR-007; ODY-S00-008",
+                          "runner":  "Unity EditMode",
+                          "path":  "Assets/Odyssey/Client/Tests/EditMode/RuntimeCompositionAndDiagnosticsTests.cs",
+                          "check":  "startup diagnostics include only allowlisted safe BuildIdentity fields"
+                      },
+                      {
+                          "testCaseId":  "TC-BUILDID-013",
+                          "taskId":  "ODY-S00-008",
+                          "authority":  "ADR-007; ODY-S00-008",
+                          "runner":  "dotnet test",
+                          "path":  "DotNet/Tests/Odyssey.Tests.Unit/BuildIdentityContractTests.cs",
+                          "check":  "username, machine name, absolute path, persistent device ID, and secrets are absent"
+                      },
+                      {
+                          "testCaseId":  "TC-BUILDID-014",
+                          "taskId":  "ODY-S00-008",
+                          "authority":  "ADR-007; ODY-S00-008",
+                          "runner":  "dotnet test",
+                          "path":  "DotNet/Tests/Odyssey.Tests.Unit/BuildIdentityContractTests.cs",
+                          "check":  "generated identity records the exact source commit"
+                      },
+                      {
+                          "testCaseId":  "TC-CI-001",
+                          "taskId":  "ODY-S00-008",
+                          "authority":  "Technical Development Baseline v0.5; ODY-S00-008",
+                          "runner":  "PowerShell",
+                          "path":  ".github/workflows/ci.yml",
+                          "check":  "required pull_request/main and push/main triggers"
+                      },
+                      {
+                          "testCaseId":  "TC-CI-002",
+                          "taskId":  "ODY-S00-008",
+                          "authority":  "Technical Development Baseline v0.5; ODY-S00-008",
+                          "runner":  "PowerShell",
+                          "path":  ".github/workflows/ci.yml",
+                          "check":  "top-level contents: read"
+                      },
+                      {
+                          "testCaseId":  "TC-CI-003",
+                          "taskId":  "ODY-S00-008",
+                          "authority":  "Technical Development Baseline v0.5; ODY-S00-008",
+                          "runner":  "PowerShell",
+                          "path":  "scripts/verify-test-structure.ps1",
+                          "check":  "immutable approved Action SHAs"
+                      },
+                      {
+                          "testCaseId":  "TC-CI-004",
+                          "taskId":  "ODY-S00-008",
+                          "authority":  "Technical Development Baseline v0.5; ODY-S00-008",
+                          "runner":  "PowerShell",
+                          "path":  ".github/workflows/ci.yml",
+                          "check":  "repository policy/format/test-structure scripts wired"
+                      },
+                      {
+                          "testCaseId":  "TC-CI-005",
+                          "taskId":  "ODY-S00-008",
+                          "authority":  "Technical Development Baseline v0.5; ODY-S00-008",
+                          "runner":  "PowerShell",
+                          "path":  ".github/workflows/ci.yml",
+                          "check":  ".NET restore/build/test scripts wired"
+                      },
+                      {
+                          "testCaseId":  "TC-CI-006",
+                          "taskId":  "ODY-S00-008",
+                          "authority":  "Technical Development Baseline v0.5; ODY-S00-008",
+                          "runner":  "PowerShell",
+                          "path":  "scripts/verify-unity-project.ps1",
+                          "check":  "static Unity version/package check does not run Unity"
+                      },
+                      {
+                          "testCaseId":  "TC-CI-007",
+                          "taskId":  "ODY-S00-008",
+                          "authority":  "Technical Development Baseline v0.5; ODY-S00-008",
+                          "runner":  "PowerShell",
+                          "path":  ".github/workflows/ci.yml",
+                          "check":  "BuildIdentity/provenance job wired"
+                      },
+                      {
+                          "testCaseId":  "TC-CI-008",
+                          "taskId":  "ODY-S00-008",
+                          "authority":  "Technical Development Baseline v0.5; ODY-S00-008",
+                          "runner":  "PowerShell",
+                          "path":  ".github/workflows/ci.yml",
+                          "check":  "no pull_request_target, write token or fork secrets"
+                      },
+                      {
+                          "testCaseId":  "TC-CI-009",
+                          "taskId":  "ODY-S00-008",
+                          "authority":  "Technical Development Baseline v0.5; ODY-S00-008",
+                          "runner":  "PowerShell",
+                          "path":  ".github/workflows/ci.yml",
+                          "check":  "no GameCI or Unity secrets"
+                      },
+                      {
+                          "testCaseId":  "TC-CI-010",
+                          "taskId":  "ODY-S00-008",
+                          "authority":  "Technical Development Baseline v0.5; ODY-S00-008",
+                          "runner":  "PowerShell",
+                          "path":  "scripts/verify-ci.ps1",
+                          "check":  "invalid fixture makes owning check fail"
+                      },
+                      {
+                          "testCaseId":  "TC-CI-011",
+                          "taskId":  "ODY-S00-008",
+                          "authority":  "Technical Development Baseline v0.5; ODY-S00-008",
+                          "runner":  "PowerShell",
+                          "path":  "scripts/verify-ci.ps1",
+                          "check":  "unavailable toolchain/non-zero script cannot false-green"
+                      },
+                      {
+                          "testCaseId":  "TC-CI-012",
+                          "taskId":  "ODY-S00-008",
+                          "authority":  "Technical Development Baseline v0.5; ODY-S00-008",
+                          "runner":  "PowerShell",
+                          "path":  ".github/workflows/ci.yml",
+                          "check":  "stable check names, bounded time/retention and no required-job skip trick"
+                      },
+                      {
+                          "testCaseId":  "TC-PROVENANCE-001",
+                          "taskId":  "ODY-S00-008",
+                          "authority":  "ADR-007; ODY-S00-008",
+                          "runner":  "PowerShell",
+                          "path":  "scripts/verify-build-identity.ps1",
+                          "check":  "build-identity.json is generated"
+                      },
+                      {
+                          "testCaseId":  "TC-PROVENANCE-002",
+                          "taskId":  "ODY-S00-008",
+                          "authority":  "ADR-007; ODY-S00-008",
+                          "runner":  "PowerShell",
+                          "path":  "scripts/verify-build-identity.ps1",
+                          "check":  "evidence artifact SHA-256 checksums are generated"
+                      },
+                      {
+                          "testCaseId":  "TC-PROVENANCE-003",
+                          "taskId":  "ODY-S00-008",
+                          "authority":  "ADR-007; ODY-S00-008",
+                          "runner":  "PowerShell",
+                          "path":  "scripts/verify-build-identity.ps1",
+                          "check":  "evidence links BuildId and commit"
+                      },
+                      {
+                          "testCaseId":  "TC-PROVENANCE-004",
+                          "taskId":  "ODY-S00-008",
+                          "authority":  "ADR-007; ODY-S00-008",
+                          "runner":  "PowerShell",
+                          "path":  ".github/workflows/ci.yml",
+                          "check":  "evidence retention is bounded"
+                      },
+                      {
+                          "testCaseId":  "TC-PROVENANCE-005",
+                          "taskId":  "ODY-S00-008",
+                          "authority":  "ADR-007; ODY-S00-008",
+                          "runner":  "PowerShell",
+                          "path":  "docs/tasks/active/ODY-S00-008_Fast_CI_and_Build_Identity.md",
+                          "check":  "no GitHub Release or ODY-S00-009 application artifact is produced"
+                      },
+                      {
+                          "testCaseId":  "TC-PROVENANCE-006",
+                          "taskId":  "ODY-S00-008",
+                          "authority":  "ADR-007; ODY-S00-008",
+                          "runner":  "PowerShell",
+                          "path":  "docs/tasks/active/ODY-S00-008_Fast_CI_and_Build_Identity.md",
+                          "check":  "branch protection/ruleset availability is recorded honestly with owner action if inaccessible"
+                      },
+                      {
+                          "testCaseId":  "TC-DIAG-033",
+                          "taskId":  "ODY-S00-008",
+                          "authority":  "ADR-010; ODY-S00-008",
+                          "runner":  "dotnet test",
+                          "path":  "DotNet/Tests/Odyssey.Tests.Unit/DiagnosticSessionBundleTests.cs",
+                          "check":  "diagnostic session expiry"
+                      },
+                      {
+                          "testCaseId":  "TC-DIAG-034",
+                          "taskId":  "ODY-S00-008",
+                          "authority":  "ADR-010; ODY-S00-008",
+                          "runner":  "dotnet test",
+                          "path":  "DotNet/Tests/Odyssey.Tests.Unit/DiagnosticSessionBundleTests.cs",
+                          "check":  "secret-field guard"
+                      },
+                      {
+                          "testCaseId":  "TC-DIAG-035",
+                          "taskId":  "ODY-S00-008",
+                          "authority":  "ADR-010; ODY-S00-008",
+                          "runner":  "dotnet test",
+                          "path":  "DotNet/Tests/Odyssey.Tests.Unit/DiagnosticSessionBundleTests.cs",
+                          "check":  "bundle manifest include/exclude categories"
+                      },
+                      {
+                          "testCaseId":  "TC-DIAG-036",
+                          "taskId":  "ODY-S00-008",
+                          "authority":  "ADR-010; ODY-S00-008",
+                          "runner":  "dotnet test",
+                          "path":  "DotNet/Tests/Odyssey.Tests.Unit/DiagnosticSessionBundleTests.cs",
+                          "check":  "bundle checksums"
+                      },
+                      {
+                          "testCaseId":  "TC-DIAG-037",
+                          "taskId":  "ODY-S00-008",
+                          "authority":  "ADR-010; ODY-S00-008",
+                          "runner":  "dotnet test",
+                          "path":  "DotNet/Tests/Odyssey.Tests.Unit/DiagnosticSessionBundleTests.cs",
+                          "check":  "50 MiB truncation report"
+                      },
+                      {
+                          "testCaseId":  "TC-DIAG-038",
+                          "taskId":  "ODY-S00-008",
+                          "authority":  "ADR-010; ODY-S00-008",
+                          "runner":  "dotnet test",
+                          "path":  "DotNet/Tests/Odyssey.Tests.Unit/DiagnosticSessionBundleTests.cs",
+                          "check":  "campaign database absence"
+                      },
+                      {
+                          "testCaseId":  "TC-DIAG-039",
+                          "taskId":  "ODY-S00-008",
+                          "authority":  "ADR-010; ODY-S00-008",
+                          "runner":  "dotnet test",
+                          "path":  "DotNet/Tests/Odyssey.Tests.Unit/DiagnosticSessionBundleTests.cs",
+                          "check":  "closed/private documentation absence"
+                      },
+                      {
+                          "testCaseId":  "TC-DIAG-040",
+                          "taskId":  "ODY-S00-008",
+                          "authority":  "ADR-010; ODY-S00-008",
+                          "runner":  "dotnet test",
+                          "path":  "DotNet/Tests/Odyssey.Tests.Unit/DiagnosticSessionBundleTests.cs",
+                          "check":  "machine name and persistent device ID absence from system summary"
+                      }
+                  ]
 }
