@@ -127,15 +127,21 @@ namespace Odyssey.Application.Diagnostics
             {
                 byte[] content = candidates[index].Content ?? throw new ArgumentException("Candidate content cannot be null.", nameof(candidates));
                 if (DiagnosticBundleText.IsForbiddenPath(candidates[index].RelativePath)) throw new ArgumentException("Candidate path is forbidden.", nameof(candidates));
-                long stored = Math.Min(content.LongLength, remaining);
-                DiagnosticBundleEntryStatus status = stored == content.LongLength ? DiagnosticBundleEntryStatus.Included : DiagnosticBundleEntryStatus.Truncated;
+                byte[] sanitized = DiagnosticBundleText.RequireSafeContent(candidates[index].Category, content);
+                if (remaining == 0)
+                {
+                    entries.Add(new DiagnosticBundleEntry(candidates[index].Category, candidates[index].RelativePath, content.LongLength, 0, DiagnosticBundleEntryStatus.Excluded, Sha256(Array.Empty<byte>())));
+                    continue;
+                }
+
+                long stored = Math.Min(sanitized.LongLength, remaining);
+                DiagnosticBundleEntryStatus status = stored == sanitized.LongLength ? DiagnosticBundleEntryStatus.Included : DiagnosticBundleEntryStatus.Truncated;
                 byte[] storedBytes = new byte[(int)stored];
-                Array.Copy(content, storedBytes, stored);
+                Array.Copy(sanitized, storedBytes, stored);
                 string digest = Sha256(storedBytes);
                 entries.Add(new DiagnosticBundleEntry(candidates[index].Category, candidates[index].RelativePath, content.LongLength, stored, status, digest));
                 totalStored += stored;
                 remaining -= stored;
-                if (remaining == 0) break;
             }
 
             return new DiagnosticBundleManifest(diagnosticId, buildId, entries, totalStored, false, false, false);
@@ -167,6 +173,51 @@ namespace Odyssey.Application.Diagnostics
 
     internal static class DiagnosticBundleText
     {
+        private static readonly UTF8Encoding StrictUtf8 = new UTF8Encoding(false, true);
+
+        internal static byte[] RequireSafeContent(DiagnosticBundleCategory category, byte[] content)
+        {
+            if (content == null) throw new ArgumentNullException(nameof(content));
+            string text;
+            try
+            {
+                text = StrictUtf8.GetString(content);
+            }
+            catch (DecoderFallbackException ex)
+            {
+                throw new ArgumentException("Diagnostic bundle content must be valid UTF-8.", nameof(content), ex);
+            }
+
+            if (!IsSafeContent(category, text)) throw new ArgumentException("Diagnostic bundle content is not safe.", nameof(content));
+            return StrictUtf8.GetBytes(text);
+        }
+
+        internal static bool IsSafeContent(DiagnosticBundleCategory category, string value)
+        {
+            if (!Enum.IsDefined(typeof(DiagnosticBundleCategory), category)) return false;
+            if (string.IsNullOrWhiteSpace(value)) return false;
+            for (int index = 0; index < value.Length; index++)
+            {
+                char c = value[index];
+                if (char.IsControl(c) && c != '\n' && c != '\r' && c != '\t') return false;
+            }
+
+            string lower = value.ToLowerInvariant();
+            return !lower.Contains("secret") &&
+                !lower.Contains("token") &&
+                !lower.Contains("password") &&
+                !lower.Contains("credential") &&
+                !lower.Contains("private chat") &&
+                !lower.Contains("hiddengameplay") &&
+                !lower.Contains("personal") &&
+                !lower.Contains("username") &&
+                !lower.Contains("machine") &&
+                !lower.Contains("deviceid") &&
+                !lower.Contains("persistentdeviceid") &&
+                !lower.Contains("c:\\") &&
+                !lower.Contains("/users/");
+        }
+
         internal static bool IsSafeBuildId(string value)
         {
             if (string.IsNullOrWhiteSpace(value) || value.Length > 160 || !value.StartsWith("odyssey-", StringComparison.Ordinal)) return false;

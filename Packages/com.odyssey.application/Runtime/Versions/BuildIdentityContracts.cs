@@ -354,6 +354,17 @@ namespace Odyssey.Application.Versions
                 BuildChannel channel = ParseChannelToken(ReadString(values, "channel"));
                 WorkingTreeState state = ParseWorkingTreeStateToken(ReadString(values, "workingTreeState"));
                 CompatibilityConfig compatibility = ReadCompatibility(values, "compatibility");
+                string compatibilityDigest = ReadString(values, "compatibilityConfigDigest");
+                string contractRegistryDigest = ReadString(values, "contractRegistryDigest");
+                if (!string.Equals(ComputeCompatibilityDigest(compatibility), compatibilityDigest, StringComparison.Ordinal))
+                {
+                    return Result<BuildIdentity>.Failure(VersioningFailures.InvalidSource());
+                }
+
+                if (!string.Equals(ComputeContractRegistryDigest(), contractRegistryDigest, StringComparison.Ordinal))
+                {
+                    return Result<BuildIdentity>.Failure(VersioningFailures.InvalidSource());
+                }
 
                 return Result<BuildIdentity>.Success(new BuildIdentity(
                     ReadString(values, "productName"),
@@ -378,8 +389,8 @@ namespace Odyssey.Application.Versions
                     ReadString(values, "scriptingBackend"),
                     ReadString(values, "apiCompatibilityLevel"),
                     compatibility,
-                    ReadString(values, "compatibilityConfigDigest"),
-                    ReadString(values, "contractRegistryDigest"),
+                    compatibilityDigest,
+                    contractRegistryDigest,
                     ReadBool(values, "release")));
             }
             catch (JsonException)
@@ -621,8 +632,10 @@ namespace Odyssey.Application.Versions
     {
         public static bool IsUtcTimestamp(string? value)
         {
-            if (string.IsNullOrWhiteSpace(value) || value!.Length != 16 || !value.EndsWith("Z", StringComparison.Ordinal)) return false;
-            return value[8] == 'T' && IsDigits(value, 0, 8) && IsDigits(value, 9, 6);
+            if (string.IsNullOrWhiteSpace(value) || !value!.EndsWith("Z", StringComparison.Ordinal)) return false;
+            if (value.Length == 16) return value[8] == 'T' && IsDigits(value, 0, 8) && IsDigits(value, 9, 6);
+            if (value.Length == 23) return value[8] == 'T' && IsDigits(value, 0, 8) && IsDigits(value, 9, 13);
+            return false;
         }
 
         public static bool IsFullSha(string? value)

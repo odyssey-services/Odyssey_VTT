@@ -83,7 +83,7 @@ docs/adr/ADR-010_Logging_Diagnostics_and_Redaction_v1.1.md
 
 `docs/tasks/completed/ODY-S00-007_Serialization_and_AOT_Compatibility_Spike.md` is complete through owner-merged PR #11, merged head `555c7adbead725cf84658588d3777a3827f39dd6`, merge commit `88382217a1053fbe5eb631024063800f45e69926`.
 
-`docs/tasks/active/ODY-S00-008_Fast_CI_and_Build_Identity.md` is the current `In Review` child task on branch `feat/ody-s00-008-fast-ci-build-identity`. PR #12 is open and Ready for Review; merge is not requested. ODY-S00-009 remains `Draft`.
+`docs/tasks/active/ODY-S00-008_Fast_CI_and_Build_Identity.md` is the current `In Progress` child task on branch `fix/ody-s00-008-post-merge-review-findings` for post-merge remediation. PR #12 is owner-merged into `main`; no corrective PR is open. ODY-S00-009 remains `Draft`.
 
 # 5. CI and Unity Validation Authority
 

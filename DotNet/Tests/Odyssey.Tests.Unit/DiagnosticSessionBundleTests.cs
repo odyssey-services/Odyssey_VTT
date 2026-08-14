@@ -1,5 +1,6 @@
 using System;
 using System.Linq;
+using System.Security.Cryptography;
 using System.Text;
 using NUnit.Framework;
 using Odyssey.Application.Diagnostics;
@@ -28,6 +29,8 @@ namespace Odyssey.Tests.Unit
         {
             AssertArgumentException(() => DiagnosticBundlePlanner.CreateManifest(DiagnosticId, BuildId(), new[] { Candidate(DiagnosticBundleCategory.DiagnosticLogs, "private/closed-notes.txt", "secret") }));
             AssertArgumentException(() => DiagnosticBundlePlanner.CreateManifest(DiagnosticId, BuildId(), new[] { Candidate(DiagnosticBundleCategory.DiagnosticLogs, "campaign-database.odcamp", "db") }));
+            AssertArgumentException(() => DiagnosticBundlePlanner.CreateManifest(DiagnosticId, BuildId(), new[] { Candidate(DiagnosticBundleCategory.DiagnosticLogs, "logs/app.jsonl", "{\"message\":\"fake secret token\"}") }));
+            AssertArgumentException(() => DiagnosticBundlePlanner.CreateManifest(DiagnosticId, BuildId(), new[] { (DiagnosticBundleCategory.DiagnosticLogs, "logs/app.jsonl", new byte[] { 0xff, 0xfe, 0xfd }) }));
         }
 
         [Test]
@@ -43,18 +46,42 @@ namespace Odyssey.Tests.Unit
             Assert.That(manifest.Entries.Select(entry => entry.Category), Is.EquivalentTo(new[] { DiagnosticBundleCategory.RuntimeSummary, DiagnosticBundleCategory.BuildIdentity, DiagnosticBundleCategory.DiagnosticLogs }));
             Assert.That(manifest.Entries.All(entry => entry.Sha256.Length == 64), Is.True);
             Assert.That(manifest.Entries.All(entry => entry.Status == DiagnosticBundleEntryStatus.Included), Is.True);
+            Assert.That(manifest.Entries.Single(entry => entry.RelativePath == "runtime/summary.txt").Sha256, Is.EqualTo(Sha256(Encoding.UTF8.GetBytes("runtime"))));
         }
 
         [Test]
         public void DiagnosticBundleTruncatesAtFiftyMiBAndReportsStoredSize()
         {
-            byte[] oversized = new byte[(int)DiagnosticBundleManifest.MaximumBundleBytes + 1];
+            byte[] oversized = Encoding.UTF8.GetBytes(new string('a', (int)DiagnosticBundleManifest.MaximumBundleBytes + 1));
             DiagnosticBundleManifest manifest = DiagnosticBundlePlanner.CreateManifest(DiagnosticId, BuildId(), new[] { (DiagnosticBundleCategory.DiagnosticLogs, "logs/oversized.jsonl", oversized) });
 
             Assert.That(manifest.TotalStoredBytes, Is.EqualTo(DiagnosticBundleManifest.MaximumBundleBytes));
             Assert.That(manifest.Entries.Single().OriginalBytes, Is.EqualTo(DiagnosticBundleManifest.MaximumBundleBytes + 1));
             Assert.That(manifest.Entries.Single().StoredBytes, Is.EqualTo(DiagnosticBundleManifest.MaximumBundleBytes));
             Assert.That(manifest.Entries.Single().Status, Is.EqualTo(DiagnosticBundleEntryStatus.Truncated));
+        }
+
+        [Test]
+        public void DiagnosticBundleRecordsAllRemainingCandidatesAsExcludedAfterSizeCap()
+        {
+            byte[] oversized = Encoding.UTF8.GetBytes(new string('a', (int)DiagnosticBundleManifest.MaximumBundleBytes + 1));
+            DiagnosticBundleManifest manifest = DiagnosticBundlePlanner.CreateManifest(DiagnosticId, BuildId(), new[]
+            {
+                (DiagnosticBundleCategory.DiagnosticLogs, "logs/oversized.jsonl", oversized),
+                Candidate(DiagnosticBundleCategory.RuntimeSummary, "runtime/summary.txt", "os=windows"),
+                Candidate(DiagnosticBundleCategory.BuildIdentity, "build/build-identity.json", "{}")
+            });
+
+            Assert.That(manifest.TotalStoredBytes, Is.EqualTo(DiagnosticBundleManifest.MaximumBundleBytes));
+            Assert.That(manifest.Entries, Has.Count.EqualTo(3));
+            Assert.That(manifest.Entries[0].Status, Is.EqualTo(DiagnosticBundleEntryStatus.Truncated));
+            Assert.That(manifest.Entries[1].Status, Is.EqualTo(DiagnosticBundleEntryStatus.Excluded));
+            Assert.That(manifest.Entries[1].OriginalBytes, Is.EqualTo(10));
+            Assert.That(manifest.Entries[1].StoredBytes, Is.EqualTo(0));
+            Assert.That(manifest.Entries[1].Sha256, Is.EqualTo(Sha256(Array.Empty<byte>())));
+            Assert.That(manifest.Entries[2].Status, Is.EqualTo(DiagnosticBundleEntryStatus.Excluded));
+            Assert.That(manifest.Entries[2].OriginalBytes, Is.EqualTo(2));
+            Assert.That(manifest.Entries[2].StoredBytes, Is.EqualTo(0));
         }
 
         [Test]
@@ -78,6 +105,14 @@ namespace Odyssey.Tests.Unit
         private static void AssertArgumentException(Action action)
         {
             Assert.Throws<ArgumentException>(action);
+        }
+
+        private static string Sha256(byte[] bytes)
+        {
+            using (SHA256 sha = SHA256.Create())
+            {
+                return BitConverter.ToString(sha.ComputeHash(bytes)).Replace("-", string.Empty).ToLowerInvariant();
+            }
         }
 
         private static string BuildId()

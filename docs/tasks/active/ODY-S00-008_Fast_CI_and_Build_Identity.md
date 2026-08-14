@@ -1,14 +1,14 @@
 # ODY-S00-008 - Fast CI and Build Identity
 
-**Status:** In Review
+**Status:** In Progress
 **Roadmap stage / slice:** SLICE-00
 **Owner:** Codex
 **Requested by:** Product owner
-**Branch:** `feat/ody-s00-008-fast-ci-build-identity`
-**Pull request:** PR #12 - https://github.com/odyssey-services/Odyssey_VTT/pull/12
+**Branch:** `fix/ody-s00-008-post-merge-review-findings`
+**Pull request:** PR #12 owner-merged - https://github.com/odyssey-services/Odyssey_VTT/pull/12; corrective PR not opened
 **ExecPlan:** `docs/plans/active/ODY-S00-000_SLICE_00_Technical_Skeleton.md`
 **Created:** 2026-08-12 13:02 UTC
-**Last updated:** 2026-08-14 02:27 UTC
+**Last updated:** 2026-08-14 UTC
 
 ## 1. Goal
 
@@ -539,6 +539,52 @@ Branch protection/ruleset: Owner action/evidence pending
 Reason: GitHub branch protection endpoint returned 403 to the integration, and rulesets endpoint returned GitHub plan/public-repository requirement.
 ```
 
+### Post-merge remediation status
+
+```text
+PR #12: Merged
+Merge commit: 487df0fe97051541c3cdfce5253c8a2f7a70fa54
+Remediation branch: fix/ody-s00-008-post-merge-review-findings
+Corrective PR: Not opened
+ODY-S00-009: Draft
+```
+
+Accepted review findings under remediation:
+
+- Diagnostic bundle content must be proven safe before inclusion, truncation, and SHA-256 calculation; unsafe or opaque bytes fail closed.
+- Separate default Local executions must receive execution-unique UTC BuildId timestamps while explicit identical inputs remain reproducible.
+- `BuildIdentityCodec.ReadBuildIdentity` must recompute and validate compatibility and contract registry digests.
+- After the 50 MiB diagnostic bundle size cap, all remaining candidates must appear in the manifest as excluded entries.
+
+Rejected review finding: rename from `odyssey-development` to `odyssey-dev`. Owner decision preserves `odyssey-development-<GitHubRunId>.<RunAttempt>-g<ShortSha>`.
+
+### Post-merge remediation validation
+
+| Command / check | Result | Evidence / notes |
+|---|---|---|
+| `powershell -NoProfile -ExecutionPolicy Bypass -File .\scripts\restore.ps1` | Pass | Restored 4 of 8 projects; remaining projects were up to date. |
+| `powershell -NoProfile -ExecutionPolicy Bypass -File .\scripts\verify-format.ps1` | Pass | `FORMAT-001 PASS repository text formatting checks passed`. |
+| `powershell -NoProfile -ExecutionPolicy Bypass -File .\scripts\verify-test-structure.ps1` | Pass | `TC-ARCH-001 PASS`; controlled invalid Domain->Rules, package version mismatch, duplicate catalog ownership, and duplicate TestCaseId fixtures rejected. |
+| `powershell -NoProfile -ExecutionPolicy Bypass -File .\scripts\test-fast.ps1` | Pass | Build 0 warnings/0 errors; Contracts 1/1, Domain 1/1, Unit 80/80, Architecture 2/2. |
+| `dotnet build .\DotNet\Odyssey.Core.sln --no-restore` | Pass | Build 0 warnings/0 errors. |
+| `dotnet test .\DotNet\Odyssey.Core.sln --no-build --no-restore` | Pass | Contracts 1, Domain 1, Unit 80, Architecture 2; total 84 passed, 0 failed, 0 skipped. |
+| `powershell -NoProfile -ExecutionPolicy Bypass -File .\scripts\verify-ci.ps1` | Pass | `TC-CI-001` through `TC-CI-012` passed; controlled invalid workflow fixtures rejected. |
+| `powershell -NoProfile -ExecutionPolicy Bypass -File .\scripts\verify-unity-project.ps1` | Pass | Static Unity project/package/toolchain source validation passed; Unity Editor compile not claimed. |
+| `powershell -NoProfile -ExecutionPolicy Bypass -File .\scripts\check-repository-policy.ps1` | Pass | Repository policy, registry negative fixtures, CI verifier, and static Unity verifier passed. |
+| `powershell -NoProfile -ExecutionPolicy Bypass -File .\scripts\verify-repository.ps1` | Pass | Repository policy, structure, CI verifier, static Unity verifier, and SDK check passed; selected SDK `10.0.302`. |
+| `powershell -NoProfile -ExecutionPolicy Bypass -File .\scripts\test-unity.ps1` | Pass | Local Unity `6000.4.0f1`; generated Local BuildIdentity `odyssey-local-20260814t031052z-g487df0fe9705-dirty`; batch compile exit 0; EditMode exit 0 and 33/33 passed; PlayMode exit 0 and 2/2 passed. |
+| `git diff --check` | Pass | Initial post-Unity run found Unity whitespace drift only in `ProjectSettings/ProjectSettings.asset`; exact file drift was restored as out-of-scope Unity-generated whitespace. Rerun passed. |
+| `git diff --cached --check` | Pass | No staged whitespace errors. |
+
+Post-merge regression mapping:
+
+- Diagnostic content safety and fake-secret rejection: `TC-DIAG-034`.
+- Bundle final stored-byte checksum behavior: `TC-DIAG-036`.
+- Complete excluded entries after size cap: `TC-DIAG-035` and `TC-DIAG-037`.
+- Execution-unique default Local BuildId timestamp support: `TC-BUILDID-004`.
+- Preserved `odyssey-development` identity token: `TC-BUILDID-003`.
+- BuildIdentity digest recomputation and valid canonical round-trip: `TC-VERSION-008`, `TC-BUILDID-009`, and `TC-PROVENANCE-002`.
+
 ### Acceptance result
 
 | Criterion | Status | Evidence |
@@ -564,7 +610,7 @@ Reason: GitHub branch protection endpoint returned 403 to the integration, and r
 
 ### Self-review summary
 
-- Independent pre-PR audit on corrected HEAD `5c401fd4c7f2cb033b951e4f2ce0ee338c545ac4` returned `GO for Draft PR`. Draft PR evidence gate returned `GO` with blockers 0. PR #12 is Ready for Review; merge is not requested. The first real GitHub Actions run `31762586128` and final Draft evidence run `31763363396` passed all four required checks. Branch protection/ruleset remains `Owner action/evidence pending`.
+- Independent pre-PR audit on corrected HEAD `5c401fd4c7f2cb033b951e4f2ce0ee338c545ac4` returned `GO for Draft PR`. Draft PR evidence gate returned `GO` with blockers 0. PR #12 was owner-merged as `487df0fe97051541c3cdfce5253c8a2f7a70fa54`; post-merge remediation is In Progress and corrective PR is not opened. The first real GitHub Actions run `31762586128` and final Draft evidence run `31763363396` passed all four required checks. Branch protection/ruleset remains `Owner action/evidence pending`.
 - Scope review: Implementation is limited to ODY-S00-008 fast CI, BuildIdentity, provenance, static Unity validation, and ADR-010 diagnostic session/bundle evidence.
 - Architecture review: Contract follows ADR-001, ADR-005, ADR-006, ADR-007, ADR-009, and ADR-010 without changing ADRs.
 - Test review: Existing `TC-VERSION-001` and `TC-VERSION-002` remain owned by ODY-S00-004; ODY-S00-008 owns `TC-VERSION-003` through `TC-VERSION-008`.
