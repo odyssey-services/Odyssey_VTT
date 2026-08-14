@@ -461,6 +461,66 @@ Independent pre-PR audit of implementation HEAD `eea58a01e63179061f21ad44fabbc27
 
 Unity batchmode produced ProjectSettings whitespace drift in `ProjectSettings/ProjectSettings.asset`; the path was clean before Unity, contained no semantic settings change, and was restored after validation. No Release/RC identity outputs were produced.
 
+### Draft PR and first GitHub Actions evidence
+
+Independent pre-PR audit verdict: `GO for Draft PR`.
+
+Draft PR #12 is open at https://github.com/odyssey-services/Odyssey_VTT/pull/12 against `main`.
+
+```text
+PR state: Draft
+Ready for Review: No
+Merge: Not requested
+Initial validated code HEAD: 5c401fd4c7f2cb033b951e4f2ce0ee338c545ac4
+First real GitHub Actions run: 31762586128
+Run URL: https://github.com/odyssey-services/Odyssey_VTT/actions/runs/31762586128
+```
+
+First run check results:
+
+| Check | Conclusion | Head SHA | Runner |
+|---|---|---|---|
+| `ci / repository-policy-format-structure` | Success | `5c401fd4c7f2cb033b951e4f2ce0ee338c545ac4` | `windows-2022` |
+| `ci / dotnet-restore-build-test` | Success | `5c401fd4c7f2cb033b951e4f2ce0ee338c545ac4` | `windows-2022` |
+| `ci / unity-project-package-static` | Success | `5c401fd4c7f2cb033b951e4f2ce0ee338c545ac4` | `windows-2022` |
+| `ci / buildidentity-provenance` | Success | `5c401fd4c7f2cb033b951e4f2ce0ee338c545ac4` | `windows-2022` |
+
+First provenance artifact evidence:
+
+```text
+Artifact: odyssey-build-identity
+Contents:
+- build-identity.json
+- checksums.sha256
+Retention: 7 days
+Expires: 2026-08-21T02:04:56Z
+Checksum: 60a8389c6561ffc96bbebaa159f9bd00e6445ad4422aae66ee463dd7846e4c46
+Artifact files absent: generated C#, StreamingAssets copy, repository snapshot, application/Player artifact, environment dump, extra files.
+```
+
+First provenance linkage:
+
+```text
+PR: #12
+Feature HEAD: 5c401fd4c7f2cb033b951e4f2ce0ee338c545ac4
+Synthetic PR merge checkout SHA: 91bb6f4c01ef3ba2c392ab1204e09e848badb603
+BuildIdentity gitCommitSha: 91bb6f4c01ef3ba2c392ab1204e09e848badb603
+displayVersion: 0.1.0-pr.12.1+g91bb6f4c01ef
+gitRef: refs/pull/12/merge
+channel: pull_request
+buildNumber: 31762586128
+runAttempt: 1
+```
+
+Owner clarification: a dedicated `pullRequestNumber` property is not part of ADR-007 BuildIdentity schema v1 and is not required for ODY-S00-008. PR provenance is accepted through canonical cross-field evidence: `displayVersion` contains `pr.12.1`, `gitRef` is `refs/pull/12/merge`, `buildNumber` equals the GitHub run ID, `runAttempt` equals the run attempt, and `gitCommitSha` equals the PR job synthetic merge checkout SHA. The earlier artifact audit finding is reclassified as non-blocking.
+
+Branch protection/ruleset read-only evidence:
+
+```text
+Branch protection/ruleset: Owner action/evidence pending
+Reason: GitHub branch protection endpoint returned 403 to the integration, and rulesets endpoint returned GitHub plan/public-repository requirement.
+```
+
 ### Acceptance result
 
 | Criterion | Status | Evidence |
@@ -486,7 +546,7 @@ Unity batchmode produced ProjectSettings whitespace drift in `ProjectSettings/Pr
 
 ### Self-review summary
 
-- Independent pre-PR audit on implementation HEAD `eea58a01e63179061f21ad44fabbc27a1a1c880d` returned `NO-GO` for one blocker: workflow/verifier contract mismatch. Correction scope is limited to CI workflow contract, CI verifier, `TC-CI-001` through `TC-CI-012` meanings, and evidence documentation. Real GitHub Actions run remains `Pending Draft PR`; branch protection/ruleset remains `Owner action/evidence pending`; PR remains `Not opened`.
+- Independent pre-PR audit on corrected HEAD `5c401fd4c7f2cb033b951e4f2ce0ee338c545ac4` returned `GO for Draft PR`. Draft PR #12 is open and remains `Draft`; the first real GitHub Actions run `31762586128` passed all four required checks. Branch protection/ruleset remains `Owner action/evidence pending`.
 - Scope review: Implementation is limited to ODY-S00-008 fast CI, BuildIdentity, provenance, static Unity validation, and ADR-010 diagnostic session/bundle evidence.
 - Architecture review: Contract follows ADR-001, ADR-005, ADR-006, ADR-007, ADR-009, and ADR-010 without changing ADRs.
 - Test review: Existing `TC-VERSION-001` and `TC-VERSION-002` remain owned by ODY-S00-004; ODY-S00-008 owns `TC-VERSION-003` through `TC-VERSION-008`.
@@ -498,7 +558,6 @@ Unity batchmode produced ProjectSettings whitespace drift in `ProjectSettings/Pr
 
 ### Blockers
 
-- Pre-PR audit `NO-GO` finding for workflow/verifier contract mismatch is being corrected in a scoped correction commit. A repeat full independent pre-PR audit is still required before Draft PR GO.
 - Automated Unity CI remains blocked until a future owner-approved licensing or runner amendment.
 
 ### Decisions made during execution
