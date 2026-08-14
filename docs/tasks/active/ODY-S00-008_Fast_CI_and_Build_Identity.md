@@ -1,14 +1,14 @@
 # ODY-S00-008 - Fast CI and Build Identity
 
-**Status:** In Progress
+**Status:** In Review
 **Roadmap stage / slice:** SLICE-00
 **Owner:** Codex
 **Requested by:** Product owner
 **Branch:** `feat/ody-s00-008-fast-ci-build-identity`
-**Pull request:** Not opened
+**Pull request:** PR #12 - https://github.com/odyssey-services/Odyssey_VTT/pull/12
 **ExecPlan:** `docs/plans/active/ODY-S00-000_SLICE_00_Technical_Skeleton.md`
 **Created:** 2026-08-12 13:02 UTC
-**Last updated:** 2026-08-12 18:20 UTC
+**Last updated:** 2026-08-14 02:27 UTC
 
 ## 1. Goal
 
@@ -468,9 +468,10 @@ Independent pre-PR audit verdict: `GO for Draft PR`.
 Draft PR #12 is open at https://github.com/odyssey-services/Odyssey_VTT/pull/12 against `main`.
 
 ```text
-PR state: Draft
-Ready for Review: No
+PR state: Ready for Review
+Ready for Review: Yes
 Merge: Not requested
+Blockers: 0
 Initial validated code HEAD: 5c401fd4c7f2cb033b951e4f2ce0ee338c545ac4
 First real GitHub Actions run: 31762586128
 Run URL: https://github.com/odyssey-services/Odyssey_VTT/actions/runs/31762586128
@@ -514,6 +515,23 @@ runAttempt: 1
 
 Owner clarification: a dedicated `pullRequestNumber` property is not part of ADR-007 BuildIdentity schema v1 and is not required for ODY-S00-008. PR provenance is accepted through canonical cross-field evidence: `displayVersion` contains `pr.12.1`, `gitRef` is `refs/pull/12/merge`, `buildNumber` equals the GitHub run ID, `runAttempt` equals the run attempt, and `gitCommitSha` equals the PR job synthetic merge checkout SHA. The earlier artifact audit finding is reclassified as non-blocking.
 
+Ready-for-Review transition evidence:
+
+```text
+PR: #12
+PR state: Ready for Review
+Merge: Not requested
+Blockers: 0
+Initial implementation HEAD: eea58a01e63179061f21ad44fabbc27a1a1c880d
+CI-contract correction HEAD: 5c401fd4c7f2cb033b951e4f2ce0ee338c545ac4
+Draft PR evidence HEAD: 664d2d524b62b0997d8ed409a19c9d2dc9898219
+Final Draft evidence run: 31763363396
+Final Draft evidence run URL: https://github.com/odyssey-services/Odyssey_VTT/actions/runs/31763363396
+Required checks: ci / repository-policy-format-structure, ci / dotnet-restore-build-test, ci / unity-project-package-static, ci / buildidentity-provenance
+Required check conclusions: Success
+Provenance checksum: 2ab7fbf021f36f0b23bfddf79139955573c2a3b4b7e3fa7fd5685e76dfbec82c
+```
+
 Branch protection/ruleset read-only evidence:
 
 ```text
@@ -546,7 +564,7 @@ Reason: GitHub branch protection endpoint returned 403 to the integration, and r
 
 ### Self-review summary
 
-- Independent pre-PR audit on corrected HEAD `5c401fd4c7f2cb033b951e4f2ce0ee338c545ac4` returned `GO for Draft PR`. Draft PR #12 is open and remains `Draft`; the first real GitHub Actions run `31762586128` passed all four required checks. Branch protection/ruleset remains `Owner action/evidence pending`.
+- Independent pre-PR audit on corrected HEAD `5c401fd4c7f2cb033b951e4f2ce0ee338c545ac4` returned `GO for Draft PR`. Draft PR evidence gate returned `GO` with blockers 0. PR #12 is Ready for Review; merge is not requested. The first real GitHub Actions run `31762586128` and final Draft evidence run `31763363396` passed all four required checks. Branch protection/ruleset remains `Owner action/evidence pending`.
 - Scope review: Implementation is limited to ODY-S00-008 fast CI, BuildIdentity, provenance, static Unity validation, and ADR-010 diagnostic session/bundle evidence.
 - Architecture review: Contract follows ADR-001, ADR-005, ADR-006, ADR-007, ADR-009, and ADR-010 without changing ADRs.
 - Test review: Existing `TC-VERSION-001` and `TC-VERSION-002` remain owned by ODY-S00-004; ODY-S00-008 owns `TC-VERSION-003` through `TC-VERSION-008`.

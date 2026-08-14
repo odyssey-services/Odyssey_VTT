@@ -55,7 +55,7 @@ Deliver the complete `SLICE-00` technical skeleton: a private authoritative repo
 - Repository Foundation is complete through merged PR #1.
 - Unity Project Foundation is complete through owner-merged PR #4; merge commit `70e7d49e217d4aecb7a2e873d31787d26001f47f` records the Unity `6000.4.0f1 (8cf496087c8f)` HDRP baseline.
 - Module and Test Skeleton is complete through owner-merged PR #6; merge commit `5e6f5e03ef022c5d7b0e6fef559c2383796d95be` records the Core module/test skeleton and dual .NET/Unity test foundation.
-- ODY-S00-004 is complete through owner-merged PR #8. ODY-S00-005 is complete through owner-merged PR #9, merge commit `7aa5cc972c48d9af6509895bb6d9ed1e18899fdf`. ODY-S00-006 is complete through owner-merged PR #10, merged head `b695bc09f344a36b45adb30ed7c0186bf71902d9`, merge commit `abb139c3c93115c468d020db3eb423c47cfdd83b`, merged at `2026-08-11T18:52:47Z`. ODY-S00-007 is complete through owner-merged PR #11, merge commit `88382217a1053fbe5eb631024063800f45e69926`. ODY-S00-008 is the current In Progress child task on `feat/ody-s00-008-fast-ci-build-identity`; the CI licensing decision is recorded as no-secret GitHub Actions plus mandatory local Unity merge validation; no PR exists yet.
+- ODY-S00-004 is complete through owner-merged PR #8. ODY-S00-005 is complete through owner-merged PR #9, merge commit `7aa5cc972c48d9af6509895bb6d9ed1e18899fdf`. ODY-S00-006 is complete through owner-merged PR #10, merged head `b695bc09f344a36b45adb30ed7c0186bf71902d9`, merge commit `abb139c3c93115c468d020db3eb423c47cfdd83b`, merged at `2026-08-11T18:52:47Z`. ODY-S00-007 is complete through owner-merged PR #11, merge commit `88382217a1053fbe5eb631024063800f45e69926`. ODY-S00-008 is the current In Review child task on `feat/ody-s00-008-fast-ci-build-identity`; PR #12 is Ready for Review, blockers are 0, and merge is not requested.
 
 ### Assumptions
 
@@ -266,7 +266,7 @@ All additional dependencies require a child task update and explicit approval be
 
 ### Follow-up tasks
 
-- `ODY-S00-008` through `ODY-S00-010`; ODY-S00-001 through ODY-S00-007 are completed, and ODY-S00-008 is In Progress for Fast CI and Build Identity implementation after owner approval.
+- `ODY-S00-008` through `ODY-S00-010`; ODY-S00-001 through ODY-S00-007 are completed, and ODY-S00-008 is In Review for Fast CI and Build Identity after owner approval.
 - ADR-010 diagnostic session/bundle scenarios `TC-DIAG-033`, `TC-DIAG-034`, `TC-DIAG-035`, `TC-DIAG-036`, `TC-DIAG-037`, `TC-DIAG-038`, `TC-DIAG-039`, and `TC-DIAG-040` are future ODY-S00-008 scope after BuildIdentity exists; ODY-S00-010 remains final reconciliation, not an implementation task.
 
 ### Self-review summary
@@ -281,7 +281,7 @@ All additional dependencies require a child task update and explicit approval be
 
 ### Blockers
 
-- ODY-S00-001 through ODY-S00-007 are complete. ODY-S00-008 is In Progress on `feat/ody-s00-008-fast-ci-build-identity`; the Personal-license CI decision is recorded; no PR exists yet.
+- ODY-S00-001 through ODY-S00-007 are complete. ODY-S00-008 is In Review on `feat/ody-s00-008-fast-ci-build-identity`; PR #12 is Ready for Review; the Personal-license CI decision is recorded; merge is not requested.
 - ODY-S00-008 implementation evidence is recorded in its active task contract: no-secret Fast CI, BuildIdentity generation/parity, static Unity validation, and local Unity compile/EditMode/PlayMode gates passed. ODY-S00-009 remains blocked and unstarted until owner review/merge of ODY-S00-008.
 - ODY-S00-008 owns `TC-DIAG-033`, `TC-DIAG-034`, `TC-DIAG-035`, `TC-DIAG-036`, `TC-DIAG-037`, `TC-DIAG-038`, `TC-DIAG-039`, and `TC-DIAG-040` after BuildIdentity exists. ODY-S00-009 remains blocked by ODY-S00-008.
 
