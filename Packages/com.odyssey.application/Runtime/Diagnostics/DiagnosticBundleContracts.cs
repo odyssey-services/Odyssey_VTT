@@ -3,6 +3,8 @@ using System.Collections.Generic;
 using System.Security.Cryptography;
 using System.Text;
 using Odyssey.Application.Identity;
+using Odyssey.Application.Serialization;
+using Odyssey.Application.Versions;
 using Odyssey.Domain.Time;
 
 namespace Odyssey.Application.Diagnostics
@@ -178,44 +180,234 @@ namespace Odyssey.Application.Diagnostics
         internal static byte[] RequireSafeContent(DiagnosticBundleCategory category, byte[] content)
         {
             if (content == null) throw new ArgumentNullException(nameof(content));
-            string text;
+            byte[] canonical;
+            switch (category)
+            {
+                case DiagnosticBundleCategory.BuildIdentity:
+                    canonical = CanonicalizeBuildIdentity(content);
+                    break;
+                case DiagnosticBundleCategory.RuntimeSummary:
+                    canonical = CanonicalizeRuntimeSummary(content);
+                    break;
+                case DiagnosticBundleCategory.DiagnosticLogs:
+                    canonical = CanonicalizeDiagnosticLogs(content);
+                    break;
+                default:
+                    throw new ArgumentException("Diagnostic bundle category is not export-safe.", nameof(category));
+            }
+
+            if (!PassesFinalExportSafetyScan(canonical)) throw new ArgumentException("Diagnostic bundle content is not export-safe.", nameof(content));
+            return canonical;
+        }
+
+        private static byte[] CanonicalizeBuildIdentity(byte[] content)
+        {
+            Odyssey.Application.Results.Result<BuildIdentity> identity = BuildIdentityCodec.ReadBuildIdentity(content);
+            if (identity.IsFailure) throw new ArgumentException("BuildIdentity payload is invalid.", nameof(content));
+            Odyssey.Application.Results.Result<JsonPayload> canonical = BuildIdentityCodec.WriteBuildIdentity(identity.Value);
+            if (canonical.IsFailure) throw new ArgumentException("BuildIdentity payload cannot be canonicalized.", nameof(content));
+            return canonical.Value.Bytes;
+        }
+
+        private static byte[] CanonicalizeRuntimeSummary(byte[] content)
+        {
+            Odyssey.Application.Results.Result<JsonObjectReader> reader = JsonObjectReader.Read(content, JsonPayloadLimits.DiagnosticRecordBytes);
+            if (reader.IsFailure) throw new ArgumentException("Runtime summary payload is invalid.", nameof(content));
+            Odyssey.Application.Results.Result schema = reader.Value.EnsureOnly(
+                "contractType",
+                "contractVersion",
+                "os",
+                "unityVersion",
+                "dotnetSdkVersion",
+                "configuration",
+                "target",
+                "architecture",
+                "scriptingBackend",
+                "apiCompatibilityLevel",
+                "compatibilityConfigDigest",
+                "contractRegistryDigest");
+            if (schema.IsFailure) throw new ArgumentException("Runtime summary has unknown fields.", nameof(content));
+
+            string contractType = RequiredString(reader.Value, "contractType", content);
+            int contractVersion = RequiredInt32(reader.Value, "contractVersion", content);
+            string os = RequiredToken(reader.Value, "os", content);
+            string unityVersion = RequiredVersionToken(reader.Value, "unityVersion", content);
+            string dotnetSdkVersion = RequiredVersionToken(reader.Value, "dotnetSdkVersion", content);
+            string configuration = RequiredToken(reader.Value, "configuration", content);
+            string target = RequiredToken(reader.Value, "target", content);
+            string architecture = RequiredToken(reader.Value, "architecture", content);
+            string scriptingBackend = RequiredToken(reader.Value, "scriptingBackend", content);
+            string apiCompatibilityLevel = RequiredVersionToken(reader.Value, "apiCompatibilityLevel", content);
+            string compatibilityConfigDigest = RequiredSha256(reader.Value, "compatibilityConfigDigest", content);
+            string contractRegistryDigest = RequiredSha256(reader.Value, "contractRegistryDigest", content);
+
+            if (contractType != "odyssey.diagnostics.runtime.summary" || contractVersion != 1) throw new ArgumentException("Runtime summary contract is unsupported.", nameof(content));
+            return new CanonicalJsonWriter()
+                .StartObject()
+                .String("contractType", contractType)
+                .Int32("contractVersion", contractVersion)
+                .String("os", os)
+                .String("unityVersion", unityVersion)
+                .String("dotnetSdkVersion", dotnetSdkVersion)
+                .String("configuration", configuration)
+                .String("target", target)
+                .String("architecture", architecture)
+                .String("scriptingBackend", scriptingBackend)
+                .String("apiCompatibilityLevel", apiCompatibilityLevel)
+                .String("compatibilityConfigDigest", compatibilityConfigDigest)
+                .String("contractRegistryDigest", contractRegistryDigest)
+                .EndObject()
+                .ToPayload()
+                .Bytes;
+        }
+
+        private static byte[] CanonicalizeDiagnosticLogs(byte[] content)
+        {
+            string text = DecodeStrictUtf8(content);
+            if (string.IsNullOrWhiteSpace(text)) throw new ArgumentException("Diagnostic logs cannot be empty.", nameof(content));
+            string normalized = text.Replace("\r\n", "\n");
+            if (normalized.Contains("\r")) throw new ArgumentException("Diagnostic logs must use LF-delimited JSONL.", nameof(content));
+            string[] lines = normalized.Split('\n');
+            LogEventV1JsonCodec codec = new LogEventV1JsonCodec();
+            List<byte> bytes = new List<byte>(content.Length);
+            for (int index = 0; index < lines.Length; index++)
+            {
+                if (lines[index].Length == 0)
+                {
+                    if (index == lines.Length - 1) continue;
+                    throw new ArgumentException("Diagnostic logs must not contain blank lines.", nameof(content));
+                }
+
+                byte[] lineBytes = StrictUtf8.GetBytes(lines[index]);
+                Odyssey.Application.Results.Result<LogEventV1> parsed = codec.Read(lineBytes);
+                if (parsed.IsFailure) throw new ArgumentException("Diagnostic log record is invalid.", nameof(content));
+                Odyssey.Application.Results.Result<JsonPayload> canonical = codec.Write(parsed.Value);
+                if (canonical.IsFailure) throw new ArgumentException("Diagnostic log record cannot be canonicalized.", nameof(content));
+                if (!PassesFinalExportSafetyScan(canonical.Value.Bytes)) throw new ArgumentException("Diagnostic log record is not export-safe.", nameof(content));
+                if (bytes.Count > 0) bytes.Add((byte)'\n');
+                bytes.AddRange(canonical.Value.Bytes);
+            }
+
+            if (bytes.Count == 0) throw new ArgumentException("Diagnostic logs cannot be empty.", nameof(content));
+            return bytes.ToArray();
+        }
+
+        private static string DecodeStrictUtf8(byte[] content)
+        {
             try
             {
-                text = StrictUtf8.GetString(content);
+                return StrictUtf8.GetString(content);
             }
             catch (DecoderFallbackException ex)
             {
                 throw new ArgumentException("Diagnostic bundle content must be valid UTF-8.", nameof(content), ex);
             }
-
-            if (!IsSafeContent(category, text)) throw new ArgumentException("Diagnostic bundle content is not safe.", nameof(content));
-            return StrictUtf8.GetBytes(text);
         }
 
-        internal static bool IsSafeContent(DiagnosticBundleCategory category, string value)
+        private static string RequiredString(JsonObjectReader reader, string name, byte[] content)
         {
-            if (!Enum.IsDefined(typeof(DiagnosticBundleCategory), category)) return false;
-            if (string.IsNullOrWhiteSpace(value)) return false;
+            Odyssey.Application.Results.Result<string> result = reader.RequiredString(name);
+            if (result.IsFailure) throw new ArgumentException("Runtime summary is missing a required field.", nameof(content));
+            return result.Value;
+        }
+
+        private static int RequiredInt32(JsonObjectReader reader, string name, byte[] content)
+        {
+            Odyssey.Application.Results.Result<int> result = reader.RequiredInt32(name);
+            if (result.IsFailure) throw new ArgumentException("Runtime summary has an invalid integer field.", nameof(content));
+            return result.Value;
+        }
+
+        private static string RequiredToken(JsonObjectReader reader, string name, byte[] content)
+        {
+            string value = RequiredString(reader, name, content);
+            if (!IsSafeToken(value)) throw new ArgumentException("Runtime summary token is invalid.", nameof(content));
+            return value;
+        }
+
+        private static string RequiredVersionToken(JsonObjectReader reader, string name, byte[] content)
+        {
+            string value = RequiredString(reader, name, content);
+            if (!IsSafeVersionToken(value)) throw new ArgumentException("Runtime summary version token is invalid.", nameof(content));
+            return value;
+        }
+
+        private static string RequiredSha256(JsonObjectReader reader, string name, byte[] content)
+        {
+            string value = RequiredString(reader, name, content);
+            if (!IsSha256(value)) throw new ArgumentException("Runtime summary digest is invalid.", nameof(content));
+            return value;
+        }
+
+        private static bool PassesFinalExportSafetyScan(byte[] content)
+        {
+            string value = DecodeStrictUtf8(content);
             for (int index = 0; index < value.Length; index++)
             {
                 char c = value[index];
-                if (char.IsControl(c) && c != '\n' && c != '\r' && c != '\t') return false;
+                if (char.IsControl(c) && c != '\n' && c != '\t') return false;
             }
 
             string lower = value.ToLowerInvariant();
-            return !lower.Contains("secret") &&
-                !lower.Contains("token") &&
-                !lower.Contains("password") &&
-                !lower.Contains("credential") &&
-                !lower.Contains("private chat") &&
-                !lower.Contains("hiddengameplay") &&
-                !lower.Contains("personal") &&
-                !lower.Contains("username") &&
-                !lower.Contains("machine") &&
-                !lower.Contains("deviceid") &&
-                !lower.Contains("persistentdeviceid") &&
-                !lower.Contains("c:\\") &&
-                !lower.Contains("/users/");
+            if (lower.Contains("secret") ||
+                lower.Contains("token") ||
+                lower.Contains("password") ||
+                lower.Contains("credential") ||
+                lower.Contains("apikey") ||
+                lower.Contains("api_key") ||
+                lower.Contains("email") ||
+                lower.Contains("account") ||
+                lower.Contains("private") ||
+                lower.Contains("gmnote") ||
+                lower.Contains("door code") ||
+                lower.Contains("hiddengameplay") ||
+                lower.Contains("hidden") ||
+                lower.Contains("personal") ||
+                lower.Contains("username") ||
+                lower.Contains("machine") ||
+                lower.Contains("serial") ||
+                lower.Contains("deviceid") ||
+                lower.Contains("persistentdeviceid") ||
+                lower.Contains("c:\\") ||
+                lower.Contains("/users/") ||
+                ContainsEmailLikeValue(lower))
+            {
+                return false;
+            }
+
+            return true;
+        }
+
+        private static bool IsSafeToken(string value)
+        {
+            if (string.IsNullOrWhiteSpace(value) || value.Length > 80 || value.Trim() != value) return false;
+            for (int index = 0; index < value.Length; index++)
+            {
+                char c = value[index];
+                if (!((c >= 'A' && c <= 'Z') || (c >= 'a' && c <= 'z') || (c >= '0' && c <= '9') || c == '.' || c == '-' || c == '_')) return false;
+            }
+
+            return true;
+        }
+
+        private static bool IsSafeVersionToken(string value)
+        {
+            if (!IsSafeToken(value)) return false;
+            for (int index = 0; index < value.Length; index++)
+            {
+                char c = value[index];
+                if (!((c >= '0' && c <= '9') || (c >= 'A' && c <= 'Z') || (c >= 'a' && c <= 'z') || c == '.' || c == '-' || c == '_')) return false;
+            }
+
+            return true;
+        }
+
+        private static bool ContainsEmailLikeValue(string value)
+        {
+            int at = value.IndexOf('@');
+            if (at <= 0 || at >= value.Length - 1) return false;
+            int dotAfterAt = value.IndexOf('.', at + 2);
+            return dotAfterAt > at + 1 && dotAfterAt < value.Length - 1;
         }
 
         internal static bool IsSafeBuildId(string value)
