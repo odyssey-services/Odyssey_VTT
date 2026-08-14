@@ -192,6 +192,16 @@ $requiredTestCaseIds = @(
     'TC-PROVENANCE-004',
     'TC-PROVENANCE-005',
     'TC-PROVENANCE-006',
+    'TC-PLAYER-001',
+    'TC-PLAYER-002',
+    'TC-PLAYER-003',
+    'TC-PLAYER-004',
+    'TC-PLAYER-005',
+    'TC-PLAYER-006',
+    'TC-PLAYER-007',
+    'TC-PLAYER-008',
+    'TC-PLAYER-009',
+    'TC-PLAYER-010',
     'TC-UNITY-SHELL-001'
 )
 $testProjects = @('Odyssey.Tests.Unit', 'Odyssey.Tests.Domain', 'Odyssey.Tests.Contracts', 'Odyssey.Tests.Architecture')

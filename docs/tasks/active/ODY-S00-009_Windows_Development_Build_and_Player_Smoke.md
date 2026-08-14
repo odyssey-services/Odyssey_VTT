@@ -1,6 +1,6 @@
 # ODY-S00-009 - Windows Development Build and Player Smoke
 
-**Status:** Draft  
+**Status:** Ready  
 **Roadmap stage / slice:** SLICE-00  
 **Owner:** Unassigned  
 **Requested by:** Product owner  
@@ -14,7 +14,7 @@
 
 Create and run the repository-controlled Windows x64 Development-Debug Player build, package the build artifact with BuildIdentity and checksums, and prove a minimal startup/shutdown Player smoke against the built application.
 
-This task remains Draft until the owner approves the TestCaseId/catalog mapping for the mandatory ADR-009 Windows build and Player smoke scenarios.
+Owner-approved TestCaseId/catalog mapping for the mandatory ADR-009 Windows build and Player smoke scenarios is registered as `TC-PLAYER-001` through `TC-PLAYER-010`.
 
 ## 2. Why this task exists
 
@@ -46,7 +46,7 @@ This task remains Draft until the owner approves the TestCaseId/catalog mapping 
 
 - Requirement IDs: `SLICE-00`, `M1`, `M5`, backlog ODY-S00-009, ADR-007 build identity/artifact requirements, ADR-009 build automation and Player smoke requirements.
 - Existing test IDs: `TST-UNI-019`, `TST-UNI-021`, `TST-UNI-022`, `TST-UNI-023`, `TST-UNI-024`, and `TST-UNI-030` from ADR-009; ODY-S00-008-owned `TC-BUILDID-*`, `TC-CI-*`, and `TC-PROVENANCE-*` remain existing prerequisite evidence and are not reassigned.
-- New test IDs to introduce: Blocked. `Tests/Metadata/test-catalog.json` contains no ODY-S00-009 catalog entries or owner-approved ODY-S00-009 `TC-*` range for Windows build and Player smoke evidence.
+- New test IDs introduced: `TC-PLAYER-001` through `TC-PLAYER-010` for ODY-S00-009 Windows build and Player smoke evidence. Catalog entries temporarily point to this active task contract while the planned owning scripts do not yet exist.
 
 ### Task-safe private context
 
@@ -61,8 +61,10 @@ This task remains Draft until the owner approves the TestCaseId/catalog mapping 
 - Main push CI run `31799960601` passed all four required no-secret jobs.
 - Development provenance checksum passed and `build-identity.json` SHA-256 was `91b1fe5662089adecb483e61431066afc266015dad3e0196e593c4c3683b9f30`.
 - Local Unity evidence for ODY-S00-008 used Unity `6000.4.0f1`, compile passed, EditMode passed 33/33, PlayMode passed 2/2, and no Player build was run.
-- `scripts/build-dev.ps1` and `scripts/build-release.ps1` exist as repository entry points, but this task has not audited or executed them.
-- `Tests/Metadata/test-catalog.json` contains ODY-S00-008 `TC-BUILDID-*`, `TC-CI-*`, `TC-PROVENANCE-*`, and `TC-DIAG-*` entries, but no ODY-S00-009 Windows build/Player smoke entries.
+- `scripts/build-dev.ps1` does not exist yet and must be created by ODY-S00-009 implementation.
+- `scripts/test-player-smoke.ps1` does not exist yet and must be created by ODY-S00-009 implementation.
+- `scripts/build-release.ps1` does not exist and is not in ODY-S00-009 scope.
+- `Tests/Metadata/test-catalog.json` contains owner-approved ODY-S00-009 `TC-PLAYER-001` through `TC-PLAYER-010` entries that preserve the mandatory ADR-009 Windows build and Player smoke meanings.
 
 ### Assumptions
 
@@ -74,10 +76,10 @@ This task remains Draft until the owner approves the TestCaseId/catalog mapping 
 
 - Repository-controlled Windows Standalone x64 Development-Debug build through `scripts/build-dev.ps1`.
 - Build automation that applies and verifies the Development-Debug profile without relying on local active Unity UI state.
-- Build output under `artifacts/` or a task-approved external output path, never inside `Assets/`, `Packages/`, or `ProjectSettings/`.
+- Build output under the canonical layout `artifacts/builds/<BuildId>/Windows-x64/`, never inside `Assets/`, `Packages/`, or `ProjectSettings/`. Alternative repository or external output paths are not accepted for canonical ODY-S00-009 validation.
 - BuildIdentity generation and inclusion beside the Player artifact as `build-identity.json`.
 - SHA-256 checksums for the produced artifact files/package.
-- Minimal automated Player smoke for the built artifact: process launch, `Bootstrap` startup to `Ready`, `AppShell` loaded, BuildIdentity readable, HDRP active, UI Toolkit root displayed, Input System Cancel/Submit path verified where automation exists, no fatal Player log errors, idempotent clean shutdown, and evidence retention.
+- Minimal automated Player smoke for the built artifact: process launch, `Bootstrap` startup to `Ready`, `AppShell` loaded, BuildIdentity readable, HDRP active, UI Toolkit root displayed, Input System Submit path processed, Input System Cancel path processed, no fatal Player log errors, idempotent clean shutdown, and evidence retention.
 - Redacted Player/build logs and smoke evidence according to ADR-010.
 - Task-specific documentation and parent ExecPlan evidence updates after implementation.
 
@@ -94,6 +96,7 @@ docs/tasks/active/ODY-S00-009_Windows_Development_Build_and_Player_Smoke.md
 docs/plans/active/ODY-S00-000_SLICE_00_Technical_Skeleton.md
 README.md
 Tests/Metadata/test-catalog.json
+scripts/verify-test-structure.ps1
 ```
 
 ### Paths requiring explicit approval before editing
@@ -104,7 +107,8 @@ Packages/**
 ProjectSettings/**
 .github/workflows/**
 DotNet/**
-scripts/**
+scripts/build-dev.ps1
+scripts/test-player-smoke.ps1
 config/**
 version.json
 THIRD_PARTY_NOTICES.md
@@ -113,7 +117,7 @@ TECHNICAL_DEVELOPMENT_BASELINE_Odyssey_VTT_v0.5.md
 ACTIVE_DOCUMENTATION_BASELINE_Odyssey_VTT_v2.0.md
 ```
 
-Production, test, workflow, Unity settings, package, script, and dependency changes are not approved while this task remains Draft.
+Production, test, workflow, Unity settings, package, and dependency changes are not approved by this contract activation. Script changes are planned only for `scripts/build-dev.ps1`, `scripts/test-player-smoke.ps1`, and necessary Unity build/smoke entry points during the separately approved ODY-S00-009 implementation.
 
 ## 6. Technical constraints
 
@@ -122,7 +126,7 @@ Production, test, workflow, Unity settings, package, script, and dependency chan
 - Serialization / compatibility boundary: Follow ADR-003 v1.1 and ADR-007. BuildIdentity and sidecar JSON must use the approved explicit contracts; no new schema is introduced by this task contract.
 - Time / RNG rule: Authoritative clocks/RNG are not part of this task. Build timestamps are BuildIdentity metadata only.
 - Unity / thread / lifetime rule: Follow ADR-005 and ADR-009. Player startup/shutdown must use the existing Bootstrap/AppShell lifecycle and prove clean disposal.
-- Dependency / licensing rule: No new dependency, GitHub Action, Unity package, executable, or downloadable tool is approved by this Draft contract.
+- Dependency / licensing rule: No new dependency, GitHub Action, Unity package, executable, or downloadable tool is approved by this contract.
 - Security / privacy / redaction rule: Follow ADR-010. Build and Player logs/artifacts must exclude secrets, local usernames, machine names, persistent device IDs, absolute local paths, private documentation, and hidden campaign content.
 - Performance or platform constraint: Target Windows 10/11 x64, Unity `6000.4.0f1`, Development-Debug Mono build profile unless an explicit owner decision changes the profile.
 - Other: Unity Editor execution in GitHub Actions remains unapproved under Technical Development Baseline v0.5. Local Unity/build evidence is mandatory unless a future owner-approved runner/licensing amendment exists.
@@ -133,13 +137,23 @@ Production, test, workflow, Unity settings, package, script, and dependency chan
 
 **Given** a clean task branch with ODY-S00-008 completed  
 **When** the approved development build script is run with Unity `6000.4.0f1`  
-**Then** it produces a Windows x64 Development-Debug Player artifact under the approved output location with `build-identity.json`, checksums, and build report evidence.
+**Then** it produces a Windows x64 Development-Debug Player artifact under `artifacts/builds/<BuildId>/Windows-x64/` with `build-identity.json`, checksums, and build report evidence.
 
 ### Scenario 2 - Player startup smoke
 
 **Given** the built Windows Player artifact  
 **When** the approved smoke runner launches it  
 **Then** the Player reaches `Ready`, loads `AppShell`, exposes BuildIdentity, records safe diagnostics, and exits cleanly without fatal Player log errors.
+
+### Smoke timeout and process contract
+
+- Bootstrap Ready timeout: 120 seconds from Player process launch.
+- Clean shutdown timeout: 15 seconds after the smoke runner requests shutdown.
+- Hard timeout for one smoke run: 150 seconds.
+- Successful Player exit code: exactly `0`.
+- Elapsed-time measurement must use injected or monotonic timing where applicable.
+- On timeout, the smoke runner must preserve safe available evidence, terminate the full Player process tree, verify no child processes remain, return non-zero, and record the smoke as failed regardless of the forced process exit code.
+- Any crash, non-zero exit, timeout, or orphan process is a failure.
 
 ### Required invariants
 
@@ -150,10 +164,10 @@ Production, test, workflow, Unity settings, package, script, and dependency chan
 
 ## 8. Deliverables
 
-- Production code: None while Draft; future Ready implementation may add only build/smoke integration needed by the approved contract.
-- Tests: Blocked pending owner-approved ODY-S00-009 TestCaseId/catalog mapping.
-- Scripts / CI: None while Draft; future implementation may update build/smoke scripts only after explicit approval.
-- Configuration: None while Draft.
+- Production code: None in this docs/catalog-only activation; future implementation may add only build/smoke integration needed by the approved contract.
+- Tests: Owner-approved `TC-PLAYER-001` through `TC-PLAYER-010` are registered as planned/not yet implemented.
+- Scripts / CI: No script implementation in this activation. ODY-S00-009 implementation must create `scripts/build-dev.ps1`, `scripts/test-player-smoke.ps1`, and necessary Unity build/smoke entry points. `scripts/build-release.ps1` is not planned.
+- Configuration: None in this activation.
 - Documentation: This task contract and synchronized SLICE-00 planning/status documents.
 - Generated evidence or build artifacts: None in this docs-only transition.
 - Migration / recovery material: Not applicable.
@@ -168,7 +182,7 @@ Production, test, workflow, Unity settings, package, script, and dependency chan
 6. Player smoke launches the built artifact and proves `Bootstrap` reaches `Ready`.
 7. Player smoke proves `AppShell` is loaded.
 8. Player smoke proves BuildIdentity is visible/readable in the runtime path.
-9. Player smoke proves the UI Toolkit root is displayed and the Input System Cancel/Submit path is validated where automation exists.
+9. Player smoke proves the UI Toolkit root is displayed, the Input System Submit path is processed, and the Input System Cancel path is processed inside the built Windows Development Player. Manual or deferred evidence is not accepted for this criterion.
 10. Player smoke proves no fatal Player log errors are present.
 11. Player smoke proves idempotent clean shutdown without leaked background operations.
 12. Build and Player logs/evidence are redacted and exclude secrets, local usernames, machine names, persistent device IDs, absolute paths, private documentation, and hidden campaign content.
@@ -176,7 +190,7 @@ Production, test, workflow, Unity settings, package, script, and dependency chan
 14. No Release, ReleaseCandidate, tag, installer/updater, distribution channel, telemetry, package upgrade, dependency, SQLite, networking, database, or gameplay scope is added.
 15. Required validation commands have real evidence and do not claim unrun checks.
 
-The task must not move to Ready until the blocker in section 18 is resolved.
+The task is Ready for a separate implementation ТЗ after the owner-approved TestCaseId/catalog mapping was registered.
 
 ## 10. Tests and validation
 
@@ -184,18 +198,22 @@ The task must not move to Ready until the blocker in section 18 is resolved.
 
 | Test ID | Layer / runner | Behavior or contract proven | Required result |
 |---|---|---|---|
-| `TST-UNI-019` | Unity build / script | Development-Debug Mono build passes | Pass |
-| `TST-UNI-021` | Windows Player smoke | Player startup reaches Ready | Pass |
-| `TST-UNI-022` | Windows Player smoke / artifact check | BuildIdentity in UI/runtime and sidecar match | Pass |
-| `TST-UNI-023` | Unity build / script | Build script does not depend on active local profile | Pass |
-| `TST-UNI-024` | artifact policy check | Build output is not created inside `Assets/` or `Packages/` | Pass |
-| `TST-UNI-030` | Windows Player smoke | Repeated startup/shutdown does not leave persistent objects/tasks | Pass |
+| `TC-PLAYER-001` | Unity build / script | Windows Standalone x64 Development-Debug Mono Player build passes under Unity `6000.4.0f1` | Pass |
+| `TC-PLAYER-002` | Unity build / script | Build script applies and verifies the Development-Debug profile independently of the active Unity Editor profile | Pass |
+| `TC-PLAYER-003` | artifact policy check | Artifact uses `artifacts/builds/<BuildId>/Windows-x64/` and never writes build output under `Assets/`, `Packages/`, or `ProjectSettings/` | Pass |
+| `TC-PLAYER-004` | Windows Player smoke / artifact check | Final Player artifact includes BuildIdentity JSON/checksums and runtime/sidecar identity parity for the exact source commit | Pass |
+| `TC-PLAYER-005` | Windows Player smoke | Built Player launches and reaches `Bootstrap Ready` within 120 seconds | Pass |
+| `TC-PLAYER-006` | Windows Player smoke | Player proves `AppShell` loaded, HDRP active, UI Toolkit root displayed, and Input System Submit and Cancel paths processed | Pass |
+| `TC-PLAYER-007` | Windows Player smoke | Player requests clean shutdown, exits with code 0 within 15 seconds, repeated runs leave no persistent process tree, and total smoke duration is bounded by 150 seconds | Pass |
+| `TC-PLAYER-008` | Windows Player smoke / log safety | Player/build logs and smoke evidence contain no secrets, usernames, machine names, persistent device IDs, absolute local paths, private documentation, or hidden content | Pass |
+| `TC-PLAYER-009` | artifact policy check | Player artifact excludes test assemblies, TestKit, private documentation, and editor/test-only outputs | Pass |
+| `TC-PLAYER-010` | artifact policy check | Development artifact creates no Release/RC/tag/signing/installer/updater/distribution/SBOM/telemetry outputs | Pass |
 
-These ADR-009 IDs are not yet represented in `Tests/Metadata/test-catalog.json` with ODY-S00-009 ownership. The implementation task must not proceed until the owner approves the exact catalog entries or replacement IDs that preserve these meanings.
+Catalog paths point to this active task contract until implementation creates the planned owning scripts. Planned owning paths are `scripts/build-dev.ps1` for `TC-PLAYER-001` through `TC-PLAYER-003` and `TC-PLAYER-010`, and `scripts/test-player-smoke.ps1` for `TC-PLAYER-004` through `TC-PLAYER-009`.
 
 ### Required commands
 
-Draft contract validation only:
+Contract activation validation:
 
 ```powershell
 git diff --name-status
@@ -208,11 +226,11 @@ git diff --check
 .\scripts\verify-repository.ps1
 ```
 
-Future implementation validation must include the approved build and smoke commands after the TestCaseId/catalog blocker is resolved. Likely entry points are `.\scripts\build-dev.ps1` and the repository-approved Player smoke command, but this Draft contract does not authorize implementation or script changes.
+Future implementation validation must include the approved build and smoke commands. Required planned entry points are `.\scripts\build-dev.ps1` and `.\scripts\test-player-smoke.ps1`.
 
 ### Manual validation
 
-- Owner review of TestCaseId/catalog mapping before moving this task to Ready.
+- Owner review of TestCaseId/catalog mapping before moving this task to Ready: completed by explicit owner approval on 2026-08-14.
 - Owner review of build artifact/evidence before merge during future implementation.
 
 ### Required environments / profiles
@@ -247,7 +265,7 @@ Future implementation validation must include the approved build and smoke comma
 |---|---|---|---|---|
 | None | - | - | - | - |
 
-No new dependency, GitHub Action, Unity package, executable, external tool, or download is approved by this Draft contract.
+No new dependency, GitHub Action, Unity package, executable, external tool, or download is approved by this contract.
 
 ## 13. Security, privacy, and hidden information
 
@@ -257,7 +275,7 @@ No new dependency, GitHub Action, Unity package, executable, external tool, or d
 - Redaction requirements: Redact or exclude secrets, tokens, license data, environment dumps, local usernames, machine names, persistent device IDs, full local paths, private documents, hidden gameplay data, and campaign data.
 - Log-safe fields: ADR-010 allowlisted structured fields and BuildIdentity safe fields only.
 - Abuse / malformed input limits: Build/smoke scripts fail closed on missing files, malformed sidecar identity, checksum mismatch, fatal logs, timeout, wrong Unity version, or out-of-scope output paths.
-- Security tests: Blocked pending TestCaseId/catalog mapping.
+- Security tests: Planned under `TC-PLAYER-008`, `TC-PLAYER-009`, and `TC-PLAYER-010`.
 
 ## 14. Planning and execution mode
 
@@ -265,7 +283,7 @@ No new dependency, GitHub Action, Unity package, executable, external tool, or d
 - Reason for selected mode: ODY-S00-009 touches Unity build automation, generated artifacts, Player runtime smoke, diagnostics, BuildIdentity, and parent SLICE-00 milestone evidence.
 - ExecPlan path: `docs/plans/active/ODY-S00-000_SLICE_00_Technical_Skeleton.md`
 - Expected pull request count: One implementation PR after Ready activation.
-- Milestone or sequencing constraints: Do not begin implementation until ODY-S00-009 is moved from Draft to Ready after owner-approved TestCaseId/catalog mapping.
+- Milestone or sequencing constraints: ODY-S00-009 is Ready after owner-approved TestCaseId/catalog mapping. Do not begin implementation until a separate implementation ТЗ is prepared and approved.
 
 ## 15. Documentation and versioning impact
 
@@ -296,7 +314,7 @@ No new dependency, GitHub Action, Unity package, executable, external tool, or d
 
 ### Changed files / areas
 
-- This Draft task contract was created during ODY-S00-008 closure / ODY-S00-009 creation.
+- This task contract was created during ODY-S00-008 closure / ODY-S00-009 creation and moved to Ready after owner-approved `TC-PLAYER-001` through `TC-PLAYER-010` mapping.
 
 ### Validation results
 
@@ -315,7 +333,7 @@ No new dependency, GitHub Action, Unity package, executable, external tool, or d
 
 | Criterion | Status | Evidence |
 |---|---|---|
-| AC-1 through AC-15 | Blocked | ODY-S00-009 implementation is not started; TestCaseId/catalog mapping is unresolved. |
+| AC-1 through AC-15 | Planned | ODY-S00-009 implementation is not started; `TC-PLAYER-001` through `TC-PLAYER-010` are registered for the future build/smoke implementation. |
 
 ### Build and artifact evidence
 
@@ -328,17 +346,17 @@ No new dependency, GitHub Action, Unity package, executable, external tool, or d
 
 - No ODY-S00-009 Windows Development-Debug artifact exists yet.
 - No ODY-S00-009 Player smoke exists yet.
-- No ODY-S00-009 TestCaseId/catalog mapping exists yet.
+- ODY-S00-009 TestCaseId/catalog mapping is registered, but the build and smoke scripts are not implemented yet.
 
 ### Follow-up tasks
 
-- Owner must approve the ODY-S00-009 TestCaseId/catalog mapping before this task can move to Ready and implementation can start.
+- Prepare a separate ODY-S00-009 implementation ТЗ from this Ready contract before creating scripts, Unity build entry points, or Player smoke logic.
 
 ### Self-review summary
 
-- Scope review: Draft contract stays within backlog ODY-S00-009 and excludes release/distribution/gameplay/database/networking scope.
+- Scope review: Ready contract stays within backlog ODY-S00-009 and excludes release/distribution/gameplay/database/networking scope.
 - Architecture review: Uses existing ADR-005, ADR-006, ADR-007, ADR-009, and ADR-010 constraints without changing them.
-- Test review: Does not create arbitrary new TestCase IDs; records missing catalog mapping as blocker.
+- Test review: Registers owner-approved `TC-PLAYER-001` through `TC-PLAYER-010` and keeps them planned/not yet implemented until the implementation task creates the owning scripts.
 - Security/privacy review: Redaction and artifact privacy constraints are explicit.
 - Documentation/version review: No baseline, ADR, TDB, schema, protocol, ruleset, package, or application version is changed.
 
@@ -346,13 +364,14 @@ No new dependency, GitHub Action, Unity package, executable, external tool, or d
 
 ### Blockers
 
-- TestCaseId/catalog mapping blocker: `Tests/Metadata/test-catalog.json` does not contain ODY-S00-009 entries for the mandatory Windows build and Player smoke scenarios. Owner decision required: approve exact catalog entries or replacement `TC-*` IDs that preserve ADR-009 meanings for `TST-UNI-019`, `TST-UNI-021`, `TST-UNI-022`, `TST-UNI-023`, `TST-UNI-024`, and `TST-UNI-030`.
+- None for Ready activation. Production implementation has not started.
 
 ### Decisions made during execution
 
 - 2026-08-14 - Create ODY-S00-009 contract from repository authorities because no existing draft task contract was present - Authority / approval: product owner decision.
 - 2026-08-14 - Keep ODY-S00-009 Draft rather than Ready while TestCaseId/catalog mapping is missing - Authority / approval: product owner instruction in this task contract transition.
+- 2026-08-14 - Approve `TC-PLAYER-001` through `TC-PLAYER-010`, canonical output layout `artifacts/builds/<BuildId>/Windows-x64/`, smoke timeouts, exit/process cleanup rules, and mandatory automated Input System Submit/Cancel evidence - Authority / approval: product owner instruction.
 
 ### Approved task changes
 
-- None.
+- ODY-S00-009 moved from Draft to Ready after owner-approved Player build and smoke TestCase mapping.

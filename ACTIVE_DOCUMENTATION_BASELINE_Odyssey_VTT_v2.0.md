@@ -85,7 +85,7 @@ docs/adr/ADR-010_Logging_Diagnostics_and_Redaction_v1.1.md
 
 `docs/tasks/completed/ODY-S00-008_Fast_CI_and_Build_Identity.md` is complete through owner-merged PR #12 and corrective PR #13. Corrective feature HEAD `43225c9f753903c7678704891c22d5e98676fb3e` entered `main` as merge commit `1e6483aee42c53595bbc4758dff0a9a696345661`; main push CI run `31799960601` passed all four required no-secret checks and Development provenance checksum validation passed.
 
-`docs/tasks/active/ODY-S00-009_Windows_Development_Build_and_Player_Smoke.md` is the current child task. It is `Draft`, not Ready, because the mandatory ADR-009 Windows build and Player smoke scenarios do not yet have owner-approved ODY-S00-009 entries in `Tests/Metadata/test-catalog.json`.
+`docs/tasks/active/ODY-S00-009_Windows_Development_Build_and_Player_Smoke.md` is the current child task. It is `Ready` after owner-approved `TC-PLAYER-001` through `TC-PLAYER-010` catalog mapping for the mandatory ADR-009 Windows build and Player smoke scenarios. Implementation has not started.
 
 # 5. CI and Unity Validation Authority
 
