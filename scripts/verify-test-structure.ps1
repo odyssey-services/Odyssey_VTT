@@ -41,6 +41,7 @@ $approvedExternalPackageDependencies = @{
 }
 $approvedExternalAsmdefReferences = @{
     'Odyssey.Application' = @('Unity.Newtonsoft.Json')
+    'Odyssey.Unity.Client' = @('Unity.InputSystem')
 }
 $approvedBridgePackageReferences = @{
     'Odyssey.Application' = @{
@@ -369,7 +370,7 @@ function Get-AsmdefReferences([string] $AssemblyName, [string] $AsmdefPath, [boo
         if ($reference -like 'GUID:*') {
             throw "GUID asmdef reference is not allowed in $(Get-RelativePath $AsmdefPath)."
         }
-        if ($AssemblyName -eq 'Odyssey.Application' -and $reference -eq 'Unity.Newtonsoft.Json') {
+        if ($approvedExternalAsmdefReferences.ContainsKey($AssemblyName) -and $reference -in @($approvedExternalAsmdefReferences[$AssemblyName])) {
             continue
         }
 
@@ -819,6 +820,104 @@ function Test-DiagnosticsEventCodeRegistry([System.Collections.Generic.List[stri
     }
 }
 
+function Test-PlayerBuildSmokeGuards([System.Collections.Generic.List[string]] $Errors) {
+    if ($SkipNegativeFixture) {
+        return
+    }
+
+    $buildScriptPath = Join-Path $RootPath 'scripts/build-dev.ps1'
+    $smokeScriptPath = Join-Path $RootPath 'scripts/test-player-smoke.ps1'
+    $releaseScriptPath = Join-Path $RootPath 'scripts/build-release.ps1'
+    $editorBuildPath = Join-Path $RootPath 'Assets/Odyssey/Client/Editor/OdysseyDevelopmentBuild.cs'
+    $runtimeSmokePath = Join-Path $RootPath 'Assets/Odyssey/Client/Runtime/PlayerSmokeMode.cs'
+    $appShellPath = Join-Path $RootPath 'Assets/Odyssey/Client/Runtime/AppShellEntryPoint.cs'
+
+    foreach ($requiredPath in @($buildScriptPath, $smokeScriptPath, $editorBuildPath, $runtimeSmokePath, $appShellPath)) {
+        if (-not (Test-Path -LiteralPath $requiredPath)) {
+            $Errors.Add("Missing ODY-S00-009 Player build/smoke path: $(Get-RelativePath $requiredPath).")
+            return
+        }
+    }
+    if (Test-Path -LiteralPath $releaseScriptPath) {
+        $Errors.Add('scripts/build-release.ps1 is out of scope for ODY-S00-009.')
+    }
+
+    try {
+        $catalog = Read-JsonFile (Join-Path $RootPath 'Tests/Metadata/test-catalog.json')
+        $expectedPlayerPaths = @{
+            'TC-PLAYER-001' = 'scripts/build-dev.ps1'
+            'TC-PLAYER-002' = 'scripts/build-dev.ps1'
+            'TC-PLAYER-003' = 'scripts/build-dev.ps1'
+            'TC-PLAYER-004' = 'scripts/test-player-smoke.ps1'
+            'TC-PLAYER-005' = 'scripts/test-player-smoke.ps1'
+            'TC-PLAYER-006' = 'scripts/test-player-smoke.ps1'
+            'TC-PLAYER-007' = 'scripts/test-player-smoke.ps1'
+            'TC-PLAYER-008' = 'scripts/test-player-smoke.ps1'
+            'TC-PLAYER-009' = 'scripts/test-player-smoke.ps1'
+            'TC-PLAYER-010' = 'scripts/build-dev.ps1'
+        }
+        $playerCases = @($catalog.testCases | Where-Object { [string] $_.testCaseId -like 'TC-PLAYER-*' })
+        if ($playerCases.Count -ne 10) {
+            $Errors.Add("Expected exactly 10 TC-PLAYER entries, found $($playerCases.Count).")
+        }
+        foreach ($id in $expectedPlayerPaths.Keys) {
+            $case = $playerCases | Where-Object { [string] $_.testCaseId -eq $id } | Select-Object -First 1
+            if ($null -eq $case) {
+                $Errors.Add("Missing $id from test catalog.")
+                continue
+            }
+            if ([string] $case.taskId -ne 'ODY-S00-009') {
+                $Errors.Add("$id must be owned by ODY-S00-009.")
+            }
+            if ([string] $case.authority -notmatch 'ODY-S00-009') {
+                $Errors.Add("$id must retain ODY-S00-009 authority.")
+            }
+            if ([string] $case.path -ne $expectedPlayerPaths[$id]) {
+                $Errors.Add("$id must point to $($expectedPlayerPaths[$id]), got $($case.path).")
+            }
+            if ([string] $case.check -match '\bplanned\b|task contract until implementation') {
+                $Errors.Add("$id must not remain a planned/text-only catalog entry.")
+            }
+        }
+    }
+    catch {
+        $Errors.Add($_.Exception.Message)
+    }
+
+    $buildScript = Get-Content -LiteralPath $buildScriptPath -Raw
+    $smokeScript = Get-Content -LiteralPath $smokeScriptPath -Raw
+    $editorBuild = Get-Content -LiteralPath $editorBuildPath -Raw
+    $runtimeSmoke = Get-Content -LiteralPath $runtimeSmokePath -Raw
+    $appShell = Get-Content -LiteralPath $appShellPath -Raw
+
+    foreach ($needle in @('6000.4.0f1', 'artifacts/builds', 'Windows-x64', 'Odyssey.exe', 'Development-Debug', 'Mono', 'Assert-CleanTrackedWorktree', 'generate-build-identity.ps1', 'BuildNumber', 'RunAttempt', 'PassThru')) {
+        if ($buildScript -notlike "*$needle*") {
+            $Errors.Add("scripts/build-dev.ps1 missing required token: $needle")
+        }
+    }
+    foreach ($needle in @('BuildPipeline.BuildPlayer', 'BuildTarget.StandaloneWindows64', 'ScriptingImplementation.Mono2x', 'BuildOptions.Development', 'BuildOptions.AllowDebugging', 'BuildResult.Succeeded')) {
+        if ($editorBuild -notlike "*$needle*") {
+            $Errors.Add("OdysseyDevelopmentBuild.cs missing required token: $needle")
+        }
+    }
+    foreach ($needle in @('Wait-PlayerEvidenceBootstrapReady', '120', '15', '150', 'ExitCode', 'Stop-ProcessTree', 'Get-CimInstance Win32_Process', 'Assert-NoOrphans', 'submitPerformed', 'cancelPerformed', 'buildIdentityLoaded')) {
+        if ($smokeScript -notlike "*$needle*") {
+            $Errors.Add("scripts/test-player-smoke.ps1 missing required token: $needle")
+        }
+    }
+    foreach ($needle in @('InputActionAsset.FromJson', 'InputSystem.QueueStateEvent', 'Key.Enter', 'Key.Escape', 'accepted-probe-button', 'shutdown-button', 'submit.performed', 'cancel.performed')) {
+        if ($appShell -notlike "*$needle*") {
+            $Errors.Add("AppShellEntryPoint.cs missing real Input System smoke path token: $needle")
+        }
+    }
+    if ($runtimeSmoke -match 'SubmitPerformed\s*=\s*true|CancelPerformed\s*=\s*true|new\s+PlayerSmokeInputResult\s*\(\s*true\s*,\s*true\s*\)') {
+        $Errors.Add('Player smoke must not mark Submit/Cancel as complete outside the InputAction performed path.')
+    }
+    if ($smokeScript -match 'Stop-Process\s+-Name|taskkill\s+/IM') {
+        $Errors.Add('Player smoke must terminate only the launched process tree by PID, not by process name.')
+    }
+}
+
 function Test-RepositoryStructure {
     $errors = New-Object System.Collections.Generic.List[string]
     $asmdefGraph = @{}
@@ -979,6 +1078,7 @@ function Test-RepositoryStructure {
     Test-SerializationGuards $errors
     Test-CompositionAndDiagnosticsGuards $errors
     Test-DiagnosticsEventCodeRegistry $errors
+    Test-PlayerBuildSmokeGuards $errors
     return ,$errors
 }
 

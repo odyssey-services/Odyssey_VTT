@@ -335,7 +335,7 @@ namespace Odyssey.Unity.Client
                 {
                     new SafeLogProperty(SafePropertyKey.Parse("state"), SafeLogValue.Code("ready")),
                     new SafeLogProperty(SafePropertyKey.Parse("duration_ms"), SafeLogValue.Duration(TimeSpan.Zero)),
-                    new SafeLogProperty(SafePropertyKey.Parse("build_id"), SafeLogValue.TechnicalIdentifier(BuildIdentity == null ? "build_unavailable" : BuildIdentity.BuildId))
+                    new SafeLogProperty(SafePropertyKey.Parse("build_id"), SafeLogValue.BoundedText(BuildIdentity == null ? "build_unavailable" : BuildIdentity.BuildId))
                 });
                 return Result.Success();
             }

@@ -8,7 +8,7 @@ The private GitHub repository `odyssey-services/Odyssey_VTT` is the single autho
 
 Current stage: `SLICE-00 — Technical Skeleton`.
 
-Repository Foundation, Unity Project Foundation, Module/Test Skeleton, Identity/Version/Result Primitives, Command/Event/Clock/RNG Contracts, Runtime Composition/Diagnostic Shell, Serialization/AOT Compatibility, and Fast CI/Build Identity are complete. ODY-S00-008 completed through owner-merged PR #12 and corrective PR #13. The active task is `docs/tasks/active/ODY-S00-009_Windows_Development_Build_and_Player_Smoke.md`, currently Ready after owner-approved `TC-PLAYER-001` through `TC-PLAYER-010` mapping for the Windows Development Build and Player Smoke scope. ODY-S00-010 remains Draft.
+Repository Foundation, Unity Project Foundation, Module/Test Skeleton, Identity/Version/Result Primitives, Command/Event/Clock/RNG Contracts, Runtime Composition/Diagnostic Shell, Serialization/AOT Compatibility, and Fast CI/Build Identity are complete. ODY-S00-008 completed through owner-merged PR #12 and corrective PR #13. The active task is `docs/tasks/active/ODY-S00-009_Windows_Development_Build_and_Player_Smoke.md`, currently In Progress after owner-approved `TC-PLAYER-001` through `TC-PLAYER-010` mapping for the Windows Development Build and Player Smoke scope. ODY-S00-010 remains Draft.
 
 ## Rights
 

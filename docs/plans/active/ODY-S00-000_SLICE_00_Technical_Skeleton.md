@@ -200,6 +200,8 @@ Child task: `ODY-S00-010`.
 - 2026-08-14 UTC - Corrective PR #13 was owner-merged. Final corrective feature HEAD `43225c9f753903c7678704891c22d5e98676fb3e` entered `main` as merge commit `1e6483aee42c53595bbc4758dff0a9a696345661`. Main push CI run `31799960601` passed all four required checks; Development provenance checksum passed; `build-identity.json` SHA-256 was `91b1fe5662089adecb483e61431066afc266015dad3e0196e593c4c3683b9f30`; .NET was 86/86; Unity compile passed; EditMode passed 33/33; PlayMode passed 2/2; Player build was not run; known ProjectSettings batchmode drift was restored. ODY-S00-008 is Done.
 - 2026-08-14 UTC - Created `docs/tasks/active/ODY-S00-009_Windows_Development_Build_and_Player_Smoke.md` from repository authorities. The task remains Draft because `Tests/Metadata/test-catalog.json` has no owner-approved ODY-S00-009 entries for mandatory ADR-009 Windows build and Player smoke scenarios. No ODY-S00-009 implementation or Player build was started.
 - 2026-08-14 UTC - Owner-approved `TC-PLAYER-001` through `TC-PLAYER-010` mapping for ODY-S00-009, corrected the planned script inventory, fixed the canonical output layout to `artifacts/builds/<BuildId>/Windows-x64/`, set smoke timeout/exit/process cleanup rules, and moved ODY-S00-009 to Ready. No ODY-S00-009 implementation, scripts, Unity build entry points, or Player build were created.
+- 2026-08-14 UTC - ODY-S00-009 implementation started on `feat/ody-s00-009-windows-player-build-smoke` after owner approval. Status moved to In Progress; `scripts/build-dev.ps1`, `scripts/test-player-smoke.ps1`, and Unity Client build/smoke entry points are being implemented under the existing `TC-PLAYER-001` through `TC-PLAYER-010` mapping. ODY-S00-010 remains Draft and no PR is opened.
+- 2026-08-14 UTC - ODY-S00-009 pre-commit implementation validation passed after scoped compiler correction and Unity batchmode drift restoration: restore, verify-format, verify-test-structure, test-fast, dotnet build/test, verify-ci, verify-unity-project, check-repository-policy, verify-repository, local Unity compile/EditMode/PlayMode, and diff checks. .NET totals were 86/86, Unity compile passed, EditMode passed 33/33, PlayMode passed 2/2. Final `scripts/build-dev.ps1` and `scripts/test-player-smoke.ps1` evidence remains pending until after a clean implementation commit.
 
 ## 7. Decisions
 
@@ -266,7 +268,7 @@ Record real commands, outputs and artifact paths here as child tasks complete.
 
 - Repository identity, Private visibility, and PR #1 merge are verified. Exact branch protection/ruleset settings remain an owner-accepted limitation.
 - Unity `6000.4.0f1` is acceptable for local ODY-S00-002 development by owner decision.
-- ODY-S00-002 through ODY-S00-008 are Done. ODY-S00-009 is Ready and unstarted after owner-approved `TC-PLAYER-001` through `TC-PLAYER-010` mapping for mandatory ADR-009 Windows build and Player smoke scenarios.
+- ODY-S00-002 through ODY-S00-008 are Done. ODY-S00-009 is In Progress after owner-approved `TC-PLAYER-001` through `TC-PLAYER-010` mapping and implementation approval for mandatory ADR-009 Windows build and Player smoke scenarios.
 - GitHub plan/settings may affect exact branch-protection options; the task must apply the strongest supported equivalent and record any unavailable setting.
 
 - ODY-S00-007 blocker resolved by owner decision: production serialization uses ADR-003 v1.1 explicit Newtonsoft streaming codecs. No further STJ version probing is authorized for this task.
@@ -275,4 +277,4 @@ Record real commands, outputs and artifact paths here as child tasks complete.
 
 Current outcome: ODY-S00-001 is Done after owner merge of PR #1. ODY-S00-002 is Done after owner merge of PR #4 and closure PR #5. ODY-S00-003 is Done after owner merge of PR #6 and closure PR #7. ODY-S00-004 is owner-merged through PR #8. ODY-S00-005 is owner-merged through PR #9. ODY-S00-006 is owner-merged through PR #10. ODY-S00-007 is owner-merged through PR #11. ODY-S00-008 is Done after owner merge of PR #12 and corrective PR #13.
 
-Next action: prepare the separate ODY-S00-009 implementation ТЗ from the Ready contract. Do not start ODY-S00-009 implementation or create a Player build before that implementation ТЗ is approved.
+Next action: complete ODY-S00-009 implementation validation, commit, clean-HEAD Player build/smoke validation, and push. Do not open a PR until separately requested.
