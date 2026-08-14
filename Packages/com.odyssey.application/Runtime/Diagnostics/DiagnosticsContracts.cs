@@ -435,7 +435,6 @@ namespace Odyssey.Application.Diagnostics
             if (!eventCode.IsValid) throw new ArgumentException("EventCode is required.", nameof(eventCode));
             if (!subsystem.IsValid) throw new ArgumentException("Subsystem is required.", nameof(subsystem));
             if (!Enum.IsDefined(typeof(BuildIdAvailability), buildIdAvailability)) throw new ArgumentOutOfRangeException(nameof(buildIdAvailability));
-            if (buildIdAvailability != BuildIdAvailability.UnavailableNotYetComposed) throw new ArgumentException("BuildId is not composed until ODY-S00-008.", nameof(buildIdAvailability));
             if (!processInstanceId.IsValid) throw new ArgumentException("ProcessInstanceId is required.", nameof(processInstanceId));
             if (!messageTemplateKey.IsValid) throw new ArgumentException("MessageTemplateKey is required.", nameof(messageTemplateKey));
             if (correlationId.HasValue && !correlationId.Value.IsValid) throw new ArgumentException("Correlation id must be valid.", nameof(correlationId));
@@ -628,7 +627,7 @@ namespace Odyssey.Application.Diagnostics
             return new EventCodeRegistry(new[]
             {
                 Define(OdysseyEventCodes.AppStartupStarted, "app", LogLevel.Information, "log.app.startup.started", "Runtime startup began.", Props(("phase", DiagnosticDataClassification.OperationalSafe, SafeLogValueKind.Code))),
-                Define(OdysseyEventCodes.AppStartupCompleted, "app", LogLevel.Information, "log.app.startup.completed", "Runtime reached Ready.", Props(("state", DiagnosticDataClassification.OperationalSafe, SafeLogValueKind.Code), ("duration_ms", DiagnosticDataClassification.OperationalSafe, SafeLogValueKind.Duration))),
+                Define(OdysseyEventCodes.AppStartupCompleted, "app", LogLevel.Information, "log.app.startup.completed", "Runtime reached Ready.", Props(("state", DiagnosticDataClassification.OperationalSafe, SafeLogValueKind.Code), ("duration_ms", DiagnosticDataClassification.OperationalSafe, SafeLogValueKind.Duration), ("build_id", DiagnosticDataClassification.OperationalSafe, SafeLogValueKind.TechnicalIdentifier))),
                 Define(OdysseyEventCodes.AppStartupFailed, "app", LogLevel.Error, "log.app.startup.failed", "Runtime startup failed safely.", Props(("phase", DiagnosticDataClassification.OperationalSafe, SafeLogValueKind.Code), ("reason", DiagnosticDataClassification.OperationalSafe, SafeLogValueKind.Code), ("diagnostic_id", DiagnosticDataClassification.OperationalSafe, SafeLogValueKind.TechnicalIdentifier))),
                 Define(OdysseyEventCodes.AppShutdownRequested, "app", LogLevel.Information, "log.app.shutdown.requested", "Runtime shutdown was requested.", Props(("state", DiagnosticDataClassification.OperationalSafe, SafeLogValueKind.Code))),
                 Define(OdysseyEventCodes.AppShutdownCompleted, "app", LogLevel.Information, "log.app.shutdown.completed", "Runtime shutdown completed.", Props(("duration_ms", DiagnosticDataClassification.OperationalSafe, SafeLogValueKind.Duration))),

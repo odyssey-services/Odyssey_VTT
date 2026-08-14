@@ -10,6 +10,7 @@ using Odyssey.Application.Diagnostics;
 using Odyssey.Application.Identity;
 using Odyssey.Application.Results;
 using Odyssey.Application.Time;
+using Odyssey.Application.Versions;
 using Odyssey.Domain.Events;
 using Odyssey.Domain.Identity;
 using Odyssey.Domain.Time;
@@ -478,6 +479,55 @@ namespace Odyssey.Tests.Unity.EditMode
         }
 
         [Test]
+        public void RuntimeUsesSuppliedBuildIdentityForStartupDiagnostics()
+        {
+            using TemporaryDirectory directory = new TemporaryDirectory();
+            CapturingSink sink = new CapturingSink();
+            BuildIdentity identity = CreateBuildIdentity();
+            RuntimeCompositionSettings settings = DeterministicSettings(
+                extraSinks: new IDiagnosticSink[] { sink },
+                buildIdentityProvider: new FixedBuildIdentityProvider(identity));
+
+            Result<AppRuntime> result = new OdysseyRuntimeCompositionRoot().Start(OdysseyRuntimeConfiguration.DeveloperShell(directory.Path), settings);
+            Assert.That(result.IsSuccess, Is.True);
+            PresentationRuntime presentation = new PresentationRuntime();
+            Assert.That(result.Value.AttachPresentationRuntime(presentation).IsSuccess, Is.True);
+
+            Assert.That(result.Value.BuildIdentityAvailability, Is.EqualTo(BuildIdAvailability.Available));
+            Assert.That(result.Value.BuildIdentity!.BuildId, Is.EqualTo(identity.BuildId));
+            Assert.That(sink.Events, Has.Some.Matches<LogEventV1>(entry =>
+                entry.EventCode == OdysseyEventCodes.AppStartupCompleted &&
+                HasProperty(entry, "build_id", identity.BuildId)));
+            result.Value.Shutdown();
+        }
+
+        [Test]
+        public void DeveloperShellDisplaysBuildIdentityAndUnavailableFallback()
+        {
+            GameObject gameObject = new GameObject("Build Identity Document");
+            try
+            {
+                UIDocument document = gameObject.AddComponent<UIDocument>();
+                BuildIdentity identity = CreateBuildIdentity();
+                RecordingFacade facade = new RecordingFacade(identity);
+                using PresentationRuntime presentation = new PresentationRuntime();
+                DeveloperShellPresenter presenter = new DeveloperShellPresenter(document, facade, presentation);
+
+                Assert.That(presenter.Initialize().IsSuccess, Is.True);
+                Assert.That(document.rootVisualElement.Q<Label>("build-identity")!.text, Does.Contain(identity.BuildId));
+                Assert.That(document.rootVisualElement.Q<Label>("build-identity")!.text, Does.Contain(identity.DisplayVersion));
+
+                facade.SetBuildIdentity(null);
+                presenter.Refresh();
+                Assert.That(document.rootVisualElement.Q<Label>("build-identity")!.text, Is.EqualTo("Build identity: unavailable"));
+            }
+            finally
+            {
+                UnityEngine.Object.DestroyImmediate(gameObject);
+            }
+        }
+
+        [Test]
         public void StartupFailureFallbackRendersSingleSceneDocumentWithSafeReasonOnly()
         {
             Scene scene = SceneManager.GetActiveScene();
@@ -616,7 +666,8 @@ namespace Odyssey.Tests.Unity.EditMode
             Func<string, IEmergencyDiagnosticSink>? emergencySinkFactory = null,
             ICrashMarkerStoreFactory? markerFactory = null,
             Func<IPlatformExceptionHookSource>? hookSourceFactory = null,
-            IProcessInstanceIdGenerator? processIds = null)
+            IProcessInstanceIdGenerator? processIds = null,
+            IBuildIdentityProvider? buildIdentityProvider = null)
         {
             return new RuntimeCompositionSettings(
                 new TestClock(),
@@ -624,6 +675,7 @@ namespace Odyssey.Tests.Unity.EditMode
                 processIds ?? new TestProcessIds(),
                 new TestDiagnosticIds(),
                 new TestTechnicalIds(),
+                buildIdentityProvider ?? new FixedBuildIdentityProvider(null),
                 extraSinks ?? Array.Empty<IDiagnosticSink>(),
                 emergencySinkFactory ?? (_ => new EmergencyDiagnosticSink()),
                 markerFactory ?? new DefaultCrashMarkerStoreFactory(),
@@ -634,6 +686,37 @@ namespace Odyssey.Tests.Unity.EditMode
         private static bool HasProperty(LogEventV1 logEvent, string key, string value)
         {
             return logEvent.SafeProperties.Any(property => property.Key == SafePropertyKey.Parse(key) && property.Value.RenderedValue == value);
+        }
+
+        private static BuildIdentity CreateBuildIdentity()
+        {
+            CompatibilityConfig compatibility = new CompatibilityConfig(
+                new CompatibilityRange(1, 1),
+                new CompatibilityRange(1, 1),
+                new CompatibilityRange(1, 1),
+                new CompatibilityRange(1, 1),
+                new CompatibilityRange(1, 1),
+                new CompatibilityRange(1, 1),
+                new CompatibilityRange(1, 1),
+                new ProtocolCompatibilityRange(1, 1, 1));
+            return BuildIdentityCodec.Create(
+                new VersionSource(ApplicationVersion.Parse("0.1.0")),
+                compatibility,
+                BuildChannel.Local,
+                1,
+                1,
+                "0123456789abcdef0123456789abcdef01234567",
+                "heads/local",
+                WorkingTreeState.Clean,
+                "20260812T120000Z",
+                "6000.4.0f1",
+                "8cf496087c8f",
+                "10.0.302",
+                "Development-Debug",
+                "WindowsStandalone",
+                "x86_64",
+                "Mono",
+                "NETStandard2.1");
         }
 
         private static bool ContainsMarker(IEnumerable<LogEventV1> events, string marker)
@@ -708,14 +791,33 @@ namespace Odyssey.Tests.Unity.EditMode
 
         private sealed class RecordingFacade : IDeveloperShellFacade
         {
+            private BuildIdentity? _identity;
+
+            public RecordingFacade(BuildIdentity? identity = null)
+            {
+                _identity = identity;
+            }
+
             public OdysseyRuntimeState RuntimeState => OdysseyRuntimeState.Ready;
             public OdysseyRuntimeProfile RuntimeProfile => OdysseyRuntimeProfile.DeveloperShell;
-            public BuildIdAvailability BuildIdentityAvailability => BuildIdAvailability.UnavailableNotYetComposed;
+            public BuildIdAvailability BuildIdentityAvailability => _identity == null ? BuildIdAvailability.UnavailableNotYetComposed : BuildIdAvailability.Available;
+            public BuildIdentity? BuildIdentity => _identity;
             public Result<CommandResult> RunAcceptedProbe() => throw new NotSupportedException();
             public Result<CommandResult> RunRejectedProbe() => throw new NotSupportedException();
             public void EmitDiagnosticProbe() { }
             public IReadOnlyList<LogEventV1> GetRecentDiagnostics() => Array.Empty<LogEventV1>();
             public void RequestShutdown() { }
+            public void SetBuildIdentity(BuildIdentity? identity) => _identity = identity;
+        }
+
+        private sealed class FixedBuildIdentityProvider : IBuildIdentityProvider
+        {
+            public FixedBuildIdentityProvider(BuildIdentity? identity)
+            {
+                Current = identity;
+            }
+
+            public BuildIdentity? Current { get; }
         }
 
         private sealed class TestClock : IWallClock

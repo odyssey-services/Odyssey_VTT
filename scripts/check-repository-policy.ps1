@@ -560,16 +560,23 @@ try {
         '.gitattributes',
         '.editorconfig',
         '.github/PULL_REQUEST_TEMPLATE.md',
+        '.github/workflows/ci.yml',
         'scripts/check-repository-policy.ps1',
+        'scripts/generate-build-identity.ps1',
         'scripts/restore.ps1',
         'scripts/verify-format.ps1',
         'scripts/verify-test-structure.ps1',
+        'scripts/verify-ci.ps1',
+        'scripts/verify-unity-project.ps1',
+        'scripts/verify-build-identity.ps1',
         'scripts/test-fast.ps1',
         'scripts/test-unity.ps1',
         'scripts/verify-repository.ps1',
+        'version.json',
         'global.json',
         'NuGet.Config',
         'Directory.Build.props',
+        'config/compatibility.json',
         'Tests/Metadata/test-catalog.json',
         'config/diagnostics/event-codes.json',
         'DotNet/Odyssey.Core.sln',
@@ -702,6 +709,26 @@ try {
         foreach ($failure in $registryFixtureFailures) {
             $failures.Add($failure)
         }
+    }
+
+    try {
+        & (Join-Path $RepositoryRoot 'scripts/verify-ci.ps1')
+        if ($LASTEXITCODE -ne 0) {
+            $failures.Add('scripts/verify-ci.ps1 failed.')
+        }
+    }
+    catch {
+        $failures.Add($_.Exception.Message)
+    }
+
+    try {
+        & (Join-Path $RepositoryRoot 'scripts/verify-unity-project.ps1')
+        if ($LASTEXITCODE -ne 0) {
+            $failures.Add('scripts/verify-unity-project.ps1 failed.')
+        }
+    }
+    catch {
+        $failures.Add($_.Exception.Message)
     }
 
     if ($failures.Count -gt 0) {

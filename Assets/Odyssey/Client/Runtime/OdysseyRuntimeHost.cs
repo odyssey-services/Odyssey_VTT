@@ -1,6 +1,7 @@
 using System.IO;
 using Odyssey.Application.Diagnostics;
 using Odyssey.Application.Results;
+using Odyssey.Application.Versions;
 using UnityEngine;
 using UnityEngine.SceneManagement;
 using UnityEngine.UIElements;
@@ -224,7 +225,8 @@ namespace Odyssey.Unity.Client
 
         public OdysseyRuntimeState RuntimeState => _runtime.State;
         public OdysseyRuntimeProfile RuntimeProfile => _runtime.Profile;
-        public BuildIdAvailability BuildIdentityAvailability => BuildIdAvailability.UnavailableNotYetComposed;
+        public BuildIdAvailability BuildIdentityAvailability => _runtime.BuildIdentityAvailability;
+        public BuildIdentity? BuildIdentity => _runtime.BuildIdentity;
         public Result<Odyssey.Application.Commands.CommandResult> RunAcceptedProbe() => _runtime.RunAcceptedProbe();
         public Result<Odyssey.Application.Commands.CommandResult> RunRejectedProbe() => _runtime.RunRejectedProbe();
         public void EmitDiagnosticProbe() => _runtime.EmitDiagnosticProbe();

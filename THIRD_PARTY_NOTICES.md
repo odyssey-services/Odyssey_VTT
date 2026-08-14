@@ -14,5 +14,8 @@ Approved tooling referenced by repository policy:
 | Git | Version control | Existing approved tooling |
 | Git LFS | Large binary pointer management | Required by Technical Development Baseline |
 | GitHub repository features | Hosting, pull requests, branch protection | Owner-controlled repository configuration |
+| actions/checkout | GitHub Actions source checkout pinned to `d23441a48e516b6c34aea4fa41551a30e30af803` | MIT; approved by Technical Development Baseline v0.5 / ODY-S00-008 |
+| actions/setup-dotnet | GitHub Actions .NET SDK setup pinned to `26b0ec14cb23fa6904739307f278c14f94c95bf1` | MIT; approved by Technical Development Baseline v0.5 / ODY-S00-008 |
+| actions/upload-artifact | GitHub Actions bounded evidence upload pinned to `330a01c490aca151604b8cf639adc76d48f6c5d4` | MIT; approved by Technical Development Baseline v0.5 / ODY-S00-008 |
 
 Future dependencies must be approved by the active task or ADR and recorded here with license evidence.

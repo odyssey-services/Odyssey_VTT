@@ -53,6 +53,8 @@ artifacts/
 !DotNet/Projects/*.csproj
 !DotNet/Tests/
 !DotNet/Tests/**/*.csproj
+!DotNet/Tools/
+!DotNet/Tools/**/*.csproj
 
 # Unity crash and diagnostics
 sysinfo.txt
@@ -60,6 +62,16 @@ sysinfo.txt
 *.dmp
 *.log
 *.jsonl
+Assets/Odyssey/Generated/BuildIdentity.g.cs
+Assets/StreamingAssets/Odyssey/build-identity.json
+!Assets/Odyssey/Generated/
+!Assets/Odyssey/Generated/.gitkeep
+!Assets/Odyssey/Generated.meta
+!Assets/StreamingAssets/
+!Assets/StreamingAssets/Odyssey/
+!Assets/StreamingAssets/Odyssey/.gitkeep
+!Assets/StreamingAssets.meta
+!Assets/StreamingAssets/Odyssey.meta
 
 # .NET generated output
 bin/

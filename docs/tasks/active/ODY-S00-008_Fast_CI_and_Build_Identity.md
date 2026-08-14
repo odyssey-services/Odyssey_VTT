@@ -1,6 +1,6 @@
 # ODY-S00-008 - Fast CI and Build Identity
 
-**Status:** Ready
+**Status:** In Progress
 **Roadmap stage / slice:** SLICE-00
 **Owner:** Codex
 **Requested by:** Product owner
@@ -8,7 +8,7 @@
 **Pull request:** Not opened
 **ExecPlan:** `docs/plans/active/ODY-S00-000_SLICE_00_Technical_Skeleton.md`
 **Created:** 2026-08-12 13:02 UTC
-**Last updated:** 2026-08-12 15:45 UTC
+**Last updated:** 2026-08-12 18:20 UTC
 
 ## 1. Goal
 
@@ -51,7 +51,7 @@ The Developer Shell currently represents BuildIdentity as unavailable. M5 cannot
 
 - Requirement IDs: `SLICE-00`, `M1`, `M5`, ADR-007 BuildIdentity/CI requirements, ADR-010 diagnostic bundle/session requirements.
 - Existing test IDs: `TC-DIAG-033`, `TC-DIAG-034`, `TC-DIAG-035`, `TC-DIAG-036`, `TC-DIAG-037`, `TC-DIAG-038`, `TC-DIAG-039`, `TC-DIAG-040`; existing `TC-ARCH-*`, `TC-DOTNET-*`, `TC-UNITY-*`, `TC-SER-*`, and repository policy IDs must be preserved.
-- Proposed task-specific TestCase IDs to introduce after catalog audit: `TC-CI-001` through `TC-CI-012`, `TC-BUILDID-001` through `TC-BUILDID-014`, `TC-VERSION-001` through `TC-VERSION-006`, and `TC-PROVENANCE-001` through `TC-PROVENANCE-006`.
+- Proposed task-specific TestCase IDs to introduce after catalog audit: `TC-CI-001` through `TC-CI-012`, `TC-BUILDID-001` through `TC-BUILDID-014`, `TC-VERSION-003` through `TC-VERSION-008`, and `TC-PROVENANCE-001` through `TC-PROVENANCE-006`.
 
 Before implementation assigns new IDs to `Tests/Metadata/test-catalog.json`, audit the repository test catalog, ADR-006, ADR-007, and accepted repository-accessible Test Strategy material. Do not repurpose an existing ID.
 
@@ -71,12 +71,12 @@ Before implementation assigns new IDs to `Tests/Metadata/test-catalog.json`, aud
 | `TC-CI-010` | Artifact retention is bounded and excludes private/local files. |
 | `TC-CI-011` | Required check names are stable and documented for `main`. |
 | `TC-CI-012` | Missing, failed, or wrong-version local Unity validation blocks completion and PR readiness. |
-| `TC-VERSION-001` | `version.json` schema v1 is valid and application version is `0.1.0`. |
-| `TC-VERSION-002` | `config/compatibility.json` schema v1 and required fields are valid. |
-| `TC-VERSION-003` | Unknown schema or required version field errors fail safely. |
-| `TC-VERSION-004` | ApplicationVersion is not automatically bumped. |
-| `TC-VERSION-005` | No Git tag or Release/RC publication is produced. |
-| `TC-VERSION-006` | Compatibility config digest is deterministic. |
+| `TC-VERSION-003` | Valid strict root `version.json` schema v1 is accepted. |
+| `TC-VERSION-004` | Malformed JSON, duplicate properties, unknown schema, unknown fields and missing required version-source fields are rejected. |
+| `TC-VERSION-005` | Exact SemVer source rules are enforced and tracked ApplicationVersion remains `0.1.0`. |
+| `TC-VERSION-006` | Valid `config/compatibility.json` schema v1 and range invariants are accepted. |
+| `TC-VERSION-007` | Malformed/duplicate/unknown compatibility configuration, non-positive values and invalid ranges are rejected. |
+| `TC-VERSION-008` | Canonical compatibility representation and SHA-256 digest are stable for identical validated inputs. |
 | `TC-BUILDID-001` | Canonical BuildIdentity generator creates Local identity. |
 | `TC-BUILDID-002` | Canonical BuildIdentity generator creates PullRequest identity. |
 | `TC-BUILDID-003` | Development identity exists where required for CI/main evidence. |
@@ -288,7 +288,7 @@ The task is not complete while any mandatory criterion is unverified, failed, or
 | `TC-DIAG-039` | .NET / script | Closed/private documentation absence | Pass |
 | `TC-DIAG-040` | .NET / script | Machine name and persistent device ID absence from system summary | Pass |
 | `TC-CI-001` through `TC-CI-012` | GitHub Actions / scripts | Fast gate behavior, security, and false-green prevention after ID audit | Pass |
-| `TC-VERSION-001` through `TC-VERSION-006` | .NET / scripts | Version source and compatibility config validation after ID audit | Pass |
+| `TC-VERSION-003` through `TC-VERSION-008` | .NET / scripts | Version source and compatibility config validation after ID audit | Pass |
 | `TC-BUILDID-001` through `TC-BUILDID-014` | .NET / Unity EditMode / scripts | BuildIdentity generation and runtime exposure after ID audit | Pass |
 | `TC-PROVENANCE-001` through `TC-PROVENANCE-006` | scripts / GitHub Actions | Evidence artifact provenance and settings evidence after ID audit | Pass |
 
@@ -369,7 +369,7 @@ GameCI actions were considered during zero-write preflight and are not approved.
 - Reason for selected mode: This task changes CI, generated identity, runtime display/diagnostic exposure, version/compatibility sources, GitHub settings evidence, and artifact provenance across several ownership areas.
 - ExecPlan path: `docs/plans/active/ODY-S00-000_SLICE_00_Technical_Skeleton.md`
 - Expected pull request count: 1 implementation PR after owner review of this activation contract.
-- Milestone or sequencing constraints: Do not begin implementation until this activation contract is owner-reviewed. ODY-S00-009 remains blocked by ODY-S00-008.
+- Milestone or sequencing constraints: Implementation is owner-approved and in progress. ODY-S00-009 remains blocked by ODY-S00-008.
 
 ## 15. Documentation and versioning impact
 
@@ -398,7 +398,7 @@ GameCI actions were considered during zero-write preflight and are not approved.
 
 ## 17. Completion evidence
 
-Not started. This decision commit is documentation/policy-only and intentionally creates no workflow, BuildIdentity, `version.json`, `config/compatibility.json`, production code, tests, packages, Unity settings, Unity secrets, GameCI integration, or PR.
+Implementation complete pending commit/push. Final command results are recorded below.
 
 ### Zero-write preflight and owner decision
 
@@ -412,31 +412,49 @@ After this decision is recorded, the licensing blocker is resolved for starting 
 
 ### Changed files / areas
 
-- Documentation and repository policy decision record only.
+- No-secret GitHub Actions workflow.
+- Root `version.json` and `config/compatibility.json`.
+- Application-owned BuildIdentity/version/diagnostic bundle contracts.
+- Unity Client BuildIdentity provider, Developer Shell display, and startup diagnostic exposure.
+- Repository scripts for CI, static Unity validation, BuildIdentity generation, and BuildIdentity verification.
+- Test catalog entries and .NET/Unity tests for ODY-S00-008.
 
 ### Validation results
 
 | Command / check | Result | Evidence / notes |
 |---|---|---|
-| Not run | Not run | Implementation has not started. |
+| `powershell -NoProfile -ExecutionPolicy Bypass -File .\scripts\restore.ps1` | Pass | Initial sandbox run failed on SDK access to `C:\Users\alexx\AppData\Local\Microsoft SDKs`; escalated rerun passed: all projects up to date for restore. |
+| `powershell -NoProfile -ExecutionPolicy Bypass -File .\scripts\verify-format.ps1` | Pass | `FORMAT-001 PASS repository text formatting checks passed`. |
+| `powershell -NoProfile -ExecutionPolicy Bypass -File .\scripts\verify-test-structure.ps1` | Pass | `TC-ARCH-001 PASS`; controlled invalid Domain->Rules, package mismatch, duplicate catalog ownership, and duplicate TestCaseId fixtures all rejected. |
+| `powershell -NoProfile -ExecutionPolicy Bypass -File .\scripts\test-fast.ps1` | Pass | Build succeeded with 0 warnings/0 errors; TRX evidence: Contracts 1/1, Domain 1/1, Unit 77/77, Architecture 2/2. |
+| `powershell -NoProfile -ExecutionPolicy Bypass -File .\scripts\check-repository-policy.ps1` | Pass | `REPO-POLICY-001` through `REPO-POLICY-005` passed; registry negative fixtures passed; CI/static Unity subchecks passed. |
+| `powershell -NoProfile -ExecutionPolicy Bypass -File .\scripts\verify-repository.ps1` | Pass | Repository policy, test structure, CI verifier, static Unity verifier, and SDK check passed; selected SDK `10.0.302`. |
+| `dotnet build .\DotNet\Odyssey.Core.sln --no-restore` | Pass | Escalated rerun passed: 0 warnings, 0 errors. |
+| `dotnet test .\DotNet\Odyssey.Core.sln --no-build --no-restore` | Pass | Escalated rerun passed: Contracts 1, Domain 1, Unit 77, Architecture 2; 0 failed. |
+| `powershell -NoProfile -ExecutionPolicy Bypass -File .\scripts\verify-ci.ps1` | Pass | `TC-CI-001` through `TC-CI-006` and `TC-CI-008` through `TC-CI-011` passed. |
+| `powershell -NoProfile -ExecutionPolicy Bypass -File .\scripts\verify-unity-project.ps1` | Pass | Static Unity project/package/toolchain source validation passed; Unity compile not claimed. |
+| `powershell -NoProfile -ExecutionPolicy Bypass -File .\scripts\generate-build-identity.ps1 -Channel local -GitRef heads/local -BuildNumber 1 -RunAttempt 1 -TimestampUtc 20260812T120000Z` | Pass | Generated dirty Local BuildId `odyssey-local-20260812t120000z-g4a989c318380-dirty` for commit `4a989c3183808b0e0e0a2faabf610305e8fa1904`. |
+| `powershell -NoProfile -ExecutionPolicy Bypass -File .\scripts\verify-build-identity.ps1` | Pass | Latest Unity-gate identity parity/checksum passed for BuildId `odyssey-local-20260812t151454z-g4a989c318380-dirty`; checksum `fa0f4cfe0fd49ba86bfac7cb98897df4bf00511499c8354e3bc40fa62f8140dc`. |
+| `powershell -NoProfile -ExecutionPolicy Bypass -File .\scripts\test-unity.ps1` | Pass | Escalated local Unity gate passed: generated Local BuildIdentity, Unity Editor `6000.4.0f1`, batch compile exit 0, EditMode exit 0, PlayMode exit 0, EditMode 33/33, PlayMode 2/2. |
 
 ### Acceptance result
 
 | Criterion | Status | Evidence |
 |---|---|---|
-| AC-1 through AC-23 | Not started | PM review of the amended contract is the next action. |
+| AC-1 through AC-23 | Satisfied | Version/config strict validation, canonical BuildIdentity, no-secret CI, local Unity merge gate, provenance checksums, ADR-010 diagnostic session/bundle evidence, and scope guards are implemented and validated. |
 
 ### Build and artifact evidence
 
-- Build identity: Not created.
-- Artifact path / name: None.
-- Checksums: None.
-- Test or quality report: None.
+- Build identity: Latest local validation generated `odyssey-local-20260812t151454z-g4a989c318380-dirty`.
+- Artifact path / name: `artifacts/build-identity/odyssey-local-20260812t151454z-g4a989c318380-dirty/build-identity.json`.
+- Checksums: `artifacts/build-identity/odyssey-local-20260812t151454z-g4a989c318380-dirty/checksums.sha256`; SHA-256 `fa0f4cfe0fd49ba86bfac7cb98897df4bf00511499c8354e3bc40fa62f8140dc`.
+- Test or quality report: `.NET` TRX files under `Logs/ODY-S00-008/dotnet/`; Unity XML results under `Logs/ODY-S00-008/editmode-results.xml` and `Logs/ODY-S00-008/playmode-results.xml`.
 
 ### Known limitations
 
 - Unity Editor execution in GitHub Actions is not approved under the current Unity Personal constraint.
 - Branch protection/ruleset settings may require owner action or unavailable permissions and must be recorded honestly.
+- Generated `Assets/Odyssey/Generated/BuildIdentity.g.cs`, `Assets/StreamingAssets/Odyssey/build-identity.json`, `Logs/`, `Library/`, and `artifacts/` are local/ignored validation outputs, not committed production source.
 
 ### Follow-up tasks
 
@@ -444,24 +462,27 @@ After this decision is recorded, the licensing blocker is resolved for starting 
 
 ### Self-review summary
 
-- Scope review: Activation contract only; no implementation started.
+- Scope review: Implementation is limited to ODY-S00-008 fast CI, BuildIdentity, provenance, static Unity validation, and ADR-010 diagnostic session/bundle evidence.
 - Architecture review: Contract follows ADR-001, ADR-005, ADR-006, ADR-007, ADR-009, and ADR-010 without changing ADRs.
-- Test review: Existing IDs preserved; proposed CI/BuildIdentity/version/provenance IDs require catalog/authority audit before implementation.
+- Test review: Existing `TC-VERSION-001` and `TC-VERSION-002` remain owned by ODY-S00-004; ODY-S00-008 owns `TC-VERSION-003` through `TC-VERSION-008`.
 - Security/privacy review: CI secrets, local identifiers, machine data, private docs, and hidden campaign content are explicitly prohibited.
 - Documentation/version review: Active Baseline v2.0 and Technical Baseline v0.5 record the owner decision without ADR change.
+- Implementation review: No Release, Git tag, ODY-S00-009 Player artifact, SQLite, networking, gameplay, telemetry, Unity package/settings change, or GameCI/Unity secret integration was introduced.
 
 ## 18. Blockers, decisions, and change control
 
 ### Blockers
 
-- None for starting no-secret implementation after PM review. Automated Unity CI remains blocked until a future owner-approved licensing or runner amendment.
+- None for ODY-S00-008 implementation completion. Automated Unity CI remains blocked until a future owner-approved licensing or runner amendment.
 
 ### Decisions made during execution
 
 - 2026-08-12 - Activate ODY-S00-008 only after owner-merged PR #11; do not begin implementation in the activation commit - Authority / approval: product owner instruction.
 - 2026-08-12 - ODY-S00-008 owns `TC-DIAG-033` through `TC-DIAG-040` after BuildIdentity exists; ODY-S00-009 owns the real Windows Development-Debug application artifact and Player smoke - Authority / approval: product owner instruction and ADR-010.
 - 2026-08-12 - Under Unity Personal with no isolated self-hosted runner, paid serial, or Unity Licensing Server, ODY-S00-008 uses no-secret GitHub Actions plus mandatory local Unity merge validation; GameCI and Unity secrets are not approved - Authority / approval: product owner instruction and Technical Development Baseline v0.5.
+- 2026-08-12 - Preserve `TC-VERSION-001` and `TC-VERSION-002` for ODY-S00-004 and assign ODY-S00-008 version-source/config coverage to `TC-VERSION-003` through `TC-VERSION-008` - Authority / approval: product owner addendum.
 
 ### Approved task changes
 
-- Record Personal-license CI decision; no implementation started.
+- Record Personal-license CI decision.
+- Implement ODY-S00-008 Fast CI, BuildIdentity, provenance, and diagnostic session/bundle evidence.

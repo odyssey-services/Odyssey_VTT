@@ -6,7 +6,7 @@ Set-StrictMode -Version Latest
 $ErrorActionPreference = 'Stop'
 
 $repoRoot = Resolve-Path (Join-Path $PSScriptRoot '..')
-$logDir = Join-Path $repoRoot 'Logs/ODY-S00-006'
+$logDir = Join-Path $repoRoot 'Logs/ODY-S00-008'
 $fallbackUnityEditorPath = 'C:\Program Files\Unity\Hub\Editor\6000.4.0f1\Editor\Unity.exe'
 
 if ([string]::IsNullOrWhiteSpace($UnityEditorPath)) {
@@ -77,6 +77,16 @@ function Test-UnityEditorVersion {
 
 Push-Location $repoRoot
 try {
+    & .\scripts\generate-build-identity.ps1 -Channel local -GitRef 'heads/local' -BuildNumber 1 -RunAttempt 1 -TimestampUtc ((Get-Date).ToUniversalTime().ToString('yyyyMMddTHHmmssZ', [System.Globalization.CultureInfo]::InvariantCulture))
+    if ($LASTEXITCODE -ne 0) {
+        exit $LASTEXITCODE
+    }
+
+    & .\scripts\verify-build-identity.ps1
+    if ($LASTEXITCODE -ne 0) {
+        exit $LASTEXITCODE
+    }
+
     $projectVersionPath = Join-Path $repoRoot 'ProjectSettings/ProjectVersion.txt'
     if (-not (Test-Path -LiteralPath $projectVersionPath)) {
         throw "ProjectVersion.txt not found: $projectVersionPath"

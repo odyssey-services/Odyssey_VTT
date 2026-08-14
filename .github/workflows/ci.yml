@@ -1,0 +1,70 @@
+name: Odyssey Fast CI
+
+on:
+  pull_request:
+    branches:
+      - main
+
+permissions:
+  contents: read
+
+jobs:
+  odyssey-fast-ci:
+    name: odyssey-fast-ci
+    runs-on: windows-latest
+    timeout-minutes: 20
+    steps:
+      - name: Checkout
+        uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803
+
+      - name: Setup .NET
+        uses: actions/setup-dotnet@26b0ec14cb23fa6904739307f278c14f94c95bf1
+        with:
+          dotnet-version: 10.0.302
+
+      - name: Repository policy
+        shell: powershell
+        run: powershell -NoProfile -ExecutionPolicy Bypass -File .\scripts\check-repository-policy.ps1
+
+      - name: Format
+        shell: powershell
+        run: powershell -NoProfile -ExecutionPolicy Bypass -File .\scripts\verify-format.ps1
+
+      - name: Test structure
+        shell: powershell
+        run: powershell -NoProfile -ExecutionPolicy Bypass -File .\scripts\verify-test-structure.ps1
+
+      - name: Static Unity project validation
+        shell: powershell
+        run: powershell -NoProfile -ExecutionPolicy Bypass -File .\scripts\verify-unity-project.ps1
+
+      - name: CI workflow validation
+        shell: powershell
+        run: powershell -NoProfile -ExecutionPolicy Bypass -File .\scripts\verify-ci.ps1
+
+      - name: Restore
+        shell: powershell
+        run: powershell -NoProfile -ExecutionPolicy Bypass -File .\scripts\restore.ps1
+
+      - name: Build
+        shell: powershell
+        run: dotnet build .\DotNet\Odyssey.Core.sln --no-restore
+
+      - name: Fast tests
+        shell: powershell
+        run: powershell -NoProfile -ExecutionPolicy Bypass -File .\scripts\test-fast.ps1
+
+      - name: Build identity
+        shell: powershell
+        run: |
+          $timestamp = (Get-Date).ToUniversalTime().ToString('yyyyMMddTHHmmssZ', [System.Globalization.CultureInfo]::InvariantCulture)
+          powershell -NoProfile -ExecutionPolicy Bypass -File .\scripts\generate-build-identity.ps1 -Channel pull_request -GitRef "${{ github.ref }}" -BuildNumber ${{ github.run_id }} -PullRequestNumber ${{ github.event.pull_request.number }} -RunAttempt ${{ github.run_attempt }} -TimestampUtc $timestamp
+          powershell -NoProfile -ExecutionPolicy Bypass -File .\scripts\verify-build-identity.ps1
+
+      - name: Upload build identity evidence
+        uses: actions/upload-artifact@330a01c490aca151604b8cf639adc76d48f6c5d4
+        with:
+          name: odyssey-build-identity
+          path: artifacts/build-identity
+          retention-days: 7
+          if-no-files-found: error

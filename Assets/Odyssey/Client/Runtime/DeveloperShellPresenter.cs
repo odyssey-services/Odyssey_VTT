@@ -4,6 +4,7 @@ using System.Text;
 using Odyssey.Application.Commands;
 using Odyssey.Application.Diagnostics;
 using Odyssey.Application.Results;
+using Odyssey.Application.Versions;
 using UnityEngine.UIElements;
 
 namespace Odyssey.Unity.Client
@@ -13,6 +14,7 @@ namespace Odyssey.Unity.Client
         OdysseyRuntimeState RuntimeState { get; }
         OdysseyRuntimeProfile RuntimeProfile { get; }
         BuildIdAvailability BuildIdentityAvailability { get; }
+        BuildIdentity? BuildIdentity { get; }
         Result<CommandResult> RunAcceptedProbe();
         Result<CommandResult> RunRejectedProbe();
         void EmitDiagnosticProbe();
@@ -138,7 +140,10 @@ namespace Odyssey.Unity.Client
         {
             SetStateText(_facade.RuntimeState);
             _profile!.text = "Runtime profile: " + _facade.RuntimeProfile;
-            _buildIdentity!.text = "Build identity: " + (_facade.BuildIdentityAvailability == BuildIdAvailability.Available ? "available" : "unavailable");
+            BuildIdentity? identity = _facade.BuildIdentity;
+            _buildIdentity!.text = identity == null
+                ? "Build identity: unavailable"
+                : "Build identity: " + identity.ApplicationVersion + " | " + identity.DisplayVersion + " | " + identity.BuildId + " | " + identity.Channel + " | " + identity.GitShortSha + " | " + identity.WorkingTreeState;
             StringBuilder builder = new StringBuilder();
             foreach (LogEventV1 logEvent in _facade.GetRecentDiagnostics())
             {

@@ -1,0 +1,12 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <AssemblyName>Odyssey.BuildIdentity</AssemblyName>
+    <RootNamespace>Odyssey.BuildIdentity</RootNamespace>
+    <OutputType>Exe</OutputType>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\..\Projects\Odyssey.Application.csproj" />
+  </ItemGroup>
+</Project>

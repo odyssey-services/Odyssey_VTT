@@ -19,7 +19,8 @@
       "messageTemplateKey": "log.app.startup.completed",
       "allowedProperties": [
         { "key": "state", "classification": "OperationalSafe", "valueKind": "Code" },
-        { "key": "duration_ms", "classification": "OperationalSafe", "valueKind": "Duration" }
+        { "key": "duration_ms", "classification": "OperationalSafe", "valueKind": "Duration" },
+        { "key": "build_id", "classification": "OperationalSafe", "valueKind": "TechnicalIdentifier" }
       ],
       "purpose": "Runtime reached Ready.",
       "status": "Active"

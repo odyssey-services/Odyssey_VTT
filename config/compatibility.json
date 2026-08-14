@@ -1,0 +1,36 @@
+{
+  "schemaVersion": 1,
+  "databaseSchemaVersion": {
+    "minimum": 1,
+    "current": 1
+  },
+  "campaignFormatVersion": {
+    "minimum": 1,
+    "current": 1
+  },
+  "manifestSchemaVersion": {
+    "minimum": 1,
+    "current": 1
+  },
+  "assetManifestVersion": {
+    "minimum": 1,
+    "current": 1
+  },
+  "commandContractVersion": {
+    "minimum": 1,
+    "current": 1
+  },
+  "eventContractVersion": {
+    "minimum": 1,
+    "current": 1
+  },
+  "fingerprintVersion": {
+    "minimum": 1,
+    "current": 1
+  },
+  "networkProtocolVersion": {
+    "minimum": 1,
+    "preferred": 1,
+    "maximum": 1
+  }
+}

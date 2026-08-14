@@ -6,6 +6,7 @@ using System.Threading.Tasks;
 using Odyssey.Application.Diagnostics;
 using Odyssey.Application.Identity;
 using Odyssey.Application.Time;
+using Odyssey.Application.Versions;
 using Odyssey.Domain.Time;
 using UnityEngine;
 
@@ -192,13 +193,14 @@ namespace Odyssey.Unity.Client
         private bool _isDraining;
         private bool _isDisposed;
 
-        public BoundedDiagnosticRuntime(EventCodeRegistry registry, IWallClock clock, IMonotonicClock monotonicClock, IReadOnlyList<IDiagnosticSink> sinks, IEmergencyDiagnosticSink emergencySink, int maxEvents = DefaultQueueMaxEvents, int maxBytes = DefaultQueueMaxBytes, bool autoFlush = true)
+        public BoundedDiagnosticRuntime(EventCodeRegistry registry, IWallClock clock, IMonotonicClock monotonicClock, IReadOnlyList<IDiagnosticSink> sinks, IEmergencyDiagnosticSink emergencySink, BuildIdentity? buildIdentity = null, int maxEvents = DefaultQueueMaxEvents, int maxBytes = DefaultQueueMaxBytes, bool autoFlush = true)
         {
             _registry = registry ?? throw new ArgumentNullException(nameof(registry));
             _clock = clock ?? throw new ArgumentNullException(nameof(clock));
             _monotonicClock = monotonicClock ?? throw new ArgumentNullException(nameof(monotonicClock));
             if (sinks == null) throw new ArgumentNullException(nameof(sinks));
             _emergencySink = emergencySink ?? throw new ArgumentNullException(nameof(emergencySink));
+            BuildIdentity = buildIdentity;
             if (maxEvents <= 0) throw new ArgumentOutOfRangeException(nameof(maxEvents));
             if (maxBytes <= 0) throw new ArgumentOutOfRangeException(nameof(maxBytes));
             _maxEvents = maxEvents;
@@ -208,6 +210,8 @@ namespace Odyssey.Unity.Client
         }
 
         public bool AutoFlush { get; }
+        public BuildIdentity? BuildIdentity { get; }
+        public BuildIdAvailability BuildIdentityAvailability => BuildIdentity == null ? BuildIdAvailability.UnavailableNotYetComposed : BuildIdAvailability.Available;
         public LogLevel MinimumLevel { get; set; } = LogLevel.Trace;
         public int PendingCount { get { lock (_gate) return _queue.Count; } }
         public int PendingLogicalBytes { get { lock (_gate) return _logicalBytes; } }
@@ -259,7 +263,7 @@ namespace Odyssey.Unity.Client
                 level,
                 eventCode,
                 subsystem,
-                BuildIdAvailability.UnavailableNotYetComposed,
+                BuildIdentityAvailability,
                 context.ProcessInstanceId,
                 messageTemplateKey,
                 properties,
@@ -440,7 +444,7 @@ namespace Odyssey.Unity.Client
                 LogLevel.Warning,
                 OdysseyEventCodes.DiagnosticsQueueEventsDropped,
                 SubsystemName.Parse("diagnostics"),
-                BuildIdAvailability.UnavailableNotYetComposed,
+                BuildIdentityAvailability,
                 incoming.ProcessInstanceId,
                 MessageTemplateKey.Parse("log.diagnostics.queue.events_dropped"),
                 new[]

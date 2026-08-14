@@ -29,7 +29,8 @@ namespace Odyssey.Tests.Unity.PlayMode
             Assert.That(FindEntryPointCount(), Is.EqualTo(1));
             Assert.That(Text(document, "runtime-state"), Is.EqualTo("State: Ready"));
             Assert.That(Text(document, "runtime-profile"), Is.EqualTo("Runtime profile: DeveloperShell"));
-            Assert.That(Text(document, "build-identity"), Is.EqualTo("Build identity: unavailable"));
+            Assert.That(Text(document, "build-identity"), Does.Contain("0.1.0-local."));
+            Assert.That(Text(document, "build-identity"), Does.Contain("odyssey-local-"));
 
             GameObject duplicateHostObject = new GameObject("Duplicate Odyssey Runtime Host");
             OdysseyRuntimeHost duplicateHost = duplicateHostObject.AddComponent<OdysseyRuntimeHost>();

@@ -15,5 +15,6 @@ namespace Odyssey.Application.Results
         public static readonly ErrorCode SerializationInvalidPayload = ErrorCode.Parse("application.serialization.invalid_payload");
         public static readonly ErrorCode SerializationUnsupportedContract = ErrorCode.Parse("application.serialization.unsupported_contract");
         public static readonly ErrorCode SerializationIntegrityMismatch = ErrorCode.Parse("application.serialization.integrity_mismatch");
+        public static readonly ErrorCode VersioningInvalidSource = ErrorCode.Parse("application.versioning.invalid_source");
     }
 }

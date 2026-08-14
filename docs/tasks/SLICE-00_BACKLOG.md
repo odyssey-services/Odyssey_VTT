@@ -46,7 +46,7 @@ The delivery-group labels `PR-000–PR-005` come from Technical Development Base
 | 5 | `ODY-S00-005` | PR-003B | Command, Event, Clock and RNG Contracts | Done | 004 | ExecPlan update | Deterministic test operation, idempotency contracts, virtual time and RNG vectors |
 | 6 | `ODY-S00-006` | PR-003C | Runtime Composition and Diagnostic Shell | Done | 005 | ExecPlan update | Manual composition, process lifecycle, minimal UI shell, structured safe diagnostics |
 | 7 | `ODY-S00-007` | PR-004 | Serialization and AOT Compatibility Spike | Done | 005, 006 | ExecPlan update | Explicit canonical JSON codecs, invalid-input tests and Mono/IL2CPP parity evidence |
-| 8 | `ODY-S00-008` | PR-005A | Fast CI and Build Identity | Ready | 003–007 | ExecPlan update | No-secret CI gates, mandatory local Unity merge validation, version generation, provenance and repository-policy gates |
+| 8 | `ODY-S00-008` | PR-005A | Fast CI and Build Identity | In Progress | 003–007 | ExecPlan update | No-secret CI gates, mandatory local Unity merge validation, version generation, provenance and repository-policy gates |
 | 9 | `ODY-S00-009` | PR-005B | Windows Development Build and Player Smoke | Draft | 008 | ExecPlan update | Scripted Windows x64 build, artifact/checksum, startup/shutdown and diagnostics smoke |
 | 10 | `ODY-S00-010` | Gate | SLICE-00 Acceptance and M1 Closure | Draft | 001–009 | Brief plan | Traceability matrix, quality report, clean-checkout rehearsal and owner acceptance |
 

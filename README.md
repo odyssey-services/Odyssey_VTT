@@ -8,7 +8,7 @@ The private GitHub repository `odyssey-services/Odyssey_VTT` is the single autho
 
 Current stage: `SLICE-00 — Technical Skeleton`.
 
-Repository Foundation, Unity Project Foundation, Module/Test Skeleton, Identity/Version/Result Primitives, Command/Event/Clock/RNG Contracts, Runtime Composition/Diagnostic Shell, and Serialization/AOT Compatibility are complete. The active task is `docs/tasks/active/ODY-S00-008_Fast_CI_and_Build_Identity.md`, currently Ready on `feat/ody-s00-008-fast-ci-build-identity`. The ODY-S00-008 CI licensing decision is recorded: no-secret GitHub Actions gates plus mandatory local Unity merge validation. Fast CI and BuildIdentity implementation has not started.
+Repository Foundation, Unity Project Foundation, Module/Test Skeleton, Identity/Version/Result Primitives, Command/Event/Clock/RNG Contracts, Runtime Composition/Diagnostic Shell, and Serialization/AOT Compatibility are complete. The active task is `docs/tasks/active/ODY-S00-008_Fast_CI_and_Build_Identity.md`, currently In Progress on `feat/ody-s00-008-fast-ci-build-identity`. ODY-S00-008 implements no-secret GitHub Actions gates plus mandatory local Unity merge validation, Fast CI, and BuildIdentity.
 
 ## Rights
 
