@@ -600,7 +600,7 @@ try {
         'docs/tasks/completed/ODY-S00-005_Command_Event_Clock_and_RNG_Contracts.md',
         'docs/tasks/completed/ODY-S00-006_Runtime_Composition_and_Diagnostic_Shell.md',
         'docs/tasks/completed/ODY-S00-007_Serialization_and_AOT_Compatibility_Spike.md',
-        'docs/tasks/active/ODY-S00-008_Fast_CI_and_Build_Identity.md',
+        'docs/tasks/completed/ODY-S00-008_Fast_CI_and_Build_Identity.md',
         'docs/errors/ERROR_CODES.md',
         'docs/plans/README.md',
         'docs/plans/active/ODY-S00-000_SLICE_00_Technical_Skeleton.md'

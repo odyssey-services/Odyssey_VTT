@@ -59,7 +59,7 @@ PLANS.md
 docs/tasks/TASK_TEMPLATE.md
 docs/tasks/SLICE-00_BACKLOG.md
 docs/tasks/active/ODY-S00-000_SLICE_00_Technical_Skeleton.md
-docs/tasks/active/ODY-S00-008_Fast_CI_and_Build_Identity.md
+docs/tasks/active/ODY-S00-009_Windows_Development_Build_and_Player_Smoke.md
 docs/plans/active/ODY-S00-000_SLICE_00_Technical_Skeleton.md
 docs/adr/ADR-001_Module_Boundaries_and_Dependency_Direction_v1.0.md
 docs/adr/ADR-002_Command_and_Domain_Event_Model_v1.0.md
@@ -83,7 +83,9 @@ docs/adr/ADR-010_Logging_Diagnostics_and_Redaction_v1.1.md
 
 `docs/tasks/completed/ODY-S00-007_Serialization_and_AOT_Compatibility_Spike.md` is complete through owner-merged PR #11, merged head `555c7adbead725cf84658588d3777a3827f39dd6`, merge commit `88382217a1053fbe5eb631024063800f45e69926`.
 
-`docs/tasks/active/ODY-S00-008_Fast_CI_and_Build_Identity.md` is the current `In Progress` child task on branch `fix/ody-s00-008-post-merge-review-findings` for post-merge remediation. PR #12 is owner-merged into `main`; no corrective PR is open. ODY-S00-009 remains `Draft`.
+`docs/tasks/completed/ODY-S00-008_Fast_CI_and_Build_Identity.md` is complete through owner-merged PR #12 and corrective PR #13. Corrective feature HEAD `43225c9f753903c7678704891c22d5e98676fb3e` entered `main` as merge commit `1e6483aee42c53595bbc4758dff0a9a696345661`; main push CI run `31799960601` passed all four required no-secret checks and Development provenance checksum validation passed.
+
+`docs/tasks/active/ODY-S00-009_Windows_Development_Build_and_Player_Smoke.md` is the current child task. It is `Draft`, not Ready, because the mandatory ADR-009 Windows build and Player smoke scenarios do not yet have owner-approved ODY-S00-009 entries in `Tests/Metadata/test-catalog.json`.
 
 # 5. CI and Unity Validation Authority
 

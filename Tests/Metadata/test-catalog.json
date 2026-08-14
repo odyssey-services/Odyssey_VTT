@@ -1093,7 +1093,7 @@
                           "taskId":  "ODY-S00-008",
                           "authority":  "ADR-007; ODY-S00-008",
                           "runner":  "PowerShell",
-                          "path":  "docs/tasks/active/ODY-S00-008_Fast_CI_and_Build_Identity.md",
+                          "path":  "docs/tasks/completed/ODY-S00-008_Fast_CI_and_Build_Identity.md",
                           "check":  "no GitHub Release or ODY-S00-009 application artifact is produced"
                       },
                       {
@@ -1101,7 +1101,7 @@
                           "taskId":  "ODY-S00-008",
                           "authority":  "ADR-007; ODY-S00-008",
                           "runner":  "PowerShell",
-                          "path":  "docs/tasks/active/ODY-S00-008_Fast_CI_and_Build_Identity.md",
+                          "path":  "docs/tasks/completed/ODY-S00-008_Fast_CI_and_Build_Identity.md",
                           "check":  "branch protection/ruleset availability is recorded honestly with owner action if inaccessible"
                       },
                       {
