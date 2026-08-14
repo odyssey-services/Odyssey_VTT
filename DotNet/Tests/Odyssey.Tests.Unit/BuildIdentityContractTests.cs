@@ -101,6 +101,22 @@ namespace Odyssey.Tests.Unit
         }
 
         [Test]
+        public void LocalBuildIdentitySupportsSubsecondUtcTokensWithoutWeakeningDevelopmentToken()
+        {
+            VersionSource version = new VersionSource(ApplicationVersion.Parse("0.1.0"));
+            CompatibilityConfig compatibility = StandardCompatibility();
+            BuildIdentity first = BuildIdentityCodec.Create(version, compatibility, BuildChannel.Local, 1, 1, Sha, "heads/local", WorkingTreeState.Clean, "20260812T1200000000001Z", "6000.4.0f1", "8cf496087c8f", "10.0.302", "Development-Debug", "WindowsStandalone", "x86_64", "Mono", "NETStandard2.1");
+            BuildIdentity second = BuildIdentityCodec.Create(version, compatibility, BuildChannel.Local, 1, 1, Sha, "heads/local", WorkingTreeState.Clean, "20260812T1200000000002Z", "6000.4.0f1", "8cf496087c8f", "10.0.302", "Development-Debug", "WindowsStandalone", "x86_64", "Mono", "NETStandard2.1");
+            BuildIdentity repeat = BuildIdentityCodec.Create(version, compatibility, BuildChannel.Local, 1, 1, Sha, "heads/local", WorkingTreeState.Clean, "20260812T1200000000001Z", "6000.4.0f1", "8cf496087c8f", "10.0.302", "Development-Debug", "WindowsStandalone", "x86_64", "Mono", "NETStandard2.1");
+            BuildIdentity development = BuildIdentityCodec.Create(version, compatibility, BuildChannel.Development, 31764457677, 1, "487df0fe97051541c3cdfce5253c8a2f7a70fa54", "refs/heads/main", WorkingTreeState.Clean, "20260812T1200000000001Z", "6000.4.0f1", "8cf496087c8f", "10.0.302", "Development-Debug", "WindowsStandalone", "x86_64", "Mono", "NETStandard2.1");
+
+            Assert.That(first.BuildId, Is.Not.EqualTo(second.BuildId));
+            Assert.That(first.DisplayVersion, Is.Not.EqualTo(second.DisplayVersion));
+            Assert.That(repeat.BuildId, Is.EqualTo(first.BuildId));
+            Assert.That(development.BuildId, Does.StartWith("odyssey-development-"));
+        }
+
+        [Test]
         public void BuildIdentityJsonRoundTripsWithoutLocalIdentifiersOrReleaseClaim()
         {
             BuildIdentity identity = BuildIdentityCodec.Create(new VersionSource(ApplicationVersion.Parse("0.1.0")), StandardCompatibility(), BuildChannel.Local, 1, 1, Sha, "heads/local", WorkingTreeState.Clean, "20260812T120000Z", "6000.4.0f1", "8cf496087c8f", "10.0.302", "Development-Debug", "WindowsStandalone", "x86_64", "Mono", "NETStandard2.1");
@@ -117,6 +133,23 @@ namespace Odyssey.Tests.Unit
             Assert.That(text, Does.Not.Contain(Environment.MachineName.ToLowerInvariant()));
             Assert.That(text, Does.Not.Contain("c:\\"));
             Assert.That(text, Does.Not.Contain("persistentdeviceid"));
+        }
+
+        [Test]
+        public void BuildIdentityReadRejectsTamperedCompatibilityAndRegistryDigests()
+        {
+            BuildIdentity identity = BuildIdentityCodec.Create(new VersionSource(ApplicationVersion.Parse("0.1.0")), StandardCompatibility(), BuildChannel.Local, 1, 1, Sha, "heads/local", WorkingTreeState.Clean, "20260812T120000Z", "6000.4.0f1", "8cf496087c8f", "10.0.302", "Development-Debug", "WindowsStandalone", "x86_64", "Mono", "NETStandard2.1");
+            JsonPayload json = BuildIdentityCodec.WriteBuildIdentity(identity).Value;
+
+            string changedCompatibility = json.Utf8Text.Replace("\"databaseSchemaVersion\":{\"minimum\":1,\"current\":1}", "\"databaseSchemaVersion\":{\"minimum\":1,\"current\":2}");
+            string changedCompatibilityDigest = json.Utf8Text.Replace(identity.CompatibilityConfigDigest, new string('a', 64));
+            string changedRegistryDigest = json.Utf8Text.Replace(identity.ContractRegistryDigest, new string('b', 64));
+
+            Assert.That(BuildIdentityCodec.ReadBuildIdentity(json.Bytes).IsSuccess, Is.True);
+            Assert.That(BuildIdentityCodec.ReadBuildIdentity(CanonicalJson.ToUtf8Bytes(changedCompatibility)).IsFailure, Is.True);
+            Assert.That(BuildIdentityCodec.ReadBuildIdentity(CanonicalJson.ToUtf8Bytes(changedCompatibilityDigest)).IsFailure, Is.True);
+            Assert.That(BuildIdentityCodec.ReadBuildIdentity(CanonicalJson.ToUtf8Bytes(changedRegistryDigest)).IsFailure, Is.True);
+            Assert.That(BuildIdentityCodec.WriteBuildIdentity(BuildIdentityCodec.ReadBuildIdentity(json.Bytes).Value).Value.Utf8Text, Is.EqualTo(json.Utf8Text));
         }
 
         private static CompatibilityConfig StandardCompatibility()

@@ -18,7 +18,7 @@ $ErrorActionPreference = 'Stop'
 
 $repoRoot = Resolve-Path (Join-Path $PSScriptRoot '..')
 if ([string]::IsNullOrWhiteSpace($TimestampUtc)) {
-    $TimestampUtc = (Get-Date).ToUniversalTime().ToString('yyyyMMddTHHmmssZ', [System.Globalization.CultureInfo]::InvariantCulture)
+    $TimestampUtc = (Get-Date).ToUniversalTime().ToString('yyyyMMddTHHmmssfffffffZ', [System.Globalization.CultureInfo]::InvariantCulture)
 }
 
 dotnet run --project (Join-Path $repoRoot 'DotNet/Tools/Odyssey.BuildIdentity/Odyssey.BuildIdentity.csproj') -- `
