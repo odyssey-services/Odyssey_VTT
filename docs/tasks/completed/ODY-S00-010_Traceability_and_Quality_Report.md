@@ -1,6 +1,6 @@
 # ODY-S00-010 - Traceability Matrix and Quality Report
 
-**Parent task:** `docs/tasks/active/ODY-S00-010_SLICE_00_Acceptance_and_M1_Closure.md`
+**Parent task:** `docs/tasks/completed/ODY-S00-010_SLICE_00_Acceptance_and_M1_Closure.md`
 **Prepared:** 2026-08-19 UTC
 **Rehearsal commit:** `16495cbc22cdfb8d36414a055a661831eb8b83a5` (`main`, includes owner-merged PR #18)
 **Rehearsal method:** Fresh, independent `git clone` of `odyssey-services/Odyssey_VTT` into a new directory (`D:\Documents\Odyssey_VTT_ODY-S00-010_rehearsal_20260819T175613Z`), separate from the existing working copy. The directory was deleted in full after the rehearsal completed; it is not part of the repository.
@@ -21,9 +21,9 @@ This report is honest about evidence granularity: some TestCase IDs were printed
 | 8 | Canonical JSON and deterministic compatibility vectors pass in pure .NET, Unity Mono, and Windows IL2CPP x64. | Pass (Mono/.NET re-verified live; IL2CPP reconciled from existing evidence, not rebuilt) | `.NET`: 88/88 `dotnet test` includes `TC-SER-*` codec tests. Unity Mono: `.\scripts\test-serialization-aot.ps1` on the fresh clone: `TC-SER-022 serialization-aot-smoke build PASS exit code 0`, `TC-DIAG-042 serialization-aot-smoke player PASS exit code 0`, `TC-SER-022/TC-DIAG-042 serialization-aot-smoke exact vector comparison PASS`. **Windows IL2CPP x64 was not rebuilt in this rehearsal** (this rehearsal's canonical artifact is Development-Debug Mono, per the ODY-S00-009/ODY-S00-010 contract profile); IL2CPP compatibility is reconciled from the existing `docs/tasks/completed/ODY-S00-007_Serialization_and_AOT_Compatibility_Spike.md` evidence (owner-merged PR #11, merge commit `88382217a1053fbe5eb631024063800f45e69926`). This is expected per contract AC-8, not a gap discovered during this rehearsal. |
 | 9 | A Windows Development-Debug build is created by repository scripts and exposes BuildIdentity in the client and logs. | Pass | Real `.\scripts\build-dev.ps1` run on the fresh clone produced `BuildId=odyssey-development-1787163468.1-g16495cbc22cd` with `gitCommitSha` matching the fresh clone's own HEAD; BuildIdentity is embedded in `Odyssey_Data/StreamingAssets/Odyssey/build-identity.json` (hash-verified equal to the sidecar) and exposed in the retained, redacted build log. See section 3 for full build/smoke evidence. |
 | 10 | Required CI checks block an invalid pull request. | Pass | `.\scripts\verify-ci.ps1` on the fresh clone: `TC-CI-001` through `TC-CI-012` all PASS, including nine controlled-invalid workflow fixtures each correctly rejected. |
-| 11 | The `SLICE-00` quality report and traceability evidence are complete and owner-reviewed. | Deferred — owner review pending | This document and the parent task's Section 17 constitute the quality report and traceability evidence; they exist and are complete as of this rehearsal. "Owner-reviewed" is explicitly **not** claimed here — see section 5 ("Owner acceptance") below. This criterion cannot be marked fully Pass until the owner reviews and accepts. |
+| 11 | The `SLICE-00` quality report and traceability evidence are complete and owner-reviewed. | Pass | This document and the parent task's Section 17 constitute the quality report and traceability evidence. Owner-reviewed and explicitly accepted on 2026-08-19 — see section 7 ("Owner acceptance") below. |
 
-10 of 11 exit criteria are fully proven by this rehearsal. Criterion 11 is intentionally left open pending explicit owner review — that is what this document exists to enable, not to pre-empt.
+All 11 of 11 exit criteria are proven: 10 by this rehearsal's direct evidence, and criterion 11 by the owner's explicit acceptance of this report and the parent task's Section 17 on 2026-08-19 (see section 7).
 
 ## 2. TestCase traceability matrix (`Tests/Metadata/test-catalog.json`)
 
@@ -258,10 +258,11 @@ Neither finding reflects a `SLICE-00` product defect. Both are documented here i
 | 8 | Canonical JSON/compatibility vectors: .NET, Mono, IL2CPP | ✅ Pass (IL2CPP reconciled, not rebuilt — expected) |
 | 9 | Windows Development-Debug build with BuildIdentity | ✅ Pass |
 | 10 | Required CI checks block invalid PRs | ✅ Pass |
-| 11 | Quality report and traceability complete and **owner-reviewed** | ⏳ Report complete; owner review pending (see section 7) |
+| 11 | Quality report and traceability complete and **owner-reviewed** | ✅ Pass — accepted 2026-08-19 (see section 7) |
 
 ## 7. Owner acceptance
 
-**Pending explicit owner acceptance.**
+**Accepted.**
 
-This section is intentionally left as a placeholder. The agent that produced this report does not fill in owner acceptance — per the parent task contract (AC-15) and this task's own instructions, `SLICE-00`/`M1` closure requires the product owner to review this report and the parent task's Section 17, and explicitly record acceptance here (or in the parent task file). Until that happens, exit-criterion 11 above and the parent task's AC-15 remain open, and `ODY-S00-010` cannot move to `Done`.
+Date: 2026-08-19
+Decision: Product owner reviewed this traceability/quality report and the parent task's Section 17 in full, and explicitly accepted `SLICE-00`/`M1` closure as-is, with no changes requested.
