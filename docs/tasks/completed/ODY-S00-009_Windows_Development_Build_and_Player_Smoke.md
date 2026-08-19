@@ -1,14 +1,14 @@
 # ODY-S00-009 - Windows Development Build and Player Smoke
 
-**Status:** In Review  
+**Status:** Done  
 **Roadmap stage / slice:** SLICE-00  
 **Owner:** Unassigned  
 **Requested by:** Product owner  
 **Branch:** `feat/ody-s00-009-windows-player-build-smoke`  
-**Pull request:** Draft — [#14](https://github.com/odyssey-services/Odyssey_VTT/pull/14)  
+**Pull request:** PR #14 owner-merged - https://github.com/odyssey-services/Odyssey_VTT/pull/14  
 **ExecPlan:** `docs/plans/active/ODY-S00-000_SLICE_00_Technical_Skeleton.md`  
 **Created:** 2026-08-14  
-**Last updated:** 2026-08-14 UTC
+**Last updated:** 2026-08-19 UTC
 
 ## 1. Goal
 
@@ -371,6 +371,24 @@ No new dependency, GitHub Action, Unity package, executable, external tool, or d
 - Test review: Owner-approved `TC-PLAYER-001` through `TC-PLAYER-010` are mapped to implemented owning scripts and guarded by `scripts/verify-test-structure.ps1`.
 - Security/privacy review: Redaction and artifact privacy constraints are explicit.
 - Documentation/version review: No baseline, ADR, TDB, schema, protocol, ruleset, package, or application version is changed.
+
+### Final owner-merged status
+
+```text
+PR #14: Merged
+PR #14 merge commit: 1733a6f2719a4166a08385563f5a6542e2da53b3
+Merge parents: 1e6483aee42c53595bbc4758dff0a9a696345661 (prior main tip, ODY-S00-008), c8c14683fabe5c8967ddf682fc19fede11b8bdfd (feature branch head)
+Merge method: standard merge commit (2 parents; not squash, not rebase)
+Merged at: 2026-08-19T16:31:22Z
+Merged by: odyssey-services
+Base branch: main
+Feature branch: feat/ody-s00-009-windows-player-build-smoke
+Independent pre-PR audit on corrected HEAD d8c8431df985c67d608e81cc4361c03913ab4341: GO, blockers 0 (5 prior P1 blockers from audit HEAD 8b792c245fe5ca1d21555f32e3ef4480d444953b all closed)
+TC-PLAYER-008 and TC-PLAYER-010 correction commit: c8c14683fabe5c8967ddf682fc19fede11b8bdfd, independently proven via scripts/build-dev.ps1 -SelfTest and a real clean-HEAD Windows Development-Debug build/smoke run
+Final required CI checks on merged head: repository-policy-format-structure success; dotnet-restore-build-test success; unity-project-package-static success; buildidentity-provenance success (run 32272779279)
+Draft PR opened: 2026-08-19; marked Ready for Review: 2026-08-19 after CI confirmation on c8c14683fabe5c8967ddf682fc19fede11b8bdfd
+ODY-S00-010: Not started; next SLICE-00 task (SLICE-00 Acceptance and M1 Closure)
+```
 
 ## 18. Blockers, decisions, and change control
 
