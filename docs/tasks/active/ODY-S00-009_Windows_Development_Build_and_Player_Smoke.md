@@ -1,11 +1,11 @@
 # ODY-S00-009 - Windows Development Build and Player Smoke
 
-**Status:** In Progress  
+**Status:** In Review  
 **Roadmap stage / slice:** SLICE-00  
 **Owner:** Unassigned  
 **Requested by:** Product owner  
 **Branch:** `feat/ody-s00-009-windows-player-build-smoke`  
-**Pull request:** Not opened  
+**Pull request:** Draft — [#14](https://github.com/odyssey-services/Odyssey_VTT/pull/14)  
 **ExecPlan:** `docs/plans/active/ODY-S00-000_SLICE_00_Technical_Skeleton.md`  
 **Created:** 2026-08-14  
 **Last updated:** 2026-08-14 UTC
