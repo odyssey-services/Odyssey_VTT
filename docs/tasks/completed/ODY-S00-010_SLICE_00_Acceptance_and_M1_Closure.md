@@ -1,6 +1,6 @@
 # ODY-S00-010 - SLICE-00 Acceptance and M1 Closure
 
-**Status:** Ready  
+**Status:** Done  
 **Roadmap stage / slice:** SLICE-00  
 **Owner:** Unassigned  
 **Requested by:** Product owner  
@@ -8,7 +8,7 @@
 **Pull request:** Not opened  
 **ExecPlan:** Not required  
 **Created:** 2026-08-19  
-**Last updated:** 2026-08-19 UTC (activated to Ready)
+**Last updated:** 2026-08-19 UTC (owner accepted SLICE-00/M1 closure; Done)
 
 ## 1. Goal
 
@@ -93,12 +93,12 @@ Reconcile and confirm acceptance of the complete `SLICE-00` slice — traceabili
 ### Allowed paths
 
 ```text
-docs/tasks/active/ODY-S00-010_SLICE_00_Acceptance_and_M1_Closure.md
-docs/tasks/active/ODY-S00-010_Traceability_and_Quality_Report.md
+docs/tasks/completed/ODY-S00-010_SLICE_00_Acceptance_and_M1_Closure.md
+docs/tasks/completed/ODY-S00-010_Traceability_and_Quality_Report.md
 docs/plans/active/ODY-S00-000_SLICE_00_Technical_Skeleton.md
 ```
 
-The traceability matrix and quality report are defined as a **separate file**, `docs/tasks/active/ODY-S00-010_Traceability_and_Quality_Report.md`, rather than a subsection of this contract. Rationale: the matrix must cover 11 exit criteria plus 156+ TestCase rows plus a full command-by-command fresh-clone rehearsal log, which is large and will be revised iteratively during rehearsal execution, while the task contract itself should stay a stable, reviewable execution agreement. Existing report/matrix templates were checked (`Documentation/Release_Quality_Report_Template.md`, `Documentation/Test_Traceability_Matrix_Template.md`) but both live under the gitignored, Non-Normative `Documentation/` directory (private, not tracked in this repository per Active Baseline section 6), so they are not usable authorities here; the new file is defined fresh under `docs/tasks/active/`.
+The traceability matrix and quality report are defined as a **separate file**, `docs/tasks/completed/ODY-S00-010_Traceability_and_Quality_Report.md`, rather than a subsection of this contract. Rationale: the matrix must cover 11 exit criteria plus 156+ TestCase rows plus a full command-by-command fresh-clone rehearsal log, which is large and will be revised iteratively during rehearsal execution, while the task contract itself should stay a stable, reviewable execution agreement. Existing report/matrix templates were checked (`Documentation/Release_Quality_Report_Template.md`, `Documentation/Test_Traceability_Matrix_Template.md`) but both live under the gitignored, Non-Normative `Documentation/` directory (private, not tracked in this repository per Active Baseline section 6), so they are not usable authorities here; the new file is defined fresh under `docs/tasks/active/`.
 
 Also allowed, evidence-only: `docs/tasks/completed/ODY-S00-004_Identity_Version_and_Result_Primitives.md`, limited strictly to correcting its Status header and adding verified PR #8 merge evidence once confirmed — not touching its existing technical content or acceptance record.
 
@@ -156,7 +156,7 @@ Production, test, workflow, Unity settings, package, dependency, and ADR changes
 - Tests: None new; existing TestCase IDs are exercised and reconciled, not created.
 - Scripts / CI: None new. Any newly identified need is deferred behind explicit approval per section 5.
 - Configuration: None.
-- Documentation: This task contract; `docs/tasks/active/ODY-S00-010_Traceability_and_Quality_Report.md` (new, future implementation); an ExecPlan changelog entry; a corrected Status/evidence line in `docs/tasks/completed/ODY-S00-004_...md` (future implementation, not this contract-creation activation).
+- Documentation: This task contract; `docs/tasks/completed/ODY-S00-010_Traceability_and_Quality_Report.md` (new, future implementation); an ExecPlan changelog entry; a corrected Status/evidence line in `docs/tasks/completed/ODY-S00-004_...md` (future implementation, not this contract-creation activation).
 - Generated evidence or build artifacts: Fresh-clone rehearsal build/smoke artifacts (local, gitignored, same convention as `ODY-S00-009`).
 - Migration / recovery material: Not applicable.
 
@@ -173,7 +173,7 @@ Production, test, workflow, Unity settings, package, dependency, and ADR changes
 9. A Windows Development-Debug build is created by repository scripts and exposes BuildIdentity in the client and logs, proven by a full, real `scripts/build-dev.ps1` + `scripts/test-player-smoke.ps1` run from the fresh clean-checkout clone (not reused artifacts from a prior task).
 10. Required CI checks block an invalid pull request, reconciled from `ODY-S00-008`/`scripts/verify-ci.ps1` evidence, not re-invented.
 11. The `SLICE-00` quality report and traceability evidence are complete and owner-reviewed.
-12. `docs/tasks/active/ODY-S00-010_Traceability_and_Quality_Report.md` exists and maps 100% of the TestCase IDs present in `Tests/Metadata/test-catalog.json` at rehearsal time to an explicit status.
+12. `docs/tasks/completed/ODY-S00-010_Traceability_and_Quality_Report.md` exists and maps 100% of the TestCase IDs present in `Tests/Metadata/test-catalog.json` at rehearsal time to an explicit status.
 13. The quality report aggregates real validation-command results for `ODY-S00-001` through `ODY-S00-009` plus the new fresh-clone rehearsal; no command result is claimed without being run.
 14. The full clean-checkout rehearsal is performed exactly as scoped in section 5 (fresh `git clone` into a new directory, all repository scripts, Unity batchmode compile/EditMode/PlayMode, full Windows Player build and smoke) and is documented with real evidence (commands, exit results, artifact paths).
 15. Owner acceptance of `SLICE-00`/`M1` closure is explicitly recorded in the traceability/quality-report document or this task file before Status can move to `Done`.
@@ -262,7 +262,7 @@ No new dependency, GitHub Action, Unity package, executable, or download is appr
 
 ## 15. Documentation and versioning impact
 
-- Documents that must change: this task contract (status progression as work proceeds); `docs/tasks/active/ODY-S00-010_Traceability_and_Quality_Report.md` (new, future implementation); `docs/plans/active/ODY-S00-000_SLICE_00_Technical_Skeleton.md` (changelog entry, outcome, and eventual `M1` closure note); `docs/tasks/completed/ODY-S00-004_Identity_Version_and_Result_Primitives.md` (Status/evidence correction only, future implementation); README.md / Active Documentation Baseline current-stage pointer only if actual `M1`/`SLICE-00` closure changes it (future, not this contract-creation activation).
+- Documents that must change: this task contract (status progression as work proceeds); `docs/tasks/completed/ODY-S00-010_Traceability_and_Quality_Report.md` (new, future implementation); `docs/plans/active/ODY-S00-000_SLICE_00_Technical_Skeleton.md` (changelog entry, outcome, and eventual `M1` closure note); `docs/tasks/completed/ODY-S00-004_Identity_Version_and_Result_Primitives.md` (Status/evidence correction only, future implementation); README.md / Active Documentation Baseline current-stage pointer only if actual `M1`/`SLICE-00` closure changes it (future, not this contract-creation activation).
 - Documents that must not change: ADRs, Technical Development Baseline, Product Requirements, MVP Scope, Domain Model, Project Vision, Roadmap. No material or technical decision is introduced by this gate task.
 - Application version change: No.
 - Schema / format / contract / protocol / ruleset version change: None.
@@ -271,62 +271,100 @@ No new dependency, GitHub Action, Unity package, executable, or download is appr
 
 ## 16. Definition of Done
 
-- [ ] Goal is achieved without unapproved scope expansion.
-- [ ] All acceptance criteria are satisfied.
-- [ ] Required automated tests pass.
-- [ ] Required manual checks are completed.
-- [ ] Required commands and their real results are recorded.
-- [ ] Architecture and dependency rules remain valid.
-- [ ] Security, privacy, redaction, and audience rules are verified where applicable.
-- [ ] Compatibility, migration, rollback, and versioning obligations are complete where applicable.
-- [ ] No unapproved dependency, tool, GitHub Action, or license was introduced.
-- [ ] Documentation is updated only where materially required.
-- [ ] Codex/developer performed a self-review against this task and `AGENTS.md`.
-- [ ] Pull request explains changes, evidence, limitations, and follow-up work.
-- [ ] Product owner or authorized reviewer completes the required review; Codex does not merge into `main`.
+- [x] Goal is achieved without unapproved scope expansion.
+- [x] All acceptance criteria are satisfied (AC-1 through AC-15, all Passed).
+- [x] Required automated tests pass (all 15 Section 10 commands passed on the fresh-clone rehearsal, including after resolving two transient environment issues honestly documented in Section 17 and the quality report).
+- [x] Required manual checks are completed (owner review of the traceability matrix, quality report, and rehearsal evidence, with explicit acceptance recorded 2026-08-19).
+- [x] Required commands and their real results are recorded (Section 17 "Validation results"; full detail in `docs/tasks/completed/ODY-S00-010_Traceability_and_Quality_Report.md`).
+- [x] Architecture and dependency rules remain valid (ADR-001 graph reverified via `TC-ARCH-001`/`TC-ARCH-002` on the fresh clone; no architecture change introduced).
+- [x] Security, privacy, redaction, and audience rules are verified where applicable (existing `ODY-S00-009` redaction mechanisms reused and reconfirmed clean on the rehearsal's own build log; no new surface introduced).
+- [x] Compatibility, migration, rollback, and versioning obligations are complete where applicable (Section 11: Not applicable — no persisted state, contract, or version change introduced).
+- [x] No unapproved dependency, tool, GitHub Action, or license was introduced.
+- [x] Documentation is updated only where materially required (this task, the new traceability/quality report, the `ODY-S00-004` bookkeeping correction, the backlog, and the ExecPlan).
+- [x] Codex/developer performed a self-review against this task and `AGENTS.md` (Section 17 "Self-review summary").
+- [x] Pull request explains changes, evidence, limitations, and follow-up work (PR #19 description; full detail in the linked commits).
+- [x] Product owner or authorized reviewer completes the required review; Codex does not merge into `main` (owner explicitly reviewed and accepted `SLICE-00`/`M1` closure "as-is" on 2026-08-19; no merge was performed by Codex — PR #19 remains Draft, pending a separate owner merge/Ready decision).
 
 ## 17. Completion evidence
 
-Fill this section with real results before moving the task to `Done`. Not yet applicable — this activation only creates the task contract; implementation has not started.
+Rehearsal execution, traceability matrix, quality report, the `ODY-S00-004` bookkeeping correction, and explicit owner acceptance are all complete as of this update. See "Acceptance result" below and `docs/tasks/completed/ODY-S00-010_Traceability_and_Quality_Report.md` section 7.
 
 ### Changed files / areas
 
-- This task contract was created from repository authorities (backlog, ExecPlan, and the nine completed `SLICE-00` task files). No implementation started.
+- `docs/tasks/completed/ODY-S00-010_Traceability_and_Quality_Report.md` (new): full traceability matrix (156/156 TestCase IDs, all 11 backlog exit criteria) and quality report from a full clean-checkout rehearsal.
+- `docs/tasks/completed/ODY-S00-004_Identity_Version_and_Result_Primitives.md`: Status header corrected `In Review` → `Done`; verified PR #8 merge evidence added (merge commit `4fb20e935c00d3c5e88c2e7244fd8525e4771819`, merged `2026-08-10T22:47:08Z`). No other content in that file was changed.
+- This task contract: Status `Ready` → `In Review`; this Section 17 filled with real rehearsal results.
+- `docs/plans/active/ODY-S00-000_SLICE_00_Technical_Skeleton.md`: new changelog entry (see below).
 
 ### Validation results
 
+Full detail, including two findings encountered and resolved during the rehearsal, is in `docs/tasks/completed/ODY-S00-010_Traceability_and_Quality_Report.md` section 3. Summary:
+
 | Command / check | Result | Evidence / notes |
 |---|---|---|
-| None | Not run | Implementation has not started. |
+| `.\scripts\restore.ps1` | Passed | 8 projects restored, exit 0, on a fresh independent `git clone` at commit `16495cbc22cdfb8d36414a055a661831eb8b83a5`. |
+| `.\scripts\verify-format.ps1` | Passed | `FORMAT-001 PASS`. |
+| `.\scripts\verify-test-structure.ps1` | Passed | `TC-ARCH-001 PASS`; controlled-invalid fixtures rejected. |
+| `.\scripts\test-fast.ps1` | Passed | .NET 88/88 passed, 0 failed, 0 skipped. |
+| `dotnet build .\DotNet\Odyssey.Core.sln` | Passed | 0 warnings, 0 errors. |
+| `dotnet test .\DotNet\Odyssey.Core.sln --no-build` | Passed | 88/88 passed. |
+| `.\scripts\verify-ci.ps1` | Passed | `TC-CI-001` through `TC-CI-012` all PASS. |
+| `.\scripts\verify-unity-project.ps1` | Passed | Static Unity project/package/toolchain validation passed. |
+| `.\scripts\check-repository-policy.ps1` | Passed | `REPO-POLICY-001` through `005` PASS. |
+| `.\scripts\verify-repository.ps1` | Passed | `REPOSITORY-VERIFY PASS`. |
+| `.\scripts\verify-build-identity.ps1` | Failed on first run (missing prerequisite artifact — a contract command-order gap, not a product defect), Passed after running the prerequisite `generate-build-identity.ps1` step | `TC-BUILDID-009`, `TC-PROVENANCE-002`, `TC-PROVENANCE-003` all PASS. |
+| `.\scripts\test-serialization-aot.ps1` | Passed | `TC-SER-022` build PASS, `TC-DIAG-042` player PASS, exact vector comparison PASS. |
+| `.\scripts\test-unity.ps1` | Passed | Compile exit 0; EditMode 36/36; PlayMode 2/2. |
+| `.\scripts\build-dev.ps1` | Failed on first run (Unity batchmode ProjectSettings/HDRP whitespace drift — the same known pattern already documented in `ODY-S00-008`/`ODY-S00-009` evidence, discarded with `git checkout -- .`), Passed after | Real Windows x64 Development-Debug Player: `BuildId=odyssey-development-1787163468.1-g16495cbc22cd`, `gitCommitSha` matches fresh-clone HEAD. |
+| `.\scripts\test-player-smoke.ps1` | Passed | `TC-PLAYER-004` through `TC-PLAYER-010` all PASS; two smoke runs both `result: pass`, all required flags true. |
 
 ### Acceptance result
 
 | Criterion | Status | Evidence |
 |---|---|---|
-| AC-1 through AC-15 | Not started | Contract activation only; no rehearsal or reconciliation has been performed. |
+| AC-1 | Passed | Fresh clone from the single authoritative remote; `REPO-POLICY-002 PASS` on the fresh clone. |
+| AC-2 | Passed | `test-unity.ps1`: `TC-UNITY-ASM-001 EditorVersion PASS selected=6000.4.0f1`; compile exit 0. |
+| AC-3 | Passed | `dotnet build` 0/0 and Unity batch compile exit 0 on the same fresh-clone source tree. |
+| AC-4 | Passed | `TC-ARCH-001 PASS`; `TC-ARCH-002` controlled-invalid fixtures rejected. |
+| AC-5 | Passed | `dotnet test` 88/88 on the fresh clone, covering command/result/event/clock/RNG/serialization contract tests. |
+| AC-6 | Passed | `REPO-POLICY-005 PASS ErrorCode registry is complete and machine-checkable`, controlled-invalid fixtures rejected. |
+| AC-7 | Passed | EditMode 36/36, PlayMode 2/2, and a real Player smoke proving startup-to-Ready and clean shutdown. |
+| AC-8 | Passed (IL2CPP reconciled, not rebuilt live — expected per this AC's own wording, not a gap) | `.NET` and Unity Mono AOT-smoke vectors re-verified live; Windows IL2CPP x64 reconciled from `docs/tasks/completed/ODY-S00-007_Serialization_and_AOT_Compatibility_Spike.md` (PR #11, merge commit `88382217a1053fbe5eb631024063800f45e69926`). |
+| AC-9 | Passed | Real `build-dev.ps1` run produced `BuildId=odyssey-development-1787163468.1-g16495cbc22cd` with BuildIdentity embedded and exposed in the redacted retained log. |
+| AC-10 | Passed | `verify-ci.ps1`: `TC-CI-001` through `TC-CI-012`, all nine controlled-invalid workflow fixtures correctly rejected. |
+| AC-11 | Passed | This task and `docs/tasks/completed/ODY-S00-010_Traceability_and_Quality_Report.md` together constitute the quality report and traceability evidence; they exist and are complete. |
+| AC-12 | Passed | `docs/tasks/completed/ODY-S00-010_Traceability_and_Quality_Report.md` section 2 maps all 156/156 catalog TestCase IDs to a status. |
+| AC-13 | Passed | The quality report aggregates real ODY-S00-001–009 evidence by reference (not retyped) plus the new fresh-clone rehearsal's real results; no unrun command is claimed as passed. |
+| AC-14 | Passed | Full clean-checkout rehearsal performed exactly as scoped: fresh `git clone` into a new directory, all 15 repository commands from section 10, Unity batchmode compile/EditMode/PlayMode, full Windows Player build and smoke — all documented with real evidence in the traceability/quality report. |
+| **AC-15** | **Passed** | Product owner reviewed this task's Section 17 and `docs/tasks/completed/ODY-S00-010_Traceability_and_Quality_Report.md` in full and explicitly accepted `SLICE-00`/`M1` closure as-is, with no changes requested, on 2026-08-19. Recorded in the traceability/quality report section 7 ("Owner acceptance": **Accepted**). |
+
+All 15 acceptance criteria are Passed with real, reproducible evidence from this rehearsal plus explicit recorded owner acceptance for AC-15.
 
 ### Build and artifact evidence
 
-- Build identity: None yet.
-- Artifact path / name: None yet.
-- Checksums: None yet.
-- Test or quality report: None yet.
+- Build identity: `odyssey-development-1787163468.1-g16495cbc22cd`, generated from fresh-clone commit `16495cbc22cdfb8d36414a055a661831eb8b83a5` (`workingTreeState: clean`; `configuration: Development-Debug`; `platform: WindowsStandalone`; `architecture: x86_64`; `scriptingBackend: Mono`).
+- Artifact path / name: `artifacts/builds/odyssey-development-1787163468.1-g16495cbc22cd/Windows-x64/Odyssey.exe` (local to the rehearsal clone, which was deleted in full after the rehearsal completed; not committed, matching the established `artifacts/**` gitignore convention).
+- Checksums: `checksums.sha256` (303 entries); `Odyssey.exe` independently re-hashed and matched exactly.
+- Test or quality report: `docs/tasks/completed/ODY-S00-010_Traceability_and_Quality_Report.md` (full detail); this Section 17 (summary).
 
 ### Known limitations
 
-- This contract has not been read or approved by the owner and has not moved past `Draft`.
+- Windows IL2CPP x64 was not rebuilt live in this rehearsal; it is reconciled from existing `ODY-S00-007` evidence, which is the expected, contract-scoped treatment for AC-8, not a discovered gap.
+- Two transient rehearsal-environment issues were encountered and resolved (see "Validation results" above and the quality report section 3 for full detail): a missing prerequisite step for `verify-build-identity.ps1` (a gap in this contract's own Section 10 command list, now documented) and known Unity batchmode ProjectSettings/HDRP whitespace drift (same pattern as prior `ODY-S00-008`/`ODY-S00-009` evidence, discarded before `build-dev.ps1` succeeded). Neither reflects a `SLICE-00` product defect.
+- GitHub Actions CI was not separately re-triggered for the rehearsal commit as part of this local rehearsal; the repository's own CI history for `main` is the authority for that evidence and was not re-verified here.
 
 ### Follow-up tasks
 
-- None yet.
+- Capital closure of `SLICE-00`/`M1` at the parent `ODY-S00-000` level (a final "SLICE-00/M1 complete" statement and any parent-task status change) is a separate follow-up, not part of this task.
+- Optional: if the owner wants `verify-build-identity.ps1`'s prerequisite (`generate-build-identity.ps1`) added explicitly to this contract's Section 10 "Required commands" for future rehearsals, that is a documentation-only follow-up, not a code change.
 
 ### Self-review summary
 
-- Scope review: Contract stays within backlog `ODY-S00-010` boundary (section 4) and excludes release/distribution/gameplay/database/networking scope per section 6.
-- Architecture review: No architecture, ADR, or module-boundary change is introduced.
-- Test review: No new TestCase IDs are introduced; all reconciled IDs come from `Tests/Metadata/test-catalog.json`.
-- Security/privacy review: No new redaction or security surface is introduced; existing `ODY-S00-009` mechanisms are reused.
-- Documentation/version review: No baseline, ADR, TDB, schema, protocol, ruleset, package, or application version is changed by this contract-creation activation.
+- Scope review: Rehearsal execution, traceability matrix, quality report, and the `ODY-S00-004` bookkeeping correction stay within backlog `ODY-S00-010` boundary (section 4) and this contract's own section 5; no release/distribution/gameplay/database/networking scope was added.
+- Architecture review: No architecture, ADR, or module-boundary change was introduced; all commands run were pre-existing repository scripts, unmodified.
+- Test review: No new TestCase IDs were introduced; all 156 catalog IDs were reconciled to Pass with honestly tiered evidence (explicit / reconciled / aggregate) — see the traceability report.
+- Security/privacy review: No new redaction or security surface was introduced; existing `ODY-S00-009` redaction mechanisms were reused and independently re-verified (0 leaked username/machine-name/path occurrences on the rehearsal's own build log).
+- Documentation/version review: No baseline, ADR, TDB, schema, protocol, ruleset, package, or application version was changed. The `ODY-S00-004` correction is bookkeeping (Status header + merge evidence) only, not a content or acceptance-record change.
 
 ## 18. Blockers, decisions, and change control
 
@@ -339,7 +377,8 @@ Fill this section with real results before moving the task to `Done`. Not yet ap
 - 2026-08-19 - Create the `ODY-S00-010` task contract from repository authorities (backlog, ExecPlan, and the nine completed `SLICE-00` task files) because no existing draft task contract was present - Authority / approval: this contract-creation activation, pending owner review.
 - 2026-08-19 - Define the future clean-checkout rehearsal as mandatory full scope (fresh `git clone` into a new directory, all repository scripts, Unity batchmode compile/EditMode/PlayMode, full Windows Player build and smoke) rather than a reduced variant - Authority / approval: explicit product owner confirmation.
 - 2026-08-19 - Product owner reviewed and approved the ODY-S00-010 task contract as-is (no changes requested); activated Draft → Ready - Authority / approval: product owner.
+- 2026-08-19 - Product owner reviewed the full rehearsal, traceability matrix, and quality report, and explicitly accepted SLICE-00/M1 closure as-is ("Принимаю как есть") - Authority / approval: product owner.
 
 ### Approved task changes
 
-- None yet.
+- 2026-08-19 - Recorded owner acceptance of SLICE-00/M1 closure in `docs/tasks/completed/ODY-S00-010_Traceability_and_Quality_Report.md` section 7 and this task's AC-15; moved Status In Review → Done - Approved by: product owner.
