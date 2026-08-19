@@ -5,7 +5,7 @@
 **Parent task:** `docs/tasks/active/ODY-S00-000_SLICE_00_Technical_Skeleton.md`
 **ExecPlan:** `docs/plans/active/ODY-S00-000_SLICE_00_Technical_Skeleton.md`
 **Created:** 2026-07-28
-**Last updated:** 2026-08-14 UTC
+**Last updated:** 2026-08-19 UTC
 
 ## 1. Purpose
 
@@ -47,7 +47,7 @@ The delivery-group labels `PR-000–PR-005` come from Technical Development Base
 | 6 | `ODY-S00-006` | PR-003C | Runtime Composition and Diagnostic Shell | Done | 005 | ExecPlan update | Manual composition, process lifecycle, minimal UI shell, structured safe diagnostics |
 | 7 | `ODY-S00-007` | PR-004 | Serialization and AOT Compatibility Spike | Done | 005, 006 | ExecPlan update | Explicit canonical JSON codecs, invalid-input tests and Mono/IL2CPP parity evidence |
 | 8 | `ODY-S00-008` | PR-005A | Fast CI and Build Identity | Done | 003–007 | ExecPlan update | No-secret CI gates, mandatory local Unity merge validation, version generation, provenance, repository-policy gates, diagnostic bundle hardening, PR #12 and corrective PR #13 owner-merged |
-| 9 | `ODY-S00-009` | PR-005B | Windows Development Build and Player Smoke | In Progress | 008 | ExecPlan update | Scripted Windows x64 build, artifact/checksum, startup/shutdown and diagnostics smoke; owner-approved `TC-PLAYER-001` through `TC-PLAYER-010` mapping registered; implementation in progress |
+| 9 | `ODY-S00-009` | PR-005B | Windows Development Build and Player Smoke | Done | 008 | ExecPlan update | Scripted Windows x64 build, artifact/checksum, startup/shutdown and diagnostics smoke; owner-approved `TC-PLAYER-001` through `TC-PLAYER-010` mapping registered; implementation in progress |
 | 10 | `ODY-S00-010` | Gate | SLICE-00 Acceptance and M1 Closure | Draft | 001–009 | Brief plan | Traceability matrix, quality report, clean-checkout rehearsal and owner acceptance |
 
 ## 4. Task boundaries

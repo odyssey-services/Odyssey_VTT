@@ -273,13 +273,13 @@ Record real commands, outputs and artifact paths here as child tasks complete.
 
 - Repository identity, Private visibility, and PR #1 merge are verified. Exact branch protection/ruleset settings remain an owner-accepted limitation.
 - Unity `6000.4.0f1` is acceptable for local ODY-S00-002 development by owner decision.
-- ODY-S00-002 through ODY-S00-008 are Done. ODY-S00-009 is In Progress after owner-approved `TC-PLAYER-001` through `TC-PLAYER-010` mapping and implementation approval for mandatory ADR-009 Windows build and Player smoke scenarios.
+- ODY-S00-002 through ODY-S00-009 are Done. ODY-S00-009 completed owner-approved `TC-PLAYER-001` through `TC-PLAYER-010` mapping and implementation for mandatory ADR-009 Windows build and Player smoke scenarios, and was owner-merged as PR #14 (merge commit `1733a6f2719a4166a08385563f5a6542e2da53b3`). ODY-S00-010 (SLICE-00 Acceptance and M1 Closure) is not started.
 - GitHub plan/settings may affect exact branch-protection options; the task must apply the strongest supported equivalent and record any unavailable setting.
 
 - ODY-S00-007 blocker resolved by owner decision: production serialization uses ADR-003 v1.1 explicit Newtonsoft streaming codecs. No further STJ version probing is authorized for this task.
 
 ## 12. Outcome and follow-up
 
-Current outcome: ODY-S00-001 is Done after owner merge of PR #1. ODY-S00-002 is Done after owner merge of PR #4 and closure PR #5. ODY-S00-003 is Done after owner merge of PR #6 and closure PR #7. ODY-S00-004 is owner-merged through PR #8. ODY-S00-005 is owner-merged through PR #9. ODY-S00-006 is owner-merged through PR #10. ODY-S00-007 is owner-merged through PR #11. ODY-S00-008 is Done after owner merge of PR #12 and corrective PR #13.
+Current outcome: ODY-S00-001 is Done after owner merge of PR #1. ODY-S00-002 is Done after owner merge of PR #4 and closure PR #5. ODY-S00-003 is Done after owner merge of PR #6 and closure PR #7. ODY-S00-004 is owner-merged through PR #8. ODY-S00-005 is owner-merged through PR #9. ODY-S00-006 is owner-merged through PR #10. ODY-S00-007 is owner-merged through PR #11. ODY-S00-008 is Done after owner merge of PR #12 and corrective PR #13. ODY-S00-009 is Done after owner merge of PR #14 (merge commit `1733a6f2719a4166a08385563f5a6542e2da53b3`).
 
-Next action: Draft PR opened for ODY-S00-009. Awaiting CI run and owner review. Known follow-ups: TC-PLAYER-008 log redaction, TC-PLAYER-010 independent re-check — not blockers for Draft.
+Next action: Prepare `ODY-S00-010` (SLICE-00 Acceptance and M1 Closure) task contract using Brief plan mode per backlog. No implementation started.
