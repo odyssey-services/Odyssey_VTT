@@ -1,14 +1,14 @@
 # ODY-S00-000 — Deliver the SLICE-00 Technical Skeleton
 
-**Status:** In Progress  
+**Status:** Done  
 **Roadmap stage / slice:** SLICE-00  
 **Owner:** Unassigned  
 **Requested by:** Product owner  
 **Branch:** Not created  
 **Pull request:** Not opened  
-**ExecPlan:** `docs/plans/active/ODY-S00-000_SLICE_00_Technical_Skeleton.md`  
+**ExecPlan:** `docs/plans/completed/ODY-S00-000_SLICE_00_Technical_Skeleton.md`  
 **Created:** 2026-07-28  
-**Last updated:** 2026-08-14 UTC
+**Last updated:** 2026-08-19 UTC (SLICE-00 complete; M1 closed by owner acceptance)
 
 ## 1. Goal
 
@@ -55,7 +55,7 @@ Deliver the complete `SLICE-00` technical skeleton: a private authoritative repo
 - Repository Foundation is complete through merged PR #1.
 - Unity Project Foundation is complete through owner-merged PR #4; merge commit `70e7d49e217d4aecb7a2e873d31787d26001f47f` records the Unity `6000.4.0f1 (8cf496087c8f)` HDRP baseline.
 - Module and Test Skeleton is complete through owner-merged PR #6; merge commit `5e6f5e03ef022c5d7b0e6fef559c2383796d95be` records the Core module/test skeleton and dual .NET/Unity test foundation.
-- ODY-S00-004 is complete through owner-merged PR #8. ODY-S00-005 is complete through owner-merged PR #9, merge commit `7aa5cc972c48d9af6509895bb6d9ed1e18899fdf`. ODY-S00-006 is complete through owner-merged PR #10, merged head `b695bc09f344a36b45adb30ed7c0186bf71902d9`, merge commit `abb139c3c93115c468d020db3eb423c47cfdd83b`, merged at `2026-08-11T18:52:47Z`. ODY-S00-007 is complete through owner-merged PR #11, merge commit `88382217a1053fbe5eb631024063800f45e69926`. ODY-S00-008 is complete through owner-merged PR #12 and corrective PR #13; final merge commit `1e6483aee42c53595bbc4758dff0a9a696345661`. ODY-S00-009 is In Progress after owner-approved `TC-PLAYER-001` through `TC-PLAYER-010` mapping and implementation approval for the mandatory ADR-009 Windows build and Player smoke scenarios.
+- ODY-S00-004 is complete through owner-merged PR #8, merge commit `4fb20e935c00d3c5e88c2e7244fd8525e4771819` (Status bookkeeping corrected during `ODY-S00-010`). ODY-S00-005 is complete through owner-merged PR #9, merge commit `7aa5cc972c48d9af6509895bb6d9ed1e18899fdf`. ODY-S00-006 is complete through owner-merged PR #10, merged head `b695bc09f344a36b45adb30ed7c0186bf71902d9`, merge commit `abb139c3c93115c468d020db3eb423c47cfdd83b`, merged at `2026-08-11T18:52:47Z`. ODY-S00-007 is complete through owner-merged PR #11, merge commit `88382217a1053fbe5eb631024063800f45e69926`. ODY-S00-008 is complete through owner-merged PR #12 and corrective PR #13; final merge commit `1e6483aee42c53595bbc4758dff0a9a696345661`. ODY-S00-009 is Done through owner-merged PR #14, merge commit `1733a6f2719a4166a08385563f5a6542e2da53b3`; post-merge closure PR #15; README/Active Baseline v2.1 pointer-sync PR #16. ODY-S00-010 is Done through contract PR #17, activation PR #18, and rehearsal/acceptance PR #19 (merge commit `d65319eac6c67cbc9d2e7fbcd696147a2f6c8a41`); the product owner explicitly recorded acceptance of `SLICE-00`/`M1` closure on 2026-08-19 in `docs/tasks/completed/ODY-S00-010_Traceability_and_Quality_Report.md` section 7.
 
 ### Assumptions
 
@@ -206,7 +206,7 @@ All additional dependencies require a child task update and explicit approval be
 
 - Planning mode: `ExecPlan`
 - Reason for selected mode: Cross-module, multi-pull-request foundation with architecture, Unity, compatibility, CI, security, and build risk.
-- ExecPlan path: `docs/plans/active/ODY-S00-000_SLICE_00_Technical_Skeleton.md`
+- ExecPlan path: `docs/plans/completed/ODY-S00-000_SLICE_00_Technical_Skeleton.md`
 - Expected pull request count: Approximately 9 implementation pull requests plus final acceptance evidence; task splitting may change this with owner approval.
 - Milestone or sequencing constraints: Follow `docs/tasks/SLICE-00_BACKLOG.md` dependency order.
 
@@ -221,73 +221,79 @@ All additional dependencies require a child task update and explicit approval be
 
 ## 16. Definition of Done
 
-- [ ] Goal is achieved without unapproved scope expansion.
-- [ ] All acceptance criteria are satisfied.
-- [ ] Required automated tests pass.
-- [ ] Required manual checks are completed.
-- [ ] Required commands and their real results are recorded.
-- [ ] Architecture and dependency rules remain valid.
-- [ ] Security, privacy, redaction, and audience rules are verified.
-- [ ] Compatibility, rollback, and versioning obligations are complete.
-- [ ] No unapproved dependency, tool, GitHub Action, or license was introduced.
-- [ ] Documentation is updated only where materially required.
-- [ ] Every child task and pull request has honest completion evidence.
-- [ ] Product owner completes M1 review; Codex does not merge into `main`.
+- [x] Goal is achieved without unapproved scope expansion.
+- [x] All acceptance criteria are satisfied (AC-1 through AC-5, all Passed — see Section 17).
+- [x] Required automated tests pass (full `SLICE-00` suite passed on the `ODY-S00-010` fresh-clone rehearsal).
+- [x] Required manual checks are completed (owner review of quality/traceability report and explicit M1 acceptance, 2026-08-19).
+- [x] Required commands and their real results are recorded (`docs/tasks/completed/ODY-S00-010_Traceability_and_Quality_Report.md`).
+- [x] Architecture and dependency rules remain valid.
+- [x] Security, privacy, redaction, and audience rules are verified.
+- [x] Compatibility, rollback, and versioning obligations are complete (no persisted schema/protocol/version change introduced at the `SLICE-00` closure level).
+- [x] No unapproved dependency, tool, GitHub Action, or license was introduced.
+- [x] Documentation is updated only where materially required.
+- [x] Every child task and pull request has honest completion evidence (`docs/tasks/completed/ODY-S00-001` through `ODY-S00-010`).
+- [x] Product owner completes M1 review; Codex does not merge into `main` (owner explicitly reviewed and accepted M1 closure "as-is"; PR #19 and this closure's own PR were never merged by Codex).
 
 ## 17. Completion evidence
 
 ### Changed files / areas
 
-- Planning package only at task creation; implementation evidence is recorded during execution.
+- All ten child tasks `ODY-S00-001` through `ODY-S00-010` and their pull requests, merged into `main` in order: PR #1 (`ODY-S00-001`), PR #4 and closure PR #5 (`ODY-S00-002`), PR #6 and closure PR #7 (`ODY-S00-003`), PR #8 (`ODY-S00-004`), PR #9 (`ODY-S00-005`), PR #10 (`ODY-S00-006`), PR #11 (`ODY-S00-007`), PR #12 and corrective PR #13 (`ODY-S00-008`), PR #14, post-merge closure PR #15, and README/Active Baseline v2.1 pointer-sync PR #16 (`ODY-S00-009`), and contract PR #17, activation PR #18, and rehearsal/acceptance PR #19 (`ODY-S00-010`).
+- This file (parent task) and its ExecPlan, moved to `completed/` as part of this final closure.
+- `docs/tasks/SLICE-00_BACKLOG.md`, `ACTIVE_DOCUMENTATION_BASELINE_Odyssey_VTT_v2.2.md`, and `README.md` updated alongside this closure.
 
 ### Validation results
 
-| Command / check | Result | Evidence / notes |
-|---|---|---|
-| Documentation package integrity | Passed | Bundle manifest and Markdown checks performed when this contract was created |
-| Repository build/test commands | Not run | No Unity/.NET implementation exists yet; repository foundation policy checks are recorded in ODY-S00-001. |
+The complete, itemized quality report is `docs/tasks/completed/ODY-S00-010_Traceability_and_Quality_Report.md`; it is not retyped here. Summary: all 15 repository-script commands from `ODY-S00-010` section 10 passed on a fresh, independent clean-checkout rehearsal (commit `16495cbc22cdfb8d36414a055a661831eb8b83a5`), including `dotnet test` 88/88, Unity EditMode 36/36, Unity PlayMode 2/2, `verify-ci.ps1` 12/12, `test-serialization-aot.ps1`, and a full `build-dev.ps1` + `test-player-smoke.ps1` cycle. Two transient rehearsal-environment findings were hit and resolved during that rehearsal (documented in the quality report, not a `SLICE-00` product defect).
 
 ### Acceptance result
 
 | Criterion | Status | Evidence |
 |---|---|---|
-| AC-1–AC-5 | Deferred | Must be proven by child tasks and final M1 closure |
+| AC-1 (every child task Done) | Passed | `ODY-S00-001` through `ODY-S00-010` all carry `**Status:** Done` in `docs/tasks/completed/**`, with the merge evidence listed above. |
+| AC-2 (all slice exit criteria proven by recorded evidence) | Passed | `docs/tasks/completed/ODY-S00-010_Traceability_and_Quality_Report.md` section 1/6: all 11 `SLICE-00` exit criteria (backlog section 2) map to Pass, each with a direct evidence pointer. |
+| AC-3 (clean-checkout rehearsal succeeds, no private files or unrecorded manual state) | Passed | `ODY-S00-010`'s fresh, independent `git clone` rehearsal (deleted after use) passed every required command; `REPO-POLICY-002 PASS forbidden private/archive/secret/generated tracked patterns are absent` was reconfirmed on that fresh clone. |
+| AC-4 (M1 quality and traceability reports are owner-reviewed) | Passed | Product owner explicitly reviewed `docs/tasks/completed/ODY-S00-010_Traceability_and_Quality_Report.md` and `ODY-S00-010`'s Section 17 in full and recorded acceptance ("Принимаю как есть") on 2026-08-19 — see that report's section 7. |
+| AC-5 (no unresolved blocking failure or hidden deferred scope) | Passed | The quality report's section 2 traceability matrix shows 156/156 catalog TestCase IDs at Pass, 0 Failed, 0 Deferred; section 5 lists every intentionally unrun/non-required check with its authority-backed reason (Release/RC/telemetry/networking out of `SLICE-00` scope; IL2CPP reconciled from `ODY-S00-007` rather than rebuilt live, as scoped by that task's own AC-8). Nothing is hidden. |
 
 ### Build and artifact evidence
 
-- Build identity: Not created
-- Artifact path / name: None
-- Checksums: Documentation bundle only
-- Test or quality report: Not created
+This is rehearsal evidence from `ODY-S00-010`'s clean-checkout rehearsal, not a separate new build produced by this closure task:
+
+- Build identity: `odyssey-development-1787163468.1-g16495cbc22cd`, generated from fresh-clone commit `16495cbc22cdfb8d36414a055a661831eb8b83a5` (`workingTreeState: clean`; `configuration: Development-Debug`; `platform: WindowsStandalone`; `architecture: x86_64`; `scriptingBackend: Mono`).
+- Artifact path / name: `artifacts/builds/odyssey-development-1787163468.1-g16495cbc22cd/Windows-x64/Odyssey.exe` (local to the now-deleted rehearsal clone; not committed, per the established `artifacts/**` gitignore convention).
+- Checksums: `checksums.sha256` (303 entries); `Odyssey.exe` independently re-hashed and matched exactly.
+- Test or quality report: `docs/tasks/completed/ODY-S00-010_Traceability_and_Quality_Report.md` (full detail).
 
 ### Known limitations
 
-- Automated Unity CI is not approved under the current Unity Personal constraint; exact branch protection/ruleset settings remain unverified and must be recorded honestly.
+- Exact GitHub branch protection/ruleset settings remain an owner-accepted limitation, unchanged since `ODY-S00-001`; this closure did not re-verify or change them.
+- Windows IL2CPP x64 was not rebuilt live during the `ODY-S00-010` rehearsal; it is reconciled from existing `ODY-S00-007` evidence, which is the expected, contract-scoped treatment, not a discovered gap.
+- Automated Unity CI in GitHub Actions remains unapproved under the current Unity Personal constraint (Technical Development Baseline v0.5); mandatory local Unity merge validation continues to be the authoritative gate.
 
 ### Follow-up tasks
 
-- `ODY-S00-009` and `ODY-S00-010`; ODY-S00-001 through ODY-S00-008 are completed.
-- ADR-010 diagnostic session/bundle scenarios `TC-DIAG-033`, `TC-DIAG-034`, `TC-DIAG-035`, `TC-DIAG-036`, `TC-DIAG-037`, `TC-DIAG-038`, `TC-DIAG-039`, and `TC-DIAG-040` are complete under ODY-S00-008; ODY-S00-010 remains final reconciliation, not an implementation task.
+- `SLICE-01` is the next backlog slice. It has not been started, and no specific `SLICE-01` task contract exists yet; this closure does not create one.
 
 ### Self-review summary
 
-- Scope review: Technical skeleton only.
+- Scope review: This closure only records completion evidence, merge history, and owner acceptance already established by the ten child tasks; no new technical or architectural decision is introduced.
 - Architecture review: Uses ADR-001–ADR-010 without introducing new architectural decisions.
-- Test review: Validation is planned; no repository tests are claimed.
-- Security/privacy review: Public/private boundary explicitly preserved.
-- Documentation/version review: Parent task, backlog and ExecPlan are new operational artifacts only.
+- Test review: All required automated tests for `SLICE-00` passed on `ODY-S00-010`'s fresh-clone rehearsal; see the quality report for full detail.
+- Security/privacy review: Public/private boundary explicitly preserved and reconfirmed on the fresh-clone rehearsal (`REPO-POLICY-002 PASS`).
+- Documentation/version review: This task, its ExecPlan, the backlog, `ACTIVE_DOCUMENTATION_BASELINE_Odyssey_VTT_v2.2.md`, and `README.md` are updated; no ADR, Technical Development Baseline, or product requirement document is changed.
 
 ## 18. Blockers, decisions, and change control
 
 ### Blockers
 
-- ODY-S00-001 through ODY-S00-008 are complete. ODY-S00-008 final evidence is recorded in `docs/tasks/completed/ODY-S00-008_Fast_CI_and_Build_Identity.md`: PR #12 merged, corrective PR #13 merged, final merge commit `1e6483aee42c53595bbc4758dff0a9a696345661`, main push CI run `31799960601` success, Development provenance checksum pass, .NET 86/86, Unity compile pass, EditMode 33/33, PlayMode 2/2, and Player build not run.
-- ODY-S00-009 is In Progress after owner-approved `TC-PLAYER-001` through `TC-PLAYER-010` mapping and implementation approval for the mandatory ADR-009 Windows build and Player smoke scenarios.
+- None. All child tasks `ODY-S00-001` through `ODY-S00-010` are Done.
 
 ### Decisions made during execution
 
 - 2026-07-28 — Treat Technical Baseline PR labels as delivery groups that may be split into review-safe tasks without changing their required outcomes — Authority / approval: Product owner instruction to prepare the execution package, `PLANS.md` scope-control rules.
+- 2026-08-19 - Product owner accepted SLICE-00/M1 closure based on the ODY-S00-010 rehearsal, traceability matrix, and quality report - Authority / approval: product owner ("Принимаю как есть").
 
 ### Approved task changes
 
-- None.
+- 2026-08-19 - Closed this parent task, moved it to `docs/tasks/completed/`, and finalized its ExecPlan to `docs/plans/completed/` - Approved by: product owner.

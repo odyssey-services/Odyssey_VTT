@@ -592,7 +592,6 @@ try {
         'docs/tasks/TASK_TEMPLATE.md',
         'docs/tasks/README.md',
         'docs/tasks/SLICE-00_BACKLOG.md',
-        'docs/tasks/active/ODY-S00-000_SLICE_00_Technical_Skeleton.md',
         'docs/tasks/completed/ODY-S00-001_Repository_Foundation.md',
         'docs/tasks/completed/ODY-S00-002_Unity_Project_Foundation.md',
         'docs/tasks/completed/ODY-S00-003_Module_and_Test_Skeleton.md',
@@ -602,8 +601,17 @@ try {
         'docs/tasks/completed/ODY-S00-007_Serialization_and_AOT_Compatibility_Spike.md',
         'docs/tasks/completed/ODY-S00-008_Fast_CI_and_Build_Identity.md',
         'docs/errors/ERROR_CODES.md',
-        'docs/plans/README.md',
-        'docs/plans/active/ODY-S00-000_SLICE_00_Technical_Skeleton.md'
+        'docs/plans/README.md'
+    )
+
+    # The ODY-S00-000 parent task contract and its ExecPlan are the only required paths that
+    # relocate from active/ to completed/ when the slice they govern closes (SLICE-00 closure).
+    # Unlike the flat $requiredPaths list above, each of these must exist in exactly one of the
+    # two canonical locations: present in neither is still a failure (missing), and present in
+    # both is also a failure (a leftover duplicate from an incomplete move).
+    $closableRequiredPaths = @(
+        @{ Active = 'docs/tasks/active/ODY-S00-000_SLICE_00_Technical_Skeleton.md'; Completed = 'docs/tasks/completed/ODY-S00-000_SLICE_00_Technical_Skeleton.md' },
+        @{ Active = 'docs/plans/active/ODY-S00-000_SLICE_00_Technical_Skeleton.md'; Completed = 'docs/plans/completed/ODY-S00-000_SLICE_00_Technical_Skeleton.md' }
     )
 
     foreach ($i in 1..10) {
@@ -618,6 +626,17 @@ try {
     foreach ($path in $requiredPaths) {
         if (-not (Test-Path -LiteralPath (Join-Path $RepositoryRoot $path))) {
             $failures.Add("Missing required path: $path")
+        }
+    }
+
+    foreach ($entry in $closableRequiredPaths) {
+        $activeExists = Test-Path -LiteralPath (Join-Path $RepositoryRoot $entry.Active)
+        $completedExists = Test-Path -LiteralPath (Join-Path $RepositoryRoot $entry.Completed)
+        if ($activeExists -and $completedExists) {
+            $failures.Add("Required path exists in both active/ and completed/ locations (must be exactly one): $($entry.Active) / $($entry.Completed)")
+        }
+        elseif (-not $activeExists -and -not $completedExists) {
+            $failures.Add("Missing required path in both active/ and completed/ locations: $($entry.Active) / $($entry.Completed)")
         }
     }
 
