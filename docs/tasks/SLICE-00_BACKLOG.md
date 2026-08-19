@@ -1,11 +1,11 @@
 # Odyssey VTT — SLICE-00 Technical Skeleton Backlog
 
-**Status:** Approved execution backlog
+**Status:** Complete — M1 closed 2026-08-19
 **Slice:** `SLICE-00 — Technical Skeleton`
-**Parent task:** `docs/tasks/active/ODY-S00-000_SLICE_00_Technical_Skeleton.md`
-**ExecPlan:** `docs/plans/active/ODY-S00-000_SLICE_00_Technical_Skeleton.md`
+**Parent task:** `docs/tasks/completed/ODY-S00-000_SLICE_00_Technical_Skeleton.md`
+**ExecPlan:** `docs/plans/completed/ODY-S00-000_SLICE_00_Technical_Skeleton.md`
 **Created:** 2026-07-28
-**Last updated:** 2026-08-19 UTC (ODY-S00-010 Done)
+**Last updated:** 2026-08-19 UTC (SLICE-00 complete; M1 closed by owner acceptance)
 
 ## 1. Purpose
 
