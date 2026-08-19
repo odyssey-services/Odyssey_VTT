@@ -1,10 +1,10 @@
 # ODY-S00-000 — Establish the SLICE-00 Technical Skeleton
 
-**Status:** Active
+**Status:** Done
 **Owner:** Codex
-**Branch:** `feat/ody-s00-009-windows-player-build-smoke`
+**Branch:** Not applicable (SLICE-00 closed)
 **Pull request:** Not opened
-**Last updated:** 2026-08-14
+**Last updated:** 2026-08-19
 
 ## 1. Purpose and user-visible outcome
 
