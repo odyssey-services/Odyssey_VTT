@@ -49,13 +49,13 @@ Deliver the complete `SLICE-00` technical skeleton: a private authoritative repo
 
 ### Verified facts
 
-- The current documentation baseline contains Technical Development Baseline v0.3, Active Documentation Baseline v1.8, accepted ADR-001–ADR-010, `AGENTS.md`, `PLANS.md`, and the task workflow.
+- The current documentation baseline contains Technical Development Baseline v0.5, Active Documentation Baseline v2.0, accepted ADR-001–ADR-010, `AGENTS.md`, `PLANS.md`, and the task workflow.
 - The approved platform is Windows 10/11 x64 with Unity `6000.4.0f1`, HDRP, UI Toolkit, and Input System.
 - The approved code repository is Private and authoritative at `odyssey-services/Odyssey_VTT`, uses All Rights Reserved and Git LFS; protected `main`, owner-reviewed pull requests, and GitHub Actions remain required outcomes, not claims of completed verification.
 - Repository Foundation is complete through merged PR #1.
 - Unity Project Foundation is complete through owner-merged PR #4; merge commit `70e7d49e217d4aecb7a2e873d31787d26001f47f` records the Unity `6000.4.0f1 (8cf496087c8f)` HDRP baseline.
 - Module and Test Skeleton is complete through owner-merged PR #6; merge commit `5e6f5e03ef022c5d7b0e6fef559c2383796d95be` records the Core module/test skeleton and dual .NET/Unity test foundation.
-- ODY-S00-004 is complete through owner-merged PR #8. ODY-S00-005 is complete through owner-merged PR #9, merge commit `7aa5cc972c48d9af6509895bb6d9ed1e18899fdf`. ODY-S00-006 is complete through owner-merged PR #10, merged head `b695bc09f344a36b45adb30ed7c0186bf71902d9`, merge commit `abb139c3c93115c468d020db3eb423c47cfdd83b`, merged at `2026-08-11T18:52:47Z`. ODY-S00-007 is complete through owner-merged PR #11, merge commit `88382217a1053fbe5eb631024063800f45e69926`. ODY-S00-008 is the current In Progress child task on `fix/ody-s00-008-post-merge-review-findings`; PR #12 is owner-merged, no corrective PR is open, and ODY-S00-009 remains Draft.
+- ODY-S00-004 is complete through owner-merged PR #8. ODY-S00-005 is complete through owner-merged PR #9, merge commit `7aa5cc972c48d9af6509895bb6d9ed1e18899fdf`. ODY-S00-006 is complete through owner-merged PR #10, merged head `b695bc09f344a36b45adb30ed7c0186bf71902d9`, merge commit `abb139c3c93115c468d020db3eb423c47cfdd83b`, merged at `2026-08-11T18:52:47Z`. ODY-S00-007 is complete through owner-merged PR #11, merge commit `88382217a1053fbe5eb631024063800f45e69926`. ODY-S00-008 is complete through owner-merged PR #12 and corrective PR #13; final merge commit `1e6483aee42c53595bbc4758dff0a9a696345661`. ODY-S00-009 is In Progress after owner-approved `TC-PLAYER-001` through `TC-PLAYER-010` mapping and implementation approval for the mandatory ADR-009 Windows build and Player smoke scenarios.
 
 ### Assumptions
 
@@ -266,8 +266,8 @@ All additional dependencies require a child task update and explicit approval be
 
 ### Follow-up tasks
 
-- `ODY-S00-008` through `ODY-S00-010`; ODY-S00-001 through ODY-S00-007 are completed, and ODY-S00-008 is In Progress for post-merge remediation after owner-merged PR #12.
-- ADR-010 diagnostic session/bundle scenarios `TC-DIAG-033`, `TC-DIAG-034`, `TC-DIAG-035`, `TC-DIAG-036`, `TC-DIAG-037`, `TC-DIAG-038`, `TC-DIAG-039`, and `TC-DIAG-040` are future ODY-S00-008 scope after BuildIdentity exists; ODY-S00-010 remains final reconciliation, not an implementation task.
+- `ODY-S00-009` and `ODY-S00-010`; ODY-S00-001 through ODY-S00-008 are completed.
+- ADR-010 diagnostic session/bundle scenarios `TC-DIAG-033`, `TC-DIAG-034`, `TC-DIAG-035`, `TC-DIAG-036`, `TC-DIAG-037`, `TC-DIAG-038`, `TC-DIAG-039`, and `TC-DIAG-040` are complete under ODY-S00-008; ODY-S00-010 remains final reconciliation, not an implementation task.
 
 ### Self-review summary
 
@@ -281,9 +281,8 @@ All additional dependencies require a child task update and explicit approval be
 
 ### Blockers
 
-- ODY-S00-001 through ODY-S00-007 are complete. ODY-S00-008 is In Progress on `fix/ody-s00-008-post-merge-review-findings`; PR #12 is owner-merged; the Personal-license CI decision is recorded; no corrective PR is open.
-- ODY-S00-008 implementation evidence is recorded in its active task contract: no-secret Fast CI, BuildIdentity generation/parity, static Unity validation, and local Unity compile/EditMode/PlayMode gates passed. Post-merge remediation is in progress. ODY-S00-009 remains Draft and unstarted until ODY-S00-008 remediation is complete and owner-reviewed.
-- ODY-S00-008 owns `TC-DIAG-033`, `TC-DIAG-034`, `TC-DIAG-035`, `TC-DIAG-036`, `TC-DIAG-037`, `TC-DIAG-038`, `TC-DIAG-039`, and `TC-DIAG-040` after BuildIdentity exists. ODY-S00-009 remains blocked by ODY-S00-008.
+- ODY-S00-001 through ODY-S00-008 are complete. ODY-S00-008 final evidence is recorded in `docs/tasks/completed/ODY-S00-008_Fast_CI_and_Build_Identity.md`: PR #12 merged, corrective PR #13 merged, final merge commit `1e6483aee42c53595bbc4758dff0a9a696345661`, main push CI run `31799960601` success, Development provenance checksum pass, .NET 86/86, Unity compile pass, EditMode 33/33, PlayMode 2/2, and Player build not run.
+- ODY-S00-009 is In Progress after owner-approved `TC-PLAYER-001` through `TC-PLAYER-010` mapping and implementation approval for the mandatory ADR-009 Windows build and Player smoke scenarios.
 
 ### Decisions made during execution
 

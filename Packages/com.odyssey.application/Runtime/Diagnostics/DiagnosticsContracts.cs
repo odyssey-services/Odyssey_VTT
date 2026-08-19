@@ -5,6 +5,7 @@ using System.Text;
 using Odyssey.Application.Commands;
 using Odyssey.Application.Identity;
 using Odyssey.Application.Results;
+using Odyssey.Application.Versions;
 using Odyssey.Domain.Identity;
 using Odyssey.Domain.Time;
 
@@ -49,7 +50,8 @@ namespace Odyssey.Application.Diagnostics
         Fingerprint = 9,
         BoundedText = 10,
         SanitizedPath = 11,
-        SanitizedEndpoint = 12
+        SanitizedEndpoint = 12,
+        BuildId = 13
     }
 
     public enum BuildIdAvailability
@@ -305,6 +307,7 @@ namespace Odyssey.Application.Diagnostics
         public static SafeLogValue ByteCount(long value) => value >= 0 ? Create(DiagnosticDataClassification.OperationalSafe, SafeLogValueKind.ByteCount, value.ToString(System.Globalization.CultureInfo.InvariantCulture)) : throw new ArgumentOutOfRangeException(nameof(value));
         public static SafeLogValue TechnicalIdentifier(string value) => DiagnosticText.IsSafeFingerprint(value, 128) ? Create(DiagnosticDataClassification.OperationalSafe, SafeLogValueKind.TechnicalIdentifier, value) : throw new ArgumentException("Identifier is not safe.", nameof(value));
         public static SafeLogValue Fingerprint(string value) => DiagnosticText.IsSafeFingerprint(value, 128) ? Create(DiagnosticDataClassification.OperationalSafe, SafeLogValueKind.Fingerprint, value) : throw new ArgumentException("Fingerprint is not safe.", nameof(value));
+        public static SafeLogValue BuildId(string value) => BuildIdentityText.IsBuildId(value) ? Create(DiagnosticDataClassification.OperationalSafe, SafeLogValueKind.BuildId, value) : throw new ArgumentException("BuildId is not safe.", nameof(value));
         public static SafeLogValue SanitizedPath(string value) => Create(DiagnosticDataClassification.OperationalSafe, SafeLogValueKind.SanitizedPath, PathSanitizer.Sanitize(value));
         public static SafeLogValue SanitizedEndpoint(string value) => Create(DiagnosticDataClassification.OperationalSafe, SafeLogValueKind.SanitizedEndpoint, EndpointSanitizer.Sanitize(value));
 
@@ -315,6 +318,7 @@ namespace Odyssey.Application.Diagnostics
             if (!Enum.IsDefined(typeof(SafeLogValueKind), kind)) throw new ArgumentOutOfRangeException(nameof(kind));
             if (logicalSize < 0 || originalScalarCount < 0) throw new ArgumentOutOfRangeException(nameof(logicalSize));
             if (ContainsControlCharacter(renderedValue)) throw new ArgumentException("Rendered value must not contain control characters.", nameof(renderedValue));
+            if (kind == SafeLogValueKind.BuildId && !BuildIdentityText.IsBuildId(renderedValue)) throw new ArgumentException("BuildId is not safe.", nameof(renderedValue));
             return new SafeLogValue(classification, kind, renderedValue, logicalSize, originalScalarCount, wasTruncated);
         }
 
@@ -627,7 +631,7 @@ namespace Odyssey.Application.Diagnostics
             return new EventCodeRegistry(new[]
             {
                 Define(OdysseyEventCodes.AppStartupStarted, "app", LogLevel.Information, "log.app.startup.started", "Runtime startup began.", Props(("phase", DiagnosticDataClassification.OperationalSafe, SafeLogValueKind.Code))),
-                Define(OdysseyEventCodes.AppStartupCompleted, "app", LogLevel.Information, "log.app.startup.completed", "Runtime reached Ready.", Props(("state", DiagnosticDataClassification.OperationalSafe, SafeLogValueKind.Code), ("duration_ms", DiagnosticDataClassification.OperationalSafe, SafeLogValueKind.Duration), ("build_id", DiagnosticDataClassification.OperationalSafe, SafeLogValueKind.TechnicalIdentifier))),
+                Define(OdysseyEventCodes.AppStartupCompleted, "app", LogLevel.Information, "log.app.startup.completed", "Runtime reached Ready.", Props(("state", DiagnosticDataClassification.OperationalSafe, SafeLogValueKind.Code), ("duration_ms", DiagnosticDataClassification.OperationalSafe, SafeLogValueKind.Duration), ("build_id", DiagnosticDataClassification.OperationalSafe, SafeLogValueKind.BuildId))),
                 Define(OdysseyEventCodes.AppStartupFailed, "app", LogLevel.Error, "log.app.startup.failed", "Runtime startup failed safely.", Props(("phase", DiagnosticDataClassification.OperationalSafe, SafeLogValueKind.Code), ("reason", DiagnosticDataClassification.OperationalSafe, SafeLogValueKind.Code), ("diagnostic_id", DiagnosticDataClassification.OperationalSafe, SafeLogValueKind.TechnicalIdentifier))),
                 Define(OdysseyEventCodes.AppShutdownRequested, "app", LogLevel.Information, "log.app.shutdown.requested", "Runtime shutdown was requested.", Props(("state", DiagnosticDataClassification.OperationalSafe, SafeLogValueKind.Code))),
                 Define(OdysseyEventCodes.AppShutdownCompleted, "app", LogLevel.Information, "log.app.shutdown.completed", "Runtime shutdown completed.", Props(("duration_ms", DiagnosticDataClassification.OperationalSafe, SafeLogValueKind.Duration))),

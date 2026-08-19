@@ -14,6 +14,7 @@ namespace Odyssey.Unity.Client
         private AppRuntime? _runtime;
         private Error? _startupFailure;
         private bool _leaseHeld;
+        private PlayerSmokeMode? _smokeMode;
 
         public AppRuntime? Runtime => _runtime;
         public bool IsAcceptedHost => _leaseHeld;
@@ -21,6 +22,7 @@ namespace Odyssey.Unity.Client
         private void Start()
         {
             DontDestroyOnLoad(gameObject);
+            PlayerSmokeMode.TryCreateFromCommandLine(out _smokeMode);
             if (!RuntimeHostLease.TryAcquire())
             {
                 Destroy(gameObject);
@@ -88,6 +90,10 @@ namespace Odyssey.Unity.Client
             }
 
             entryPoint.Refresh();
+            if (_smokeMode != null)
+            {
+                StartCoroutine(_smokeMode.Run(_runtime, entryPoint));
+            }
         }
 
         private void OnFailureSceneLoaded(Scene scene, LoadSceneMode mode)

@@ -688,7 +688,27 @@ namespace Odyssey.Application.Versions
                 if (!((c >= 'a' && c <= 'z') || (c >= '0' && c <= '9') || c == '.' || c == '-')) return false;
             }
 
-            return value.StartsWith("odyssey-", StringComparison.Ordinal);
+            if (value.StartsWith("odyssey-local-", StringComparison.Ordinal))
+            {
+                string rest = value.Substring("odyssey-local-".Length);
+                string clean = RemoveSuffix(rest, "-dirty");
+                int marker = clean.IndexOf("-g", StringComparison.Ordinal);
+                return marker > 0
+                    && IsLowerUtcTimestamp(clean.Substring(0, marker))
+                    && IsShortSha(clean.Substring(marker + 2));
+            }
+
+            if (value.StartsWith("odyssey-pr-", StringComparison.Ordinal))
+            {
+                return IsRunBuildId(value.Substring("odyssey-pr-".Length));
+            }
+
+            if (value.StartsWith("odyssey-development-", StringComparison.Ordinal))
+            {
+                return IsRunBuildId(value.Substring("odyssey-development-".Length));
+            }
+
+            return false;
         }
 
         public static bool IsDisplayVersion(string? value)
@@ -705,6 +725,36 @@ namespace Odyssey.Application.Versions
             }
 
             return true;
+        }
+
+        private static bool IsRunBuildId(string value)
+        {
+            int dot = value.IndexOf('.');
+            int marker = value.IndexOf("-g", StringComparison.Ordinal);
+            return dot > 0
+                && marker > dot + 1
+                && IsPositiveDecimal(value.Substring(0, dot))
+                && IsPositiveDecimal(value.Substring(dot + 1, marker - dot - 1))
+                && IsShortSha(value.Substring(marker + 2));
+        }
+
+        private static bool IsLowerUtcTimestamp(string value)
+        {
+            if (string.IsNullOrWhiteSpace(value) || !value.EndsWith("z", StringComparison.Ordinal)) return false;
+            if (value.Length == 16) return value[8] == 't' && IsDigits(value, 0, 8) && IsDigits(value, 9, 6);
+            if (value.Length == 23) return value[8] == 't' && IsDigits(value, 0, 8) && IsDigits(value, 9, 13);
+            return false;
+        }
+
+        private static bool IsPositiveDecimal(string value)
+        {
+            if (string.IsNullOrWhiteSpace(value) || value[0] == '0') return false;
+            return IsDigits(value, 0, value.Length);
+        }
+
+        private static string RemoveSuffix(string value, string suffix)
+        {
+            return value.EndsWith(suffix, StringComparison.Ordinal) ? value.Substring(0, value.Length - suffix.Length) : value;
         }
 
         private static bool IsHex(string? value, int length)

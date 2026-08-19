@@ -1093,7 +1093,7 @@
                           "taskId":  "ODY-S00-008",
                           "authority":  "ADR-007; ODY-S00-008",
                           "runner":  "PowerShell",
-                          "path":  "docs/tasks/active/ODY-S00-008_Fast_CI_and_Build_Identity.md",
+                          "path":  "docs/tasks/completed/ODY-S00-008_Fast_CI_and_Build_Identity.md",
                           "check":  "no GitHub Release or ODY-S00-009 application artifact is produced"
                       },
                       {
@@ -1101,8 +1101,88 @@
                           "taskId":  "ODY-S00-008",
                           "authority":  "ADR-007; ODY-S00-008",
                           "runner":  "PowerShell",
-                          "path":  "docs/tasks/active/ODY-S00-008_Fast_CI_and_Build_Identity.md",
+                          "path":  "docs/tasks/completed/ODY-S00-008_Fast_CI_and_Build_Identity.md",
                           "check":  "branch protection/ruleset availability is recorded honestly with owner action if inaccessible"
+                      },
+                      {
+                          "testCaseId":  "TC-PLAYER-001",
+                          "taskId":  "ODY-S00-009",
+                          "authority":  "ADR-009; ODY-S00-009",
+                          "runner":  "Unity build script",
+                          "path":  "scripts/build-dev.ps1",
+                          "check":  "Windows Standalone x64 Development-Debug Mono Player build passes under Unity 6000.4.0f1"
+                      },
+                      {
+                          "testCaseId":  "TC-PLAYER-002",
+                          "taskId":  "ODY-S00-009",
+                          "authority":  "ADR-009; ODY-S00-009",
+                          "runner":  "Unity build script",
+                          "path":  "scripts/build-dev.ps1",
+                          "check":  "build script applies and verifies the Development-Debug profile independently of the active Unity Editor profile"
+                      },
+                      {
+                          "testCaseId":  "TC-PLAYER-003",
+                          "taskId":  "ODY-S00-009",
+                          "authority":  "ADR-009; ODY-S00-009",
+                          "runner":  "PowerShell artifact check",
+                          "path":  "scripts/build-dev.ps1",
+                          "check":  "artifact uses artifacts/builds/<BuildId>/Windows-x64/ and never writes build output under Assets, Packages, or ProjectSettings"
+                      },
+                      {
+                          "testCaseId":  "TC-PLAYER-004",
+                          "taskId":  "ODY-S00-009",
+                          "authority":  "ADR-007; ADR-009; ODY-S00-009",
+                          "runner":  "PowerShell Player smoke",
+                          "path":  "scripts/test-player-smoke.ps1",
+                          "check":  "final Player artifact includes BuildIdentity JSON/checksums and runtime/sidecar identity parity for the exact source commit"
+                      },
+                      {
+                          "testCaseId":  "TC-PLAYER-005",
+                          "taskId":  "ODY-S00-009",
+                          "authority":  "ADR-005; ADR-009; ODY-S00-009",
+                          "runner":  "PowerShell Player smoke",
+                          "path":  "scripts/test-player-smoke.ps1",
+                          "check":  "built Player launches and reaches Bootstrap Ready within 120 seconds"
+                      },
+                      {
+                          "testCaseId":  "TC-PLAYER-006",
+                          "taskId":  "ODY-S00-009",
+                          "authority":  "ADR-009; ODY-S00-009",
+                          "runner":  "PowerShell Player smoke",
+                          "path":  "scripts/test-player-smoke.ps1",
+                          "check":  "Player proves AppShell loaded, HDRP active, UI Toolkit root displayed, and Input System Submit and Cancel paths processed"
+                      },
+                      {
+                          "testCaseId":  "TC-PLAYER-007",
+                          "taskId":  "ODY-S00-009",
+                          "authority":  "ADR-005; ADR-009; ODY-S00-009",
+                          "runner":  "PowerShell Player smoke",
+                          "path":  "scripts/test-player-smoke.ps1",
+                          "check":  "Player requests clean shutdown, exits with code 0 within 15 seconds, repeated runs leave no persistent process tree, and total smoke duration is bounded by 150 seconds"
+                      },
+                      {
+                          "testCaseId":  "TC-PLAYER-008",
+                          "taskId":  "ODY-S00-009",
+                          "authority":  "ADR-009; ADR-010; ODY-S00-009",
+                          "runner":  "PowerShell Player smoke",
+                          "path":  "scripts/test-player-smoke.ps1",
+                          "check":  "Player/build logs and smoke evidence contain no secrets, usernames, machine names, persistent device IDs, absolute local paths, private documentation, or hidden content"
+                      },
+                      {
+                          "testCaseId":  "TC-PLAYER-009",
+                          "taskId":  "ODY-S00-009",
+                          "authority":  "ADR-006; ADR-009; ODY-S00-009",
+                          "runner":  "PowerShell artifact check",
+                          "path":  "scripts/test-player-smoke.ps1",
+                          "check":  "Player artifact excludes test assemblies, TestKit, private documentation, and editor/test-only outputs"
+                      },
+                      {
+                          "testCaseId":  "TC-PLAYER-010",
+                          "taskId":  "ODY-S00-009",
+                          "authority":  "ADR-007; ADR-009; ODY-S00-009",
+                          "runner":  "PowerShell artifact check",
+                          "path":  "scripts/build-dev.ps1",
+                          "check":  "Development artifact creates no Release/RC/tag/signing/installer/updater/distribution/SBOM/telemetry outputs"
                       },
                       {
                           "testCaseId":  "TC-DIAG-033",

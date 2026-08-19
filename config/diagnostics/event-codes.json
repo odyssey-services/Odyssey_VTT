@@ -20,7 +20,7 @@
       "allowedProperties": [
         { "key": "state", "classification": "OperationalSafe", "valueKind": "Code" },
         { "key": "duration_ms", "classification": "OperationalSafe", "valueKind": "Duration" },
-        { "key": "build_id", "classification": "OperationalSafe", "valueKind": "TechnicalIdentifier" }
+        { "key": "build_id", "classification": "OperationalSafe", "valueKind": "BuildId" }
       ],
       "purpose": "Runtime reached Ready.",
       "status": "Active"

@@ -1,11 +1,11 @@
 # ODY-S00-008 - Fast CI and Build Identity
 
-**Status:** In Progress
+**Status:** Done
 **Roadmap stage / slice:** SLICE-00
 **Owner:** Codex
 **Requested by:** Product owner
 **Branch:** `fix/ody-s00-008-post-merge-review-findings`
-**Pull request:** PR #12 owner-merged - https://github.com/odyssey-services/Odyssey_VTT/pull/12; corrective PR not opened
+**Pull request:** PR #12 owner-merged - https://github.com/odyssey-services/Odyssey_VTT/pull/12; corrective PR #13 owner-merged - https://github.com/odyssey-services/Odyssey_VTT/pull/13
 **ExecPlan:** `docs/plans/active/ODY-S00-000_SLICE_00_Technical_Skeleton.md`
 **Created:** 2026-08-12 13:02 UTC
 **Last updated:** 2026-08-14 UTC
@@ -369,7 +369,7 @@ GameCI actions were considered during zero-write preflight and are not approved.
 - Reason for selected mode: This task changes CI, generated identity, runtime display/diagnostic exposure, version/compatibility sources, GitHub settings evidence, and artifact provenance across several ownership areas.
 - ExecPlan path: `docs/plans/active/ODY-S00-000_SLICE_00_Technical_Skeleton.md`
 - Expected pull request count: 1 implementation PR after owner review of this activation contract.
-- Milestone or sequencing constraints: Implementation is owner-approved and in progress. ODY-S00-009 remains blocked by ODY-S00-008.
+- Milestone or sequencing constraints: Implementation is complete. ODY-S00-009 remains Draft pending owner-approved TestCaseId/catalog mapping for Windows build and Player smoke evidence.
 
 ## 15. Documentation and versioning impact
 
@@ -539,14 +539,28 @@ Branch protection/ruleset: Owner action/evidence pending
 Reason: GitHub branch protection endpoint returned 403 to the integration, and rulesets endpoint returned GitHub plan/public-repository requirement.
 ```
 
-### Post-merge remediation status
+### Final owner-merged status
 
 ```text
 PR #12: Merged
-Merge commit: 487df0fe97051541c3cdfce5253c8a2f7a70fa54
+PR #12 merge commit: 487df0fe97051541c3cdfce5253c8a2f7a70fa54
+Corrective PR #13: Merged
+Corrective feature HEAD: 43225c9f753903c7678704891c22d5e98676fb3e
+Final merge commit: 1e6483aee42c53595bbc4758dff0a9a696345661
+Independent remediation audit: GO, blockers 0
+Main push CI run: 31799960601
+CI jobs: repository-policy-format-structure success; dotnet-restore-build-test success; unity-project-package-static success; buildidentity-provenance success
+Development artifact checksum: PASS
+build-identity.json SHA-256: 91b1fe5662089adecb483e61431066afc266015dad3e0196e593c4c3683b9f30
+.NET: 86/86
+Unity 6000.4.0f1 compile: PASS
+EditMode: 33/33
+PlayMode: 2/2
+Player build: Not run
+Known ProjectSettings batchmode drift: restored
+Branch protection/ruleset: Owner action/evidence pending, accepted as non-blocking external follow-up
 Remediation branch: fix/ody-s00-008-post-merge-review-findings
-Corrective PR: Not opened
-ODY-S00-009: Draft
+ODY-S00-009: Draft pending task-contract activation and TestCaseId mapping decision
 ```
 
 Accepted review findings under remediation:
@@ -606,11 +620,11 @@ Post-merge regression mapping:
 
 ### Follow-up tasks
 
-- ODY-S00-009 remains blocked until ODY-S00-008 completes.
+- ODY-S00-009 is the next SLICE-00 task. It owns the Windows Development-Debug application build and Player smoke, but its Ready activation is blocked until owner-approved TestCaseId/catalog mapping exists for the mandatory ADR-009 build/player-smoke scenarios.
 
 ### Self-review summary
 
-- Independent pre-PR audit on corrected HEAD `5c401fd4c7f2cb033b951e4f2ce0ee338c545ac4` returned `GO for Draft PR`. Draft PR evidence gate returned `GO` with blockers 0. PR #12 was owner-merged as `487df0fe97051541c3cdfce5253c8a2f7a70fa54`; post-merge remediation is In Progress and corrective PR is not opened. The first real GitHub Actions run `31762586128` and final Draft evidence run `31763363396` passed all four required checks. Branch protection/ruleset remains `Owner action/evidence pending`.
+- Independent pre-PR audit on corrected HEAD `5c401fd4c7f2cb033b951e4f2ce0ee338c545ac4` returned `GO for Draft PR`. Draft PR evidence gate returned `GO` with blockers 0. PR #12 was owner-merged as `487df0fe97051541c3cdfce5253c8a2f7a70fa54`. Corrective PR #13 was owner-merged; final corrective feature HEAD `43225c9f753903c7678704891c22d5e98676fb3e` entered `main` as merge commit `1e6483aee42c53595bbc4758dff0a9a696345661`. Main push CI run `31799960601` passed all four required checks, Development provenance checksum passed, and `build-identity.json` SHA-256 was `91b1fe5662089adecb483e61431066afc266015dad3e0196e593c4c3683b9f30`. Branch protection/ruleset remains `Owner action/evidence pending`, accepted as non-blocking external follow-up.
 - Scope review: Implementation is limited to ODY-S00-008 fast CI, BuildIdentity, provenance, static Unity validation, and ADR-010 diagnostic session/bundle evidence.
 - Architecture review: Contract follows ADR-001, ADR-005, ADR-006, ADR-007, ADR-009, and ADR-010 without changing ADRs.
 - Test review: Existing `TC-VERSION-001` and `TC-VERSION-002` remain owned by ODY-S00-004; ODY-S00-008 owns `TC-VERSION-003` through `TC-VERSION-008`.
@@ -622,7 +636,7 @@ Post-merge regression mapping:
 
 ### Blockers
 
-- Automated Unity CI remains blocked until a future owner-approved licensing or runner amendment.
+- Automated Unity CI remains blocked until a future owner-approved licensing or runner amendment. This is not blocking ODY-S00-008 completion because Technical Development Baseline v0.5 requires no-secret GitHub Actions plus mandatory local Unity merge evidence under the current Unity Personal constraint.
 
 ### Decisions made during execution
 
