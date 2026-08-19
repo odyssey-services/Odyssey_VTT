@@ -339,24 +339,31 @@ No new dependency, GitHub Action, Unity package, executable, external tool, or d
 
 | Criterion | Status | Evidence |
 |---|---|---|
-| AC-1 through AC-15 | Implemented / pending final clean-HEAD Player evidence | Build/smoke scripts, Unity build entry point, runtime smoke hook, catalog paths, audit-blocker corrections, and guards are implemented. Pre-commit .NET, static, repository, and Unity compile/EditMode/PlayMode gates passed. Final `TC-PLAYER` build/smoke evidence must be produced from the clean committed HEAD before push. |
+| AC-1 through AC-15 | Implemented; clean-HEAD Player build/smoke evidence confirmed on commit `d8c8431df985c67d608e81cc4361c03913ab4341` | Build/smoke scripts, Unity build entry point, runtime smoke hook, catalog paths, audit-blocker corrections, and guards are implemented. Pre-commit .NET, static, repository, and Unity compile/EditMode/PlayMode gates passed. An independent pre-PR audit against `d8c8431` (correcting audit HEAD `8b792c245fe5ca1d21555f32e3ef4480d444953b`) returned GO: all five prior P1 blockers verified closed in code and tests, and real clean-HEAD Windows Player build/smoke evidence was found on disk and independently reconfirmed (see below). |
+| `TC-PLAYER-001` through `TC-PLAYER-007`, `TC-PLAYER-009` | Pass, evidence-backed | Confirmed by the independent audit against the clean-HEAD artifact described below: Windows x64 Development-Debug Player build succeeded from the canonical entry point, output under the canonical `artifacts/builds/<BuildId>/Windows-x64/` layout, BuildIdentity sidecar/embedded parity and checksum integrity verified, both smoke runs reached Bootstrap Ready and exited cleanly with all required flags true, and the artifact excludes test/editor-only outputs. |
+| `TC-PLAYER-008`, `TC-PLAYER-010` | Not independently confirmed by this audit | Committed/retained smoke evidence (`smoke-run-1.json`, `smoke-run-2.json`) contains no secrets, usernames, or paths. The raw local Unity Editor build log under `Logs/ODY-S00-009/` (gitignored, never committed or pushed) was observed to contain the local Windows username; this does not affect committed/pushed evidence but is an open item before `TC-PLAYER-008` can be marked closed. `TC-PLAYER-010` (absence of Release/RC/signing/installer/updater/SBOM/telemetry outputs) was not separately re-verified by this documentation-sync task and remains as previously recorded. |
 
 ### Build and artifact evidence
 
-- Build identity: Pending final clean-HEAD `scripts/build-dev.ps1` run.
-- Artifact path / name: Pending final clean-HEAD `artifacts/builds/<BuildId>/Windows-x64/Odyssey.exe`.
-- Checksums: Pending final clean-HEAD `scripts/build-dev.ps1` / `scripts/test-player-smoke.ps1` validation.
-- Test or quality report: Pre-commit .NET and Unity validation passed; final Player smoke pending clean committed HEAD.
+- Build identity: `odyssey-development-1786720708.1-gd8c8431df985`, generated from source commit `d8c8431df985c67d608e81cc4361c03913ab4341` (`workingTreeState: clean`; `configuration: Development-Debug`; `platform: WindowsStandalone`; `architecture: x86_64`; `scriptingBackend: Mono`).
+- Artifact path / name: `artifacts/builds/odyssey-development-1786720708.1-gd8c8431df985/Windows-x64/Odyssey.exe` (local, gitignored — not committed).
+- Checksums: `checksums.sha256` (303 entries) present in the build root; independently re-hashed `Odyssey.exe` and confirmed the SHA-256 matches the recorded checksum exactly (not tampered).
+- Smoke evidence: `smoke-run-1.json` and `smoke-run-2.json` both record `result: pass`, `gitCommitSha` matching the source commit, and `bootstrapReady`, `appShellLoaded`, `hdrpActive`, `uiToolkitRootDisplayed`, `submitPerformed`, `cancelPerformed`, `buildIdentityLoaded` all `true`.
+- Test or quality report: Pre-commit .NET and Unity validation passed; clean-HEAD Player build/smoke evidence for `d8c8431` confirmed present and valid by independent audit. A second, unrelated build attempt (`odyssey-development-1786720710.1-gd8c8431df985`) produced an empty artifact directory and appears to be an incomplete/failed retry; it does not affect the validated evidence above and has not been cleaned up as part of this documentation-only task.
 
 ### Known limitations
 
-- Final ODY-S00-009 Windows Development-Debug artifact evidence is pending post-commit clean-HEAD validation.
-- Final ODY-S00-009 Player smoke evidence is pending post-commit clean-HEAD validation.
-- ODY-S00-009 remains In Progress until final build/smoke evidence passes and owner review begins.
+- Clean-HEAD Windows Development-Debug artifact and Player smoke evidence for `d8c8431` exist and were independently verified (build identity parity, checksum integrity, smoke pass flags), but this evidence lives only in local, gitignored `artifacts/`/`Logs/` directories and is not part of committed/pushed repository state or PR-visible evidence.
+- `TC-PLAYER-008` is not fully closed: the raw local Unity Editor build log (gitignored, uncommitted) contains the local Windows username; committed/retained smoke evidence itself is clean.
+- `TC-PLAYER-010` was not separately re-verified during this documentation-sync task.
+- ODY-S00-009 remains In Progress; a Draft PR is intentionally not opened pending a separate owner decision.
 
 ### Follow-up tasks
 
-- Complete validation, commit, clean-HEAD build/smoke validation, and push for owner review.
+- Owner decision on opening a Draft PR for ODY-S00-009.
+- Before or alongside PR evidence, consider recording/attaching the clean-HEAD build/smoke evidence (BuildId, checksums, smoke-run JSON) in a PR-visible form, since it currently exists only in local gitignored directories.
+- Resolve remaining `TC-PLAYER-008` observation (local build-log username exposure) and separately confirm `TC-PLAYER-010`.
+- Clean up the empty, apparently failed second build attempt directory (`odyssey-development-1786720710.1-gd8c8431df985`) if not needed.
 
 ### Self-review summary
 
