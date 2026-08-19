@@ -1,6 +1,6 @@
 # ODY-S00-010 - SLICE-00 Acceptance and M1 Closure
 
-**Status:** Ready  
+**Status:** In Review  
 **Roadmap stage / slice:** SLICE-00  
 **Owner:** Unassigned  
 **Requested by:** Product owner  
@@ -8,7 +8,7 @@
 **Pull request:** Not opened  
 **ExecPlan:** Not required  
 **Created:** 2026-08-19  
-**Last updated:** 2026-08-19 UTC (activated to Ready)
+**Last updated:** 2026-08-19 UTC (rehearsal executed; awaiting owner acceptance per AC-15)
 
 ## 1. Goal
 
@@ -287,46 +287,85 @@ No new dependency, GitHub Action, Unity package, executable, or download is appr
 
 ## 17. Completion evidence
 
-Fill this section with real results before moving the task to `Done`. Not yet applicable — this activation only creates the task contract; implementation has not started.
+Rehearsal execution, traceability matrix, quality report, and the `ODY-S00-004` bookkeeping correction are complete as of this update. AC-15 (owner acceptance) is explicitly **not** claimed here; see "Acceptance result" below and `docs/tasks/active/ODY-S00-010_Traceability_and_Quality_Report.md` section 7.
 
 ### Changed files / areas
 
-- This task contract was created from repository authorities (backlog, ExecPlan, and the nine completed `SLICE-00` task files). No implementation started.
+- `docs/tasks/active/ODY-S00-010_Traceability_and_Quality_Report.md` (new): full traceability matrix (156/156 TestCase IDs, all 11 backlog exit criteria) and quality report from a full clean-checkout rehearsal.
+- `docs/tasks/completed/ODY-S00-004_Identity_Version_and_Result_Primitives.md`: Status header corrected `In Review` → `Done`; verified PR #8 merge evidence added (merge commit `4fb20e935c00d3c5e88c2e7244fd8525e4771819`, merged `2026-08-10T22:47:08Z`). No other content in that file was changed.
+- This task contract: Status `Ready` → `In Review`; this Section 17 filled with real rehearsal results.
+- `docs/plans/active/ODY-S00-000_SLICE_00_Technical_Skeleton.md`: new changelog entry (see below).
 
 ### Validation results
 
+Full detail, including two findings encountered and resolved during the rehearsal, is in `docs/tasks/active/ODY-S00-010_Traceability_and_Quality_Report.md` section 3. Summary:
+
 | Command / check | Result | Evidence / notes |
 |---|---|---|
-| None | Not run | Implementation has not started. |
+| `.\scripts\restore.ps1` | Passed | 8 projects restored, exit 0, on a fresh independent `git clone` at commit `16495cbc22cdfb8d36414a055a661831eb8b83a5`. |
+| `.\scripts\verify-format.ps1` | Passed | `FORMAT-001 PASS`. |
+| `.\scripts\verify-test-structure.ps1` | Passed | `TC-ARCH-001 PASS`; controlled-invalid fixtures rejected. |
+| `.\scripts\test-fast.ps1` | Passed | .NET 88/88 passed, 0 failed, 0 skipped. |
+| `dotnet build .\DotNet\Odyssey.Core.sln` | Passed | 0 warnings, 0 errors. |
+| `dotnet test .\DotNet\Odyssey.Core.sln --no-build` | Passed | 88/88 passed. |
+| `.\scripts\verify-ci.ps1` | Passed | `TC-CI-001` through `TC-CI-012` all PASS. |
+| `.\scripts\verify-unity-project.ps1` | Passed | Static Unity project/package/toolchain validation passed. |
+| `.\scripts\check-repository-policy.ps1` | Passed | `REPO-POLICY-001` through `005` PASS. |
+| `.\scripts\verify-repository.ps1` | Passed | `REPOSITORY-VERIFY PASS`. |
+| `.\scripts\verify-build-identity.ps1` | Failed on first run (missing prerequisite artifact — a contract command-order gap, not a product defect), Passed after running the prerequisite `generate-build-identity.ps1` step | `TC-BUILDID-009`, `TC-PROVENANCE-002`, `TC-PROVENANCE-003` all PASS. |
+| `.\scripts\test-serialization-aot.ps1` | Passed | `TC-SER-022` build PASS, `TC-DIAG-042` player PASS, exact vector comparison PASS. |
+| `.\scripts\test-unity.ps1` | Passed | Compile exit 0; EditMode 36/36; PlayMode 2/2. |
+| `.\scripts\build-dev.ps1` | Failed on first run (Unity batchmode ProjectSettings/HDRP whitespace drift — the same known pattern already documented in `ODY-S00-008`/`ODY-S00-009` evidence, discarded with `git checkout -- .`), Passed after | Real Windows x64 Development-Debug Player: `BuildId=odyssey-development-1787163468.1-g16495cbc22cd`, `gitCommitSha` matches fresh-clone HEAD. |
+| `.\scripts\test-player-smoke.ps1` | Passed | `TC-PLAYER-004` through `TC-PLAYER-010` all PASS; two smoke runs both `result: pass`, all required flags true. |
 
 ### Acceptance result
 
 | Criterion | Status | Evidence |
 |---|---|---|
-| AC-1 through AC-15 | Not started | Contract activation only; no rehearsal or reconciliation has been performed. |
+| AC-1 | Passed | Fresh clone from the single authoritative remote; `REPO-POLICY-002 PASS` on the fresh clone. |
+| AC-2 | Passed | `test-unity.ps1`: `TC-UNITY-ASM-001 EditorVersion PASS selected=6000.4.0f1`; compile exit 0. |
+| AC-3 | Passed | `dotnet build` 0/0 and Unity batch compile exit 0 on the same fresh-clone source tree. |
+| AC-4 | Passed | `TC-ARCH-001 PASS`; `TC-ARCH-002` controlled-invalid fixtures rejected. |
+| AC-5 | Passed | `dotnet test` 88/88 on the fresh clone, covering command/result/event/clock/RNG/serialization contract tests. |
+| AC-6 | Passed | `REPO-POLICY-005 PASS ErrorCode registry is complete and machine-checkable`, controlled-invalid fixtures rejected. |
+| AC-7 | Passed | EditMode 36/36, PlayMode 2/2, and a real Player smoke proving startup-to-Ready and clean shutdown. |
+| AC-8 | Passed (IL2CPP reconciled, not rebuilt live — expected per this AC's own wording, not a gap) | `.NET` and Unity Mono AOT-smoke vectors re-verified live; Windows IL2CPP x64 reconciled from `docs/tasks/completed/ODY-S00-007_Serialization_and_AOT_Compatibility_Spike.md` (PR #11, merge commit `88382217a1053fbe5eb631024063800f45e69926`). |
+| AC-9 | Passed | Real `build-dev.ps1` run produced `BuildId=odyssey-development-1787163468.1-g16495cbc22cd` with BuildIdentity embedded and exposed in the redacted retained log. |
+| AC-10 | Passed | `verify-ci.ps1`: `TC-CI-001` through `TC-CI-012`, all nine controlled-invalid workflow fixtures correctly rejected. |
+| AC-11 | Passed | This task and `docs/tasks/active/ODY-S00-010_Traceability_and_Quality_Report.md` together constitute the quality report and traceability evidence; they exist and are complete. |
+| AC-12 | Passed | `docs/tasks/active/ODY-S00-010_Traceability_and_Quality_Report.md` section 2 maps all 156/156 catalog TestCase IDs to a status. |
+| AC-13 | Passed | The quality report aggregates real ODY-S00-001–009 evidence by reference (not retyped) plus the new fresh-clone rehearsal's real results; no unrun command is claimed as passed. |
+| AC-14 | Passed | Full clean-checkout rehearsal performed exactly as scoped: fresh `git clone` into a new directory, all 15 repository commands from section 10, Unity batchmode compile/EditMode/PlayMode, full Windows Player build and smoke — all documented with real evidence in the traceability/quality report. |
+| **AC-15** | **Not Passed — explicitly deferred, not claimed** | Owner acceptance of `SLICE-00`/`M1` closure has not been recorded. This is the one remaining open item before `Done`. See `docs/tasks/active/ODY-S00-010_Traceability_and_Quality_Report.md` section 7 ("Owner acceptance" — placeholder, intentionally left for the owner to fill). |
+
+14 of 15 acceptance criteria are Passed with real, reproducible evidence from this rehearsal. AC-15 is intentionally left open; this task cannot move to `Done` until the owner explicitly records acceptance.
 
 ### Build and artifact evidence
 
-- Build identity: None yet.
-- Artifact path / name: None yet.
-- Checksums: None yet.
-- Test or quality report: None yet.
+- Build identity: `odyssey-development-1787163468.1-g16495cbc22cd`, generated from fresh-clone commit `16495cbc22cdfb8d36414a055a661831eb8b83a5` (`workingTreeState: clean`; `configuration: Development-Debug`; `platform: WindowsStandalone`; `architecture: x86_64`; `scriptingBackend: Mono`).
+- Artifact path / name: `artifacts/builds/odyssey-development-1787163468.1-g16495cbc22cd/Windows-x64/Odyssey.exe` (local to the rehearsal clone, which was deleted in full after the rehearsal completed; not committed, matching the established `artifacts/**` gitignore convention).
+- Checksums: `checksums.sha256` (303 entries); `Odyssey.exe` independently re-hashed and matched exactly.
+- Test or quality report: `docs/tasks/active/ODY-S00-010_Traceability_and_Quality_Report.md` (full detail); this Section 17 (summary).
 
 ### Known limitations
 
-- This contract has not been read or approved by the owner and has not moved past `Draft`.
+- AC-15 / exit-criterion 11 ("owner-reviewed") remains open pending explicit owner acceptance — see the traceability/quality report section 7.
+- Windows IL2CPP x64 was not rebuilt live in this rehearsal; it is reconciled from existing `ODY-S00-007` evidence, which is the expected, contract-scoped treatment for AC-8, not a discovered gap.
+- Two transient rehearsal-environment issues were encountered and resolved (see "Validation results" above and the quality report section 3 for full detail): a missing prerequisite step for `verify-build-identity.ps1` (a gap in this contract's own Section 10 command list, now documented) and known Unity batchmode ProjectSettings/HDRP whitespace drift (same pattern as prior `ODY-S00-008`/`ODY-S00-009` evidence, discarded before `build-dev.ps1` succeeded). Neither reflects a `SLICE-00` product defect.
+- GitHub Actions CI was not separately re-triggered for the rehearsal commit as part of this local rehearsal; the repository's own CI history for `main` is the authority for that evidence and was not re-verified here.
 
 ### Follow-up tasks
 
-- None yet.
+- Owner acceptance of `SLICE-00`/`M1` closure (blocks AC-15 and this task's `Done` status).
+- Optional: if the owner wants `verify-build-identity.ps1`'s prerequisite (`generate-build-identity.ps1`) added explicitly to this contract's Section 10 "Required commands" for future rehearsals, that is a documentation-only follow-up, not a code change.
 
 ### Self-review summary
 
-- Scope review: Contract stays within backlog `ODY-S00-010` boundary (section 4) and excludes release/distribution/gameplay/database/networking scope per section 6.
-- Architecture review: No architecture, ADR, or module-boundary change is introduced.
-- Test review: No new TestCase IDs are introduced; all reconciled IDs come from `Tests/Metadata/test-catalog.json`.
-- Security/privacy review: No new redaction or security surface is introduced; existing `ODY-S00-009` mechanisms are reused.
-- Documentation/version review: No baseline, ADR, TDB, schema, protocol, ruleset, package, or application version is changed by this contract-creation activation.
+- Scope review: Rehearsal execution, traceability matrix, quality report, and the `ODY-S00-004` bookkeeping correction stay within backlog `ODY-S00-010` boundary (section 4) and this contract's own section 5; no release/distribution/gameplay/database/networking scope was added.
+- Architecture review: No architecture, ADR, or module-boundary change was introduced; all commands run were pre-existing repository scripts, unmodified.
+- Test review: No new TestCase IDs were introduced; all 156 catalog IDs were reconciled to Pass with honestly tiered evidence (explicit / reconciled / aggregate) — see the traceability report.
+- Security/privacy review: No new redaction or security surface was introduced; existing `ODY-S00-009` redaction mechanisms were reused and independently re-verified (0 leaked username/machine-name/path occurrences on the rehearsal's own build log).
+- Documentation/version review: No baseline, ADR, TDB, schema, protocol, ruleset, package, or application version was changed. The `ODY-S00-004` correction is bookkeeping (Status header + merge evidence) only, not a content or acceptance-record change.
 
 ## 18. Blockers, decisions, and change control
 

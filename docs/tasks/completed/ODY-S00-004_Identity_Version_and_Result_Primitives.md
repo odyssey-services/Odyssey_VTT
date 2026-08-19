@@ -1,14 +1,14 @@
 # ODY-S00-004 - Identity, Version and Result Primitives
 
-**Status:** In Review  
+**Status:** Done  
 **Roadmap stage / slice:** SLICE-00  
 **Owner:** Codex  
 **Requested by:** Product owner  
 **Branch:** `feat/ody-s00-004-identity-version-result-primitives`  
-**Pull request:** https://github.com/odyssey-services/Odyssey_VTT/pull/8  
+**Pull request:** https://github.com/odyssey-services/Odyssey_VTT/pull/8 (Merged)  
 **ExecPlan:** `docs/plans/active/ODY-S00-000_SLICE_00_Technical_Skeleton.md`  
 **Created:** 2026-08-10  
-**Last updated:** 2026-08-10 22:15 UTC
+**Last updated:** 2026-08-19 UTC (ODY-S00-010 bookkeeping correction: Status/merge evidence)
 
 ## 1. Goal
 
@@ -433,6 +433,8 @@ Final guard/parser hardening is addressed: production `ErrorCode.Parse`/`TryPars
 - ADR-004 diagnostics runtime, mappings, command results, localization implementation, persistence/network adapters, and DTO serialization remain future scope.
 
 Follow-up ownership note from ODY-S00-005: ODY-S00-005 revealed that `CorrelationId` is required by both DomainEvent and Application Error/command contracts. To preserve ADR-001 dependency direction and one semantic identity, ownership was refined in ODY-S00-005 to `Odyssey.Domain`. This is an ownership refinement, not an ADR amendment; the original ODY-S00-004 implementation evidence above is preserved as historical evidence.
+
+- `ODY-S00-010` bookkeeping correction (2026-08-19): This task file had already been moved to `docs/tasks/completed/` and the parent ExecPlan recorded it as owner-merged, but this file's own Status header still read `In Review` and recorded no merge commit for its own PR #8. Verified via `gh pr view 8`: `state: MERGED`, merge commit `4fb20e935c00d3c5e88c2e7244fd8525e4771819`, merged at `2026-08-10T22:47:08Z` by `odyssey-services`; confirmed as an ancestor of `main`. Status corrected to `Done` accordingly; no other content in this file was changed.
 
 ### Follow-up tasks
 
