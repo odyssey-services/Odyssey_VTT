@@ -8,7 +8,7 @@ The private GitHub repository `odyssey-services/Odyssey_VTT` is the single autho
 
 Current stage: `SLICE-00 — Technical Skeleton`.
 
-Repository Foundation, Unity Project Foundation, Module/Test Skeleton, Identity/Version/Result Primitives, Command/Event/Clock/RNG Contracts, Runtime Composition/Diagnostic Shell, Serialization/AOT Compatibility, and Fast CI/Build Identity are complete. ODY-S00-008 completed through owner-merged PR #12 and corrective PR #13. The active task is `docs/tasks/active/ODY-S00-009_Windows_Development_Build_and_Player_Smoke.md`, currently In Progress after owner-approved `TC-PLAYER-001` through `TC-PLAYER-010` mapping for the Windows Development Build and Player Smoke scope. ODY-S00-010 remains Draft.
+Repository Foundation, Unity Project Foundation, Module/Test Skeleton, Identity/Version/Result Primitives, Command/Event/Clock/RNG Contracts, Runtime Composition/Diagnostic Shell, Serialization/AOT Compatibility, Fast CI/Build Identity, and Windows Development Build/Player Smoke are complete. ODY-S00-008 completed through owner-merged PR #12 and corrective PR #13. ODY-S00-009 is Done, owner-merged through PR #14 (merge commit `1733a6f2719a4166a08385563f5a6542e2da53b3`) with post-merge closure through PR #15; its task contract is `docs/tasks/completed/ODY-S00-009_Windows_Development_Build_and_Player_Smoke.md`. The next backlog task is `ODY-S00-010` (SLICE-00 Acceptance and M1 Closure), which remains Draft and not started.
 
 ## Rights
 
@@ -21,7 +21,7 @@ Repository access through GitHub does not grant rights beyond those required to 
 - `AGENTS.md` — operating rules for Codex and contributors.
 - `PLANS.md` — execution plan rules.
 - `TECHNICAL_DEVELOPMENT_BASELINE_Odyssey_VTT_v0.5.md` — approved technical baseline.
-- `ACTIVE_DOCUMENTATION_BASELINE_Odyssey_VTT_v2.0.md` — active authority register.
+- `ACTIVE_DOCUMENTATION_BASELINE_Odyssey_VTT_v2.1.md` — active authority register.
 - `docs/adr/` — accepted architecture decisions.
 - `docs/tasks/` — task contracts and execution backlog.
 - `scripts/check-repository-policy.ps1` — repository foundation policy check.
