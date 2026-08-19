@@ -1,6 +1,6 @@
 # ODY-S00-010 - SLICE-00 Acceptance and M1 Closure
 
-**Status:** Draft  
+**Status:** Ready  
 **Roadmap stage / slice:** SLICE-00  
 **Owner:** Unassigned  
 **Requested by:** Product owner  
@@ -8,7 +8,7 @@
 **Pull request:** Not opened  
 **ExecPlan:** Not required  
 **Created:** 2026-08-19  
-**Last updated:** 2026-08-19 UTC
+**Last updated:** 2026-08-19 UTC (activated to Ready)
 
 ## 1. Goal
 
@@ -332,12 +332,13 @@ Fill this section with real results before moving the task to `Done`. Not yet ap
 
 ### Blockers
 
-- This contract requires owner review and approval (move to `Ready`) before rehearsal execution can begin.
+- None. The prior blocker (owner review and approval required before `Ready`) is resolved: the product owner reviewed and approved this contract as-is.
 
 ### Decisions made during execution
 
 - 2026-08-19 - Create the `ODY-S00-010` task contract from repository authorities (backlog, ExecPlan, and the nine completed `SLICE-00` task files) because no existing draft task contract was present - Authority / approval: this contract-creation activation, pending owner review.
 - 2026-08-19 - Define the future clean-checkout rehearsal as mandatory full scope (fresh `git clone` into a new directory, all repository scripts, Unity batchmode compile/EditMode/PlayMode, full Windows Player build and smoke) rather than a reduced variant - Authority / approval: explicit product owner confirmation.
+- 2026-08-19 - Product owner reviewed and approved the ODY-S00-010 task contract as-is (no changes requested); activated Draft → Ready - Authority / approval: product owner.
 
 ### Approved task changes
 
