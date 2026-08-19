@@ -85,7 +85,38 @@ function Test-SafeText([string] $Path) {
     )
     foreach ($pattern in $forbidden) {
         if (-not [string]::IsNullOrWhiteSpace($pattern) -and $text -match $pattern) {
-            throw "Unsafe smoke evidence content in $Path."
+            throw "Unsafe retained evidence content in $Path."
+        }
+    }
+}
+
+function Assert-BuildLogRedacted([string] $BuildId) {
+    # TC-PLAYER-008: verify scripts/build-dev.ps1 redacted the retained Unity Editor
+    # build log in place. This is intentionally narrower than Test-SafeText's blanket
+    # '[A-Za-z]:\\' pattern (calibrated for smoke evidence JSON, which should contain no
+    # paths at all): a real Unity Editor build log legitimately and harmlessly contains
+    # standard toolchain installation paths (e.g. C:\Program Files\Unity\...), which are
+    # not user- or machine-identifying and are already public in this script's own
+    # $fallbackUnityEditorPath default. Only the same sensitive categories the redaction
+    # targets are checked here.
+    $buildLogPath = Join-Path $repoRoot "Logs/ODY-S00-009/build-dev-$BuildId.log"
+    if (-not (Test-Path -LiteralPath $buildLogPath)) {
+        throw "Missing retained build log for TC-PLAYER-008: $buildLogPath"
+    }
+    $text = Get-Content -LiteralPath $buildLogPath -Raw
+    $repoRootFull = [System.IO.Path]::GetFullPath($repoRoot).TrimEnd('\')
+    $userProfileFull = [System.IO.Path]::GetFullPath($env:USERPROFILE).TrimEnd('\')
+    $forbidden = @(
+        [regex]::Escape($env:USERNAME),
+        [regex]::Escape($env:COMPUTERNAME),
+        [regex]::Escape($repoRootFull),
+        [regex]::Escape($repoRootFull.Replace('\', '/')),
+        [regex]::Escape($userProfileFull),
+        [regex]::Escape($userProfileFull.Replace('\', '/'))
+    )
+    foreach ($pattern in $forbidden) {
+        if (-not [string]::IsNullOrWhiteSpace($pattern) -and $text -match $pattern) {
+            throw "Unsafe retained build log content in $buildLogPath (pattern: $pattern)."
         }
     }
 }
@@ -244,6 +275,7 @@ function Invoke-SmokeRun([int] $RunNumber, [object] $Identity) {
 
 Assert-InBuildRoot
 $identity = Assert-IdentityParity $buildRootFull
+Assert-BuildLogRedacted $identity.buildId
 Assert-Checksums $buildRootFull
 Assert-ArtifactSafety $buildRootFull
 Write-Host 'TC-PLAYER-004 PASS BuildIdentity sidecar/embedded parity and checksum baseline'
@@ -255,5 +287,5 @@ Invoke-SmokeRun 2 $identity
 Write-ArtifactChecksums $buildRootFull
 Assert-Checksums $buildRootFull
 Assert-ArtifactSafety $buildRootFull
-Write-Host 'TC-PLAYER-008 PASS smoke evidence and logs are bounded and safe'
+Write-Host 'TC-PLAYER-008 PASS retained build log and smoke evidence are bounded, redacted, and safe'
 Write-Host 'TC-PLAYER-010 PASS no Release/RC/signing/installer/updater/SBOM/telemetry outputs'

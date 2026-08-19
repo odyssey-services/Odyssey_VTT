@@ -2,7 +2,8 @@ param(
     [long] $BuildNumber = 0,
     [int] $RunAttempt = 1,
     [string] $UnityEditorPath = $env:UNITY_EDITOR_PATH,
-    [switch] $PassThru
+    [switch] $PassThru,
+    [switch] $SelfTest
 )
 
 Set-StrictMode -Version Latest
@@ -122,8 +123,126 @@ function Write-ArtifactChecksums([string] $BuildRoot) {
     [System.IO.File]::WriteAllText($checksumPath, $content, (New-Object System.Text.UTF8Encoding($false)))
 }
 
+function Protect-EvidenceLogText([string] $Text, [string] $RepoRoot) {
+    # TC-PLAYER-008: redact categories ADR-010 requires from retained build/Player evidence
+    # (local username, machine name, absolute local paths). Only literal, known-sensitive
+    # substrings are replaced; diagnostic content (errors, stack traces) is left intact.
+    if ($null -eq $Text) { return $Text }
+    $result = $Text
+
+    $repoRootFull = [System.IO.Path]::GetFullPath($RepoRoot).TrimEnd('\')
+    if (-not [string]::IsNullOrWhiteSpace($repoRootFull)) {
+        $result = $result -replace [regex]::Escape($repoRootFull), '<REPO_ROOT>'
+        $result = $result -replace [regex]::Escape($repoRootFull.Replace('\', '/')), '<REPO_ROOT>'
+    }
+
+    $userProfile = $env:USERPROFILE
+    if (-not [string]::IsNullOrWhiteSpace($userProfile)) {
+        $userProfileFull = [System.IO.Path]::GetFullPath($userProfile).TrimEnd('\')
+        $result = $result -replace [regex]::Escape($userProfileFull), '<USER_PROFILE>'
+        $result = $result -replace [regex]::Escape($userProfileFull.Replace('\', '/')), '<USER_PROFILE>'
+    }
+
+    $username = [System.Environment]::UserName
+    if (-not [string]::IsNullOrWhiteSpace($username) -and $username.Length -ge 2) {
+        $result = $result -replace [regex]::Escape($username), '<REDACTED_USER>'
+    }
+
+    $machineName = [System.Environment]::MachineName
+    if (-not [string]::IsNullOrWhiteSpace($machineName) -and $machineName.Length -ge 2) {
+        $result = $result -replace [regex]::Escape($machineName), '<REDACTED_HOST>'
+    }
+
+    return $result
+}
+
+function Protect-EvidenceLogFile([string] $Path, [string] $RepoRoot) {
+    if (-not (Test-Path -LiteralPath $Path)) { return }
+    $raw = [System.IO.File]::ReadAllText($Path)
+    $redacted = Protect-EvidenceLogText -Text $raw -RepoRoot $RepoRoot
+    [System.IO.File]::WriteAllText($Path, $redacted, (New-Object System.Text.UTF8Encoding($false)))
+}
+
+function Assert-NoDistributionOutputs([string] $BuildRoot) {
+    # TC-PLAYER-010: fail-closed if the Development-Debug artifact contains anything
+    # characteristic of Release/RC/signing/installer/updater/distribution/SBOM/telemetry
+    # outputs. This is a thin, extension/naming-based check; it does not duplicate the
+    # existing keyword-path containment already enforced by
+    # scripts/test-player-smoke.ps1 Assert-ArtifactSafety (release|rc|installer|updater|sbom|telemetry
+    # as literal path segments) or by the Editor-side single canonical executable path.
+    $rootFull = [System.IO.Path]::GetFullPath($BuildRoot).TrimEnd('\') + '\'
+    $forbiddenExtension = '(?i)\.(msi|msix|msixbundle|appx|appxbundle|pfx|p12|snk|cat|spdx|spdx\.json|cdx|cdx\.json)$'
+    $forbiddenInstallerExe = '(?i)(^|[\\/])(setup|installer|uninstall|updater)[^\\/]*\.exe$'
+    $forbiddenKeyword = '(?i)(sbom|telemetry)'
+
+    foreach ($file in Get-ChildItem -LiteralPath $BuildRoot -Recurse -File) {
+        $relative = [System.IO.Path]::GetFullPath($file.FullName).Substring($rootFull.Length).Replace('\', '/')
+        if ($relative -match $forbiddenExtension -or $relative -match $forbiddenInstallerExe -or $relative -match $forbiddenKeyword) {
+            throw "TC-PLAYER-010 forbidden distribution/signing/telemetry output detected: $relative"
+        }
+    }
+}
+
+function Invoke-SelfTest {
+    # Controlled positive/negative proof for TC-PLAYER-008 redaction and TC-PLAYER-010
+    # forbidden-output detection, using synthetic fixtures only. No Unity build is run.
+    $testRoot = Join-Path ([System.IO.Path]::GetTempPath()) ("ody-s00-009-selftest-" + [guid]::NewGuid().ToString('N'))
+    New-Item -ItemType Directory -Force -Path $testRoot | Out-Null
+    try {
+        $username = [System.Environment]::UserName
+        $machineName = [System.Environment]::MachineName
+        $repoRootFull = [System.IO.Path]::GetFullPath($repoRoot).TrimEnd('\')
+
+        $fixtureLog = Join-Path $testRoot 'fixture-build.log'
+        $fixtureText = @"
+Build started by $username on $machineName
+Loaded project from $repoRootFull
+Loaded project from $($repoRootFull.Replace('\','/'))
+Created GICache directory at $($env:USERPROFILE.Replace('\','/'))/AppData/LocalLow/Unity/Caches/GiCache
+Fatal error: NullReferenceException at Odyssey.Unity.Client.Editor.OdysseyDevelopmentBuild.Build
+"@
+        [System.IO.File]::WriteAllText($fixtureLog, $fixtureText, (New-Object System.Text.UTF8Encoding($false)))
+
+        $redacted = Protect-EvidenceLogText -Text ([System.IO.File]::ReadAllText($fixtureLog)) -RepoRoot $repoRoot
+        if ($redacted -match [regex]::Escape($username)) { throw 'SELFTEST-008 FAIL synthetic username marker survived redaction.' }
+        if ($redacted -match [regex]::Escape($machineName)) { throw 'SELFTEST-008 FAIL synthetic machine-name marker survived redaction.' }
+        if ($redacted -match [regex]::Escape($repoRootFull)) { throw 'SELFTEST-008 FAIL synthetic absolute repo path marker survived redaction.' }
+        if ($redacted -notmatch [regex]::Escape('<REDACTED_USER>') -or $redacted -notmatch [regex]::Escape('<REDACTED_HOST>') -or $redacted -notmatch [regex]::Escape('<REPO_ROOT>') -or $redacted -notmatch [regex]::Escape('<USER_PROFILE>')) {
+            throw 'SELFTEST-008 FAIL expected redaction placeholders are missing.'
+        }
+        if ($redacted -notmatch 'Fatal error: NullReferenceException') {
+            throw 'SELFTEST-008 FAIL unrelated diagnostic content was altered by redaction.'
+        }
+        Write-Host 'SELFTEST-008 PASS synthetic username/machine-name/absolute-path markers removed; diagnostic content preserved.'
+
+        $cleanRoot = Join-Path $testRoot 'clean-artifact'
+        New-Item -ItemType Directory -Force -Path $cleanRoot | Out-Null
+        Set-Content -LiteralPath (Join-Path $cleanRoot 'Odyssey.exe') -Value 'stub' -NoNewline
+        Set-Content -LiteralPath (Join-Path $cleanRoot 'UnityCrashHandler64.exe') -Value 'stub' -NoNewline
+        Assert-NoDistributionOutputs $cleanRoot
+        Write-Host 'SELFTEST-010 PASS clean Development-Debug artifact layout does not trigger forbidden-output detection.'
+
+        $dirtyRoot = Join-Path $testRoot 'dirty-artifact'
+        New-Item -ItemType Directory -Force -Path $dirtyRoot | Out-Null
+        Set-Content -LiteralPath (Join-Path $dirtyRoot 'Odyssey.exe') -Value 'stub' -NoNewline
+        Set-Content -LiteralPath (Join-Path $dirtyRoot 'Setup.msi') -Value 'stub' -NoNewline
+        $threw = $false
+        try { Assert-NoDistributionOutputs $dirtyRoot } catch { $threw = $true }
+        if (-not $threw) { throw 'SELFTEST-010 FAIL synthetic Setup.msi was not detected.' }
+        Write-Host 'SELFTEST-010 PASS synthetic Setup.msi correctly triggers forbidden-output detection.'
+    }
+    finally {
+        Remove-Item -LiteralPath $testRoot -Recurse -Force -ErrorAction SilentlyContinue
+    }
+}
+
 Push-Location $repoRoot
 try {
+    if ($SelfTest) {
+        Invoke-SelfTest
+        return
+    }
+
     if ($BuildNumber -lt 0) { throw 'BuildNumber must be positive when supplied.' }
     if ($BuildNumber -eq 0) { $BuildNumber = [DateTimeOffset]::UtcNow.ToUnixTimeSeconds() }
     if ($BuildNumber -le 0) { throw 'BuildNumber must be positive.' }
@@ -173,6 +292,8 @@ try {
         '-odysseyBuildOutput', $exePath
     ) $repoRoot | Out-Null
 
+    Protect-EvidenceLogFile -Path $unityLog -RepoRoot $repoRoot
+
     if (-not (Test-Path -LiteralPath $exePath)) {
         throw "Development build did not create Odyssey.exe: $exePath"
     }
@@ -187,6 +308,7 @@ try {
     }
 
     Write-ArtifactChecksums $buildRoot
+    Assert-NoDistributionOutputs $buildRoot
 
     if ($PassThru) {
         [pscustomobject]@{
