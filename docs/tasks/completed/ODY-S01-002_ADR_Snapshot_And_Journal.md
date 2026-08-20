@@ -1,12 +1,12 @@
 # ODY-S01-002 — ADR: Snapshot and Append-Only Journal
 
-**Status:** In Review  
+**Status:** Done  
 **Roadmap stage / slice:** SLICE-01 (prerequisites)  
 **Owner:** Codex (agent)  
 **Requested by:** Product owner  
 **Branch:** `feat/ody-s01-002-adr-snapshot-journal`  
-**Pull request:** Not yet opened  
-**ExecPlan:** `docs/plans/active/ODY-S01-002_ADR_Snapshot_And_Journal.md`  
+**Pull request:** Draft — [#23](https://github.com/odyssey-services/Odyssey_VTT/pull/23)  
+**ExecPlan:** `docs/plans/completed/ODY-S01-002_ADR_Snapshot_And_Journal.md`  
 **Created:** 2026-08-20  
 **Last updated:** 2026-08-20 UTC
 
@@ -199,7 +199,7 @@ Not applicable. This task produces a `Proposed` ADR and its task contract; it do
 
 - Planning mode: `ExecPlan`
 - Reason for selected mode: Per `PLANS.md` §1.2, an ExecPlan is required when a task "introduces or changes an Application port, public DTO, event, command, **schema**, protocol, **manifest**, package, build profile, or migration" and when a task "affects **authoritative state, persistence**... hidden information, redaction... or diagnostics." This task fixes the normative shape of the `DomainEvents` table (event ordering, integrity marker, visibility boundary), the `AppliedCommands` idempotency schema, and the `BackupRecord` schema, and it defines the binding transactional-commit rule for all authoritative game state going forward. It is a strictly stronger match to these triggers than `ODY-S01-001` was (`ADR-011` touched the *file-format* schema; this task touches the *authoritative-state persistence* schema and transaction boundary directly, which is named explicitly in the trigger list). A Brief plan is disqualified: `PLANS.md` §1.1 requires that a Brief-eligible change "does not change a public contract, persisted format, protocol, permissions, redaction, dependency graph" — this task changes several of those by definition. ExecPlan mode is therefore not presumed by analogy to `ODY-S01-001`; it is independently required by the same rule, evaluated fresh against this task's actual content.
-- ExecPlan path: `docs/plans/active/ODY-S01-002_ADR_Snapshot_And_Journal.md`
+- ExecPlan path: `docs/plans/completed/ODY-S01-002_ADR_Snapshot_And_Journal.md`
 - Expected pull request count: 1 (single Draft PR covering ADR authoring; a second PR will later record owner acceptance and status/backlog closure, mirroring the `ODY-S01-001` pattern).
 - Milestone or sequencing constraints: Must not begin before `ODY-S01-001`'s closure (PR #22) is merged into `main` — verified in §4. Blocks `ODY-S01-005` (`SP-02`) until `Accepted`.
 
@@ -215,49 +215,52 @@ Not applicable. This task produces a `Proposed` ADR and its task contract; it do
 ## 16. Definition of Done
 
 - [x] Goal is achieved without unapproved scope expansion.
-- [ ] All acceptance criteria are satisfied.
+- [x] All acceptance criteria are satisfied.
 - [x] Required automated tests pass. (None applicable — documentation-only.)
-- [ ] Required manual checks are completed.
-- [ ] Required commands and their real results are recorded.
+- [x] Required manual checks are completed.
+- [x] Required commands and their real results are recorded.
 - [x] Architecture and dependency rules remain valid.
 - [x] Security, privacy, redaction, and audience rules are verified where applicable.
 - [x] Compatibility, migration, rollback, and versioning obligations are complete where applicable. (Not applicable — see §11.)
 - [x] No unapproved dependency, tool, GitHub Action, or license was introduced.
 - [x] Documentation is updated only where materially required.
-- [ ] Codex/developer performed a self-review against this task and `AGENTS.md`.
-- [ ] Pull request explains changes, evidence, limitations, and follow-up work.
-- [ ] Product owner or authorized reviewer completes the required review; Codex does not merge into `main`.
+- [x] Codex/developer performed a self-review against this task and `AGENTS.md`.
+- [x] Pull request explains changes, evidence, limitations, and follow-up work.
+- [x] Product owner or authorized reviewer completes the required review; Codex does not merge into `main`.
 
 ## 17. Completion evidence
 
 ### Changed files / areas
 
-- `docs/adr/ADR-012_Snapshot_And_Append_Only_Journal_v1.0.md` — new ADR.
-- `docs/tasks/active/ODY-S01-002_ADR_Snapshot_And_Journal.md` — this task contract.
-- `docs/plans/active/ODY-S01-002_ADR_Snapshot_And_Journal.md` — governing ExecPlan.
-- `docs/tasks/SLICE-01_BACKLOG.md` — `ODY-S01-002` row status/Planning mode updated.
+- `docs/adr/ADR-012_Snapshot_And_Append_Only_Journal_v1.0.md` — new ADR, authored at `Proposed`, reviewed and accepted by product owner as-is, Status moved to `Accepted` with acceptance recorded in §17 Нормативное действие (date 2026-08-20, no content changes).
+- `docs/tasks/active/ODY-S01-002_ADR_Snapshot_And_Journal.md` (this file) — moved to `docs/tasks/completed/` as part of formal closure.
+- `docs/plans/active/ODY-S01-002_ADR_Snapshot_And_Journal.md` — governing ExecPlan, moved to `docs/plans/completed/` with final progress-log entry recorded.
+- `docs/tasks/SLICE-01_BACKLOG.md` — `ODY-S01-002` row updated `In Review (ADR Proposed, pending owner acceptance)` → `Done (ADR-012 Accepted)`.
 
 ### Validation results
 
 | Command / check | Result | Evidence / notes |
 |---|---|---|
-| `.\scripts\verify-format.ps1` | Pending | To be recorded before commit. |
-| `.\scripts\check-repository-policy.ps1` | Pending | To be recorded before commit. |
+| `.\scripts\verify-format.ps1` | Passed | `FORMAT-001 PASS repository text formatting checks passed` (authoring PR #23, 2026-08-20) |
+| `.\scripts\check-repository-policy.ps1` | Passed | All `REPO-POLICY-00x`/`TC-CI-0xx` checks passed, `Repository policy check passed.` (authoring PR #23, 2026-08-20) |
+| `.\scripts\verify-format.ps1` (closure) | Passed | Re-run for closure diff — see closure PR evidence |
+| `.\scripts\check-repository-policy.ps1` (closure) | Passed | Re-run for closure diff — see closure PR evidence |
 
 ### Acceptance result
 
 | Criterion | Status | Evidence |
 |---|---|---|
-| AC-1 | Pending | — |
-| AC-2 | Pending | — |
-| AC-3 | Pending | — |
-| AC-4 | Pending | — |
-| AC-5 | Pending | — |
-| AC-6 | Pending | — |
-| AC-7 | Pending | — |
+| AC-1 | Passed | `ADR-012` created with `Status: Proposed`, all normative content per §7 present — confirmed by review during authoring PR #23. |
+| AC-2 | Passed | ADR-012 reviewed against `ADR-011`; §10 explicitly confirms no redefinition of physical `Backups/` structure or version dimensions. |
+| AC-3 | Passed | ADR-012 §11 explicitly excludes owner key storage, migration workflow; §12 carries forward the SQLite provider question as `[OPEN]`, not silently decided. |
+| AC-4 | Passed | `SLICE-01_BACKLOG.md` `ODY-S01-002` row updated to `Done (ADR-012 Accepted)`; rows for `ODY-S01-003`–`005` unchanged, confirmed via diff-scope check. |
+| AC-5 | Passed | `verify-format.ps1` and `check-repository-policy.ps1` both passed (authoring and closure runs). |
+| AC-6 | Passed | `git diff --name-status` against `main` limited to `ADR-012`, task/plan files (`active`→`completed` move), and `SLICE-01_BACKLOG.md`. |
+| AC-7 | Passed | Draft PR #23 opened, all 4 required CI checks green (`repository-policy-format-structure`, `dotnet-restore-build-test`, `unity-project-package-static`, `buildidentity-provenance`); remained Draft through formal closure — not moved to Ready without separate confirmation. |
 
 ## 18. Blockers, risks, and open decisions
 
 - Blocker (resolved): task could not begin until `ODY-S01-001`'s closure PR (#22) was merged into `main`. Owner confirmed merge on 2026-08-20; verified directly against `main` before branching.
 - Open decision (deliberate, not a blocker): ADR-012 §12 carries forward `ADR-011` §12.1's `[OPEN]` SQLite provider-library question unresolved, and adds one new open question (backup encryption at rest, deferred to `ODY-S01-004`). Both are intentional non-decisions, not omissions.
 - Risk: none identified beyond the standard risk that the owner may request content changes during review before `Accepted`, matching the `ODY-S01-001` precedent (which was accepted as-is).
+- Closure (2026-08-20): Product owner reviewed `ADR-012` and accepted it as-is, no content changes requested. `ADR-012` Status `Proposed` → `Accepted`; acceptance recorded in the ADR's own §17 Нормативное действие. Task Status moved to `Done`, moved to `docs/tasks/completed/`. This ExecPlan moved to `docs/plans/completed/`. `docs/tasks/SLICE-01_BACKLOG.md` `ODY-S01-002` row moved to `Done (ADR-012 Accepted)`.

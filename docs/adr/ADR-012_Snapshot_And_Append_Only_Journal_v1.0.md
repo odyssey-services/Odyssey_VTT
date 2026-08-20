@@ -4,7 +4,7 @@
 **ADR:** ADR-012  
 **Версия:** 1.0  
 **Дата:** 20 августа 2026 года  
-**Статус:** Proposed  
+**Статус:** Accepted  
 **Область:** транзакционная граница journal↔projection, Domain Event Store contract (`EventSequence` как авторитетный порядок, append-only гарантия, `PayloadHash`, event visibility), compensating-механизм исправления событий, идемпотентность команд (`AppliedCommands`), snapshot contract (определение, триггеры, создание через SQLite Backup API), backup contract на уровне journal-инварианта  
 **Связанные этапы:** Roadmap Этап 2 (`SLICE-01`), Milestone `M2`, backlog `ODY-S01-002`  
 **Базовые документы:** `05_Persistence_Odyssey_VTT_v0.8.md` (разделы 3, 10–12, 20–21), `ADR-001_Module_Boundaries_and_Dependency_Direction_v1.0.md`, `ADR-004_Result_and_Error_Model_v1.0.md`, `ADR-011_Local_Campaign_Format_v1.0.md`, `docs/tasks/SLICE-01_BACKLOG.md`
@@ -401,6 +401,8 @@ ODY-S01-005  Technical Spike SP-02: Persistence Reliability (тестирует 
 - `ODY-S01-003` (Migration Runner) авторизована опираться на snapshot-перед-migration триггер (раздел 8.2, пункт 5) как на принятое требование, не решая его заново;
 - открытые вопросы раздела 12 остаются открытыми до отдельного решения и не считаются молчаливо решёнными фактом принятия этого ADR;
 - изменение принятого контракта требует amendment этого ADR или нового superseding ADR, не молчаливого отклонения в реализации.
+
+Принято product owner 2026-08-20 as-is, без правок содержания.
 
 ---
 
