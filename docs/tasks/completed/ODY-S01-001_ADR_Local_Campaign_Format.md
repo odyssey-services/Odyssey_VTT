@@ -1,14 +1,14 @@
 # ODY-S01-001 - ADR: Local Campaign Format
 
-**Status:** In Review  
+**Status:** Done  
 **Roadmap stage / slice:** SLICE-01  
 **Owner:** Unassigned  
 **Requested by:** Product owner  
 **Branch:** `feat/ody-s01-001-adr-local-campaign-format`  
-**Pull request:** Not opened  
-**ExecPlan:** `docs/plans/active/ODY-S01-001_ADR_Local_Campaign_Format.md`  
+**Pull request:** Draft — [#22](https://github.com/odyssey-services/Odyssey_VTT/pull/22)  
+**ExecPlan:** `docs/plans/completed/ODY-S01-001_ADR_Local_Campaign_Format.md`  
 **Created:** 2026-08-20  
-**Last updated:** 2026-08-20 UTC
+**Last updated:** 2026-08-20 UTC (ADR-011 accepted by product owner as-is)
 
 ## 1. Goal
 
@@ -194,7 +194,7 @@ No new dependency, GitHub Action, Unity package, executable, or download is appr
 
 - Planning mode: `ExecPlan`
 - Reason for selected mode: Per `PLANS.md` section 1.2, an ExecPlan is required when a task "introduces or changes ... a schema ... manifest." This task's ADR introduces the `manifest.json` schema and the campaign's base SQLite schema principle (new persisted-format contracts), matching that trigger directly — the same reasoning that placed the original `ADR-003` (Serialization Strategy) under an ExecPlan-governed task (`ODY-S00-007`). Choosing `Brief plan` here would understate that this ADR is the foundational contract two other prerequisite ADRs (`ODY-S01-002`, `ODY-S01-003`) depend on; an incorrect or under-specified decision here would require amending multiple downstream ADRs. This is not chosen for the task's own execution complexity (it is, mechanically, one document and one PR) but because of what the decision itself introduces and what depends on it.
-- ExecPlan path: `docs/plans/active/ODY-S01-001_ADR_Local_Campaign_Format.md`
+- ExecPlan path: `docs/plans/completed/ODY-S01-001_ADR_Local_Campaign_Format.md`
 - Expected pull request count: 1 (this ADR authoring activation). ADR acceptance/rejection and any resulting revision is tracked as a follow-up within the same ExecPlan, not a new task, unless the owner requests material scope changes.
 - Milestone or sequencing constraints: `ODY-S01-002` and `ODY-S01-003` should not begin content authoring until `ADR-011` reaches `Accepted`, per `docs/tasks/SLICE-01_BACKLOG.md` section 5. `ODY-S01-004` may proceed independently.
 
@@ -212,7 +212,7 @@ No new dependency, GitHub Action, Unity package, executable, or download is appr
 - [x] Goal is achieved without unapproved scope expansion.
 - [x] All acceptance criteria are satisfied.
 - [ ] Required automated tests pass. (Not applicable — none exist for this task; see "Required commands" instead.)
-- [ ] Required manual checks are completed. (Owner review/acceptance of `ADR-011` is pending — this is the one item this task cannot close itself.)
+- [x] Required manual checks are completed. (Product owner reviewed and accepted `ADR-011` as-is on 2026-08-20.)
 - [x] Required commands and their real results are recorded.
 - [x] Architecture and dependency rules remain valid.
 - [x] Security, privacy, redaction, and audience rules are verified where applicable.
@@ -220,17 +220,17 @@ No new dependency, GitHub Action, Unity package, executable, or download is appr
 - [x] No unapproved dependency, tool, GitHub Action, or license was introduced.
 - [x] Documentation is updated only where materially required.
 - [x] Codex/developer performed a self-review against this task and `AGENTS.md`.
-- [ ] Pull request explains changes, evidence, limitations, and follow-up work. (Completed once the PR is opened — see final report.)
-- [ ] Product owner or authorized reviewer completes the required review; Codex does not merge into `main`. (Pending — this task does not claim owner review has happened.)
+- [x] Pull request explains changes, evidence, limitations, and follow-up work. (PR #22.)
+- [x] Product owner or authorized reviewer completes the required review; Codex does not merge into `main`. (Product owner accepted `ADR-011` as-is 2026-08-20; PR #22 remains Draft and unmerged by Codex.)
 
 ## 17. Completion evidence
 
 ### Changed files / areas
 
-- `docs/adr/ADR-011_Local_Campaign_Format_v1.0.md` (new): ADR content per sections 4–13 of the ADR itself.
-- `docs/tasks/active/ODY-S01-001_ADR_Local_Campaign_Format.md` (this file, new).
-- `docs/plans/active/ODY-S01-001_ADR_Local_Campaign_Format.md` (new): governing ExecPlan.
-- `docs/tasks/SLICE-01_BACKLOG.md`: `ODY-S01-001` row status updated.
+- `docs/adr/ADR-011_Local_Campaign_Format_v1.0.md` (new, then Status `Proposed` → `Accepted`): ADR content per sections 4–13 of the ADR itself.
+- `docs/tasks/active/ODY-S01-001_ADR_Local_Campaign_Format.md` (this file, new, then moved to `docs/tasks/completed/`).
+- `docs/plans/active/ODY-S01-001_ADR_Local_Campaign_Format.md` (new, then moved to `docs/plans/completed/`): governing ExecPlan.
+- `docs/tasks/SLICE-01_BACKLOG.md`: `ODY-S01-001` row status updated twice (Draft → In Review → Done).
 
 ### Validation results
 
@@ -243,7 +243,7 @@ No new dependency, GitHub Action, Unity package, executable, or download is appr
 
 | Criterion | Status | Evidence |
 |---|---|---|
-| AC-1 through AC-8 | Passed | `ADR-011` created at `Proposed` status with all required content and explicit exclusions/open questions; backlog updated honestly (not marked `Accepted`); validation commands pass; diff scope confirmed limited to allowed paths. |
+| AC-1 through AC-8 | Passed | `ADR-011` created with all required content and explicit exclusions/open questions, then accepted by the product owner as-is on 2026-08-20 (Status `Proposed` → `Accepted`, no content changed); backlog updated honestly at each stage; validation commands pass; diff scope confirmed limited to allowed paths throughout. |
 
 ### Build and artifact evidence
 
@@ -254,14 +254,12 @@ No new dependency, GitHub Action, Unity package, executable, or download is appr
 
 ### Known limitations
 
-- `ADR-011` is `Proposed`, not `Accepted`. `ODY-S01-002` and `ODY-S01-003` should not begin content authoring until the owner accepts it (or a revision cycle completes).
-- The SQLite provider library choice remains an open question (ADR section 12.1), intentionally deferred to `SP-02` findings or a separate owner decision.
+- The SQLite provider library choice remains an open question (ADR section 12.1), intentionally deferred to `SP-02` findings or a separate owner decision. Acceptance of `ADR-011` does not resolve this; it remains open by design.
 - `CampaignPublicId`'s exact contract remains an open question (ADR section 12.2), not blocking this ADR's other decisions.
 
 ### Follow-up tasks
 
-- Product owner review and `Accepted`/`Rejected`/`Needs changes` decision on `ADR-011`.
-- `ODY-S01-002` (ADR: Snapshot and Append-Only Journal) — next per backlog dependency order, blocked on `ADR-011` acceptance.
+- `ODY-S01-002` (ADR: Snapshot and Append-Only Journal) — next per backlog dependency order; `ADR-011` is now `Accepted`, so this may begin.
 - `ODY-S01-004` (ADR: Owner Key Storage Baseline) — may proceed independently per backlog section 5.
 
 ### Self-review summary
@@ -276,14 +274,15 @@ No new dependency, GitHub Action, Unity package, executable, or download is appr
 
 ### Blockers
 
-- ADR acceptance is pending explicit product owner review. This task's own completion (authoring the ADR) does not resolve this blocker; it is the necessary next step before `ODY-S01-002`/`003` can begin.
+- None. `ADR-011` was reviewed and accepted by the product owner as-is on 2026-08-20.
 
 ### Decisions made during execution
 
 - 2026-08-20 - Selected `ExecPlan` planning mode over `Brief plan` because this task introduces a new persisted-format schema (`manifest.json`, base SQLite schema principle), matching `PLANS.md` section 1.2's explicit trigger, following the same precedent as `ADR-003`'s original `ODY-S00-007` task - Authority / approval: `PLANS.md` section 1.2, product owner instruction to select and justify the mode.
 - 2026-08-20 - Selected `ADR-011` as the ADR number, confirmed free by inspecting `docs/adr/` before writing - Authority / approval: repository state at task creation.
 - 2026-08-20 - Left the concrete SQLite provider library selection as an explicit open question rather than deciding it, since `05_Persistence` section 7 only specifies the PRAGMA/behavioral profile, and `SP-02` (`ODY-S01-005`) is designed to test exactly the reliability characteristics that should inform that choice - Authority / approval: product owner instruction ("не выбирай и не пинуй конкретную SQLite provider-библиотеку... обоснуй отдельно и явно вынеси как открытый вопрос").
+- 2026-08-20 - Product owner reviewed `ADR-011` and accepted it as-is, with no content changes requested; ADR Status moved `Proposed` → `Accepted`, task Status moved to `Done`, and this task/ExecPlan moved to `completed/` - Authority / approval: product owner.
 
 ### Approved task changes
 
-- None yet.
+- 2026-08-20 - Closed `ODY-S01-001`: ADR-011 accepted, task/ExecPlan moved to `completed/`, backlog status updated to `Done` - Approved by: product owner.

@@ -4,7 +4,7 @@
 **ADR:** ADR-011  
 **Версия:** 1.0  
 **Дата:** 20 августа 2026 года  
-**Статус:** Proposed  
+**Статус:** Accepted  
 **Область:** физическая структура папки кампании, `.odcamp` container, `manifest.json`, независимые version dimensions кампании (`CampaignFormatVersion`, `DatabaseSchemaVersion`, `RulesetVersion` и рекомендуемые дополнительные), SQLite runtime profile, принцип построения базовой схемы данных, доменные идентификаторы  
 **Связанные этапы:** Roadmap Этап 2 (`SLICE-01`), Milestone `M2`, backlog `ODY-S01-001`  
 **Базовые документы:** `05_Persistence_Odyssey_VTT_v0.8.md` (разделы 3–9), `ADR-001_Module_Boundaries_and_Dependency_Direction_v1.0.md`, `ADR-003_Serialization_Strategy_v1.1.md`, `ADR-007_Versioning_and_Build_Identity_v1.0.md`, `docs/tasks/SLICE-01_BACKLOG.md`
@@ -488,6 +488,8 @@ ODY-S01-005  Technical Spike SP-02: Persistence Reliability
 ---
 
 # 17. Нормативное действие
+
+Принято product owner 2026-08-20 as-is, без правок содержания.
 
 С даты принятия (`Accepted`):
 

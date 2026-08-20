@@ -1,9 +1,9 @@
 # ODY-S01-001 — ADR-011 Local Campaign Format Authored and Proposed
 
-**Status:** Active  
+**Status:** Done  
 **Owner:** Codex  
 **Branch:** `feat/ody-s01-001-adr-local-campaign-format`  
-**Pull request:** Not opened  
+**Pull request:** Draft — [#22](https://github.com/odyssey-services/Odyssey_VTT/pull/22)  
 **Last updated:** 2026-08-20
 
 ## 1. Purpose and user-visible outcome
@@ -14,7 +14,7 @@ No implementation code is delivered. The observable outcome is a reviewable ADR 
 
 ## 2. Task contract
 
-Governing task: `docs/tasks/active/ODY-S01-001_ADR_Local_Campaign_Format.md`.
+Governing task: `docs/tasks/completed/ODY-S01-001_ADR_Local_Campaign_Format.md`.
 
 - Goal: Author `ADR-011_Local_Campaign_Format_v1.0.md` per that task's section 1.
 - Acceptance criteria: That task's section 9, AC-1 through AC-8.
@@ -54,23 +54,32 @@ No code changes are made; no module ownership, transaction boundary, or dependen
 
 ### M2 — Task/backlog evidence and validation recorded
 
-- [ ] `docs/tasks/active/ODY-S01-001_ADR_Local_Campaign_Format.md` completion evidence filled honestly.
-- [ ] `docs/tasks/SLICE-01_BACKLOG.md` `ODY-S01-001` status updated to reflect the real state (task work done; ADR itself still `Proposed`, not `Accepted`).
-- [ ] `scripts/verify-format.ps1` and `scripts/check-repository-policy.ps1` both pass with real recorded results.
+- [x] `docs/tasks/active/ODY-S01-001_ADR_Local_Campaign_Format.md` completion evidence filled honestly.
+- [x] `docs/tasks/SLICE-01_BACKLOG.md` `ODY-S01-001` status updated to reflect the real state at each stage (Draft → In Review while `Proposed` → Done once `Accepted`).
+- [x] `scripts/verify-format.ps1` and `scripts/check-repository-policy.ps1` both pass with real recorded results.
 
 ### M3 — Draft PR opened for owner review
 
-- [ ] Draft PR opened; CI green on all four required checks.
-- [ ] PR not moved to Ready for Review without separate confirmation.
+- [x] Draft PR opened (#22); CI green on all four required checks.
+- [x] PR not moved to Ready for Review without separate confirmation (remained Draft throughout).
+
+### M4 — ADR accepted and task closed
+
+- [x] Product owner reviewed and accepted `ADR-011` as-is, no content changes.
+- [x] `ADR-011` Status `Proposed` → `Accepted`, with acceptance date recorded in the ADR's own Normative Effect section.
+- [x] Task and this ExecPlan moved to `completed/`; backlog status updated to `Done`.
 
 ## 6. Progress log
 
 - 2026-08-20 UTC - Read `05_Persistence` sections 3–9, `ADR-001` module boundaries, and relevant `ADR-003`/`ADR-007` sections. Confirmed `ADR-011` is the next free ADR number. Authored `docs/adr/ADR-011_Local_Campaign_Format_v1.0.md` covering physical structure, `manifest.json`, version dimensions, SQLite runtime profile, base schema principle, and identifiers, with explicit exclusions for `ODY-S01-002`/`003`/`004` content and an explicit open question for the SQLite provider library choice and `CampaignPublicId`. Created this task contract and ExecPlan.
+- 2026-08-20 UTC - `verify-format.ps1` and `check-repository-policy.ps1` passed. Draft PR #22 opened; all four required CI checks passed (`repository-policy-format-structure`, `dotnet-restore-build-test`, `unity-project-package-static`, `buildidentity-provenance`). PR remained Draft.
+- 2026-08-20 UTC - Product owner reviewed `ADR-011` and accepted it as-is, with no content changes requested. `ADR-011` Status moved `Proposed` → `Accepted` (content unchanged); acceptance date recorded in the ADR's own Normative Effect section. Task Status moved to `Done`, `docs/tasks/SLICE-01_BACKLOG.md` `ODY-S01-001` row moved to `Done`. This task and its ExecPlan moved to `completed/`.
 
 ## 7. Decisions
 
 - 2026-08-20 — Decision: Use `ExecPlan` planning mode. Rationale: `PLANS.md` section 1.2 requires an ExecPlan when a task "introduces or changes ... a schema ... manifest"; this ADR introduces the `manifest.json` schema and base SQLite schema principle, matching that trigger, consistent with `ADR-003`'s original task (`ODY-S00-007`) also using ExecPlan. Authority: `PLANS.md` section 1.2.
 - 2026-08-20 — Decision: Do not pin a specific SQLite provider library in `ADR-011`. Rationale: `05_Persistence` section 7 only specifies the PRAGMA/behavioral profile, not a .NET library; `SP-02` (`ODY-S01-005`) exists specifically to produce reliability evidence (crash, corrupted-db recovery, migration rollback) that should inform this choice. Authority: product owner instruction in the `ODY-S01-001` activation ТЗ.
+- 2026-08-20 — Decision: Accept `ADR-011` as-is, no content changes. Rationale: product owner reviewed the full ADR and found it complete and correct for `ODY-S01-001`'s scope. Authority: product owner ("Владелец продукта принял ADR-011 as-is").
 
 ## 8. Discoveries and deviations
 
@@ -86,11 +95,11 @@ Not applicable. This plan produces a documentation-only ADR proposal; no persist
 
 ## 11. Open questions and blockers
 
-- `ADR-011` acceptance is pending explicit product owner review. This is the plan's only real blocker; it cannot be resolved by this task itself.
-- SQLite provider library selection (ADR section 12.1) and `CampaignPublicId` contract (ADR section 12.2) are open questions carried by the ADR itself, not blockers to this plan's own completion.
+- None remaining for this plan. `ADR-011` was reviewed and accepted by the product owner.
+- SQLite provider library selection (ADR section 12.1) and `CampaignPublicId` contract (ADR section 12.2) remain open questions carried by the ADR itself, by design — they are not blockers to this plan's own completion and are not resolved by acceptance.
 
 ## 12. Outcome and follow-up
 
-Current outcome: `ADR-011_Local_Campaign_Format_v1.0.md` is authored and `Proposed`. Task and backlog evidence recording and validation are in progress (see milestones M2/M3).
+Current outcome: `ADR-011_Local_Campaign_Format_v1.0.md` is `Accepted` (accepted by the product owner as-is on 2026-08-20, no content changes). `ODY-S01-001` task and this ExecPlan are `Done` and moved to `completed/`. `docs/tasks/SLICE-01_BACKLOG.md` `ODY-S01-001` row is `Done`.
 
-Next action: Run `verify-format.ps1`/`check-repository-policy.ps1`, record evidence, update `docs/tasks/SLICE-01_BACKLOG.md`, open a Draft PR, and confirm CI green — then await explicit product owner review of `ADR-011` before `ODY-S01-002`/`003` begin.
+Next action: `ODY-S01-002` (ADR: Snapshot and Append-Only Journal) may now begin per `docs/tasks/SLICE-01_BACKLOG.md` section 5, since its dependency on `ADR-011` `Accepted` is satisfied. `ODY-S01-004` (Owner Key Storage Baseline) may also proceed independently.
