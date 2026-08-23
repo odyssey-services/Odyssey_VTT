@@ -4,7 +4,7 @@
 **ADR:** ADR-014  
 **Версия:** 1.0  
 **Дата:** 20 августа 2026 года  
-**Статус:** Proposed  
+**Статус:** Accepted  
 **Область:** конкретный OS-механизм локального хранения owner key material на Windows (Windows Credential Manager, DPAPI CurrentUser scope), формат и область хранимой сущности, ротация, поведение при потере/недоступности ключа, решение открытого вопроса `ADR-012` §12.1 (backup encryption at rest), поведение при переустановке приложения/смене машины/экспорте кампании с точки зрения persistence-слоя  
 **Связанные этапы:** Roadmap Этап 2 (`SLICE-01`), Milestone `M2`, backlog `ODY-S01-004`  
 **Базовые документы:** `Documentation/21_Security_And_Privacy_Odyssey_VTT_v0.1.md` §5–6, `05_Persistence_Odyssey_VTT_v0.8.md` (`PE-INV-010`, §30–31), `ADR-011_Local_Campaign_Format_v1.0.md` §1 п.13, `ADR-012_Snapshot_And_Append_Only_Journal_v1.0.md` §12.1, `ADR-009_Unity_Project_and_Build_Baseline_v1.1.md` (Windows Standalone x86-64 baseline), `docs/tasks/SLICE-01_BACKLOG.md`
@@ -276,6 +276,8 @@ ODY-S01-005  Technical Spike SP-02: Persistence Reliability (не тестиру
 - ни одна implementation-задача не реализует хранение owner key material в противоречии с разделами 4–7 этого ADR;
 - открытые вопросы раздела 12 остаются открытыми до отдельного решения и не считаются молчаливо решёнными фактом принятия этого ADR;
 - изменение принятого контракта требует amendment этого ADR или нового superseding ADR, не молчаливого отклонения в реализации.
+
+Принято product owner 2026-08-20 as-is, без правок содержания.
 
 ---
 

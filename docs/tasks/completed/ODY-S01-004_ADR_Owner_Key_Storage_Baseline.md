@@ -1,12 +1,12 @@
 # ODY-S01-004 — ADR: Owner Key Storage Baseline
 
-**Status:** In Review  
+**Status:** Done  
 **Roadmap stage / slice:** SLICE-01 (prerequisites)  
 **Owner:** Codex (agent)  
 **Requested by:** Product owner  
 **Branch:** `feat/ody-s01-004-adr-owner-key-storage-baseline`  
-**Pull request:** Not yet opened  
-**ExecPlan:** `docs/plans/active/ODY-S01-004_ADR_Owner_Key_Storage_Baseline.md`  
+**Pull request:** Draft — [#25](https://github.com/odyssey-services/Odyssey_VTT/pull/25)  
+**ExecPlan:** `docs/plans/completed/ODY-S01-004_ADR_Owner_Key_Storage_Baseline.md`  
 **Created:** 2026-08-20  
 **Last updated:** 2026-08-20 UTC
 
@@ -211,7 +211,7 @@ Note: the ADR itself specifies future implementation will use `Advapi32.dll` (pa
 
 - Planning mode: `ExecPlan`
 - Reason for selected mode: Per `PLANS.md` §1.2, this task is evaluated against both plausible triggers, not presumed by analogy to `ODY-S01-001`–`003`. **Schema/persisted-format trigger:** does *not* apply — this ADR introduces no new table, column, or `manifest.json` field; owner key material is deliberately kept out of every persisted campaign structure, so there is no schema change to point to. **Security trigger:** applies directly — `PLANS.md` §1.2 names "security" verbatim in its list of concerns whose introduction or change requires an ExecPlan ("affects authoritative state, persistence, networking, **security**, permissions, hidden information, redaction, diagnostics, time, or randomness"). This task's entire subject is a security-storage mechanism decision (which OS API custodies a `Secret`-class credential, and the explicit resolution of a related security open question, `ADR-012` §12.1). A Brief plan is disqualified: `PLANS.md` §1.1 requires that a Brief-eligible change "does not change a public contract, persisted format, protocol, permissions, redaction, dependency graph" — while this task does not change a persisted format, it does bear directly on redaction/secret-handling design, which §1.1 also disqualifies from Brief plan. ExecPlan mode is therefore required via the security trigger specifically, not the schema trigger used to justify `ODY-S01-001`/`002`, nor the migration trigger used for `ODY-S01-003` — a genuinely distinct rationale, evaluated fresh.
-- ExecPlan path: `docs/plans/active/ODY-S01-004_ADR_Owner_Key_Storage_Baseline.md`
+- ExecPlan path: `docs/plans/completed/ODY-S01-004_ADR_Owner_Key_Storage_Baseline.md`
 - Expected pull request count: 1 (single Draft PR covering ADR authoring; a second PR will later record owner acceptance and status/backlog closure, mirroring the `ODY-S01-001`–`003` pattern).
 - Milestone or sequencing constraints: Independent of `ODY-S01-001`–`003` per `SLICE-01_BACKLOG.md` §5; no blocking predecessor. Closes the last of the four ADRs required for `SLICE-01_BACKLOG.md` §2's prerequisite-backlog exit criteria once `Accepted`.
 
@@ -227,50 +227,55 @@ Note: the ADR itself specifies future implementation will use `Advapi32.dll` (pa
 ## 16. Definition of Done
 
 - [x] Goal is achieved without unapproved scope expansion.
-- [ ] All acceptance criteria are satisfied.
+- [x] All acceptance criteria are satisfied.
 - [x] Required automated tests pass. (None applicable — documentation-only.)
-- [ ] Required manual checks are completed.
-- [ ] Required commands and their real results are recorded.
+- [x] Required manual checks are completed.
+- [x] Required commands and their real results are recorded.
 - [x] Architecture and dependency rules remain valid.
 - [x] Security, privacy, redaction, and audience rules are verified where applicable.
 - [x] Compatibility, migration, rollback, and versioning obligations are complete where applicable. (Not applicable — see §11.)
 - [x] No unapproved dependency, tool, GitHub Action, or license was introduced.
 - [x] Documentation is updated only where materially required.
-- [ ] Codex/developer performed a self-review against this task and `AGENTS.md`.
-- [ ] Pull request explains changes, evidence, limitations, and follow-up work.
-- [ ] Product owner or authorized reviewer completes the required review; Codex does not merge into `main`.
+- [x] Codex/developer performed a self-review against this task and `AGENTS.md`.
+- [x] Pull request explains changes, evidence, limitations, and follow-up work.
+- [x] Product owner or authorized reviewer completes the required review; Codex does not merge into `main`.
 
 ## 17. Completion evidence
 
 ### Changed files / areas
 
-- `docs/adr/ADR-014_Owner_Key_Storage_Baseline_v1.0.md` — new ADR.
-- `docs/tasks/active/ODY-S01-004_ADR_Owner_Key_Storage_Baseline.md` — this task contract.
-- `docs/plans/active/ODY-S01-004_ADR_Owner_Key_Storage_Baseline.md` — governing ExecPlan.
-- `docs/tasks/SLICE-01_BACKLOG.md` — `ODY-S01-004` row status/Planning mode updated.
+- `docs/adr/ADR-014_Owner_Key_Storage_Baseline_v1.0.md` — new ADR, authored at `Proposed`, reviewed and accepted by product owner as-is, Status moved to `Accepted` with acceptance recorded in §17 Нормативное действие (date 2026-08-20, no content changes).
+- `docs/adr/ADR-012_Snapshot_And_Append_Only_Journal_v1.0.md` §12.1 — pointer-only note added: the "Backup encryption at rest" open question is now closed by `ADR-014` §8. No other content in `ADR-012` changed.
+- `docs/adr/ADR-011_Local_Campaign_Format_v1.0.md` §12 — reviewed; neither open item (§12.1 SQLite provider library, §12.2 `CampaignPublicId`) is directly resolved by `ADR-014`, so `ADR-011` was left untouched, per closure instructions.
+- `docs/tasks/active/ODY-S01-004_ADR_Owner_Key_Storage_Baseline.md` (this file) — moved to `docs/tasks/completed/` as part of formal closure.
+- `docs/plans/active/ODY-S01-004_ADR_Owner_Key_Storage_Baseline.md` — governing ExecPlan, moved to `docs/plans/completed/` with final progress-log entry recorded.
+- `docs/tasks/SLICE-01_BACKLOG.md` — `ODY-S01-004` row updated `In Review (ADR Proposed, pending owner acceptance)` → `Done (ADR-014 Accepted)`.
 
 ### Validation results
 
 | Command / check | Result | Evidence / notes |
 |---|---|---|
-| `.\scripts\verify-format.ps1` | Pending | To be recorded before commit. |
-| `.\scripts\check-repository-policy.ps1` | Pending | To be recorded before commit. |
+| `.\scripts\verify-format.ps1` | Passed | `FORMAT-001 PASS repository text formatting checks passed` (authoring PR #25, 2026-08-20) |
+| `.\scripts\check-repository-policy.ps1` | Passed | All `REPO-POLICY-00x`/`TC-CI-0xx` checks passed, `Repository policy check passed.` (authoring PR #25, 2026-08-20) |
+| `.\scripts\verify-format.ps1` (closure) | Passed | Re-run for closure diff — see closure PR evidence |
+| `.\scripts\check-repository-policy.ps1` (closure) | Passed | Re-run for closure diff — see closure PR evidence |
 
 ### Acceptance result
 
 | Criterion | Status | Evidence |
 |---|---|---|
-| AC-1 | Pending | — |
-| AC-2 | Pending | — |
-| AC-3 | Pending | — |
-| AC-4 | Pending | — |
-| AC-5 | Pending | — |
-| AC-6 | Pending | — |
-| AC-7 | Pending | — |
-| AC-8 | Pending | — |
+| AC-1 | Passed | `ADR-014` created with `Status: Proposed`, all normative content per §7 present — confirmed by review during authoring PR #25. |
+| AC-2 | Passed | ADR-014 §4 names Windows Credential Manager, `CurrentUser` scope, with explicit justification, not an abstract placeholder. |
+| AC-3 | Passed | ADR-014 §8 explicitly resolves `ADR-012` §12.1 with a definitive "no backup encryption in MVP" — now also reflected as a pointer note in `ADR-012` §12.1 itself. |
+| AC-4 | Passed | ADR-014 §9 confirms `21_Security_And_Privacy` §6 is unaltered; §11 excludes cryptographic key usage and cross-platform storage. |
+| AC-5 | Passed | `SLICE-01_BACKLOG.md` `ODY-S01-004` row updated to `Done (ADR-014 Accepted)`; `ODY-S01-005` row unchanged, confirmed via diff-scope check. |
+| AC-6 | Passed | `verify-format.ps1` and `check-repository-policy.ps1` both passed (authoring and closure runs). |
+| AC-7 | Passed | `git diff --name-status` against `main` limited to `ADR-014`, `ADR-012` §12.1 pointer note, task/plan files (`active`→`completed` move), and `SLICE-01_BACKLOG.md`. |
+| AC-8 | Passed | Draft PR #25 opened, all 4 required CI checks green (`repository-policy-format-structure`, `dotnet-restore-build-test`, `unity-project-package-static`, `buildidentity-provenance`); remained Draft through formal closure — not moved to Ready without separate confirmation. |
 
 ## 18. Blockers, risks, and open decisions
 
 - Blocker: none. `ODY-S01-004` is independent of `ODY-S01-001`–`003` per `SLICE-01_BACKLOG.md` §5, and all three are `Accepted`/`Done` regardless.
 - Open decision (deliberate, not a blocker): ADR-014 §12 records two new open questions (§12.2 UX/application-level behavior on owner-key absence; §12.3 source of the non-secret `TargetName` reference identifier) and notes §12.1 (SQLite provider library) as inherited/not directly relevant. These are intentional non-decisions, not omissions.
 - Risk: none identified beyond the standard risk that the owner may request content changes during review before `Accepted`, matching the `ODY-S01-001`–`003` precedent (all accepted as-is).
+- Closure (2026-08-20): Product owner reviewed `ADR-014` and accepted it as-is, no content changes requested. `ADR-014` Status `Proposed` → `Accepted`; acceptance recorded in the ADR's own §17 Нормативное действие. `ADR-012` §12.1 (Backup encryption at rest) updated with a pointer note that it is now closed by `ADR-014` §8 — no other `ADR-012` content changed. `ADR-011` §12 reviewed and left untouched — neither open item there is directly resolved by `ADR-014`. Task Status moved to `Done`, moved to `docs/tasks/completed/`. This ExecPlan moved to `docs/plans/completed/`. `docs/tasks/SLICE-01_BACKLOG.md` `ODY-S01-004` row moved to `Done (ADR-014 Accepted)`.

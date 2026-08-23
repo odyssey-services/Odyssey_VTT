@@ -297,9 +297,11 @@ Snapshot и backup предназначены для аварийного вос
 
 # 12. Открытые вопросы
 
-## 12.1 Backup encryption at rest — `[OPEN]`
+## 12.1 Backup encryption at rest — закрыто `ADR-014` §8
 
-`05_Persistence` разделы 20–21 не упоминают шифрование backup-файлов. Поскольку owner key storage (`ODY-S01-004`) ещё не принят, вопрос о том, должен ли backup/snapshot быть зашифрован тем же механизмом, что защищает owner key (см. `Documentation/21_Security_And_Privacy_Odyssey_VTT_v0.1.md` §4.1, "Локальное хранение — Шифрование"), остаётся открытым до принятия `ODY-S01-004`. Этот ADR не решает его, чтобы не предвосхищать содержание `ODY-S01-004`.
+`05_Persistence` разделы 20–21 не упоминают шифрование backup-файлов. Поскольку owner key storage (`ODY-S01-004`) ещё не принят, вопрос о том, должен ли backup/snapshot быть зашифрован тем же механизмом, что защищает owner key (см. `Documentation/21_Security_And_Privacy_Odyssey_VTT_v0.1.md` §4.1, "Локальное хранение — Шифрование"), оставался открытым до принятия `ODY-S01-004`. Этот ADR не решал его сам, чтобы не предвосхищать содержание `ODY-S01-004`.
+
+**Закрыто:** `ADR-014_Owner_Key_Storage_Baseline_v1.0.md` §8 явно разрешает этот вопрос — backup/snapshot `campaign.db` не шифруется в MVP. Вопрос более не открыт.
 
 ## 12.2 SQLite provider-библиотека — `[OPEN]`, унаследовано из `ADR-011`
 
