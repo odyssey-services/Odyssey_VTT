@@ -1,9 +1,9 @@
 # ODY-S01-003 — ADR-013 Migration Runner Authored and Proposed
 
-**Status:** In Progress  
+**Status:** Done  
 **Owner:** Codex  
 **Branch:** `feat/ody-s01-003-adr-migration-runner`  
-**Pull request:** Not yet opened  
+**Pull request:** Draft — [#24](https://github.com/odyssey-services/Odyssey_VTT/pull/24)  
 **Last updated:** 2026-08-20
 
 ## 1. Purpose and user-visible outcome
@@ -54,28 +54,32 @@ No code changes are made; no module ownership or dependency direction changes as
 ### M2 — Task/backlog evidence and validation recorded
 
 - [x] `docs/tasks/active/ODY-S01-003_ADR_Migration_Runner.md` completion evidence section drafted.
-- [ ] `docs/tasks/SLICE-01_BACKLOG.md` `ODY-S01-003` status updated (Draft → In Review, Planning mode `ExecPlan`).
-- [ ] `scripts/verify-format.ps1` and `scripts/check-repository-policy.ps1` both pass with real recorded results.
+- [x] `docs/tasks/SLICE-01_BACKLOG.md` `ODY-S01-003` status updated (Draft → In Review, Planning mode `ExecPlan`).
+- [x] `scripts/verify-format.ps1` and `scripts/check-repository-policy.ps1` both pass with real recorded results.
 
 ### M3 — Draft PR opened for owner review
 
-- [ ] Draft PR opened; CI green on all required checks.
-- [ ] PR not moved to Ready for Review without separate confirmation.
+- [x] Draft PR opened (#24); CI green on all four required checks.
+- [x] PR not moved to Ready for Review without separate confirmation (remained Draft throughout).
 
-### M4 — ADR accepted and task closed (future, separate confirmation required)
+### M4 — ADR accepted and task closed
 
-- [ ] Product owner reviews and decides on `ADR-013` (accept as-is, or requests changes).
-- [ ] If accepted: Status `Proposed` → `Accepted`; task and this ExecPlan moved to `completed/`; backlog status updated to `Done`.
+- [x] Product owner reviewed and accepted `ADR-013` as-is, no content changes.
+- [x] `ADR-013` Status `Proposed` → `Accepted`, with acceptance date recorded in the ADR's own Normative Effect (§17) section.
+- [x] Task and this ExecPlan moved to `completed/`; backlog status updated to `Done (ADR-013 Accepted)`.
 
 ## 6. Progress log
 
 - 2026-08-20 UTC - Confirmed `ODY-S01-002` closure (PR #23) merged into `main`; verified `ADR-011`/`ADR-012` both `Accepted` and `ODY-S01-001`/`002` backlog rows both `Done` directly against `main` before branching. Read `05_Persistence` sections 25 (Database migrations, §25.1–25.6) and 26 (Newer campaign / read-only mode, §26.1–26.3), plus section 6 for version-dimension context. Authored `docs/adr/ADR-013_Migration_Runner_v1.0.md` covering the migration registry, the 7-step run workflow, step transactionality, the elevated normative failure-behavior rule (temp-copy pattern, rollback, snapshot retention, safe error, version-write block), `SchemaHistory` schema, the ruleset migration boundary with one explicit integration point, and read-only compatibility mode for a newer campaign, with explicit exclusions and inherited open questions. Created the governing task contract and this ExecPlan.
+- 2026-08-20 UTC - `verify-format.ps1` and `check-repository-policy.ps1` passed. Updated `docs/tasks/SLICE-01_BACKLOG.md` `ODY-S01-003` row to `In Review (ADR Proposed, pending owner acceptance)`, Planning mode `ExecPlan`. Committed (`d2039812db8c29c13a2fa7fc4a10dfd6613cf4d4`), pushed, Draft PR #24 opened; all four required CI checks passed (`repository-policy-format-structure`, `dotnet-restore-build-test`, `unity-project-package-static`, `buildidentity-provenance`). PR remained Draft.
+- 2026-08-20 UTC - Product owner reviewed `ADR-013` and accepted it as-is, with no content changes requested. `ADR-013` Status moved `Proposed` → `Accepted` (content unchanged); acceptance date recorded in the ADR's own Normative Effect section. Task Status moved to `Done`, `docs/tasks/SLICE-01_BACKLOG.md` `ODY-S01-003` row moved to `Done (ADR-013 Accepted)`. This task and its ExecPlan moved to `completed/`.
 
 ## 7. Decisions
 
 - 2026-08-20 — Decision: Use `ExecPlan` planning mode. Rationale: `PLANS.md` section 1.2 explicitly names "migration" as a trigger word alongside schema/manifest; this task's entire subject is migration behavior, making it the most direct match of the three `SLICE-01` ADR tasks so far. `PLANS.md` section 1.1 also explicitly disqualifies Brief plan for changes involving migration. Authority: `PLANS.md` section 1.1/1.2, evaluated fresh against this task's content (not presumed by analogy to `ODY-S01-001`/`002`).
 - 2026-08-20 — Decision: Elevate `05_Persistence` §25.4's descriptive failure-behavior list into a hard normative rule with equal force to `ADR-012` §5's transactional-boundary rule. Rationale: task instruction explicitly requested this framing "по аналогии с тем, как ADR-012 §5 зафиксировала транзакционную границу," and the underlying risk (half-migrated campaign state) is comparable in severity to a partial journal/projection commit. Authority: `05_Persistence_Odyssey_VTT_v0.8.md` section 25.4; task instruction.
 - 2026-08-20 — Decision: Fix exactly one integration point between database schema migration and ruleset migration (shared snapshot mechanism), and decide nothing else about the ruleset migration workflow. Rationale: `05_Persistence` §25.6 clearly separates the two by ownership and workflow; deciding more here would preempt a future ADR/task that Rules Engine/Content Domain has not yet reached. Authority: `05_Persistence_Odyssey_VTT_v0.8.md` section 25.6; task instruction to justify explicitly if fixing an integration point, not to silently decide either way.
+- 2026-08-20 — Decision: Accept `ADR-013` as-is, no content changes. Rationale: product owner reviewed the full ADR and found it complete and correct for `ODY-S01-003`'s scope. Authority: product owner ("Владелец продукта принял ADR-013 as-is").
 
 ## 8. Discoveries and deviations
 
@@ -83,7 +87,7 @@ No code changes are made; no module ownership or dependency direction changes as
 
 ## 9. Validation and acceptance evidence
 
-To be filled with real command output before this plan's M2/M3 milestones are checked off (see the governing task's section 17 for the authoritative record; this section will not duplicate it beyond a pointer once validation runs).
+See the governing task's section 17 (`docs/tasks/completed/ODY-S01-003_ADR_Migration_Runner.md`) for the authoritative record: `verify-format.ps1` and `check-repository-policy.ps1` both passed on the authoring run and on the closure diff; all four required CI checks passed on Draft PR #24.
 
 ## 10. Recovery and rollback
 
@@ -91,11 +95,11 @@ Not applicable. This plan produces a documentation-only ADR proposal; no persist
 
 ## 11. Open questions and blockers
 
-- No blockers remaining for this plan's M1 milestone.
-- SQLite provider library selection (carried from `ADR-011`/`ADR-012`), backup encryption at rest (carried from `ADR-012`), and headless/batch migration confirmation (new, ADR-013 section 12.3) remain open questions carried by the ADR itself, by design — not blockers to this plan's completion.
+- None remaining for this plan. `ADR-013` was reviewed and accepted by the product owner.
+- SQLite provider library selection (carried from `ADR-011`/`ADR-012`), backup encryption at rest (carried from `ADR-012`), and headless/batch migration confirmation (new, ADR-013 section 12.3) remain open questions carried by the ADR itself, by design — they are not blockers to this plan's own completion and are not resolved by acceptance.
 
 ## 12. Outcome and follow-up
 
-Current outcome: `ADR-013_Migration_Runner_v1.0.md` drafted at `Proposed`. Task contract and this ExecPlan created. Backlog update, validation, commit, push, and Draft PR remain to be executed (M2–M3).
+Current outcome: `ADR-013_Migration_Runner_v1.0.md` is `Accepted` (accepted by the product owner as-is on 2026-08-20, no content changes). `ODY-S01-003` task and this ExecPlan are `Done` and moved to `completed/`. `docs/tasks/SLICE-01_BACKLOG.md` `ODY-S01-003` row is `Done (ADR-013 Accepted)`.
 
-Next action: run `verify-format.ps1` and `check-repository-policy.ps1`, update the `ODY-S01-003` backlog row, perform the diff-scope check, commit, push, and open a Draft PR — mirroring the `ODY-S01-001`/`ODY-S01-002` workflow.
+Next action: `ODY-S01-004` (ADR: Owner Key Storage Baseline) may proceed independently per `docs/tasks/SLICE-01_BACKLOG.md` section 5 (no dependency on `ODY-S01-001`–`003`). `ODY-S01-005` (`SP-02` spike) depends on `ODY-S01-001` and `ODY-S01-002`, both `Accepted`; per backlog §5 it benefits from at least a working draft of `ODY-S01-003`'s design for its migration-failure scenario, now satisfied since `ADR-013` is `Accepted`.

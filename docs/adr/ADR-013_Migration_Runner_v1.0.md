@@ -4,7 +4,7 @@
 **ADR:** ADR-013  
 **Версия:** 1.0  
 **Дата:** 20 августа 2026 года  
-**Статус:** Proposed  
+**Статус:** Accepted  
 **Область:** реестр database schema миграций (`SchemaHistory`, immutable identifier, `FromVersion`/`ToVersion`, checksum), нормативный workflow запуска миграции (подтверждение, pre-migration snapshot, temp-copy execution, integrity validation), транзакционность шага миграции, нормативное поведение при ошибке миграции, граница с ruleset migration workflow, read-only compatibility mode для кампании новее приложения  
 **Связанные этапы:** Roadmap Этап 2 (`SLICE-01`), Milestone `M2`, backlog `ODY-S01-003`  
 **Базовые документы:** `05_Persistence_Odyssey_VTT_v0.8.md` (разделы 6, 25, 26), `ADR-011_Local_Campaign_Format_v1.0.md`, `ADR-012_Snapshot_And_Append_Only_Journal_v1.0.md`, `ADR-004_Result_and_Error_Model_v1.0.md`, `docs/tasks/SLICE-01_BACKLOG.md`
@@ -327,6 +327,8 @@ ODY-S01-005  Technical Spike SP-02: Persistence Reliability (тестирует 
 - `ODY-S01-005` (`SP-02`) авторизована использовать раздел 7.2 как эталонное нормативное поведение при тестировании migration failure/rollback;
 - открытые вопросы раздела 12 остаются открытыми до отдельного решения и не считаются молчаливо решёнными фактом принятия этого ADR;
 - изменение принятого контракта требует amendment этого ADR или нового superseding ADR, не молчаливого отклонения в реализации.
+
+Принято product owner 2026-08-20 as-is, без правок содержания.
 
 ---
 

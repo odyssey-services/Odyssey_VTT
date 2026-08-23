@@ -31,7 +31,7 @@ These are **not** the full `SLICE-01` exit criteria (roadmap section 10.6). The 
 |---:|---|---|---|---|---|---|
 | 1 | `ODY-S01-001` | ADR: Local Campaign Format | Done (`ADR-011` Accepted) | None | ExecPlan | `.odcamp` container physical structure, `manifest.json` schema and field authority, campaign version dimensions, SQLite runtime profile baseline |
 | 2 | `ODY-S01-002` | ADR: Snapshot and Append-Only Journal | Done (`ADR-012` Accepted) | 001 | ExecPlan | Snapshot trigger/creation rules and the append-only Domain Event Store journal contract (ordering, payload hashing, event visibility) |
-| 3 | `ODY-S01-003` | ADR: Migration Runner | In Review (ADR Proposed, pending owner acceptance) | 001 | ExecPlan | Schema/ruleset migration registry, execution order, transactionality, failure/rollback behavior, and SchemaHistory recording |
+| 3 | `ODY-S01-003` | ADR: Migration Runner | Done (`ADR-013` Accepted) | 001 | ExecPlan | Schema/ruleset migration registry, execution order, transactionality, failure/rollback behavior, and SchemaHistory recording |
 | 4 | `ODY-S01-004` | ADR: Owner Key Storage Baseline | Draft | None | Not yet determined | OS secure-storage mechanism for the campaign owner key, implementing the principle confirmed in `Documentation/21_Security_And_Privacy_Odyssey_VTT_v0.1.md` section 5 |
 | 5 | `ODY-S01-005` | Technical Spike SP-02: Persistence Reliability | Draft | 001, 002 | Not yet determined | Report: SQLite WAL/transaction-mode reliability under crash, interrupted backup, migration failure/rollback, snapshot size/speed, and corrupted-database recovery, with selected strategy and measurements |
 
