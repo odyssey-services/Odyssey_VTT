@@ -1247,6 +1247,38 @@
                           "runner":  "dotnet test",
                           "path":  "DotNet/Tests/Odyssey.Tests.Unit/DiagnosticSessionBundleTests.cs",
                           "check":  "machine name and persistent device ID absence from system summary"
+                      },
+                      {
+                          "testCaseId":  "TC-PERSIST-001",
+                          "taskId":  "ODY-S01-007",
+                          "authority":  "ADR-011 v1.1 section 7.1; ODY-S01-007",
+                          "runner":  "dotnet test",
+                          "path":  "DotNet/Tests/Odyssey.Tests.Persistence/SqliteCampaignRepositoryTests.cs",
+                          "check":  "mandatory PRAGMA profile applied on Create and Open, verified by readback"
+                      },
+                      {
+                          "testCaseId":  "TC-PERSIST-002",
+                          "taskId":  "ODY-S01-007",
+                          "authority":  "ADR-011 section 5.5; ODY-S01-007",
+                          "runner":  "dotnet test",
+                          "path":  "DotNet/Tests/Odyssey.Tests.Persistence/SqliteCampaignRepositoryTests.cs",
+                          "check":  "manifest.json round-trip and atomic-replace leaves no temp file and survives a simulated mid-write crash"
+                      },
+                      {
+                          "testCaseId":  "TC-PERSIST-003",
+                          "taskId":  "ODY-S01-007",
+                          "authority":  "ADR-011 section 5.4; ODY-S01-007",
+                          "runner":  "dotnet test",
+                          "path":  "DotNet/Tests/Odyssey.Tests.Persistence/SqliteCampaignRepositoryTests.cs",
+                          "check":  "manifest-versus-database CampaignId conflict is detected and blocks Open with a typed error"
+                      },
+                      {
+                          "testCaseId":  "TC-PERSIST-004",
+                          "taskId":  "ODY-S01-007",
+                          "authority":  "ADR-011 section 9.1; ADR-004; ODY-S01-007",
+                          "runner":  "dotnet test",
+                          "path":  "DotNet/Tests/Odyssey.Tests.Persistence/SqliteCampaignRepositoryTests.cs",
+                          "check":  "CampaignId/CampaignPublicId canonical format and uniqueness across many generations, and repository returns typed Result/Error, never a raw provider exception"
                       }
                   ]
 }
