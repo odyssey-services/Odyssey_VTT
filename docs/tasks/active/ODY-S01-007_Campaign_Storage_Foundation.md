@@ -1,11 +1,11 @@
 # ODY-S01-007 — Campaign Storage Foundation
 
-**Status:** In Review  
+**Status:** Done  
 **Roadmap stage / slice:** SLICE-01 (implementation)  
 **Owner:** Codex (agent)  
 **Requested by:** Product owner  
 **Branch:** `feat/ody-s01-007-campaign-storage-foundation`  
-**Pull request:** Not yet opened  
+**Pull request:** Merged — [#28](https://github.com/odyssey-services/Odyssey_VTT/pull/28) (merged 2026-08-24T13:07:14Z, merge commit `ecc7c29`)  
 **ExecPlan:** `docs/plans/active/ODY-S01-007_Campaign_Storage_Foundation.md`  
 **Created:** 2026-08-24  
 **Last updated:** 2026-08-24 UTC
@@ -333,7 +333,7 @@ Both were already recorded in `THIRD_PARTY_NOTICES.md` as the accepted (but not-
 | AC-7 | Passed | Full `dotnet test DotNet/Odyssey.Core.sln` 99/99, including `RepositoryStructurePassesArchitectureGuard`. |
 | AC-8 | Pending | To be confirmed once `verify-repository.ps1` is recorded. |
 | AC-9 | Pending | To be confirmed after diff-scope check. |
-| AC-10 | Pending | To be recorded after Draft PR is opened and CI completes. |
+| AC-10 | Passed | PR #28 opened as Draft, all 4 required CI checks passed (`buildidentity-provenance`, `dotnet-restore-build-test`, `repository-policy-format-structure`, `unity-project-package-static` — https://github.com/odyssey-services/Odyssey_VTT/actions/runs/32730518419), reviewed and merged into `main` (merge commit `ecc7c29`, 2026-08-24T13:07:14Z). |
 
 ## 18. Blockers, risks, and open decisions
 
