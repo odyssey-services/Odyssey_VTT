@@ -20,5 +20,8 @@ namespace Odyssey.Application.Results
         public static readonly ErrorCode PersistenceCampaignIoFailed = ErrorCode.Parse("persistence.campaign.io_failed");
         public static readonly ErrorCode PersistenceManifestInvalid = ErrorCode.Parse("persistence.manifest.invalid");
         public static readonly ErrorCode PersistenceManifestConflict = ErrorCode.Parse("persistence.manifest.conflict");
+        public static readonly ErrorCode PersistenceSceneNotFound = ErrorCode.Parse("persistence.scene.not_found");
+        public static readonly ErrorCode PersistenceSceneIoFailed = ErrorCode.Parse("persistence.scene.io_failed");
+        public static readonly ErrorCode PersistenceTokenNotFound = ErrorCode.Parse("persistence.token.not_found");
     }
 }
