@@ -33,7 +33,7 @@ namespace Odyssey.Persistence.Sqlite
         private const string ManifestFileName = "manifest.json";
         private const string DatabaseFileName = "campaign.db";
         private const string CampaignFormatVersion = "1.1.0";
-        private const string DatabaseSchemaVersion = "1.0.0";
+        internal const string DatabaseSchemaVersion = "1.0.0";
 
         private static readonly string[] DirectoryTree =
         {
@@ -96,6 +96,7 @@ namespace Odyssey.Persistence.Sqlite
                     apply: transaction =>
                     {
                         InsertCampaignRow(connection, transaction, campaignId, campaignPublicId, now, settings, commandId);
+                        InsertInitialSchemaHistoryRow(connection, transaction, now, request.ApplicationVersion);
                         string payloadJson = "{\"campaignId\":\"" + campaignId + "\",\"campaignPublicId\":\"" + campaignPublicId + "\"}";
                         return Result<PipelineWrite<CampaignId>>.Success(new PipelineWrite<CampaignId>(
                             campaignId, "odyssey.persistence.campaign_created", payloadJson, campaignId.ToString(),
@@ -376,6 +377,33 @@ CREATE TABLE IF NOT EXISTS SessionArchiveIndex (
             command.Parameters.AddWithValue("$updatedAt", now.ToString());
             command.Parameters.AddWithValue("$settingsJson", "{\"settingsSchemaVersion\":" + settings.SettingsSchemaVersion.ToString(CultureInfo.InvariantCulture) + "}");
             command.Parameters.AddWithValue("$lastCommandId", commandId.ToString());
+            command.ExecuteNonQuery();
+        }
+
+        private static void InsertInitialSchemaHistoryRow(SqliteConnection connection, SqliteTransaction transaction, UtcInstant now, string applicationVersion)
+        {
+            // ODY-S01-010: the 0001_Initial identity migration does not change any
+            // schema (the campaign is created directly on DatabaseSchemaVersion) --
+            // this row is the formal SchemaHistory record that the campaign's
+            // history began on that version (ADR-013 section 8; backlog section
+            // 2.1's "migration registry baseline"). BackupId is null: there is no
+            // pre-migration snapshot for a brand-new campaign, since nothing is
+            // being migrated from an older version (ADR-013 section 8's BackupId
+            // traceability requirement applies to a real migration's pre-migration
+            // snapshot, which does not exist here).
+            MigrationDescriptor initial = MigrationRegistry.Initial;
+            using var command = connection.CreateCommand();
+            command.Transaction = transaction;
+            command.CommandText =
+                "INSERT INTO SchemaHistory (MigrationId, FromVersion, ToVersion, CodeChecksum, StartedAt, CompletedAt, Status, ApplicationVersion, BackupId, FailureCode) " +
+                "VALUES ($migrationId, $fromVersion, $toVersion, $checksum, $startedAt, $completedAt, 'Completed', $applicationVersion, NULL, NULL);";
+            command.Parameters.AddWithValue("$migrationId", initial.MigrationId);
+            command.Parameters.AddWithValue("$fromVersion", initial.FromVersion);
+            command.Parameters.AddWithValue("$toVersion", initial.ToVersion);
+            command.Parameters.AddWithValue("$checksum", initial.CodeChecksum);
+            command.Parameters.AddWithValue("$startedAt", now.ToString());
+            command.Parameters.AddWithValue("$completedAt", now.ToString());
+            command.Parameters.AddWithValue("$applicationVersion", applicationVersion);
             command.ExecuteNonQuery();
         }
 
