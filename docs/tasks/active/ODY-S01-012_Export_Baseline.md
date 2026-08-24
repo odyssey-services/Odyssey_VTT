@@ -5,7 +5,7 @@
 **Owner:** Codex (agent)
 **Requested by:** Product owner
 **Branch:** `feat/ody-s01-012-export-baseline`
-**Pull request:** Not yet opened
+**Pull request:** Draft — [#34](https://github.com/odyssey-services/Odyssey_VTT/pull/34) (open, awaiting owner review)
 **ExecPlan:** `docs/plans/active/ODY-S01-012_Export_Baseline.md`
 **Created:** 2026-08-24
 **Last updated:** 2026-08-24 UTC
@@ -283,7 +283,7 @@ The task is not complete while any mandatory criterion is unverified, failed, or
 - [x] No unapproved dependency, tool, GitHub Action, or license was introduced.
 - [x] Documentation is updated only where materially required.
 - [x] Codex/developer performed a self-review against this task and `AGENTS.md`.
-- [ ] Pull request explains changes, evidence, limitations, and follow-up work. — pending Draft PR creation.
+- [x] Pull request explains changes, evidence, limitations, and follow-up work. — [PR #34](https://github.com/odyssey-services/Odyssey_VTT/pull/34).
 - [ ] Product owner or authorized reviewer completes the required review; Codex does not merge into `main`.
 
 ## 17. Completion evidence

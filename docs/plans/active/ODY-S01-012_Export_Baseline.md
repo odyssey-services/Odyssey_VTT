@@ -3,7 +3,7 @@
 **Status:** Active
 **Owner:** Codex (agent)
 **Branch:** `feat/ody-s01-012-export-baseline`
-**Pull request:** Not yet opened
+**Pull request:** Draft — [#34](https://github.com/odyssey-services/Odyssey_VTT/pull/34)
 **Last updated:** 2026-08-24 UTC
 
 ## 1. Purpose and user-visible outcome
