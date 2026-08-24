@@ -1,29 +1,29 @@
 # Odyssey VTT — SLICE-01 Local Campaign Prerequisites Backlog
 
-**Status:** Prerequisite backlog — implementation backlog to follow after ADR acceptance
+**Status:** Prerequisite backlog — **CLOSED** (all five exit criteria satisfied 2026-08-24; see section 2). A future backlog revision for the `SLICE-01` vertical-slice implementation may now be created per section 1.
 **Slice:** `SLICE-01 — Local Campaign (prerequisites)`
 **Parent task:** `docs/tasks/active/ODY-S01-000_SLICE_01_Local_Campaign_Prerequisites.md`
 **ExecPlan:** Not required (Brief plan)
 **Created:** 2026-08-20
-**Last updated:** 2026-08-20 UTC
+**Last updated:** 2026-08-24 UTC
 
 ## 1. Purpose
 
-This backlog converts roadmap `17_Roadmap_Odyssey_VTT_v0.11.md` section 10.2's prerequisite list into small, reviewable tasks. It does **not** add product features, and it does **not** cover the `SLICE-01` vertical-slice implementation described in roadmap section 10.5 (create campaign → import one test map → create a scene → place two tokens → change their positions → close the application → reopen the campaign → verify saved state → restore state from backup). That implementation work begins only in a **future backlog revision**, created after all four ADRs listed below reach `Accepted`.
+This backlog converts roadmap `17_Roadmap_Odyssey_VTT_v0.11.md` section 10.2's prerequisite list into small, reviewable tasks. It does **not** add product features, and it does **not** cover the `SLICE-01` vertical-slice implementation described in roadmap section 10.5 (create campaign → import one test map → create a scene → place two tokens → change their positions → close the application → reopen the campaign → verify saved state → restore state from backup). That implementation work begins only in a **future backlog revision**, created now that all five criteria in section 2 below are satisfied.
 
-This revision's only outcome is: four accepted ADRs (Local Campaign Format, Snapshot and Append-Only Journal, Migration Runner, Owner Key Storage Baseline) and a complete, owner-reviewed `SP-02 — Persistence Reliability` technical spike report.
+This revision's only outcome — four accepted ADRs (Local Campaign Format, Snapshot and Append-Only Journal, Migration Runner, Owner Key Storage Baseline) and a complete, owner-reviewed `SP-02 — Persistence Reliability` technical spike report — is now **fully delivered**. `ADR-011` was further amended to v1.1 on 2026-08-24 to close its own §12.1 open question (SQLite provider-library selection) on the `SP-02` report's recommendation; that amendment is normatively part of "ADR — Local Campaign Format is `Accepted`" below, not a reopening of this backlog revision's scope.
 
 ## 2. Slice exit criteria (this backlog revision only)
 
-This prerequisite backlog revision is complete only when all of the following are proven:
+This prerequisite backlog revision is complete only when all of the following are proven. **All five are now proven, as of 2026-08-24:**
 
-1. ADR — Local Campaign Format is `Accepted`.
-2. ADR — Snapshot and Append-Only Journal is `Accepted`.
-3. ADR — Migration Runner is `Accepted`.
-4. ADR — Owner Key Storage Baseline is `Accepted`.
-5. `SP-02 — Persistence Reliability` spike report is complete and owner-reviewed.
+1. ADR — Local Campaign Format is `Accepted`. — **Done** (`ADR-011` v1.0 Accepted 2026-08-20; amended to v1.1 2026-08-24 closing §12.1).
+2. ADR — Snapshot and Append-Only Journal is `Accepted`. — **Done** (`ADR-012` Accepted 2026-08-20).
+3. ADR — Migration Runner is `Accepted`. — **Done** (`ADR-013` Accepted 2026-08-20).
+4. ADR — Owner Key Storage Baseline is `Accepted`. — **Done** (`ADR-014` Accepted 2026-08-20).
+5. `SP-02 — Persistence Reliability` spike report is complete and owner-reviewed. — **Done** (report accepted as-is 2026-08-24; recommendation adopted via `ADR-011` v1.1).
 
-These are **not** the full `SLICE-01` exit criteria (roadmap section 10.6). The full slice exit criteria — including "state survives restart," "backup restores into a separate copy," and the other roadmap section 10.6 conditions — apply only once the vertical-slice implementation backlog (a separate future revision, created after this one closes) is also complete.
+These are **not** the full `SLICE-01` exit criteria (roadmap section 10.6). The full slice exit criteria — including "state survives restart," "backup restores into a separate copy," and the other roadmap section 10.6 conditions — apply only once the vertical-slice implementation backlog (a separate future revision, now eligible to be created) is also complete.
 
 ## 3. Ordered backlog
 
@@ -33,7 +33,7 @@ These are **not** the full `SLICE-01` exit criteria (roadmap section 10.6). The 
 | 2 | `ODY-S01-002` | ADR: Snapshot and Append-Only Journal | Done (`ADR-012` Accepted) | 001 | ExecPlan | Snapshot trigger/creation rules and the append-only Domain Event Store journal contract (ordering, payload hashing, event visibility) |
 | 3 | `ODY-S01-003` | ADR: Migration Runner | Done (`ADR-013` Accepted) | 001 | ExecPlan | Schema/ruleset migration registry, execution order, transactionality, failure/rollback behavior, and SchemaHistory recording |
 | 4 | `ODY-S01-004` | ADR: Owner Key Storage Baseline | Done (`ADR-014` Accepted) | None | ExecPlan | OS secure-storage mechanism for the campaign owner key, implementing the principle confirmed in `Documentation/21_Security_And_Privacy_Odyssey_VTT_v0.1.md` section 5 |
-| 5 | `ODY-S01-005` | Technical Spike SP-02: Persistence Reliability | Draft | 001, 002 | Not yet determined | Report: SQLite WAL/transaction-mode reliability under crash, interrupted backup, migration failure/rollback, snapshot size/speed, and corrupted-database recovery, with selected strategy and measurements |
+| 5 | `ODY-S01-005` | Technical Spike SP-02: Persistence Reliability | Done (report accepted, `ADR-011` §12.1 amended) | 001, 002 | Brief plan | Report: SQLite WAL/transaction-mode reliability under crash, interrupted backup, migration failure/rollback, snapshot size/speed, and corrupted-database recovery, with selected strategy and measurements |
 
 "Planning mode" is intentionally left "Not yet determined": each child task's Brief-plan-vs-ExecPlan decision is made when that task's own contract is authored, per `PLANS.md` section 1, not pre-decided by this scaffold.
 

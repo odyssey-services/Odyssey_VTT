@@ -303,9 +303,9 @@ Snapshot и backup предназначены для аварийного вос
 
 **Закрыто:** `ADR-014_Owner_Key_Storage_Baseline_v1.0.md` §8 явно разрешает этот вопрос — backup/snapshot `campaign.db` не шифруется в MVP. Вопрос более не открыт.
 
-## 12.2 SQLite provider-библиотека — `[OPEN]`, унаследовано из `ADR-011`
+## 12.2 SQLite provider-библиотека — закрыто `ADR-011` v1.1
 
-См. раздел 11. Статус не изменяется этим ADR.
+См. раздел 11. Статус не изменялся этим ADR. **Закрыто:** `ADR-011_Local_Campaign_Format_v1.1.md` разрешает этот вопрос — `Microsoft.Data.Sqlite` с `SQLitePCLRaw.bundle_e_sqlite3 >= 3.0.3`, на основании `docs/tasks/completed/ODY-S01-005_SP-02_Persistence_Reliability_Report.md` §3. Вопрос более не открыт.
 
 ---
 
