@@ -172,6 +172,22 @@ namespace Odyssey.Application.Persistence
             RetryDirective.ManualRecoveryRequired,
             correlationId);
 
+        public static Error ExportCreateFailed(CorrelationId correlationId) => Error.Create(
+            ErrorCodes.PersistenceExportCreateFailed,
+            ErrorCategory.PermanentInfrastructure,
+            SafeReasonCode.UnexpectedError,
+            UserMessageKey.Parse("errors.persistence.export_create_failed"),
+            RetryDirective.ManualRecoveryRequired,
+            correlationId);
+
+        public static Error ExportImportFailed(CorrelationId correlationId) => Error.Create(
+            ErrorCodes.PersistenceExportImportFailed,
+            ErrorCategory.PermanentInfrastructure,
+            SafeReasonCode.UnexpectedError,
+            UserMessageKey.Parse("errors.persistence.export_import_failed"),
+            RetryDirective.ManualRecoveryRequired,
+            correlationId);
+
         // Used only by the codec's Read path (CampaignManifest.cs), which does not
         // receive a caller CorrelationId; matches the existing SerializationFailures
         // placeholder-correlation convention for codec-level structural failures.

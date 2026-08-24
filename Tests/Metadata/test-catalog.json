@@ -1423,6 +1423,70 @@
                           "runner":  "dotnet test",
                           "path":  "DotNet/Tests/Odyssey.Tests.Persistence/SqliteBackupRepositoryTests.cs",
                           "check":  "CreateBackup with an empty/invalid reason string returns PersistenceBackupCreateFailed, not a raw exception"
+                      },
+                      {
+                          "testCaseId":  "TC-PERSIST-023",
+                          "taskId":  "ODY-S01-012",
+                          "authority":  "ADR-011 section 3.2; 05_Persistence section 27; ODY-S01-012",
+                          "runner":  "dotnet test",
+                          "path":  "DotNet/Tests/Odyssey.Tests.Persistence/SqliteExportRepositoryTests.cs",
+                          "check":  "ExportCampaign followed by ImportCampaign into a new directory reproduces the campaign's scenes/tokens at export time; the original working campaign remains untouched and openable afterward"
+                      },
+                      {
+                          "testCaseId":  "TC-PERSIST-024",
+                          "taskId":  "ODY-S01-012",
+                          "authority":  "ADR-012 section 8.4; ODY-S01-011; ODY-S01-012",
+                          "runner":  "dotnet test",
+                          "path":  "DotNet/Tests/Odyssey.Tests.Persistence/SqliteExportRepositoryTests.cs",
+                          "check":  "the campaign.db packed into a .odcamp archive passes the same PRAGMA quick_check a backup's snapshot does -- proving export reuses SqliteSnapshotCopy (ODY-S01-011) rather than a second database-copy path"
+                      },
+                      {
+                          "testCaseId":  "TC-PERSIST-025",
+                          "taskId":  "ODY-S01-012",
+                          "authority":  "roadmap section 10.3 (no automatic merge); ODY-S01-012",
+                          "runner":  "dotnet test",
+                          "path":  "DotNet/Tests/Odyssey.Tests.Persistence/SqliteExportRepositoryTests.cs",
+                          "check":  "ImportCampaign into an already-existing, non-empty target directory returns PersistenceExportImportFailed and leaves the pre-existing content untouched -- no automatic merge is attempted"
+                      },
+                      {
+                          "testCaseId":  "TC-PERSIST-026",
+                          "taskId":  "ODY-S01-012",
+                          "authority":  "05_Persistence section 27.5; ODY-S01-012",
+                          "runner":  "dotnet test",
+                          "path":  "DotNet/Tests/Odyssey.Tests.Persistence/SqliteExportRepositoryTests.cs",
+                          "check":  "a .odcamp archive with a path-traversal entry (../escaped.txt) is rejected with PersistenceExportImportFailed before any entry is extracted; nothing is written outside the extraction directory"
+                      },
+                      {
+                          "testCaseId":  "TC-PERSIST-027",
+                          "taskId":  "ODY-S01-012",
+                          "authority":  "05_Persistence section 27.3; ODY-S01-012",
+                          "runner":  "dotnet test",
+                          "path":  "DotNet/Tests/Odyssey.Tests.Persistence/SqliteExportRepositoryTests.cs",
+                          "check":  "a .odcamp with a structurally-valid-JSON but semantically invalid manifest.json (missing required fields) is rejected with PersistenceManifestInvalid, not a raw exception"
+                      },
+                      {
+                          "testCaseId":  "TC-PERSIST-028",
+                          "taskId":  "ODY-S01-012",
+                          "authority":  "05_Persistence section 27.1; ODY-S01-012",
+                          "runner":  "dotnet test",
+                          "path":  "DotNet/Tests/Odyssey.Tests.Persistence/SqliteExportRepositoryTests.cs",
+                          "check":  "the exported .odcamp archive contains all of manifest.json, campaign.db, checksums.json, and export-manifest.json"
+                      },
+                      {
+                          "testCaseId":  "TC-PERSIST-029",
+                          "taskId":  "ODY-S01-012",
+                          "authority":  "05_Persistence section 27.3 step 4; ODY-S01-012",
+                          "runner":  "dotnet test",
+                          "path":  "DotNet/Tests/Odyssey.Tests.Persistence/SqliteExportRepositoryTests.cs",
+                          "check":  "importing a .odcamp whose manifest.json declares an unsupported DatabaseSchemaVersion returns PersistenceExportImportFailed; no migration is attempted"
+                      },
+                      {
+                          "testCaseId":  "TC-PERSIST-030",
+                          "taskId":  "ODY-S01-012",
+                          "authority":  "ADR-004; ODY-S01-012",
+                          "runner":  "dotnet test",
+                          "path":  "DotNet/Tests/Odyssey.Tests.Persistence/SqliteExportRepositoryTests.cs",
+                          "check":  "ExportCampaign refuses to overwrite an already-existing destination .odcamp path, returning PersistenceExportCreateFailed and leaving the pre-existing file byte-for-byte unchanged"
                       }
                   ]
 }

@@ -3,7 +3,6 @@ using System.Collections.Generic;
 using System.Globalization;
 using System.IO;
 using System.Linq;
-using System.Security.Cryptography;
 using Microsoft.Data.Sqlite;
 using Odyssey.Application.Persistence;
 using Odyssey.Application.Results;
@@ -77,51 +76,15 @@ namespace Odyssey.Persistence.Sqlite
                 string tempDbPath = Path.Combine(tempDir, DatabaseFileName);
                 string sourceDbPath = Path.Combine(campaign.RootPath, DatabaseFileName);
 
-                // ADR-012 section 8.4 steps 1-2: allocate BackupId (above), copy via
-                // SQLite Backup API -- never a raw file copy of a live WAL database.
-                using (var source = new SqliteConnection("Data Source=" + sourceDbPath + ";Mode=ReadOnly;Pooling=False"))
-                using (var destination = new SqliteConnection("Data Source=" + tempDbPath + ";Pooling=False"))
-                {
-                    source.Open();
-                    destination.Open();
-                    source.BackupDatabase(destination);
-                }
-
-                // Steps 3-4: open the copy read-only, run integrity validation.
-                long campaignRevision;
-                long eventSequence;
-                using (var verify = new SqliteConnection("Data Source=" + tempDbPath + ";Mode=ReadOnly;Pooling=False"))
-                {
-                    verify.Open();
-                    using (var quickCheck = verify.CreateCommand())
-                    {
-                        quickCheck.CommandText = "PRAGMA quick_check;";
-                        object? result = quickCheck.ExecuteScalar();
-                        if (!(result is string status) || !string.Equals(status, "ok", StringComparison.OrdinalIgnoreCase))
-                        {
-                            SafeDeleteDirectory(tempDir);
-                            return Result<BackupRecord>.Failure(PersistenceFailures.BackupCreateFailed(correlationId));
-                        }
-                    }
-
-                    using (var revisionCmd = verify.CreateCommand())
-                    {
-                        revisionCmd.CommandText = "SELECT Revision FROM Campaign LIMIT 1;";
-                        object? revisionResult = revisionCmd.ExecuteScalar();
-                        campaignRevision = revisionResult == null ? 0L : Convert.ToInt64(revisionResult, CultureInfo.InvariantCulture);
-                    }
-
-                    using (var sequenceCmd = verify.CreateCommand())
-                    {
-                        sequenceCmd.CommandText = "SELECT COALESCE(MAX(EventSequence), 0) FROM DomainEvents;";
-                        eventSequence = Convert.ToInt64(sequenceCmd.ExecuteScalar(), CultureInfo.InvariantCulture);
-                    }
-                }
-
-                // Step 5: compute hash and size.
-                byte[] dbBytes = File.ReadAllBytes(tempDbPath);
-                string databaseHash = ComputeSha256Hex(dbBytes);
-                long sizeBytes = dbBytes.LongLength;
+                // ADR-012 section 8.4 steps 1-5: allocate BackupId (above), copy via
+                // the shared SqliteSnapshotCopy helper (SQLite Backup API, integrity
+                // validation, hash/size) -- also used by SqliteExportRepository
+                // (ODY-S01-012), so the database-copy path is not duplicated.
+                SqliteSnapshotCopy.SnapshotInfo snapshot = SqliteSnapshotCopy.CreateValidated(sourceDbPath, tempDbPath);
+                long campaignRevision = snapshot.CampaignRevision;
+                long eventSequence = snapshot.EventSequence;
+                string databaseHash = snapshot.DatabaseHash;
+                long sizeBytes = snapshot.SizeBytes;
 
                 File.Copy(Path.Combine(campaign.RootPath, ManifestFileName), Path.Combine(tempDir, ManifestFileName));
 
@@ -168,7 +131,7 @@ namespace Odyssey.Persistence.Sqlite
 
                 return Result<BackupRecord>.Success(record);
             }
-            catch (Exception ex) when (ex is IOException || ex is UnauthorizedAccessException || ex is SqliteException)
+            catch (Exception ex) when (ex is IOException || ex is UnauthorizedAccessException || ex is SqliteException || ex is SqliteSnapshotCopy.SnapshotIntegrityException)
             {
                 SafeDeleteDirectory(tempDir);
                 return Result<BackupRecord>.Failure(PersistenceFailures.BackupCreateFailed(correlationId));
@@ -449,19 +412,6 @@ namespace Odyssey.Persistence.Sqlite
             }
             catch (IOException) { }
             catch (UnauthorizedAccessException) { }
-        }
-
-        private static string ComputeSha256Hex(byte[] bytes)
-        {
-            using var sha = SHA256.Create();
-            byte[] hashBytes = sha.ComputeHash(bytes);
-            var builder = new System.Text.StringBuilder(hashBytes.Length * 2);
-            for (int index = 0; index < hashBytes.Length; index++)
-            {
-                builder.Append(hashBytes[index].ToString("x2", CultureInfo.InvariantCulture));
-            }
-
-            return builder.ToString();
         }
     }
 }
