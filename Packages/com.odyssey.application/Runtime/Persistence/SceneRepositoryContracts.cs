@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using Odyssey.Application.Commands;
 using Odyssey.Application.Results;
 using Odyssey.Domain.Identity;
 using Odyssey.Domain.Time;
@@ -11,18 +12,23 @@ namespace Odyssey.Application.Persistence
     /// roadmap section 10.5 steps 2-5 (import one test map, create a scene, place
     /// two tokens, change their positions). Not the full Scene/Board/Layer/
     /// SceneObject/Component domain model (03_Domain_Model section 10) -- only
-    /// identity, name, status/revision, and bare token position. Writes go directly
-    /// to normalized current-state tables (ADR-011 section 8.1's hybrid-schema
-    /// principle); the Domain Event Store / transactional journal-projection
-    /// pipeline (ADR-012 section 5) is ODY-S01-009 scope, not implemented here.
+    /// identity, name, status/revision, and bare token position.
+    ///
+    /// ODY-S01-009: every mutating method now takes a caller-supplied
+    /// <see cref="CommandId"/> and routes through the ADR-012 section 5 single-
+    /// transaction journal-projection pipeline (current-state row + DomainEvent +
+    /// AppliedCommands committed atomically; redelivering the same CommandId
+    /// replays the stored outcome instead of re-applying the effect). This is a
+    /// breaking change to the ODY-S01-008 signatures; see the ODY-S01-009 task
+    /// contract section 6 for the full justification.
     /// </summary>
     public interface ISceneRepository
     {
-        Result<SceneRecord> CreateScene(CampaignHandle campaign, string sceneName, CorrelationId correlationId);
-        Result<TokenRecord> CreateToken(CampaignHandle campaign, SceneId sceneId, TokenPosition initialPosition, CorrelationId correlationId);
-        Result<TokenRecord> MoveToken(CampaignHandle campaign, TokenId tokenId, TokenPosition newPosition, CorrelationId correlationId);
+        Result<SceneRecord> CreateScene(CampaignHandle campaign, string sceneName, CommandId commandId, CorrelationId correlationId);
+        Result<TokenRecord> CreateToken(CampaignHandle campaign, SceneId sceneId, TokenPosition initialPosition, CommandId commandId, CorrelationId correlationId);
+        Result<TokenRecord> MoveToken(CampaignHandle campaign, TokenId tokenId, TokenPosition newPosition, CommandId commandId, CorrelationId correlationId);
         Result<IReadOnlyList<TokenRecord>> ListTokens(CampaignHandle campaign, SceneId sceneId, CorrelationId correlationId);
-        Result<AssetManifestEntryRecord> RegisterAsset(CampaignHandle campaign, string sourceFilePath, CorrelationId correlationId);
+        Result<AssetManifestEntryRecord> RegisterAsset(CampaignHandle campaign, string sourceFilePath, CommandId commandId, CorrelationId correlationId);
     }
 
     public readonly struct TokenPosition : IEquatable<TokenPosition>

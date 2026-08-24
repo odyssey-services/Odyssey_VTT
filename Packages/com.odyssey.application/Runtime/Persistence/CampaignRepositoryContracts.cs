@@ -1,4 +1,5 @@
 using System;
+using Odyssey.Application.Commands;
 using Odyssey.Application.Results;
 using Odyssey.Domain.Identity;
 
@@ -8,10 +9,18 @@ namespace Odyssey.Application.Persistence
     /// ADR-001 section 6.5 / section 10: repository interfaces are Application ports;
     /// Odyssey.Persistence supplies the implementation. This port never exposes a raw
     /// SQLite connection or throws a raw provider exception (ADR-004).
+    ///
+    /// ODY-S01-009: <c>Create</c> takes the caller-supplied <see cref="CommandId"/>
+    /// (the same idempotency-key type <c>Odyssey.Application.Commands</c> already
+    /// defines) because ADR-012 section 7 idempotency is a property of the command
+    /// the caller is retrying, not something the repository can invent on its own --
+    /// redelivering the exact same <see cref="CommandId"/> is what makes a retry safe.
+    /// This is a breaking change to the ODY-S01-007 signature; see the ODY-S01-009
+    /// task contract section 6 for the full justification and blast-radius check.
     /// </summary>
     public interface ICampaignRepository
     {
-        Result<CampaignHandle> Create(CreateCampaignRequest request, CorrelationId correlationId);
+        Result<CampaignHandle> Create(CreateCampaignRequest request, CommandId commandId, CorrelationId correlationId);
         Result<CampaignHandle> Open(string campaignFolderPath, CorrelationId correlationId);
         Result Close(CampaignHandle handle, CorrelationId correlationId);
     }
@@ -121,6 +130,22 @@ namespace Odyssey.Application.Persistence
             SafeReasonCode.TargetUnavailable,
             UserMessageKey.Parse("errors.persistence.token_not_found"),
             RetryDirective.DoNotRetry,
+            correlationId);
+
+        public static Error IntegrityCheckFailed(CorrelationId correlationId) => Error.Create(
+            ErrorCodes.PersistenceIntegrityCheckFailed,
+            ErrorCategory.Integrity,
+            SafeReasonCode.DataCorrupted,
+            UserMessageKey.Parse("errors.persistence.integrity_check_failed"),
+            RetryDirective.ManualRecoveryRequired,
+            correlationId);
+
+        public static Error CommandReplayFailed(CorrelationId correlationId) => Error.Create(
+            ErrorCodes.PersistenceCommandReplayFailed,
+            ErrorCategory.Integrity,
+            SafeReasonCode.DataCorrupted,
+            UserMessageKey.Parse("errors.persistence.command_replay_failed"),
+            RetryDirective.ManualRecoveryRequired,
             correlationId);
 
         // Used only by the codec's Read path (CampaignManifest.cs), which does not

@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.IO;
 using Microsoft.Data.Sqlite;
 using NUnit.Framework;
+using Odyssey.Application.Commands;
 using Odyssey.Application.Persistence;
 using Odyssey.Application.Results;
 using Odyssey.Application.Time;
@@ -26,6 +27,8 @@ namespace Odyssey.Tests.Persistence
         private static readonly CorrelationId TestCorrelationId = CorrelationId.Parse("corr_0123456789abcdef0123456789abcdef");
         private static readonly IWallClock Clock = new SystemWallClock();
         private string _workDir = null!;
+
+        private static CommandId NewCommandId() => CommandId.Parse("cmd_" + Guid.NewGuid().ToString("N"));
 
         [SetUp]
         public void SetUp()
@@ -52,7 +55,7 @@ namespace Odyssey.Tests.Persistence
         {
             var repository = new SqliteCampaignRepository(Clock);
             var request = new CreateCampaignRequest(_workDir, "Test Campaign", "ruleset.core", "1.0.0", "0.1.0");
-            Result<CampaignHandle> created = repository.Create(request, TestCorrelationId);
+            Result<CampaignHandle> created = repository.Create(request, NewCommandId(), TestCorrelationId);
             Assert.That(created.IsSuccess, Is.True);
 
             // journal_mode=WAL is the strongest independent readback evidence here:
@@ -96,7 +99,7 @@ namespace Odyssey.Tests.Persistence
         {
             var repository = new SqliteCampaignRepository(Clock);
             var request = new CreateCampaignRequest(_workDir, "Test Campaign", "ruleset.core", "1.0.0", "0.1.0");
-            Result<CampaignHandle> created = repository.Create(request, TestCorrelationId);
+            Result<CampaignHandle> created = repository.Create(request, NewCommandId(), TestCorrelationId);
             Assert.That(created.IsSuccess, Is.True);
             Assert.That(repository.Close(created.Value, TestCorrelationId).IsSuccess, Is.True);
 
@@ -116,7 +119,7 @@ namespace Odyssey.Tests.Persistence
         {
             var repository = new SqliteCampaignRepository(Clock);
             var request = new CreateCampaignRequest(_workDir, "Round Trip Campaign", "ruleset.core", "2.3.1", "0.1.0");
-            Result<CampaignHandle> created = repository.Create(request, TestCorrelationId);
+            Result<CampaignHandle> created = repository.Create(request, NewCommandId(), TestCorrelationId);
             Assert.That(created.IsSuccess, Is.True);
             CampaignHandle createdHandle = created.Value;
             Assert.That(repository.Close(createdHandle, TestCorrelationId).IsSuccess, Is.True);
@@ -169,7 +172,7 @@ namespace Odyssey.Tests.Persistence
         {
             var repository = new SqliteCampaignRepository(Clock);
             var request = new CreateCampaignRequest(_workDir, "Atomic Test", "ruleset.core", "1.0.0", "0.1.0");
-            Result<CampaignHandle> created = repository.Create(request, TestCorrelationId);
+            Result<CampaignHandle> created = repository.Create(request, NewCommandId(), TestCorrelationId);
             Assert.That(created.IsSuccess, Is.True);
 
             Assert.That(File.Exists(Path.Combine(_workDir, "manifest.json")), Is.True);
@@ -184,7 +187,7 @@ namespace Odyssey.Tests.Persistence
         {
             var repository = new SqliteCampaignRepository(Clock);
             var request = new CreateCampaignRequest(_workDir, "Crash Test", "ruleset.core", "1.0.0", "0.1.0");
-            Result<CampaignHandle> created = repository.Create(request, TestCorrelationId);
+            Result<CampaignHandle> created = repository.Create(request, NewCommandId(), TestCorrelationId);
             Assert.That(created.IsSuccess, Is.True);
             repository.Close(created.Value, TestCorrelationId);
 
@@ -215,7 +218,7 @@ namespace Odyssey.Tests.Persistence
         {
             var repository = new SqliteCampaignRepository(Clock);
             var request = new CreateCampaignRequest(_workDir, "Conflict Test", "ruleset.core", "1.0.0", "0.1.0");
-            Result<CampaignHandle> created = repository.Create(request, TestCorrelationId);
+            Result<CampaignHandle> created = repository.Create(request, NewCommandId(), TestCorrelationId);
             Assert.That(created.IsSuccess, Is.True);
             repository.Close(created.Value, TestCorrelationId);
 
@@ -288,7 +291,7 @@ namespace Odyssey.Tests.Persistence
 
             var repository = new SqliteCampaignRepository(Clock);
             var request = new CreateCampaignRequest(_workDir, "Collision Test", "ruleset.core", "1.0.0", "0.1.0");
-            Result<CampaignHandle> result = repository.Create(request, TestCorrelationId);
+            Result<CampaignHandle> result = repository.Create(request, NewCommandId(), TestCorrelationId);
 
             Assert.That(result.IsFailure, Is.True);
             Assert.That(result.Error.Code, Is.EqualTo(ErrorCodes.PersistenceCampaignIoFailed));
