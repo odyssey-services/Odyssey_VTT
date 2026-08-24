@@ -3,7 +3,7 @@
 **Status:** Active
 **Owner:** Codex (agent)
 **Branch:** `feat/ody-s01-009-saving-pipeline`
-**Pull request:** Not yet opened
+**Pull request:** Draft — [#31](https://github.com/odyssey-services/Odyssey_VTT/pull/31)
 **Last updated:** 2026-08-24 UTC
 
 ## 1. Purpose and user-visible outcome
