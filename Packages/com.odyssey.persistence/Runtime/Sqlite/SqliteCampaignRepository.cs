@@ -3,6 +3,7 @@ using System.Collections.Concurrent;
 using System.Globalization;
 using System.IO;
 using Microsoft.Data.Sqlite;
+using Odyssey.Application.Commands;
 using Odyssey.Application.Persistence;
 using Odyssey.Application.Results;
 using Odyssey.Application.Time;
@@ -19,13 +20,13 @@ namespace Odyssey.Persistence.Sqlite
     /// CampaignId/CampaignPublicId generation (section 9.1). Uses Microsoft.Data.Sqlite
     /// with SQLitePCLRaw.bundle_e_sqlite3 >= 3.0.3 per ADR-011 v1.1 section 1.
     ///
-    /// Does not implement: Domain Event Store semantics (ODY-S01-009/ADR-012),
-    /// migration runner (ODY-S01-010/ADR-013), backup/snapshot (ODY-S01-011/ADR-012
-    /// section 8), or the .odcamp export container (ODY-S01-012). The section 8.2
-    /// system tables created here are the minimal columns needed to prove the table
-    /// exists per ADR-011 section 8.2's own allowance ("их полный DDL... определяются
-    /// реализующей задачей и... последующими ADR"); their full contract is owned by
-    /// those later tasks.
+    /// ODY-S01-009: <see cref="Create"/> now routes its Campaign row through
+    /// <see cref="SqliteSavingPipeline"/> (ADR-012 section 5 single-transaction
+    /// journal-projection commit), and <see cref="Open"/> runs the ADR-011/
+    /// 05_Persistence section 22.1 quick integrity check before handing out a
+    /// handle. Migration runner (ODY-S01-010/ADR-013), backup/snapshot
+    /// (ODY-S01-011/ADR-012 section 8), and the .odcamp export container
+    /// (ODY-S01-012) remain out of scope.
     /// </summary>
     public sealed class SqliteCampaignRepository : ICampaignRepository
     {
@@ -45,15 +46,18 @@ namespace Odyssey.Persistence.Sqlite
         private readonly ConcurrentDictionary<string, SqliteConnection> _openConnections = new ConcurrentDictionary<string, SqliteConnection>(StringComparer.OrdinalIgnoreCase);
         private readonly CampaignManifestV1Codec _manifestCodec = new CampaignManifestV1Codec();
         private readonly IWallClock _clock;
+        private readonly SqliteSavingPipeline _pipeline;
 
         public SqliteCampaignRepository(IWallClock clock)
         {
             _clock = clock ?? throw new ArgumentNullException(nameof(clock));
+            _pipeline = new SqliteSavingPipeline(clock);
         }
 
-        public Result<CampaignHandle> Create(CreateCampaignRequest request, CorrelationId correlationId)
+        public Result<CampaignHandle> Create(CreateCampaignRequest request, CommandId commandId, CorrelationId correlationId)
         {
             if (request == null) throw new ArgumentNullException(nameof(request));
+            if (!commandId.IsValid) throw new ArgumentException("CommandId is required.", nameof(commandId));
             string rootPath = Path.GetFullPath(request.CampaignFolderPath);
 
             try
@@ -78,7 +82,31 @@ namespace Odyssey.Persistence.Sqlite
                 CampaignPublicId campaignPublicId = CampaignPublicId.NewId(now);
                 var settings = new CampaignSettings();
 
-                InsertCampaignRow(connection, campaignId, campaignPublicId, now, settings);
+                Result<CampaignId> pipelineResult = _pipeline.Execute(
+                    connection,
+                    campaignId,
+                    commandId,
+                    correlationId,
+                    // The empty-directory precondition above already
+                    // rejects a redelivered Create against an already-created
+                    // campaign folder before the pipeline ever runs, so a genuine
+                    // AppliedCommands hit here would mean a campaign.db was manually
+                    // seeded with a colliding CommandId -- not a real retry path.
+                    tryReplay: _ => Result<CampaignId>.Failure(PersistenceFailures.CommandReplayFailed(correlationId)),
+                    apply: transaction =>
+                    {
+                        InsertCampaignRow(connection, transaction, campaignId, campaignPublicId, now, settings, commandId);
+                        string payloadJson = "{\"campaignId\":\"" + campaignId + "\",\"campaignPublicId\":\"" + campaignPublicId + "\"}";
+                        return Result<PipelineWrite<CampaignId>>.Success(new PipelineWrite<CampaignId>(
+                            campaignId, "odyssey.persistence.campaign_created", payloadJson, campaignId.ToString(),
+                            aggregateType: "campaign", aggregateId: campaignId.ToString(), aggregateRevision: 1));
+                    });
+
+                if (pipelineResult.IsFailure)
+                {
+                    connection.Dispose();
+                    return Result<CampaignHandle>.Failure(pipelineResult.Error);
+                }
 
                 var manifest = new CampaignManifest(
                     campaignId,
@@ -132,6 +160,20 @@ namespace Odyssey.Persistence.Sqlite
 
                 CampaignManifest manifest = manifestResult.Value;
                 SqliteConnection connection = OpenConnectionWithPragmaProfile(dbPath);
+
+                // 05_Persistence section 22.1/22.2 quick check, run on every Open
+                // (covers the "open after unclean shutdown" trigger -- Open has no
+                // way to know in advance whether the previous session closed
+                // cleanly, so it always runs). Lock validation from the same list is
+                // not implemented: no campaign.lock mechanism exists yet in this
+                // codebase (ADR-011 section 4.1 reserves the file, ADR-014 owner-key
+                // work does not create it), so there is nothing to validate here.
+                Result quickCheckResult = RunQuickIntegrityCheck(connection, correlationId);
+                if (quickCheckResult.IsFailure)
+                {
+                    connection.Dispose();
+                    return Result<CampaignHandle>.Failure(quickCheckResult.Error);
+                }
 
                 Result<(CampaignId CampaignId, CampaignPublicId CampaignPublicId)> identityResult = ReadCampaignIdentity(connection);
                 if (identityResult.IsFailure)
@@ -219,7 +261,8 @@ CREATE TABLE IF NOT EXISTS Campaign (
     Status TEXT NOT NULL,
     CreatedAt TEXT NOT NULL,
     UpdatedAt TEXT NOT NULL,
-    SettingsJson TEXT NOT NULL
+    SettingsJson TEXT NOT NULL,
+    LastCommandId TEXT NOT NULL
 );
 CREATE TABLE IF NOT EXISTS PersistenceMetadata (
     Key TEXT PRIMARY KEY,
@@ -249,8 +292,10 @@ CREATE TABLE IF NOT EXISTS AppliedCommands (
     CompletedAt TEXT
 );
 CREATE TABLE IF NOT EXISTS DomainEvents (
-    EventSequence INTEGER PRIMARY KEY,
+    EventSequence INTEGER PRIMARY KEY AUTOINCREMENT,
     CampaignId TEXT NOT NULL,
+    EventType TEXT NOT NULL,
+    CommandId TEXT NOT NULL,
     PayloadJson TEXT NOT NULL,
     PayloadHash TEXT NOT NULL,
     CreatedAtHost TEXT NOT NULL
@@ -300,7 +345,8 @@ CREATE TABLE IF NOT EXISTS AssetManifestEntries (
     AssetId TEXT PRIMARY KEY,
     RelativePath TEXT NOT NULL,
     Hash TEXT,
-    SizeBytes INTEGER
+    SizeBytes INTEGER,
+    LastCommandId TEXT NOT NULL DEFAULT ''
 );
 CREATE TABLE IF NOT EXISTS AssetReferences (
     AssetId TEXT NOT NULL,
@@ -316,11 +362,12 @@ CREATE TABLE IF NOT EXISTS SessionArchiveIndex (
             command.ExecuteNonQuery();
         }
 
-        private static void InsertCampaignRow(SqliteConnection connection, CampaignId campaignId, CampaignPublicId campaignPublicId, UtcInstant now, CampaignSettings settings)
+        private static void InsertCampaignRow(SqliteConnection connection, SqliteTransaction transaction, CampaignId campaignId, CampaignPublicId campaignPublicId, UtcInstant now, CampaignSettings settings, CommandId commandId)
         {
             using var command = connection.CreateCommand();
-            command.CommandText = "INSERT INTO Campaign (CampaignId, CampaignPublicId, Revision, Status, CreatedAt, UpdatedAt, SettingsJson) " +
-                                   "VALUES ($campaignId, $campaignPublicId, $revision, $status, $createdAt, $updatedAt, $settingsJson);";
+            command.Transaction = transaction;
+            command.CommandText = "INSERT INTO Campaign (CampaignId, CampaignPublicId, Revision, Status, CreatedAt, UpdatedAt, SettingsJson, LastCommandId) " +
+                                   "VALUES ($campaignId, $campaignPublicId, $revision, $status, $createdAt, $updatedAt, $settingsJson, $lastCommandId);";
             command.Parameters.AddWithValue("$campaignId", campaignId.ToString());
             command.Parameters.AddWithValue("$campaignPublicId", campaignPublicId.ToString());
             command.Parameters.AddWithValue("$revision", 1L);
@@ -328,7 +375,39 @@ CREATE TABLE IF NOT EXISTS SessionArchiveIndex (
             command.Parameters.AddWithValue("$createdAt", now.ToString());
             command.Parameters.AddWithValue("$updatedAt", now.ToString());
             command.Parameters.AddWithValue("$settingsJson", "{\"settingsSchemaVersion\":" + settings.SettingsSchemaVersion.ToString(CultureInfo.InvariantCulture) + "}");
+            command.Parameters.AddWithValue("$lastCommandId", commandId.ToString());
             command.ExecuteNonQuery();
+        }
+
+        private static Result RunQuickIntegrityCheck(SqliteConnection connection, CorrelationId correlationId)
+        {
+            // 05_Persistence section 22.1 quick check: SQLite quick_check, plus "no
+            // incomplete migration state" (a SchemaHistory row whose Status is not
+            // a terminal one). Manifest parse, CampaignId match, and campaign.db
+            // presence are already checked by the caller (Open); schema-metadata
+            // match reduces to the manifest's own DatabaseSchemaVersion field, which
+            // ODY-S01-007 already parses/validates on read.
+            using (var quickCheck = connection.CreateCommand())
+            {
+                quickCheck.CommandText = "PRAGMA quick_check;";
+                object? result = quickCheck.ExecuteScalar();
+                if (!(result is string status) || !string.Equals(status, "ok", StringComparison.OrdinalIgnoreCase))
+                {
+                    return Result.Failure(PersistenceFailures.IntegrityCheckFailed(correlationId));
+                }
+            }
+
+            using (var migrationCheck = connection.CreateCommand())
+            {
+                migrationCheck.CommandText = "SELECT COUNT(*) FROM SchemaHistory WHERE Status NOT IN ('Completed', 'RolledBack');";
+                long incomplete = Convert.ToInt64(migrationCheck.ExecuteScalar(), CultureInfo.InvariantCulture);
+                if (incomplete > 0)
+                {
+                    return Result.Failure(PersistenceFailures.IntegrityCheckFailed(correlationId));
+                }
+            }
+
+            return Result.Success();
         }
 
         private static Result<(CampaignId, CampaignPublicId)> ReadCampaignIdentity(SqliteConnection connection)

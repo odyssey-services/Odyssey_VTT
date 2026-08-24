@@ -1303,6 +1303,38 @@
                           "runner":  "dotnet test",
                           "path":  "DotNet/Tests/Odyssey.Tests.Persistence/SqliteSceneRepositoryTests.cs",
                           "check":  "RegisterAsset copies the source file into Assets/Objects, computes hash/size, and stores only the relative path (never the absolute source path); missing source file returns a typed error"
+                      },
+                      {
+                          "testCaseId":  "TC-PERSIST-008",
+                          "taskId":  "ODY-S01-009",
+                          "authority":  "ADR-012 section 5; ODY-S01-009",
+                          "runner":  "dotnet test",
+                          "path":  "DotNet/Tests/Odyssey.Tests.Persistence/SqliteSavingPipelineTests.cs",
+                          "check":  "a successful CreateScene commits the Scene projection row, its DomainEvent, and its AppliedCommands/AggregateRevisions rows as one consistent group; a rejected CreateToken leaves none of AppliedCommands/DomainEvents/Token behind for that CommandId"
+                      },
+                      {
+                          "testCaseId":  "TC-PERSIST-009",
+                          "taskId":  "ODY-S01-009",
+                          "authority":  "ADR-012 section 7; ODY-S01-009",
+                          "runner":  "dotnet test",
+                          "path":  "DotNet/Tests/Odyssey.Tests.Persistence/SqliteSavingPipelineTests.cs",
+                          "check":  "redelivering CreateScene or MoveToken with the same CommandId replays the stored outcome (same SceneId / same Revision) instead of duplicating the effect or advancing state a second time"
+                      },
+                      {
+                          "testCaseId":  "TC-PERSIST-010",
+                          "taskId":  "ODY-S01-009",
+                          "authority":  "ADR-011 section 7.4; ODY-S01-009",
+                          "runner":  "dotnet test",
+                          "path":  "DotNet/Tests/Odyssey.Tests.Persistence/SqliteSavingPipelineTests.cs",
+                          "check":  "Close() truncates campaign.db-wal to zero bytes (PRAGMA wal_checkpoint(TRUNCATE) safe-close checkpoint), verified by independent file-size readback"
+                      },
+                      {
+                          "testCaseId":  "TC-PERSIST-011",
+                          "taskId":  "ODY-S01-009",
+                          "authority":  "05_Persistence section 22/23; ADR-012 section 5; ODY-S01-009",
+                          "runner":  "dotnet test",
+                          "path":  "DotNet/Tests/Odyssey.Tests.Persistence/SqliteSavingPipelineTests.cs",
+                          "check":  "a real Process.Kill() mid-transaction (RecoveryHarness child process) followed by Open() passes the quick_check integrity check, the killed uncommitted scene/event/command never appear, and the scene committed before the kill survives intact"
                       }
                   ]
 }
