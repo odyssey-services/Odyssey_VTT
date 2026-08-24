@@ -1335,6 +1335,22 @@
                           "runner":  "dotnet test",
                           "path":  "DotNet/Tests/Odyssey.Tests.Persistence/SqliteSavingPipelineTests.cs",
                           "check":  "a real Process.Kill() mid-transaction (RecoveryHarness child process) followed by Open() passes the quick_check integrity check, the killed uncommitted scene/event/command never appear, and the scene committed before the kill survives intact"
+                      },
+                      {
+                          "testCaseId":  "TC-PERSIST-012",
+                          "taskId":  "ODY-S01-010",
+                          "authority":  "ADR-013 section 4; ODY-S01-010",
+                          "runner":  "dotnet test",
+                          "path":  "DotNet/Tests/Odyssey.Tests.Persistence/MigrationRegistryTests.cs",
+                          "check":  "the registered-migrations list has no duplicate MigrationIds, is in strictly increasing order, every entry has a non-empty FromVersion/ToVersion/CodeChecksum, and the 0001_Initial entry is a true identity migration (FromVersion == ToVersion)"
+                      },
+                      {
+                          "testCaseId":  "TC-PERSIST-013",
+                          "taskId":  "ODY-S01-010",
+                          "authority":  "ADR-013 section 8; ADR-011 section 5; ODY-S01-010",
+                          "runner":  "dotnet test",
+                          "path":  "DotNet/Tests/Odyssey.Tests.Persistence/MigrationRegistryTests.cs",
+                          "check":  "Create() inserts exactly one SchemaHistory row (0001_Initial, Status=Completed, BackupId/FailureCode null) whose FromVersion/ToVersion match the manifest's DatabaseSchemaVersion; Open() does not insert a second row or rewrite the existing one"
                       }
                   ]
 }
