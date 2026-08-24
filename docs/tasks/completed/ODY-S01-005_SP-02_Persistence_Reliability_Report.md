@@ -1,12 +1,20 @@
 # ODY-S01-005 — SP-02 Persistence Reliability: Spike Report
 
-**Parent task:** `docs/tasks/active/ODY-S01-005_SP-02_Persistence_Reliability.md`
+**Parent task:** `docs/tasks/completed/ODY-S01-005_SP-02_Persistence_Reliability.md`
 **Prepared:** 2026-08-24 UTC
 **Spike ID:** `SP-02` (`17_Roadmap_Odyssey_VTT_v0.11.md` §23: "SQLite crash recovery, snapshots and migrations")
 **Harness:** `Tools/Spikes/SP-02-PersistenceReliability/SP02.Harness/` (see its `README.md` for reproduction steps and explicit scope/limitations)
 **Evidence runs:** two independent runs on the same development machine, raw stdout saved at `Tools/Spikes/SP-02-PersistenceReliability/evidence/run-2026-08-24-01.log` and `run-2026-08-24-02.log`
 
 This report is honest about evidence granularity: every number below is either printed directly by the harness or a straightforward arithmetic derivation (e.g., an average) from printed numbers across the two runs, never an estimate presented as measured. Roadmap `17_Roadmap_Odyssey_VTT_v0.11.md` §23: *"Spike закрывается не кодом как таковым, а принятым решением и воспроизводимым доказательством"* — this report is the decision-facing artifact; the harness and its two saved run logs are the reproducible proof behind it.
+
+---
+
+## 0. Owner decision (2026-08-24)
+
+Product owner accepted this report and its section 3 recommendation **as-is**, and explicitly approved amending `ADR-011` §12.1 on this recommendation's basis, in this same iteration — not deferred as a separate future step. This satisfies roadmap `17_Roadmap_Odyssey_VTT_v0.11.md` §23's spike-closure principle ("принятым решением и воспроизводимым доказательством"): the decision is `Microsoft.Data.Sqlite`, with `SQLitePCLRaw.bundle_e_sqlite3` pinned to `>= 3.0.3`, recorded normatively in `docs/adr/ADR-011_Local_Campaign_Format_v1.1.md`.
+
+`SP-02` is closed. This report's findings (section 2) and recommendation (section 3) are now the historical record behind that amendment; the amendment itself, not this report, is the normative authority going forward for `ADR-011` §12.1.
 
 ---
 
@@ -152,7 +160,7 @@ No amendment to `ADR-011`, `ADR-012`, or `ADR-013` is triggered by this spike's 
   ..\..\..\..\artifacts\bin\SP02.Harness\release\SP02.Harness.exe
   ```
 
-- This build was **not** added to `.\scripts\test-fast.ps1`, `dotnet-restore-build-test`, or any other CI-wired script — it is invoked manually as spike evidence only, per the task's explicit instruction not to make it part of the main CI pipeline without separate justification (none was found necessary; see `docs/tasks/active/ODY-S01-005_SP-02_Persistence_Reliability.md` §10 for the validation commands actually required by this task).
+- This build was **not** added to `.\scripts\test-fast.ps1`, `dotnet-restore-build-test`, or any other CI-wired script — it is invoked manually as spike evidence only, per the task's explicit instruction not to make it part of the main CI pipeline without separate justification (none was found necessary; see `docs/tasks/completed/ODY-S01-005_SP-02_Persistence_Reliability.md` §10 for the validation commands actually required by this task).
 
 ---
 

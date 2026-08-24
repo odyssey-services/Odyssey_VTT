@@ -1,18 +1,18 @@
 # ODY-S01-005 — Technical Spike SP-02: Persistence Reliability
 
-**Status:** In Review  
+**Status:** Done  
 **Roadmap stage / slice:** SLICE-01 (prerequisites)  
 **Owner:** Codex (agent)  
 **Requested by:** Product owner  
 **Branch:** `feat/ody-s01-005-sp-02-persistence-reliability`  
-**Pull request:** Not yet opened  
-**ExecPlan:** Not required (Brief plan)  
+**Pull request:** Draft — [#26](https://github.com/odyssey-services/Odyssey_VTT/pull/26)  
+**ExecPlan:** Not required (Brief plan) — confirmed not applicable; no ExecPlan file was ever created for this task (see §14), so there is nothing to move to `docs/plans/completed/`.  
 **Created:** 2026-08-24  
 **Last updated:** 2026-08-24 UTC
 
 ## 1. Goal
 
-Produce a reproducible, evidence-backed report (`docs/tasks/active/ODY-S01-005_SP-02_Persistence_Reliability_Report.md`) empirically exercising the six roadmap `17_Roadmap_Odyssey_VTT_v0.11.md` §10.4 scenarios (WAL/transaction mode, crash during a critical operation, interrupted backup, migration failure and rollback, snapshot size/speed, corrupted-database recovery) against the exact PRAGMA profile `ADR-011` §7 fixes, using a throwaway, evidence-only test harness — and to produce a justified (non-binding) recommendation on SQLite provider-library selection for `ADR-011` §12.1.
+Produce a reproducible, evidence-backed report (`docs/tasks/completed/ODY-S01-005_SP-02_Persistence_Reliability_Report.md`) empirically exercising the six roadmap `17_Roadmap_Odyssey_VTT_v0.11.md` §10.4 scenarios (WAL/transaction mode, crash during a critical operation, interrupted backup, migration failure and rollback, snapshot size/speed, corrupted-database recovery) against the exact PRAGMA profile `ADR-011` §7 fixes, using a throwaway, evidence-only test harness — and to produce a justified (non-binding) recommendation on SQLite provider-library selection for `ADR-011` §12.1.
 
 This is an investigative spike, not an implementation task. It produces no production code and selects nothing on the product owner's behalf.
 
@@ -70,8 +70,8 @@ This is an investigative spike, not an implementation task. It produces no produ
 - `Tools/Spikes/SP-02-PersistenceReliability/SP02.Harness/` (new): standalone `net10.0` console test harness exercising all six roadmap §10.4 scenarios against the `ADR-011` §7 PRAGMA profile.
 - `Tools/Spikes/SP-02-PersistenceReliability/README.md` (new): explains the harness is not production code, how to reproduce it, and its explicit scope/limitations.
 - `Tools/Spikes/SP-02-PersistenceReliability/evidence/*.log` (new): raw stdout from two independent harness runs, backing the report's numbers.
-- `docs/tasks/active/ODY-S01-005_SP-02_Persistence_Reliability.md` (this file).
-- `docs/tasks/active/ODY-S01-005_SP-02_Persistence_Reliability_Report.md` (new, separate report file — see §14 for the placement rationale).
+- `docs/tasks/completed/ODY-S01-005_SP-02_Persistence_Reliability.md` (this file).
+- `docs/tasks/completed/ODY-S01-005_SP-02_Persistence_Reliability_Report.md` (separate report file — see §14 for the placement rationale).
 - `docs/tasks/SLICE-01_BACKLOG.md` §3 — update only the `ODY-S01-005` row (Status, Planning mode).
 - `THIRD_PARTY_NOTICES.md` — record the spike-scope-only `Microsoft.Data.Sqlite`/`SQLitePCLRaw.bundle_e_sqlite3` NuGet dependency (justified addition beyond the task's literal file list — see §14).
 
@@ -132,7 +132,7 @@ This is an investigative spike; "behavior" is expressed as required evidence con
 - Tests: None (the harness's own scenario pass/fail checks are spike evidence, not a registered automated test suite).
 - Scripts / CI: None — the harness is deliberately not wired into any CI-run script.
 - Configuration: None.
-- Documentation: `docs/tasks/active/ODY-S01-005_SP-02_Persistence_Reliability.md` (this file), `docs/tasks/active/ODY-S01-005_SP-02_Persistence_Reliability_Report.md`, `Tools/Spikes/SP-02-PersistenceReliability/README.md`, the `ODY-S01-005` row update in `docs/tasks/SLICE-01_BACKLOG.md`, the `THIRD_PARTY_NOTICES.md` addition.
+- Documentation: `docs/tasks/completed/ODY-S01-005_SP-02_Persistence_Reliability.md` (this file), `docs/tasks/completed/ODY-S01-005_SP-02_Persistence_Reliability_Report.md`, `Tools/Spikes/SP-02-PersistenceReliability/README.md`, the `ODY-S01-005` row update in `docs/tasks/SLICE-01_BACKLOG.md`, the `THIRD_PARTY_NOTICES.md` addition.
 - Generated evidence or build artifacts: `Tools/Spikes/SP-02-PersistenceReliability/evidence/run-2026-08-24-01.log`, `run-2026-08-24-02.log`; validation command output recorded in §17.
 - Migration / recovery material: None (this task describes and empirically tests, but does not implement, migration/backup/recovery mechanisms).
 
@@ -143,7 +143,7 @@ This is an investigative spike; "behavior" is expressed as required evidence con
 3. Scenario 2 (crash) and scenario 3 (interrupted backup) each demonstrably kill a live child process mid-operation (not merely simulate a kill in-process) and verify post-crash/post-interruption state by reopening/re-reading real files.
 4. Scenario 4 (migration failure) demonstrably forces a real SQL failure mid-chain and verifies working-database non-mutation via file hash comparison, not merely by inspecting in-memory state.
 5. Scenario 6 (corrupted database) demonstrably corrupts real file bytes and verifies both `PRAGMA integrity_check` and a live query surface the corruption.
-6. The report (`docs/tasks/active/ODY-S01-005_SP-02_Persistence_Reliability_Report.md`) documents, per scenario, concrete measured numbers from at least two independent harness runs, and states the scenario-5 volume assumption explicitly.
+6. The report (`docs/tasks/completed/ODY-S01-005_SP-02_Persistence_Reliability_Report.md`) documents, per scenario, concrete measured numbers from at least two independent harness runs, and states the scenario-5 volume assumption explicitly.
 7. The report's SQLite provider-library recommendation is explicitly labeled a recommendation, not a decision, and is grounded in this spike's own findings plus stated reasoning, not asserted without justification.
 8. Any finding of nonconformance with `ADR-011`/`012`/`013` is documented in the report's dedicated section rather than resolved by silently editing the affected ADR; the report explicitly states whether any nonconformance was found (none was).
 9. `ADR-011`, `ADR-012`, and `ADR-013` content and status are unmodified by this task.
@@ -229,7 +229,7 @@ Neither package is referenced by `DotNet/Odyssey.Core.sln` or any production `.c
 
 ## 15. Documentation and versioning impact
 
-- Documents that must change: `docs/tasks/active/ODY-S01-005_SP-02_Persistence_Reliability.md` (this file, new), `docs/tasks/active/ODY-S01-005_SP-02_Persistence_Reliability_Report.md` (new), `Tools/Spikes/SP-02-PersistenceReliability/README.md` (new), `docs/tasks/SLICE-01_BACKLOG.md` (`ODY-S01-005` row only), `THIRD_PARTY_NOTICES.md` (spike-scope dependency entries).
+- Documents that must change: `docs/tasks/completed/ODY-S01-005_SP-02_Persistence_Reliability.md` (this file), `docs/tasks/completed/ODY-S01-005_SP-02_Persistence_Reliability_Report.md`, `Tools/Spikes/SP-02-PersistenceReliability/README.md` (new), `docs/tasks/SLICE-01_BACKLOG.md` (`ODY-S01-005` row only), `THIRD_PARTY_NOTICES.md` (spike-scope dependency entries).
 - Documents that must not change: `ADR-011`/`012`/`013`/`014`, `ODY-S01-001`–`004` task/ExecPlan (already `completed/`), `ACTIVE_DOCUMENTATION_BASELINE_*`, root `README.md`, anything under `Documentation/`.
 - Application version change: No — this task does not touch `Odyssey.*` production code or `BuildIdentity`.
 - Schema / format / contract / protocol / ruleset version change: None — the harness's synthetic schemas are throwaway and never versioned as product contracts.
@@ -239,18 +239,18 @@ Neither package is referenced by `DotNet/Odyssey.Core.sln` or any production `.c
 ## 16. Definition of Done
 
 - [x] Goal is achieved without unapproved scope expansion.
-- [ ] All acceptance criteria are satisfied.
+- [x] All acceptance criteria are satisfied.
 - [x] Required automated tests pass. (None registered — see §10.)
-- [ ] Required manual checks are completed.
-- [ ] Required commands and their real results are recorded.
+- [x] Required manual checks are completed.
+- [x] Required commands and their real results are recorded.
 - [x] Architecture and dependency rules remain valid. (Harness confirmed outside every `ADR-001` module boundary.)
 - [x] Security, privacy, redaction, and audience rules are verified where applicable.
 - [x] Compatibility, migration, rollback, and versioning obligations are complete where applicable. (Not applicable — see §11.)
-- [x] No unapproved dependency, tool, GitHub Action, or license was introduced. (Spike-scope `Microsoft.Data.Sqlite`/`SQLitePCLRaw` recorded and scoped in §12/`THIRD_PARTY_NOTICES.md`.)
+- [x] No unapproved dependency, tool, GitHub Action, or license was introduced. (Spike-scope `Microsoft.Data.Sqlite`/`SQLitePCLRaw` recorded and scoped in §12/`THIRD_PARTY_NOTICES.md`; now the actual `ADR-011` v1.1 provider-library decision, documentation-only — no `.csproj` dependency added.)
 - [x] Documentation is updated only where materially required.
-- [ ] Codex/developer performed a self-review against this task and `AGENTS.md`.
-- [ ] Pull request explains changes, evidence, limitations, and follow-up work.
-- [ ] Product owner or authorized reviewer completes the required review; Codex does not merge into `main`.
+- [x] Codex/developer performed a self-review against this task and `AGENTS.md`.
+- [x] Pull request explains changes, evidence, limitations, and follow-up work.
+- [x] Product owner or authorized reviewer completes the required review; Codex does not merge into `main`.
 
 ## 17. Completion evidence
 
@@ -259,10 +259,13 @@ Neither package is referenced by `DotNet/Odyssey.Core.sln` or any production `.c
 - `Tools/Spikes/SP-02-PersistenceReliability/SP02.Harness/` — new standalone spike harness (`SP02.Harness.csproj`, `Program.cs`).
 - `Tools/Spikes/SP-02-PersistenceReliability/README.md` — new, explains scope/reproduction/limitations.
 - `Tools/Spikes/SP-02-PersistenceReliability/evidence/run-2026-08-24-01.log`, `run-2026-08-24-02.log` — new, raw evidence from two independent harness runs.
-- `docs/tasks/active/ODY-S01-005_SP-02_Persistence_Reliability.md` — this task contract.
-- `docs/tasks/active/ODY-S01-005_SP-02_Persistence_Reliability_Report.md` — new, the spike's findings/recommendation report.
-- `docs/tasks/SLICE-01_BACKLOG.md` — `ODY-S01-005` row status/Planning mode updated.
-- `THIRD_PARTY_NOTICES.md` — spike-scope `Microsoft.Data.Sqlite`/`SQLitePCLRaw.bundle_e_sqlite3` entries added.
+- `docs/tasks/completed/ODY-S01-005_SP-02_Persistence_Reliability.md` (this file) — moved to `docs/tasks/completed/` as part of formal closure.
+- `docs/tasks/completed/ODY-S01-005_SP-02_Persistence_Reliability_Report.md` — the spike's findings/recommendation report, `§0 Owner decision` added, moved to `docs/tasks/completed/` alongside this file.
+- `docs/tasks/SLICE-01_BACKLOG.md` — `ODY-S01-005` row moved to `Done (report accepted, ADR-011 §12.1 amended)`; §1/§2 updated to record the prerequisite backlog revision as fully closed.
+- `THIRD_PARTY_NOTICES.md` — spike-scope `Microsoft.Data.Sqlite`/`SQLitePCLRaw.bundle_e_sqlite3` entries added (original PR), wording reviewed at closure (see closure diff for whether reworded).
+- `docs/adr/ADR-011_Local_Campaign_Format_v1.1.md` — new amendment ADR, closes §12.1 with a binding `Microsoft.Data.Sqlite` + `SQLitePCLRaw.bundle_e_sqlite3 >= 3.0.3` decision, sourced from this task's report §3.
+- `docs/adr/ADR-011_Local_Campaign_Format_v1.0.md` §12.1 — pointer-only note added: closed by `ADR-011` v1.1; header updated per the `ADR-010` v1.1 "Active work must use..." convention.
+- `docs/adr/ADR-012_Snapshot_And_Append_Only_Journal_v1.0.md` §12.2 — pointer-only note added: closed by `ADR-011` v1.1.
 
 ### Validation results
 
@@ -271,8 +274,10 @@ Neither package is referenced by `DotNet/Odyssey.Core.sln` or any production `.c
 | `dotnet build -c Release` (harness) | Passed | 0 warnings, 0 errors; see build transcript captured during this task's execution. |
 | Harness run 1 | Passed | All six scenarios reported `PASS`/`SUMMARY: True`; saved at `Tools/Spikes/SP-02-PersistenceReliability/evidence/run-2026-08-24-01.log`. |
 | Harness run 2 | Passed | Identical pass/fail outcomes to run 1; saved at `Tools/Spikes/SP-02-PersistenceReliability/evidence/run-2026-08-24-02.log`. |
-| `.\scripts\verify-format.ps1` | Pending | To be recorded before commit. |
-| `.\scripts\check-repository-policy.ps1` | Pending | To be recorded before commit. |
+| `.\scripts\verify-format.ps1` (authoring PR #26) | Passed | `FORMAT-001 PASS repository text formatting checks passed`. |
+| `.\scripts\check-repository-policy.ps1` (authoring PR #26) | Passed | `Repository policy check passed.` |
+| `.\scripts\verify-format.ps1` (closure) | Passed | Re-run for closure diff — see closure PR evidence. |
+| `.\scripts\check-repository-policy.ps1` (closure) | Passed | Re-run for closure diff — see closure PR evidence. |
 
 ### Acceptance result
 
@@ -286,14 +291,14 @@ Neither package is referenced by `DotNet/Odyssey.Core.sln` or any production `.c
 | AC-6 | Passed | Report §2 documents all six scenarios with numbers from both runs; §2.5 states the volume assumption explicitly. |
 | AC-7 | Passed | Report §3 is explicitly labeled "This is a recommendation, not a decision," with stated reasoning. |
 | AC-8 | Passed | Report §4 explicitly states no nonconformance was found, with per-ADR cross-checks. |
-| AC-9 | Passed | `ADR-011`/`012`/`013` files not touched by this task's diff. |
-| AC-10 | Pending | To be confirmed after backlog edit, before commit. |
-| AC-11 | Pending | To be confirmed after diff-scope check. |
-| AC-12 | Pending | To be recorded before commit. |
-| AC-13 | Pending | To be recorded after Draft PR is opened and CI completes. |
+| AC-9 | Passed | Held for the entire authoring PR #26 diff (`ADR-011`/`012`/`013` untouched). At closure, the product owner explicitly approved amending `ADR-011` §12.1 and pointer-noting `ADR-012` §12.2 in this same iteration — a deliberate, owner-directed exception to this criterion's original scope, not a silent violation of it; see §18. |
+| AC-10 | Passed | `SLICE-01_BACKLOG.md` `ODY-S01-005` row updated; other rows unchanged, confirmed via diff-scope check. |
+| AC-11 | Passed | `verify-format.ps1` and `check-repository-policy.ps1` both passed (authoring and closure runs). |
+| AC-12 | Passed | `git diff --name-status` against `main` limited to the files listed in `Changed files / areas` above, plus this closure's `ADR-011`/`ADR-012`/backlog/report updates, matching the closure ТЗ's own expected diff scope. |
+| AC-13 | Passed | Draft PR #26 opened, all 4 required CI checks green; remained Draft through formal closure — not moved to Ready without separate confirmation. |
 
 ## 18. Blockers, risks, and open decisions
 
 - Blocker: none. All prerequisite ADRs (`ADR-011`–`014`) are `Accepted` and `ODY-S01-001`–`004` are `Done`, confirmed in §4.
-- Open decision (deliberate, not a blocker): the SQLite provider-library recommendation (report §3) and the resulting possible `ADR-011` §12.1 amendment are explicitly left to the product owner — this task does not close that open question itself.
-- Risk: measured timing numbers (throughput, elapsed milliseconds) are machine-specific and will vary on other hardware; the report states this explicitly and treats pass/fail outcomes, not exact timings, as the load-bearing evidence.
+- Closure (2026-08-24): Product owner accepted the report and its §3 recommendation as-is, and explicitly approved amending `ADR-011` §12.1 on this recommendation's basis in this same iteration, not deferred. `docs/adr/ADR-011_Local_Campaign_Format_v1.1.md` created, closing §12.1 with `Microsoft.Data.Sqlite` + `SQLitePCLRaw.bundle_e_sqlite3 >= 3.0.3`. `ADR-011` v1.0 §12.1 and `ADR-012` §12.2 updated with pointer-only closure notes. Task Status moved to `Done`, moved to `docs/tasks/completed/` together with the report. `docs/tasks/SLICE-01_BACKLOG.md` `ODY-S01-005` row moved to `Done`; §1/§2 updated to record the `SLICE-01` prerequisite backlog revision as fully closed (all five exit criteria satisfied: four ADRs `Accepted`, `SP-02` report complete and owner-reviewed).
+- Risk (retrospective, no longer open): measured timing numbers (throughput, elapsed milliseconds) are machine-specific and will vary on other hardware; the report states this explicitly and treats pass/fail outcomes, not exact timings, as the load-bearing evidence — the owner's acceptance was of the pass/fail findings and the qualitative recommendation reasoning, not a claim that these exact numbers are portable to other hardware.
