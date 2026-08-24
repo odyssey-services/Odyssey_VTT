@@ -25,5 +25,8 @@ namespace Odyssey.Application.Results
         public static readonly ErrorCode PersistenceTokenNotFound = ErrorCode.Parse("persistence.token.not_found");
         public static readonly ErrorCode PersistenceIntegrityCheckFailed = ErrorCode.Parse("persistence.integrity.check_failed");
         public static readonly ErrorCode PersistenceCommandReplayFailed = ErrorCode.Parse("persistence.command.replay_failed");
+        public static readonly ErrorCode PersistenceBackupCreateFailed = ErrorCode.Parse("persistence.backup.create_failed");
+        public static readonly ErrorCode PersistenceBackupNotFound = ErrorCode.Parse("persistence.backup.not_found");
+        public static readonly ErrorCode PersistenceBackupRestoreFailed = ErrorCode.Parse("persistence.backup.restore_failed");
     }
 }

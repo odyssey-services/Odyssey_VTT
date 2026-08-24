@@ -1,0 +1,14 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <OutputType>Exe</OutputType>
+    <IsPackable>false</IsPackable>
+    <Nullable>enable</Nullable>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\..\Projects\Odyssey.Domain.csproj" />
+    <ProjectReference Include="..\..\Projects\Odyssey.Application.csproj" />
+    <ProjectReference Include="..\..\Projects\Odyssey.Persistence.csproj" />
+  </ItemGroup>
+</Project>
