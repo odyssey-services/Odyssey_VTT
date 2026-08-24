@@ -99,6 +99,30 @@ namespace Odyssey.Application.Persistence
             RetryDirective.ManualRecoveryRequired,
             correlationId);
 
+        public static Error SceneNotFound(CorrelationId correlationId) => Error.Create(
+            ErrorCodes.PersistenceSceneNotFound,
+            ErrorCategory.NotFound,
+            SafeReasonCode.TargetUnavailable,
+            UserMessageKey.Parse("errors.persistence.scene_not_found"),
+            RetryDirective.DoNotRetry,
+            correlationId);
+
+        public static Error SceneIoFailed(CorrelationId correlationId) => Error.Create(
+            ErrorCodes.PersistenceSceneIoFailed,
+            ErrorCategory.PermanentInfrastructure,
+            SafeReasonCode.UnexpectedError,
+            UserMessageKey.Parse("errors.persistence.scene_io_failed"),
+            RetryDirective.ManualRecoveryRequired,
+            correlationId);
+
+        public static Error TokenNotFound(CorrelationId correlationId) => Error.Create(
+            ErrorCodes.PersistenceTokenNotFound,
+            ErrorCategory.NotFound,
+            SafeReasonCode.TargetUnavailable,
+            UserMessageKey.Parse("errors.persistence.token_not_found"),
+            RetryDirective.DoNotRetry,
+            correlationId);
+
         // Used only by the codec's Read path (CampaignManifest.cs), which does not
         // receive a caller CorrelationId; matches the existing SerializationFailures
         // placeholder-correlation convention for codec-level structural failures.

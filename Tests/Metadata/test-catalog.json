@@ -1279,6 +1279,30 @@
                           "runner":  "dotnet test",
                           "path":  "DotNet/Tests/Odyssey.Tests.Persistence/SqliteCampaignRepositoryTests.cs",
                           "check":  "CampaignId/CampaignPublicId canonical format and uniqueness across many generations, and repository returns typed Result/Error, never a raw provider exception"
+                      },
+                      {
+                          "testCaseId":  "TC-PERSIST-005",
+                          "taskId":  "ODY-S01-008",
+                          "authority":  "03_Domain_Model section 10.1/10.6; ODY-S01-008",
+                          "runner":  "dotnet test",
+                          "path":  "DotNet/Tests/Odyssey.Tests.Persistence/SqliteSceneRepositoryTests.cs",
+                          "check":  "Scene creation at Draft status/revision 1; two independently created tokens move and persist independent positions"
+                      },
+                      {
+                          "testCaseId":  "TC-PERSIST-006",
+                          "taskId":  "ODY-S01-008",
+                          "authority":  "ADR-004; ODY-S01-008",
+                          "runner":  "dotnet test",
+                          "path":  "DotNet/Tests/Odyssey.Tests.Persistence/SqliteSceneRepositoryTests.cs",
+                          "check":  "CreateToken on a non-existent scene and MoveToken on a non-existent token return typed NotFound errors, not raw exceptions"
+                      },
+                      {
+                          "testCaseId":  "TC-PERSIST-007",
+                          "taskId":  "ODY-S01-008",
+                          "authority":  "ADR-011 section 4.2; ODY-S01-008",
+                          "runner":  "dotnet test",
+                          "path":  "DotNet/Tests/Odyssey.Tests.Persistence/SqliteSceneRepositoryTests.cs",
+                          "check":  "RegisterAsset copies the source file into Assets/Objects, computes hash/size, and stores only the relative path (never the absolute source path); missing source file returns a typed error"
                       }
                   ]
 }

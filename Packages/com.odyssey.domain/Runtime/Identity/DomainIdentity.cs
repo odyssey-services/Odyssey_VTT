@@ -111,6 +111,81 @@ namespace Odyssey.Domain.Identity
         public override int GetHashCode() => _value == null ? 0 : StringComparer.Ordinal.GetHashCode(_value);
     }
 
+    /// <summary>
+    /// ODY-S01-008 minimal domain model. Full Scene aggregate fields (BoardId,
+    /// LayerDefinitions, FogSettings, PermissionOverrides, etc. per
+    /// 03_Domain_Model section 10.1) are not implemented by this identifier or the
+    /// task that introduces it -- only identity, per ADR-011 section 9.1.
+    /// </summary>
+    public readonly struct SceneId : IEquatable<SceneId>
+    {
+        private const string Prefix = "scn_";
+        private const int HexLength = 32;
+        private readonly string _value;
+
+        private SceneId(string value) => _value = value;
+        public bool IsValid => _value != null;
+        public static SceneId NewId(Odyssey.Domain.Time.UtcInstant now) => new SceneId(Prefix + Uuid7.NewHex32(now));
+        public static bool TryParse(string? value, out SceneId id) => CanonicalId.TryParse(value, Prefix, HexLength, out id, static v => new SceneId(v));
+        public static SceneId Parse(string value) => TryParse(value, out SceneId id) ? id : throw new FormatException("SceneId is not canonical.");
+        public override string ToString() => _value ?? string.Empty;
+        public bool Equals(SceneId other) => string.Equals(_value, other._value, StringComparison.Ordinal);
+        public override bool Equals(object? obj) => obj is SceneId other && Equals(other);
+        public override int GetHashCode() => _value == null ? 0 : StringComparer.Ordinal.GetHashCode(_value);
+        public static bool operator ==(SceneId left, SceneId right) => left.Equals(right);
+        public static bool operator !=(SceneId left, SceneId right) => !left.Equals(right);
+    }
+
+    /// <summary>
+    /// ODY-S01-008 minimal Token identity. Full SceneObject/TokenComponent fields
+    /// (footprint, facing, layer, components, per 03_Domain_Model sections 10.6-10.8)
+    /// are not implemented by this identifier or the task that introduces it --
+    /// only identity and a bare position, per ADR-011 section 9.1.
+    /// </summary>
+    public readonly struct TokenId : IEquatable<TokenId>
+    {
+        private const string Prefix = "tok_";
+        private const int HexLength = 32;
+        private readonly string _value;
+
+        private TokenId(string value) => _value = value;
+        public bool IsValid => _value != null;
+        public static TokenId NewId(Odyssey.Domain.Time.UtcInstant now) => new TokenId(Prefix + Uuid7.NewHex32(now));
+        public static bool TryParse(string? value, out TokenId id) => CanonicalId.TryParse(value, Prefix, HexLength, out id, static v => new TokenId(v));
+        public static TokenId Parse(string value) => TryParse(value, out TokenId id) ? id : throw new FormatException("TokenId is not canonical.");
+        public override string ToString() => _value ?? string.Empty;
+        public bool Equals(TokenId other) => string.Equals(_value, other._value, StringComparison.Ordinal);
+        public override bool Equals(object? obj) => obj is TokenId other && Equals(other);
+        public override int GetHashCode() => _value == null ? 0 : StringComparer.Ordinal.GetHashCode(_value);
+        public static bool operator ==(TokenId left, TokenId right) => left.Equals(right);
+        public static bool operator !=(TokenId left, TokenId right) => !left.Equals(right);
+    }
+
+    /// <summary>
+    /// Identifies a row in the AssetManifestEntries system table (ADR-011 section
+    /// 8.2, created by ODY-S01-007). Not the full asset pipeline (staging,
+    /// quarantine, thumbnails) -- just identity for the minimal "one imported test
+    /// map" need of ODY-S01-008.
+    /// </summary>
+    public readonly struct AssetId : IEquatable<AssetId>
+    {
+        private const string Prefix = "asst_";
+        private const int HexLength = 32;
+        private readonly string _value;
+
+        private AssetId(string value) => _value = value;
+        public bool IsValid => _value != null;
+        public static AssetId NewId(Odyssey.Domain.Time.UtcInstant now) => new AssetId(Prefix + Uuid7.NewHex32(now));
+        public static bool TryParse(string? value, out AssetId id) => CanonicalId.TryParse(value, Prefix, HexLength, out id, static v => new AssetId(v));
+        public static AssetId Parse(string value) => TryParse(value, out AssetId id) ? id : throw new FormatException("AssetId is not canonical.");
+        public override string ToString() => _value ?? string.Empty;
+        public bool Equals(AssetId other) => string.Equals(_value, other._value, StringComparison.Ordinal);
+        public override bool Equals(object? obj) => obj is AssetId other && Equals(other);
+        public override int GetHashCode() => _value == null ? 0 : StringComparer.Ordinal.GetHashCode(_value);
+        public static bool operator ==(AssetId left, AssetId right) => left.Equals(right);
+        public static bool operator !=(AssetId left, AssetId right) => !left.Equals(right);
+    }
+
     public readonly struct AggregateType : IEquatable<AggregateType>
     {
         private readonly string _value;
