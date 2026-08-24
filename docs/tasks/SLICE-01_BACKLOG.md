@@ -13,6 +13,8 @@ This backlog converts roadmap `17_Roadmap_Odyssey_VTT_v0.11.md` section 10.2's p
 
 This revision's only outcome — four accepted ADRs (Local Campaign Format, Snapshot and Append-Only Journal, Migration Runner, Owner Key Storage Baseline) and a complete, owner-reviewed `SP-02 — Persistence Reliability` technical spike report — is now **fully delivered**. `ADR-011` was further amended to v1.1 on 2026-08-24 to close its own §12.1 open question (SQLite provider-library selection) on the `SP-02` report's recommendation; that amendment is normatively part of "ADR — Local Campaign Format is `Accepted`" below, not a reopening of this backlog revision's scope.
 
+The vertical-slice implementation revision reserved above now exists: `docs/tasks/SLICE-01_IMPLEMENTATION_BACKLOG.md` (created 2026-08-24 by `ODY-S01-006`).
+
 ## 2. Slice exit criteria (this backlog revision only)
 
 This prerequisite backlog revision is complete only when all of the following are proven. **All five are now proven, as of 2026-08-24:**
