@@ -6,6 +6,8 @@ This repository is private and All Rights Reserved. The following approved third
 |---|---:|---|---|---|---|
 | Newtonsoft.Json | 13.0.2 | Explicit deterministic release-critical JSON streaming codecs | MIT | Pure .NET `Odyssey.Application` bridge | ADR-003 v1.1 / Technical Development Baseline v0.4 / ODY-S00-007 |
 | com.unity.nuget.newtonsoft-json | 3.2.2 | Unity package distribution of Newtonsoft.Json 13.0.2 (`AssemblyVersion` 13.0.0.0) for explicit streaming codecs | MIT / Unity package distribution | Unity `Odyssey.Application` package | ADR-003 v1.1 / Technical Development Baseline v0.4 / ODY-S00-007 |
+| Microsoft.Data.Sqlite | 9.0.10 | SQLite access for the SP-02 persistence-reliability spike's evidence-generation harness only; not a production dependency and not a provider-library decision — see the spike's report for its recommendation | MIT | `Tools/Spikes/SP-02-PersistenceReliability/` only, evidence-only, not referenced by any production module or `DotNet/Odyssey.Core.sln` | PLANS.md section 7 / ODY-S01-005 |
+| SQLitePCLRaw.bundle_e_sqlite3 | 3.0.3 | Transitive native SQLite bundle pinned above the flagged vulnerable `2.1.x` range for the same spike-only harness | MIT / Apache-2.0 | `Tools/Spikes/SP-02-PersistenceReliability/` only, evidence-only | ODY-S01-005 |
 
 Approved tooling referenced by repository policy:
 

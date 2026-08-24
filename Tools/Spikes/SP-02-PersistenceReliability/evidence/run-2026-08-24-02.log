@@ -1,0 +1,54 @@
+# SP-02 Persistence Reliability - evidence run
+# Work directory: C:\Users\alexx\AppData\Local\Temp\sp02-3ced306d4a104ff498bb6f620d267911
+# Started (UTC): 2026-08-24T00:15:38.9561480Z
+
+## Scenario 1 - WAL/transaction mode
+journal_mode=wal foreign_keys=1 synchronous=2 busy_timeout=5000
+committed_transactions=100 rows_written=1000 elapsed_ms=285 tx_per_sec=349.7 rows_per_sec=3496.6
+reader_visible_rows_during_open_writer_tx=1000 (expected 1000, uncommitted row must not be visible) read_elapsed_ms=12
+
+## Scenario 2 - crash during a critical operation
+iter=1 killed_mid_transaction=True last_seen_commit=5 reopen_integrity_check=ok rows_after_recovery=5 max_id=5 recovery_open_elapsed_ms=16.4 PASS=True
+iter=2 killed_mid_transaction=True last_seen_commit=5 reopen_integrity_check=ok rows_after_recovery=5 max_id=5 recovery_open_elapsed_ms=13.9 PASS=True
+iter=3 killed_mid_transaction=True last_seen_commit=5 reopen_integrity_check=ok rows_after_recovery=5 max_id=5 recovery_open_elapsed_ms=21.2 PASS=True
+iter=4 killed_mid_transaction=True last_seen_commit=5 reopen_integrity_check=ok rows_after_recovery=5 max_id=5 recovery_open_elapsed_ms=13.6 PASS=True
+iter=5 killed_mid_transaction=True last_seen_commit=5 reopen_integrity_check=ok rows_after_recovery=5 max_id=5 recovery_open_elapsed_ms=12.5 PASS=True
+SUMMARY: 5/5 crash-recovery runs recovered with exactly 5 committed rows and no partial/uncommitted row visible. avg_recovery_open_ms=15.5
+
+## Scenario 3 - interrupted backup
+source_size_bytes=91258880 source_sha256=1ed300e0862326e2042244d53d3f36dd570aa572c50bd77971309e02213fbaf3
+baseline_full_backup_elapsed_ms=961 baseline_confirmed_backup_integrity=ok baseline_promoted=True
+kill_after_ms=288 completed_before_kill_window=False process_was_killed=True
+interrupted_temp_file_present=True interrupted_temp_integrity_check=CHECK_FAILED: SQLite Error 8: 'attempt to write a readonly database'. interrupted_confirmed_backup_created=False (expected False - partial backup must never be promoted) source_unchanged=True
+SUMMARY: interrupted backup never promoted to a confirmed/valid backup path (temp->validate->atomic-move pattern held): True. Source database left untouched by the backup attempt: True.
+
+## Scenario 4 - migration failure and rollback
+pre_migration_snapshot_created=True snapshot_integrity_check=ok
+migration_step_1 (0001_AddItemNote) applied to temp copy: success
+migration_chain_succeeded=False failure_message="SQLite Error 1: 'no such table: ThisTableDoesNotExist'."
+working_db_hash_before=bb0e60170da2c4e77186e1b5414a8ae4922a9b5e3f1dc3a7a49c6c1961fdf676
+working_db_hash_after =bb0e60170da2c4e77186e1b5414a8ae4922a9b5e3f1dc3a7a49c6c1961fdf676
+working_db_untouched_by_failed_migration=True temp_copy_discarded=True
+pre_migration_snapshot_still_valid_after_failure=True snapshot_Items_column_count=2 (must equal pre-migration original, not include Note)
+working_db_Items_column_count_after_failed_attempt=2 (must be unchanged, not include Note)
+SUMMARY: migration failure correctly rolled back per ADR-013 section 7 temp-copy pattern: True
+
+## Scenario 5 - snapshot size and speed
+event_count=5000 source_size_bytes=2293760 (2.2 MB) backup_size_bytes=2293760 backup_elapsed_ms=47 throughput_MBps=46.2 backup_integrity_check=ok
+event_count=50000 source_size_bytes=22822912 (21.8 MB) backup_size_bytes=22822912 backup_elapsed_ms=308 throughput_MBps=70.6 backup_integrity_check=ok
+event_count=250000 source_size_bytes=114069504 (108.8 MB) backup_size_bytes=114069504 backup_elapsed_ms=1181 throughput_MBps=92.1 backup_integrity_check=ok
+
+## Scenario 6 - corrupted main database recovery
+pre_corruption_integrity_check=ok
+corrupted_bytes=4096 offset=1146880 of file_length=2293760
+post_corruption_integrity_check="*** in database main ***
+Tree 2 page 281: btreeInitPage() returns error code 11" (expected: not "ok")
+select_on_corrupted_db_threw=True exception="SqliteException: SQLite Error 11: 'database disk image is malformed'." (expected True - corruption must be surfaced, not silently tolerated)
+restored_from_backup_into_separate_copy=C:\Users\alexx\AppData\Local\Temp\sp02-3ced306d4a104ff498bb6f620d267911\s6-restored.db
+restored_copy_integrity_check=ok restored_row_count=5000
+original_corrupted_file_left_in_place=True unchanged_length=True
+SUMMARY: corruption detected (not silently accepted) and recovery restores a separate, integrity-checked copy without touching the corrupted original: True
+
+
+# Finished (UTC): 2026-08-24T00:15:54.6342696Z
+# Work directory retained at: C:\Users\alexx\AppData\Local\Temp\sp02-3ced306d4a104ff498bb6f620d267911

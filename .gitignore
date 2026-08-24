@@ -56,12 +56,22 @@ artifacts/
 !DotNet/Tools/
 !DotNet/Tools/**/*.csproj
 
+# Repository-owned spike tooling (evidence-only, not production; see
+# Tools/Spikes/*/README.md for scope)
+!Tools/
+!Tools/Spikes/
+!Tools/Spikes/**/*.csproj
+!Tools/Spikes/**/evidence/
+
 # Unity crash and diagnostics
 sysinfo.txt
 *.stackdump
 *.dmp
 *.log
 *.jsonl
+
+# Repository-owned spike evidence logs (must stay after the *.log rule above)
+!Tools/Spikes/**/evidence/*.log
 Assets/Odyssey/Generated/BuildIdentity.g.cs
 Assets/StreamingAssets/Odyssey/build-identity.json
 !Assets/Odyssey/Generated/
