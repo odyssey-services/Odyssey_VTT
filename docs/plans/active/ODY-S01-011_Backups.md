@@ -3,7 +3,7 @@
 **Status:** Active
 **Owner:** Codex (agent)
 **Branch:** `feat/ody-s01-011-backups`
-**Pull request:** Not yet opened
+**Pull request:** Draft — [#33](https://github.com/odyssey-services/Odyssey_VTT/pull/33)
 **Last updated:** 2026-08-24 UTC
 
 ## 1. Purpose and user-visible outcome
