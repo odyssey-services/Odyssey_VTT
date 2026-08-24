@@ -1351,6 +1351,78 @@
                           "runner":  "dotnet test",
                           "path":  "DotNet/Tests/Odyssey.Tests.Persistence/MigrationRegistryTests.cs",
                           "check":  "Create() inserts exactly one SchemaHistory row (0001_Initial, Status=Completed, BackupId/FailureCode null) whose FromVersion/ToVersion match the manifest's DatabaseSchemaVersion; Open() does not insert a second row or rewrite the existing one"
+                      },
+                      {
+                          "testCaseId":  "TC-PERSIST-014",
+                          "taskId":  "ODY-S01-011",
+                          "authority":  "ADR-012 section 8; 05_Persistence section 21; ODY-S01-011",
+                          "runner":  "dotnet test",
+                          "path":  "DotNet/Tests/Odyssey.Tests.Persistence/SqliteBackupRepositoryTests.cs",
+                          "check":  "CreateBackup followed by RestoreBackup into a new directory reproduces the campaign's data at backup time; the original working campaign remains untouched and openable afterward"
+                      },
+                      {
+                          "testCaseId":  "TC-PERSIST-015",
+                          "taskId":  "ODY-S01-011",
+                          "authority":  "ADR-012 section 8.4; ODY-S01-011",
+                          "runner":  "dotnet test",
+                          "path":  "DotNet/Tests/Odyssey.Tests.Persistence/SqliteBackupRepositoryTests.cs",
+                          "check":  "the final backup directory contains a campaign.db copy that passes PRAGMA quick_check, produced via the SQLite Backup API (not File.Copy), with no leftover temp directory after a successful backup"
+                      },
+                      {
+                          "testCaseId":  "TC-PERSIST-016",
+                          "taskId":  "ODY-S01-011",
+                          "authority":  "ADR-012 section 8.4/8.8; ODY-S01-011",
+                          "runner":  "dotnet test",
+                          "path":  "DotNet/Tests/Odyssey.Tests.Persistence/SqliteBackupRepositoryTests.cs",
+                          "check":  "a real Process.Kill() mid-copy (BackupKillHarness child process calling the real production SqliteBackupRepository.CreateBackup) never results in an extra promoted Fast-tier backup directory, and the source campaign remains intact and openable"
+                      },
+                      {
+                          "testCaseId":  "TC-PERSIST-017",
+                          "taskId":  "ODY-S01-011",
+                          "authority":  "ADR-012 section 8.5; 05_Persistence section 21.3; ODY-S01-011",
+                          "runner":  "dotnet test",
+                          "path":  "DotNet/Tests/Odyssey.Tests.Persistence/SqliteBackupRepositoryTests.cs",
+                          "check":  "the Fast rotation tier is pruned to its configured retention count as new backups are created, not left to grow unbounded, and pruned backups also lose their BackupRecords audit row"
+                      },
+                      {
+                          "testCaseId":  "TC-PERSIST-018",
+                          "taskId":  "ODY-S01-011",
+                          "authority":  "ADR-012 section 8.5; 05_Persistence section 21.3; ODY-S01-011",
+                          "runner":  "dotnet test",
+                          "path":  "DotNet/Tests/Odyssey.Tests.Persistence/SqliteBackupRepositoryTests.cs",
+                          "check":  "Daily/Weekly tiers promote at most one backup per UTC calendar day / ISO week (a second same-day backup does not create a second Daily promotion), and both tiers are pruned to their configured retention counts"
+                      },
+                      {
+                          "testCaseId":  "TC-PERSIST-019",
+                          "taskId":  "ODY-S01-011",
+                          "authority":  "ADR-012 section 9 (PE-INV-008); roadmap section 10.6 exit criterion 5; ODY-S01-011",
+                          "runner":  "dotnet test",
+                          "path":  "DotNet/Tests/Odyssey.Tests.Persistence/SqliteBackupRepositoryTests.cs",
+                          "check":  "corrupting campaign.db in place is caught by Open()'s quick integrity check (PersistenceIntegrityCheckFailed), while ListBackups/RestoreBackup -- which read backup-manifest.json from disk, not the corrupted database -- still find and successfully restore the last valid backup"
+                      },
+                      {
+                          "testCaseId":  "TC-PERSIST-020",
+                          "taskId":  "ODY-S01-011",
+                          "authority":  "ADR-004; ODY-S01-011",
+                          "runner":  "dotnet test",
+                          "path":  "DotNet/Tests/Odyssey.Tests.Persistence/SqliteBackupRepositoryTests.cs",
+                          "check":  "RestoreBackup with an unknown BackupId returns PersistenceBackupNotFound, not a raw exception"
+                      },
+                      {
+                          "testCaseId":  "TC-PERSIST-021",
+                          "taskId":  "ODY-S01-011",
+                          "authority":  "ADR-004; 05_Persistence restore-into-separate-copy principle; ODY-S01-011",
+                          "runner":  "dotnet test",
+                          "path":  "DotNet/Tests/Odyssey.Tests.Persistence/SqliteBackupRepositoryTests.cs",
+                          "check":  "RestoreBackup into an already-existing, non-empty destination directory returns PersistenceBackupRestoreFailed rather than overwriting it"
+                      },
+                      {
+                          "testCaseId":  "TC-PERSIST-022",
+                          "taskId":  "ODY-S01-011",
+                          "authority":  "ADR-004; ODY-S01-011",
+                          "runner":  "dotnet test",
+                          "path":  "DotNet/Tests/Odyssey.Tests.Persistence/SqliteBackupRepositoryTests.cs",
+                          "check":  "CreateBackup with an empty/invalid reason string returns PersistenceBackupCreateFailed, not a raw exception"
                       }
                   ]
 }

@@ -236,7 +236,13 @@ namespace Odyssey.Persistence.Sqlite
 
         private static SqliteConnection OpenConnectionWithPragmaProfile(string dbPath)
         {
-            var connection = new SqliteConnection("Data Source=" + dbPath);
+            // ODY-S01-011: Pooling=False so a subsequent raw file-level read of
+            // campaign.db (backup, corruption-fixture inspection) right after
+            // Close() never races Microsoft.Data.Sqlite's connection pool holding
+            // the native handle open a little longer than Dispose() -- the same
+            // convention SP-02's harness and the ODY-S01-009/011 kill-test
+            // harnesses already use for exactly this reason.
+            var connection = new SqliteConnection("Data Source=" + dbPath + ";Pooling=False");
             connection.Open();
             using (var pragma = connection.CreateCommand())
             {
@@ -334,9 +340,22 @@ CREATE TABLE IF NOT EXISTS DiagnosticRecords (
 );
 CREATE TABLE IF NOT EXISTS BackupRecords (
     BackupId TEXT PRIMARY KEY,
+    CampaignId TEXT NOT NULL,
     BackupKind TEXT NOT NULL,
+    Reason TEXT NOT NULL,
+    CampaignRevision INTEGER NOT NULL,
+    EventSequence INTEGER NOT NULL,
+    DatabaseSchemaVersion TEXT NOT NULL,
+    CampaignFormatVersion TEXT NOT NULL,
+    RulesetRef TEXT NOT NULL,
     CreatedAt TEXT NOT NULL,
-    RelativePath TEXT NOT NULL
+    CreatedByUserId TEXT,
+    RelativePath TEXT NOT NULL,
+    DatabaseHash TEXT NOT NULL,
+    AssetsManifestHash TEXT,
+    SizeBytes INTEGER NOT NULL,
+    IntegrityStatus TEXT NOT NULL,
+    SourceOperationId TEXT
 );
 CREATE TABLE IF NOT EXISTS MigrationRecords (
     MigrationId TEXT PRIMARY KEY,

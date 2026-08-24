@@ -186,6 +186,28 @@ namespace Odyssey.Domain.Identity
         public static bool operator !=(AssetId left, AssetId right) => !left.Equals(right);
     }
 
+    /// <summary>
+    /// ODY-S01-011 Backups: identifies one BackupRecord (ADR-012 section 8.7).
+    /// </summary>
+    public readonly struct BackupId : IEquatable<BackupId>
+    {
+        private const string Prefix = "bkup_";
+        private const int HexLength = 32;
+        private readonly string _value;
+
+        private BackupId(string value) => _value = value;
+        public bool IsValid => _value != null;
+        public static BackupId NewId(Odyssey.Domain.Time.UtcInstant now) => new BackupId(Prefix + Uuid7.NewHex32(now));
+        public static bool TryParse(string? value, out BackupId id) => CanonicalId.TryParse(value, Prefix, HexLength, out id, static v => new BackupId(v));
+        public static BackupId Parse(string value) => TryParse(value, out BackupId id) ? id : throw new FormatException("BackupId is not canonical.");
+        public override string ToString() => _value ?? string.Empty;
+        public bool Equals(BackupId other) => string.Equals(_value, other._value, StringComparison.Ordinal);
+        public override bool Equals(object? obj) => obj is BackupId other && Equals(other);
+        public override int GetHashCode() => _value == null ? 0 : StringComparer.Ordinal.GetHashCode(_value);
+        public static bool operator ==(BackupId left, BackupId right) => left.Equals(right);
+        public static bool operator !=(BackupId left, BackupId right) => !left.Equals(right);
+    }
+
     public readonly struct AggregateType : IEquatable<AggregateType>
     {
         private readonly string _value;
