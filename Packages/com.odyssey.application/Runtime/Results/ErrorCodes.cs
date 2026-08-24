@@ -16,5 +16,9 @@ namespace Odyssey.Application.Results
         public static readonly ErrorCode SerializationUnsupportedContract = ErrorCode.Parse("application.serialization.unsupported_contract");
         public static readonly ErrorCode SerializationIntegrityMismatch = ErrorCode.Parse("application.serialization.integrity_mismatch");
         public static readonly ErrorCode VersioningInvalidSource = ErrorCode.Parse("application.versioning.invalid_source");
+        public static readonly ErrorCode PersistenceCampaignNotFound = ErrorCode.Parse("persistence.campaign.not_found");
+        public static readonly ErrorCode PersistenceCampaignIoFailed = ErrorCode.Parse("persistence.campaign.io_failed");
+        public static readonly ErrorCode PersistenceManifestInvalid = ErrorCode.Parse("persistence.manifest.invalid");
+        public static readonly ErrorCode PersistenceManifestConflict = ErrorCode.Parse("persistence.manifest.conflict");
     }
 }

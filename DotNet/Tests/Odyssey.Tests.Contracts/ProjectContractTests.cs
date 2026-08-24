@@ -6,11 +6,14 @@ namespace Odyssey.Tests.Contracts
     public sealed class ProjectContractTests
     {
         [Test]
-        public void PersistenceAndNetworkingBridgeProjectsAreNotCreated()
+        public void NetworkingBridgeProjectIsNotCreated()
         {
             string root = FindRepositoryRoot();
 
-            Assert.That(File.Exists(Path.Combine(root, "DotNet", "Projects", "Odyssey.Persistence.csproj")), Is.False);
+            // Odyssey.Persistence.csproj was created by ODY-S01-007 (SLICE-01 Campaign
+            // Storage Foundation), the vertical slice at which ADR-006 section 24
+            // expects it to appear. Odyssey.Networking.csproj remains Stage 3 scope.
+            Assert.That(File.Exists(Path.Combine(root, "DotNet", "Projects", "Odyssey.Persistence.csproj")), Is.True);
             Assert.That(File.Exists(Path.Combine(root, "DotNet", "Projects", "Odyssey.Networking.csproj")), Is.False);
         }
 
