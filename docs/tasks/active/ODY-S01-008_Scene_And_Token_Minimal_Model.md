@@ -5,7 +5,7 @@
 **Owner:** Codex (agent)  
 **Requested by:** Product owner  
 **Branch:** `feat/ody-s01-008-scene-token-minimal-model`  
-**Pull request:** Not yet opened  
+**Pull request:** Draft — [#29](https://github.com/odyssey-services/Odyssey_VTT/pull/29) (open, awaiting owner review; all 4 required CI checks passed)  
 **ExecPlan:** `docs/plans/active/ODY-S01-008_Scene_And_Token_Minimal_Model.md`  
 **Created:** 2026-08-24  
 **Last updated:** 2026-08-24 UTC
@@ -290,12 +290,12 @@ None
 |---|---|---|
 | `dotnet build DotNet/Odyssey.Core.sln` | Passed | 0 warnings, 0 errors. |
 | `dotnet test DotNet/Odyssey.Core.sln` | Passed | 105/105 total (1 Contracts + 1 Domain + 17 Persistence + 84 Unit + 2 Architecture), 0 failed. |
-| `.\scripts\restore.ps1` | Pending | To be recorded before commit. |
-| `.\scripts\verify-format.ps1` | Pending | To be recorded before commit. |
-| `.\scripts\verify-test-structure.ps1` | Pending | To be recorded before commit. |
-| `.\scripts\test-fast.ps1` | Pending | To be recorded before commit. |
-| `.\scripts\check-repository-policy.ps1` | Pending | To be recorded before commit. |
-| `.\scripts\verify-repository.ps1` | Pending | To be recorded before commit. |
+| `.\scripts\restore.ps1` | Passed | All 10 `.csproj` restored, including `Odyssey.Persistence`/`Odyssey.Tests.Persistence`. |
+| `.\scripts\verify-format.ps1` | Passed | `FORMAT-001 PASS`. |
+| `.\scripts\verify-test-structure.ps1` | Passed | `TC-ARCH-001 PASS`, `TC-ARCH-002 PASS` (all four controlled-invalid fixtures). |
+| `.\scripts\test-fast.ps1` | Passed | All five `dotnet test` suites green via the wrapped fast-CI path, 105 total. |
+| `.\scripts\check-repository-policy.ps1` | Passed | `REPO-POLICY-005 PASS` (registry complete, including the three new codes and `TC-PERSIST-005`–`007` references). |
+| `.\scripts\verify-repository.ps1` | Passed | `REPOSITORY-VERIFY PASS repository checks passed`. |
 
 ### Acceptance result
 
@@ -307,9 +307,9 @@ None
 | AC-4 | Passed | `TC-PERSIST-007`. |
 | AC-5 | Passed | `TC-PERSIST-006`/`007` (typed errors, no raw exceptions observed). |
 | AC-6 | Passed | Full `dotnet test` 105/105. |
-| AC-7 | Pending | To be confirmed once all six validation scripts are recorded. |
-| AC-8 | Pending | To be confirmed after diff-scope check. |
-| AC-9 | Pending | To be recorded after Draft PR is opened and CI completes. |
+| AC-7 | Passed | All six required validation scripts passed (see Validation results above). |
+| AC-8 | Passed | `git diff --cached --name-status` against `main` at commit time showed exactly the 11 files in §5's Allowed paths. |
+| AC-9 | Passed | PR #29 opened as Draft; all 4 required CI checks passed (`buildidentity-provenance`, `dotnet-restore-build-test`, `repository-policy-format-structure`, `unity-project-package-static` — https://github.com/odyssey-services/Odyssey_VTT/actions/runs/32731856998); open, awaiting owner review. |
 
 ## 18. Blockers, risks, and open decisions
 
