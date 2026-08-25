@@ -36,5 +36,10 @@ namespace Odyssey.Application.Results
         public static readonly ErrorCode NetworkingTransportSendFailed = ErrorCode.Parse("networking.transport.send_failed");
         public static readonly ErrorCode NetworkingTransportNotConnected = ErrorCode.Parse("networking.transport.not_connected");
         public static readonly ErrorCode NetworkingTransportOperationCancelled = ErrorCode.Parse("networking.transport.operation_cancelled");
+        public static readonly ErrorCode NetworkingSessionJoinCodeInvalid = ErrorCode.Parse("networking.session.join_code_invalid");
+        public static readonly ErrorCode NetworkingSessionCapacityReached = ErrorCode.Parse("networking.session.capacity_reached");
+        public static readonly ErrorCode NetworkingSessionRoleAssignmentDenied = ErrorCode.Parse("networking.session.role_assignment_denied");
+        public static readonly ErrorCode NetworkingSessionMemberNotFound = ErrorCode.Parse("networking.session.member_not_found");
+        public static readonly ErrorCode IdentityDevSlotOutOfRange = ErrorCode.Parse("identity.dev.slot_out_of_range");
     }
 }
