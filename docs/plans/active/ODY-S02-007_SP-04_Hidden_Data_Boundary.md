@@ -3,7 +3,7 @@
 **Status:** Active
 **Owner:** Codex (agent)
 **Branch:** `feat/ody-s02-007-sp-04-hidden-data-boundary`
-**Pull request:** Not opened
+**Pull request:** Draft — [#44](https://github.com/odyssey-services/Odyssey_VTT/pull/44)
 **Last updated:** 2026-08-25 UTC
 
 ## 1. Purpose and user-visible outcome

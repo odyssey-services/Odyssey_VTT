@@ -5,7 +5,7 @@
 **Owner:** Codex (agent)
 **Requested by:** Product owner
 **Branch:** `feat/ody-s02-007-sp-04-hidden-data-boundary`
-**Pull request:** Not opened
+**Pull request:** Draft — [#44](https://github.com/odyssey-services/Odyssey_VTT/pull/44)
 **ExecPlan:** `docs/plans/active/ODY-S02-007_SP-04_Hidden_Data_Boundary.md`
 **Created:** 2026-08-25
 **Last updated:** 2026-08-25 UTC
@@ -292,7 +292,7 @@ dotnet test DotNet/Odyssey.Core.sln
 | AC-7 | Passed | `git status --porcelain` confirms no `ADR-015`–`019` file touched. |
 | AC-8 | Passed | See Validation results table above — all four commands pass. |
 | AC-9 | Passed | `git status --porcelain` shows only files listed in §5's Allowed paths. |
-| AC-10 | Pending | PR not yet opened. |
+| AC-10 | Pending | PR [#44](https://github.com/odyssey-services/Odyssey_VTT/pull/44) opened as Draft; CI status to be confirmed. |
 
 ## 18. Blockers, risks, and open decisions
 
