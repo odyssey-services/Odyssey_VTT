@@ -5,7 +5,7 @@
 **Owner:** Codex (agent)
 **Requested by:** Product owner
 **Branch:** `feat/ody-s02-010-scene-snapshot-and-redacted-projection-delivery`
-**Pull request:** Not yet opened
+**Pull request:** Draft — [#47](https://github.com/odyssey-services/Odyssey_VTT/pull/47)
 **ExecPlan:** `docs/plans/active/ODY-S02-010_Scene_Snapshot_And_Redacted_Projection_Delivery.md`
 **Created:** 2026-08-26
 **Last updated:** 2026-08-26 UTC

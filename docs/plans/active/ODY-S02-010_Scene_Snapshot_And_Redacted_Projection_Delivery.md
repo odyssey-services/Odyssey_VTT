@@ -3,7 +3,7 @@
 **Status:** Active
 **Owner:** Codex (agent)
 **Branch:** `feat/ody-s02-010-scene-snapshot-and-redacted-projection-delivery`
-**Pull request:** Not yet opened
+**Pull request:** Draft — [#47](https://github.com/odyssey-services/Odyssey_VTT/pull/47)
 **Last updated:** 2026-08-26 UTC
 
 ## 1. Purpose and user-visible outcome
@@ -48,8 +48,8 @@ Split along the same `ADR-001` §6.6 boundary `ODY-S02-009` already established:
 ### M3 — Registries, validation, task contract complete
 
 - [x] 3 new `test-catalog.json` entries (`TC-NET-012`–`014`) for the transport-level scenarios.
-- [ ] Full solution build/test green; `verify-format.ps1`/`check-repository-policy.ps1` pass.
-- [ ] Task contract, backlog row, Draft PR.
+- [x] Full solution build/test green; `verify-format.ps1`/`check-repository-policy.ps1` pass.
+- [x] Task contract, backlog row, Draft PR ([#47](https://github.com/odyssey-services/Odyssey_VTT/pull/47)).
 
 ## 6. Progress log
 
