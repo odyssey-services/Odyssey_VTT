@@ -1,6 +1,6 @@
 # Odyssey VTT — SLICE-02 Network Prototype Prerequisites Backlog
 
-**Status:** Prerequisite backlog — Draft, no child task activated
+**Status:** Prerequisite backlog — **CLOSED** (owner-accepted 2026-08-25; see section 2.1). All 7 tasks (`ODY-S02-001`–`007`) are `Done`; all 5 ADRs (`ADR-015`–`019`) are `Accepted`; both spike reports (`SP-03`, `SP-04`) are owner-reviewed and accepted. `SLICE-02_IMPLEMENTATION_BACKLOG.md` (created by `ODY-S02-008`) is the successor revision.
 **Slice:** `SLICE-02 — Network Prototype (prerequisites)`
 **Parent task:** `docs/tasks/active/ODY-S02-000_SLICE_02_Network_Prototype_Prerequisites.md`
 **ExecPlan:** Not required (Brief plan)
@@ -26,6 +26,22 @@ This prerequisite backlog revision is complete only when all of the following ar
 7. `SP-04 — Hidden Data Boundary` spike report is complete and owner-reviewed.
 
 These are **not** the full `SLICE-02` exit criteria (roadmap section 11.7). The full slice exit criteria — including "прototype works over the internet, not just localhost," "host is the sole authority," "duplicate delivery does not repeat the operation," and the other roadmap section 11.7 conditions — apply only once the vertical-slice implementation backlog (a separate future revision, created only after this one closes) is also complete.
+
+## 2.1 Revision status and owner acceptance
+
+All 7 of 7 criteria above are satisfied as of `ODY-S02-007`:
+
+1. `ADR-015` (Transport Abstraction) — `Accepted`.
+2. `ADR-016` (Rendezvous/Relay Strategy) — `Accepted`, with an explicit, normative pre-production-integration empirical gate (`ADR-016` §1 point 9/§14) — see the honesty note below, this is not a plain, unqualified `Accepted`.
+3. `ADR-017` (Snapshot/Delta/Reconnect Model) — `Accepted`.
+4. `ADR-018` (Identity Baseline) — `Accepted`, within the scope decidable without the still-missing `Documentation/18_Account_And_Identity.md` (`ADR-018` §12 lists the genuine open questions that document would resolve).
+5. `ADR-019` (Permissions Baseline) — `Accepted`.
+6. `SP-03 — Internet Connectivity` (`ODY-S02-002`) — report complete, **owner-accepted as-is on a knowingly lower level of empirical confidence than `SP-02`'s**. Of roadmap §11.4's 7-item checklist, only 2½ items were genuinely measured (STUN NAT-traversal, a UDP round-trip reconnect-latency proxy, a real ~150 MB HTTPS transfer); the other 5 (join-by-code against a real relay SaaS, authenticated session establishment, host-without-forwarding from a second real peer's view, host-disconnect behavior, access-descriptor expiry/renewal) are explicitly `NOT_VERIFIED`, root-caused to no linked Unity Gaming Services project and no second real network being available in that spike's environment (`ODY-S02-002_SP-03_Internet_Connectivity_Report.md` §2/§8). The product owner explicitly accepted this report and its recommendation at this stated lower confidence level rather than commissioning a follow-up spike first — recorded normatively in `ADR-016` §1/§2, which itself carries the resulting pre-production-integration gate forward. **This closure line does not claim `SP-03` reached `SP-02`'s level of confirmation — it did not, and the gap is carried forward as a binding condition on future work (`ADR-016` §14), not silently dropped at this closure point.**
+7. `SP-04 — Hidden Data Boundary` (`ODY-S02-007`) — report complete, **owner-accepted, full coverage, no gap found.** All five roadmap §11.5 surfaces (snapshot, delta, runtime state, local cache, diagnostic export) were directly, automatically proven via 8 permanent CI-wired tests over real `InProcessSessionTransport` delivery; `ADR-017`/`ADR-019` were confirmed implementable exactly as described. Unlike `SP-03`, no `NOT_VERIFIED` item exists for this spike.
+
+**Owner acceptance recorded 2026-08-25:** the product owner explicitly accepted all 5 ADRs and both spike reports as-is, including `SP-03`'s explicit lower-confidence disclosure (criterion 6 above) — not overlooked, not glossed over. This closes the `SLICE-02` prerequisite revision. Per this closure task's own scope, it does **not** by itself begin `SLICE-02`'s vertical-slice implementation (roadmap §11.6) — that is `SLICE-02_IMPLEMENTATION_BACKLOG.md`, created by this same task (`ODY-S02-008`) as a separate successor document.
+
+**Carried-forward condition, not closed by this revision:** `ADR-016` §1 point 9/§14's pre-production-integration empirical gate on Unity Relay remains fully in force — no implementation task in the successor backlog may integrate the real Unity Relay SDK until a dedicated follow-up spike (real UGS credentials, two genuinely real peers, two real networks) closes the gaps `SP-03` left open. This prerequisite revision's closure does not resolve that gate; it only confirms the architectural decision (`ADR-016`) that gate attaches to is itself `Accepted`.
 
 ## 3. Ordered backlog
 
