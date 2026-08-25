@@ -1583,6 +1583,30 @@
                           "runner":  "dotnet test",
                           "path":  "DotNet/Tests/Odyssey.Tests.Networking/SessionAdmission/DevIdentityProviderTests.cs",
                           "check":  "DevIdentityProvider.AssignJoiningActor with a slot index outside the fixed dev-identity pool returns the typed identity.dev.slot_out_of_range failure"
+                      },
+                      {
+                          "testCaseId":  "TC-NET-012",
+                          "taskId":  "ODY-S02-010",
+                          "authority":  "ADR-019 section 5.3/6.2; ODY-S02-010",
+                          "runner":  "dotnet test",
+                          "path":  "DotNet/Tests/Odyssey.Tests.Networking/SceneProjection/SceneProjectionTransportTests.cs",
+                          "check":  "A newly admitted Observer's delivered ProjectionSnapshot excludes every HiddenGameplay entity, over real InProcessSessionTransport delivery"
+                      },
+                      {
+                          "testCaseId":  "TC-NET-013",
+                          "taskId":  "ODY-S02-010",
+                          "authority":  "ADR-019 section 5.1; ODY-S02-010",
+                          "runner":  "dotnet test",
+                          "path":  "DotNet/Tests/Odyssey.Tests.Networking/SceneProjection/SceneProjectionTransportTests.cs",
+                          "check":  "MainGM's delivered ProjectionSnapshot contains every scene entity, including HiddenGameplay ones (control case), over real InProcessSessionTransport delivery"
+                      },
+                      {
+                          "testCaseId":  "TC-NET-014",
+                          "taskId":  "ODY-S02-010",
+                          "authority":  "ADR-017 section 4; ODY-S02-010",
+                          "runner":  "dotnet test",
+                          "path":  "DotNet/Tests/Odyssey.Tests.Networking/SceneProjection/SceneProjectionTransportTests.cs",
+                          "check":  "Two ProjectionSnapshot deliveries for the same unchanged scene/audience/sequence numbers carry the same PayloadHash"
                       }
                   ]
 }
