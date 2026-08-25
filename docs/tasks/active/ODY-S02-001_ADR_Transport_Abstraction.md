@@ -270,17 +270,17 @@ No new third-party dependency was introduced by this task; `Odyssey.Networking.c
 ## 16. Definition of Done
 
 - [x] Goal is achieved without unapproved scope expansion.
-- [ ] All acceptance criteria are satisfied.
+- [x] All acceptance criteria are satisfied.
 - [x] Required automated tests pass.
 - [x] Required manual checks are completed.
-- [ ] Required commands and their real results are recorded.
+- [x] Required commands and their real results are recorded.
 - [x] Architecture and dependency rules remain valid.
 - [x] Security, privacy, redaction, and audience rules are verified where applicable.
 - [x] Compatibility, migration, rollback, and versioning obligations are complete where applicable.
 - [x] No unapproved dependency, tool, GitHub Action, or license was introduced.
 - [x] Documentation is updated only where materially required.
-- [ ] Codex/developer performed a self-review against this task and `AGENTS.md`.
-- [ ] Pull request explains changes, evidence, limitations, and follow-up work.
+- [x] Codex/developer performed a self-review against this task and `AGENTS.md`.
+- [x] Pull request explains changes, evidence, limitations, and follow-up work.
 - [ ] Product owner or authorized reviewer completes the required review; Codex does not merge into `main`.
 
 ## 17. Completion evidence
@@ -305,8 +305,8 @@ No new third-party dependency was introduced by this task; `Odyssey.Networking.c
 | `dotnet test Tests/Odyssey.Tests.Networking/Odyssey.Tests.Networking.csproj` | Passed | 14/14, 0 failed. |
 | `.\scripts\verify-format.ps1` | Passed | `FORMAT-001 PASS`. |
 | `.\scripts\check-repository-policy.ps1` | Passed | `REPO-POLICY-005 PASS` (registry complete, including the six new codes and `TC-NET-*` references). |
-| `.\scripts\verify-test-structure.ps1` | Pending | Blocked once on a missing-task-contract reference before this file existed; to be re-run now that this file is written. |
-| `dotnet test DotNet/Odyssey.Core.sln` (full suite) | Pending | To be recorded after `verify-test-structure.ps1` re-run. |
+| `.\scripts\verify-test-structure.ps1` | Passed | `TC-ARCH-001 PASS` (valid ADR-001 graph passes); `TC-ARCH-002 PASS` (all four controlled-invalid fixtures rejected). Re-run after this task contract file was written, resolving the earlier missing-task-contract-reference block. |
+| `dotnet test DotNet/Odyssey.Core.sln` (full suite) | Passed | 147/147, 0 failed, 0 skipped: `Odyssey.Tests.Contracts` 1/1, `Odyssey.Tests.Domain` 1/1, `Odyssey.Tests.Networking` 14/14, `Odyssey.Tests.Unit` 84/84, `Odyssey.Tests.Architecture` 2/2, `Odyssey.Tests.Persistence` 45/45. |
 
 ### Acceptance result
 
@@ -317,10 +317,10 @@ No new third-party dependency was introduced by this task; `Odyssey.Networking.c
 | AC-3 | Passed | `SendReliableAsync`/`DrainReliable`, `SendRealtimeAsync`/`DrainRealtime` both present in v1.0 of the interface. |
 | AC-4 | Passed | `TC-NET-003`, `ConnectAsync_OverlappingRanges_...`/`ConnectAsync_NonOverlappingRanges_...` tests. |
 | AC-5 | Passed | `InProcessSessionTransport.cs`; no `Task.Delay` present (forbidden-API removal documented in ExecPlan §8); `dotnet test` green. |
-| AC-6 | Pending | Full-suite `dotnet test DotNet/Odyssey.Core.sln` not yet re-run after this file's creation. |
-| AC-7 | Pending | `verify-test-structure.ps1` to be re-run now that this task contract exists. |
-| AC-8 | Pending | To be confirmed after diff-scope check. |
-| AC-9 | Pending | PR not yet opened. |
+| AC-6 | Passed | `dotnet test DotNet/Odyssey.Core.sln` — 147/147, 0 failed (see Validation results table above for the per-project breakdown). |
+| AC-7 | Passed | `.\scripts\verify-format.ps1` (`FORMAT-001 PASS`), `.\scripts\check-repository-policy.ps1` (`REPO-POLICY-005 PASS` and all other checks pass), `.\scripts\verify-test-structure.ps1` (`TC-ARCH-001`/`TC-ARCH-002 PASS`) — all three re-run directly against the current branch tip. |
+| AC-8 | Passed | `git diff --name-status main` (implementation commit `a5a6dad`) shows only the 16 files listed in §5's Allowed paths; this point-fix touches only this task contract file (§16/§17), no other path. |
+| AC-9 | Passed | PR [#38](https://github.com/odyssey-services/Odyssey_VTT/pull/38) open as Draft; all 4 required CI checks (`repository-policy-format-structure`, `dotnet-restore-build-test`, `unity-project-package-static`, `buildidentity-provenance`) `SUCCESS` on run [32832666323](https://github.com/odyssey-services/Odyssey_VTT/actions/runs/32832666323), confirmed via `gh pr view 38` before and after this point-fix commit; PR still `isDraft: true`, not moved to Ready. |
 
 ## 18. Blockers, risks, and open decisions
 
