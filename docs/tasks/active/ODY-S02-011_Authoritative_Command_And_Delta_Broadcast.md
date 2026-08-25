@@ -5,7 +5,7 @@
 **Owner:** Codex (agent)
 **Requested by:** Product owner
 **Branch:** `feat/ody-s02-011-authoritative-command-and-delta-broadcast`
-**Pull request:** Not yet opened
+**Pull request:** Draft — [#48](https://github.com/odyssey-services/Odyssey_VTT/pull/48)
 **ExecPlan:** `docs/plans/active/ODY-S02-011_Authoritative_Command_And_Delta_Broadcast.md`
 **Created:** 2026-08-26
 **Last updated:** 2026-08-26 UTC

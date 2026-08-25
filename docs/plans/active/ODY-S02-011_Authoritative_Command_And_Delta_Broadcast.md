@@ -3,7 +3,7 @@
 **Status:** Active
 **Owner:** Codex (agent)
 **Branch:** `feat/ody-s02-011-authoritative-command-and-delta-broadcast`
-**Pull request:** Not yet opened
+**Pull request:** Draft — [#48](https://github.com/odyssey-services/Odyssey_VTT/pull/48)
 **Last updated:** 2026-08-26 UTC
 
 ## 1. Purpose and user-visible outcome
@@ -48,8 +48,8 @@ Do not instantiate `ADR-002`'s `CommandExecutor`/`DomainEventBatch`/`ICommandCom
 ### M3 — Registries, validation, task contract complete
 
 - [x] 3 new `ErrorCode`s registered in `ERROR_CODES.md`/`ErrorCodes.cs`; 6 new `test-catalog.json` entries (`TC-NET-015`–`020`).
-- [ ] Full solution build/test green; `verify-format.ps1`/`check-repository-policy.ps1` pass.
-- [ ] Task contract, backlog row, Draft PR.
+- [x] Full solution build/test green; `verify-format.ps1`/`check-repository-policy.ps1` pass.
+- [x] Task contract, backlog row, Draft PR ([#48](https://github.com/odyssey-services/Odyssey_VTT/pull/48)).
 
 ## 6. Progress log
 
