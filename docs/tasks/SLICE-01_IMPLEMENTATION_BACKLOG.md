@@ -1,12 +1,12 @@
 # Odyssey VTT — SLICE-01 Local Campaign Implementation Backlog
 
-**Status:** Draft — scaffold created, no child task activated
+**Status:** All 8 tasks (`ODY-S01-007`–`014`) merged to `main`; all 8 roadmap §10.6 exit criteria checked with real evidence (see `docs/tasks/active/ODY-S01-014_Traceability_and_Quality_Report.md`). **Technically complete, pending explicit product-owner acceptance** — see section 3.1 below; this backlog is not marked `CLOSED` until that acceptance is recorded.
 **Slice:** `SLICE-01 — Local Campaign (vertical slice implementation)`
 **Parent task:** `docs/tasks/active/ODY-S01-006_SLICE_01_Implementation_Backlog.md`
 **Predecessor backlog:** `docs/tasks/SLICE-01_BACKLOG.md` (prerequisite ADR/spike revision — closed 2026-08-24, historical; not rewritten by this document)
 **ExecPlan:** Not required (Brief plan)
 **Created:** 2026-08-24
-**Last updated:** 2026-08-24 UTC
+**Last updated:** 2026-08-25 UTC
 
 ## 1. Purpose
 
@@ -50,6 +50,12 @@ Roadmap §10.3's "Входит" list names `CampaignId`/`CampaignPublicId` expli
 7. Windows paths не записываются в переносимый формат как обязательная зависимость (Windows paths are not written into the portable format as a mandatory dependency).
 8. Закрыт `GATE-A — Architecture Ready` в части локального хранения (Architecture-Ready gate closed for the local-storage portion).
 
+## 3.1 Revision status
+
+All 8 of 8 criteria above are checked against real, re-run evidence as of `ODY-S01-014` (see `docs/tasks/active/ODY-S01-014_Traceability_and_Quality_Report.md` section 1 for the full per-criterion table, and section 5 for the final checklist). No gap was found.
+
+This revision is **technically complete** — all 8 tasks (`ODY-S01-007`–`014`) are merged to `main`, and all 8 exit criteria are Pass. It is **not yet formally closed**: per `ODY-S01-014`'s own task contract, the explicit product-owner acceptance statement (date, confirmation) is deliberately not written here or in the traceability report — it is added by a separate, small, point-fix commit once the product owner explicitly confirms acceptance, mirroring how `docs/tasks/SLICE-01_BACKLOG.md` section 1 recorded the prerequisite revision's closure only after that confirmation happened. Until that commit lands, this backlog's own header `Status` line above reflects "technically complete, pending acceptance," not `CLOSED`.
+
 ## 4. Ordered backlog
 
 | Order | Task ID | Group | Title | Status | Depends on | Planning mode | Primary result |
@@ -61,7 +67,7 @@ Roadmap §10.3's "Входит" list names `CampaignId`/`CampaignPublicId` expli
 | 5 | `ODY-S01-011` | Backups | Backups | In Review (PR not yet opened) | 009 | ExecPlan | Manual backup, backup at test-session start/end, snapshot creation via SQLite Backup API (`ADR-012` §8), recent/daily/weekly rotation baseline, restore-into-separate-copy flow, a corruption test fixture |
 | 6 | `ODY-S01-012` | Export baseline | Export Baseline | In Review (PR not yet opened) | 007, 011 | ExecPlan | Initial `.odcamp` container export (`ADR-011`), manifest validation on import, import into a new local copy, explicit absence of automatic merge |
 | 7 | `ODY-S01-013` | Integration | Vertical Slice Integration | In Review (PR not yet opened) | 007–012 | Brief plan | The roadmap §10.5 nine-step scenario as an automated, reproducible end-to-end check: create campaign → import one test map → create scene → place two tokens → move them → close application → reopen campaign → verify saved state → restore from backup |
-| 8 | `ODY-S01-014` | Gate | SLICE-01 Acceptance and Closure Gate | Draft | 007–013 | Not yet determined | Traceability matrix, quality report, all eight roadmap §10.6 exit criteria checked with real evidence, owner acceptance — mirrors `ODY-S00-010`'s closure pattern |
+| 8 | `ODY-S01-014` | Gate | SLICE-01 Acceptance and Closure Gate | In Review (PR not yet opened) | 007–013 | Brief plan | Traceability matrix, quality report, all eight roadmap §10.6 exit criteria checked with real evidence, owner acceptance — mirrors `ODY-S00-010`'s closure pattern |
 
 "Planning mode" is intentionally left "Not yet determined" for every child task: each task's own Brief-plan-vs-ExecPlan decision is made when that task's own contract is authored, per `PLANS.md` section 1, not pre-decided by this scaffold — the same convention `SLICE-01_BACKLOG.md` (prerequisites) used.
 
