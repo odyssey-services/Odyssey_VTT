@@ -5,7 +5,7 @@
 **Owner:** Codex (agent)
 **Requested by:** Product owner
 **Branch:** `feat/ody-s02-013-vertical-slice-integration`
-**Pull request:** Not yet opened
+**Pull request:** Draft — [#50](https://github.com/odyssey-services/Odyssey_VTT/pull/50)
 **ExecPlan:** Not required — see section 14 (Brief plan)
 **Created:** 2026-08-26
 **Last updated:** 2026-08-26 UTC
