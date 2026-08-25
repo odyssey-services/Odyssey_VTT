@@ -5,7 +5,7 @@
 **Owner:** Codex (agent)
 **Requested by:** Product owner
 **Branch:** `feat/ody-s02-001-adr-transport-abstraction`
-**Pull request:** Not opened
+**Pull request:** Draft — [#38](https://github.com/odyssey-services/Odyssey_VTT/pull/38)
 **ExecPlan:** `docs/plans/active/ODY-S02-001_ADR_Transport_Abstraction.md`
 **Created:** 2026-08-25
 **Last updated:** 2026-08-25 UTC
