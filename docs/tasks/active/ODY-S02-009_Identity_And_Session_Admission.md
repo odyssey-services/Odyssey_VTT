@@ -277,17 +277,17 @@ No new third-party dependency was introduced; `Newtonsoft.Json` (already referen
 ## 16. Definition of Done
 
 - [x] Goal is achieved without unapproved scope expansion.
-- [ ] All acceptance criteria are satisfied.
+- [x] All acceptance criteria are satisfied.
 - [x] Required automated tests pass.
 - [x] Required manual checks are completed.
-- [ ] Required commands and their real results are recorded.
+- [x] Required commands and their real results are recorded.
 - [x] Architecture and dependency rules remain valid.
 - [x] Security, privacy, redaction, and audience rules are verified where applicable.
 - [x] Compatibility, migration, rollback, and versioning obligations are complete where applicable.
 - [x] No unapproved dependency, tool, GitHub Action, or license was introduced.
 - [x] Documentation is updated only where materially required.
 - [x] Codex/developer performed a self-review against this task and `AGENTS.md`.
-- [ ] Pull request explains changes, evidence, limitations, and follow-up work.
+- [x] Pull request explains changes, evidence, limitations, and follow-up work.
 - [ ] Product owner or authorized reviewer completes the required review; Codex does not merge into `main`.
 
 ## 17. Completion evidence
@@ -327,7 +327,7 @@ No new third-party dependency was introduced; `Newtonsoft.Json` (already referen
 | AC-9 | Passed | `git status --porcelain` confirms no `ADR-015`–`019` file touched. |
 | AC-10 | Passed | See Validation results table above — all four commands pass. |
 | AC-11 | Passed | `git status --porcelain` shows only files listed in §5's Allowed paths. |
-| AC-12 | Pending | PR [#46](https://github.com/odyssey-services/Odyssey_VTT/pull/46) opened as Draft; CI status to be confirmed. |
+| AC-12 | Passed | PR [#46](https://github.com/odyssey-services/Odyssey_VTT/pull/46) (Draft) — CI run [32905105338](https://github.com/odyssey-services/Odyssey_VTT/actions/runs/32905105338) green on all 4 required checks, confirmed via fresh `gh pr view 46 --json state,isDraft,statusCheckRollup`: `repository-policy-format-structure` [SUCCESS](https://github.com/odyssey-services/Odyssey_VTT/actions/runs/32905105338/job/97987341676), `dotnet-restore-build-test` [SUCCESS](https://github.com/odyssey-services/Odyssey_VTT/actions/runs/32905105338/job/97987341781), `unity-project-package-static` [SUCCESS](https://github.com/odyssey-services/Odyssey_VTT/actions/runs/32905105338/job/97987341684), `buildidentity-provenance` [SUCCESS](https://github.com/odyssey-services/Odyssey_VTT/actions/runs/32905105338/job/97987341439). |
 
 ## 18. Blockers, risks, and open decisions
 
