@@ -5,7 +5,7 @@
 **Owner:** Codex (agent)
 **Requested by:** Product owner
 **Branch:** `feat/ody-s02-009-identity-and-session-admission`
-**Pull request:** Not opened
+**Pull request:** Draft — [#46](https://github.com/odyssey-services/Odyssey_VTT/pull/46)
 **ExecPlan:** `docs/plans/active/ODY-S02-009_Identity_And_Session_Admission.md`
 **Created:** 2026-08-26
 **Last updated:** 2026-08-26 UTC
@@ -327,7 +327,7 @@ No new third-party dependency was introduced; `Newtonsoft.Json` (already referen
 | AC-9 | Passed | `git status --porcelain` confirms no `ADR-015`–`019` file touched. |
 | AC-10 | Passed | See Validation results table above — all four commands pass. |
 | AC-11 | Passed | `git status --porcelain` shows only files listed in §5's Allowed paths. |
-| AC-12 | Pending | PR not yet opened. |
+| AC-12 | Pending | PR [#46](https://github.com/odyssey-services/Odyssey_VTT/pull/46) opened as Draft; CI status to be confirmed. |
 
 ## 18. Blockers, risks, and open decisions
 
