@@ -1543,6 +1543,46 @@
                           "runner":  "dotnet test",
                           "path":  "DotNet/Tests/Odyssey.Tests.Networking/InProcessSessionTransportTests.cs",
                           "check":  "ConnectAsync and SendReliableAsync called with an already-cancelled CancellationToken return the typed networking.transport.operation_cancelled failure, never a raw OperationCanceledException"
+                      },
+                      {
+                          "testCaseId":  "TC-NET-007",
+                          "taskId":  "ODY-S02-009",
+                          "authority":  "ADR-004; ADR-019; ODY-S02-009",
+                          "runner":  "dotnet test",
+                          "path":  "DotNet/Tests/Odyssey.Tests.Networking/SessionAdmission/SessionAdmissionServiceTests.cs",
+                          "check":  "TryJoin with a join code whose hash does not match the session directory's JoinCodeHash returns the typed networking.session.join_code_invalid failure, not a raw exception"
+                      },
+                      {
+                          "testCaseId":  "TC-NET-008",
+                          "taskId":  "ODY-S02-009",
+                          "authority":  "06_Networking_and_Session_Sync section 6.4; ODY-S02-009",
+                          "runner":  "dotnet test",
+                          "path":  "DotNet/Tests/Odyssey.Tests.Networking/SessionAdmission/SessionAdmissionServiceTests.cs",
+                          "check":  "TryJoin against a session already at MaxParticipants returns the typed networking.session.capacity_reached failure"
+                      },
+                      {
+                          "testCaseId":  "TC-NET-009",
+                          "taskId":  "ODY-S02-009",
+                          "authority":  "ADR-019 section 5.1/PERM-INV-001; ODY-S02-009",
+                          "runner":  "dotnet test",
+                          "path":  "DotNet/Tests/Odyssey.Tests.Networking/SessionAdmission/SessionAdmissionServiceTests.cs",
+                          "check":  "AssignRole by a non-host requester, and AssignRole targeting MainGM, both return the typed networking.session.role_assignment_denied failure"
+                      },
+                      {
+                          "testCaseId":  "TC-NET-010",
+                          "taskId":  "ODY-S02-009",
+                          "authority":  "ADR-004; ODY-S02-009",
+                          "runner":  "dotnet test",
+                          "path":  "DotNet/Tests/Odyssey.Tests.Networking/SessionAdmission/SessionAdmissionServiceTests.cs",
+                          "check":  "AssignRole targeting a UserId that is not an admitted member returns the typed networking.session.member_not_found failure"
+                      },
+                      {
+                          "testCaseId":  "TC-NET-011",
+                          "taskId":  "ODY-S02-009",
+                          "authority":  "ADR-018 section 5; ODY-S02-009",
+                          "runner":  "dotnet test",
+                          "path":  "DotNet/Tests/Odyssey.Tests.Networking/SessionAdmission/DevIdentityProviderTests.cs",
+                          "check":  "DevIdentityProvider.AssignJoiningActor with a slot index outside the fixed dev-identity pool returns the typed identity.dev.slot_out_of_range failure"
                       }
                   ]
 }
