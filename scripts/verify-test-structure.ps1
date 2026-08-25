@@ -988,20 +988,9 @@ function Test-RepositoryStructure {
 
     # Odyssey.Persistence.csproj was created by ODY-S01-007 (SLICE-01 Campaign
     # Storage Foundation) -- ADR-006 section 24 expects it at this vertical slice.
-    # Odyssey.Networking.csproj remains Stage 3 scope and stays blocked.
-    foreach ($unexpected in @('Odyssey.Networking.csproj')) {
-        $path = Join-Path $RootPath "DotNet/Projects/$unexpected"
-        if (Test-Path -LiteralPath $path) {
-            $errors.Add("Unexpected bridge project exists: $(Get-RelativePath $path).")
-        }
-    }
-
-    foreach ($unexpected in @('Odyssey.Tests.Networking')) {
-        $path = Join-Path $RootPath "DotNet/Tests/$unexpected"
-        if (Test-Path -LiteralPath $path) {
-            $errors.Add("Unexpected test project exists: $(Get-RelativePath $path).")
-        }
-    }
+    # Odyssey.Networking.csproj was created by ODY-S02-001 (SLICE-02 Transport
+    # Abstraction) -- the blocklist that used to guard both is now empty; no
+    # further bridge projects remain deliberately blocked at this point.
 
     foreach ($testProject in $testProjects) {
         $projectPath = Join-Path $RootPath "DotNet/Tests/$testProject/$testProject.csproj"
