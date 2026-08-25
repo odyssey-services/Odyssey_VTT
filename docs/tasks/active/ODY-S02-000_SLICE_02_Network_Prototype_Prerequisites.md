@@ -5,7 +5,7 @@
 **Owner:** Unassigned
 **Requested by:** Product owner
 **Branch:** `feat/ody-s02-000-slice-02-network-prototype-prerequisites`
-**Pull request:** Not opened
+**Pull request:** Draft — [#37](https://github.com/odyssey-services/Odyssey_VTT/pull/37) (open, awaiting owner review)
 **ExecPlan:** Not required
 **Created:** 2026-08-25
 **Last updated:** 2026-08-25 UTC
