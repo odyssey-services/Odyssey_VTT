@@ -5,7 +5,7 @@
 **Owner:** Codex (agent)
 **Requested by:** Product owner
 **Branch:** `feat/ody-s02-008-slice-02-implementation-backlog`
-**Pull request:** Not opened
+**Pull request:** Draft — [#45](https://github.com/odyssey-services/Odyssey_VTT/pull/45)
 **ExecPlan:** Not required (Brief plan)
 **Created:** 2026-08-25
 **Last updated:** 2026-08-25 UTC
@@ -280,7 +280,7 @@ No dependency is introduced by this task.
 | AC-8 | Passed | `git status --porcelain` confirms no `ADR-015`–`019` file touched. |
 | AC-9 | Passed | See Validation results table above — all four commands pass. |
 | AC-10 | Passed | `git status --porcelain` shows only files listed in §5's Allowed paths. |
-| AC-11 | Pending | PR not yet opened. |
+| AC-11 | Pending | PR [#45](https://github.com/odyssey-services/Odyssey_VTT/pull/45) opened as Draft; CI status to be confirmed. |
 
 ## 18. Blockers, risks, and open decisions
 
