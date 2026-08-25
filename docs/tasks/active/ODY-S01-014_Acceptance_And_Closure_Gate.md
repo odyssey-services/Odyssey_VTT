@@ -5,7 +5,7 @@
 **Owner:** Codex (agent)
 **Requested by:** Product owner
 **Branch:** `feat/ody-s01-014-acceptance-closure-gate`
-**Pull request:** Not yet opened
+**Pull request:** Draft — [#36](https://github.com/odyssey-services/Odyssey_VTT/pull/36) (open, awaiting owner review)
 **ExecPlan:** Not required — see section 14 (Brief plan)
 **Created:** 2026-08-25
 **Last updated:** 2026-08-25 UTC
@@ -238,7 +238,7 @@ The task is not complete while any mandatory criterion is unverified, failed, or
 - [x] No unapproved dependency, tool, GitHub Action, or license was introduced.
 - [x] Documentation is updated only where materially required.
 - [x] Codex/developer performed a self-review against this task and `AGENTS.md`.
-- [ ] Pull request explains changes, evidence, limitations, and follow-up work. — pending Draft PR creation.
+- [x] Pull request explains changes, evidence, limitations, and follow-up work. — [PR #36](https://github.com/odyssey-services/Odyssey_VTT/pull/36).
 - [ ] Product owner or authorized reviewer completes the required review; Codex does not merge into `main`. Formal `SLICE-01` acceptance is a separate, explicit product-owner action, recorded by a follow-up point-fix commit, not this task.
 
 ## 17. Completion evidence
