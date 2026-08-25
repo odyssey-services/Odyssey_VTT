@@ -3,7 +3,7 @@
 **Status:** Active
 **Owner:** Codex (agent)
 **Branch:** `feat/ody-s02-005-adr-identity-baseline`
-**Pull request:** Not opened
+**Pull request:** Draft — [#42](https://github.com/odyssey-services/Odyssey_VTT/pull/42)
 **Last updated:** 2026-08-25 UTC
 
 ## 1. Purpose and user-visible outcome

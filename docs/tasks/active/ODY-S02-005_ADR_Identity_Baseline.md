@@ -5,7 +5,7 @@
 **Owner:** Codex (agent)
 **Requested by:** Product owner
 **Branch:** `feat/ody-s02-005-adr-identity-baseline`
-**Pull request:** Not opened
+**Pull request:** Draft — [#42](https://github.com/odyssey-services/Odyssey_VTT/pull/42)
 **ExecPlan:** `docs/plans/active/ODY-S02-005_ADR_Identity_Baseline.md`
 **Created:** 2026-08-25
 **Last updated:** 2026-08-25 UTC
@@ -289,7 +289,7 @@ No dependency is introduced by this task. `ADR-018` names Supabase Auth as a fut
 | AC-8 | Passed | `git status --porcelain` confirms no `ADR-015`/`016`/`017` or `ODY-S02-001`–`004` file touched. |
 | AC-9 | Passed | See Validation results table above — all four commands pass. |
 | AC-10 | Passed | `git diff --name-status` against `main` shows only `ADR-018`, this task contract, its ExecPlan, and the one `SLICE-02_BACKLOG.md` row. |
-| AC-11 | Pending | PR not yet opened. |
+| AC-11 | Pending | PR [#42](https://github.com/odyssey-services/Odyssey_VTT/pull/42) opened as Draft; CI status to be confirmed. |
 
 ## 18. Blockers, risks, and open decisions
 
