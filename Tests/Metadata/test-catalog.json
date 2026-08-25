@@ -1607,6 +1607,54 @@
                           "runner":  "dotnet test",
                           "path":  "DotNet/Tests/Odyssey.Tests.Networking/SceneProjection/SceneProjectionTransportTests.cs",
                           "check":  "Two ProjectionSnapshot deliveries for the same unchanged scene/audience/sequence numbers carry the same PayloadHash"
+                      },
+                      {
+                          "testCaseId":  "TC-NET-015",
+                          "taskId":  "ODY-S02-011",
+                          "authority":  "ADR-019 section 6.1; ODY-S02-011",
+                          "runner":  "dotnet test",
+                          "path":  "DotNet/Tests/Odyssey.Tests.Networking/TokenMove/TokenMoveServiceTests.cs",
+                          "check":  "MoveTokenService.Execute by a Player who is not the entity's assigned actor returns the typed networking.command.token_move_denied failure"
+                      },
+                      {
+                          "testCaseId":  "TC-NET-016",
+                          "taskId":  "ODY-S02-011",
+                          "authority":  "ADR-002 section 10.3; ODY-S02-011",
+                          "runner":  "dotnet test",
+                          "path":  "DotNet/Tests/Odyssey.Tests.Networking/TokenMove/TokenMoveServiceTests.cs",
+                          "check":  "MoveTokenService.Execute against an unknown entity id returns the typed networking.command.token_not_found failure"
+                      },
+                      {
+                          "testCaseId":  "TC-NET-017",
+                          "taskId":  "ODY-S02-011",
+                          "authority":  "ADR-002 section 10.2; ODY-S02-011",
+                          "runner":  "dotnet test",
+                          "path":  "DotNet/Tests/Odyssey.Tests.Networking/TokenMove/TokenMoveServiceTests.cs",
+                          "check":  "MoveTokenService.Execute with a stale ExpectedRevision returns the typed networking.command.token_revision_conflict failure"
+                      },
+                      {
+                          "testCaseId":  "TC-NET-018",
+                          "taskId":  "ODY-S02-011",
+                          "authority":  "17_Roadmap section 11.7 exit criterion 2; ODY-S02-011",
+                          "runner":  "dotnet test",
+                          "path":  "DotNet/Tests/Odyssey.Tests.Networking/TokenMove/TokenMoveTransportTests.cs",
+                          "check":  "A valid move on a Public entity broadcasts a TokenMovedDelta to two independently connected clients (Player and Observer), both converging on the same position and revision, over real InProcessSessionTransport delivery"
+                      },
+                      {
+                          "testCaseId":  "TC-NET-019",
+                          "taskId":  "ODY-S02-011",
+                          "authority":  "ADR-002 section 22.4; ODY-S02-011",
+                          "runner":  "dotnet test",
+                          "path":  "DotNet/Tests/Odyssey.Tests.Networking/TokenMove/TokenMoveTransportTests.cs",
+                          "check":  "An invalid move request (not the requester's own token), submitted over real InProcessSessionTransport, is rejected with a typed failure and triggers no delta broadcast to any connection"
+                      },
+                      {
+                          "testCaseId":  "TC-NET-020",
+                          "taskId":  "ODY-S02-011",
+                          "authority":  "ADR-019 section 6.2/7; ODY-S02-011",
+                          "runner":  "dotnet test",
+                          "path":  "DotNet/Tests/Odyssey.Tests.Networking/TokenMove/TokenMoveTransportTests.cs",
+                          "check":  "A valid move on a HiddenGameplay entity assigned to a Player broadcasts a delta to that Player but not to a connected Observer without visibility of the entity"
                       }
                   ]
 }
