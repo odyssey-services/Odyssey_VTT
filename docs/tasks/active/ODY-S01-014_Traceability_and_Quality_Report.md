@@ -78,6 +78,7 @@ All 8 of 8 `SLICE-01` exit criteria are Pass with real, re-run evidence.
 
 ## 6. Owner acceptance
 
-**Not yet recorded in this document.**
+**Accepted.**
 
-Per this task's own ТЗ instruction (section 10): the formal owner-acceptance statement (date, explicit confirmation) is deliberately not written here. It will be added by a separate, small, point-fix commit after the product owner explicitly confirms acceptance of this report and the parent task contract — the same pattern `ODY-S01-007`'s status-sync fix and `ODY-S00-010`'s section 7 both used, but sequenced here so the acceptance statement is never written ahead of the actual confirmation.
+Date: 2026-08-25
+Decision: Product owner explicitly accepted this report and all 8 `SLICE-01` exit criteria as-is on 2026-08-25. No additional evidence or scope was requested.

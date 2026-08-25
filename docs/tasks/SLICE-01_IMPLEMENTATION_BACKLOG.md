@@ -1,6 +1,6 @@
 # Odyssey VTT — SLICE-01 Local Campaign Implementation Backlog
 
-**Status:** All 8 tasks (`ODY-S01-007`–`014`) merged to `main`; all 8 roadmap §10.6 exit criteria checked with real evidence (see `docs/tasks/active/ODY-S01-014_Traceability_and_Quality_Report.md`). **Technically complete, pending explicit product-owner acceptance** — see section 3.1 below; this backlog is not marked `CLOSED` until that acceptance is recorded.
+**Status:** Implementation revision — **CLOSED** (owner-accepted 2026-08-25; see section 3.1). All 8 tasks (`ODY-S01-007`–`014`) are `Done`; all 8 roadmap §10.6 exit criteria are confirmed with real evidence (`docs/tasks/active/ODY-S01-014_Traceability_and_Quality_Report.md`); `Milestone M2 — Persistent Local Campaign` (roadmap §10.7) is closed. This closure line records the product owner's explicit acceptance of `ODY-S01-014`'s report as-is on 2026-08-25; it takes full effect once `ODY-S01-014`'s own pull request (`#36`) — which carries this very acceptance record — merges to `main`. `ODY-S01-014`'s task contract header states its own merge status precisely; this line is not overclaiming an already-merged state ahead of that.
 **Slice:** `SLICE-01 — Local Campaign (vertical slice implementation)`
 **Parent task:** `docs/tasks/active/ODY-S01-006_SLICE_01_Implementation_Backlog.md`
 **Predecessor backlog:** `docs/tasks/SLICE-01_BACKLOG.md` (prerequisite ADR/spike revision — closed 2026-08-24, historical; not rewritten by this document)
@@ -54,7 +54,9 @@ Roadmap §10.3's "Входит" list names `CampaignId`/`CampaignPublicId` expli
 
 All 8 of 8 criteria above are checked against real, re-run evidence as of `ODY-S01-014` (see `docs/tasks/active/ODY-S01-014_Traceability_and_Quality_Report.md` section 1 for the full per-criterion table, and section 5 for the final checklist). No gap was found.
 
-This revision is **technically complete** — all 8 tasks (`ODY-S01-007`–`014`) are merged to `main`, and all 8 exit criteria are Pass. It is **not yet formally closed**: per `ODY-S01-014`'s own task contract, the explicit product-owner acceptance statement (date, confirmation) is deliberately not written here or in the traceability report — it is added by a separate, small, point-fix commit once the product owner explicitly confirms acceptance, mirroring how `docs/tasks/SLICE-01_BACKLOG.md` section 1 recorded the prerequisite revision's closure only after that confirmation happened. Until that commit lands, this backlog's own header `Status` line above reflects "technically complete, pending acceptance," not `CLOSED`.
+**Owner acceptance recorded 2026-08-25:** the product owner explicitly accepted `ODY-S01-014`'s traceability/quality report and all 8 `SLICE-01` exit criteria as-is, with no additional evidence or scope requested (`ODY-S01-014_Traceability_and_Quality_Report.md` section 6). This closes `SLICE-01`/`Milestone M2 — Persistent Local Campaign` (roadmap §10.7), mirroring how `docs/tasks/SLICE-01_BACKLOG.md` section 1 recorded the prerequisite revision's closure after its own owner-acceptance.
+
+**Sequencing note:** this acceptance record itself ships in `ODY-S01-014`'s own pull request (`#36`), which is `Draft`/`OPEN` at the moment this note was written (confirmed via `gh pr view 36`), not yet merged. The `CLOSED` status above reflects the owner's decision, already made; it takes full practical effect on `main` once PR #36 merges. This is not a claim that PR #36 has already merged — see `ODY-S01-014`'s own task contract header for its precise, independently-verified merge status at any given moment.
 
 ## 4. Ordered backlog
 
