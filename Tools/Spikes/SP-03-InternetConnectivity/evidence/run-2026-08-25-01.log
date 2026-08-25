@@ -1,0 +1,38 @@
+SP03_HARNESS_START utc=2026-08-25T10:34:08.8554818Z
+SP03_HARNESS_SCOPE this run measures real outbound-internet primitives (STUN NAT-traversal, repeated real UDP round trips simulating reconnect, a real large HTTPS payload transfer). It does NOT exercise an authenticated relay/rendezvous SaaS session, a second independent peer, or a second physically distinct network -- see NOT_VERIFIED lines below and README.md.
+
+SCENARIO 1: STUN external-address discovery (roadmap 11.4 'host without manual port forwarding' building block)
+  STUN_RESULT server=stun.l.google.com:19302 ok=True rtt_ms=38.6 external_endpoint=93.209.229.100:54986
+  STUN_RESULT server=stun1.l.google.com:19302 ok=True rtt_ms=20.2 external_endpoint=93.209.229.100:54987
+SCENARIO_1_RESULT PASS=True
+
+SCENARIO 2: repeated real UDP round trips as a reconnect-latency proxy (10 iterations, fresh socket each time)
+  RECONNECT_ITERATION 1/10 ok=True rtt_ms=12.3
+  RECONNECT_ITERATION 2/10 ok=True rtt_ms=12.4
+  RECONNECT_ITERATION 3/10 ok=True rtt_ms=12.1
+  RECONNECT_ITERATION 4/10 ok=True rtt_ms=12.8
+  RECONNECT_ITERATION 5/10 ok=True rtt_ms=12.4
+  RECONNECT_ITERATION 6/10 ok=True rtt_ms=11.0
+  RECONNECT_ITERATION 7/10 ok=True rtt_ms=12.0
+  RECONNECT_ITERATION 8/10 ok=True rtt_ms=12.8
+  RECONNECT_ITERATION 9/10 ok=True rtt_ms=11.3
+  RECONNECT_ITERATION 10/10 ok=True rtt_ms=13.1
+  RECONNECT_STATS count=10 min_ms=11.0 max_ms=13.1 avg_ms=12.2 failures=0
+SCENARIO_2_RESULT PASS=True
+
+SCENARIO 3: real ~150 MB HTTPS transfer on a separate connection, chunked (asset-channel throughput proxy)
+  TRANSFER_CHUNK 1/3 ok=True bytes=52428800 elapsed_ms=2029
+  TRANSFER_CHUNK 2/3 ok=True bytes=52428800 elapsed_ms=1928
+  TRANSFER_CHUNK 3/3 ok=True bytes=52428800 elapsed_ms=1961
+  TRANSFER_RESULT ok=True endpoint=https://speed.cloudflare.com/__down?bytes=52428800 chunks=3 bytes_received=157286400 target_bytes=157286400 elapsed_ms=5919 throughput_mb_per_s=25.34 min_chunk_ms=1928 max_chunk_ms=2029
+SCENARIO_3_RESULT PASS=True
+
+SCENARIO 4: explicit not-verified checklist (roadmap 11.4 items this harness environment could not exercise)
+  NOT_VERIFIED item="join by code/invite metadata against a real relay/rendezvous SaaS" reason="No Unity Gaming Services project is linked to this repository (ProjectSettings.asset 'cloudProjectId' is empty, confirmed by inspection) and provisioning one requires a Unity account/organization decision that is the product owner's to make -- not something this harness creates on its own."
+  NOT_VERIFIED item="authenticated relay session establishment" reason="Same root cause: no live relay/rendezvous SaaS credentials (Unity Relay or any named alternative) are available in this environment."
+  NOT_VERIFIED item="host without manual port forwarding, from a real second peer's point of view" reason="This harness ran a single outbound-only NAT-traversal check (Scenario 1) from one machine; it did not host an inbound-reachable session that a second, independently-networked peer actually joined."
+  NOT_VERIFIED item="host-disconnect behavior observed by a second real peer" reason="Requires two independent real peers connected through the same relay session; not available in this environment (single machine, single outbound network path)."
+  NOT_VERIFIED item="access-descriptor expiry and renewal" reason="No real relay/rendezvous session descriptor was ever issued (see above), so there is nothing whose expiry/renewal could be measured."
+  NOT_VERIFIED item="at least two physically or logically distinct external networks" reason="This harness has exactly one outbound network path available (this machine's own). No second machine, VPN, or cloud instance under this agent's control exists to provide a genuinely distinct second network; provisioning one (e.g. a second cloud VM) is an infrastructure/budget decision for the product owner, not this harness."
+
+SP03_HARNESS_SUMMARY all_measured_scenarios_passed=True total_elapsed_ms=6147
