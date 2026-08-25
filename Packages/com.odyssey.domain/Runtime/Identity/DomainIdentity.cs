@@ -208,6 +208,30 @@ namespace Odyssey.Domain.Identity
         public static bool operator !=(BackupId left, BackupId right) => !left.Equals(right);
     }
 
+    /// <summary>
+    /// ODY-S02-001 Transport Abstraction: identifies one NetworkEnvelope
+    /// (06_Networking_and_Session_Sync section 11.1). Generated fresh by the
+    /// sender at send time, unlike SessionId/UserId which are externally assigned.
+    /// </summary>
+    public readonly struct MessageId : IEquatable<MessageId>
+    {
+        private const string Prefix = "msg_";
+        private const int HexLength = 32;
+        private readonly string _value;
+
+        private MessageId(string value) => _value = value;
+        public bool IsValid => _value != null;
+        public static MessageId NewId(Odyssey.Domain.Time.UtcInstant now) => new MessageId(Prefix + Uuid7.NewHex32(now));
+        public static bool TryParse(string? value, out MessageId id) => CanonicalId.TryParse(value, Prefix, HexLength, out id, static v => new MessageId(v));
+        public static MessageId Parse(string value) => TryParse(value, out MessageId id) ? id : throw new FormatException("MessageId is not canonical.");
+        public override string ToString() => _value ?? string.Empty;
+        public bool Equals(MessageId other) => string.Equals(_value, other._value, StringComparison.Ordinal);
+        public override bool Equals(object? obj) => obj is MessageId other && Equals(other);
+        public override int GetHashCode() => _value == null ? 0 : StringComparer.Ordinal.GetHashCode(_value);
+        public static bool operator ==(MessageId left, MessageId right) => left.Equals(right);
+        public static bool operator !=(MessageId left, MessageId right) => !left.Equals(right);
+    }
+
     public readonly struct AggregateType : IEquatable<AggregateType>
     {
         private readonly string _value;

@@ -1495,6 +1495,54 @@
                           "runner":  "dotnet test",
                           "path":  "DotNet/Tests/Odyssey.Tests.Persistence/VerticalSliceIntegrationTests.cs",
                           "check":  "the roadmap section 10.5 nine-step SLICE-01 scenario (create campaign, import one test map, create a scene, place two tokens, move them, close, reopen, verify saved state, restore from backup) runs end-to-end in one reproducible test using only already-merged ODY-S01-007..012 APIs, with every step asserted"
+                      },
+                      {
+                          "testCaseId":  "TC-NET-001",
+                          "taskId":  "ODY-S02-001",
+                          "authority":  "ADR-004; ADR-015; ODY-S02-001",
+                          "runner":  "dotnet test",
+                          "path":  "DotNet/Tests/Odyssey.Tests.Networking/InProcessSessionTransportTests.cs",
+                          "check":  "NetworkingFailures.ConnectFailed produces a typed TransientInfrastructure/ServiceUnavailable/RetryWithBackoff Error carrying networking.transport.connect_failed"
+                      },
+                      {
+                          "testCaseId":  "TC-NET-002",
+                          "taskId":  "ODY-S02-001",
+                          "authority":  "ADR-004; ADR-015; ODY-S02-001",
+                          "runner":  "dotnet test",
+                          "path":  "DotNet/Tests/Odyssey.Tests.Networking/InProcessSessionTransportTests.cs",
+                          "check":  "NetworkingFailures.ConnectTimedOut produces a typed TransientInfrastructure/OperationTimedOut/RetryWithBackoff Error carrying networking.transport.connect_timed_out"
+                      },
+                      {
+                          "testCaseId":  "TC-NET-003",
+                          "taskId":  "ODY-S02-001",
+                          "authority":  "06_Networking_and_Session_Sync section 10.2/10.3; ADR-015; ODY-S02-001",
+                          "runner":  "dotnet test",
+                          "path":  "DotNet/Tests/Odyssey.Tests.Networking/InProcessSessionTransportTests.cs",
+                          "check":  "ConnectAsync with non-overlapping ProtocolVersionRange values returns the typed networking.protocol.version_unsupported failure (Compatibility category), not a raw exception"
+                      },
+                      {
+                          "testCaseId":  "TC-NET-004",
+                          "taskId":  "ODY-S02-001",
+                          "authority":  "ADR-004; ADR-015; ODY-S02-001",
+                          "runner":  "dotnet test",
+                          "path":  "DotNet/Tests/Odyssey.Tests.Networking/InProcessSessionTransportTests.cs",
+                          "check":  "NetworkingFailures.SendFailed produces a typed TransientInfrastructure/ServiceUnavailable/RetryWithBackoff Error carrying networking.transport.send_failed"
+                      },
+                      {
+                          "testCaseId":  "TC-NET-005",
+                          "taskId":  "ODY-S02-001",
+                          "authority":  "ADR-004; ADR-015; ODY-S02-001",
+                          "runner":  "dotnet test",
+                          "path":  "DotNet/Tests/Odyssey.Tests.Networking/InProcessSessionTransportTests.cs",
+                          "check":  "SendReliableAsync before a successful ConnectAsync, and any send after Disconnect, both return the typed networking.transport.not_connected failure, not a raw exception"
+                      },
+                      {
+                          "testCaseId":  "TC-NET-006",
+                          "taskId":  "ODY-S02-001",
+                          "authority":  "ADR-004; ADR-015; ODY-S02-001",
+                          "runner":  "dotnet test",
+                          "path":  "DotNet/Tests/Odyssey.Tests.Networking/InProcessSessionTransportTests.cs",
+                          "check":  "ConnectAsync and SendReliableAsync called with an already-cancelled CancellationToken return the typed networking.transport.operation_cancelled failure, never a raw OperationCanceledException"
                       }
                   ]
 }
