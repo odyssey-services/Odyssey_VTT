@@ -41,5 +41,8 @@ namespace Odyssey.Application.Results
         public static readonly ErrorCode NetworkingSessionRoleAssignmentDenied = ErrorCode.Parse("networking.session.role_assignment_denied");
         public static readonly ErrorCode NetworkingSessionMemberNotFound = ErrorCode.Parse("networking.session.member_not_found");
         public static readonly ErrorCode IdentityDevSlotOutOfRange = ErrorCode.Parse("identity.dev.slot_out_of_range");
+        public static readonly ErrorCode NetworkingCommandTokenNotFound = ErrorCode.Parse("networking.command.token_not_found");
+        public static readonly ErrorCode NetworkingCommandTokenMoveDenied = ErrorCode.Parse("networking.command.token_move_denied");
+        public static readonly ErrorCode NetworkingCommandTokenRevisionConflict = ErrorCode.Parse("networking.command.token_revision_conflict");
     }
 }
