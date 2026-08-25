@@ -5,7 +5,7 @@
 **Owner:** Codex (agent)
 **Requested by:** Product owner
 **Branch:** `feat/ody-s02-006-adr-permissions-baseline`
-**Pull request:** Not opened
+**Pull request:** Draft — [#43](https://github.com/odyssey-services/Odyssey_VTT/pull/43)
 **ExecPlan:** `docs/plans/active/ODY-S02-006_ADR_Permissions_Baseline.md`
 **Created:** 2026-08-25
 **Last updated:** 2026-08-25 UTC
@@ -289,7 +289,7 @@ No dependency is introduced by this task.
 | AC-8 | Passed | `git status --porcelain` confirms no `ADR-015`–`018` or `ODY-S02-001`–`005` file touched. |
 | AC-9 | Passed | See Validation results table above — all four commands pass. |
 | AC-10 | Passed | `git diff --name-status` against `main` shows only `ADR-019`, this task contract, its ExecPlan, and the one `SLICE-02_BACKLOG.md` row. |
-| AC-11 | Pending | PR not yet opened. |
+| AC-11 | Pending | PR [#43](https://github.com/odyssey-services/Odyssey_VTT/pull/43) opened as Draft; CI status to be confirmed. |
 
 ## 18. Blockers, risks, and open decisions
 
