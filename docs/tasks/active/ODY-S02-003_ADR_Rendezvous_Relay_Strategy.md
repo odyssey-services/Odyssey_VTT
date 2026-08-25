@@ -5,7 +5,7 @@
 **Owner:** Codex (agent)
 **Requested by:** Product owner
 **Branch:** `feat/ody-s02-003-adr-rendezvous-relay-strategy` (branched from `ODY-S02-002`'s still-open `feat/ody-s02-002-sp-03-internet-connectivity`, per this task's own preflight fallback instruction — PR #39 was not yet merged at task start)
-**Pull request:** Not opened
+**Pull request:** Draft — [#40](https://github.com/odyssey-services/Odyssey_VTT/pull/40) (stacked on `ODY-S02-002`'s still-open [#39](https://github.com/odyssey-services/Odyssey_VTT/pull/39) until it merges)
 **ExecPlan:** `docs/plans/active/ODY-S02-003_ADR_Rendezvous_Relay_Strategy.md`
 **Created:** 2026-08-25
 **Last updated:** 2026-08-25 UTC
@@ -278,7 +278,7 @@ No dependency is introduced by this task. `ADR-016` names Unity Relay as a futur
 | AC-7 | Passed | `git status --porcelain` confirms no `ADR-015` or `ODY-S02-001`/`002` file touched. |
 | AC-8 | Passed | See Validation results table above — all four commands pass. |
 | AC-9 | Passed | `git diff --name-status` against this task's own base shows only `ADR-016`, this task contract, its ExecPlan, and the one `SLICE-02_BACKLOG.md` row. |
-| AC-10 | Pending | PR not yet opened. |
+| AC-10 | Pending | PR [#40](https://github.com/odyssey-services/Odyssey_VTT/pull/40) opened as Draft; CI status to be confirmed. |
 
 ## 18. Blockers, risks, and open decisions
 
