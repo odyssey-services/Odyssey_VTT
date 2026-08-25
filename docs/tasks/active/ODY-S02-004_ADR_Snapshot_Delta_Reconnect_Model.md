@@ -5,7 +5,7 @@
 **Owner:** Codex (agent)
 **Requested by:** Product owner
 **Branch:** `feat/ody-s02-004-adr-snapshot-delta-reconnect-model`
-**Pull request:** Not opened
+**Pull request:** Draft — [#41](https://github.com/odyssey-services/Odyssey_VTT/pull/41)
 **ExecPlan:** `docs/plans/active/ODY-S02-004_ADR_Snapshot_Delta_Reconnect_Model.md`
 **Created:** 2026-08-25
 **Last updated:** 2026-08-25 UTC
@@ -284,7 +284,7 @@ No dependency is introduced by this task.
 | AC-7 | Passed | `git status --porcelain` confirms no `ADR-015`/`016` or `ODY-S02-001`/`002`/`003` file touched. |
 | AC-8 | Passed | See Validation results table above — all four commands pass. |
 | AC-9 | Passed | `git diff --name-status` against `main` shows only `ADR-017`, this task contract, its ExecPlan, and the one `SLICE-02_BACKLOG.md` row. |
-| AC-10 | Pending | PR not yet opened. |
+| AC-10 | Pending | PR [#41](https://github.com/odyssey-services/Odyssey_VTT/pull/41) opened as Draft; CI status to be confirmed. |
 
 ## 18. Blockers, risks, and open decisions
 
