@@ -1655,6 +1655,38 @@
                           "runner":  "dotnet test",
                           "path":  "DotNet/Tests/Odyssey.Tests.Networking/TokenMove/TokenMoveTransportTests.cs",
                           "check":  "A valid move on a HiddenGameplay entity assigned to a Player broadcasts a delta to that Player but not to a connected Observer without visibility of the entity"
+                      },
+                      {
+                          "testCaseId":  "TC-NET-021",
+                          "taskId":  "ODY-S02-012",
+                          "authority":  "ADR-017 section 8/9 steps 6-7; ODY-S02-012",
+                          "runner":  "dotnet test",
+                          "path":  "DotNet/Tests/Odyssey.Tests.Networking/Reconnect/ReconnectTransportTests.cs",
+                          "check":  "A reconnecting client whose missed range is still fully held by the session delta buffer receives only the missing buffered deltas, never a full ProjectionSnapshot"
+                      },
+                      {
+                          "testCaseId":  "TC-NET-022",
+                          "taskId":  "ODY-S02-012",
+                          "authority":  "ADR-017 section 8/9 steps 6-7; ODY-S02-012",
+                          "runner":  "dotnet test",
+                          "path":  "DotNet/Tests/Odyssey.Tests.Networking/Reconnect/ReconnectTransportTests.cs",
+                          "check":  "A reconnecting client whose missed range has been partially evicted from the session delta buffer receives a full, freshly-redacted ProjectionSnapshot, never partial buffered deltas"
+                      },
+                      {
+                          "testCaseId":  "TC-NET-023",
+                          "taskId":  "ODY-S02-012",
+                          "authority":  "ADR-017 section 6; ODY-S02-012",
+                          "runner":  "dotnet test",
+                          "path":  "DotNet/Tests/Odyssey.Tests.Networking/Reconnect/ReconnectTransportTests.cs",
+                          "check":  "A buffered delta redelivered a second time over real InProcessSessionTransport (simulating an at-least-once retry) arrives on the wire both times, but ClientProjectionState applies it only once, by BufferSequence"
+                      },
+                      {
+                          "testCaseId":  "TC-NET-024",
+                          "taskId":  "ODY-S02-012",
+                          "authority":  "ADR-017 section 1 point 8; ODY-S02-012",
+                          "runner":  "dotnet test",
+                          "path":  "DotNet/Tests/Odyssey.Tests.Networking/Reconnect/ReconnectTransportTests.cs",
+                          "check":  "A Player downgraded to Observer while disconnected does not receive a buffered catch-up delta for a HiddenGameplay entity on reconnect, even though the entry is still within the delta buffer -- redaction is recomputed from current, not saved, permissions"
                       }
                   ]
 }
