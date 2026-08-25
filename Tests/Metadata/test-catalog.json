@@ -1487,6 +1487,14 @@
                           "runner":  "dotnet test",
                           "path":  "DotNet/Tests/Odyssey.Tests.Persistence/SqliteExportRepositoryTests.cs",
                           "check":  "ExportCampaign refuses to overwrite an already-existing destination .odcamp path, returning PersistenceExportCreateFailed and leaving the pre-existing file byte-for-byte unchanged"
+                      },
+                      {
+                          "testCaseId":  "TC-PERSIST-031",
+                          "taskId":  "ODY-S01-013",
+                          "authority":  "17_Roadmap_Odyssey_VTT_v0.11.md section 10.5; ODY-S01-013",
+                          "runner":  "dotnet test",
+                          "path":  "DotNet/Tests/Odyssey.Tests.Persistence/VerticalSliceIntegrationTests.cs",
+                          "check":  "the roadmap section 10.5 nine-step SLICE-01 scenario (create campaign, import one test map, create a scene, place two tokens, move them, close, reopen, verify saved state, restore from backup) runs end-to-end in one reproducible test using only already-merged ODY-S01-007..012 APIs, with every step asserted"
                       }
                   ]
 }
