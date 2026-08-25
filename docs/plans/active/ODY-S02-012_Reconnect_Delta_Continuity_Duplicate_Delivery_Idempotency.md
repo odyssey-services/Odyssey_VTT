@@ -3,7 +3,7 @@
 **Status:** Active
 **Owner:** Codex (agent)
 **Branch:** `feat/ody-s02-012-reconnect-delta-continuity-duplicate-delivery-idempotency`
-**Pull request:** Not yet opened
+**Pull request:** Draft — [#49](https://github.com/odyssey-services/Odyssey_VTT/pull/49)
 **Last updated:** 2026-08-26 UTC
 
 ## 1. Purpose and user-visible outcome
@@ -46,8 +46,8 @@ Introduce a session-wide, bounded `SessionDeltaBuffer` (host-side, one per sessi
 ### M3 — Registries, validation, task contract complete
 
 - [x] 4 new `test-catalog.json` entries (`TC-NET-021`–`024`).
-- [ ] Full solution build/test green; `verify-format.ps1`/`check-repository-policy.ps1` pass.
-- [ ] Task contract, backlog row, Draft PR.
+- [x] Full solution build/test green; `verify-format.ps1`/`check-repository-policy.ps1` pass.
+- [x] Task contract, backlog row, Draft PR ([#49](https://github.com/odyssey-services/Odyssey_VTT/pull/49)).
 
 ## 6. Progress log
 

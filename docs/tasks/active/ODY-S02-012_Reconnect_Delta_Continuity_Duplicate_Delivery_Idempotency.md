@@ -5,7 +5,7 @@
 **Owner:** Codex (agent)
 **Requested by:** Product owner
 **Branch:** `feat/ody-s02-012-reconnect-delta-continuity-duplicate-delivery-idempotency`
-**Pull request:** Not yet opened
+**Pull request:** Draft — [#49](https://github.com/odyssey-services/Odyssey_VTT/pull/49)
 **ExecPlan:** `docs/plans/active/ODY-S02-012_Reconnect_Delta_Continuity_Duplicate_Delivery_Idempotency.md`
 **Created:** 2026-08-26
 **Last updated:** 2026-08-26 UTC
