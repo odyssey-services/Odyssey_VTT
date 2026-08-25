@@ -5,7 +5,7 @@
 **Owner:** Codex (agent)
 **Requested by:** Product owner
 **Branch:** `feat/ody-s02-002-sp-03-internet-connectivity`
-**Pull request:** Not opened
+**Pull request:** Draft — [#39](https://github.com/odyssey-services/Odyssey_VTT/pull/39)
 **ExecPlan:** Not required (Brief plan) — no ExecPlan file was created for this task (see §14).
 **Created:** 2026-08-25
 **Last updated:** 2026-08-25 UTC
@@ -292,7 +292,7 @@ No new third-party package dependency was introduced; the harness uses only BCL 
 | AC-6 | Passed | `ADR-015` file untouched by this task's diff (see diff-scope check). |
 | AC-7 | Passed | See Validation results table above — all four commands pass. |
 | AC-8 | Passed | `git status --porcelain` shows only `Tools/Spikes/SP-03-InternetConnectivity/**`, this task contract, its report, and `SLICE-02_BACKLOG.md` — exactly §5's Allowed paths. |
-| AC-9 | Pending | PR not yet opened. |
+| AC-9 | Pending | PR [#39](https://github.com/odyssey-services/Odyssey_VTT/pull/39) opened as Draft; CI status to be confirmed. |
 
 ## 18. Blockers, risks, and open decisions
 
