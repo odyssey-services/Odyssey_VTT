@@ -268,7 +268,15 @@ See `docs/tasks/active/ODY-S02-015_Traceability_and_Quality_Report.md` section 3
 | `.\scripts\check-repository-policy.ps1` | Passed |
 | `.\scripts\verify-repository.ps1` | Passed |
 
-PR [#51](https://github.com/odyssey-services/Odyssey_VTT/pull/51) (Draft) — CI run [32914750441](https://github.com/odyssey-services/Odyssey_VTT/actions/runs/32914750441) green on all 4 required checks, confirmed via fresh `gh pr view 51 --json state,isDraft,statusCheckRollup`: `repository-policy-format-structure` [SUCCESS](https://github.com/odyssey-services/Odyssey_VTT/actions/runs/32914750441/job/98016018512), `dotnet-restore-build-test` [SUCCESS](https://github.com/odyssey-services/Odyssey_VTT/actions/runs/32914750441/job/98016018650), `unity-project-package-static` [SUCCESS](https://github.com/odyssey-services/Odyssey_VTT/actions/runs/32914750441/job/98016018640), `buildidentity-provenance` [SUCCESS](https://github.com/odyssey-services/Odyssey_VTT/actions/runs/32914750441/job/98016018693).
+**PR #51 history and final merged state** (`ODY-S02-016` point-fix, confirmed via `gh pr view 51 --json state,mergedAt,mergeCommit,commits,statusCheckRollup`): PR #51 carried 3 commits — `01c0bdf` (implementation), `320d64f` (record Draft PR link), and `9b3364f` (record CI evidence, the final commit before merge). `9b3364f`'s own commit message cites CI run [32914750441](https://github.com/odyssey-services/Odyssey_VTT/actions/runs/32914750441) — that run was triggered by the *preceding* commit (`320d64f`), correctly green at the time it was cited, but it is not the run for the actual final commit. Pushing `9b3364f` itself triggered a further CI run, [32914958396](https://github.com/odyssey-services/Odyssey_VTT/actions/runs/32914958396), which is the run GitHub associates with the PR's true final state — confirmed green on all 4 required checks by a fresh `gh pr view 51` call performed for this point-fix: `repository-policy-format-structure` [SUCCESS](https://github.com/odyssey-services/Odyssey_VTT/actions/runs/32914958396/job/98016638870), `dotnet-restore-build-test` [SUCCESS](https://github.com/odyssey-services/Odyssey_VTT/actions/runs/32914958396/job/98016638848), `unity-project-package-static` [SUCCESS](https://github.com/odyssey-services/Odyssey_VTT/actions/runs/32914958396/job/98016638904), `buildidentity-provenance` [SUCCESS](https://github.com/odyssey-services/Odyssey_VTT/actions/runs/32914958396/job/98016638748). PR #51 merged as commit [`1f3d7c8`](https://github.com/odyssey-services/Odyssey_VTT/commit/1f3d7c8) at `2026-08-26T00:36:28Z` (`state: MERGED`).
+
+Real `git diff --name-status` for the actual final pre-merge commit against the branch point (`ed7e483..9b3364f`):
+
+```text
+M	docs/tasks/SLICE-02_IMPLEMENTATION_BACKLOG.md
+A	docs/tasks/active/ODY-S02-015_SLICE_02_Acceptance_And_Closure_Gate.md
+A	docs/tasks/active/ODY-S02-015_Traceability_and_Quality_Report.md
+```
 
 ### Acceptance result
 
