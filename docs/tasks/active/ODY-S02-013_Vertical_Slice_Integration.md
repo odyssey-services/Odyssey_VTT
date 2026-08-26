@@ -283,7 +283,7 @@ dotnet test DotNet/Odyssey.Core.sln
 | AC-7 | Passed | Step 10 assertions: exactly 1 catch-up delta, 0 snapshots, revision/position match `moveState.MutableState`'s authoritative current state. |
 | AC-8 | Passed | `git diff --name-status` (section 17 below) shows zero files under `Packages/`. |
 | AC-9 | Passed | Section 18 documents both frictions found; neither blocked the scenario, both are reported, neither triggered an improvised fix. |
-| AC-10 | Passed | See Validation results above. |
+| AC-10 | Passed | See Validation results above; additionally, PR [#50](https://github.com/odyssey-services/Odyssey_VTT/pull/50) (Draft) — CI run [32913081185](https://github.com/odyssey-services/Odyssey_VTT/actions/runs/32913081185) green on all 4 required checks, confirmed via fresh `gh pr view 50 --json state,isDraft,statusCheckRollup`: `repository-policy-format-structure` [SUCCESS](https://github.com/odyssey-services/Odyssey_VTT/actions/runs/32913081185/job/98010985630), `dotnet-restore-build-test` [SUCCESS](https://github.com/odyssey-services/Odyssey_VTT/actions/runs/32913081185/job/98010985614), `unity-project-package-static` [SUCCESS](https://github.com/odyssey-services/Odyssey_VTT/actions/runs/32913081185/job/98010985430), `buildidentity-provenance` [SUCCESS](https://github.com/odyssey-services/Odyssey_VTT/actions/runs/32913081185/job/98010985569). |
 
 ### Build and artifact evidence
 
