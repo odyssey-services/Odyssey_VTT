@@ -1,11 +1,11 @@
 # ODY-S02-015 — SLICE-02 Acceptance and Closure Gate
 
-**Status:** In Review
+**Status:** Done — product owner explicitly accepted this report and the honest 8-of-9 `SLICE-02` closure result on 2026-08-26 (criterion 1 remains `Blocked` pending a separate decision on the `ADR-016` §14 follow-up spike); see `ODY-S02-015_Traceability_and_Quality_Report.md` section 6.
 **Roadmap stage / slice:** SLICE-02 (implementation)
 **Owner:** Codex (agent)
 **Requested by:** Product owner
 **Branch:** `feat/ody-s02-015-acceptance-and-closure-gate`
-**Pull request:** Draft — [#51](https://github.com/odyssey-services/Odyssey_VTT/pull/51)
+**Pull request:** Merged — [#51](https://github.com/odyssey-services/Odyssey_VTT/pull/51) (implementation; point-fix [#52](https://github.com/odyssey-services/Odyssey_VTT/pull/52) for backlog-status/CI-evidence sync also merged)
 **ExecPlan:** Not required — see section 14 (Brief plan)
 **Created:** 2026-08-26
 **Last updated:** 2026-08-26 UTC
@@ -245,7 +245,7 @@ dotnet test
 - [x] Documentation is updated only where materially required.
 - [x] Codex/developer performed a self-review against this task and `AGENTS.md`.
 - [ ] Pull request explains changes, evidence, limitations, and follow-up work.
-- [ ] Product owner or authorized reviewer completes the required review; Codex does not merge into `main`. Formal `SLICE-02` acceptance (partial, 8 of 9 criteria) is a separate, explicit product-owner action, recorded by a follow-up point-fix commit, not this task.
+- [x] Product owner or authorized reviewer completes the required review; Codex does not merge into `main`. Formal `SLICE-02` acceptance (partial, 8 of 9 criteria) was a separate, explicit product-owner action, given in conversation and recorded here by the `ODY-S02-017` point-fix commit — see the "Owner acceptance" subsection above.
 
 ## 17. Completion evidence
 
@@ -298,16 +298,21 @@ A	docs/tasks/active/ODY-S02-015_Traceability_and_Quality_Report.md
 - Checksums: Not applicable.
 - Test or quality report: `docs/tasks/active/ODY-S02-015_Traceability_and_Quality_Report.md`.
 
+### Owner acceptance
+
+**Accepted.**
+
+Date: 2026-08-26
+Decision: Product owner explicitly accepted this report and the honest 8-of-9 `SLICE-02` closure result on 2026-08-26 — 8 of 9 roadmap §11.7 exit criteria confirmed with real, re-run evidence; criterion 1 ("работает через интернет, а не только localhost") remains `Blocked` pending a separate product-owner decision on the `ADR-016` §14 follow-up spike, not resolved or started by this acceptance. Recorded here by a small, point-fix commit (`ODY-S02-017`) after the product owner confirmed acceptance in conversation, per the `ODY-S01-014` precedent. No additional evidence or scope was requested. This statement matches `ODY-S02-015_Traceability_and_Quality_Report.md` section 6 verbatim in substance.
+
 ### Known limitations
 
-- Criterion 1 remains unmet — by design, not an oversight; recorded honestly, not worked around.
+- Criterion 1 remains unmet — by design, not an oversight; recorded honestly, not worked around. Owner acceptance of the 8-of-9 result does not resolve criterion 1 itself.
 - No Unity Play Mode / real-network re-verification performed (see traceability report section 4).
-- Owner acceptance is explicitly not recorded yet — this is by design per this task's own ТЗ, not an omission.
 
 ### Follow-up tasks
 
-- A small, point-fix commit recording the product owner's explicit `SLICE-02` acceptance (of the honest 8-of-9 state) once given — analogous to `ODY-S01-014`'s own follow-up, sequenced separately here per this task's explicit instruction.
-- `ODY-S02-014` (Real Transport Integration) remains `Blocked` pending the product owner's separate decision to commission the `ADR-016` §14 follow-up spike — not started, not requested, by this task.
+- `ODY-S02-014` (Real Transport Integration) remains `Blocked` pending the product owner's separate decision to commission the `ADR-016` §14 follow-up spike — not started, not requested, by this task or by the owner-acceptance recorded above.
 
 ### Self-review summary
 

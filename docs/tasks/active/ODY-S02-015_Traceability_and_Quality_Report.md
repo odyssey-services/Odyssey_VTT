@@ -81,8 +81,7 @@ No finding, no drift, and no rehearsal failure occurred during this run.
 
 ## 6. Owner acceptance
 
-**Pending.**
+**Accepted.**
 
-Per this task's own explicit instruction, the formal owner-acceptance statement (date, explicit confirmation) is deliberately not written here — it is added by a separate, small, point-fix commit only after the product owner explicitly confirms acceptance of this report and its honest 8-of-9 status, the same sequencing `ODY-S01-014` used for `SLICE-01`.
-
-Any decision about commissioning the `ADR-016` section 14 follow-up spike (which would unblock criterion 1 and `ODY-S02-014`) is the product owner's to make separately — this task does not request it, start it, or assume an answer.
+Date: 2026-08-26
+Decision: Product owner explicitly accepted this report and the honest 8-of-9 `SLICE-02` closure result on 2026-08-26. No additional evidence or scope was requested. Criterion 1 ("Сетевой прототип работает через интернет, а не только localhost") remains `Blocked` pending a separate product-owner decision on the `ADR-016` section 14 follow-up spike — this acceptance does not resolve criterion 1, start `ODY-S02-014`, or commission the spike; that remains the product owner's decision to make separately, whenever they choose. Recorded by the `ODY-S02-017` point-fix commit after the product owner confirmed acceptance in conversation, the same sequencing `ODY-S01-014` used for `SLICE-01`.
