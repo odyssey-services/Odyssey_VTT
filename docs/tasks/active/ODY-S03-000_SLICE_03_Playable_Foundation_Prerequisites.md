@@ -5,7 +5,7 @@
 **Owner:** Unassigned
 **Requested by:** Product owner
 **Branch:** `feat/ody-s03-000-slice-03-playable-foundation-prerequisites`
-**Pull request:** Not opened
+**Pull request:** Draft — [#54](https://github.com/odyssey-services/Odyssey_VTT/pull/54) (open, awaiting owner review)
 **ExecPlan:** Not required
 **Created:** 2026-08-26
 **Last updated:** 2026-08-26 UTC
