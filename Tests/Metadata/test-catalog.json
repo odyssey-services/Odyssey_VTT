@@ -1687,6 +1687,14 @@
                           "runner":  "dotnet test",
                           "path":  "DotNet/Tests/Odyssey.Tests.Networking/Reconnect/ReconnectTransportTests.cs",
                           "check":  "A Player downgraded to Observer while disconnected does not receive a buffered catch-up delta for a HiddenGameplay entity on reconnect, even though the entry is still within the delta buffer -- redaction is recomputed from current, not saved, permissions"
+                      },
+                      {
+                          "testCaseId":  "TC-NET-025",
+                          "taskId":  "ODY-S02-013",
+                          "authority":  "17_Roadmap section 11.6 (all ten steps); ODY-S02-013",
+                          "runner":  "dotnet test",
+                          "path":  "DotNet/Tests/Odyssey.Tests.Networking/Integration/VerticalSliceIntegrationTests.cs",
+                          "check":  "Roadmap 11.6's full ten-step vertical slice (host starts session -> player joins by code -> role assigned -> scene delivered redacted -> token moved -> host validates -> two clients converge -> player disconnects -> reconnects -> resumes via catch-up without replaying the original command) runs end-to-end over real InProcessSessionTransport, composing ODY-S02-009 through 012's already-merged public APIs with no new production code"
                       }
                   ]
 }
