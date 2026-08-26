@@ -1,6 +1,6 @@
 # Odyssey VTT — SLICE-02 First Network Implementation Backlog
 
-**Status:** Implementation revision — Draft, no child task activated
+**Status:** Implementation revision — `ODY-S02-009`–`013` `Done`/merged; 8 of 9 roadmap §11.7 exit criteria confirmed with real, re-run evidence (`docs/tasks/active/ODY-S02-015_Traceability_and_Quality_Report.md`). Criterion 1 ("сетевой прототип работает через интернет, а не только localhost") remains honestly **Blocked** behind `ADR-016` §14's empirical follow-up-spike gate, which the product owner has not commissioned as part of this revision — an expected, pre-documented outcome (section 2.1), not a defect. This revision is **not** closed while criterion 1 is unmet; `ODY-S02-014` stays `Blocked`. `ODY-S02-015`'s own report is pending explicit product-owner acceptance (see its task contract).
 **Slice:** `SLICE-02 — First Network (vertical slice implementation)`
 **Parent task:** `docs/tasks/active/ODY-S02-008_SLICE_02_Implementation_Backlog.md`
 **Predecessor backlog:** `docs/tasks/SLICE-02_BACKLOG.md` (prerequisite ADR/spike revision — closed 2026-08-25, historical; not rewritten by this document)
@@ -58,6 +58,8 @@ The `SP-04` hidden-data-boundary harness (`DotNet/Tests/Odyssey.Tests.Networking
 
 Criteria 6 and 9 are already met as of this backlog's creation (inherited from the closed prerequisite revision); criterion 1 is structurally gated (section 2.1) and may remain unmet at this revision's closure if the `ADR-016` §14 spike has not been commissioned by then — that is an honest, expected possible outcome, not a defect of this backlog's design.
 
+**Confirmed at closure (`ODY-S02-015`, 2026-08-26):** exactly this predicted outcome occurred. Criteria 2–9 are all confirmed Pass with real, re-run evidence (`docs/tasks/active/ODY-S02-015_Traceability_and_Quality_Report.md`); criterion 1 remains `Blocked` because the `ADR-016` §14 follow-up spike was not commissioned during this revision — as this section anticipated, not as a defect discovered now.
+
 ## 4. Ordered backlog
 
 | Order | Task ID | Roadmap step(s) | Title | Status | Depends on | Planning mode | Primary result |
@@ -68,7 +70,7 @@ Criteria 6 and 9 are already met as of this backlog's creation (inherited from t
 | 4 | `ODY-S02-012` | 8–10 | Reconnect, Delta Continuity & Duplicate-Delivery Idempotency | In Review | 011 | ExecPlan | Real reconnect flow (`ADR-017` §9's 10 steps), permission recheck by current (not saved) state at reconnect (`ADR-017` §1 point 8), delta-buffer-vs-full-snapshot fallback (`ADR-017` §8), duplicate-batch dedup by `SequenceFrom`/`SequenceTo` (`ADR-017` §6) — satisfies exit criteria 3 and 4 |
 | 5 | `ODY-S02-013` | 1–10 | Vertical Slice Integration | In Review | 009–012 | Brief plan | The roadmap §11.6 ten-step scenario as one automated, reproducible end-to-end check over `InProcessSessionTransport`: host starts → player joins by code → role assigned → scene delivered → token moved → host validates → both clients converge → player disconnects → reconnects → resumes without replaying the command |
 | 6 | `ODY-S02-014` | — | Real Transport Integration (Unity Relay) | **Blocked** — pending `ADR-016` §14 follow-up spike, not yet commissioned | 013 | Not yet determined | Swaps `InProcessSessionTransport` for a real Unity Relay-backed `ISessionTransport` implementation; the only task in this revision touching a real network. **Must not start** before the gate in section 2.1 is met — this row's `Status` reflects that, not an oversight |
-| 7 | `ODY-S02-015` | — | SLICE-02 Acceptance and Closure Gate | Draft | 009–014 | Not yet determined | Traceability matrix, all nine roadmap §11.7 exit criteria checked with real evidence, honest reporting if criterion 1 remains unmet (section 2.1/3), owner acceptance — mirrors `ODY-S01-014`'s closure pattern |
+| 7 | `ODY-S02-015` | — | SLICE-02 Acceptance and Closure Gate | In Review | 009–014 | Brief plan | Traceability matrix, all nine roadmap §11.7 exit criteria checked with real evidence, honest reporting if criterion 1 remains unmet (section 2.1/3), owner acceptance — mirrors `ODY-S01-014`'s closure pattern |
 
 "Planning mode" is intentionally left "Not yet determined" for every child task: each task's own Brief-plan-vs-ExecPlan decision is made when that task's own contract is authored, per `PLANS.md` section 1, not pre-decided by this scaffold — the same convention `SLICE-01_IMPLEMENTATION_BACKLOG.md` and both `SLICE-0X_BACKLOG.md` prerequisite revisions used.
 
