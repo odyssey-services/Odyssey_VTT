@@ -80,7 +80,7 @@ namespace Odyssey.Application.Dice
                 formula.OriginalText, formula.NormalizedText, DiceFormula.ParserVersion,
                 generated.Value.Naturals, automaticModifiers, generated.Value.BaseTotal,
                 RandomDecisionContext.RngAlgorithmVersion, generated.Value.Proofs,
-                DiceRollStatus.Resolved, previousRollId: null, clock.GetUtcNow());
+                DiceRollStatus.Resolved, previousRollId: null, clock.GetUtcNow(), request.Audience);
 
             store.Save(roll);
             return Result<DiceRoll>.Success(roll);
@@ -228,12 +228,16 @@ namespace Odyssey.Application.Dice
             }
 
             string newRollId = store.NewId("roll");
+            // Section 17: a reroll redoes the same roll -- the original's own
+            // audience carries forward unchanged; a reroll is not itself a
+            // disclosure/revocation decision (ADR-021 section 7 handles that
+            // separately, not this task -- see task contract section 3).
             var reroll = new DiceRoll(
                 newRollId, original.ActorUserId, original.Purpose, original.CampaignId,
                 formula.OriginalText, formula.NormalizedText, DiceFormula.ParserVersion,
                 generated.Value.Naturals, new List<ModifierEntry>(), generated.Value.BaseTotal,
                 RandomDecisionContext.RngAlgorithmVersion, generated.Value.Proofs,
-                DiceRollStatus.Resolved, previousRollId: original.RollId, clock.GetUtcNow());
+                DiceRollStatus.Resolved, previousRollId: original.RollId, clock.GetUtcNow(), original.Audience);
 
             store.Save(reroll);
             store.Save(original.WithStatus(DiceRollStatus.SupersededByReroll));

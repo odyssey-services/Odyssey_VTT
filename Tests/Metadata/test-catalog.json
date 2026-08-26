@@ -1745,6 +1745,46 @@
                           "check":  "CancelRoll by an actor who is neither the roll's own actor nor MainGM returns dice.cancel.denied"
                       },
                       {
+                          "testCaseId":  "TC-DICE-019",
+                          "taskId":  "ODY-S03-006",
+                          "authority":  "09_Dice_And_Game_Log section 16.1/16.5; ADR-021; ODY-S03-006",
+                          "runner":  "dotnet test",
+                          "path":  "DotNet/Tests/Odyssey.Tests.Unit/Dice/DiceRollVisibilityPolicyTests.cs",
+                          "check":  "a Public-audience DiceRoll is visible to any connected participant regardless of role (Player, Observer, MainGM)"
+                      },
+                      {
+                          "testCaseId":  "TC-DICE-020",
+                          "taskId":  "ODY-S03-006",
+                          "authority":  "09_Dice_And_Game_Log section 16.1/16.5; ADR-021; ODY-S03-006",
+                          "runner":  "dotnet test",
+                          "path":  "DotNet/Tests/Odyssey.Tests.Unit/Dice/DiceRollVisibilityPolicyTests.cs",
+                          "check":  "a PlayerAndGM-audience DiceRoll is visible only to the roll's own actor and to MainGM; an unrelated Observer receives no view (TryGetVisibleRoll returns false, not an error)"
+                      },
+                      {
+                          "testCaseId":  "TC-DICE-021",
+                          "taskId":  "ODY-S03-006",
+                          "authority":  "09_Dice_And_Game_Log section 11.2/16.1/16.5; ADR-021; ODY-S03-006",
+                          "runner":  "dotnet test",
+                          "path":  "DotNet/Tests/Odyssey.Tests.Unit/Dice/DiceRollVisibilityPolicyTests.cs",
+                          "check":  "a GMOnly-audience DiceRoll is visible only to MainGM; the roll's own acting player does not see it (blind-roll design, section 11.2, not a bug)"
+                      },
+                      {
+                          "testCaseId":  "TC-DICE-022",
+                          "taskId":  "ODY-S03-006",
+                          "authority":  "09_Dice_And_Game_Log section 16.1/16.2/16.4/16.5; ADR-021 sections 4/5/6; ODY-S03-006",
+                          "runner":  "dotnet test",
+                          "path":  "DotNet/Tests/Odyssey.Tests.Unit/Dice/DiceRollVisibilityPolicyTests.cs",
+                          "check":  "a SelectedParticipants-audience DiceRoll is visible to explicitly listed UserIds and to current members of listed active CampaignUserGroups; MainGM always sees it per section 16.2 even when not itself selected; an unlisted participant receives no view; an archived group's membership does not grant visibility (ADR-021 section 6 evaluation-time rule)"
+                      },
+                      {
+                          "testCaseId":  "TC-DICE-023",
+                          "taskId":  "ODY-S03-006",
+                          "authority":  "09_Dice_And_Game_Log section 16.5; ADR-021 section 8; PERM-INV-012; ODY-S03-006",
+                          "runner":  "dotnet test",
+                          "path":  "DotNet/Tests/Odyssey.Tests.Unit/Dice/DiceRollVisibilityPolicyTests.cs",
+                          "check":  "ComputeAudienceViews omits any entry for a non-entitled participant entirely -- safe denial leaves no distinguishable trace (no null placeholder, no error) that a hidden roll exists"
+                      },
+                      {
                           "testCaseId":  "TC-NET-001",
                           "taskId":  "ODY-S02-001",
                           "authority":  "ADR-004; ADR-015; ODY-S02-001",
