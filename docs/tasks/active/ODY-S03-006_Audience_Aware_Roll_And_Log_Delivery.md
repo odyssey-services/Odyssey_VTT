@@ -5,7 +5,7 @@
 **Owner:** Codex (agent)
 **Requested by:** Product owner
 **Branch:** `feat/ody-s03-006-audience-aware-roll-and-log-delivery`
-**Pull request:** Draft — link recorded once opened
+**Pull request:** Draft — [#60](https://github.com/odyssey-services/Odyssey_VTT/pull/60) (open, CI green, awaiting owner review)
 **ExecPlan:** `docs/plans/active/ODY-S03-006_Audience_Aware_Roll_And_Log_Delivery.md`
 **Created:** 2026-08-26
 **Last updated:** 2026-08-26 UTC
@@ -302,9 +302,9 @@ No dependency is introduced by this task.
 |---|---|---|
 | `dotnet build DotNet/Odyssey.Core.sln` | Passed | 0 warnings, 0 errors. |
 | `dotnet test DotNet/Odyssey.Core.sln` | Passed | All test projects passed: Contracts 1/1, Domain 27/27, Networking 67/67, Unit 105/105 (99 pre-existing + 6 new `TC-DICE-019`–`023` tests), Architecture 2/2, Persistence 55/55. |
-| `.\scripts\verify-format.ps1` | Pending | To be recorded after running on this branch. |
-| `.\scripts\check-repository-policy.ps1` | Pending | To be recorded after running on this branch. |
-| CI — Draft PR | Pending | To be recorded once the PR is opened and CI completes. |
+| `.\scripts\verify-format.ps1` | Passed | `FORMAT-001 PASS` (required a byte-level CRLF→LF normalization of `DiceRollServiceTests.cs`, whose whole file had been re-saved with CRLF by an earlier edit pass — same class of issue as the `ODY-S03-005` point-fix, fixed the same way). |
+| `.\scripts\check-repository-policy.ps1` | Passed | All checks pass, including `REPO-POLICY-005` (error registry — unchanged, no new codes) and all `TC-CI-*` workflow checks. |
+| CI — Draft PR [#60](https://github.com/odyssey-services/Odyssey_VTT/pull/60), commit `ffe0c8d` | Passed | Run [32999251123](https://github.com/odyssey-services/Odyssey_VTT/actions/runs/32999251123): `repository-policy-format-structure`, `dotnet-restore-build-test`, `unity-project-package-static`, `buildidentity-provenance` — all 4 `SUCCESS`. |
 
 ### Acceptance result
 
@@ -317,10 +317,10 @@ No dependency is introduced by this task.
 | AC-5 | Passed | `TC-DICE-022`: SelectedParticipants — listed user, active-group member, and MainGM all see it; unrelated player and archived-group member do not. |
 | AC-6 | Passed | `TC-DICE-023`: `ComputeAudienceViews` omits the excluded participant's key entirely. |
 | AC-7 | Passed | `test-catalog.json` updated with 5 new entries; no new `ErrorCode` introduced. |
-| AC-8 | Pending | To be confirmed via `git status --porcelain` before commit. |
-| AC-9 | Partial | `dotnet build`/`dotnet test` confirmed passing above; `verify-format.ps1`/`check-repository-policy.ps1` pending. |
-| AC-10 | Pending | To be confirmed via `git diff --name-status` before commit. |
-| AC-11 | Pending | Draft PR not yet opened. |
+| AC-8 | Passed | `git status --porcelain` before commit confirmed no `ADR-019`/`ADR-021` file touched. |
+| AC-9 | Passed | All four commands (`verify-format.ps1`, `check-repository-policy.ps1`, `dotnet build`, `dotnet test`) pass — see Validation results table above. |
+| AC-10 | Passed | `git status --porcelain` before commit matched §5's Allowed paths exactly (13 files: 5 modified, 8 new). |
+| AC-11 | Passed | Draft PR [#60](https://github.com/odyssey-services/Odyssey_VTT/pull/60) open; all 4 required CI checks `SUCCESS` on run 32999251123 (commit `ffe0c8d`); PR remains Draft pending explicit owner confirmation before any merge. |
 
 ## 18. Blockers, decisions, and change control
 
