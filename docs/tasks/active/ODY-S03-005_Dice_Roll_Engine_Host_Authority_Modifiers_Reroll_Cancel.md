@@ -5,7 +5,7 @@
 **Owner:** Codex (agent)
 **Requested by:** Product owner
 **Branch:** `feat/ody-s03-005-dice-roll-engine-host-authority-modifiers-reroll-cancel`
-**Pull request:** Not opened
+**Pull request:** Draft — [#59](https://github.com/odyssey-services/Odyssey_VTT/pull/59) (open, awaiting owner review)
 **ExecPlan:** `docs/plans/active/ODY-S03-005_Dice_Roll_Engine_Host_Authority_Modifiers_Reroll_Cancel.md`
 **Created:** 2026-08-26
 **Last updated:** 2026-08-26 UTC
