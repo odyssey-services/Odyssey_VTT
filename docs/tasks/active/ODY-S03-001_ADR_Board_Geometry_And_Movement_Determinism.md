@@ -5,7 +5,7 @@
 **Owner:** Codex (agent)
 **Requested by:** Product owner
 **Branch:** `feat/ody-s03-001-adr-board-geometry-and-movement-determinism`
-**Pull request:** Not opened
+**Pull request:** Draft — [#55](https://github.com/odyssey-services/Odyssey_VTT/pull/55) (open, awaiting owner review)
 **ExecPlan:** `docs/plans/active/ODY-S03-001_ADR_Board_Geometry_And_Movement_Determinism.md`
 **Created:** 2026-08-26
 **Last updated:** 2026-08-26 UTC
