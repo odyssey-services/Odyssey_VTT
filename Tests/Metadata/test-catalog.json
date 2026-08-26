@@ -1497,6 +1497,38 @@
                           "check":  "the roadmap section 10.5 nine-step SLICE-01 scenario (create campaign, import one test map, create a scene, place two tokens, move them, close, reopen, verify saved state, restore from backup) runs end-to-end in one reproducible test using only already-merged ODY-S01-007..012 APIs, with every step asserted"
                       },
                       {
+                          "testCaseId":  "TC-PERSIST-032",
+                          "taskId":  "ODY-S03-007",
+                          "authority":  "09_Dice_And_Game_Log section 23/35; ADR-012 section 5; ODY-S03-007",
+                          "runner":  "dotnet test",
+                          "path":  "DotNet/Tests/Odyssey.Tests.Persistence/SqliteGameLogRepositoryTests.cs",
+                          "check":  "SqliteGameLogRepository.SaveDiceRollEntry persists a DiceRoll and its GameLogEntry in one ADR-012 section 5 transaction; a brand-new repository instance against the same campaign.db (simulated process restart) restores an identical roll (NaturalResults, ModifierEntries, BaseTotal/FinalTotal, Status, Audience.Kind) and log entry, with a real AuthoritativeSequence (ADR-012 section 4.1 EventSequence) assigned, never left at its pre-commit placeholder"
+                      },
+                      {
+                          "testCaseId":  "TC-PERSIST-033",
+                          "taskId":  "ODY-S03-007",
+                          "authority":  "ADR-012 section 7; ODY-S03-007",
+                          "runner":  "dotnet test",
+                          "path":  "DotNet/Tests/Odyssey.Tests.Persistence/SqliteGameLogRepositoryTests.cs",
+                          "check":  "SaveDiceRollEntry redelivered with the same CommandId replays the stored GameLogEntryRecord (same LogEntryId) instead of creating a duplicate row -- AppliedCommands idempotency (ADR-012 section 7.2) applied to the new DiceRolls/GameLogEntries aggregate pair"
+                      },
+                      {
+                          "testCaseId":  "TC-PERSIST-034",
+                          "taskId":  "ODY-S03-007",
+                          "authority":  "ADR-017 section 1 point 8; ADR-021 section 6; ODY-S03-007",
+                          "runner":  "dotnet test",
+                          "path":  "DotNet/Tests/Odyssey.Tests.Persistence/SqliteGameLogRepositoryTests.cs",
+                          "check":  "a SelectedParticipants roll's persisted GameLogEntry is visible to a group member before their membership is revoked; after the group's current membership changes and the repository is reopened (simulated reconnect), GameLogReconnectService.GetVisibleEntries (reusing ODY-S03-006's DiceRollVisibilityPolicy unmodified) hides the entry for that participant while MainGM still sees it unconditionally -- redaction recomputed by CURRENT, not saved, permissions, ADR-017's principle applied outside its original networking context"
+                      },
+                      {
+                          "testCaseId":  "TC-PERSIST-035",
+                          "taskId":  "ODY-S03-007",
+                          "authority":  "17_Roadmap_Odyssey_VTT_v0.11.md section 12.7 exit criterion 1; ODY-S03-007",
+                          "runner":  "dotnet test",
+                          "path":  "DotNet/Tests/Odyssey.Tests.Persistence/SqliteGameLogRepositoryTests.cs",
+                          "check":  "a brand-new SqliteSceneRepository instance against the same campaign.db (simulated restart) lists an identical token position/revision/controller after a prior CreateToken+MoveToken sequence -- exit criterion 1 (board state identical after restart and reconnect) proven directly, not merely assumed from the existing per-call-connection design"
+                      },
+                      {
                           "testCaseId":  "TC-BOARD-001",
                           "taskId":  "ODY-S03-004",
                           "authority":  "ADR-020 section 5.1/5.3; ODY-S03-004",

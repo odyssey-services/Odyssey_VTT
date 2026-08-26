@@ -84,6 +84,14 @@ namespace Odyssey.Persistence.Sqlite
             UtcInstant now = _clock.GetUtcNow();
             long eventSequence = AppendDomainEvent(connection, transaction, campaignId, commandId, write.EventType, write.EventPayloadJson, now);
 
+            // ODY-S03-007: a caller whose own row must persist ADR-012 section
+            // 4.1's EventSequence as a real column value (e.g. GameLogEntries.
+            // AuthoritativeSequence) cannot know that value until this point --
+            // OnEventSequenceAssigned lets it write that column inside this
+            // same transaction, before commit, instead of a separate,
+            // non-atomic follow-up write.
+            write.OnEventSequenceAssigned?.Invoke(transaction, eventSequence);
+
             if (write.AggregateType != null)
             {
                 UpsertAggregateRevision(connection, transaction, write.AggregateType, write.AggregateId!, write.AggregateRevision);
@@ -91,7 +99,13 @@ namespace Odyssey.Persistence.Sqlite
 
             InsertAppliedCommand(connection, transaction, commandId, eventSequence, eventSequence, write.ResultSummary, now);
             transaction.Commit();
-            return Result<T>.Success(write.Result);
+
+            // WithEventSequence lets the caller finalize its in-memory result
+            // object (immutable records rebuilt with the now-known sequence)
+            // post-commit. Existing callers that never set either hook
+            // (SqliteSceneRepository) are unaffected.
+            T finalResult = write.WithEventSequence != null ? write.WithEventSequence(eventSequence) : write.Result;
+            return Result<T>.Success(finalResult);
         }
 
         private static bool TryReadAppliedCommandStatus(SqliteConnection connection, SqliteTransaction transaction, CommandId commandId, out string status)
@@ -175,7 +189,7 @@ namespace Odyssey.Persistence.Sqlite
 
     internal sealed class PipelineWrite<T>
     {
-        internal PipelineWrite(T result, string eventType, string eventPayloadJson, string resultSummary, string? aggregateType = null, string? aggregateId = null, long aggregateRevision = 0)
+        internal PipelineWrite(T result, string eventType, string eventPayloadJson, string resultSummary, string? aggregateType = null, string? aggregateId = null, long aggregateRevision = 0, Func<long, T>? withEventSequence = null, Action<SqliteTransaction, long>? onEventSequenceAssigned = null)
         {
             Result = result;
             EventType = eventType ?? throw new ArgumentNullException(nameof(eventType));
@@ -184,6 +198,8 @@ namespace Odyssey.Persistence.Sqlite
             AggregateType = aggregateType;
             AggregateId = aggregateId;
             AggregateRevision = aggregateRevision;
+            WithEventSequence = withEventSequence;
+            OnEventSequenceAssigned = onEventSequenceAssigned;
         }
 
         internal T Result { get; }
@@ -193,5 +209,11 @@ namespace Odyssey.Persistence.Sqlite
         internal string? AggregateType { get; }
         internal string? AggregateId { get; }
         internal long AggregateRevision { get; }
+
+        /// <summary>ODY-S03-007: optional post-commit finalizer receiving the just-assigned EventSequence -- see the call site in <see cref="Execute{T}"/>.</summary>
+        internal Func<long, T>? WithEventSequence { get; }
+
+        /// <summary>ODY-S03-007: optional pre-commit, in-transaction callback receiving the just-assigned EventSequence -- lets a caller write it as a real column value before the transaction commits. See the call site in <see cref="Execute{T}"/>.</summary>
+        internal Action<SqliteTransaction, long>? OnEventSequenceAssigned { get; }
     }
 }
