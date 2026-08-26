@@ -317,6 +317,8 @@ No dependency is introduced by this task.
 | `.\scripts\verify-format.ps1` | Passed | `FORMAT-001 PASS`. |
 | `.\scripts\check-repository-policy.ps1` | Passed | All checks pass, including `REPO-POLICY-005` (error registry, 11 new codes). |
 | CI — PR #59, commit `6aaf778` | Passed | Run [32987266220](https://github.com/odyssey-services/Odyssey_VTT/actions/runs/32987266220): `repository-policy-format-structure`, `dotnet-restore-build-test` (real production build+test), `unity-project-package-static`, `buildidentity-provenance` — all 4 `SUCCESS`. |
+| CI — PR #59, commit `bba0df6` | Passed | Run 32989426277 — all 4 checks `SUCCESS`. |
+| CI — PR #59, commit `c280236` (point-fix: mojibake repair + `ODY-S03-004` marked `Done`) | Passed | Run [32992812656](https://github.com/odyssey-services/Odyssey_VTT/actions/runs/32992812656) — all 4 checks `SUCCESS`, including real `dotnet-restore-build-test`. |
 
 ### Acceptance result
 
