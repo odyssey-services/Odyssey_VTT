@@ -21,12 +21,28 @@ namespace Odyssey.Application.Persistence
     /// replays the stored outcome instead of re-applying the effect). This is a
     /// breaking change to the ODY-S01-008 signatures; see the ODY-S01-009 task
     /// contract section 6 for the full justification.
+    ///
+    /// ODY-S03-004: <see cref="CreateToken"/> now takes a required
+    /// <see cref="UserId"/> controller (08_Scenes_And_Board section 11.1's
+    /// <c>LinkedEntityRef</c>/control-ownership concept, narrowed to a single
+    /// "who may move this token" reference -- not the full ownership/control
+    /// split ADR-019 section 10 already deferred). <see cref="MoveToken"/> now
+    /// takes a required <c>expectedRevision</c>, closing a genuine optimistic-
+    /// concurrency gap the ODY-S01-008/009 signature left open (it re-read but
+    /// never validated the current revision before overwriting it). Both are
+    /// breaking changes to the ODY-S01-009 signatures, the same kind of
+    /// evolution that task's own doc comment already flagged as expected.
+    /// A new <see cref="GetToken"/> read method lets a caller (this task's own
+    /// <c>Odyssey.Application.Board.BoardMovementService</c>) check current
+    /// controller/revision before submitting a command, without duplicating
+    /// <see cref="MoveToken"/>'s internal read.
     /// </summary>
     public interface ISceneRepository
     {
         Result<SceneRecord> CreateScene(CampaignHandle campaign, string sceneName, CommandId commandId, CorrelationId correlationId);
-        Result<TokenRecord> CreateToken(CampaignHandle campaign, SceneId sceneId, TokenPosition initialPosition, CommandId commandId, CorrelationId correlationId);
-        Result<TokenRecord> MoveToken(CampaignHandle campaign, TokenId tokenId, TokenPosition newPosition, CommandId commandId, CorrelationId correlationId);
+        Result<TokenRecord> CreateToken(CampaignHandle campaign, SceneId sceneId, TokenPosition initialPosition, UserId controllerUserId, CommandId commandId, CorrelationId correlationId);
+        Result<TokenRecord> GetToken(CampaignHandle campaign, TokenId tokenId, CorrelationId correlationId);
+        Result<TokenRecord> MoveToken(CampaignHandle campaign, TokenId tokenId, TokenPosition newPosition, long expectedRevision, CommandId commandId, CorrelationId correlationId);
         Result<IReadOnlyList<TokenRecord>> ListTokens(CampaignHandle campaign, SceneId sceneId, CorrelationId correlationId);
         Result<AssetManifestEntryRecord> RegisterAsset(CampaignHandle campaign, string sourceFilePath, CommandId commandId, CorrelationId correlationId);
     }
@@ -76,17 +92,19 @@ namespace Odyssey.Application.Persistence
 
     public sealed class TokenRecord
     {
-        public TokenRecord(TokenId tokenId, SceneId sceneId, CampaignId campaignId, TokenPosition position, long revision, UtcInstant createdAt, UtcInstant updatedAt)
+        public TokenRecord(TokenId tokenId, SceneId sceneId, CampaignId campaignId, TokenPosition position, UserId controllerUserId, long revision, UtcInstant createdAt, UtcInstant updatedAt)
         {
             if (!tokenId.IsValid) throw new ArgumentException("TokenId is required.", nameof(tokenId));
             if (!sceneId.IsValid) throw new ArgumentException("SceneId is required.", nameof(sceneId));
             if (!campaignId.IsValid) throw new ArgumentException("CampaignId is required.", nameof(campaignId));
+            if (!controllerUserId.IsValid) throw new ArgumentException("ControllerUserId is required.", nameof(controllerUserId));
             if (revision < 1) throw new ArgumentOutOfRangeException(nameof(revision));
 
             TokenId = tokenId;
             SceneId = sceneId;
             CampaignId = campaignId;
             Position = position;
+            ControllerUserId = controllerUserId;
             Revision = revision;
             CreatedAt = createdAt;
             UpdatedAt = updatedAt;
@@ -96,6 +114,14 @@ namespace Odyssey.Application.Persistence
         public SceneId SceneId { get; }
         public CampaignId CampaignId { get; }
         public TokenPosition Position { get; }
+
+        /// <summary>
+        /// ODY-S03-004: 08_Scenes_And_Board section 11.1's <c>LinkedEntityRef</c>/
+        /// control-ownership concept, narrowed to a single "who may move this
+        /// token" user reference -- not the full ownership/control split
+        /// (ADR-019 section 10, still deferred).
+        /// </summary>
+        public UserId ControllerUserId { get; }
         public long Revision { get; }
         public UtcInstant CreatedAt { get; }
         public UtcInstant UpdatedAt { get; }

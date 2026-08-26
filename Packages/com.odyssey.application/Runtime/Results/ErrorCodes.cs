@@ -23,6 +23,7 @@ namespace Odyssey.Application.Results
         public static readonly ErrorCode PersistenceSceneNotFound = ErrorCode.Parse("persistence.scene.not_found");
         public static readonly ErrorCode PersistenceSceneIoFailed = ErrorCode.Parse("persistence.scene.io_failed");
         public static readonly ErrorCode PersistenceTokenNotFound = ErrorCode.Parse("persistence.token.not_found");
+        public static readonly ErrorCode PersistenceTokenRevisionConflict = ErrorCode.Parse("persistence.token.revision_conflict");
         public static readonly ErrorCode PersistenceIntegrityCheckFailed = ErrorCode.Parse("persistence.integrity.check_failed");
         public static readonly ErrorCode PersistenceCommandReplayFailed = ErrorCode.Parse("persistence.command.replay_failed");
         public static readonly ErrorCode PersistenceBackupCreateFailed = ErrorCode.Parse("persistence.backup.create_failed");
@@ -44,5 +45,8 @@ namespace Odyssey.Application.Results
         public static readonly ErrorCode NetworkingCommandTokenNotFound = ErrorCode.Parse("networking.command.token_not_found");
         public static readonly ErrorCode NetworkingCommandTokenMoveDenied = ErrorCode.Parse("networking.command.token_move_denied");
         public static readonly ErrorCode NetworkingCommandTokenRevisionConflict = ErrorCode.Parse("networking.command.token_revision_conflict");
+        public static readonly ErrorCode BoardTokenMoveDenied = ErrorCode.Parse("board.token.move_denied");
+        public static readonly ErrorCode BoardTokenDestinationInvalid = ErrorCode.Parse("board.token.destination_invalid");
+        public static readonly ErrorCode BoardTokenDestinationOccupied = ErrorCode.Parse("board.token.destination_occupied");
     }
 }

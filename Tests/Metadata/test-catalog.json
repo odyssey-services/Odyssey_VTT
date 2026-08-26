@@ -1497,6 +1497,110 @@
                           "check":  "the roadmap section 10.5 nine-step SLICE-01 scenario (create campaign, import one test map, create a scene, place two tokens, move them, close, reopen, verify saved state, restore from backup) runs end-to-end in one reproducible test using only already-merged ODY-S01-007..012 APIs, with every step asserted"
                       },
                       {
+                          "testCaseId":  "TC-BOARD-001",
+                          "taskId":  "ODY-S03-004",
+                          "authority":  "ADR-020 section 5.1/5.3; ODY-S03-004",
+                          "runner":  "dotnet test",
+                          "path":  "DotNet/Tests/Odyssey.Tests.Domain/Geometry/BoardGeometryTests.cs",
+                          "check":  "BoardGeometry.EuclideanDistance computes the ADR-020 GridType=None default formula correctly against hand-computed values (3-4-5 triangle, same-point zero distance)"
+                      },
+                      {
+                          "testCaseId":  "TC-BOARD-002",
+                          "taskId":  "ODY-S03-004",
+                          "authority":  "ADR-020 section 4.2; 08_Scenes_And_Board section 6.1; ODY-S03-004",
+                          "runner":  "dotnet test",
+                          "path":  "DotNet/Tests/Odyssey.Tests.Domain/Geometry/BoardGeometryTests.cs",
+                          "check":  "BoardGeometry.IsFinite rejects NaN and Infinity on either axis and accepts ordinary finite values"
+                      },
+                      {
+                          "testCaseId":  "TC-BOARD-003",
+                          "taskId":  "ODY-S03-004",
+                          "authority":  "ADR-020 section 6.1/6.2; ODY-S03-004",
+                          "runner":  "dotnet test",
+                          "path":  "DotNet/Tests/Odyssey.Tests.Domain/Geometry/BoardGeometryTests.cs",
+                          "check":  "BoardGeometry.AlmostEqual/SamePosition correctly classify a value just inside GeometryEpsilonV1 as equal and just outside as not equal, on both axes independently"
+                      },
+                      {
+                          "testCaseId":  "TC-BOARD-004",
+                          "taskId":  "ODY-S03-004",
+                          "authority":  "08_Scenes_And_Board section 11.1; ODY-S03-004",
+                          "runner":  "dotnet test",
+                          "path":  "DotNet/Tests/Odyssey.Tests.Persistence/Board/BoardMovementServiceTests.cs",
+                          "check":  "BoardMovementService.MoveToken by the token's controller succeeds and advances the token's authoritative revision by one"
+                      },
+                      {
+                          "testCaseId":  "TC-BOARD-005",
+                          "taskId":  "ODY-S03-004",
+                          "authority":  "BOARD-INV-027; 17_Roadmap_Odyssey_VTT_v0.11.md section 12.7; ODY-S03-004",
+                          "runner":  "dotnet test",
+                          "path":  "DotNet/Tests/Odyssey.Tests.Persistence/Board/BoardMovementServiceTests.cs",
+                          "check":  "BoardMovementService.MoveToken by a Player who is neither the token's controller nor MainGM returns the typed board.token.move_denied failure and leaves the token's position and revision unchanged"
+                      },
+                      {
+                          "testCaseId":  "TC-BOARD-006",
+                          "taskId":  "ODY-S03-004",
+                          "authority":  "08_Scenes_And_Board section 7.1 (PERM-INV-001-style MainGM authority); ODY-S03-004",
+                          "runner":  "dotnet test",
+                          "path":  "DotNet/Tests/Odyssey.Tests.Persistence/Board/BoardMovementServiceTests.cs",
+                          "check":  "BoardMovementService.MoveToken by an actor flagged ActorIsMainGm succeeds on a token controlled by a different user"
+                      },
+                      {
+                          "testCaseId":  "TC-BOARD-007",
+                          "taskId":  "ODY-S03-004",
+                          "authority":  "ADR-002 section 10.2; ODY-S03-004",
+                          "runner":  "dotnet test",
+                          "path":  "DotNet/Tests/Odyssey.Tests.Persistence/Board/BoardMovementServiceTests.cs",
+                          "check":  "MoveToken submitted with a stale ExpectedRevision (after a prior move already advanced it) returns the typed persistence.token.revision_conflict failure and does not mutate the token"
+                      },
+                      {
+                          "testCaseId":  "TC-BOARD-008",
+                          "taskId":  "ODY-S03-004",
+                          "authority":  "BOARD-INV-009; ODY-S03-004",
+                          "runner":  "dotnet test",
+                          "path":  "DotNet/Tests/Odyssey.Tests.Persistence/Board/BoardMovementServiceTests.cs",
+                          "check":  "MoveToken to a position already occupied (epsilon-equal) by another token in the same scene returns the typed board.token.destination_occupied failure without mutating either token"
+                      },
+                      {
+                          "testCaseId":  "TC-BOARD-009",
+                          "taskId":  "ODY-S03-004",
+                          "authority":  "ADR-020 section 4.2; ODY-S03-004",
+                          "runner":  "dotnet test",
+                          "path":  "DotNet/Tests/Odyssey.Tests.Persistence/Board/BoardMovementServiceTests.cs",
+                          "check":  "MoveToken to a destination with a NaN coordinate returns the typed board.token.destination_invalid failure before any repository call, and does not advance the token's revision"
+                      },
+                      {
+                          "testCaseId":  "TC-BOARD-010",
+                          "taskId":  "ODY-S03-004",
+                          "authority":  "08_Scenes_And_Board section 21.5; BOARD-INV-030; 17_Roadmap_Odyssey_VTT_v0.11.md section 12.7; ODY-S03-004",
+                          "runner":  "dotnet test",
+                          "path":  "DotNet/Tests/Odyssey.Tests.Persistence/Board/BoardMovementServiceTests.cs",
+                          "check":  "BoardMovementService.UndoMoveToken restores the token's previous position as a new compensating command (revision 3 after create-at-1/move-at-2), not a rollback to the original revision"
+                      },
+                      {
+                          "testCaseId":  "TC-BOARD-011",
+                          "taskId":  "ODY-S03-004",
+                          "authority":  "08_Scenes_And_Board section 21.5; ODY-S03-004",
+                          "runner":  "dotnet test",
+                          "path":  "DotNet/Tests/Odyssey.Tests.Persistence/Board/BoardMovementServiceTests.cs",
+                          "check":  "UndoMoveToken by an actor who does not control the token returns board.token.move_denied and leaves the token at its moved (not original) position -- undo re-validates permission at undo time, it is not exempt from the check"
+                      },
+                      {
+                          "testCaseId":  "TC-BOARD-012",
+                          "taskId":  "ODY-S03-004",
+                          "authority":  "ADR-002 section 10.2; 08_Scenes_And_Board section 21.5; ODY-S03-004",
+                          "runner":  "dotnet test",
+                          "path":  "DotNet/Tests/Odyssey.Tests.Persistence/Board/BoardMovementServiceTests.cs",
+                          "check":  "UndoMoveToken submitted against a revision made stale by an intervening move returns persistence.token.revision_conflict and does not overwrite the intervening move -- undo is not a blind rollback"
+                      },
+                      {
+                          "testCaseId":  "TC-BOARD-013",
+                          "taskId":  "ODY-S03-004",
+                          "authority":  "08_Scenes_And_Board section 21.6/BT-079; ODY-S03-004",
+                          "runner":  "dotnet test",
+                          "path":  "DotNet/Tests/Odyssey.Tests.Persistence/Board/BoardMovementServiceTests.cs",
+                          "check":  "a moved token's position, controller, and revision are identical after closing and reopening the campaign, confirmed by a fresh SqliteSceneRepository instance against the reopened connection"
+                      },
+                      {
                           "testCaseId":  "TC-NET-001",
                           "taskId":  "ODY-S02-001",
                           "authority":  "ADR-004; ADR-015; ODY-S02-001",

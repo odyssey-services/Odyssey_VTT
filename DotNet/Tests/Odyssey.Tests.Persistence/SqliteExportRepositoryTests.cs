@@ -25,6 +25,7 @@ namespace Odyssey.Tests.Persistence
         private string _odcampParentDir = null!;
 
         private static CommandId NewCommandId() => CommandId.Parse("cmd_" + Guid.NewGuid().ToString("N"));
+        private static UserId NewUserId() => UserId.Parse("user_" + Guid.NewGuid().ToString("N"));
 
         [SetUp]
         public void SetUp()
@@ -58,7 +59,7 @@ namespace Odyssey.Tests.Persistence
 
             var sceneRepository = new SqliteSceneRepository(clock);
             SceneId sceneId = sceneRepository.CreateScene(campaign, "Export Scene", NewCommandId(), TestCorrelationId).Value.SceneId;
-            TokenId tokenId = sceneRepository.CreateToken(campaign, sceneId, new TokenPosition(3, 4), NewCommandId(), TestCorrelationId).Value.TokenId;
+            TokenId tokenId = sceneRepository.CreateToken(campaign, sceneId, new TokenPosition(3, 4), NewUserId(), NewCommandId(), TestCorrelationId).Value.TokenId;
 
             var exportRepository = new SqliteExportRepository(clock);
             string odcampPath = Path.Combine(_odcampParentDir, "Campaign.odcamp");

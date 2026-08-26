@@ -17,6 +17,7 @@ namespace Odyssey.Tests.Persistence
         private static readonly IWallClock Clock = new SystemWallClock();
         private string _workDir = null!;
         private static CommandId NewCommandId() => CommandId.Parse("cmd_" + Guid.NewGuid().ToString("N"));
+        private static UserId NewUserId() => UserId.Parse("user_" + Guid.NewGuid().ToString("N"));
         private CampaignHandle _campaign = null!;
         private SqliteCampaignRepository _campaignRepository = null!;
 
@@ -70,13 +71,13 @@ namespace Odyssey.Tests.Persistence
             var sceneRepository = new SqliteSceneRepository(Clock);
             SceneId sceneId = sceneRepository.CreateScene(_campaign, "Battle Map", NewCommandId(), TestCorrelationId).Value.SceneId;
 
-            Result<TokenRecord> tokenA = sceneRepository.CreateToken(_campaign, sceneId, new TokenPosition(1, 1), NewCommandId(), TestCorrelationId);
-            Result<TokenRecord> tokenB = sceneRepository.CreateToken(_campaign, sceneId, new TokenPosition(2, 2), NewCommandId(), TestCorrelationId);
+            Result<TokenRecord> tokenA = sceneRepository.CreateToken(_campaign, sceneId, new TokenPosition(1, 1), NewUserId(), NewCommandId(), TestCorrelationId);
+            Result<TokenRecord> tokenB = sceneRepository.CreateToken(_campaign, sceneId, new TokenPosition(2, 2), NewUserId(), NewCommandId(), TestCorrelationId);
             Assert.That(tokenA.IsSuccess, Is.True);
             Assert.That(tokenB.IsSuccess, Is.True);
             Assert.That(tokenA.Value.TokenId, Is.Not.EqualTo(tokenB.Value.TokenId));
 
-            Result<TokenRecord> movedA = sceneRepository.MoveToken(_campaign, tokenA.Value.TokenId, new TokenPosition(5, 5), NewCommandId(), TestCorrelationId);
+            Result<TokenRecord> movedA = sceneRepository.MoveToken(_campaign, tokenA.Value.TokenId, new TokenPosition(5, 5), tokenA.Value.Revision, NewCommandId(), TestCorrelationId);
             Assert.That(movedA.IsSuccess, Is.True);
             Assert.That(movedA.Value.Position.X, Is.EqualTo(5));
             Assert.That(movedA.Value.Position.Y, Is.EqualTo(5));
@@ -100,7 +101,7 @@ namespace Odyssey.Tests.Persistence
             var repository = new SqliteSceneRepository(Clock);
             SceneId phantomScene = SceneId.NewId(Clock.GetUtcNow());
 
-            Result<TokenRecord> result = repository.CreateToken(_campaign, phantomScene, new TokenPosition(0, 0), NewCommandId(), TestCorrelationId);
+            Result<TokenRecord> result = repository.CreateToken(_campaign, phantomScene, new TokenPosition(0, 0), NewUserId(), NewCommandId(), TestCorrelationId);
 
             Assert.That(result.IsFailure, Is.True);
             Assert.That(result.Error.Code, Is.EqualTo(ErrorCodes.PersistenceSceneNotFound));
@@ -113,7 +114,7 @@ namespace Odyssey.Tests.Persistence
             var repository = new SqliteSceneRepository(Clock);
             TokenId phantomToken = TokenId.NewId(Clock.GetUtcNow());
 
-            Result<TokenRecord> result = repository.MoveToken(_campaign, phantomToken, new TokenPosition(1, 1), NewCommandId(), TestCorrelationId);
+            Result<TokenRecord> result = repository.MoveToken(_campaign, phantomToken, new TokenPosition(1, 1), 1, NewCommandId(), TestCorrelationId);
 
             Assert.That(result.IsFailure, Is.True);
             Assert.That(result.Error.Code, Is.EqualTo(ErrorCodes.PersistenceTokenNotFound));
