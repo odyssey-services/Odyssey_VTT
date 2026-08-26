@@ -252,6 +252,7 @@ Fill this section with real results before moving the task to `Done`.
 |---|---|---|
 | `.\scripts\verify-format.ps1` | Passed | `FORMAT-001 PASS repository text formatting checks passed`. |
 | `.\scripts\check-repository-policy.ps1` | Passed | All `REPO-POLICY-*`/`TC-CI-*` checks passed; `Repository policy check passed.` |
+| CI — PR #54, commit `8c79eec` | Passed | Run [32960754649](https://github.com/odyssey-services/Odyssey_VTT/actions/runs/32960754649): `repository-policy-format-structure`, `dotnet-restore-build-test`, `unity-project-package-static`, `buildidentity-provenance` — all 4 `SUCCESS`, confirmed via `gh pr view 54 --json state,isDraft,statusCheckRollup`. |
 
 ### Acceptance result
 
