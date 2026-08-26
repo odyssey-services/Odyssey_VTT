@@ -243,17 +243,17 @@ No dependency is introduced by this task.
 ## 16. Definition of Done
 
 - [x] Goal is achieved without unapproved scope expansion.
-- [ ] All acceptance criteria are satisfied.
+- [x] All acceptance criteria are satisfied.
 - [x] Required automated tests pass (none required; no code touched).
 - [x] Required manual checks are completed.
-- [ ] Required commands and their real results are recorded.
+- [x] Required commands and their real results are recorded.
 - [x] Architecture and dependency rules remain valid.
 - [x] Security, privacy, redaction, and audience rules are verified where applicable.
 - [x] Compatibility, migration, rollback, and versioning obligations are complete where applicable.
 - [x] No unapproved dependency, tool, GitHub Action, or license was introduced.
 - [x] Documentation is updated only where materially required.
 - [x] Codex/developer performed a self-review against this task and `AGENTS.md`.
-- [ ] Pull request explains changes, evidence, limitations, and follow-up work.
+- [x] Pull request explains changes, evidence, limitations, and follow-up work.
 - [ ] Product owner or authorized reviewer completes the required review; Codex does not merge into `main`.
 
 ## 17. Completion evidence
@@ -270,6 +270,7 @@ No dependency is introduced by this task.
 |---|---|---|
 | `.\scripts\verify-format.ps1` | Passed | `FORMAT-001 PASS repository text formatting checks passed`. |
 | `.\scripts\check-repository-policy.ps1` | Passed | All `REPO-POLICY-*`/`TC-CI-*` checks passed; `Repository policy check passed.` |
+| CI — PR #56, commit `f86d37c` | Passed | Run [32969885094](https://github.com/odyssey-services/Odyssey_VTT/actions/runs/32969885094): `repository-policy-format-structure`, `dotnet-restore-build-test`, `unity-project-package-static`, `buildidentity-provenance` — all 4 `SUCCESS`, confirmed via `gh pr view 56 --json state,isDraft,statusCheckRollup`. |
 
 ### Acceptance result
 
@@ -284,7 +285,7 @@ No dependency is introduced by this task.
 | AC-7 | Passed | `git status --porcelain` confirms no `ADR-002`/`004`/`012`/`017`/`019`/`020` file touched. |
 | AC-8 | Passed | See Validation results table above — both commands pass. |
 | AC-9 | Passed | `git status --porcelain` shows only `ADR-021`, this task contract, its ExecPlan, and `SLICE-03_BACKLOG.md`. |
-| AC-10 | Pending | PR to be opened as Draft; CI status to be confirmed. |
+| AC-10 | Passed | Draft PR [#56](https://github.com/odyssey-services/Odyssey_VTT/pull/56) open; all 4 required CI checks `SUCCESS` on run 32969885094 (commit `f86d37c`); PR remains Draft pending explicit owner confirmation before any merge. |
 | AC-11 | Passed | `SLICE-03_BACKLOG.md`'s `ODY-S03-001` row now `Done` (owner merged PR #55); `ODY-S03-002` row reflects this task's own status, not presumed `Done`. |
 
 ## 18. Blockers, risks, and open decisions
