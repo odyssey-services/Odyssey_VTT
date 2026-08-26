@@ -48,5 +48,16 @@ namespace Odyssey.Application.Results
         public static readonly ErrorCode BoardTokenMoveDenied = ErrorCode.Parse("board.token.move_denied");
         public static readonly ErrorCode BoardTokenDestinationInvalid = ErrorCode.Parse("board.token.destination_invalid");
         public static readonly ErrorCode BoardTokenDestinationOccupied = ErrorCode.Parse("board.token.destination_occupied");
+        public static readonly ErrorCode DiceRollDenied = ErrorCode.Parse("dice.roll.denied");
+        public static readonly ErrorCode DiceInvalidFormula = ErrorCode.Parse("dice.formula.invalid");
+        public static readonly ErrorCode DiceRollNotFound = ErrorCode.Parse("dice.roll.not_found");
+        public static readonly ErrorCode DiceOverrideDenied = ErrorCode.Parse("dice.override.denied");
+        public static readonly ErrorCode DiceOverrideReasonRequired = ErrorCode.Parse("dice.override.reason_required");
+        public static readonly ErrorCode DiceRerollDenied = ErrorCode.Parse("dice.reroll.denied");
+        public static readonly ErrorCode DiceCancelDenied = ErrorCode.Parse("dice.cancel.denied");
+        public static readonly ErrorCode DiceCancelReasonRequired = ErrorCode.Parse("dice.cancel.reason_required");
+        public static readonly ErrorCode DiceModifierNotFound = ErrorCode.Parse("dice.modifier.not_found");
+        public static readonly ErrorCode DiceModifierDecisionReasonRequired = ErrorCode.Parse("dice.modifier.decision_reason_required");
+        public static readonly ErrorCode DiceModifierDecisionDenied = ErrorCode.Parse("dice.modifier.decision_denied");
     }
 }
