@@ -5,7 +5,7 @@
 **Owner:** Codex (agent)
 **Requested by:** Product owner
 **Branch:** `feat/ody-s03-009-slice-03-acceptance-and-closure-gate`
-**Pull request:** Draft — link recorded once opened
+**Pull request:** Draft — [#63](https://github.com/odyssey-services/Odyssey_VTT/pull/63) (open, CI green, awaiting owner review/acceptance)
 **ExecPlan:** Not required — see section 14 (Brief plan)
 **Created:** 2026-08-27
 **Last updated:** 2026-08-27 UTC
@@ -263,6 +263,7 @@ See `docs/tasks/active/ODY-S03-009_Traceability_and_Quality_Report.md` §3 for t
 | `dotnet build`/`dotnet test` (full solution) | Passed — 262/262, 0 failed |
 | `.\scripts\check-repository-policy.ps1` | Passed |
 | `.\scripts\verify-repository.ps1` | Passed |
+| CI — Draft PR [#63](https://github.com/odyssey-services/Odyssey_VTT/pull/63), commit `66101f3`, run [33018813401](https://github.com/odyssey-services/Odyssey_VTT/actions/runs/33018813401) | Passed — `repository-policy-format-structure`, `dotnet-restore-build-test`, `unity-project-package-static`, `buildidentity-provenance` all `SUCCESS` |
 
 ### Acceptance result
 
