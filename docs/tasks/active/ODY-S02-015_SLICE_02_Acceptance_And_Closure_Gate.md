@@ -268,6 +268,8 @@ See `docs/tasks/active/ODY-S02-015_Traceability_and_Quality_Report.md` section 3
 | `.\scripts\check-repository-policy.ps1` | Passed |
 | `.\scripts\verify-repository.ps1` | Passed |
 
+PR [#51](https://github.com/odyssey-services/Odyssey_VTT/pull/51) (Draft) — CI run [32914750441](https://github.com/odyssey-services/Odyssey_VTT/actions/runs/32914750441) green on all 4 required checks, confirmed via fresh `gh pr view 51 --json state,isDraft,statusCheckRollup`: `repository-policy-format-structure` [SUCCESS](https://github.com/odyssey-services/Odyssey_VTT/actions/runs/32914750441/job/98016018512), `dotnet-restore-build-test` [SUCCESS](https://github.com/odyssey-services/Odyssey_VTT/actions/runs/32914750441/job/98016018650), `unity-project-package-static` [SUCCESS](https://github.com/odyssey-services/Odyssey_VTT/actions/runs/32914750441/job/98016018640), `buildidentity-provenance` [SUCCESS](https://github.com/odyssey-services/Odyssey_VTT/actions/runs/32914750441/job/98016018693).
+
 ### Acceptance result
 
 | Criterion | Status | Evidence |
