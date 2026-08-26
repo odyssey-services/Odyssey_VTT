@@ -85,6 +85,63 @@ namespace Odyssey.Application.Dice
     }
 
     /// <summary>
+    /// ODY-S03-006: 09_Dice_And_Game_Log section 16.1's four roll audience
+    /// kinds. Kept distinct from <c>SceneEntityVisibility</c>
+    /// (Odyssey.Application.Networking.Projection, ODY-S02-010's two-kind
+    /// Public/HiddenGameplay model) per ADR-021 section 3.3: each consumer
+    /// keeps its own already-documented vocabulary, not a forced-unified
+    /// enum across roll/board/log.
+    /// </summary>
+    public enum DiceRollAudienceKind
+    {
+        Public = 1,
+        PlayerAndGM = 2,
+        GMOnly = 3,
+        SelectedParticipants = 4,
+    }
+
+    /// <summary>
+    /// Section 16.4: "Audience хранит стабильные ссылки на users/groups, а
+    /// projection вычисляется по текущим permissions и membership" -- the
+    /// references here (<see cref="SelectedUserIds"/>/<see cref="SelectedGroupIds"/>)
+    /// are fixed at roll creation, but <c>DiceRollVisibilityPolicy</c>
+    /// resolves group membership against the *current* directory state at
+    /// view-build time, never a snapshot taken here (ADR-021 section 6's
+    /// evaluation-time rule). Only meaningful when <see cref="Kind"/> is
+    /// <see cref="DiceRollAudienceKind.SelectedParticipants"/>; empty for the
+    /// other three kinds.
+    /// </summary>
+    public sealed class DiceRollAudience
+    {
+        private DiceRollAudience(DiceRollAudienceKind kind, IReadOnlyList<UserId> selectedUserIds, IReadOnlyList<string> selectedGroupIds)
+        {
+            Kind = kind;
+            SelectedUserIds = selectedUserIds;
+            SelectedGroupIds = selectedGroupIds;
+        }
+
+        public DiceRollAudienceKind Kind { get; }
+        public IReadOnlyList<UserId> SelectedUserIds { get; }
+        public IReadOnlyList<string> SelectedGroupIds { get; }
+
+        public static DiceRollAudience Public() => new DiceRollAudience(DiceRollAudienceKind.Public, Array.Empty<UserId>(), Array.Empty<string>());
+        public static DiceRollAudience PlayerAndGM() => new DiceRollAudience(DiceRollAudienceKind.PlayerAndGM, Array.Empty<UserId>(), Array.Empty<string>());
+        public static DiceRollAudience GMOnly() => new DiceRollAudience(DiceRollAudienceKind.GMOnly, Array.Empty<UserId>(), Array.Empty<string>());
+
+        public static DiceRollAudience SelectedParticipants(IReadOnlyList<UserId>? selectedUserIds, IReadOnlyList<string>? selectedGroupIds)
+        {
+            selectedUserIds ??= Array.Empty<UserId>();
+            selectedGroupIds ??= Array.Empty<string>();
+            if (selectedUserIds.Count == 0 && selectedGroupIds.Count == 0)
+            {
+                throw new ArgumentException("SelectedParticipants audience requires at least one selected user or group.");
+            }
+
+            return new DiceRollAudience(DiceRollAudienceKind.SelectedParticipants, selectedUserIds, selectedGroupIds);
+        }
+    }
+
+    /// <summary>
     /// Section 13.1's DiceRoll entity, narrowed to what this task needs.
     /// Immutable per instance -- a modifier decision or status change
     /// produces a new instance with the same <see cref="RollId"/>, replacing
@@ -94,7 +151,9 @@ namespace Odyssey.Application.Dice
     /// <see cref="FormulaOriginal"/>/<see cref="FormulaNormalized"/>, and
     /// <see cref="BaseTotal"/> never change after creation -- only
     /// <see cref="ModifierEntries"/> (while resolving), <see cref="Status"/>,
-    /// and the derived <see cref="FinalTotal"/> can.
+    /// and the derived <see cref="FinalTotal"/> can. <see cref="Audience"/>
+    /// is fixed at creation (section 16.4's "стабильные ссылки"), consumed
+    /// by ODY-S03-006's <c>DiceRollVisibilityPolicy</c>.
     /// </summary>
     public sealed class DiceRoll
     {
@@ -103,11 +162,12 @@ namespace Odyssey.Application.Dice
             string formulaOriginal, string formulaNormalized, int formulaParserVersion,
             IReadOnlyList<NaturalResult> naturalResults, IReadOnlyList<ModifierEntry> modifierEntries,
             int baseTotal, int rngAlgorithmVersion, IReadOnlyList<RngProofData> rngProofs,
-            DiceRollStatus status, string? previousRollId, UtcInstant createdAt)
+            DiceRollStatus status, string? previousRollId, UtcInstant createdAt, DiceRollAudience audience)
         {
             if (string.IsNullOrWhiteSpace(rollId)) throw new ArgumentException("RollId is required.", nameof(rollId));
             if (!actorUserId.IsValid) throw new ArgumentException("ActorUserId is required.", nameof(actorUserId));
             if (string.IsNullOrWhiteSpace(purpose)) throw new ArgumentException("Purpose is required.", nameof(purpose));
+            if (audience == null) throw new ArgumentNullException(nameof(audience));
 
             RollId = rollId;
             ActorUserId = actorUserId;
@@ -124,6 +184,7 @@ namespace Odyssey.Application.Dice
             Status = status;
             PreviousRollId = previousRollId;
             CreatedAt = createdAt;
+            Audience = audience;
         }
 
         public string RollId { get; }
@@ -141,6 +202,7 @@ namespace Odyssey.Application.Dice
         public DiceRollStatus Status { get; }
         public string? PreviousRollId { get; }
         public UtcInstant CreatedAt { get; }
+        public DiceRollAudience Audience { get; }
 
         /// <summary>Section 13.4: base dice/constant total plus every currently-counted (Automatic/Accepted/Changed) modifier's AppliedValue -- never a hidden adjustment.</summary>
         public int FinalTotal
@@ -158,10 +220,10 @@ namespace Odyssey.Application.Dice
         }
 
         internal DiceRoll WithModifierEntries(IReadOnlyList<ModifierEntry> modifierEntries) =>
-            new DiceRoll(RollId, ActorUserId, Purpose, CampaignId, FormulaOriginal, FormulaNormalized, FormulaParserVersion, NaturalResults, modifierEntries, BaseTotal, RngAlgorithmVersion, RngProofs, Status, PreviousRollId, CreatedAt);
+            new DiceRoll(RollId, ActorUserId, Purpose, CampaignId, FormulaOriginal, FormulaNormalized, FormulaParserVersion, NaturalResults, modifierEntries, BaseTotal, RngAlgorithmVersion, RngProofs, Status, PreviousRollId, CreatedAt, Audience);
 
         internal DiceRoll WithStatus(DiceRollStatus status) =>
-            new DiceRoll(RollId, ActorUserId, Purpose, CampaignId, FormulaOriginal, FormulaNormalized, FormulaParserVersion, NaturalResults, ModifierEntries, BaseTotal, RngAlgorithmVersion, RngProofs, status, PreviousRollId, CreatedAt);
+            new DiceRoll(RollId, ActorUserId, Purpose, CampaignId, FormulaOriginal, FormulaNormalized, FormulaParserVersion, NaturalResults, ModifierEntries, BaseTotal, RngAlgorithmVersion, RngProofs, status, PreviousRollId, CreatedAt, Audience);
     }
 
     /// <summary>
@@ -204,14 +266,18 @@ namespace Odyssey.Application.Dice
     /// its own (deliberate simplification, mirroring
     /// <c>Odyssey.Application.Board.MoveTokenRequest.ActorIsMainGm</c>'s exact
     /// same pattern from ODY-S03-004), not a resolved <c>Roll.CreateCustom</c>
-    /// permission from a real ADR-019 session.
+    /// permission from a real ADR-019 session. <see cref="Audience"/> is
+    /// required, not defaulted -- ODY-S03-006: which audience a roll is
+    /// visible to is a security-relevant choice this contract never leaves
+    /// implicit.
     /// </summary>
     public sealed class SubmitRollRequest
     {
-        public SubmitRollRequest(UserId actorUserId, bool actorCanCreateRoll, string purpose, string formula, CampaignId campaignId, CommandId commandId, RulesetVersion rulesetVersion, RngKeyEpochId rngKeyEpochId, CorrelationId correlationId, IReadOnlyList<AutomaticModifierRequest>? automaticModifiers = null)
+        public SubmitRollRequest(UserId actorUserId, bool actorCanCreateRoll, string purpose, string formula, DiceRollAudience audience, CampaignId campaignId, CommandId commandId, RulesetVersion rulesetVersion, RngKeyEpochId rngKeyEpochId, CorrelationId correlationId, IReadOnlyList<AutomaticModifierRequest>? automaticModifiers = null)
         {
             if (!actorUserId.IsValid) throw new ArgumentException("ActorUserId is required.", nameof(actorUserId));
             if (string.IsNullOrWhiteSpace(purpose)) throw new ArgumentException("Purpose is required.", nameof(purpose));
+            if (audience == null) throw new ArgumentNullException(nameof(audience));
             if (!campaignId.IsValid) throw new ArgumentException("CampaignId is required.", nameof(campaignId));
             if (!commandId.IsValid) throw new ArgumentException("CommandId is required.", nameof(commandId));
             if (!rulesetVersion.IsValid) throw new ArgumentException("RulesetVersion is required.", nameof(rulesetVersion));
@@ -221,6 +287,7 @@ namespace Odyssey.Application.Dice
             ActorCanCreateRoll = actorCanCreateRoll;
             Purpose = purpose;
             Formula = formula;
+            Audience = audience;
             CampaignId = campaignId;
             CommandId = commandId;
             RulesetVersion = rulesetVersion;
@@ -233,6 +300,7 @@ namespace Odyssey.Application.Dice
         public bool ActorCanCreateRoll { get; }
         public string Purpose { get; }
         public string Formula { get; }
+        public DiceRollAudience Audience { get; }
         public CampaignId CampaignId { get; }
         public CommandId CommandId { get; }
         public RulesetVersion RulesetVersion { get; }

@@ -40,7 +40,7 @@ namespace Odyssey.Tests.Unit.Dice
         {
             // TC-DICE-005: correct formula result, exit criterion 3 ("бросок рассчитывается только host").
             var store = new DiceRollStore();
-            var request = new SubmitRollRequest(NewUserId(), actorCanCreateRoll: true, "AttributeCheck", "1d100", TestCampaignId, NewCommandId(), TestRulesetVersion, TestEpoch, NewCorrelationId());
+            var request = new SubmitRollRequest(NewUserId(), actorCanCreateRoll: true, "AttributeCheck", "1d100", DiceRollAudience.Public(), TestCampaignId, NewCommandId(), TestRulesetVersion, TestEpoch, NewCorrelationId());
 
             Result<DiceRoll> result = DiceRollService.SubmitRoll(store, NewRngFactory(), Clock, request);
 
@@ -57,7 +57,7 @@ namespace Odyssey.Tests.Unit.Dice
         {
             // TC-DICE-005
             var store = new DiceRollStore();
-            var request = new SubmitRollRequest(NewUserId(), actorCanCreateRoll: true, "AttackRoll", "2d6+3", TestCampaignId, NewCommandId(), TestRulesetVersion, TestEpoch, NewCorrelationId());
+            var request = new SubmitRollRequest(NewUserId(), actorCanCreateRoll: true, "AttackRoll", "2d6+3", DiceRollAudience.Public(), TestCampaignId, NewCommandId(), TestRulesetVersion, TestEpoch, NewCorrelationId());
 
             Result<DiceRoll> result = DiceRollService.SubmitRoll(store, NewRngFactory(), Clock, request);
 
@@ -73,7 +73,7 @@ namespace Odyssey.Tests.Unit.Dice
         {
             // TC-DICE-006 (exit criterion 3's counterpart: no unauthorized generation)
             var store = new DiceRollStore();
-            var request = new SubmitRollRequest(NewUserId(), actorCanCreateRoll: false, "AttributeCheck", "1d20", TestCampaignId, NewCommandId(), TestRulesetVersion, TestEpoch, NewCorrelationId());
+            var request = new SubmitRollRequest(NewUserId(), actorCanCreateRoll: false, "AttributeCheck", "1d20", DiceRollAudience.Public(), TestCampaignId, NewCommandId(), TestRulesetVersion, TestEpoch, NewCorrelationId());
 
             Result<DiceRoll> result = DiceRollService.SubmitRoll(store, NewRngFactory(), Clock, request);
 
@@ -87,7 +87,7 @@ namespace Odyssey.Tests.Unit.Dice
         {
             // TC-DICE-007
             var store = new DiceRollStore();
-            var request = new SubmitRollRequest(NewUserId(), actorCanCreateRoll: true, "AttributeCheck", "(2d6+3)*2", TestCampaignId, NewCommandId(), TestRulesetVersion, TestEpoch, NewCorrelationId());
+            var request = new SubmitRollRequest(NewUserId(), actorCanCreateRoll: true, "AttributeCheck", "(2d6+3)*2", DiceRollAudience.Public(), TestCampaignId, NewCommandId(), TestRulesetVersion, TestEpoch, NewCorrelationId());
 
             Result<DiceRoll> result = DiceRollService.SubmitRoll(store, NewRngFactory(), Clock, request);
 
@@ -102,7 +102,7 @@ namespace Odyssey.Tests.Unit.Dice
             var store = new DiceRollStore();
             UserId actor = NewUserId();
             UserId gm = NewUserId();
-            DiceRoll roll = DiceRollService.SubmitRoll(store, NewRngFactory(), Clock, new SubmitRollRequest(actor, true, "SkillCheckPlayer", "1d20", TestCampaignId, NewCommandId(), TestRulesetVersion, TestEpoch, NewCorrelationId())).Value;
+            DiceRoll roll = DiceRollService.SubmitRoll(store, NewRngFactory(), Clock, new SubmitRollRequest(actor, true, "SkillCheckPlayer", "1d20", DiceRollAudience.Public(), TestCampaignId, NewCommandId(), TestRulesetVersion, TestEpoch, NewCorrelationId())).Value;
 
             Result<DiceRoll> proposed = DiceRollService.ProposeModifier(store, new ProposeModifierRequest(roll.RollId, actor, "Terrain", "Высокая позиция", 5, NewCorrelationId()));
             Assert.That(proposed.IsSuccess, Is.True);
@@ -126,7 +126,7 @@ namespace Odyssey.Tests.Unit.Dice
             var store = new DiceRollStore();
             UserId actor = NewUserId();
             UserId gm = NewUserId();
-            DiceRoll roll = DiceRollService.SubmitRoll(store, NewRngFactory(), Clock, new SubmitRollRequest(actor, true, "SkillCheckPlayer", "1d20", TestCampaignId, NewCommandId(), TestRulesetVersion, TestEpoch, NewCorrelationId())).Value;
+            DiceRoll roll = DiceRollService.SubmitRoll(store, NewRngFactory(), Clock, new SubmitRollRequest(actor, true, "SkillCheckPlayer", "1d20", DiceRollAudience.Public(), TestCampaignId, NewCommandId(), TestRulesetVersion, TestEpoch, NewCorrelationId())).Value;
             DiceRoll withProposal = DiceRollService.ProposeModifier(store, new ProposeModifierRequest(roll.RollId, actor, "Ally", "Помощь союзника", 5, NewCorrelationId())).Value;
             string modifierEntryId = withProposal.ModifierEntries[0].ModifierEntryId;
 
@@ -146,7 +146,7 @@ namespace Odyssey.Tests.Unit.Dice
             var store = new DiceRollStore();
             UserId actor = NewUserId();
             UserId otherPlayer = NewUserId();
-            DiceRoll roll = DiceRollService.SubmitRoll(store, NewRngFactory(), Clock, new SubmitRollRequest(actor, true, "SkillCheckPlayer", "1d20", TestCampaignId, NewCommandId(), TestRulesetVersion, TestEpoch, NewCorrelationId())).Value;
+            DiceRoll roll = DiceRollService.SubmitRoll(store, NewRngFactory(), Clock, new SubmitRollRequest(actor, true, "SkillCheckPlayer", "1d20", DiceRollAudience.Public(), TestCampaignId, NewCommandId(), TestRulesetVersion, TestEpoch, NewCorrelationId())).Value;
             DiceRoll withProposal = DiceRollService.ProposeModifier(store, new ProposeModifierRequest(roll.RollId, actor, "Ally", "Помощь союзника", 5, NewCorrelationId())).Value;
             string modifierEntryId = withProposal.ModifierEntries[0].ModifierEntryId;
 
@@ -163,7 +163,7 @@ namespace Odyssey.Tests.Unit.Dice
             var store = new DiceRollStore();
             UserId actor = NewUserId();
             UserId gm = NewUserId();
-            DiceRoll roll = DiceRollService.SubmitRoll(store, NewRngFactory(), Clock, new SubmitRollRequest(actor, true, "SkillCheckPlayer", "1d20", TestCampaignId, NewCommandId(), TestRulesetVersion, TestEpoch, NewCorrelationId())).Value;
+            DiceRoll roll = DiceRollService.SubmitRoll(store, NewRngFactory(), Clock, new SubmitRollRequest(actor, true, "SkillCheckPlayer", "1d20", DiceRollAudience.Public(), TestCampaignId, NewCommandId(), TestRulesetVersion, TestEpoch, NewCorrelationId())).Value;
 
             Result<RollOverride> result = DiceRollService.ApplyOverride(store, Clock, new ApplyOverrideRequest(roll.RollId, gm, actorIsMainGm: true, "Failure", "Success", reason: null, NewCorrelationId()));
 
@@ -177,7 +177,7 @@ namespace Odyssey.Tests.Unit.Dice
             // TC-DICE-012
             var store = new DiceRollStore();
             UserId actor = NewUserId();
-            DiceRoll roll = DiceRollService.SubmitRoll(store, NewRngFactory(), Clock, new SubmitRollRequest(actor, true, "SkillCheckPlayer", "1d20", TestCampaignId, NewCommandId(), TestRulesetVersion, TestEpoch, NewCorrelationId())).Value;
+            DiceRoll roll = DiceRollService.SubmitRoll(store, NewRngFactory(), Clock, new SubmitRollRequest(actor, true, "SkillCheckPlayer", "1d20", DiceRollAudience.Public(), TestCampaignId, NewCommandId(), TestRulesetVersion, TestEpoch, NewCorrelationId())).Value;
 
             Result<RollOverride> result = DiceRollService.ApplyOverride(store, Clock, new ApplyOverrideRequest(roll.RollId, actor, actorIsMainGm: false, "Failure", "Success", "story reason", NewCorrelationId()));
 
@@ -192,7 +192,7 @@ namespace Odyssey.Tests.Unit.Dice
             var store = new DiceRollStore();
             UserId actor = NewUserId();
             UserId gm = NewUserId();
-            DiceRoll original = DiceRollService.SubmitRoll(store, NewRngFactory(), Clock, new SubmitRollRequest(actor, true, "SkillCheckPlayer", "1d20", TestCampaignId, NewCommandId(), TestRulesetVersion, TestEpoch, NewCorrelationId())).Value;
+            DiceRoll original = DiceRollService.SubmitRoll(store, NewRngFactory(), Clock, new SubmitRollRequest(actor, true, "SkillCheckPlayer", "1d20", DiceRollAudience.Public(), TestCampaignId, NewCommandId(), TestRulesetVersion, TestEpoch, NewCorrelationId())).Value;
             int originalNatural = original.NaturalResults[0].Value;
             int originalFinalTotal = original.FinalTotal;
 
@@ -220,7 +220,7 @@ namespace Odyssey.Tests.Unit.Dice
             var store = new DiceRollStore();
             UserId actor = NewUserId();
             var rngFactory = NewRngFactory();
-            DiceRoll original = DiceRollService.SubmitRoll(store, rngFactory, Clock, new SubmitRollRequest(actor, true, "AttackRoll", "1d20", TestCampaignId, NewCommandId(), TestRulesetVersion, TestEpoch, NewCorrelationId())).Value;
+            DiceRoll original = DiceRollService.SubmitRoll(store, rngFactory, Clock, new SubmitRollRequest(actor, true, "AttackRoll", "1d20", DiceRollAudience.Public(), TestCampaignId, NewCommandId(), TestRulesetVersion, TestEpoch, NewCorrelationId())).Value;
 
             var rerollRequest = new RequestFullRerollRequest(original.RollId, actor, actorIsMainGm: false, NewCommandId(), TestRulesetVersion, TestEpoch, NewCorrelationId());
             Result<DiceRoll> rerollResult = DiceRollService.RequestFullReroll(store, rngFactory, Clock, rerollRequest);
@@ -243,7 +243,7 @@ namespace Odyssey.Tests.Unit.Dice
             UserId actor = NewUserId();
             UserId other = NewUserId();
             var rngFactory = NewRngFactory();
-            DiceRoll original = DiceRollService.SubmitRoll(store, rngFactory, Clock, new SubmitRollRequest(actor, true, "AttackRoll", "1d20", TestCampaignId, NewCommandId(), TestRulesetVersion, TestEpoch, NewCorrelationId())).Value;
+            DiceRoll original = DiceRollService.SubmitRoll(store, rngFactory, Clock, new SubmitRollRequest(actor, true, "AttackRoll", "1d20", DiceRollAudience.Public(), TestCampaignId, NewCommandId(), TestRulesetVersion, TestEpoch, NewCorrelationId())).Value;
 
             var rerollRequest = new RequestFullRerollRequest(original.RollId, other, actorIsMainGm: false, NewCommandId(), TestRulesetVersion, TestEpoch, NewCorrelationId());
             Result<DiceRoll> result = DiceRollService.RequestFullReroll(store, rngFactory, Clock, rerollRequest);
@@ -261,7 +261,7 @@ namespace Odyssey.Tests.Unit.Dice
             // TC-DICE-016 (section 18.3: mandatory reason for a resolved roll)
             var store = new DiceRollStore();
             UserId actor = NewUserId();
-            DiceRoll roll = DiceRollService.SubmitRoll(store, NewRngFactory(), Clock, new SubmitRollRequest(actor, true, "AttributeCheck", "1d20", TestCampaignId, NewCommandId(), TestRulesetVersion, TestEpoch, NewCorrelationId())).Value;
+            DiceRoll roll = DiceRollService.SubmitRoll(store, NewRngFactory(), Clock, new SubmitRollRequest(actor, true, "AttributeCheck", "1d20", DiceRollAudience.Public(), TestCampaignId, NewCommandId(), TestRulesetVersion, TestEpoch, NewCorrelationId())).Value;
 
             Result<DiceRoll> result = DiceRollService.CancelRoll(store, new CancelRollRequest(roll.RollId, actor, actorIsMainGm: false, reason: null, NewCorrelationId()));
 
@@ -275,7 +275,7 @@ namespace Odyssey.Tests.Unit.Dice
             // TC-DICE-017 (roadmap section 12.6 step 10: "...cancel"; original event remains)
             var store = new DiceRollStore();
             UserId actor = NewUserId();
-            DiceRoll roll = DiceRollService.SubmitRoll(store, NewRngFactory(), Clock, new SubmitRollRequest(actor, true, "AttributeCheck", "1d20", TestCampaignId, NewCommandId(), TestRulesetVersion, TestEpoch, NewCorrelationId())).Value;
+            DiceRoll roll = DiceRollService.SubmitRoll(store, NewRngFactory(), Clock, new SubmitRollRequest(actor, true, "AttributeCheck", "1d20", DiceRollAudience.Public(), TestCampaignId, NewCommandId(), TestRulesetVersion, TestEpoch, NewCorrelationId())).Value;
             int naturalValue = roll.NaturalResults[0].Value;
 
             Result<DiceRoll> result = DiceRollService.CancelRoll(store, new CancelRollRequest(roll.RollId, actor, actorIsMainGm: false, "player disconnected", NewCorrelationId()));
@@ -292,7 +292,7 @@ namespace Odyssey.Tests.Unit.Dice
             var store = new DiceRollStore();
             UserId actor = NewUserId();
             UserId other = NewUserId();
-            DiceRoll roll = DiceRollService.SubmitRoll(store, NewRngFactory(), Clock, new SubmitRollRequest(actor, true, "AttributeCheck", "1d20", TestCampaignId, NewCommandId(), TestRulesetVersion, TestEpoch, NewCorrelationId())).Value;
+            DiceRoll roll = DiceRollService.SubmitRoll(store, NewRngFactory(), Clock, new SubmitRollRequest(actor, true, "AttributeCheck", "1d20", DiceRollAudience.Public(), TestCampaignId, NewCommandId(), TestRulesetVersion, TestEpoch, NewCorrelationId())).Value;
 
             Result<DiceRoll> result = DiceRollService.CancelRoll(store, new CancelRollRequest(roll.RollId, other, actorIsMainGm: false, "trying to cancel someone else's roll", NewCorrelationId()));
 
