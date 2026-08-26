@@ -294,7 +294,7 @@ No dependency is introduced by this task.
 - [x] No unapproved dependency, tool, GitHub Action, or license was introduced.
 - [x] Documentation is updated only where materially required.
 - [x] Codex/developer performed a self-review against this task and `AGENTS.md`.
-- [ ] Pull request explains changes, evidence, limitations, and follow-up work.
+- [x] Pull request explains changes, evidence, limitations, and follow-up work.
 - [ ] Product owner or authorized reviewer completes the required review; Codex does not merge into `main`.
 
 ## 17. Completion evidence
@@ -316,6 +316,7 @@ No dependency is introduced by this task.
 | `dotnet test DotNet/Odyssey.Core.sln` | Passed | All 6 test projects passed: Contracts 1/1, Domain 27/27 (includes 12 new `TC-DICE-001`–`004` tests), Networking 67/67, Unit 99/99 (includes 15 new `TC-DICE-005`–`018` tests), Architecture 2/2, Persistence 55/55. |
 | `.\scripts\verify-format.ps1` | Passed | `FORMAT-001 PASS`. |
 | `.\scripts\check-repository-policy.ps1` | Passed | All checks pass, including `REPO-POLICY-005` (error registry, 11 new codes). |
+| CI — PR #59, commit `6aaf778` | Passed | Run [32987266220](https://github.com/odyssey-services/Odyssey_VTT/actions/runs/32987266220): `repository-policy-format-structure`, `dotnet-restore-build-test` (real production build+test), `unity-project-package-static`, `buildidentity-provenance` — all 4 `SUCCESS`. |
 
 ### Acceptance result
 
@@ -331,7 +332,7 @@ No dependency is introduced by this task.
 | AC-8 | Passed | `git status --porcelain` confirms no `ADR-004`/`008`/`012`/`019` file touched. |
 | AC-9 | Passed | See Validation results table above — all four commands pass. |
 | AC-10 | Passed | `git status --porcelain` matches §5's Allowed paths exactly. |
-| AC-11 | Pending | PR to be opened as Draft; CI status to be confirmed. |
+| AC-11 | Passed | Draft PR [#59](https://github.com/odyssey-services/Odyssey_VTT/pull/59) open; all 4 required CI checks `SUCCESS` on run 32987266220 (commit `6aaf778`); PR remains Draft pending explicit owner confirmation before any merge. |
 
 ## 18. Blockers, decisions, and change control
 
