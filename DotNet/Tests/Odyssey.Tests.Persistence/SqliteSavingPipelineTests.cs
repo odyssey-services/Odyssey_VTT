@@ -27,6 +27,7 @@ namespace Odyssey.Tests.Persistence
         private SqliteCampaignRepository _campaignRepository = null!;
 
         private static CommandId NewCommandId() => CommandId.Parse("cmd_" + Guid.NewGuid().ToString("N"));
+        private static UserId NewUserId() => UserId.Parse("user_" + Guid.NewGuid().ToString("N"));
 
         [SetUp]
         public void SetUp()
@@ -80,7 +81,7 @@ namespace Odyssey.Tests.Persistence
             SceneId phantomScene = SceneId.NewId(Clock.GetUtcNow());
             CommandId commandId = NewCommandId();
 
-            Result<TokenRecord> result = sceneRepository.CreateToken(_campaign, phantomScene, new TokenPosition(1, 1), commandId, TestCorrelationId);
+            Result<TokenRecord> result = sceneRepository.CreateToken(_campaign, phantomScene, new TokenPosition(1, 1), NewUserId(), commandId, TestCorrelationId);
             Assert.That(result.IsFailure, Is.True);
 
             using var connection = new SqliteConnection("Data Source=" + Path.Combine(_workDir, "campaign.db") + ";Mode=ReadOnly");
@@ -120,11 +121,11 @@ namespace Odyssey.Tests.Persistence
         {
             var sceneRepository = new SqliteSceneRepository(Clock);
             SceneId sceneId = sceneRepository.CreateScene(_campaign, "Move Idempotency", NewCommandId(), TestCorrelationId).Value.SceneId;
-            TokenId tokenId = sceneRepository.CreateToken(_campaign, sceneId, new TokenPosition(0, 0), NewCommandId(), TestCorrelationId).Value.TokenId;
+            TokenId tokenId = sceneRepository.CreateToken(_campaign, sceneId, new TokenPosition(0, 0), NewUserId(), NewCommandId(), TestCorrelationId).Value.TokenId;
 
             CommandId moveCommandId = NewCommandId();
-            Result<TokenRecord> firstMove = sceneRepository.MoveToken(_campaign, tokenId, new TokenPosition(9, 9), moveCommandId, TestCorrelationId);
-            Result<TokenRecord> redeliveredMove = sceneRepository.MoveToken(_campaign, tokenId, new TokenPosition(9, 9), moveCommandId, TestCorrelationId);
+            Result<TokenRecord> firstMove = sceneRepository.MoveToken(_campaign, tokenId, new TokenPosition(9, 9), 1, moveCommandId, TestCorrelationId);
+            Result<TokenRecord> redeliveredMove = sceneRepository.MoveToken(_campaign, tokenId, new TokenPosition(9, 9), 1, moveCommandId, TestCorrelationId);
 
             Assert.That(firstMove.IsSuccess, Is.True);
             Assert.That(redeliveredMove.IsSuccess, Is.True);

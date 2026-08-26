@@ -42,6 +42,7 @@ namespace Odyssey.Tests.Persistence
         private string _testMapFilePath = null!;
 
         private static CommandId NewCommandId() => CommandId.Parse("cmd_" + Guid.NewGuid().ToString("N"));
+        private static UserId NewUserId() => UserId.Parse("user_" + Guid.NewGuid().ToString("N"));
 
         [SetUp]
         public void SetUp()
@@ -93,8 +94,8 @@ namespace Odyssey.Tests.Persistence
             SceneId sceneId = sceneResult.Value.SceneId;
 
             // Step 4: place two tokens.
-            Result<TokenRecord> tokenAResult = sceneRepository.CreateToken(campaign, sceneId, new TokenPosition(1, 1), NewCommandId(), TestCorrelationId);
-            Result<TokenRecord> tokenBResult = sceneRepository.CreateToken(campaign, sceneId, new TokenPosition(2, 2), NewCommandId(), TestCorrelationId);
+            Result<TokenRecord> tokenAResult = sceneRepository.CreateToken(campaign, sceneId, new TokenPosition(1, 1), NewUserId(), NewCommandId(), TestCorrelationId);
+            Result<TokenRecord> tokenBResult = sceneRepository.CreateToken(campaign, sceneId, new TokenPosition(2, 2), NewUserId(), NewCommandId(), TestCorrelationId);
             Assert.That(tokenAResult.IsSuccess, Is.True, "step 4 (place token A) must succeed");
             Assert.That(tokenBResult.IsSuccess, Is.True, "step 4 (place token B) must succeed");
             TokenId tokenAId = tokenAResult.Value.TokenId;
@@ -105,8 +106,8 @@ namespace Odyssey.Tests.Persistence
             // must not collide with each other.
             var tokenAMovedPosition = new TokenPosition(10, 20);
             var tokenBMovedPosition = new TokenPosition(30, 40);
-            Result<TokenRecord> tokenAMoved = sceneRepository.MoveToken(campaign, tokenAId, tokenAMovedPosition, NewCommandId(), TestCorrelationId);
-            Result<TokenRecord> tokenBMoved = sceneRepository.MoveToken(campaign, tokenBId, tokenBMovedPosition, NewCommandId(), TestCorrelationId);
+            Result<TokenRecord> tokenAMoved = sceneRepository.MoveToken(campaign, tokenAId, tokenAMovedPosition, tokenAResult.Value.Revision, NewCommandId(), TestCorrelationId);
+            Result<TokenRecord> tokenBMoved = sceneRepository.MoveToken(campaign, tokenBId, tokenBMovedPosition, tokenBResult.Value.Revision, NewCommandId(), TestCorrelationId);
             Assert.That(tokenAMoved.IsSuccess, Is.True, "step 5 (move token A) must succeed");
             Assert.That(tokenBMoved.IsSuccess, Is.True, "step 5 (move token B) must succeed");
             Assert.That(tokenAMoved.Value.Position, Is.Not.EqualTo(new TokenPosition(1, 1)), "token A's position must have actually changed");

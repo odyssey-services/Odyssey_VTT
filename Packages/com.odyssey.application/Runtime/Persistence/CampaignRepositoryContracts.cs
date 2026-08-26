@@ -132,6 +132,22 @@ namespace Odyssey.Application.Persistence
             RetryDirective.DoNotRetry,
             correlationId);
 
+        /// <summary>
+        /// ODY-S03-004: ADR-002 section 10.2's optimistic-concurrency check,
+        /// enforced atomically inside <c>SqliteSceneRepository.MoveToken</c>'s
+        /// own transaction -- the final guard against a concurrent revision
+        /// change, independent of any Application-layer pre-check
+        /// (<c>Odyssey.Application.Board.BoardMovementService</c>) that ran
+        /// outside this transaction.
+        /// </summary>
+        public static Error TokenRevisionConflict(CorrelationId correlationId) => Error.Create(
+            ErrorCodes.PersistenceTokenRevisionConflict,
+            ErrorCategory.Conflict,
+            SafeReasonCode.StateChanged,
+            UserMessageKey.Parse("errors.persistence.token_revision_conflict"),
+            RetryDirective.DoNotRetry,
+            correlationId);
+
         public static Error IntegrityCheckFailed(CorrelationId correlationId) => Error.Create(
             ErrorCodes.PersistenceIntegrityCheckFailed,
             ErrorCategory.Integrity,
