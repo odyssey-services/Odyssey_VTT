@@ -5,7 +5,7 @@
 **Owner:** Codex (agent)
 **Requested by:** Product owner
 **Branch:** `feat/ody-s03-008-vertical-slice-integration`
-**Pull request:** Draft — link recorded once opened
+**Pull request:** Draft — [#62](https://github.com/odyssey-services/Odyssey_VTT/pull/62) (open, CI green, awaiting owner review)
 **ExecPlan:** Not required — see section 14 (Brief plan)
 **Created:** 2026-08-26
 **Last updated:** 2026-08-26 UTC
@@ -282,7 +282,7 @@ dotnet test DotNet/Odyssey.Core.sln
 | `dotnet test DotNet/Odyssey.Core.sln` (full suite) | Passed | Contracts 1/1, Domain 27/27, Networking 67/67, Unit 105/105, Architecture 2/2, Persistence 60/60 (59 pre-existing + 1 new), no regression. |
 | `.\scripts\verify-format.ps1` | Passed | `FORMAT-001 PASS`. |
 | `.\scripts\check-repository-policy.ps1` | Passed | All checks pass, including all `TC-CI-*` workflow checks (no new `ErrorCode` — `REPO-POLICY-005` unaffected). |
-| CI — Draft PR | Pending | To be recorded once the PR is opened and CI completes. |
+| CI — Draft PR [#62](https://github.com/odyssey-services/Odyssey_VTT/pull/62), commit `bf0d710` | Passed | Run [33016140922](https://github.com/odyssey-services/Odyssey_VTT/actions/runs/33016140922): `repository-policy-format-structure`, `dotnet-restore-build-test`, `unity-project-package-static`, `buildidentity-provenance` — all 4 `SUCCESS`. |
 
 ### Acceptance result
 
@@ -300,7 +300,7 @@ dotnet test DotNet/Odyssey.Core.sln
 | AC-10 | Passed | Step 10: `PreviousRollId` chain, original's `NaturalResults`/`FormulaOriginal` unchanged in-memory and in the re-queried persisted row; `GetOverrides` still returns the step-6 record. |
 | AC-11 | Passed | `git diff --name-status` (section 17) shows zero files under `Packages/`. |
 | AC-12 | Passed | Section 4 documents zero composition gaps found — the scenario completed on its first real run. |
-| AC-13 | Passed | See Validation results above; CI evidence recorded once the Draft PR's checks complete. |
+| AC-13 | Passed | See Validation results above — all commands pass, including CI on Draft PR [#62](https://github.com/odyssey-services/Odyssey_VTT/pull/62). |
 
 ### Known limitations
 
