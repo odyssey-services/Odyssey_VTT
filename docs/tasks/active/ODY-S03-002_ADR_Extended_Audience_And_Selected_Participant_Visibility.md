@@ -5,7 +5,7 @@
 **Owner:** Codex (agent)
 **Requested by:** Product owner
 **Branch:** `feat/ody-s03-002-adr-extended-audience-and-selected-participant-visibility`
-**Pull request:** Not opened
+**Pull request:** Draft — [#56](https://github.com/odyssey-services/Odyssey_VTT/pull/56) (open, awaiting owner review)
 **ExecPlan:** `docs/plans/active/ODY-S03-002_ADR_Extended_Audience_And_Selected_Participant_Visibility.md`
 **Created:** 2026-08-26
 **Last updated:** 2026-08-26 UTC
