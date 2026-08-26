@@ -1601,6 +1601,150 @@
                           "check":  "a moved token's position, controller, and revision are identical after closing and reopening the campaign, confirmed by a fresh SqliteSceneRepository instance against the reopened connection"
                       },
                       {
+                          "testCaseId":  "TC-DICE-001",
+                          "taskId":  "ODY-S03-005",
+                          "authority":  "09_Dice_And_Game_Log section 7.1; ODY-S03-005",
+                          "runner":  "dotnet test",
+                          "path":  "DotNet/Tests/Odyssey.Tests.Domain/Dice/DiceFormulaParserTests.cs",
+                          "check":  "DiceFormulaParser.TryParse parses a single dice group (implicit and explicit count, uppercase D normalized to lowercase) into the correct Count/Sides"
+                      },
+                      {
+                          "testCaseId":  "TC-DICE-002",
+                          "taskId":  "ODY-S03-005",
+                          "authority":  "09_Dice_And_Game_Log section 7.1; ODY-S03-005",
+                          "runner":  "dotnet test",
+                          "path":  "DotNet/Tests/Odyssey.Tests.Domain/Dice/DiceFormulaParserTests.cs",
+                          "check":  "compound and mixed-sign formulas (3d10+5, 2d8-1d4+3, -d6+12) parse into the correct ordered, signed terms"
+                      },
+                      {
+                          "testCaseId":  "TC-DICE-003",
+                          "taskId":  "ODY-S03-005",
+                          "authority":  "09_Dice_And_Game_Log section 7.3; ODY-S03-005",
+                          "runner":  "dotnet test",
+                          "path":  "DotNet/Tests/Odyssey.Tests.Domain/Dice/DiceFormulaParserTests.cs",
+                          "check":  "every section 7.3 forbidden-syntax example ((2d6+3)*2, 4d6/2, 4d6kh3, 4d6dl1, max(2d6,8), 1d6!) and malformed/empty text is rejected with a typed DiceFormulaParseError"
+                      },
+                      {
+                          "testCaseId":  "TC-DICE-004",
+                          "taskId":  "ODY-S03-005",
+                          "authority":  "09_Dice_And_Game_Log section 7.4/section 8; ODY-S03-005",
+                          "runner":  "dotnet test",
+                          "path":  "DotNet/Tests/Odyssey.Tests.Domain/Dice/DiceFormulaParserTests.cs",
+                          "check":  "MaxDiceGroups (20), MaxDiceCount (100), and MinSides/MaxSides (2/1000) limits are enforced before any RNG use; 1d100 (a valid single logical die) parses successfully within those limits"
+                      },
+                      {
+                          "testCaseId":  "TC-DICE-005",
+                          "taskId":  "ODY-S03-005",
+                          "authority":  "09_Dice_And_Game_Log section 14.2; 17_Roadmap_Odyssey_VTT_v0.11.md section 12.7; ODY-S03-005",
+                          "runner":  "dotnet test",
+                          "path":  "DotNet/Tests/Odyssey.Tests.Unit/Dice/DiceRollServiceTests.cs",
+                          "check":  "DiceRollService.SubmitRoll by an authorized actor generates a correctly-summed d100/compound-formula result entirely host-side (exit criterion 3: \"бросок рассчитывается только host\")"
+                      },
+                      {
+                          "testCaseId":  "TC-DICE-006",
+                          "taskId":  "ODY-S03-005",
+                          "authority":  "09_Dice_And_Game_Log section 32 (Roll.* permission keys); ODY-S03-005",
+                          "runner":  "dotnet test",
+                          "path":  "DotNet/Tests/Odyssey.Tests.Unit/Dice/DiceRollServiceTests.cs",
+                          "check":  "SubmitRoll by an actor without ActorCanCreateRoll returns the typed dice.roll.denied failure; no DiceRoll is generated or stored"
+                      },
+                      {
+                          "testCaseId":  "TC-DICE-007",
+                          "taskId":  "ODY-S03-005",
+                          "authority":  "09_Dice_And_Game_Log section 7.4; ODY-S03-005",
+                          "runner":  "dotnet test",
+                          "path":  "DotNet/Tests/Odyssey.Tests.Unit/Dice/DiceRollServiceTests.cs",
+                          "check":  "SubmitRoll with a formula violating section 7's grammar returns dice.formula.invalid before any RNG stream is created"
+                      },
+                      {
+                          "testCaseId":  "TC-DICE-008",
+                          "taskId":  "ODY-S03-005",
+                          "authority":  "09_Dice_And_Game_Log section 12.2; ODY-S03-005",
+                          "runner":  "dotnet test",
+                          "path":  "DotNet/Tests/Odyssey.Tests.Unit/Dice/DiceRollServiceTests.cs",
+                          "check":  "a modifier proposed via ProposeModifier does not count toward FinalTotal until separately accepted via DecideModifier, at which point its AppliedValue is added -- proposed and accepted are two distinct, visible steps"
+                      },
+                      {
+                          "testCaseId":  "TC-DICE-009",
+                          "taskId":  "ODY-S03-005",
+                          "authority":  "09_Dice_And_Game_Log section 12.2; ODY-S03-005",
+                          "runner":  "dotnet test",
+                          "path":  "DotNet/Tests/Odyssey.Tests.Unit/Dice/DiceRollServiceTests.cs",
+                          "check":  "DecideModifier with Decision=Rejected/Changed and no reason returns dice.modifier.decision_reason_required; the modifier entry remains Proposed, not silently rejected"
+                      },
+                      {
+                          "testCaseId":  "TC-DICE-010",
+                          "taskId":  "ODY-S03-005",
+                          "authority":  "09_Dice_And_Game_Log section 12.2; ODY-S03-005",
+                          "runner":  "dotnet test",
+                          "path":  "DotNet/Tests/Odyssey.Tests.Unit/Dice/DiceRollServiceTests.cs",
+                          "check":  "DecideModifier by an actor not flagged DecidedByUserIsMainGm returns dice.modifier.decision_denied"
+                      },
+                      {
+                          "testCaseId":  "TC-DICE-011",
+                          "taskId":  "ODY-S03-005",
+                          "authority":  "09_Dice_And_Game_Log section 19.2; 17_Roadmap_Odyssey_VTT_v0.11.md section 12.7; ODY-S03-005",
+                          "runner":  "dotnet test",
+                          "path":  "DotNet/Tests/Odyssey.Tests.Unit/Dice/DiceRollServiceTests.cs",
+                          "check":  "ApplyOverride with no reason returns dice.override.reason_required (exit criterion 6: \"GM Override всегда оставляет audit trail\")"
+                      },
+                      {
+                          "testCaseId":  "TC-DICE-012",
+                          "taskId":  "ODY-S03-005",
+                          "authority":  "09_Dice_And_Game_Log section 19; ODY-S03-005",
+                          "runner":  "dotnet test",
+                          "path":  "DotNet/Tests/Odyssey.Tests.Unit/Dice/DiceRollServiceTests.cs",
+                          "check":  "ApplyOverride by an actor not flagged ActorIsMainGm returns dice.override.denied"
+                      },
+                      {
+                          "testCaseId":  "TC-DICE-013",
+                          "taskId":  "ODY-S03-005",
+                          "authority":  "09_Dice_And_Game_Log section 19.2; ODY-S03-005",
+                          "runner":  "dotnet test",
+                          "path":  "DotNet/Tests/Odyssey.Tests.Unit/Dice/DiceRollServiceTests.cs",
+                          "check":  "a successful ApplyOverride with reason produces a separate RollOverride record; the original DiceRoll's NaturalResults/FinalTotal are unchanged, only its Status flips to Overridden"
+                      },
+                      {
+                          "testCaseId":  "TC-DICE-014",
+                          "taskId":  "ODY-S03-005",
+                          "authority":  "09_Dice_And_Game_Log section 17.2/17.4; 17_Roadmap_Odyssey_VTT_v0.11.md section 12.6 step 10; ODY-S03-005",
+                          "runner":  "dotnet test",
+                          "path":  "DotNet/Tests/Odyssey.Tests.Unit/Dice/DiceRollServiceTests.cs",
+                          "check":  "RequestFullReroll creates a new DiceRoll chained via PreviousRollId; the original roll's own NaturalResults/data are preserved unchanged, only its Status flips to SupersededByReroll"
+                      },
+                      {
+                          "testCaseId":  "TC-DICE-015",
+                          "taskId":  "ODY-S03-005",
+                          "authority":  "09_Dice_And_Game_Log section 17.3; ODY-S03-005",
+                          "runner":  "dotnet test",
+                          "path":  "DotNet/Tests/Odyssey.Tests.Unit/Dice/DiceRollServiceTests.cs",
+                          "check":  "RequestFullReroll by an actor who is neither the original roller nor MainGM returns dice.reroll.denied; the original roll's Status remains Resolved, not superseded"
+                      },
+                      {
+                          "testCaseId":  "TC-DICE-016",
+                          "taskId":  "ODY-S03-005",
+                          "authority":  "09_Dice_And_Game_Log section 18.3; ODY-S03-005",
+                          "runner":  "dotnet test",
+                          "path":  "DotNet/Tests/Odyssey.Tests.Unit/Dice/DiceRollServiceTests.cs",
+                          "check":  "CancelRoll on an already-resolved roll with no reason returns dice.cancel.reason_required"
+                      },
+                      {
+                          "testCaseId":  "TC-DICE-017",
+                          "taskId":  "ODY-S03-005",
+                          "authority":  "09_Dice_And_Game_Log section 18.2; 17_Roadmap_Odyssey_VTT_v0.11.md section 12.6 step 10; ODY-S03-005",
+                          "runner":  "dotnet test",
+                          "path":  "DotNet/Tests/Odyssey.Tests.Unit/Dice/DiceRollServiceTests.cs",
+                          "check":  "CancelRoll with a reason sets Status=Cancelled without deleting or rewriting the roll's own NaturalResults data"
+                      },
+                      {
+                          "testCaseId":  "TC-DICE-018",
+                          "taskId":  "ODY-S03-005",
+                          "authority":  "09_Dice_And_Game_Log section 18.1; ODY-S03-005",
+                          "runner":  "dotnet test",
+                          "path":  "DotNet/Tests/Odyssey.Tests.Unit/Dice/DiceRollServiceTests.cs",
+                          "check":  "CancelRoll by an actor who is neither the roll's own actor nor MainGM returns dice.cancel.denied"
+                      },
+                      {
                           "testCaseId":  "TC-NET-001",
                           "taskId":  "ODY-S02-001",
                           "authority":  "ADR-004; ADR-015; ODY-S02-001",
