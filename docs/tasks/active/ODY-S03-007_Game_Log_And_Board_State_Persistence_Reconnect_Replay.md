@@ -1,11 +1,11 @@
 # ODY-S03-007 — Game Log & Board State Persistence, Reconnect Replay
 
-**Status:** In Review
+**Status:** Done
 **Roadmap stage / slice:** SLICE-03 (vertical slice implementation)
 **Owner:** Codex (agent)
 **Requested by:** Product owner
 **Branch:** `feat/ody-s03-007-game-log-and-board-state-persistence-reconnect-replay`
-**Pull request:** Draft — [#61](https://github.com/odyssey-services/Odyssey_VTT/pull/61) (open, CI green, awaiting owner review)
+**Pull request:** Merged — [#61](https://github.com/odyssey-services/Odyssey_VTT/pull/61)
 **ExecPlan:** `docs/plans/active/ODY-S03-007_Game_Log_And_Board_State_Persistence_Reconnect_Replay.md`
 **Created:** 2026-08-26
 **Last updated:** 2026-08-26 UTC
@@ -277,7 +277,7 @@ dotnet test DotNet/Odyssey.Core.sln
 - [x] Documentation is updated only where materially required.
 - [x] Codex/developer performed a self-review against this task and `AGENTS.md`.
 - [x] Pull request explains changes, evidence, limitations, and follow-up work.
-- [ ] Product owner or authorized reviewer completes the required review; Codex does not merge into `main`.
+- [x] Product owner or authorized reviewer completes the required review; Codex does not merge into `main`.
 
 ## 17. Completion evidence
 
