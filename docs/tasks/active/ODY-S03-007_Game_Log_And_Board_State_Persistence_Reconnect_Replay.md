@@ -5,7 +5,7 @@
 **Owner:** Codex (agent)
 **Requested by:** Product owner
 **Branch:** `feat/ody-s03-007-game-log-and-board-state-persistence-reconnect-replay`
-**Pull request:** Draft — link recorded once opened
+**Pull request:** Draft — [#61](https://github.com/odyssey-services/Odyssey_VTT/pull/61) (open, CI green, awaiting owner review)
 **ExecPlan:** `docs/plans/active/ODY-S03-007_Game_Log_And_Board_State_Persistence_Reconnect_Replay.md`
 **Created:** 2026-08-26
 **Last updated:** 2026-08-26 UTC
@@ -301,7 +301,7 @@ dotnet test DotNet/Odyssey.Core.sln
 | `dotnet test DotNet/Odyssey.Core.sln` | Passed | All test projects passed: Contracts 1/1, Domain 27/27, Networking 67/67, Unit 105/105, Architecture 2/2, Persistence 59/59 (55 pre-existing + 4 new `TC-PERSIST-032`–`035`). |
 | `.\scripts\verify-format.ps1` | Passed | `FORMAT-001 PASS`. |
 | `.\scripts\check-repository-policy.ps1` | Passed | All checks pass, including `REPO-POLICY-005` (1 new error code) and all `TC-CI-*` workflow checks. |
-| CI — Draft PR | Pending | To be recorded once the PR is opened and CI completes. |
+| CI — Draft PR [#61](https://github.com/odyssey-services/Odyssey_VTT/pull/61), commit `b093710` | Passed | Run [33007104970](https://github.com/odyssey-services/Odyssey_VTT/actions/runs/33007104970): `repository-policy-format-structure`, `dotnet-restore-build-test`, `unity-project-package-static`, `buildidentity-provenance` — all 4 `SUCCESS`. |
 
 ### Acceptance result
 
@@ -314,9 +314,9 @@ dotnet test DotNet/Odyssey.Core.sln
 | AC-5 | Passed | `ERROR_CODES.md` (1 row), `test-catalog.json` (4 entries) both updated. |
 | AC-6 | Passed | `git status --porcelain` before commit confirmed no `ADR-012`/`ADR-017` file touched. |
 | AC-7 | Passed | See Validation results table above. |
-| AC-8 | Pending | To be confirmed via `git diff --name-status` before commit. |
-| AC-9 | Pending | To be confirmed once the backlog edit is made. |
-| AC-10 | Pending | Draft PR not yet opened. |
+| AC-8 | Passed | `git status --porcelain` before commit matched §5's Allowed paths exactly (14 files: 6 modified, 8 new). |
+| AC-9 | Passed | `SLICE-03_IMPLEMENTATION_BACKLOG.md`'s `ODY-S03-006` row corrected to `Done` with the real [PR #60](https://github.com/odyssey-services/Odyssey_VTT/pull/60) link. |
+| AC-10 | Passed | Draft PR [#61](https://github.com/odyssey-services/Odyssey_VTT/pull/61) open; all 4 required CI checks `SUCCESS` on run 33007104970 (commit `b093710`); PR remains Draft pending explicit owner confirmation before any merge. |
 
 ## 18. Blockers, decisions, and change control
 
