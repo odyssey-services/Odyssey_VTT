@@ -12,7 +12,7 @@ namespace Odyssey.Application.Dice
     /// <summary>
     /// ODY-S03-005: host-authoritative dice roll engine. Only this class ever
     /// draws from <see cref="IAuthoritativeRandomStream"/> for a roll (section
-    /// 14.2: "С‚РѕР»СЊРєРѕ host РІС‹Р·С‹РІР°РµС‚ production RNG") -- there is no code path
+    /// 14.2: "только host вызывает production RNG") -- there is no code path
     /// by which a caller-supplied result reaches a <see cref="DiceRoll"/>.
     /// Reuses <c>ADR-008</c>'s already-accepted RNG contracts unchanged (no
     /// new algorithm, section 38 point 4), and follows the same two-point
