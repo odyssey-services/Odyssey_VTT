@@ -5,7 +5,7 @@
 **Owner:** Codex (agent)
 **Requested by:** Product owner
 **Branch:** `feat/ody-s03-004-board-foundation-scene-token-selection-movement`
-**Pull request:** Not opened
+**Pull request:** Draft — [#58](https://github.com/odyssey-services/Odyssey_VTT/pull/58) (open, awaiting owner review)
 **ExecPlan:** `docs/plans/active/ODY-S03-004_Board_Foundation_Scene_Token_Selection_Authoritative_Movement.md`
 **Created:** 2026-08-26
 **Last updated:** 2026-08-26 UTC
