@@ -282,17 +282,17 @@ No dependency is introduced by this task.
 ## 16. Definition of Done
 
 - [x] Goal is achieved without unapproved scope expansion.
-- [ ] All acceptance criteria are satisfied.
-- [ ] Required automated tests pass.
+- [x] All acceptance criteria are satisfied.
+- [x] Required automated tests pass.
 - [x] Required manual checks are completed.
-- [ ] Required commands and their real results are recorded.
+- [x] Required commands and their real results are recorded.
 - [x] Architecture and dependency rules remain valid.
 - [x] Security, privacy, redaction, and audience rules are verified where applicable.
 - [x] Compatibility, migration, rollback, and versioning obligations are complete where applicable.
 - [x] No unapproved dependency, tool, GitHub Action, or license was introduced.
 - [x] Documentation is updated only where materially required.
 - [x] Codex/developer performed a self-review against this task and `AGENTS.md`.
-- [ ] Pull request explains changes, evidence, limitations, and follow-up work.
+- [x] Pull request explains changes, evidence, limitations, and follow-up work.
 - [ ] Product owner or authorized reviewer completes the required review; Codex does not merge into `main`.
 
 ## 17. Completion evidence
@@ -316,6 +316,7 @@ No dependency is introduced by this task.
 | `dotnet test DotNet/Odyssey.Core.sln` | Passed | All 6 test projects passed: Contracts 1/1, Domain 6/6, Networking 67/67, Unit 84/84, Architecture 2/2, Persistence 55/55 (includes the 13 new `TC-BOARD-*` tests). |
 | `.\scripts\verify-format.ps1` | Passed | `FORMAT-001 PASS`. |
 | `.\scripts\check-repository-policy.ps1` | Passed | All checks pass, including `REPO-POLICY-005` (error registry). |
+| CI — PR #58, commit `edd46ef` | Passed | Run [32976314504](https://github.com/odyssey-services/Odyssey_VTT/actions/runs/32976314504): `repository-policy-format-structure`, `dotnet-restore-build-test` (real production build+test), `unity-project-package-static`, `buildidentity-provenance` — all 4 `SUCCESS`. |
 
 ### Acceptance result
 
@@ -323,7 +324,7 @@ No dependency is introduced by this task.
 |---|---|---|
 | AC-1 through AC-11 | Passed | See Validation results table; production code and tests implement exactly the behavior described in AC-1–AC-8; `ADR-002`/`004`/`020` unmodified confirmed via `git status --porcelain`. |
 | AC-12 | Passed | `git status --porcelain` matches §5's Allowed paths exactly. |
-| AC-13 | Pending | PR to be opened as Draft; CI status to be confirmed. |
+| AC-13 | Passed | Draft PR [#58](https://github.com/odyssey-services/Odyssey_VTT/pull/58) open; all 4 required CI checks `SUCCESS` on run 32976314504 (commit `edd46ef`); PR remains Draft pending explicit owner confirmation before any merge. |
 
 ### Known limitations
 
