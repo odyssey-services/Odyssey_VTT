@@ -5,7 +5,7 @@
 **Owner:** Codex (agent)
 **Requested by:** Product owner
 **Branch:** `feat/ody-s02-015-acceptance-and-closure-gate`
-**Pull request:** Not yet opened
+**Pull request:** Draft — [#51](https://github.com/odyssey-services/Odyssey_VTT/pull/51)
 **ExecPlan:** Not required — see section 14 (Brief plan)
 **Created:** 2026-08-26
 **Last updated:** 2026-08-26 UTC
