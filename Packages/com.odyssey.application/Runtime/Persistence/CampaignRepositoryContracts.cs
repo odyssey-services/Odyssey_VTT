@@ -204,6 +204,15 @@ namespace Odyssey.Application.Persistence
             RetryDirective.ManualRecoveryRequired,
             correlationId);
 
+        /// <summary>ODY-S03-007: <c>SqliteGameLogRepository</c>'s wrapper for DiceRoll/GameLogEntry file or SQLite I/O failures, mirroring <see cref="SceneIoFailed"/>'s exact convention for a different aggregate pair.</summary>
+        public static Error GameLogIoFailed(CorrelationId correlationId) => Error.Create(
+            ErrorCodes.PersistenceGameLogIoFailed,
+            ErrorCategory.PermanentInfrastructure,
+            SafeReasonCode.UnexpectedError,
+            UserMessageKey.Parse("errors.persistence.gamelog_io_failed"),
+            RetryDirective.ManualRecoveryRequired,
+            correlationId);
+
         // Used only by the codec's Read path (CampaignManifest.cs), which does not
         // receive a caller CorrelationId; matches the existing SerializationFailures
         // placeholder-correlation convention for codec-level structural failures.

@@ -31,6 +31,7 @@ namespace Odyssey.Application.Results
         public static readonly ErrorCode PersistenceBackupRestoreFailed = ErrorCode.Parse("persistence.backup.restore_failed");
         public static readonly ErrorCode PersistenceExportCreateFailed = ErrorCode.Parse("persistence.export.create_failed");
         public static readonly ErrorCode PersistenceExportImportFailed = ErrorCode.Parse("persistence.export.import_failed");
+        public static readonly ErrorCode PersistenceGameLogIoFailed = ErrorCode.Parse("persistence.gamelog.io_failed");
         public static readonly ErrorCode NetworkingTransportConnectFailed = ErrorCode.Parse("networking.transport.connect_failed");
         public static readonly ErrorCode NetworkingTransportConnectTimedOut = ErrorCode.Parse("networking.transport.connect_timed_out");
         public static readonly ErrorCode NetworkingProtocolVersionUnsupported = ErrorCode.Parse("networking.protocol.version_unsupported");
