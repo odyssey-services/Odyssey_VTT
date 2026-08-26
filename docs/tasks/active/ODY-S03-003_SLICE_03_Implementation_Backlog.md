@@ -5,7 +5,7 @@
 **Owner:** Codex (agent)
 **Requested by:** Product owner
 **Branch:** `feat/ody-s03-003-close-prerequisites-and-implementation-backlog`
-**Pull request:** Not opened
+**Pull request:** Draft — [#57](https://github.com/odyssey-services/Odyssey_VTT/pull/57) (open, awaiting owner review)
 **ExecPlan:** Not required (Brief plan)
 **Created:** 2026-08-26
 **Last updated:** 2026-08-26 UTC
