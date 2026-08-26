@@ -1529,6 +1529,14 @@
                           "check":  "a brand-new SqliteSceneRepository instance against the same campaign.db (simulated restart) lists an identical token position/revision/controller after a prior CreateToken+MoveToken sequence -- exit criterion 1 (board state identical after restart and reconnect) proven directly, not merely assumed from the existing per-call-connection design"
                       },
                       {
+                          "testCaseId":  "TC-PERSIST-036",
+                          "taskId":  "ODY-S03-008",
+                          "authority":  "17_Roadmap_Odyssey_VTT_v0.11.md section 12.6 (ten-step scenario)/12.7; ODY-S03-004..007; ODY-S03-008",
+                          "runner":  "dotnet test",
+                          "path":  "DotNet/Tests/Odyssey.Tests.Persistence/Integration/VerticalSliceIntegrationTests.cs",
+                          "check":  "the roadmap section 12.6 ten-step scenario (player selects own token via control ownership; sends a roll intent; host validates permission; host generates a formula result via real RNG; modifiers are applied; GM overrides with a mandatory reason; only permitted participants receive the result under a nontrivial SelectedParticipants audience, with safe denial for an excluded participant; the event is persisted via real SQLite; a reopened repository restores the visible journal recomputed by CURRENT, not saved, group membership; after a full reroll the original event's own NaturalResults/FormulaOriginal/persisted row remain unchanged) runs end-to-end in one reproducible test using only already-merged ODY-S03-004..007 public APIs, with every step asserted and zero new production code"
+                      },
+                      {
                           "testCaseId":  "TC-BOARD-001",
                           "taskId":  "ODY-S03-004",
                           "authority":  "ADR-020 section 5.1/5.3; ODY-S03-004",
