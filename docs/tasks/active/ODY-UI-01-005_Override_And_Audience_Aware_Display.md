@@ -8,7 +8,7 @@
 **Pull request:** Not opened  
 **ExecPlan:** `docs/plans/active/ODY-UI-01-005_Override_And_Audience_Aware_Display.md`  
 **Created:** 2026-08-27  
-**Last updated:** 2026-08-27 23:05 UTC
+**Last updated:** 2026-08-27 23:17 UTC
 
 ## 1. Goal
 
@@ -253,17 +253,17 @@ dotnet test DotNet\Odyssey.Core.sln
 
 ## 16. Definition of Done
 
-- [ ] Goal is achieved without unapproved scope expansion.
-- [ ] All acceptance criteria are satisfied.
-- [ ] Required automated tests pass.
-- [ ] Required manual checks are completed.
-- [ ] Required commands and their real results are recorded.
-- [ ] Architecture and dependency rules remain valid.
-- [ ] Security, privacy, redaction, and audience rules are verified where applicable.
-- [ ] Compatibility, migration, rollback, and versioning obligations are complete where applicable.
-- [ ] No unapproved dependency, tool, GitHub Action, or license was introduced.
-- [ ] Documentation is updated only where materially required.
-- [ ] Codex/developer performed a self-review against this task and `AGENTS.md`.
+- [x] Goal is achieved without unapproved scope expansion.
+- [x] All acceptance criteria are satisfied.
+- [x] Required automated tests pass.
+- [x] Required manual checks are completed.
+- [x] Required commands and their real results are recorded.
+- [x] Architecture and dependency rules remain valid.
+- [x] Security, privacy, redaction, and audience rules are verified where applicable.
+- [x] Compatibility, migration, rollback, and versioning obligations are complete where applicable.
+- [x] No unapproved dependency, tool, GitHub Action, or license was introduced.
+- [x] Documentation is updated only where materially required.
+- [x] Codex/developer performed a self-review against this task and `AGENTS.md`.
 - [ ] Pull request explains changes, evidence, limitations, and follow-up work.
 - [ ] Product owner or authorized reviewer completes the required review; Codex does not merge into `main`.
 
@@ -271,41 +271,47 @@ dotnet test DotNet\Odyssey.Core.sln
 
 ### Changed files / areas
 
-- To be filled with real changed files before review.
+- `Assets/Odyssey/Client/Runtime/RollPanelPresenter.cs` — audience selector, visibility-policy result display, and MainGM override control.
+- `Assets/Odyssey/Client/Tests/EditMode/RollPanelPresenterTests.cs` — updated and expanded EditMode tests for audience and override behavior.
+- `docs/plans/active/ODY-UI-01-005_Override_And_Audience_Aware_Display.md` — ExecPlan.
+- This task contract.
 
 ### Validation results
 
 | Command / check | Result | Evidence / notes |
 |---|---|---|
-| `.\scripts\verify-format.ps1` | Not run | Pending implementation. |
-| `.\scripts\check-repository-policy.ps1` | Not run | Pending implementation. |
-| `dotnet build DotNet\Odyssey.Core.sln` | Not run | Pending implementation. |
-| `dotnet test DotNet\Odyssey.Core.sln` | Not run | Pending implementation. |
-| `.\scripts\test-unity.ps1` | Not run | Pending implementation. |
+| `.\scripts\verify-format.ps1` | Passed | `FORMAT-001 PASS repository text formatting checks passed`. |
+| `.\scripts\check-repository-policy.ps1` | Passed | Repository policy check passed; `REPO-POLICY-001` through `005` and `TC-CI-001` through `012` pass. |
+| `dotnet build DotNet\Odyssey.Core.sln` | Passed | 0 warnings, 0 errors. Initial sandbox run failed because `C:\Users\alexx\AppData\Local\Microsoft SDKs` was denied; approved rerun passed. |
+| `dotnet test DotNet\Odyssey.Core.sln` | Passed | Contracts 1/1, Domain 27/27, Networking 67/67, Unit 105/105, Architecture 2/2, Persistence 60/60. |
+| `.\scripts\test-unity.ps1` | Passed | First run failed one new assertion (`Has.Count` on audience collection under Unity/NUnit); fixed to explicit `.Count`. Rerun passed: EditMode total=55 passed=55 failed=0 skipped=0; PlayMode total=2 passed=2 failed=0 skipped=0. |
+| `.\scripts\test-fast.ps1` | Passed | `TC-DOTNET-001` pass; Contracts 1/1, Domain 27/27, Networking 67/67, Unit 105/105, Architecture 2/2, Persistence 60/60. |
+| `.\scripts\verify-repository.ps1` | Passed | `REPOSITORY-VERIFY PASS repository checks passed`, SDK configured/selected `10.0.302`. |
+| `.\scripts\build-dev.ps1` | Passed | `BuildId=odyssey-development-1787872587.1-g1064758ef73a`; executable emitted under `artifacts\builds\odyssey-development-1787872587.1-g1064758ef73a\Windows-x64\Odyssey.exe`. |
 
 ### Acceptance result
 
 | Criterion | Status | Evidence |
 |---|---|---|
-| AC-1 | Pending | Audience selector pending. |
-| AC-2 | Pending | Default audience pending. |
-| AC-3 | Pending | SelectedParticipants fixture pending. |
-| AC-4 | Pending | Submit audience wiring pending. |
-| AC-5 | Pending | Visibility-policy display pending. |
-| AC-6 | Pending | Player/MainGM/Observer display tests pending. |
-| AC-7 | Pending | Override button role state pending. |
-| AC-8 | Pending | Empty-reason override test pending. |
-| AC-9 | Pending | Successful override test pending. |
-| AC-10 | Pending | Non-GM override denial test pending. |
-| AC-11 | Pending | Diff scope review pending. |
-| AC-12 | Pending | Validation pending. |
+| AC-1 | Passed | `roll-audience` dropdown contains `Public`, `PlayerAndGM`, and `SelectedParticipants`. |
+| AC-2 | Passed | Default dropdown value is `PlayerAndGM`; covered by `PlayerRoll_DefaultAudience_IsPlayerAndGMAndVisible`. |
+| AC-3 | Passed | `SelectedParticipants` builds selected user/group fixture from `RoleSelection.PlayerUserId`; covered by `Roll_SelectedParticipantsAudience_SelectsPlayerUser`. |
+| AC-4 | Passed | `SubmitRoll` passes `SelectedAudience()` into `SubmitRollRequest`. |
+| AC-5 | Passed | `RefreshResultDisplay` calls `DiceRollVisibilityPolicy.TryGetVisibleRoll` before `FormatRoll`. |
+| AC-6 | Passed | `RoleSwitch_ObserverCannotSeePlayerAndGmRoll` proves Player sees the roll, then Observer sees no details. MainGM visibility is covered by MainGM roll/override tests. |
+| AC-7 | Passed | `ApplyRoleState` enables the override button only for MainGM; covered by `RoleSwitch_UpdatesMainGmOnlyButtons`. |
+| AC-8 | Passed | `MainGmOverride_EmptyReason_ShowsErrorAndDoesNotChangeRoll` verifies visible error and unchanged roll data. |
+| AC-9 | Passed | `MainGmOverride_WithReason_SetsRollStatusOverridden` verifies `ApplyOverride` success and refreshed `Overridden` status. |
+| AC-10 | Passed | `PlayerOverride_WithReason_ShowsDeniedError` verifies service denial and visible safe reason. |
+| AC-11 | Passed | Diff is limited to Unity Client presenter/tests plus task/plan docs; no `Packages/`, ADR, dependency, or version files are intentionally changed. |
+| AC-12 | Passed | Required local commands passed with real results above. |
 
 ### Build and artifact evidence
 
-- Build identity: Pending.
+- Build identity: `odyssey-local-20260827t231234z-g17c04b725770-dirty` from successful `test-unity.ps1`; development build `odyssey-development-1787872587.1-g1064758ef73a`.
 - Artifact path / name: None expected.
 - Checksums: None.
-- Test or quality report: Pending.
+- Test or quality report: `Logs/ODY-S00-008/editmode-results.xml`, `Logs/ODY-S00-008/playmode-results.xml`, and dotnet `.trx` files under `Logs/ODY-S00-008/dotnet/`.
 
 ### Known limitations
 
@@ -318,11 +324,11 @@ dotnet test DotNet\Odyssey.Core.sln
 
 ### Self-review summary
 
-- Scope review: Pending.
-- Architecture review: Pending.
-- Test review: Pending.
-- Security/privacy review: Pending.
-- Documentation/version review: Pending.
+- Scope review: implementation is limited to Unity Client presenter/tests plus task/plan docs before PR evidence; no Application/Domain/Persistence package source touched.
+- Architecture review: Unity Client calls existing Application service and visibility contracts directly; no dependency direction change.
+- Test review: 11 RollPanel EditMode tests now cover roll, modifier, override, and audience display behavior; full Unity and .NET suites pass locally.
+- Security/privacy review: roll details are formatted only after `TryGetVisibleRoll` grants access; observer denial text contains no formula or totals.
+- Documentation/version review: no schema, package, ADR, or version update required.
 
 ## 18. Blockers, decisions, and change control
 
@@ -337,6 +343,7 @@ dotnet test DotNet\Odyssey.Core.sln
 - 2026-08-27 — Decision: default the panel to `PlayerAndGM`, not `Public`, so Observer safe denial is meaningful immediately; choose `PlayerAndGM`, not `SelectedParticipants`, because it proves the same Observer exclusion with less fixture state while leaving `SelectedParticipants` available in the dropdown. Authority / approval: product owner clarification via PM.
 - 2026-08-27 — Decision: implement `SelectedParticipants` as a minimal fixture selecting `RoleSelection.PlayerUserId` and backed by one in-memory group containing that user, with no group-management UI. Authority / approval: product owner clarification via PM and `ADR-021` §4 scope boundary.
 - 2026-08-27 — Decision: extend the existing `RollPanelPresenter` instead of adding a second presenter. Authority / approval: current code ownership; `RollPanelPresenter` already owns `LastRoll`, role subscription, status/result labels, and dice service dependencies.
+- 2026-08-27 — Finding: the first real Unity run failed one new assertion because Unity's NUnit runner did not accept `Has.Count` for the audience collection shape; changed the test to assert the explicit `.Count` value. Authority / approval: test-only correction preserving the same acceptance proof.
 
 ### Approved task changes
 

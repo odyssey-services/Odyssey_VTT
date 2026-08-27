@@ -4,7 +4,7 @@
 **Owner:** Codex (agent)  
 **Branch:** `feat/ody-ui-01-005-override-and-audience-aware-display`  
 **Pull request:** Not opened  
-**Last updated:** 2026-08-27 23:05 UTC
+**Last updated:** 2026-08-27 23:17 UTC
 
 ## 1. Purpose and user-visible outcome
 
@@ -45,15 +45,15 @@ No Application, Domain, Persistence, ADR, dependency, package, or Unity version 
 
 ### M2 — Presenter behavior
 
-- [ ] Audience selector is wired into `SubmitRoll`.
-- [ ] Result display calls `DiceRollVisibilityPolicy.TryGetVisibleRoll`.
-- [ ] Override control calls `DiceRollService.ApplyOverride` and follows role state.
+- [x] Audience selector is wired into `SubmitRoll`.
+- [x] Result display calls `DiceRollVisibilityPolicy.TryGetVisibleRoll`.
+- [x] Override control calls `DiceRollService.ApplyOverride` and follows role state.
 
 ### M3 — Tests and local validation
 
-- [ ] EditMode tests cover default audience, selected participants, safe denial, override success/denial, and role-state buttons.
-- [ ] Required local commands pass.
-- [ ] Unity-generated drift, if any, is removed from the working tree.
+- [x] EditMode tests cover default audience, selected participants, safe denial, override success/denial, and role-state buttons.
+- [x] Required local commands pass.
+- [x] Unity-generated drift, if any, is removed from the working tree.
 
 ### M4 — PR and evidence
 
@@ -66,6 +66,9 @@ No Application, Domain, Persistence, ADR, dependency, package, or Unity version 
 - 2026-08-27 23:05 UTC — Preflight completed: `main` fast-forwarded to `origin/main`, PR #71 present, branch `feat/ody-ui-01-005-override-and-audience-aware-display` created.
 - 2026-08-27 23:05 UTC — Read required sources: UI backlog, dice service, visibility policy, audience contracts, current role/roll presenters, task template, Active Baseline, and vertical slice steps 6-7.
 - 2026-08-27 23:05 UTC — Created task contract and ExecPlan with owner clarification recorded.
+- 2026-08-27 23:17 UTC — Implemented audience dropdown, policy-based result refresh, and MainGM override behavior in `RollPanelPresenter`.
+- 2026-08-27 23:17 UTC — Added/updated RollPanel EditMode tests; first Unity run found one test assertion issue, then rerun passed 55/55 EditMode and 2/2 PlayMode.
+- 2026-08-27 23:17 UTC — Required local validation passed: format, policy, dotnet build, dotnet test, test-unity, plus `test-fast`, `verify-repository`, and `build-dev`.
 
 ## 7. Decisions
 
@@ -76,10 +79,20 @@ No Application, Domain, Persistence, ADR, dependency, package, or Unity version 
 ## 8. Discoveries and deviations
 
 - Original task wording conflicted: fixed `Public` audience cannot produce Observer safe denial. The owner clarified that the task should add audience selection and default to `PlayerAndGM`.
+- First real Unity run failed one new assertion because `Has.Count` did not work for the audience collection in Unity's NUnit runner. The test now asserts `.Count` directly.
 
 ## 9. Validation and acceptance evidence
 
-Pending implementation.
+| Command / check | Result | Evidence |
+|---|---|---|
+| `.\scripts\verify-format.ps1` | Passed | `FORMAT-001 PASS`. |
+| `.\scripts\check-repository-policy.ps1` | Passed | Repository policy check passed. |
+| `dotnet build DotNet\Odyssey.Core.sln` | Passed | 0 warnings, 0 errors. |
+| `dotnet test DotNet\Odyssey.Core.sln` | Passed | Contracts 1, Domain 27, Networking 67, Unit 105, Architecture 2, Persistence 60 all passed. |
+| `.\scripts\test-unity.ps1` | Passed | EditMode 55/55, PlayMode 2/2. |
+| `.\scripts\test-fast.ps1` | Passed | `TC-DOTNET-001` pass for all six .NET test assemblies. |
+| `.\scripts\verify-repository.ps1` | Passed | `REPOSITORY-VERIFY PASS`. |
+| `.\scripts\build-dev.ps1` | Passed | `BuildId=odyssey-development-1787872587.1-g1064758ef73a`. |
 
 ## 10. Recovery and rollback
 
@@ -91,4 +104,4 @@ None.
 
 ## 12. Outcome and follow-up
 
-Pending implementation. Follow-up tasks remain `ODY-UI-01-006` and `ODY-UI-01-007`.
+Implementation and local validation are complete. Follow-up tasks remain `ODY-UI-01-006` and `ODY-UI-01-007`; PR/CI evidence is still pending.
