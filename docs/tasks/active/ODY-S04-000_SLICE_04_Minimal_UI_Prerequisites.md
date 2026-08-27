@@ -5,7 +5,7 @@
 **Owner:** Codex (agent)
 **Requested by:** Product owner
 **Branch:** `feat/ody-s04-000-slice-04-minimal-ui-prerequisites`
-**Pull request:** Draft — link recorded once opened
+**Pull request:** Draft — [#65](https://github.com/odyssey-services/Odyssey_VTT/pull/65) (open, CI green, awaiting owner review)
 **ExecPlan:** Not required — see §14 (Brief plan)
 **Created:** 2026-08-27
 **Last updated:** 2026-08-27 UTC
@@ -248,7 +248,7 @@ Not applicable. This task introduces no persisted state, public contract, protoc
 |---|---|---|
 | `.\scripts\verify-format.ps1` | Passed | `FORMAT-001 PASS repository text formatting checks passed`. |
 | `.\scripts\check-repository-policy.ps1` | Passed | All `REPO-POLICY-*`/`TC-CI-*` checks passed; `Repository policy check passed.` |
-| CI — Draft PR | Pending | To be recorded once the PR is opened and CI completes. |
+| CI — Draft PR [#65](https://github.com/odyssey-services/Odyssey_VTT/pull/65), commit `6676e0b` | Passed | Run [33028987921](https://github.com/odyssey-services/Odyssey_VTT/actions/runs/33028987921): `repository-policy-format-structure`, `dotnet-restore-build-test`, `unity-project-package-static`, `buildidentity-provenance` — all 4 `SUCCESS`. |
 
 ### Acceptance result
 
@@ -261,7 +261,7 @@ Not applicable. This task introduces no persisted state, public contract, protoc
 | AC-5 | Passed | `git status --porcelain` before commit shows only documentation files. |
 | AC-6 | Passed | See Validation results above. |
 | AC-7 | Passed | `git diff --name-status` matches §5's Allowed paths exactly. |
-| AC-8 | Pending | Draft PR not yet opened. |
+| AC-8 | Passed | Draft PR [#65](https://github.com/odyssey-services/Odyssey_VTT/pull/65) open; all 4 required CI checks `SUCCESS` on run 33028987921 (commit `6676e0b`); PR remains Draft pending explicit owner confirmation before any merge. |
 
 ### Build and artifact evidence
 
