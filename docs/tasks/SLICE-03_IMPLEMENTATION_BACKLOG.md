@@ -1,6 +1,6 @@
 # Odyssey VTT — SLICE-03 Playable Foundation Implementation Backlog
 
-**Status:** Implementation revision — `ODY-S03-004` Done (PR #58 merged by product owner); `ODY-S03-005` Done (PR #59 merged by product owner); `ODY-S03-006` Done (PR #60 merged by product owner); `ODY-S03-007` Done (PR #61 merged by product owner); `ODY-S03-008` Done (PR #62 merged by product owner); `ODY-S03-009` In Review — SLICE-03 closure gate: 8 of 8 roadmap §12.7 exit criteria Pass with real evidence (criterion 4 carries an explicit, non-blocking scope note — see `ODY-S03-009_Traceability_and_Quality_Report.md`), `GATE-B — Playable Foundation` technically closed, formal product owner acceptance pending
+**Status:** Implementation revision — `ODY-S03-004` Done (PR #58 merged by product owner); `ODY-S03-005` Done (PR #59 merged by product owner); `ODY-S03-006` Done (PR #60 merged by product owner); `ODY-S03-007` Done (PR #61 merged by product owner); `ODY-S03-008` Done (PR #62 merged by product owner); `ODY-S03-009` Done (PR #63 merged by product owner) — SLICE-03 formally accepted by product owner on 2026-08-27, `GATE-B — Playable Foundation` closed
 **Slice:** `SLICE-03 — Playable Foundation (vertical slice implementation)`
 **Parent task:** `docs/tasks/active/ODY-S03-003_SLICE_03_Implementation_Backlog.md`
 **Predecessor backlog:** `docs/tasks/SLICE-03_BACKLOG.md` (prerequisite ADR revision — closed 2026-08-26, historical; not rewritten by this document beyond its own closure section)
