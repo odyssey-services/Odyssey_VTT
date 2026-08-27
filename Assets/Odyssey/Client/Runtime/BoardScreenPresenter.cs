@@ -35,13 +35,12 @@ namespace Odyssey.Unity.Client
     /// technology here would cost more than it buys.
     ///
     /// <see cref="LocalActorUserId"/>/<see cref="LocalActorIsMainGm"/> are
-    /// mutable, public, caller-settable properties, not constructor-fixed
-    /// values -- <c>ODY-UI-01-003</c>'s future role selector is expected to
-    /// set these directly from its own selection, matching
+    /// mutable, public, caller-settable properties; the ODY-UI-01-003 role
+    /// selector can now keep them synchronized from one shared selection,
+    /// matching
     /// <c>ODY-S03-004</c>/<c>005</c>'s already-established convention that
     /// actor identity/role are caller-supplied, not resolved from a real
-    /// session (no role selector exists yet; this task does not build one,
-    /// task contract section 4).
+    /// session.
     /// </summary>
     public sealed class BoardScreenPresenter : IDisposable
     {
@@ -54,6 +53,10 @@ namespace Odyssey.Unity.Client
         private readonly CampaignHandle _campaign;
         private readonly SceneId _sceneId;
         private readonly Dictionary<string, VisualElement> _tokenElementsByTokenId = new Dictionary<string, VisualElement>(StringComparer.Ordinal);
+        private readonly RoleSelection? _roleSelection;
+        private readonly PresentationRuntime? _presentationRuntime;
+        private IDisposable? _roleSubscription;
+        private RoleSelectorPresenter? _roleSelectorPresenter;
         private VisualElement? _boardArea;
         private Label? _statusLabel;
         private TokenId? _selectedTokenId;
@@ -68,6 +71,16 @@ namespace Odyssey.Unity.Client
             if (!localActorUserId.IsValid) throw new ArgumentException("LocalActorUserId is required.", nameof(localActorUserId));
             _sceneId = sceneId;
             LocalActorUserId = localActorUserId;
+        }
+
+        public BoardScreenPresenter(UIDocument document, ISceneRepository sceneRepository, CampaignHandle campaign, SceneId sceneId, RoleSelection roleSelection, PresentationRuntime presentationRuntime)
+            : this(document, sceneRepository, campaign, sceneId, (roleSelection ?? throw new ArgumentNullException(nameof(roleSelection))).ActorUserId)
+        {
+            _roleSelection = roleSelection;
+            _presentationRuntime = presentationRuntime ?? throw new ArgumentNullException(nameof(presentationRuntime));
+            ApplyRoleSelection(roleSelection.Current, refresh: false);
+            _roleSubscription = roleSelection.Subscribe(snapshot => ApplyRoleSelection(snapshot, refresh: true));
+            _presentationRuntime.AddSubscription(_roleSubscription);
         }
 
         /// <summary>The single local actor this trial UI currently acts as. Settable -- see class remarks.</summary>
@@ -92,6 +105,8 @@ namespace Odyssey.Unity.Client
         public void Dispose()
         {
             if (_disposed) return;
+            _roleSelectorPresenter?.Dispose();
+            _roleSubscription?.Dispose();
             _disposed = true;
         }
 
@@ -104,6 +119,12 @@ namespace Odyssey.Unity.Client
 
             Label title = new Label("Odyssey Board Screen (trial)") { name = "board-title" };
             appRoot.Add(title);
+
+            if (_roleSelection != null && _presentationRuntime != null)
+            {
+                _roleSelectorPresenter = new RoleSelectorPresenter(_roleSelection, _presentationRuntime);
+                appRoot.Add(_roleSelectorPresenter.BuildView());
+            }
 
             _statusLabel = new Label { name = "board-status" };
             appRoot.Add(_statusLabel);
@@ -129,6 +150,13 @@ namespace Odyssey.Unity.Client
 
             RenderTokens(tokens.Value);
             return Result.Success();
+        }
+
+        private void ApplyRoleSelection(RoleSelectionSnapshot snapshot, bool refresh)
+        {
+            LocalActorUserId = snapshot.ActorUserId;
+            LocalActorIsMainGm = snapshot.ActorIsMainGm;
+            if (refresh) Refresh();
         }
 
         private void RenderTokens(IReadOnlyList<TokenRecord> tokens)
