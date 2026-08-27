@@ -3,7 +3,7 @@
 **Status:** Completed
 **Owner:** Codex (agent)
 **Branch:** `feat/ody-ui-01-003-role-selector`
-**Pull request:** Not opened
+**Pull request:** [#70](https://github.com/odyssey-services/Odyssey_VTT/pull/70) (Draft; CI green)
 **Last updated:** 2026-08-27 UTC
 
 ## 1. Purpose and user-visible outcome
@@ -67,7 +67,7 @@ Update `BoardScreenPresenter` with an overload accepting `RoleSelection`, subscr
 
 - [x] Run all required validation commands.
 - [x] Update completion evidence.
-- [ ] Create Draft PR and record commit/CI status.
+- [x] Create Draft PR and record commit/CI status.
 
 ## 6. Progress log
 
@@ -76,6 +76,7 @@ Update `BoardScreenPresenter` with an overload accepting `RoleSelection`, subscr
 - 2026-08-27 UTC — Created task contract and ExecPlan.
 - 2026-08-27 UTC — Implemented `RoleSelection`, `RoleSelectorPresenter`, board wiring, and four EditMode tests.
 - 2026-08-27 UTC — Validation passed: format, repository policy, `dotnet build DotNet\Odyssey.Core.sln`, `dotnet test DotNet\Odyssey.Core.sln`, `scripts/test-unity.ps1`, `scripts/test-fast.ps1`, and `scripts/verify-repository.ps1`. Literal root `dotnet build`/`dotnet test` failed with `MSB1003` because no root solution exists.
+- 2026-08-27 UTC — Opened Draft PR #70 and confirmed CI run 33094205756 passed all 4 checks.
 
 ## 7. Decisions
 
@@ -113,4 +114,4 @@ None.
 
 ## 12. Outcome and follow-up
 
-Implemented and locally validated. Draft PR creation/CI status remain to be recorded after commit/push. `ODY-UI-01-004` is the next consumer after this task.
+Implemented, locally validated, and opened as Draft PR #70 with green CI. `ODY-UI-01-004` is the next consumer after this task.

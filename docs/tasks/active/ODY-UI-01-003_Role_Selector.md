@@ -5,7 +5,7 @@
 **Owner:** Codex (agent)
 **Requested by:** Product owner
 **Branch:** `feat/ody-ui-01-003-role-selector`
-**Pull request:** Not opened
+**Pull request:** [#70](https://github.com/odyssey-services/Odyssey_VTT/pull/70) (Draft; CI green)
 **ExecPlan:** `docs/plans/active/ODY-UI-01-003_Role_Selector.md`
 **Created:** 2026-08-27
 **Last updated:** 2026-08-27 UTC
@@ -247,7 +247,7 @@ dotnet test
 ## 16. Definition of Done
 
 - [x] Goal is achieved without unapproved scope expansion.
-- [x] All acceptance criteria are satisfied except PR/CI, which is pending PR creation.
+- [x] All acceptance criteria are satisfied.
 - [x] Required automated tests pass.
 - [x] Required manual checks are completed (none required).
 - [x] Required commands and their real results are recorded.
@@ -257,7 +257,7 @@ dotnet test
 - [x] No unapproved dependency, tool, GitHub Action, or license was introduced.
 - [x] Documentation is updated only where materially required.
 - [x] Codex/developer performed a self-review against this task and `AGENTS.md`.
-- [ ] Pull request explains changes, evidence, limitations, and follow-up work.
+- [x] Pull request explains changes, evidence, limitations, and follow-up work.
 - [ ] Product owner or authorized reviewer completes the required review; Codex does not merge into `main`.
 
 ## 17. Completion evidence
@@ -294,7 +294,7 @@ dotnet test
 | AC-6 | Passed | `RoleSelection_SwitchingRoles_DoesNotLeaveStaleValues` passed in real Unity EditMode. |
 | AC-7 | Passed | `git status --short`/diff scope show only `Assets/Odyssey/Client/**` role-selector files plus this task's docs; no `Packages/**` or ADR edits. |
 | AC-8 | Passed with command-shorthand note | Required scripts and solution-level .NET build/test pass; literal root `dotnet build`/`dotnet test` are not valid in this repo because no root solution exists. |
-| AC-9 | Pending | Draft PR not opened yet. |
+| AC-9 | Passed | Draft PR [#70](https://github.com/odyssey-services/Odyssey_VTT/pull/70) opened; CI run [33094205756](https://github.com/odyssey-services/Odyssey_VTT/actions/runs/33094205756) passed all 4 checks. |
 
 ### Build and artifact evidence
 
@@ -334,3 +334,8 @@ dotnet test
 ### Approved task changes
 
 - None.
+
+### Pull request and CI
+
+- Draft PR: [#70](https://github.com/odyssey-services/Odyssey_VTT/pull/70).
+- CI: run [33094205756](https://github.com/odyssey-services/Odyssey_VTT/actions/runs/33094205756), all 4 checks passed: `repository-policy-format-structure`, `unity-project-package-static`, `dotnet-restore-build-test`, `buildidentity-provenance`.
