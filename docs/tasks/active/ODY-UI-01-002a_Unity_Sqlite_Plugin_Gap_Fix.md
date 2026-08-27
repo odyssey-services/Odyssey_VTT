@@ -5,7 +5,7 @@
 **Owner:** Codex agent
 **Requested by:** Product owner
 **Branch:** `fix/unity-sqlite-plugin-gap`
-**Pull request:** <to be filled after `gh pr create`>
+**Pull request:** https://github.com/odyssey-services/Odyssey_VTT/pull/68
 **ExecPlan:** `docs/plans/active/ODY-UI-01-002a_Unity_Sqlite_Plugin_Gap_Fix.md`
 **Created:** 2026-08-27
 **Last updated:** 2026-08-27 UTC
@@ -242,7 +242,7 @@ Not applicable — infrastructure-only change, no logs, diagnostics, networking,
 - [x] No unapproved dependency, tool, GitHub Action, or license was introduced.
 - [x] Documentation is updated only where materially required.
 - [x] Codex/developer performed a self-review against this task and `AGENTS.md`.
-- [ ] Pull request explains changes, evidence, limitations, and follow-up work. (Completed on PR open.)
+- [x] Pull request explains changes, evidence, limitations, and follow-up work.
 - [ ] Product owner or authorized reviewer completes the required review; Codex does not merge into `main`.
 
 ## 17. Completion evidence
