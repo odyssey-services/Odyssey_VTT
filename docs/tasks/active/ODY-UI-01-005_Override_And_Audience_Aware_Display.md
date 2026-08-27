@@ -1,14 +1,14 @@
 # ODY-UI-01-005 — Override and Audience-Aware Result Display
 
-**Status:** In Progress  
+**Status:** In Review  
 **Roadmap stage / slice:** SLICE-UI-01  
 **Owner:** Codex (agent)  
 **Requested by:** Product owner  
 **Branch:** `feat/ody-ui-01-005-override-and-audience-aware-display`  
-**Pull request:** Not opened  
+**Pull request:** Draft — [#72](https://github.com/odyssey-services/Odyssey_VTT/pull/72) (open, CI green, awaiting owner review)  
 **ExecPlan:** `docs/plans/active/ODY-UI-01-005_Override_And_Audience_Aware_Display.md`  
 **Created:** 2026-08-27  
-**Last updated:** 2026-08-27 23:17 UTC
+**Last updated:** 2026-08-27 23:22 UTC
 
 ## 1. Goal
 
@@ -264,7 +264,7 @@ dotnet test DotNet\Odyssey.Core.sln
 - [x] No unapproved dependency, tool, GitHub Action, or license was introduced.
 - [x] Documentation is updated only where materially required.
 - [x] Codex/developer performed a self-review against this task and `AGENTS.md`.
-- [ ] Pull request explains changes, evidence, limitations, and follow-up work.
+- [x] Pull request explains changes, evidence, limitations, and follow-up work.
 - [ ] Product owner or authorized reviewer completes the required review; Codex does not merge into `main`.
 
 ## 17. Completion evidence
@@ -288,6 +288,7 @@ dotnet test DotNet\Odyssey.Core.sln
 | `.\scripts\test-fast.ps1` | Passed | `TC-DOTNET-001` pass; Contracts 1/1, Domain 27/27, Networking 67/67, Unit 105/105, Architecture 2/2, Persistence 60/60. |
 | `.\scripts\verify-repository.ps1` | Passed | `REPOSITORY-VERIFY PASS repository checks passed`, SDK configured/selected `10.0.302`. |
 | `.\scripts\build-dev.ps1` | Passed | `BuildId=odyssey-development-1787872587.1-g1064758ef73a`; executable emitted under `artifacts\builds\odyssey-development-1787872587.1-g1064758ef73a\Windows-x64\Odyssey.exe`. |
+| CI — Draft PR [#72](https://github.com/odyssey-services/Odyssey_VTT/pull/72), commit `8eee654` | Passed | Run [33125908428](https://github.com/odyssey-services/Odyssey_VTT/actions/runs/33125908428): `repository-policy-format-structure`, `dotnet-restore-build-test`, `unity-project-package-static`, and `buildidentity-provenance` all passed. |
 
 ### Acceptance result
 
@@ -324,7 +325,7 @@ dotnet test DotNet\Odyssey.Core.sln
 
 ### Self-review summary
 
-- Scope review: implementation is limited to Unity Client presenter/tests plus task/plan docs before PR evidence; no Application/Domain/Persistence package source touched.
+- Scope review: final diff is limited to Unity Client presenter/tests, task contract, ExecPlan, and backlog status; no Application/Domain/Persistence package source touched.
 - Architecture review: Unity Client calls existing Application service and visibility contracts directly; no dependency direction change.
 - Test review: 11 RollPanel EditMode tests now cover roll, modifier, override, and audience display behavior; full Unity and .NET suites pass locally.
 - Security/privacy review: roll details are formatted only after `TryGetVisibleRoll` grants access; observer denial text contains no formula or totals.

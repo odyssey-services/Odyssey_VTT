@@ -1,10 +1,10 @@
 # ODY-UI-01-005 — Override and Audience-Aware Result Display
 
-**Status:** Active  
+**Status:** Completed  
 **Owner:** Codex (agent)  
 **Branch:** `feat/ody-ui-01-005-override-and-audience-aware-display`  
-**Pull request:** Not opened  
-**Last updated:** 2026-08-27 23:17 UTC
+**Pull request:** Draft — [#72](https://github.com/odyssey-services/Odyssey_VTT/pull/72)  
+**Last updated:** 2026-08-27 23:22 UTC
 
 ## 1. Purpose and user-visible outcome
 
@@ -57,9 +57,9 @@ No Application, Domain, Persistence, ADR, dependency, package, or Unity version 
 
 ### M4 — PR and evidence
 
-- [ ] Draft PR is opened.
-- [ ] CI passes.
-- [ ] Task contract, ExecPlan, and `SLICE-UI-01_IMPLEMENTATION_BACKLOG.md` record final evidence.
+- [x] Draft PR is opened.
+- [x] CI passes.
+- [x] Task contract, ExecPlan, and `SLICE-UI-01_IMPLEMENTATION_BACKLOG.md` record final evidence.
 
 ## 6. Progress log
 
@@ -69,6 +69,7 @@ No Application, Domain, Persistence, ADR, dependency, package, or Unity version 
 - 2026-08-27 23:17 UTC — Implemented audience dropdown, policy-based result refresh, and MainGM override behavior in `RollPanelPresenter`.
 - 2026-08-27 23:17 UTC — Added/updated RollPanel EditMode tests; first Unity run found one test assertion issue, then rerun passed 55/55 EditMode and 2/2 PlayMode.
 - 2026-08-27 23:17 UTC — Required local validation passed: format, policy, dotnet build, dotnet test, test-unity, plus `test-fast`, `verify-repository`, and `build-dev`.
+- 2026-08-27 23:22 UTC — Draft PR [#72](https://github.com/odyssey-services/Odyssey_VTT/pull/72) opened; CI run [33125908428](https://github.com/odyssey-services/Odyssey_VTT/actions/runs/33125908428) passed all 4 checks.
 
 ## 7. Decisions
 
@@ -93,6 +94,7 @@ No Application, Domain, Persistence, ADR, dependency, package, or Unity version 
 | `.\scripts\test-fast.ps1` | Passed | `TC-DOTNET-001` pass for all six .NET test assemblies. |
 | `.\scripts\verify-repository.ps1` | Passed | `REPOSITORY-VERIFY PASS`. |
 | `.\scripts\build-dev.ps1` | Passed | `BuildId=odyssey-development-1787872587.1-g1064758ef73a`. |
+| CI — Draft PR [#72](https://github.com/odyssey-services/Odyssey_VTT/pull/72), commit `8eee654` | Passed | Run [33125908428](https://github.com/odyssey-services/Odyssey_VTT/actions/runs/33125908428): all 4 checks passed. |
 
 ## 10. Recovery and rollback
 
@@ -104,4 +106,4 @@ None.
 
 ## 12. Outcome and follow-up
 
-Implementation and local validation are complete. Follow-up tasks remain `ODY-UI-01-006` and `ODY-UI-01-007`; PR/CI evidence is still pending.
+Implementation, local validation, Draft PR, CI, and backlog evidence are complete. Follow-up tasks remain `ODY-UI-01-006` and `ODY-UI-01-007`; owner review/merge remains outside Codex's authority.
