@@ -5,7 +5,7 @@
 **Owner:** Codex (agent)
 **Requested by:** Product owner
 **Branch:** `feat/ody-ui-01-001-slice-ui-01-implementation-backlog`
-**Pull request:** Draft — link recorded once opened
+**Pull request:** Draft — [#66](https://github.com/odyssey-services/Odyssey_VTT/pull/66) (open, CI green, awaiting owner review)
 **ExecPlan:** Not required — see §14 (Brief plan)
 **Created:** 2026-08-27
 **Last updated:** 2026-08-27 UTC
@@ -235,7 +235,7 @@ Not applicable. This task introduces no persisted state, public contract, protoc
 |---|---|---|
 | `.\scripts\verify-format.ps1` | Passed | `FORMAT-001 PASS repository text formatting checks passed`. |
 | `.\scripts\check-repository-policy.ps1` | Passed | All `REPO-POLICY-*`/`TC-CI-*` checks passed; `Repository policy check passed.` |
-| CI — Draft PR | Pending | To be recorded once the PR is opened and CI completes. |
+| CI — Draft PR [#66](https://github.com/odyssey-services/Odyssey_VTT/pull/66), commit `6808985` | Passed | Run [33030617453](https://github.com/odyssey-services/Odyssey_VTT/actions/runs/33030617453): `repository-policy-format-structure`, `dotnet-restore-build-test`, `unity-project-package-static`, `buildidentity-provenance` — all 4 `SUCCESS`. |
 
 ### Acceptance result
 
@@ -248,7 +248,7 @@ Not applicable. This task introduces no persisted state, public contract, protoc
 | AC-5 | Passed | Same evidence as AC-4. |
 | AC-6 | Passed | See Validation results above. |
 | AC-7 | Passed | `git diff --name-status` matches §5's Allowed paths exactly. |
-| AC-8 | Pending | Draft PR not yet opened. |
+| AC-8 | Passed | Draft PR [#66](https://github.com/odyssey-services/Odyssey_VTT/pull/66) open; all 4 required CI checks `SUCCESS` on run 33030617453 (commit `6808985`); PR remains Draft pending explicit owner confirmation before any merge. |
 
 ### Build and artifact evidence
 
