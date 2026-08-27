@@ -1,14 +1,14 @@
 # ODY-UI-01-004 — Roll Panel and Modifiers
 
-**Status:** In Progress  
+**Status:** In Review  
 **Roadmap stage / slice:** SLICE-UI-01  
 **Owner:** Codex (agent)  
 **Requested by:** Product owner  
 **Branch:** `feat/ody-ui-01-004-roll-panel-and-modifiers`  
-**Pull request:** Not opened  
+**Pull request:** Draft — [#71](https://github.com/odyssey-services/Odyssey_VTT/pull/71) (open, CI green, awaiting owner review)  
 **ExecPlan:** `docs/plans/active/ODY-UI-01-004_Roll_Panel_And_Modifiers.md`  
 **Created:** 2026-08-27  
-**Last updated:** 2026-08-27 18:51 UTC
+**Last updated:** 2026-08-27 18:55 UTC
 
 ## 1. Goal
 
@@ -262,7 +262,7 @@ dotnet test DotNet\Odyssey.Core.sln
 - [x] No unapproved dependency, tool, GitHub Action, or license was introduced.
 - [x] Documentation is updated only where materially required.
 - [x] Codex/developer performed a self-review against this task and `AGENTS.md`.
-- [ ] Pull request explains changes, evidence, limitations, and follow-up work.
+- [x] Pull request explains changes, evidence, limitations, and follow-up work.
 - [ ] Product owner or authorized reviewer completes the required review; Codex does not merge into `main`.
 
 ## 17. Completion evidence
@@ -289,6 +289,7 @@ dotnet test DotNet\Odyssey.Core.sln
 | `dotnet test DotNet\Odyssey.Core.sln` | Passed | Contracts 1/1, Domain 27/27, Networking 67/67, Unit 105/105, Architecture 2/2, Persistence 60/60. |
 | `.\scripts\test-unity.ps1` | Passed | `TC-UNITY-ASM-001` compile/EditMode/PlayMode pass; EditMode total=50 passed=50 failed=0 skipped=0; PlayMode total=2 passed=2 failed=0 skipped=0. |
 | Initial CI run [33105124685](https://github.com/odyssey-services/Odyssey_VTT/actions/runs/33105124685) | Failed then fixed locally | `repository-policy-format-structure` and `dotnet-restore-build-test` failed because unsupported `ODY-UI-01-004` test-catalog rows violated `verify-test-structure.ps1`; rows were removed and local `verify-test-structure`/`test-fast` now pass. |
+| CI — Draft PR [#71](https://github.com/odyssey-services/Odyssey_VTT/pull/71), commit `faa1af0` | Passed | Run [33105832028](https://github.com/odyssey-services/Odyssey_VTT/actions/runs/33105832028): `repository-policy-format-structure`, `dotnet-restore-build-test`, `unity-project-package-static`, and `buildidentity-provenance` all passed. |
 
 ### Acceptance result
 
@@ -306,7 +307,7 @@ dotnet test DotNet\Odyssey.Core.sln
 
 ### Build and artifact evidence
 
-- Build identity: `odyssey-local-20260827t183856z-g5febd054ec0f-dirty` from the successful Unity run.
+- Build identity: `odyssey-local-20260827t183856z-g5febd054ec0f-dirty` from the successful local Unity run; CI provenance passed in run [33105832028](https://github.com/odyssey-services/Odyssey_VTT/actions/runs/33105832028).
 - Artifact path / name: None.
 - Checksums: None.
 - Test or quality report: `Logs/ODY-S00-008/editmode-results.xml`, `Logs/ODY-S00-008/playmode-results.xml`.
@@ -323,7 +324,7 @@ dotnet test DotNet\Odyssey.Core.sln
 
 ### Self-review summary
 
-- Scope review: diff is limited to Unity Client presenter/tests, test catalog, task contract, and ExecPlan.
+- Scope review: final diff is limited to Unity Client presenter/tests, task contract, ExecPlan, and backlog status; unsupported test catalog rows were removed before final CI.
 - Architecture review: Unity Client calls Application service contracts directly; no package boundary changes or new dependency.
 - Test review: new EditMode tests exercise the success/denial/decision paths required by the task.
 - Security/privacy review: no logging or transport projection added; visible errors use safe reason codes.

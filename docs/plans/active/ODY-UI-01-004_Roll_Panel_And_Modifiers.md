@@ -1,10 +1,10 @@
 # ODY-UI-01-004 — Roll Panel and Modifiers
 
-**Status:** Active  
+**Status:** Completed  
 **Owner:** Codex (agent)  
 **Branch:** `feat/ody-ui-01-004-roll-panel-and-modifiers`  
-**Pull request:** Not opened  
-**Last updated:** 2026-08-27 18:51 UTC
+**Pull request:** Draft — [#71](https://github.com/odyssey-services/Odyssey_VTT/pull/71)  
+**Last updated:** 2026-08-27 18:55 UTC
 
 ## 1. Purpose and user-visible outcome
 
@@ -57,8 +57,8 @@ The default audience is `DiceRollAudience.Public()` because this task does not r
 
 - [x] Run required local commands and record real results.
 - [x] Self-review complete diff for scope/architecture/privacy.
-- [ ] Open Draft PR and wait for green CI.
-- [ ] Update task contract/backlog with PR and CI evidence.
+- [x] Open Draft PR and wait for green CI.
+- [x] Update task contract/backlog with PR and CI evidence.
 
 ## 6. Progress log
 
@@ -68,6 +68,7 @@ The default audience is `DiceRollAudience.Public()` because this task does not r
 - 2026-08-27 18:43 UTC — Added `RollPanelPresenter` and six EditMode tests.
 - 2026-08-27 18:43 UTC — Local validation passed: `verify-format`, `check-repository-policy`, `dotnet build`, `dotnet test`, and `test-unity`.
 - 2026-08-27 18:51 UTC — Initial PR CI exposed unsupported `ODY-UI-*` test-catalog ownership; removed those catalog rows and reran `verify-test-structure`/`test-fast` successfully.
+- 2026-08-27 18:55 UTC — Draft PR [#71](https://github.com/odyssey-services/Odyssey_VTT/pull/71) is open and CI run [33105832028](https://github.com/odyssey-services/Odyssey_VTT/actions/runs/33105832028) passed all four checks.
 
 ## 7. Decisions
 
@@ -91,6 +92,7 @@ The default audience is `DiceRollAudience.Public()` because this task does not r
 - `dotnet build DotNet\Odyssey.Core.sln` — Passed, 0 warnings, 0 errors after approved rerun outside sandbox SDK read restriction.
 - `dotnet test DotNet\Odyssey.Core.sln` — Passed: Contracts 1, Domain 27, Networking 67, Unit 105, Architecture 2, Persistence 60.
 - `.\scripts\test-unity.ps1` — Passed: EditMode total=50 passed=50; PlayMode total=2 passed=2.
+- Draft PR [#71](https://github.com/odyssey-services/Odyssey_VTT/pull/71) CI run [33105832028](https://github.com/odyssey-services/Odyssey_VTT/actions/runs/33105832028) — Passed: `repository-policy-format-structure`, `dotnet-restore-build-test`, `unity-project-package-static`, `buildidentity-provenance`.
 
 ## 10. Recovery and rollback
 
@@ -102,4 +104,4 @@ No migrations or durable state changes are planned. Revert this branch/PR to rem
 
 ## 12. Outcome and follow-up
 
-Implementation and local validation are complete. Draft PR, CI evidence, and backlog update remain pending.
+Implementation, local validation, Draft PR, CI evidence, and backlog update are complete. Remaining follow-up is owner review/merge outside Codex.
