@@ -1,7 +1,10 @@
 using System;
+using System.Collections.Generic;
 using System.Globalization;
+using Odyssey.Application.Audience;
 using Odyssey.Application.Commands;
 using Odyssey.Application.Dice;
+using Odyssey.Application.Networking.Session;
 using Odyssey.Application.Random;
 using Odyssey.Application.Results;
 using Odyssey.Application.Time;
@@ -16,23 +19,32 @@ namespace Odyssey.Unity.Client
         private static readonly CampaignId DefaultCampaignId = CampaignId.Parse("camp_10000000000000000000000000000002");
         private static readonly RulesetVersion DefaultRulesetVersion = RulesetVersion.Parse("1.0.0");
         private static readonly RngKeyEpochId DefaultRngKeyEpochId = RngKeyEpochId.Parse("epoch-001");
+        private const string PublicAudience = "Public";
+        private const string PlayerAndGmAudience = "PlayerAndGM";
+        private const string SelectedParticipantsAudience = "SelectedParticipants";
+        private const string SelectedParticipantGroupId = "trial-player-group";
+        private static readonly List<string> AudienceChoices = new List<string> { PublicAudience, PlayerAndGmAudience, SelectedParticipantsAudience };
         private readonly RoleSelection _roleSelection;
         private readonly PresentationRuntime _presentationRuntime;
         private readonly DiceRollStore _store;
         private readonly IAuthoritativeRandomStreamFactory _rngFactory;
         private readonly IWallClock _clock;
+        private readonly ICampaignUserGroupDirectory _groups;
         private readonly CampaignId _campaignId;
         private readonly RulesetVersion _rulesetVersion;
         private readonly RngKeyEpochId _rngKeyEpochId;
         private RoleSelectorPresenter? _roleSelectorPresenter;
+        private DropdownField? _audience;
         private TextField? _formula;
         private TextField? _modifierLabel;
         private IntegerField? _modifierValue;
+        private TextField? _overrideReason;
         private Label? _status;
         private Label? _result;
         private Button? _accept;
         private Button? _change;
         private Button? _reject;
+        private Button? _override;
         private string? _latestModifierEntryId;
         private bool _disposed;
 
@@ -43,6 +55,7 @@ namespace Odyssey.Unity.Client
                 new DiceRollStore(),
                 NewDefaultRngFactory(),
                 new UnityWallClock(),
+                NewDefaultGroups(roleSelection),
                 DefaultCampaignId,
                 DefaultRulesetVersion,
                 DefaultRngKeyEpochId)
@@ -50,12 +63,18 @@ namespace Odyssey.Unity.Client
         }
 
         public RollPanelPresenter(RoleSelection roleSelection, PresentationRuntime presentationRuntime, DiceRollStore store, IAuthoritativeRandomStreamFactory rngFactory, IWallClock clock, CampaignId campaignId, RulesetVersion rulesetVersion, RngKeyEpochId rngKeyEpochId)
+            : this(roleSelection, presentationRuntime, store, rngFactory, clock, NewDefaultGroups(roleSelection), campaignId, rulesetVersion, rngKeyEpochId)
+        {
+        }
+
+        public RollPanelPresenter(RoleSelection roleSelection, PresentationRuntime presentationRuntime, DiceRollStore store, IAuthoritativeRandomStreamFactory rngFactory, IWallClock clock, ICampaignUserGroupDirectory groups, CampaignId campaignId, RulesetVersion rulesetVersion, RngKeyEpochId rngKeyEpochId)
         {
             _roleSelection = roleSelection ?? throw new ArgumentNullException(nameof(roleSelection));
             _presentationRuntime = presentationRuntime ?? throw new ArgumentNullException(nameof(presentationRuntime));
             _store = store ?? throw new ArgumentNullException(nameof(store));
             _rngFactory = rngFactory ?? throw new ArgumentNullException(nameof(rngFactory));
             _clock = clock ?? throw new ArgumentNullException(nameof(clock));
+            _groups = groups ?? throw new ArgumentNullException(nameof(groups));
             _campaignId = campaignId.IsValid ? campaignId : throw new ArgumentException("Campaign id is required.", nameof(campaignId));
             _rulesetVersion = rulesetVersion.IsValid ? rulesetVersion : throw new ArgumentException("Ruleset version is required.", nameof(rulesetVersion));
             _rngKeyEpochId = rngKeyEpochId.IsValid ? rngKeyEpochId : throw new ArgumentException("RNG key epoch id is required.", nameof(rngKeyEpochId));
@@ -71,6 +90,9 @@ namespace Odyssey.Unity.Client
 
             _roleSelectorPresenter = new RoleSelectorPresenter(_roleSelection, _presentationRuntime);
             root.Add(_roleSelectorPresenter.BuildView());
+
+            _audience = new DropdownField("Audience", AudienceChoices, AudienceChoices.IndexOf(PlayerAndGmAudience)) { name = "roll-audience" };
+            root.Add(_audience);
 
             _formula = new TextField("Formula") { name = "roll-formula", value = "1d20" };
             root.Add(_formula);
@@ -92,6 +114,13 @@ namespace Odyssey.Unity.Client
             _change = AddButton(decisions, "modifier-change-button", "Change", () => ChangeLatestModifier(_modifierValue.value, "changed_by_main_gm"));
             _reject = AddButton(decisions, "modifier-reject-button", "Reject", () => RejectLatestModifier("rejected_by_main_gm"));
             root.Add(decisions);
+
+            VisualElement overrideRow = new VisualElement { name = "override-row" };
+            overrideRow.AddToClassList("override-row");
+            _overrideReason = new TextField("Override reason") { name = "override-reason" };
+            overrideRow.Add(_overrideReason);
+            _override = AddButton(overrideRow, "override-button", "Override", () => ApplyOverride(_overrideReason.value));
+            root.Add(overrideRow);
 
             _result = new Label("No roll yet.") { name = "roll-result" };
             _status = new Label("Ready.") { name = "roll-status" };
@@ -116,7 +145,7 @@ namespace Odyssey.Unity.Client
                     role.ActorCanCreateRoll,
                     "trial.roll",
                     formula ?? string.Empty,
-                    DiceRollAudience.Public(),
+                    SelectedAudience(),
                     _campaignId,
                     NewCommandId(),
                     _rulesetVersion,
@@ -161,6 +190,39 @@ namespace Odyssey.Unity.Client
             return DecideLatestModifier(ModifierDecision.Rejected, null, reason);
         }
 
+        public Result<RollOverride> ApplyOverride(string? reason)
+        {
+            if (LastRoll == null)
+            {
+                return ShowOverrideFailure(DiceFailures.RollNotFound(NewCorrelationId()), "Override");
+            }
+
+            RoleSelectionSnapshot role = _roleSelection.Current;
+            Result<RollOverride> applied = DiceRollService.ApplyOverride(
+                _store,
+                _clock,
+                new ApplyOverrideRequest(LastRoll.RollId, role.ActorUserId, role.ActorIsMainGm, FormatRoll(LastRoll), "GM override", reason, NewCorrelationId()));
+
+            if (applied.IsFailure)
+            {
+                return ShowOverrideFailure(applied.Error, "Override");
+            }
+
+            if (_store.TryGet(LastRoll.RollId, out DiceRoll updated))
+            {
+                LastRoll = updated;
+                LastRollChanged?.Invoke(updated);
+            }
+
+            RefreshResultDisplay();
+            if (_status != null)
+            {
+                _status.text = "Override: accepted";
+            }
+
+            return applied;
+        }
+
         public void Dispose()
         {
             if (_disposed) return;
@@ -197,10 +259,7 @@ namespace Odyssey.Unity.Client
 
             LastRoll = serviceResult.Value;
             LastRollChanged?.Invoke(serviceResult.Value);
-            if (_result != null)
-            {
-                _result.text = FormatRoll(serviceResult.Value);
-            }
+            RefreshResultDisplay();
 
             if (_status != null)
             {
@@ -220,12 +279,24 @@ namespace Odyssey.Unity.Client
             return Result<DiceRoll>.Failure(error);
         }
 
+        private Result<RollOverride> ShowOverrideFailure(Error error, string action)
+        {
+            if (_status != null)
+            {
+                _status.text = action + ": " + error.SafeReasonCode;
+            }
+
+            return Result<RollOverride>.Failure(error);
+        }
+
         private void ApplyRoleState(RoleSelectionSnapshot snapshot)
         {
             bool isMainGm = snapshot.ActorIsMainGm;
             _accept?.SetEnabled(isMainGm);
             _change?.SetEnabled(isMainGm);
             _reject?.SetEnabled(isMainGm);
+            _override?.SetEnabled(isMainGm);
+            RefreshResultDisplay();
         }
 
         private Button AddButton(VisualElement parent, string name, string text, Action handler)
@@ -237,9 +308,43 @@ namespace Odyssey.Unity.Client
             return button;
         }
 
+        private DiceRollAudience SelectedAudience()
+        {
+            string value = _audience?.value ?? PlayerAndGmAudience;
+            switch (value)
+            {
+                case PublicAudience:
+                    return DiceRollAudience.Public();
+                case SelectedParticipantsAudience:
+                    return DiceRollAudience.SelectedParticipants(new[] { _roleSelection.PlayerUserId }, new[] { SelectedParticipantGroupId });
+                case PlayerAndGmAudience:
+                default:
+                    return DiceRollAudience.PlayerAndGM();
+            }
+        }
+
+        private void RefreshResultDisplay()
+        {
+            if (_result == null) return;
+            if (LastRoll == null)
+            {
+                _result.text = "No roll yet.";
+                return;
+            }
+
+            RoleSelectionSnapshot role = _roleSelection.Current;
+            if (!DiceRollVisibilityPolicy.TryGetVisibleRoll(LastRoll, role.ActorUserId, role.Role, _groups, out DiceRollView view))
+            {
+                _result.text = "No access to roll result.";
+                return;
+            }
+
+            _result.text = FormatRoll(view.Roll);
+        }
+
         private static string FormatRoll(DiceRoll roll)
         {
-            return "Roll " + roll.FormulaOriginal + ": base " + roll.BaseTotal.ToString(CultureInfo.InvariantCulture) + ", final " + roll.FinalTotal.ToString(CultureInfo.InvariantCulture);
+            return "Roll " + roll.FormulaOriginal + ": base " + roll.BaseTotal.ToString(CultureInfo.InvariantCulture) + ", final " + roll.FinalTotal.ToString(CultureInfo.InvariantCulture) + ", status " + roll.Status;
         }
 
         private static CommandId NewCommandId()
@@ -261,6 +366,14 @@ namespace Odyssey.Unity.Client
             }
 
             return new DeterministicRandomStreamFactory(CampaignRngKey.FromBytes(key));
+        }
+
+        private static ICampaignUserGroupDirectory NewDefaultGroups(RoleSelection roleSelection)
+        {
+            if (roleSelection == null) throw new ArgumentNullException(nameof(roleSelection));
+            var groups = new InMemoryCampaignUserGroupDirectory();
+            groups.Upsert(new CampaignUserGroup(SelectedParticipantGroupId, DefaultCampaignId, new[] { roleSelection.PlayerUserId }, CampaignUserGroupStatus.Active, 1));
+            return groups;
         }
 
         private sealed class ButtonSubscription : IDisposable
