@@ -5,7 +5,7 @@
 **Owner:** Codex (agent)
 **Requested by:** Product owner
 **Branch:** `feat/ody-ui-01-002-board-screen`
-**Pull request:** Draft — link recorded once opened
+**Pull request:** Draft — [#67](https://github.com/odyssey-services/Odyssey_VTT/pull/67) (open, CI green, awaiting owner review)
 **ExecPlan:** See §14
 **Created:** 2026-08-27
 **Last updated:** 2026-08-27 UTC
@@ -283,7 +283,7 @@ dotnet test DotNet/Odyssey.Core.sln
 | `.\scripts\verify-format.ps1` | Passed | `FORMAT-001 PASS repository text formatting checks passed`. |
 | `.\scripts\check-repository-policy.ps1` | Passed | All `REPO-POLICY-*`/`TC-CI-*` checks passed; `Repository policy check passed.` |
 | `.\scripts\test-unity.ps1` (Unity 6000.4.0f1 batch compile + EditMode + PlayMode) | **Blocked** | Real run performed. Batch compile fails with `CS0234`/`CS0246` across every `Packages/com.odyssey.persistence/Runtime/Sqlite/**` file — `Microsoft.Data.Sqlite` is not resolvable inside Unity's own compiler (no Unity `Plugins/` DLL, no `precompiledReferences` entry). Confirmed pre-existing, unrelated to this task's own two new files (see §4's full finding). This task's own `BoardScreenPresenter.cs`/`BoardScreenPresenterTests.cs` cannot be Unity-compiled or Unity-tested until that pre-existing gap is fixed by a separate task — not attempted here (out of this task's own scope, §5). |
-| CI — Draft PR | Pending | To be recorded once the PR is opened and CI completes. |
+| CI — Draft PR [#67](https://github.com/odyssey-services/Odyssey_VTT/pull/67), commit `348340d` | Passed | Run [33032765381](https://github.com/odyssey-services/Odyssey_VTT/actions/runs/33032765381): `repository-policy-format-structure`, `dotnet-restore-build-test`, `unity-project-package-static`, `buildidentity-provenance` — all 4 `SUCCESS`. **Note:** `unity-project-package-static` is a static asmdef/package-graph check only (confirmed by its own diagnostic text, §4) — it never runs a real Unity Editor compile, so this CI green result does not resolve, or even touch, the `scripts/test-unity.ps1` blocker recorded above. |
 
 ### Acceptance result
 
@@ -294,7 +294,7 @@ dotnet test DotNet/Odyssey.Core.sln
 | AC-7 | Passed | `dotnet build`/`dotnet test`/`verify-format.ps1`/`check-repository-policy.ps1` all pass — see Validation results above. |
 | AC-8 | **Blocked** | `scripts/test-unity.ps1` cannot complete — see §4/§17's full finding. Not this task's own gap to fix (§5). |
 | AC-9 | Passed | `git diff --name-status` matches §5's Allowed paths exactly. |
-| AC-10 | Pending | Draft PR not yet opened. |
+| AC-10 | Passed | Draft PR [#67](https://github.com/odyssey-services/Odyssey_VTT/pull/67) open; all 4 required CI checks `SUCCESS` on run 33032765381 (commit `348340d`); PR remains Draft pending explicit owner confirmation before any merge. This CI green result does not resolve AC-8 (§17's note above). |
 
 ### Known limitations
 
