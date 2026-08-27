@@ -78,6 +78,7 @@ No finding, no drift, and no rehearsal failure occurred during this run.
 
 ## 6. Owner acceptance
 
-**Pending.**
+**Accepted.**
 
-This section is intentionally left for a separate, explicit product-owner action, per the `ODY-S02-015`/`017` and `ODY-S01-014` precedent this task was instructed to follow: the formal acceptance statement (date, explicit confirmation) is added by a small, separate point-fix commit after the product owner confirms acceptance in conversation -- not written speculatively here.
+Date: 2026-08-27
+Product owner explicitly confirmed acceptance of this traceability report in conversation with the PM agent: all 8 of `SLICE-03`'s roadmap §12.7 exit criteria (including criterion 4's explicit scope note) are accepted as satisfied; `GATE-B — Playable Foundation` is confirmed closed.
