@@ -1,11 +1,11 @@
 # ODY-UI-01-002 — Board Screen
 
-**Status:** In Review — code and tests complete and correct by review; a pre-existing, out-of-scope Unity/`Odyssey.Persistence` compile gap blocks running the new EditMode tests for real (see §4/§18); flagged as a needed separate follow-up task, not fixed here.
+**Status:** Done — the Unity/`Odyssey.Persistence` compile gap was resolved by `ODY-UI-01-002a` (PR [#68](https://github.com/odyssey-services/Odyssey_VTT/pull/68), merged into `main`); this task's own 4 EditMode tests were then genuinely run for real (not merely reviewed) and all pass — see §17/§18.
 **Roadmap stage / slice:** SLICE-UI-01 (minimal trial UI)
 **Owner:** Codex (agent)
 **Requested by:** Product owner
-**Branch:** `feat/ody-ui-01-002-board-screen`
-**Pull request:** Draft — [#67](https://github.com/odyssey-services/Odyssey_VTT/pull/67) (open, CI green, awaiting owner review)
+**Branch:** `feat/ody-ui-01-002-board-screen` (merged); real-run verification landed via `verify/ody-ui-01-002-real-unity-run`
+**Pull request:** [#67](https://github.com/odyssey-services/Odyssey_VTT/pull/67) (Merged) — real-run verification and two independent compile-bug fixes tracked in a separate PR (see §18)
 **ExecPlan:** See §14
 **Created:** 2026-08-27
 **Last updated:** 2026-08-27 UTC
@@ -253,8 +253,8 @@ dotnet test DotNet/Odyssey.Core.sln
 ## 16. Definition of Done
 
 - [x] Goal is achieved without unapproved scope expansion.
-- [ ] All acceptance criteria are satisfied — AC-1–5/AC-8 are blocked by a pre-existing, out-of-scope Unity/`Odyssey.Persistence` compile gap (§18); not silently marked done.
-- [ ] Required automated tests pass — written correctly by code review, but not run-verified (§17).
+- [x] All acceptance criteria are satisfied — AC-1–5/AC-8 previously blocked by the Unity/`Odyssey.Persistence` compile gap are now Passed with a real, run-verified `scripts/test-unity.ps1` pass (§17).
+- [x] Required automated tests pass — all 4 `BoardScreenPresenterTests` genuinely ran under real Unity Editor batchmode and passed (§17).
 - [x] Required manual checks are completed (none required).
 - [x] Required commands and their real results are recorded, including the honest `Blocked` result.
 - [x] Architecture and dependency rules remain valid.
@@ -264,37 +264,37 @@ dotnet test DotNet/Odyssey.Core.sln
 - [x] Documentation is updated only where materially required.
 - [x] Codex/developer performed a self-review against this task and `AGENTS.md`.
 - [x] Pull request explains changes, evidence, limitations, and follow-up work.
-- [ ] Product owner or authorized reviewer completes the required review; Codex does not merge into `main`.
+- [x] Product owner or authorized reviewer completes the required review; Codex does not merge into `main` — PR #67 merged by the product owner. The follow-up real-run verification (this update, plus two independent compile-bug fixes) is tracked in its own separate PR, which itself remains unmerged pending explicit product-owner confirmation.
 
 ## 17. Completion evidence
 
 ### Changed files / areas
 
-- `Assets/Odyssey/Client/Runtime/BoardScreenPresenter.cs` (+ `.meta`) — new.
-- `Assets/Odyssey/Client/Tests/EditMode/BoardScreenPresenterTests.cs` (+ `.meta`) — new.
+- `Assets/Odyssey/Client/Runtime/BoardScreenPresenter.cs` (+ `.meta`) — new (PR #67); one-line fix on `verify/ody-ui-01-002-real-unity-run` (float cast, see §18).
+- `Assets/Odyssey/Client/Tests/EditMode/BoardScreenPresenterTests.cs` (+ `.meta`) — new (PR #67); two fixes on `verify/ody-ui-01-002-real-unity-run` (missing `using`, temp-directory cleanup retry loop, see §18).
 - This task contract, `SLICE-UI-01_IMPLEMENTATION_BACKLOG.md` (row 1 status).
 
 ### Validation results
 
 | Command / check | Result | Evidence / notes |
 |---|---|---|
-| `dotnet build DotNet/Odyssey.Core.sln` | Passed | 0 warnings, 0 errors — confirms the pure .NET solution is unaffected by `Assets/` changes. |
-| `dotnet test DotNet/Odyssey.Core.sln` | Passed | 261/261 passed, 0 failed (Contracts 1, Domain 27, Networking 67, Unit 105, Architecture 2, Persistence 60) — no regression. |
+| `dotnet build DotNet/Odyssey.Core.sln` | Passed | 0 warnings, 0 errors (re-confirmed after the real-run verification fixes). |
+| `dotnet test DotNet/Odyssey.Core.sln` | Passed | 262/262 passed, 0 failed (Contracts 1, Domain 27, Networking 67, Unit 105, Architecture 2, Persistence 60) — no regression. (261→262 reflects `ODY-UI-01-002a`'s own architecture-guard test fix landing in `main` in between; not from this task.) |
 | `.\scripts\verify-format.ps1` | Passed | `FORMAT-001 PASS repository text formatting checks passed`. |
 | `.\scripts\check-repository-policy.ps1` | Passed | All `REPO-POLICY-*`/`TC-CI-*` checks passed; `Repository policy check passed.` |
-| `.\scripts\test-unity.ps1` (Unity 6000.4.0f1 batch compile + EditMode + PlayMode) | **Blocked** | Real run performed. Batch compile fails with `CS0234`/`CS0246` across every `Packages/com.odyssey.persistence/Runtime/Sqlite/**` file — `Microsoft.Data.Sqlite` is not resolvable inside Unity's own compiler (no Unity `Plugins/` DLL, no `precompiledReferences` entry). Confirmed pre-existing, unrelated to this task's own two new files (see §4's full finding). This task's own `BoardScreenPresenter.cs`/`BoardScreenPresenterTests.cs` cannot be Unity-compiled or Unity-tested until that pre-existing gap is fixed by a separate task — not attempted here (out of this task's own scope, §5). |
-| CI — Draft PR [#67](https://github.com/odyssey-services/Odyssey_VTT/pull/67), commit `348340d` | Passed | Run [33032765381](https://github.com/odyssey-services/Odyssey_VTT/actions/runs/33032765381): `repository-policy-format-structure`, `dotnet-restore-build-test`, `unity-project-package-static`, `buildidentity-provenance` — all 4 `SUCCESS`. **Note:** `unity-project-package-static` is a static asmdef/package-graph check only (confirmed by its own diagnostic text, §4) — it never runs a real Unity Editor compile, so this CI green result does not resolve, or even touch, the `scripts/test-unity.ps1` blocker recorded above. |
+| `.\scripts\test-unity.ps1` (Unity 6000.4.0f1 batch compile + EditMode + PlayMode) | **Passed — real run, no longer Blocked** | `Logs/ODY-UI-01-002-verify/test-unity-run3.log`: `TC-UNITY-ASM-001 PASS Unity batch compile exit code 0`; `TC-UNITY-ASM-001 PASS Unity EditMode tests exit code 0`; `TC-UNITY-ASM-001 PASS Unity PlayMode tests exit code 0`; `TC-UNITY-TEST-001 PASS editmode-results.xml total=40 passed=40 failed=0 skipped=0`; `TC-UNITY-TEST-001 PASS playmode-results.xml total=2 passed=2 failed=0 skipped=0`. `Logs/ODY-S00-008/editmode-results.xml` confirms all 4 `BoardScreenPresenterTests` cases individually `result="Passed"`: `ControllingActor_SelectsOwnToken_MovesIt_PositionUpdatesAndRendersCorrectly`, `NonControllingActor_SelectsForeignToken_MoveIsDenied_PositionUnchanged`, `MainGmActor_MovesForeignToken_Succeeds`, `Initialize_RendersAllExistingTokensAtTheirRealPersistedCoordinates`. Getting to this clean pass required fixing three real, independent, previously-undetected issues — see §18 for the full account; none changed this presenter's actual movement/authorization behavior. |
+| CI — PR [#67](https://github.com/odyssey-services/Odyssey_VTT/pull/67), commit `348340d` (original merge) | Passed | Run [33032765381](https://github.com/odyssey-services/Odyssey_VTT/actions/runs/33032765381): all 4 checks `SUCCESS`. **Historical note, still accurate:** `unity-project-package-static` was and remains a static asmdef/package-graph check only — it never ran a real Unity Editor compile; the real compile/test evidence above came from a separate, later, manually-run `scripts/test-unity.ps1` execution, not from this CI check. |
 
 ### Acceptance result
 
 | Criterion | Status | Evidence |
 |---|---|---|
-| AC-1 through AC-5 | **Not directly verified by an automated run** | The four EditMode tests (§10) are written to prove exactly these criteria and are believed correct by code review (they mirror `ODY-S03-004`'s own already-passing `BoardMovementServiceTests` assertions applied through the presenter's public `SelectToken`/`TryMoveSelectedTokenTo` methods, which call the identical, already-tested `BoardMovementService.MoveToken`/`ISceneRepository` code paths) — but they could not actually be *run* in this task, since Unity Editor batch compilation itself fails for the pre-existing, unrelated reason recorded in §4/§18. This is stated honestly, not marked Passed on code-review confidence alone. |
+| AC-1 through AC-5 | **Passed — real, run-verified** | All 4 EditMode tests (§10) genuinely executed under real Unity Editor batchmode and passed — see `test-unity.ps1` row above. No longer resting on code-review confidence alone. |
 | AC-6 | Passed | `git status --porcelain` before commit confirms no `Packages/`/ADR file touched (the auto-generated `Packages/**.meta` files Unity produced as a side effect of the batch run were removed via `git clean -f -- Packages/`, not committed). |
 | AC-7 | Passed | `dotnet build`/`dotnet test`/`verify-format.ps1`/`check-repository-policy.ps1` all pass — see Validation results above. |
-| AC-8 | **Blocked** | `scripts/test-unity.ps1` cannot complete — see §4/§17's full finding. Not this task's own gap to fix (§5). |
-| AC-9 | Passed | `git diff --name-status` matches §5's Allowed paths exactly. |
-| AC-10 | Passed | Draft PR [#67](https://github.com/odyssey-services/Odyssey_VTT/pull/67) open; all 4 required CI checks `SUCCESS` on run 33032765381 (commit `348340d`); PR remains Draft pending explicit owner confirmation before any merge. This CI green result does not resolve AC-8 (§17's note above). |
+| AC-8 | **Passed — real run, no longer Blocked** | `scripts/test-unity.ps1` completed cleanly: 0 compile errors, 40/40 EditMode, 2/2 PlayMode. Unblocked by `ODY-UI-01-002a` (PR #68, merged); three further independent issues found by this real run were then fixed (§18) before reaching this clean pass. |
+| AC-9 | Passed | `git diff --name-status` matches §5's Allowed paths exactly (original PR #67 diff). |
+| AC-10 | Passed | PR [#67](https://github.com/odyssey-services/Odyssey_VTT/pull/67) — merged by the product owner. AC-8's real verification (this update) is delivered in a separate PR, which itself remains unmerged pending the product owner's explicit confirmation, per this session's standing rule. |
 
 ### Known limitations
 
@@ -317,7 +317,8 @@ dotnet test DotNet/Odyssey.Core.sln
 
 ### Blockers
 
-- **`scripts/test-unity.ps1` cannot complete**, blocking a real, run-verified confirmation of this task's own EditMode tests (AC-1–5, AC-8). Root cause (§4): `Odyssey.Persistence`'s `Microsoft.Data.Sqlite`/`SQLitePCLRaw` NuGet dependency has no Unity-side equivalent (no `Plugins/` DLL, no `precompiledReferences` entry) — a pre-existing gap, confirmed unrelated to this task's own two new files, that has apparently existed since `SLICE-01` first introduced SQLite usage and was never caught because CI's own Unity check is static-only (`TC-CI-006`, confirmed by its own log line) and, by direct evidence (dozens of previously-uncommitted `Packages/**.meta` files Unity auto-generated during this run), no prior task ever actually opened this project in the real Unity Editor. This is not a blocker this task's own scope permits fixing (§5 explicitly excludes any `Packages/com.odyssey.persistence` change) — it blocks this task's own full closure and will block every subsequent `SLICE-UI-01` task that touches `Odyssey.Persistence` (essentially all of them). Flagged to the product owner as needing a dedicated, separate follow-up task before further `SLICE-UI-01` work can get real Unity Editor validation, not resolved here.
+- ~~**`scripts/test-unity.ps1` cannot complete**, blocking a real, run-verified confirmation of this task's own EditMode tests (AC-1–5, AC-8).~~ **Resolved 2026-08-27 by `ODY-UI-01-002a` (PR #68, merged) — see the decision entry below.** Root cause (§4, kept as honest history): `Odyssey.Persistence`'s `Microsoft.Data.Sqlite`/`SQLitePCLRaw` NuGet dependency had no Unity-side equivalent (no `Plugins/` DLL, no `precompiledReferences` entry) — a pre-existing gap, confirmed unrelated to this task's own two new files, that had apparently existed since `SLICE-01` first introduced SQLite usage and was never caught because CI's own Unity check is static-only (`TC-CI-006`) and, by direct evidence (dozens of previously-uncommitted `Packages/**.meta` files Unity auto-generated during the original run), no prior task had ever actually opened this project in the real Unity Editor.
+- No remaining blockers.
 
 ### Decisions made during execution
 
@@ -326,7 +327,13 @@ dotnet test DotNet/Odyssey.Core.sln
 - 2026-08-27 — Decision: `BoardScreenDemoCampaign.CreateFresh` creates a throwaway campaign/scene/two-tokens fixture programmatically, so a human can press Play with no manual setup step — Authority: this task's own ТЗ §3 explicit instruction to decide this; a fresh, isolated temp-directory campaign avoids any risk to a real campaign and needs no manual operator step.
 - 2026-08-27 — Decision: `LocalActorUserId`/`LocalActorIsMainGm` are mutable public properties, not constructor-fixed values — Authority: this task's own ТЗ §3 explicit instruction, so `ODY-UI-01-003`'s future role selector can set them directly without reconstructing the presenter.
 - 2026-08-27 — Finding, not fixed here (per this task's own explicit "stop and report" discipline, consistent with `ODY-S03-008`'s own precedent): `Odyssey.Persistence` cannot compile inside the real Unity Editor at all — `Microsoft.Data.Sqlite`/`SQLitePCLRaw` are NuGet-only, with no Unity-side Plugin/`precompiledReferences` equivalent. Confirmed pre-existing (unrelated to this task's own diff) and confirmed that no prior task ever successfully opened this project in Unity Editor (dozens of previously-uncommitted `Packages/**.meta` files were freshly auto-generated by this run). Authority: real `scripts/test-unity.ps1` run performed for this task's own validation; `git clean -f -- Packages/` used to keep the auto-generated `.meta` churn out of this task's own diff without deciding whether those files should eventually be committed by whichever future task fixes the underlying SQLite-Unity-plugin gap.
+- 2026-08-27 — **Real-run verification, follow-up to this task, on branch `verify/ody-ui-01-002-real-unity-run`.** The Unity/SQLite blocker recorded above was resolved by `ODY-UI-01-002a` (PR [#68](https://github.com/odyssey-services/Odyssey_VTT/pull/68), merged into `main`). Rebasing this task's own branch onto `main` and running `scripts/test-unity.ps1` for real (finally possible) then found and fixed **three further, independent, genuinely-new issues** — none behavioral, all previously undetectable because the project had never compiled/run in real Unity before this point:
+  1. `BoardScreenPresenter.cs` lines 145–146: `tokenElement.style.width`/`.height` were assigned `TokenSizePixels` (`const double`) directly; `UnityEngine.UIElements.StyleLength` has an implicit conversion from `float`, not `double` — `error CS0266`. Fixed with an explicit `(float)` cast at the two assignment sites. No behavior change (28.0 renders identically as `float` or `double`).
+  2. `BoardScreenPresenterTests.cs`: missing `using Odyssey.Application.Commands;` for `CommandId` — `error CS0246`. Added the one `using` line.
+  3. `BoardScreenPresenterTests.cs`'s `TemporaryDirectory.Dispose()`: `Directory.Delete(Path, true)` intermittently threw `IOException` ("campaign.db ... being used by another process") on all 4 tests — a Windows SQLite connection-pool file-locking race between the last `SqliteConnection`'s `Dispose()` and the test's own directory cleanup (the same class of race independently found and fixed in `ODY-UI-01-002a`'s own throwaway verification test). Fixed with a 10-attempt/100ms retry loop around the delete — a test-infrastructure fix, not a change to any assertion or to the presenter's own logic.
+
+  Authority/approval: the user explicitly reviewed the first genuine compile failure (item 1) in chat, confirmed it was unrelated to SQLite, and approved fixing compile-class issues found by the real run directly in this same branch rather than opening a separate task for each; items 2 and 3 were fixed under that same standing approval, each re-verified with a fresh `scripts/test-unity.ps1` run before moving to the next. The final run (`Logs/ODY-UI-01-002-verify/test-unity-run3.log`) passed cleanly: 0 compile errors, 40/40 EditMode (including all 4 `BoardScreenPresenterTests`, individually confirmed `Passed` by name), 2/2 PlayMode. `dotnet build`/`dotnet test` (262/262), `verify-format.ps1`, and `check-repository-policy.ps1` were all re-run and confirmed passing with zero regression.
 
 ### Approved task changes
 
-- None.
+- 2026-08-27 — Real-run verification and the three fixes above, delivered as a follow-up PR rather than reopening the already-merged PR #67 — Approved by: product owner (explicit ТЗ requesting this real verification, and explicit in-chat approval to fix the compile-class bugs found along the way).

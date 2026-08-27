@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.IO;
 using NUnit.Framework;
+using Odyssey.Application.Commands;
 using Odyssey.Application.Persistence;
 using Odyssey.Application.Results;
 using Odyssey.Domain.Identity;
@@ -202,7 +203,21 @@ namespace Odyssey.Tests.Unity.EditMode
 
             public void Dispose()
             {
-                if (Directory.Exists(Path)) Directory.Delete(Path, true);
+                // Windows can briefly hold the SQLite connection-pool file handle open past
+                // Dispose() of the last SqliteConnection using it; retry the delete rather
+                // than fail the test on an unrelated cleanup race.
+                for (int attempt = 0; attempt < 10; attempt++)
+                {
+                    try
+                    {
+                        if (Directory.Exists(Path)) Directory.Delete(Path, true);
+                        return;
+                    }
+                    catch (IOException)
+                    {
+                        System.Threading.Thread.Sleep(100);
+                    }
+                }
             }
         }
     }

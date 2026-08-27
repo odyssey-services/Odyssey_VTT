@@ -142,8 +142,8 @@ namespace Odyssey.Unity.Client
                 VisualElement tokenElement = new VisualElement { name = "token-" + token.TokenId };
                 tokenElement.AddToClassList("board-token");
                 tokenElement.style.position = Position.Absolute;
-                tokenElement.style.width = TokenSizePixels;
-                tokenElement.style.height = TokenSizePixels;
+                tokenElement.style.width = (float)TokenSizePixels;
+                tokenElement.style.height = (float)TokenSizePixels;
                 tokenElement.style.left = ToPixels(token.Position.X);
                 tokenElement.style.top = ToPixels(token.Position.Y);
                 tokenElement.style.backgroundColor = new StyleColor(TokenColor(token, out _));
