@@ -22,7 +22,7 @@ namespace Odyssey.Tests.Unity.EditMode
         private static UserId User(string suffix) => UserId.Parse("user_0000000000000000000000000000000" + suffix);
 
         [Test]
-        public void PlayerRoll_ValidFormula_StoresLastRoll()
+        public void PlayerRoll_DefaultAudience_IsPlayerAndGMAndVisible()
         {
             using TestPanel panel = TestPanel.Create(BaselineRole.Player);
 
@@ -31,7 +31,7 @@ namespace Odyssey.Tests.Unity.EditMode
             Assert.That(result.IsSuccess, Is.True);
             Assert.That(panel.Presenter.LastRoll, Is.SameAs(result.Value));
             Assert.That(result.Value.ActorUserId, Is.EqualTo(panel.Selection.PlayerUserId));
-            Assert.That(result.Value.Audience.Kind, Is.EqualTo(DiceRollAudienceKind.Public));
+            Assert.That(result.Value.Audience.Kind, Is.EqualTo(DiceRollAudienceKind.PlayerAndGM));
             Assert.That(result.Value.NaturalResults, Has.Count.EqualTo(1));
             Assert.That(panel.Text("roll-result"), Does.Contain("final"));
             Assert.That(panel.Text("roll-status"), Does.Contain("accepted"));
@@ -51,6 +51,22 @@ namespace Odyssey.Tests.Unity.EditMode
         }
 
         [Test]
+        public void Roll_SelectedParticipantsAudience_SelectsPlayerUser()
+        {
+            using TestPanel panel = TestPanel.Create(BaselineRole.Player);
+            panel.SelectAudience("SelectedParticipants");
+
+            Result<DiceRoll> result = panel.Presenter.SubmitRoll("1d20");
+
+            Assert.That(result.IsSuccess, Is.True);
+            Assert.That(result.Value.Audience.Kind, Is.EqualTo(DiceRollAudienceKind.SelectedParticipants));
+            Assert.That(result.Value.Audience.SelectedUserIds.Count, Is.EqualTo(1));
+            Assert.That(result.Value.Audience.SelectedUserIds[0], Is.EqualTo(panel.Selection.PlayerUserId));
+            Assert.That(result.Value.Audience.SelectedGroupIds.Count, Is.EqualTo(1));
+            Assert.That(panel.Text("roll-result"), Does.Contain("final"));
+        }
+
+        [Test]
         public void ObserverRoll_ValidFormula_ShowsDeniedError()
         {
             using TestPanel panel = TestPanel.Create(BaselineRole.Observer);
@@ -61,6 +77,21 @@ namespace Odyssey.Tests.Unity.EditMode
             Assert.That(result.Error.Code, Is.EqualTo(ErrorCodes.DiceRollDenied));
             Assert.That(panel.Presenter.LastRoll, Is.Null);
             Assert.That(panel.Text("roll-status"), Does.Contain(SafeReasonCode.PermissionDenied.ToString()));
+        }
+
+        [Test]
+        public void RoleSwitch_ObserverCannotSeePlayerAndGmRoll()
+        {
+            using TestPanel panel = TestPanel.Create(BaselineRole.Player);
+            Result<DiceRoll> result = panel.Presenter.SubmitRoll("1d20+3");
+            Assert.That(result.IsSuccess, Is.True);
+            Assert.That(panel.Text("roll-result"), Does.Contain("final"));
+
+            panel.Selection.SelectRole(BaselineRole.Observer);
+
+            Assert.That(panel.Text("roll-result"), Is.EqualTo("No access to roll result."));
+            Assert.That(panel.Text("roll-result"), Does.Not.Contain("1d20"));
+            Assert.That(panel.Text("roll-result"), Does.Not.Contain("final"));
         }
 
         [Test]
@@ -107,17 +138,68 @@ namespace Odyssey.Tests.Unity.EditMode
         }
 
         [Test]
-        public void RoleSwitch_UpdatesMainGmDecisionButtons()
+        public void MainGmOverride_EmptyReason_ShowsErrorAndDoesNotChangeRoll()
+        {
+            using TestPanel panel = TestPanel.Create(BaselineRole.MainGM);
+            DiceRoll roll = panel.Presenter.SubmitRoll("1d20").Value;
+            int baseTotal = roll.BaseTotal;
+            int naturalCount = roll.NaturalResults.Count;
+
+            Result<RollOverride> result = panel.Presenter.ApplyOverride(" ");
+
+            Assert.That(result.IsFailure, Is.True);
+            Assert.That(result.Error.Code, Is.EqualTo(ErrorCodes.DiceOverrideReasonRequired));
+            Assert.That(panel.Presenter.LastRoll!.Status, Is.EqualTo(DiceRollStatus.Resolved));
+            Assert.That(panel.Presenter.LastRoll.BaseTotal, Is.EqualTo(baseTotal));
+            Assert.That(panel.Presenter.LastRoll.NaturalResults, Has.Count.EqualTo(naturalCount));
+            Assert.That(panel.Text("roll-status"), Does.Contain(SafeReasonCode.InvalidRequest.ToString()));
+        }
+
+        [Test]
+        public void MainGmOverride_WithReason_SetsRollStatusOverridden()
+        {
+            using TestPanel panel = TestPanel.Create(BaselineRole.MainGM);
+            DiceRoll roll = panel.Presenter.SubmitRoll("1d20").Value;
+
+            Result<RollOverride> result = panel.Presenter.ApplyOverride("table ruling");
+
+            Assert.That(result.IsSuccess, Is.True);
+            Assert.That(result.Value.DiceRollId, Is.EqualTo(roll.RollId));
+            Assert.That(panel.Presenter.LastRoll!.Status, Is.EqualTo(DiceRollStatus.Overridden));
+            Assert.That(panel.Text("roll-result"), Does.Contain("Overridden"));
+            Assert.That(panel.Text("roll-status"), Does.Contain("accepted"));
+        }
+
+        [Test]
+        public void PlayerOverride_WithReason_ShowsDeniedError()
+        {
+            using TestPanel panel = TestPanel.Create(BaselineRole.Player);
+            DiceRoll roll = panel.Presenter.SubmitRoll("1d20").Value;
+
+            Result<RollOverride> result = panel.Presenter.ApplyOverride("not allowed");
+
+            Assert.That(result.IsFailure, Is.True);
+            Assert.That(result.Error.Code, Is.EqualTo(ErrorCodes.DiceOverrideDenied));
+            Assert.That(panel.Presenter.LastRoll!.Status, Is.EqualTo(DiceRollStatus.Resolved));
+            Assert.That(panel.Presenter.LastRoll.RollId, Is.EqualTo(roll.RollId));
+            Assert.That(panel.Text("roll-status"), Does.Contain(SafeReasonCode.PermissionDenied.ToString()));
+        }
+
+        [Test]
+        public void RoleSwitch_UpdatesMainGmOnlyButtons()
         {
             using TestPanel panel = TestPanel.Create(BaselineRole.Player);
 
             Assert.That(panel.Button("modifier-accept-button").enabledSelf, Is.False);
+            Assert.That(panel.Button("override-button").enabledSelf, Is.False);
 
             panel.Selection.SelectRole(BaselineRole.MainGM);
             Assert.That(panel.Button("modifier-accept-button").enabledSelf, Is.True);
+            Assert.That(panel.Button("override-button").enabledSelf, Is.True);
 
             panel.Selection.SelectRole(BaselineRole.Observer);
             Assert.That(panel.Button("modifier-accept-button").enabledSelf, Is.False);
+            Assert.That(panel.Button("override-button").enabledSelf, Is.False);
         }
 
         private sealed class TestPanel : IDisposable
@@ -162,6 +244,13 @@ namespace Odyssey.Tests.Unity.EditMode
                 Button button = Document.rootVisualElement.Q<Button>(name);
                 Assert.That(button, Is.Not.Null);
                 return button;
+            }
+
+            public void SelectAudience(string value)
+            {
+                DropdownField dropdown = Document.rootVisualElement.Q<DropdownField>("roll-audience");
+                Assert.That(dropdown, Is.Not.Null);
+                dropdown.value = value;
             }
 
             public void Dispose()
