@@ -1,21 +1,21 @@
-# Odyssey VTT — SLICE-04 Minimal UI Prerequisites Backlog
+# Odyssey VTT — SLICE-UI-01 Minimal UI Prerequisites Backlog
 
-**Status:** Prerequisite backlog — **CLOSED** by this same revision (`ODY-S04-000`). No new ADR was required — see section 2.1. This backlog exists to record that finding explicitly, not to sequence ADR-authoring child tasks the way `SLICE-02_BACKLOG.md`/`SLICE-03_BACKLOG.md` did.
-**Slice:** `SLICE-04 — Minimal UI Prerequisites` (a product-owner-assigned label for this precursor; see section 0 for an important naming caveat)
-**Parent task:** `docs/tasks/active/ODY-S04-000_SLICE_04_Minimal_UI_Prerequisites.md`
+**Status:** Prerequisite backlog — **CLOSED** by this same revision (`ODY-UI-01-000`). No new ADR was required — see section 2.1. This backlog exists to record that finding explicitly, not to sequence ADR-authoring child tasks the way `SLICE-02_BACKLOG.md`/`SLICE-03_BACKLOG.md` did.
+**Slice:** `SLICE-UI-01 — Minimal UI Prerequisites` (renamed from the original `SLICE-04` label on 2026-08-27; see section 0)
+**Parent task:** `docs/tasks/active/ODY-UI-01-000_SLICE_UI_01_Minimal_UI_Prerequisites.md`
 **ExecPlan:** Not required (Brief plan)
 **Created:** 2026-08-27
 **Last updated:** 2026-08-27 UTC
 
-## 0. Naming caveat — stated explicitly, not silently smoothed over
+## 0. Naming history — renamed from `SLICE-04` to avoid roadmap collision
 
-The private roadmap document (`17_Roadmap_Odyssey_VTT_v0.11.md`) already uses the label **`SLICE-04`** for a *different* vertical slice: line 216 of its milestone table names `SLICE-04` as "Rules Engine, персонажи и развитие" (Rules Engine, Characters and Progression), gated behind `GATE-C`, and roadmap section 13 ("Этап 5 — Characters and Progression," section 13.9: `SLICE-04 — Персонаж и развитие`) describes its own, unrelated ten-step scenario. Nothing in the roadmap names a UI-focused slice at all — there is no roadmap section describing client/interface architecture as its own vertical slice.
+This precursor was originally created under the label `SLICE-04`. The private roadmap document (`17_Roadmap_Odyssey_VTT_v0.11.md`) already uses that exact label for a *different* vertical slice: line 216 of its milestone table names `SLICE-04` as "Rules Engine, персонажи и развитие" (Rules Engine, Characters and Progression), gated behind `GATE-C`, and roadmap section 13 ("Этап 5 — Characters and Progression," section 13.9: `SLICE-04 — Персонаж и развитие`) describes its own, unrelated ten-step scenario. Nothing in the roadmap names a UI-focused slice at all — there is no roadmap section describing client/interface architecture as its own vertical slice; this precursor's original `SLICE-04` label was always the product owner's own ad hoc assignment for this UI-prerequisites effort, not a roadmap-derived number.
 
-This backlog's own `SLICE-04` label — assigned by the product owner for this minimal-trial-UI effort — is therefore a **reused slice number for a different, out-of-roadmap-order piece of work**, not the roadmap's own `SLICE-04`. This is recorded here plainly because this task's own instruction (`ODY-S04-000`'s ТЗ section 2) required checking the roadmap for a UI section rather than assuming one exists, and finding none is exactly the kind of result that must be reported, not invented around. Reconciling this numbering collision (renaming one of the two, or accepting the collision as a permanent quirk of this backlog's own local numbering) is the product owner's call, not this task's to resolve — this backlog does not rename anything, it only names the collision so nobody later mistakes this document for roadmap-section-13 coverage.
+**Resolution (2026-08-27):** to avoid confusion with the roadmap's own `SLICE-04`, the product owner decided to rename this entire branch of work from `SLICE-04`/`ODY-S04-XXX` to **`SLICE-UI-01`/`ODY-UI-01-XXX`** — a task-ID scheme that cannot collide with any roadmap-numbered slice (`ODY-S0X-YYY`), since no roadmap slice will ever carry the code `UI-01`. This is a pure rename, not a re-decision: every architectural/scope finding in section 2.1/section 3 below is unchanged from the original `SLICE-04` revision, only the label changed.
 
 ## 1. Purpose
 
-This backlog converts the product owner's own explicit decision (`ODY-S04-000`'s ТЗ section 0) — build a minimal, throwaway-quality UI to exercise `SLICE-00`–`03`'s already-implemented mechanics by hand, not a production interface — into a small set of architectural confirmations, before any scene/script implementation work begins. It does **not** implement any UI code, screen, or scene. That implementation work begins only in a **future backlog revision** (`SLICE-04_IMPLEMENTATION_BACKLOG.md`, analogous to `SLICE-03_IMPLEMENTATION_BACKLOG.md`), created only after this precursor closes.
+This backlog converts the product owner's own explicit decision (`ODY-UI-01-000`'s ТЗ section 0) — build a minimal, throwaway-quality UI to exercise `SLICE-00`–`03`'s already-implemented mechanics by hand, not a production interface — into a small set of architectural confirmations, before any scene/script implementation work begins. It does **not** implement any UI code, screen, or scene. That implementation work begins only in a **future backlog revision** (`SLICE-UI-01_IMPLEMENTATION_BACKLOG.md`, analogous to `SLICE-03_IMPLEMENTATION_BACKLOG.md`), created only after this precursor closes.
 
 This revision's only outcome is: (a) explicit confirmation that already-`Accepted` `ADR-001`/`ADR-002`/`ADR-008` fully answer the UI↔Application boundary questions without modification, and (b) a small set of scope decisions (minimal screen/action list, persistence choice, single-process role-switching convention) recorded here rather than left to be improvised ad hoc by whichever future implementation task picks up the first screen.
 
@@ -23,18 +23,18 @@ This revision's only outcome is: (a) explicit confirmation that already-`Accepte
 
 This prerequisite backlog revision is complete only when:
 
-1. Every architectural question named in `ODY-S04-000`'s ТЗ section 3 has an explicit, justified answer — either "confirmed by an already-`Accepted` ADR, unmodified" or "a new ADR is required and has been drafted."
+1. Every architectural question named in `ODY-UI-01-000`'s ТЗ section 3 has an explicit, justified answer — either "confirmed by an already-`Accepted` ADR, unmodified" or "a new ADR is required and has been drafted."
 2. If any new ADR was required, it is `Accepted` before this backlog is considered closed.
 
 **Result of this revision: criterion 1 is satisfied for all five questions; criterion 2 does not apply — no new ADR was required (section 2.1).**
 
 ## 2.1 Revision status and finding: no new ADR required
 
-Unlike `SLICE-02_BACKLOG.md` (five new ADRs: `ADR-015`/`016`/`017`/`018`/`019`) and `SLICE-03_BACKLOG.md` (two new ADRs: `ADR-020`/`021`), this revision fixes **zero** new ADRs. This is not an undercount by omission — section 3 below justifies, question by question against `ODY-S04-000`'s own ТЗ section 3, why each is already fully answered by already-`Accepted` `ADR-001`/`ADR-002`/`ADR-008`, plus one Client-layer-only decision that does not rise to ADR-level (touches no Application/Domain/Persistence contract) and one product-scope decision (neither touches architecture).
+Unlike `SLICE-02_BACKLOG.md` (five new ADRs: `ADR-015`/`016`/`017`/`018`/`019`) and `SLICE-03_BACKLOG.md` (two new ADRs: `ADR-020`/`021`), this revision fixes **zero** new ADRs. This is not an undercount by omission — section 3 below justifies, question by question against `ODY-UI-01-000`'s own ТЗ section 3, why each is already fully answered by already-`Accepted` `ADR-001`/`ADR-002`/`ADR-008`, plus one Client-layer-only decision that does not rise to ADR-level (touches no Application/Domain/Persistence contract) and one product-scope decision (neither touches architecture).
 
-**This is a genuinely cleaner outcome than either prior slice's own prerequisite revision, stated explicitly because it is the more unusual result, not the default one to assume.** The reason it holds here and did not for `SLICE-02`/`SLICE-03`: `SLICE-02` introduced an entirely new concern (networking) with no prior ADR coverage at all, and `SLICE-03` introduced new domain math (board geometry) and a new audience-selection dimension neither `ADR-002` nor `ADR-019` covered. `SLICE-04` introduces no new domain concept, no new Application port, and no new persisted format — it only adds a *view* onto contracts `ADR-001`/`002`/`008` already fully specify how a Unity client may consume. `ADR-001` §6.7 in particular was written during `SLICE-00` specifically to govern `Odyssey.Unity.Client`, and already names UI Toolkit, thin Application-calling integration code, and a service-locator prohibition as settled decisions — this revision does not amend a single word of it.
+**This is a genuinely cleaner outcome than either prior slice's own prerequisite revision, stated explicitly because it is the more unusual result, not the default one to assume.** The reason it holds here and did not for `SLICE-02`/`SLICE-03`: `SLICE-02` introduced an entirely new concern (networking) with no prior ADR coverage at all, and `SLICE-03` introduced new domain math (board geometry) and a new audience-selection dimension neither `ADR-002` nor `ADR-019` covered. `SLICE-UI-01` introduces no new domain concept, no new Application port, and no new persisted format — it only adds a *view* onto contracts `ADR-001`/`002`/`008` already fully specify how a Unity client may consume. `ADR-001` §6.7 in particular was written during `SLICE-00` specifically to govern `Odyssey.Unity.Client`, and already names UI Toolkit, thin Application-calling integration code, and a service-locator prohibition as settled decisions — this revision does not amend a single word of it.
 
-## 3. Architectural questions and their resolution (`ODY-S04-000` ТЗ section 3)
+## 3. Architectural questions and their resolution (`ODY-UI-01-000` ТЗ section 3)
 
 ### 3.1 UI technology — confirmed by `ADR-001` §6.7, not reopened
 
@@ -50,7 +50,7 @@ Unlike `SLICE-02_BACKLOG.md` (five new ADRs: `ADR-015`/`016`/`017`/`018`/`019`) 
 
 ### 3.4 Minimal screen/action list — derived from `ODY-S03-008`'s own ten steps, not invented
 
-Per `ODY-S04-000`'s ТЗ section 2, the source of requirements is `ODY-S03-008`'s already-proven ten-step scenario (roadmap §12.6), not independent UI-design judgment. The minimal set needed to walk that same scenario by hand:
+Per `ODY-UI-01-000`'s ТЗ section 2, the source of requirements is `ODY-S03-008`'s already-proven ten-step scenario (roadmap §12.6), not independent UI-design judgment. The minimal set needed to walk that same scenario by hand:
 
 - **One scene/board view**: renders the single active scene's tokens at their real `TokenPosition` coordinates (simple shapes/labels, `GridType=None` per `ADR-020`'s own only-implemented case — no hex/grid rendering). Clicking a token then clicking a destination calls `BoardMovementService.MoveToken` (step 1).
 - **A role selector** (§3.3 above): "Playing as: Player / MainGM / Observer" — Observer included specifically to exercise the excluded-participant safe-denial case `ODY-S03-006`/`008` already prove in tests.
@@ -62,7 +62,7 @@ Per `ODY-S04-000`'s ТЗ section 2, the source of requirements is `ODY-S03-008`'
 - **A simple game-log list**: an unstyled scrollable list of persisted `GameLogEntryRecord.SummaryPayload` values, filtered through the current role via `GameLogReconnectService.GetVisibleEntries` (steps 5/9).
 - **Reroll/Cancel buttons** calling `RequestFullReroll`/`CancelRoll`, with the log still showing the original entry unchanged afterward (step 10).
 
-**Explicitly excluded** (per `ODY-S04-000`'s ТЗ section 4 and because none of the above steps need them): drawing/annotation tools, a ruler, drag-and-drop polish or animation of any kind, sound, multiple scenes or scene management UI, pan/zoom polish, hex-grid rendering, localization, mobile/web platform targets. A future, separate, later-prioritized Board-implementation effort (already named as deferred by `SLICE-03_IMPLEMENTATION_BACKLOG.md` §2.1) owns all of these, not this trial UI.
+**Explicitly excluded** (per `ODY-UI-01-000`'s ТЗ section 4 and because none of the above steps need them): drawing/annotation tools, a ruler, drag-and-drop polish or animation of any kind, sound, multiple scenes or scene management UI, pan/zoom polish, hex-grid rendering, localization, mobile/web platform targets. A future, separate, later-prioritized Board-implementation effort (already named as deferred by `SLICE-03_IMPLEMENTATION_BACKLOG.md` §2.1) owns all of these, not this trial UI.
 
 ### 3.5 Persistence — real SQLite, not a parallel in-memory store
 
@@ -76,18 +76,18 @@ None of the five questions above requires empirical measurement against somethin
 
 | Order | Task ID | Title | Status | Depends on | Planning mode | Primary result |
 |---:|---|---|---|---|---|---|
-| 1 | `ODY-S04-000` | SLICE-04 Minimal UI Prerequisites | Done | None | Brief plan | This backlog document and its own task contract. Confirms `ADR-001`/`002`/`008` fully answer the UI↔Application boundary (no new ADR); records the minimal screen/action list, the single-process role-switching convention, and the real-SQLite persistence decision. |
+| 1 | `ODY-UI-01-000` | SLICE-UI-01 Minimal UI Prerequisites | Done | None | Brief plan | This backlog document and its own task contract. Confirms `ADR-001`/`002`/`008` fully answer the UI↔Application boundary (no new ADR); records the minimal screen/action list, the single-process role-switching convention, and the real-SQLite persistence decision. |
 
 ## 6. Dependency rules
 
-- `ODY-S04-000` depends only on `SLICE-03`'s own closure (`ODY-S03-009`/`010`, both `Done` on `main`) — the public contracts this precursor cites (`BoardContracts`, `DiceContracts`, `GameLogRepositoryContracts`, `DiceRollVisibilityPolicy`, `GameLogReconnectService`) must already exist and be stable.
+- `ODY-UI-01-000` depends only on `SLICE-03`'s own closure (`ODY-S03-009`/`010`, both `Done` on `main`) — the public contracts this precursor cites (`BoardContracts`, `DiceContracts`, `GameLogRepositoryContracts`, `DiceRollVisibilityPolicy`, `GameLogReconnectService`) must already exist and be stable.
 - No task in this backlog depends on `ODY-S02-014` (Real Transport Integration) or the `ADR-016` §14 follow-up spike — per product-owner decision, unchanged from `SLICE-03_IMPLEMENTATION_BACKLOG.md` §2.3's identical framing, carried forward here without modification.
 
 ## 7. Global non-goals
 
 This backlog revision excludes:
 
-- Any UI implementation code, Unity scene content, or screen — deferred entirely to a future `SLICE-04_IMPLEMENTATION_BACKLOG.md` revision, created only after this precursor closes (analogous to `ODY-S03-003`'s role for `SLICE-03`).
+- Any UI implementation code, Unity scene content, or screen — deferred entirely to a future `SLICE-UI-01_IMPLEMENTATION_BACKLOG.md` revision, created only after this precursor closes (analogous to `ODY-S03-003`'s role for `SLICE-03`).
 - Reopening any already-`Accepted` ADR (`ADR-001`, `ADR-002`, `ADR-004`, `ADR-008`, `ADR-012`, `ADR-017`, `ADR-019`, `ADR-020`, `ADR-021`) — each is cited as authority, never redecided.
 - Real network integration (`ODY-S02-014`/`ADR-016` §14) — a separate, still-deferred product-owner decision.
 - Final visual design, animation, audio, localization, or any non-desktop/non-Editor platform target.
@@ -95,6 +95,6 @@ This backlog revision excludes:
 
 ## 8. Backlog change control
 
-- New work requires a new `ODY-S04-XXX` task contract.
+- New work requires a new `ODY-UI-01-XXX` task contract.
 - This document does not replace task acceptance criteria; it does not itself constitute implementation.
-- The `SLICE-04` implementation backlog (actual UI screens/scenes) is a separate future backlog revision, created only after the product owner accepts this precursor's closure — analogous to how `ODY-S03-003` created `SLICE-03_IMPLEMENTATION_BACKLOG.md` only after `SLICE-03_BACKLOG.md` closed.
+- The `SLICE-UI-01` implementation backlog (actual UI screens/scenes) is a separate future backlog revision, created only after the product owner accepts this precursor's closure — analogous to how `ODY-S03-003` created `SLICE-03_IMPLEMENTATION_BACKLOG.md` only after `SLICE-03_BACKLOG.md` closed.
