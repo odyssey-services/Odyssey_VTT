@@ -1,0 +1,130 @@
+# Odyssey VTT — SLICE-UI-01 Minimal Trial UI Implementation Backlog
+
+**Status:** Implementation revision — scaffold only, no child task activated yet
+**Slice:** `SLICE-UI-01 — Minimal UI Prerequisites` (renamed from `SLICE-04` 2026-08-27; see `SLICE-UI-01_BACKLOG.md` §0)
+**Parent task:** `docs/tasks/active/ODY-UI-01-001_SLICE_UI_01_Implementation_Backlog.md`
+**Predecessor backlog:** `docs/tasks/SLICE-UI-01_BACKLOG.md` (prerequisite revision — closed 2026-08-27, `ODY-UI-01-000`; zero new ADRs required, all five architectural questions confirmed against already-`Accepted` `ADR-001`/`002`/`008`)
+**ExecPlan:** Not required (Brief plan)
+**Created:** 2026-08-27
+**Last updated:** 2026-08-27 UTC
+
+## 1. Purpose
+
+This backlog converts `SLICE-UI-01_BACKLOG.md` §3.4's already-agreed minimal screen/action list into small, reviewable implementation tasks — the same role `ODY-S03-003` played for `SLICE-03_IMPLEMENTATION_BACKLOG.md` after `SLICE-03_BACKLOG.md` closed. It does **not** itself implement anything. It only decomposes the already-decided minimal UI into ordered child tasks, each of which will be its own separate task contract and pull request, activated one at a time — the same convention `SLICE-01`/`SLICE-02`/`SLICE-03_IMPLEMENTATION_BACKLOG.md` already used.
+
+Its sources of scope are, exclusively:
+
+- `docs/tasks/SLICE-UI-01_BACKLOG.md` §3.4 (the minimal screen/action list — the *only* source of scope; nothing beyond it is added here) and §3.1–3.5 (the already-decided UI↔Application boundary, persistence choice, and role-switching convention, all cited as fixed, none reopened).
+- `docs/tasks/active/ODY-S03-008_Vertical_Slice_Integration.md` (the ten-step scenario these screens exist to let a human walk by hand).
+- `docs/adr/ADR-001_Module_Boundaries_and_Dependency_Direction_v1.0.md` §6.7 (already-`Accepted` `Odyssey.Unity.Client` boundary — cited, not reopened).
+
+No child task in this backlog reopens any decision `SLICE-UI-01_BACKLOG.md` already made; each builds directly on those decisions as fixed.
+
+## 2. Scope decisions requiring explicit justification
+
+### 2.1 Six child tasks, grouped by screen/concern, not by roadmap step
+
+`SLICE-UI-01_BACKLOG.md` §3.4 lists eight UI elements (board/token view, role selector, roll panel, modifier control, override control, result display, save-and-reopen action, game-log list) plus reroll/cancel buttons. Grouping them one-screen-per-task would produce eight-plus tiny tasks with heavy cross-dependencies (the result display cannot be built without the roll panel that produces a result to display); grouping them all into one task would produce an unreviewable, all-at-once UI task, the opposite of the small-reviewable-task discipline every `SLICE-0X_IMPLEMENTATION_BACKLOG.md` has used so far.
+
+**Decision:** six child tasks, grouped by the natural feature boundary each already-built Application service defines, in the build order a human would need them to exist:
+
+1. **Board screen** (`BoardMovementService`) — token render, selection, click-to-move.
+2. **Role selector** (`ODY-UI-01-000`'s §3.3 convention) — cross-cutting infrastructure every later screen consumes.
+3. **Roll panel + modifiers** (`DiceRollService.SubmitRoll`/`ProposeModifier`/`DecideModifier`).
+4. **Override control + audience-aware result display** (`DiceRollService.ApplyOverride`, `DiceRollVisibilityPolicy`).
+5. **Save/reopen campaign + game log list** (`SqliteGameLogRepository`, `GameLogReconnectService`).
+6. **Reroll/cancel + full manual walkthrough** (`DiceRollService.RequestFullReroll`/`CancelRoll`, plus the manual, by-hand analogue of `ODY-S03-008`'s own ten-step proof).
+
+This mirrors `SLICE-UI-01_BACKLOG.md` §3.4's own listed grouping almost exactly (the ТЗ that created this backlog already proposed this six-task split) — this backlog adopts it because it is already sound: each task maps to exactly one (or two closely coupled) Application contract(s), each produces a visibly demonstrable increment, and the dependency chain is linear and shallow (see §5).
+
+### 2.2 Board screen ships before the role selector, with a single implicit local actor
+
+Unlike roll/audience/override work (which genuinely needs to *switch* identity to prove `DiceRollVisibilityPolicy`'s per-role behavior), `BoardMovementService.MoveToken`'s own control-ownership check (`ADR-019` §5.2, exit criterion 2) is provable with a single fixed local actor: create two tokens with different `ControllerUserId`s, try moving each, observe one succeeds and one is denied. No role *switch* is required to prove that a non-controller is denied — only a second, differently-owned token. **Decision:** the board screen (task 1) ships first, using a single hardcoded local actor identity; the role selector (task 2) is introduced immediately after specifically because roll/modifier/override/audience work (tasks 3–5) cannot be meaningfully tried by hand without it — those genuinely require playing as different roles, not just different tokens.
+
+### 2.3 No task contract file is created by this backlog
+
+Per this task's own instruction and the `ODY-S03-003` precedent: this document only reserves task numbers, titles, and boundaries. Each child task contract (`ODY-UI-01-002` through `ODY-UI-01-007`) is created and activated as its own separate task, one at a time, when picked up — not by this scaffold.
+
+## 3. Slice exit criteria
+
+`SLICE-UI-01` (implementation) is complete only when a human can walk `ODY-S03-008`'s own ten-step scenario end-to-end through the UI, by hand:
+
+1. Select the player's own token on the board (step 1).
+2. Submit a roll intent through the roll panel; see it accepted or denied by role (steps 2–3).
+3. See the formula result generated (step 4).
+4. Propose and decide a modifier through the UI (step 5).
+5. Apply a GM override with a mandatory reason through the UI (step 6).
+6. See the result honor audience-aware visibility when switching roles (step 7).
+7. Save and reopen the campaign; see the journal restored (steps 8–9).
+8. Reroll; see the original entry remain in the journal unchanged (step 10).
+
+Criterion 8 above ("a human can walk the full scenario") is satisfied by task 6's own final manual walkthrough, mirroring how `SLICE-03_IMPLEMENTATION_BACKLOG.md` §3's criterion 8 (`GATE-B` closure) was satisfied by that slice's own closure task confirming the rest.
+
+## 4. Ordered backlog
+
+| Order | Task ID | Screen/concern | Status | Depends on | Planning mode | Primary result |
+|---:|---|---|---|---|---|---|
+| 1 | `ODY-UI-01-002` | Board screen | Draft | None | Not yet determined | A scene view rendering the active scene's tokens at their real `TokenPosition` coordinates (`GridType=None`, no hex/grid rendering per `ADR-020`'s own scope); click-to-select then click-destination-to-move calls `BoardMovementService.MoveToken` with a single hardcoded local actor identity; a non-controller's attempted move is visibly denied. Satisfies roadmap §12.6 step 1 and exit criterion 2 ("Player не может перемещать чужой токен без control") by hand. |
+| 2 | `ODY-UI-01-003` | Role selector | Draft | None | Not yet determined | A "Playing as: Player / MainGM / Observer" selector (`SLICE-UI-01_BACKLOG.md` §3.3's convention) supplying the `actorUserId`/`actorIsMainGm`/`ActorCanCreateRoll` values every later screen's Application calls already accept as plain caller-supplied parameters. Retrofits the board screen (task 1) to read the selected actor instead of its own hardcoded one, closing that task's own documented, deliberate simplification. |
+| 3 | `ODY-UI-01-004` | Roll panel + modifiers | Draft | 003 | Not yet determined | A formula field and "Roll" button calling `DiceRollService.SubmitRoll`; a modifier-propose affordance and, when playing as MainGM, Accept/Change/Reject buttons calling `ProposeModifier`/`DecideModifier`. Satisfies roadmap §12.6 steps 2–5 by hand. |
+| 4 | `ODY-UI-01-005` | Override + audience-aware result display | Draft | 003, 004 | Not yet determined | A reason field and "Override" button (MainGM-only, visibly rejecting an empty reason) calling `ApplyOverride`; a result display calling `DiceRollVisibilityPolicy.TryGetVisibleRoll` for the currently-selected role before showing anything, including the excluded-Observer safe-denial case. Satisfies roadmap §12.6 steps 6–7 by hand. |
+| 5 | `ODY-UI-01-006` | Persistence + game log | Draft | 004 | Not yet determined | A "Save & Reopen Campaign" action persisting via `SqliteGameLogRepository.SaveDiceRollEntry` and re-listing via a fresh repository instance; an unstyled scrollable game-log list filtered through the current role via `GameLogReconnectService.GetVisibleEntries`. Satisfies roadmap §12.6 steps 8–9 by hand. |
+| 6 | `ODY-UI-01-007` | Reroll/cancel + full walkthrough | Draft | 002, 003, 004, 005, 006 | Not yet determined | Reroll/Cancel buttons calling `RequestFullReroll`/`CancelRoll`; a final, manual, by-hand walkthrough of all ten `ODY-S03-008` steps through the assembled UI, with any real composition gap found reported (not silently patched around), mirroring `ODY-S03-008`'s own "report, don't improvise" instruction. Satisfies roadmap §12.6 step 10 and closes `SLICE-UI-01`'s own exit criteria (§3 above). |
+
+"Planning mode" is intentionally left "Not yet determined" for every child task: each task's own Brief-plan-vs-ExecPlan decision is made when that task's own contract is authored, per `PLANS.md` §1, not pre-decided by this scaffold — the same convention `SLICE-03_IMPLEMENTATION_BACKLOG.md` used.
+
+No `ODY-UI-01-002`–`007` task contract file exists yet. This backlog only reserves their numbers, titles, and boundaries; each is created and activated as its own separate task, one at a time, when picked up.
+
+## 5. Task boundaries
+
+### ODY-UI-01-002 — Board screen
+
+Fixes: a Unity scene view (UI Toolkit + a simple `VisualElement`/`GameObject` render of tokens, or a minimal 2D representation — the exact rendering technique is this task's own implementation detail, not fixed here) showing the single active scene's tokens at their real, persisted `TokenPosition` coordinates; click-to-select, then click-destination-to-move, calling `BoardMovementService.MoveToken` directly (`SLICE-UI-01_BACKLOG.md` §3.2's direct-call convention). Uses a single hardcoded local actor identity (§2.2 above) — the role selector (task 2) is not yet available to this task. Does not implement drag-and-drop polish, animation, pan/zoom, hex-grid rendering, drawing, or a ruler — all explicitly excluded by `SLICE-UI-01_BACKLOG.md` §3.4.
+
+### ODY-UI-01-003 — Role selector
+
+Fixes: a persistent, cross-cutting "Playing as: Player / MainGM / Observer" UI control (`SLICE-UI-01_BACKLOG.md` §3.3), visible from every screen, supplying the caller-side `actorUserId`/`actorIsMainGm`/`ActorCanCreateRoll` values later tasks' Application calls need. Retrofits task 1's board screen to consume the selected actor instead of its own hardcoded placeholder, closing that task's own documented simplification. Does not implement any real session/identity/permission model — `ADR-019`'s full baseline remains out of scope, exactly as `ODY-S03-004`/`005` already established for their own caller-supplied-boolean simplification.
+
+### ODY-UI-01-004 — Roll panel + modifiers
+
+Fixes: a formula text field and "Roll" button calling `DiceRollService.SubmitRoll` (using the role selector's current actor and a caller-chosen `DiceRollAudience`, at minimum `Public` and one nontrivial case); a modifier-propose control and, when playing as MainGM, Accept/Change/Reject controls calling `ProposeModifier`/`DecideModifier`. Depends on `ODY-UI-01-003` for the acting identity. Does not implement roll-history browsing beyond what task 5's game-log list provides, and does not implement every one of the four audience kinds in this task's own UI — task 4 (override/result display) is where audience-aware display is actually exercised.
+
+### ODY-UI-01-005 — Override control + audience-aware result display
+
+Fixes: a reason field and "Override" button, enabled only when playing as MainGM, calling `ApplyOverride` (visibly rejecting an empty reason, per `ODY-S03-005`'s own mandatory-reason rule); a result display that calls `DiceRollVisibilityPolicy.TryGetVisibleRoll` for the currently role-selected viewer before rendering anything, so switching the role selector to an excluded Observer visibly shows nothing (safe denial, `ODY-S03-006`'s own tested property, now provable by hand). Depends on `ODY-UI-01-003` (role selector) and `ODY-UI-01-004` (a roll must exist to override or display). Does not implement per-field partial redaction — `ODY-S03-006`'s own all-or-nothing baseline is unchanged.
+
+### ODY-UI-01-006 — Persistence + game log
+
+Fixes: a "Save & Reopen Campaign" action calling `SqliteGameLogRepository.SaveDiceRollEntry` for the current roll, then constructing a *new* repository instance (simulating the same "reopen campaign.db" pattern `ODY-S03-007`/`008`'s own tests already use as "reconnect") and re-listing via `ListGameLog`; a simple, unstyled scrollable list of `GameLogEntryRecord.SummaryPayload` values, filtered through the currently role-selected viewer via `GameLogReconnectService.GetVisibleEntries`. Depends on `ODY-UI-01-004` (a resolved roll must exist to persist). Does not implement board/scene persistence UI beyond what already exists implicitly through `SqliteSceneRepository` (task 1 already persists tokens durably; no separate "save the board" action is needed since every board write is already durable per `ODY-S03-004`).
+
+### ODY-UI-01-007 — Reroll/cancel + full manual walkthrough
+
+Fixes: Reroll/Cancel buttons calling `DiceRollService.RequestFullReroll`/`CancelRoll`; and, as this task's own closing deliverable, one real, manual, by-hand walkthrough of all ten `ODY-S03-008` roadmap §12.6 steps using the assembled UI from tasks 1–6 together, with any real composition gap found reported in this task's own contract (not silently patched around with new production logic outside its own scope), mirroring `ODY-S03-008`'s own explicit "stop and report, don't improvise" instruction. Depends on all five prior tasks. Does not implement any new game mechanic — this task only proves the already-assembled UI can walk the already-proven scenario.
+
+## 6. Dependency rules
+
+- `ODY-UI-01-002` (board) has no dependency on any other child task — it can begin immediately once this backlog is accepted.
+- `ODY-UI-01-003` (role selector) has no dependency on `ODY-UI-01-002`'s own completion to *begin*, but its own deliverable includes retrofitting task 2's hardcoded actor — so in practice it is picked up after task 1 ships, not before, to avoid two tasks touching the same board screen's actor-resolution code concurrently.
+- `ODY-UI-01-004` (roll panel) depends on `ODY-UI-01-003` (needs the role selector's actor/permission values).
+- `ODY-UI-01-005` (override + result display) depends on `ODY-UI-01-003` and `ODY-UI-01-004` (needs both the role selector and an existing roll to override/display).
+- `ODY-UI-01-006` (persistence + log) depends on `ODY-UI-01-004` (needs a resolved roll to persist).
+- `ODY-UI-01-007` (reroll/cancel + walkthrough) depends on all five prior tasks (`002`–`006`) — it is the closing task, exercising everything the other five built, together.
+- No task in this backlog depends on `ODY-S02-014`/`ADR-016` §14 (real network) — unchanged from `SLICE-UI-01_BACKLOG.md`'s own carried-forward framing.
+
+## 7. Global non-goals
+
+This backlog revision excludes:
+
+- Any UI implementation code itself — each is its own separate future child task activation, not this scaffold.
+- Everything `SLICE-UI-01_BACKLOG.md` §3.4 already explicitly excluded: drawing/annotation tools, a ruler, drag-and-drop polish, animation, sound, multiple scenes or scene-management UI, pan/zoom polish, hex-grid rendering, localization, mobile/web platform targets.
+- Real network integration (`ODY-S02-014`/`ADR-016` §14) — a separate, still-deferred product-owner decision.
+- Reopening any already-`Accepted` ADR, or any already-decided `SLICE-UI-01_BACKLOG.md` §3.1–3.5 architectural/scope decision.
+- Any new game mechanic beyond what `SLICE-00`–`03` already implemented.
+- Reconciling the (already-resolved, per `ODY-UI-01-000`/rename point-fix) naming collision with the roadmap's own `SLICE-04` — that is closed, not this backlog's concern.
+
+## 8. Backlog change control
+
+- New work requires a new `ODY-UI-01-XXX` task contract.
+- A task may be split before implementation by updating this backlog and, if a governing ExecPlan exists for that specific child task, that ExecPlan too.
+- A task may not be merged with unrelated cleanup merely to reduce task count.
+- This backlog does not replace task acceptance criteria; it does not itself decide any technical question `SLICE-UI-01_BACKLOG.md` didn't already settle.
