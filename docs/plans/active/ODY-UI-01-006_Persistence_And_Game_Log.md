@@ -3,8 +3,8 @@
 **Status:** Active  
 **Owner:** Codex (agent)  
 **Branch:** `feat/ody-ui-01-006-persistence-and-game-log`  
-**Pull request:** Not opened  
-**Last updated:** 2026-08-27 23:48 UTC
+**Pull request:** [#73](https://github.com/odyssey-services/Odyssey_VTT/pull/73)  
+**Last updated:** 2026-08-27 23:51 UTC
 
 ## 1. Purpose and user-visible outcome
 
@@ -57,9 +57,9 @@ No board code change is needed: both board and log presenters can receive the sa
 
 ### M4 — PR and evidence
 
-- [ ] Draft PR is opened.
-- [ ] CI passes.
-- [ ] Task contract, ExecPlan, and `SLICE-UI-01_IMPLEMENTATION_BACKLOG.md` record final evidence.
+- [x] Draft PR is opened.
+- [x] CI passes.
+- [x] Task contract, ExecPlan, and `SLICE-UI-01_IMPLEMENTATION_BACKLOG.md` record final evidence.
 
 ## 6. Progress log
 
@@ -69,6 +69,7 @@ No board code change is needed: both board and log presenters can receive the sa
 - 2026-08-27 23:46 UTC — Implemented `GameLogPresenter` with save/reopen/list behavior and audience filtering through `GameLogReconnectService`.
 - 2026-08-27 23:46 UTC — Added Unity EditMode coverage for save/reopen restore, Player/MainGM/Observer visibility, same-command idempotency, and supplied campaign handle reuse.
 - 2026-08-27 23:48 UTC — Local validation passed: format, repository policy, .NET build/test, fast tests, Unity EditMode/PlayMode, development build, and repository verify.
+- 2026-08-27 23:51 UTC — Draft PR #73 opened; CI run 33127771319 passed all four required checks.
 
 ## 7. Decisions
 
@@ -90,6 +91,7 @@ None.
 - `.\scripts\test-unity.ps1`: pass; Unity compile exit 0, EditMode 59/59, PlayMode 2/2.
 - `.\scripts\build-dev.ps1`: pass; BuildId `odyssey-development-1787874513.1-gadda59cd8e0d`.
 - `.\scripts\verify-repository.ps1`: pass.
+- PR CI run [33127771319](https://github.com/odyssey-services/Odyssey_VTT/actions/runs/33127771319): pass; `buildidentity-provenance`, `dotnet-restore-build-test`, `repository-policy-format-structure`, and `unity-project-package-static`.
 
 ## 10. Recovery and rollback
 
@@ -101,4 +103,4 @@ None.
 
 ## 12. Outcome and follow-up
 
-Implementation complete locally. Follow-up remains `ODY-UI-01-007`.
+Implementation complete locally and PR CI passed. Follow-up remains `ODY-UI-01-007`.

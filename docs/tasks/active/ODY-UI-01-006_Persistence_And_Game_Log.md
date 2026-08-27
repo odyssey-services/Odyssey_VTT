@@ -1,14 +1,14 @@
 # ODY-UI-01-006 — Persistence and Game Log
 
-**Status:** In Progress  
+**Status:** In Review  
 **Roadmap stage / slice:** SLICE-UI-01  
 **Owner:** Codex (agent)  
 **Requested by:** Product owner  
 **Branch:** `feat/ody-ui-01-006-persistence-and-game-log`  
-**Pull request:** Not opened  
+**Pull request:** [#73](https://github.com/odyssey-services/Odyssey_VTT/pull/73)  
 **ExecPlan:** `docs/plans/active/ODY-UI-01-006_Persistence_And_Game_Log.md`  
 **Created:** 2026-08-27  
-**Last updated:** 2026-08-27 23:48 UTC
+**Last updated:** 2026-08-27 23:51 UTC
 
 ## 1. Goal
 
@@ -256,7 +256,7 @@ dotnet test DotNet\Odyssey.Core.sln
 - [x] No unapproved dependency, tool, GitHub Action, or license was introduced.
 - [x] Documentation is updated only where materially required.
 - [x] Codex/developer performed a self-review against this task and `AGENTS.md`.
-- [ ] Pull request explains changes, evidence, limitations, and follow-up work.
+- [x] Pull request explains changes, evidence, limitations, and follow-up work.
 - [ ] Product owner or authorized reviewer completes the required review; Codex does not merge into `main`.
 
 ## 17. Completion evidence
@@ -282,6 +282,7 @@ dotnet test DotNet\Odyssey.Core.sln
 | `.\scripts\test-unity.ps1` | Pass | Unity compile exit 0; EditMode 59/59, PlayMode 2/2. |
 | `.\scripts\build-dev.ps1` | Pass | BuildId `odyssey-development-1787874513.1-gadda59cd8e0d`; executable `artifacts\builds\odyssey-development-1787874513.1-gadda59cd8e0d\Windows-x64\Odyssey.exe`. |
 | `.\scripts\verify-repository.ps1` | Pass | `REPOSITORY-VERIFY PASS repository checks passed`. |
+| PR CI | Pass | Run [33127771319](https://github.com/odyssey-services/Odyssey_VTT/actions/runs/33127771319): `buildidentity-provenance`, `dotnet-restore-build-test`, `repository-policy-format-structure`, and `unity-project-package-static` passed. |
 
 ### Acceptance result
 
