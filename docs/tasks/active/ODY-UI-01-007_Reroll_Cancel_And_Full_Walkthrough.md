@@ -1,14 +1,14 @@
 # ODY-UI-01-007 — Reroll Cancel and Full Manual Walkthrough
 
-**Status:** Implemented; PR pending  
+**Status:** Ready for owner review  
 **Roadmap stage / slice:** SLICE-UI-01  
 **Owner:** Codex (agent)  
 **Requested by:** Product owner  
 **Branch:** `feat/ody-ui-01-007-reroll-cancel-and-full-walkthrough`  
-**Pull request:** Not opened  
+**Pull request:** [#74](https://github.com/odyssey-services/Odyssey_VTT/pull/74)  
 **ExecPlan:** `docs/plans/active/ODY-UI-01-007_Reroll_Cancel_And_Full_Walkthrough.md`  
 **Created:** 2026-08-28  
-**Last updated:** 2026-08-28 10:36 UTC
+**Last updated:** 2026-08-28 10:44 UTC
 
 ## 1. Goal
 
@@ -277,7 +277,7 @@ dotnet test DotNet\Odyssey.Core.sln
 - [x] No unapproved dependency, tool, GitHub Action, or license was introduced.
 - [x] Documentation is updated only where materially required.
 - [x] Codex/developer performed a self-review against this task and `AGENTS.md`.
-- [ ] Pull request explains changes, evidence, limitations, and follow-up work.
+- [x] Pull request explains changes, evidence, limitations, and follow-up work.
 - [ ] Product owner or authorized reviewer completes the required review; Codex does not merge into `main`.
 
 ## 17. Completion evidence
@@ -308,6 +308,7 @@ dotnet test DotNet\Odyssey.Core.sln
 | `.\scripts\test-unity.ps1` | Pass | Unity compile exit 0; EditMode 62/62, PlayMode 3/3. |
 | `.\scripts\build-dev.ps1` | Pass | BuildId `odyssey-development-1787913318.1-g58ce4213832d`; executable `D:\Documents\Odyssey_VTT\artifacts\builds\odyssey-development-1787913318.1-g58ce4213832d\Windows-x64\Odyssey.exe`. |
 | `.\scripts\verify-repository.ps1` | Pass | `REPOSITORY-VERIFY PASS repository checks passed`. |
+| PR CI | Pass | Draft PR [#74](https://github.com/odyssey-services/Odyssey_VTT/pull/74), run [33164251464](https://github.com/odyssey-services/Odyssey_VTT/actions/runs/33164251464), HEAD `c126a6e0b949602d1c8a593c44b2ec08e6dedf35`; all 4 checks passed. |
 
 ### Acceptance result
 

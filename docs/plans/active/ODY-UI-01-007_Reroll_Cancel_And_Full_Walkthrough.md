@@ -3,8 +3,8 @@
 **Status:** Active  
 **Owner:** Codex (agent)  
 **Branch:** `feat/ody-ui-01-007-reroll-cancel-and-full-walkthrough`  
-**Pull request:** Not opened  
-**Last updated:** 2026-08-28 10:36 UTC
+**Pull request:** [#74](https://github.com/odyssey-services/Odyssey_VTT/pull/74)  
+**Last updated:** 2026-08-28 10:44 UTC
 
 ## 1. Purpose and user-visible outcome
 
@@ -66,9 +66,9 @@ Use EditMode tests for the full presenter walkthrough because they can directly 
 
 ### M5 — PR and final evidence
 
-- [ ] Draft PR is opened.
-- [ ] CI passes.
-- [ ] Task contract, ExecPlan, and `SLICE-UI-01_IMPLEMENTATION_BACKLOG.md` record final evidence and close `SLICE-UI-01`.
+- [x] Draft PR is opened.
+- [x] CI passes.
+- [x] Task contract, ExecPlan, and `SLICE-UI-01_IMPLEMENTATION_BACKLOG.md` record final evidence and close `SLICE-UI-01`.
 
 ## 6. Progress log
 
@@ -78,6 +78,7 @@ Use EditMode tests for the full presenter walkthrough because they can directly 
 - 2026-08-28 10:23 UTC — Implemented reroll/cancel controls, composed `TrialScreenPresenter`, DeveloperShell launch path, focused lifecycle tests, full EditMode walkthrough, and PlayMode launch smoke.
 - 2026-08-28 10:31 UTC — Added a lifecycle follow-up so the top-level trial role selector is disposed with `TrialScreenPresenter`; `dotnet build DotNet\Odyssey.Core.sln` passed afterward.
 - 2026-08-28 10:36 UTC — Local validation passed for format, fast tests, Unity tests, repository verify, and development build on commit `58ce421`. `build-dev` produced `D:\Documents\Odyssey_VTT\artifacts\builds\odyssey-development-1787913318.1-g58ce4213832d\Windows-x64\Odyssey.exe`.
+- 2026-08-28 10:44 UTC — Draft PR #74 opened and CI run `33164251464` passed all four checks on HEAD `c126a6e0b949602d1c8a593c44b2ec08e6dedf35`.
 
 ## 7. Decisions
 
@@ -102,6 +103,7 @@ Use EditMode tests for the full presenter walkthrough because they can directly 
 - `.\scripts\test-unity.ps1`: pass; BuildId `odyssey-local-20260828t103300z-g58ce4213832d`, Unity compile exit 0, EditMode 62/62, PlayMode 3/3.
 - `.\scripts\verify-repository.ps1`: pass; `REPOSITORY-VERIFY PASS`.
 - `.\scripts\build-dev.ps1`: pass; BuildId `odyssey-development-1787913318.1-g58ce4213832d`, executable `D:\Documents\Odyssey_VTT\artifacts\builds\odyssey-development-1787913318.1-g58ce4213832d\Windows-x64\Odyssey.exe`.
+- PR CI: pass; draft PR [#74](https://github.com/odyssey-services/Odyssey_VTT/pull/74), run [33164251464](https://github.com/odyssey-services/Odyssey_VTT/actions/runs/33164251464), all 4 checks passed.
 
 ## 10. Recovery and rollback
 
@@ -113,4 +115,4 @@ None.
 
 ## 12. Outcome and follow-up
 
-Implementation complete locally; PR and CI evidence pending.
+Implementation complete locally; draft PR and CI evidence recorded. Owner review/manual walkthrough remains outside Codex merge authority.
