@@ -52,3 +52,93 @@
     padding-top: 12px;
     padding-bottom: 12px;
 }
+
+#trial-screen {
+    flex-grow: 1;
+}
+
+#trial-title {
+    font-size: 24px;
+    unity-font-style: bold;
+    margin-bottom: 12px;
+}
+
+#trial-layout {
+    flex-direction: row;
+    flex-wrap: nowrap;
+    align-items: flex-start;
+}
+
+#trial-board-column {
+    flex-shrink: 0;
+    margin-right: 16px;
+}
+
+#trial-controls-column {
+    width: 380px;
+    min-width: 380px;
+    flex-shrink: 0;
+}
+
+.role-selector,
+.roll-panel,
+.game-log {
+    margin-bottom: 14px;
+}
+
+.roll-panel > *,
+.game-log > * {
+    margin-bottom: 8px;
+}
+
+.modifier-row,
+.modifier-decision-row,
+.override-row,
+.roll-lifecycle-row {
+    flex-direction: row;
+    flex-wrap: wrap;
+    align-items: flex-start;
+}
+
+.modifier-row > *,
+.modifier-decision-row > *,
+.override-row > *,
+.roll-lifecycle-row > * {
+    margin-right: 8px;
+    margin-bottom: 6px;
+}
+
+.roll-panel Button,
+.game-log Button,
+.roll-panel TextField,
+.roll-panel IntegerField,
+.roll-panel DropdownField {
+    min-height: 32px;
+}
+
+.override-row TextField,
+.roll-lifecycle-row TextField {
+    min-width: 210px;
+    flex-grow: 1;
+}
+
+.modifier-row TextField {
+    min-width: 150px;
+    flex-grow: 1;
+}
+
+.modifier-row IntegerField {
+    width: 88px;
+}
+
+#roll-result,
+#roll-status,
+#game-log-status {
+    min-height: 24px;
+    white-space: normal;
+}
+
+#game-log-list {
+    min-height: 96px;
+    max-height: 180px;
+}

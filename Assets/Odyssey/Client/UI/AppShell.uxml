@@ -1,1 +1,4 @@
-<ui:UXML xmlns:ui="UnityEngine.UIElements"><ui:VisualElement name="odyssey-root" class="app-root" /></ui:UXML>
+<ui:UXML xmlns:ui="UnityEngine.UIElements">
+    <Style src="project://database/Assets/Odyssey/Client/UI/AppShell.uss?fileID=7433441132597879392&amp;guid=2964435545520e84787c48ae0ed3679b&amp;type=3#AppShell" />
+    <ui:VisualElement name="odyssey-root" class="app-root" />
+</ui:UXML>
