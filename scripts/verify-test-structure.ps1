@@ -42,6 +42,7 @@ $approvedExternalPackageDependencies = @{
 $approvedExternalAsmdefReferences = @{
     'Odyssey.Application' = @('Unity.Newtonsoft.Json')
     'Odyssey.Unity.Client' = @('Unity.InputSystem')
+    'Odyssey.Tests.Unity.PlayMode' = @('Unity.InputSystem', 'Unity.InputSystem.TestFramework')
 }
 $approvedBridgePackageReferences = @{
     'Odyssey.Application' = @{
