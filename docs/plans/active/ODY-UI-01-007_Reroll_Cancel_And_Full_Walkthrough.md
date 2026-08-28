@@ -4,7 +4,7 @@
 **Owner:** Codex (agent)  
 **Branch:** `feat/ody-ui-01-007-reroll-cancel-and-full-walkthrough`  
 **Pull request:** Not opened  
-**Last updated:** 2026-08-28 10:23 UTC
+**Last updated:** 2026-08-28 10:36 UTC
 
 ## 1. Purpose and user-visible outcome
 
@@ -61,7 +61,7 @@ Use EditMode tests for the full presenter walkthrough because they can directly 
 ### M4 — Full walkthrough and validation
 
 - [x] One automated test walks all ten `ODY-S03-008` steps through the composed presenters.
-- [ ] Required local validation commands pass.
+- [x] Required local validation commands pass.
 - [x] Unity-generated drift is removed from the working tree.
 
 ### M5 — PR and final evidence
@@ -76,7 +76,8 @@ Use EditMode tests for the full presenter walkthrough because they can directly 
 - 2026-08-28 10:09 UTC — Read required task, UI backlog, `ODY-S03-008`, dice service/contracts, runtime composition, AppShell entry point, and current board/roll/log presenters.
 - 2026-08-28 10:09 UTC — Created task contract and ExecPlan.
 - 2026-08-28 10:23 UTC — Implemented reroll/cancel controls, composed `TrialScreenPresenter`, DeveloperShell launch path, focused lifecycle tests, full EditMode walkthrough, and PlayMode launch smoke.
-- 2026-08-28 10:23 UTC — Local validation passed for format, repository policy, .NET build/test, fast tests, Unity tests, and repository verify. `build-dev` first attempt hit the expected clean-tree precondition and will be rerun after commit.
+- 2026-08-28 10:31 UTC — Added a lifecycle follow-up so the top-level trial role selector is disposed with `TrialScreenPresenter`; `dotnet build DotNet\Odyssey.Core.sln` passed afterward.
+- 2026-08-28 10:36 UTC — Local validation passed for format, fast tests, Unity tests, repository verify, and development build on commit `58ce421`. `build-dev` produced `D:\Documents\Odyssey_VTT\artifacts\builds\odyssey-development-1787913318.1-g58ce4213832d\Windows-x64\Odyssey.exe`.
 
 ## 7. Decisions
 
@@ -87,18 +88,20 @@ Use EditMode tests for the full presenter walkthrough because they can directly 
 
 ## 8. Discoveries and deviations
 
-- `.\scripts\build-dev.ps1` correctly refuses to build from a dirty tree; first attempt before commit failed with the clean-tree provenance precondition. This is not a code failure and will be rerun after the implementation commit.
+- First `.\scripts\test-unity.ps1` attempt surfaced two local compile issues in the new Unity Client code (`Application.persistentDataPath` namespace ambiguity and a button callback return mismatch). Both were fixed before the final successful Unity run.
+- Unprivileged .NET/Unity scripts intermittently failed to read `C:\Users\alexx\AppData\Local\Microsoft SDKs` under sandbox. The affected commands passed when rerun with approval/escalation.
+- `.\scripts\build-dev.ps1` correctly refused to build from a dirty tree before commit. A later player build succeeded but the wrapper hit a transient file lock while reading the Unity log. Final rerun on clean commit `58ce421` passed.
 
 ## 9. Validation and acceptance evidence
 
-- `.\scripts\verify-format.ps1`: pass.
-- `.\scripts\check-repository-policy.ps1`: pass.
+- `.\scripts\verify-format.ps1`: pass; `FORMAT-001 PASS`.
+- `.\scripts\check-repository-policy.ps1`: pass; `Repository policy check passed`.
 - `dotnet build DotNet\Odyssey.Core.sln`: pass, 0 warnings, 0 errors.
 - `dotnet test DotNet\Odyssey.Core.sln`: pass; 262 .NET tests across six assemblies.
-- `.\scripts\test-fast.ps1`: pass, 0 warnings, 0 errors.
-- `.\scripts\test-unity.ps1`: pass; Unity compile exit 0, EditMode 62/62, PlayMode 3/3.
-- `.\scripts\verify-repository.ps1`: pass.
-- `.\scripts\build-dev.ps1`: pending clean-tree rerun after commit.
+- `.\scripts\test-fast.ps1`: pass, 0 warnings, 0 errors; all six `TC-DOTNET-001` assemblies passed.
+- `.\scripts\test-unity.ps1`: pass; BuildId `odyssey-local-20260828t103300z-g58ce4213832d`, Unity compile exit 0, EditMode 62/62, PlayMode 3/3.
+- `.\scripts\verify-repository.ps1`: pass; `REPOSITORY-VERIFY PASS`.
+- `.\scripts\build-dev.ps1`: pass; BuildId `odyssey-development-1787913318.1-g58ce4213832d`, executable `D:\Documents\Odyssey_VTT\artifacts\builds\odyssey-development-1787913318.1-g58ce4213832d\Windows-x64\Odyssey.exe`.
 
 ## 10. Recovery and rollback
 
@@ -110,4 +113,4 @@ None.
 
 ## 12. Outcome and follow-up
 
-Pending implementation.
+Implementation complete locally; PR and CI evidence pending.

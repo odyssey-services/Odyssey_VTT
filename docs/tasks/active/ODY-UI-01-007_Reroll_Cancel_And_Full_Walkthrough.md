@@ -1,6 +1,6 @@
 # ODY-UI-01-007 — Reroll Cancel and Full Manual Walkthrough
 
-**Status:** In Progress  
+**Status:** Implemented; PR pending  
 **Roadmap stage / slice:** SLICE-UI-01  
 **Owner:** Codex (agent)  
 **Requested by:** Product owner  
@@ -8,7 +8,7 @@
 **Pull request:** Not opened  
 **ExecPlan:** `docs/plans/active/ODY-UI-01-007_Reroll_Cancel_And_Full_Walkthrough.md`  
 **Created:** 2026-08-28  
-**Last updated:** 2026-08-28 10:23 UTC
+**Last updated:** 2026-08-28 10:36 UTC
 
 ## 1. Goal
 
@@ -194,7 +194,18 @@ dotnet test DotNet\Odyssey.Core.sln
 
 ### Manual validation
 
-- Product owner manual validation after PR: open the Play Mode trial UI using the final instructions in this contract/final report and walk the visible ten-step flow.
+- Product owner manual validation after PR:
+  1. Open Unity `6000.4.0f1` with repository project `D:\Documents\Odyssey_VTT`.
+  2. Open scene `Assets/Odyssey/Client/Scenes/Bootstrap.unity`.
+  3. Press Play.
+  4. Wait for the Developer Shell, then click `Open Trial UI`.
+  5. Confirm the screen shows `Odyssey Trial UI`, `Playing as`, board, roll panel, and game log.
+  6. As `Player`, select the player-owned token and move it; also try the other token and confirm the move is denied.
+  7. As `Observer`, try `Roll` and confirm it is denied; switch back to `Player`, roll `1d20+3`, and confirm a result appears.
+  8. As `Player`, propose a modifier; switch to `MainGM`, accept/change/reject as desired, then apply `Override` only after entering an override reason.
+  9. Switch among `Player`, `MainGM`, and `Observer`; confirm Observer cannot see the non-public result.
+  10. Click `Save & Reopen Campaign`; confirm Player/MainGM see the persisted log and Observer does not.
+  11. Click `Reroll`; confirm a new result appears while the saved original log entry remains unchanged. Enter a cancel reason and click `Cancel` to verify lifecycle cancellation is visible.
 
 ### Required environments / profiles
 
@@ -255,17 +266,17 @@ dotnet test DotNet\Odyssey.Core.sln
 
 ## 16. Definition of Done
 
-- [ ] Goal is achieved without unapproved scope expansion.
-- [ ] All acceptance criteria are satisfied.
-- [ ] Required automated tests pass.
-- [ ] Required manual checks are completed or explicitly assigned to owner review.
-- [ ] Required commands and their real results are recorded.
-- [ ] Architecture and dependency rules remain valid.
-- [ ] Security, privacy, redaction, and audience rules are verified where applicable.
-- [ ] Compatibility, migration, rollback, and versioning obligations are complete where applicable.
-- [ ] No unapproved dependency, tool, GitHub Action, or license was introduced.
-- [ ] Documentation is updated only where materially required.
-- [ ] Codex/developer performed a self-review against this task and `AGENTS.md`.
+- [x] Goal is achieved without unapproved scope expansion.
+- [x] All acceptance criteria are satisfied.
+- [x] Required automated tests pass.
+- [x] Required manual checks are completed or explicitly assigned to owner review.
+- [x] Required commands and their real results are recorded.
+- [x] Architecture and dependency rules remain valid.
+- [x] Security, privacy, redaction, and audience rules are verified where applicable.
+- [x] Compatibility, migration, rollback, and versioning obligations are complete where applicable.
+- [x] No unapproved dependency, tool, GitHub Action, or license was introduced.
+- [x] Documentation is updated only where materially required.
+- [x] Codex/developer performed a self-review against this task and `AGENTS.md`.
 - [ ] Pull request explains changes, evidence, limitations, and follow-up work.
 - [ ] Product owner or authorized reviewer completes the required review; Codex does not merge into `main`.
 
@@ -295,7 +306,7 @@ dotnet test DotNet\Odyssey.Core.sln
 | `dotnet test DotNet\Odyssey.Core.sln` | Pass | Contracts 1/1, Domain 27/27, Networking 67/67, Unit 105/105, Architecture 2/2, Persistence 60/60. |
 | `.\scripts\test-fast.ps1` | Pass | 0 warnings, 0 errors; `TC-DOTNET-001 PASS` for all six fast assemblies. |
 | `.\scripts\test-unity.ps1` | Pass | Unity compile exit 0; EditMode 62/62, PlayMode 3/3. |
-| `.\scripts\build-dev.ps1` | Pending rerun | First attempt correctly failed the clean-tree provenance precondition because implementation/docs were uncommitted; rerun after commit. |
+| `.\scripts\build-dev.ps1` | Pass | BuildId `odyssey-development-1787913318.1-g58ce4213832d`; executable `D:\Documents\Odyssey_VTT\artifacts\builds\odyssey-development-1787913318.1-g58ce4213832d\Windows-x64\Odyssey.exe`. |
 | `.\scripts\verify-repository.ps1` | Pass | `REPOSITORY-VERIFY PASS repository checks passed`. |
 
 ### Acceptance result
@@ -310,16 +321,16 @@ dotnet test DotNet\Odyssey.Core.sln
 | AC-6 | Pass | `DeveloperShellLaunchesTrialScreen`; Unity PlayMode passed. |
 | AC-7 | Pass | `TrialScreenPresenter` creates one shared `RoleSelection`, `CampaignHandle`, roll store, and group directory for child presenters. |
 | AC-8 | Pass | `FullWalkthrough_ComposedPresenters_RunTenStepScenario`; Unity EditMode passed. |
-| AC-9 | Pending | Final report/manual instructions pending PR handoff. |
+| AC-9 | Pass | Manual Unity Editor walkthrough instructions are recorded in §10 and will be repeated in final handoff. |
 | AC-10 | Pass | Diff scope reviewed: no `Packages/**`, ADR, dependency, package, or Unity version changes. |
-| AC-11 | Pending rerun | All required checks passed except final `build-dev` rerun after clean commit. |
+| AC-11 | Pass | All required local validation commands passed on or after HEAD `58ce421`. |
 
 ### Build and artifact evidence
 
-- Build identity: Pending.
-- Artifact path / name: Pending.
-- Checksums: Pending.
-- Test or quality report: Pending.
+- Build identity: `odyssey-development-1787913318.1-g58ce4213832d`.
+- Artifact path / name: `D:\Documents\Odyssey_VTT\artifacts\builds\odyssey-development-1787913318.1-g58ce4213832d\Windows-x64\Odyssey.exe`.
+- Checksums: build script completed successfully and emitted the development build artifact for commit `58ce4213832d`.
+- Test or quality report: Unity `test-unity` BuildId `odyssey-local-20260828t103300z-g58ce4213832d`; EditMode 62/62 and PlayMode 3/3.
 
 ### Known limitations
 
@@ -331,17 +342,23 @@ dotnet test DotNet\Odyssey.Core.sln
 
 ### Self-review summary
 
-- Scope review: Pending.
-- Architecture review: Pending.
-- Test review: Pending.
-- Security/privacy review: Pending.
-- Documentation/version review: Pending.
+- Scope review: pass; changes stayed in Unity Client runtime/tests and task docs/backlog.
+- Architecture review: pass; no lower-package, ADR, dependency, package, schema, or Unity version changes.
+- Test review: pass; reroll/cancel, composed walkthrough, and PlayMode launch path are covered.
+- Security/privacy review: pass; Observer denial remains enforced through existing dice/log visibility paths.
+- Documentation/version review: pass; only task contract, ExecPlan, and UI backlog evidence were updated.
 
 ## 18. Blockers, decisions, and change control
 
 ### Blockers
 
 - None.
+
+### Discoveries and deviations
+
+- 2026-08-28 — First `test-unity` attempt surfaced two local compile issues in the new Unity Client code (`Application.persistentDataPath` namespace ambiguity and a button callback return mismatch). Both were fixed before final validation; the successful rerun passed Unity compile, EditMode, and PlayMode.
+- 2026-08-28 — Unprivileged .NET/Unity script runs intermittently could not read `C:\Users\alexx\AppData\Local\Microsoft SDKs` under sandbox. The affected commands were rerun with approval/escalation and then passed; this was an environment permission issue, not a product-code failure.
+- 2026-08-28 — First `build-dev` attempt before committing correctly failed the clean-tree provenance precondition. A later attempt built the player successfully but the wrapper hit a transient file lock while reading the Unity log. Final rerun on clean commit `58ce421` passed and produced the development executable recorded in §17.
 
 ### Decisions made during execution
 
