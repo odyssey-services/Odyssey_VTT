@@ -806,6 +806,7 @@ namespace Odyssey.Tests.Unity.EditMode
             public Result<CommandResult> RunRejectedProbe() => throw new NotSupportedException();
             public void EmitDiagnosticProbe() { }
             public IReadOnlyList<LogEventV1> GetRecentDiagnostics() => Array.Empty<LogEventV1>();
+            public Result OpenTrialScreen() => Result.Success();
             public void RequestShutdown() { }
             public void SetBuildIdentity(BuildIdentity? identity) => _identity = identity;
         }

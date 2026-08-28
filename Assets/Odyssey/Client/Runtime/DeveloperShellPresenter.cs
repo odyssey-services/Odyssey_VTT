@@ -19,6 +19,7 @@ namespace Odyssey.Unity.Client
         Result<CommandResult> RunRejectedProbe();
         void EmitDiagnosticProbe();
         IReadOnlyList<LogEventV1> GetRecentDiagnostics();
+        Result OpenTrialScreen();
         void RequestShutdown();
     }
 
@@ -87,6 +88,7 @@ namespace Odyssey.Unity.Client
             AddButton(actions, "accepted-probe-button", "Run Accepted Probe", ExecuteAcceptedProbe);
             AddButton(actions, "rejected-probe-button", "Run Rejected Probe", ExecuteRejectedProbe);
             AddButton(actions, "diagnostic-button", "Emit Diagnostic", EmitDiagnostic);
+            AddButton(actions, "trial-ui-button", "Open Trial UI", OpenTrialScreen);
             AddButton(actions, "shutdown-button", "Shutdown", RequestShutdown);
             appRoot.Add(actions);
 
@@ -134,6 +136,16 @@ namespace Odyssey.Unity.Client
             SetStateText(OdysseyRuntimeState.ShuttingDown);
             _facade.RequestShutdown();
             Refresh();
+        }
+
+        private void OpenTrialScreen()
+        {
+            Result opened = _facade.OpenTrialScreen();
+            if (opened.IsFailure)
+            {
+                _result!.text = "Trial UI: " + opened.Error.SafeReasonCode;
+                Refresh();
+            }
         }
 
         public void Refresh()

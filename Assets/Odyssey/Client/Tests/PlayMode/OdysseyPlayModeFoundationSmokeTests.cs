@@ -87,6 +87,33 @@ namespace Odyssey.Tests.Unity.PlayMode
             Assert.That(RuntimeHostLease.IsHeld, Is.False);
         }
 
+        [UnityTest]
+        public IEnumerator DeveloperShellLaunchesTrialScreen()
+        {
+            const string bootstrapPath = "Assets/Odyssey/Client/Scenes/Bootstrap.unity";
+
+            yield return SceneManager.LoadSceneAsync(bootstrapPath, LoadSceneMode.Single);
+            yield return WaitUntil(() => FindAcceptedHosts() == 1);
+            yield return WaitUntil(() => SceneManager.GetSceneByName("AppShell").isLoaded);
+            yield return WaitUntil(() => FindEntryPoint() != null && FindEntryPoint()!.IsInitialized);
+
+            AppShellEntryPoint entryPoint = FindEntryPoint()!;
+            UIDocument document = entryPoint.GetComponent<UIDocument>();
+            Click(document, "trial-ui-button");
+            yield return WaitUntil(() => document.rootVisualElement.Q<VisualElement>("trial-screen") != null);
+
+            Assert.That(document.rootVisualElement.Q<VisualElement>("board-area"), Is.Not.Null);
+            Assert.That(document.rootVisualElement.Q<VisualElement>("role-selector"), Is.Not.Null);
+            Assert.That(document.rootVisualElement.Q<VisualElement>("roll-panel"), Is.Not.Null);
+            Assert.That(document.rootVisualElement.Q<VisualElement>("game-log"), Is.Not.Null);
+
+            OdysseyRuntimeHost host = FindAcceptedHost()!;
+            host.Runtime!.Shutdown();
+            Object.Destroy(host.gameObject);
+            yield return null;
+            Assert.That(RuntimeHostLease.IsHeld, Is.False);
+        }
+
         private static IEnumerator WaitUntil(System.Func<bool> predicate)
         {
             float started = Time.realtimeSinceStartup;

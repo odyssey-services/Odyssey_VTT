@@ -186,20 +186,69 @@ namespace Odyssey.Tests.Unity.EditMode
         }
 
         [Test]
+        public void PlayerReroll_CurrentRoll_CreatesNewRollAndSupersedesOriginalWithoutRewritingData()
+        {
+            using TestPanel panel = TestPanel.Create(BaselineRole.Player);
+            DiceRoll original = panel.Presenter.SubmitRoll("1d20+3").Value;
+            int originalBaseTotal = original.BaseTotal;
+            int originalNatural = original.NaturalResults[0].Value;
+
+            Result<DiceRoll> rerolled = panel.Presenter.RequestFullReroll();
+
+            Assert.That(rerolled.IsSuccess, Is.True);
+            Assert.That(rerolled.Value.RollId, Is.Not.EqualTo(original.RollId));
+            Assert.That(rerolled.Value.PreviousRollId, Is.EqualTo(original.RollId));
+            Assert.That(panel.Presenter.LastRoll, Is.SameAs(rerolled.Value));
+            Assert.That(panel.Presenter.TryGetRoll(original.RollId, out DiceRoll storedOriginal), Is.True);
+            Assert.That(storedOriginal.Status, Is.EqualTo(DiceRollStatus.SupersededByReroll));
+            Assert.That(storedOriginal.FormulaOriginal, Is.EqualTo(original.FormulaOriginal));
+            Assert.That(storedOriginal.BaseTotal, Is.EqualTo(originalBaseTotal));
+            Assert.That(storedOriginal.NaturalResults[0].Value, Is.EqualTo(originalNatural));
+            Assert.That(panel.Text("roll-status"), Does.Contain("Reroll: accepted"));
+        }
+
+        [Test]
+        public void PlayerCancel_CurrentRollWithReason_CancelsWithoutRewritingData()
+        {
+            using TestPanel panel = TestPanel.Create(BaselineRole.Player);
+            DiceRoll original = panel.Presenter.SubmitRoll("1d20+3").Value;
+            int originalBaseTotal = original.BaseTotal;
+            int originalNatural = original.NaturalResults[0].Value;
+
+            Result<DiceRoll> cancelled = panel.Presenter.CancelRoll("manual test cancel");
+
+            Assert.That(cancelled.IsSuccess, Is.True);
+            Assert.That(cancelled.Value.RollId, Is.EqualTo(original.RollId));
+            Assert.That(cancelled.Value.Status, Is.EqualTo(DiceRollStatus.Cancelled));
+            Assert.That(cancelled.Value.FormulaOriginal, Is.EqualTo(original.FormulaOriginal));
+            Assert.That(cancelled.Value.BaseTotal, Is.EqualTo(originalBaseTotal));
+            Assert.That(cancelled.Value.NaturalResults[0].Value, Is.EqualTo(originalNatural));
+            Assert.That(panel.Presenter.LastRoll, Is.SameAs(cancelled.Value));
+            Assert.That(panel.Text("roll-result"), Does.Contain("Cancelled"));
+            Assert.That(panel.Text("roll-status"), Does.Contain("Cancel: accepted"));
+        }
+
+        [Test]
         public void RoleSwitch_UpdatesMainGmOnlyButtons()
         {
             using TestPanel panel = TestPanel.Create(BaselineRole.Player);
 
             Assert.That(panel.Button("modifier-accept-button").enabledSelf, Is.False);
             Assert.That(panel.Button("override-button").enabledSelf, Is.False);
+            Assert.That(panel.Button("reroll-button").enabledSelf, Is.True);
+            Assert.That(panel.Button("cancel-roll-button").enabledSelf, Is.True);
 
             panel.Selection.SelectRole(BaselineRole.MainGM);
             Assert.That(panel.Button("modifier-accept-button").enabledSelf, Is.True);
             Assert.That(panel.Button("override-button").enabledSelf, Is.True);
+            Assert.That(panel.Button("reroll-button").enabledSelf, Is.True);
+            Assert.That(panel.Button("cancel-roll-button").enabledSelf, Is.True);
 
             panel.Selection.SelectRole(BaselineRole.Observer);
             Assert.That(panel.Button("modifier-accept-button").enabledSelf, Is.False);
             Assert.That(panel.Button("override-button").enabledSelf, Is.False);
+            Assert.That(panel.Button("reroll-button").enabledSelf, Is.False);
+            Assert.That(panel.Button("cancel-roll-button").enabledSelf, Is.False);
         }
 
         private sealed class TestPanel : IDisposable
