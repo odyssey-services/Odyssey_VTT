@@ -1,5 +1,4 @@
 using System;
-using System.Collections.Generic;
 using System.IO;
 using Odyssey.Application.Audience;
 using Odyssey.Application.Dice;
@@ -25,6 +24,7 @@ namespace Odyssey.Unity.Client
         private readonly PresentationRuntime _presentationRuntime;
         private readonly string _rootDirectory;
         private readonly IWallClock _clock;
+        private RoleSelectorPresenter? _roleSelectorPresenter;
         private bool _disposed;
 
         public TrialScreenPresenter(UIDocument document, PresentationRuntime presentationRuntime, string rootDirectory, IWallClock clock)
@@ -64,8 +64,8 @@ namespace Odyssey.Unity.Client
                 appRoot.Add(screen);
                 screen.Add(new Label("Odyssey Trial UI") { name = "trial-title" });
 
-                var roleSelector = new RoleSelectorPresenter(selection, _presentationRuntime);
-                screen.Add(roleSelector.BuildView());
+                _roleSelectorPresenter = new RoleSelectorPresenter(selection, _presentationRuntime);
+                screen.Add(_roleSelectorPresenter.BuildView());
 
                 VisualElement layout = new VisualElement { name = "trial-layout" };
                 layout.style.flexDirection = FlexDirection.Row;
@@ -109,6 +109,7 @@ namespace Odyssey.Unity.Client
             GameLog?.Dispose();
             RollPanel?.Dispose();
             Board?.Dispose();
+            _roleSelectorPresenter?.Dispose();
             _disposed = true;
         }
 
