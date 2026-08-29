@@ -3,7 +3,7 @@
 **Status:** Active  
 **Owner:** Codex (agent)  
 **Branch:** `feat/ody-s04-001-adr-character-aggregate`  
-**Pull request:** Not opened  
+**Pull request:** [#80](https://github.com/odyssey-services/Odyssey_VTT/pull/80)  
 **Last updated:** 2026-08-29 22:53 UTC
 
 ## 1. Purpose and user-visible outcome
@@ -54,7 +54,8 @@ No production code, schema, tests, dependencies, or private product prose enters
 
 - [x] Run `.\scripts\verify-format.ps1`.
 - [x] Run `.\scripts\check-repository-policy.ps1`.
-- [ ] Commit, push, open Draft PR, and record PR/CI status.
+- [x] Commit, push, and open Draft PR.
+- [ ] Record CI status.
 
 ## 6. Progress log
 
@@ -62,6 +63,7 @@ No production code, schema, tests, dependencies, or private product prose enters
 - 2026-08-29 22:53 UTC — Read task brief, `SLICE-04_BACKLOG.md`, `TASK_TEMPLATE.md`, `PLANS.md`, and relevant roadmap/product/ADR excerpts.
 - 2026-08-29 22:53 UTC — Authored initial ADR/task/plan/backlog patch.
 - 2026-08-29 22:53 UTC — Local validation passed: `.\scripts\verify-format.ps1` and `.\scripts\check-repository-policy.ps1`.
+- 2026-08-29 22:53 UTC — Opened Draft PR #80.
 
 ## 7. Decisions
 
@@ -89,4 +91,4 @@ None.
 
 ## 12. Outcome and follow-up
 
-Pending Draft PR and CI.
+Draft PR: [#80](https://github.com/odyssey-services/Odyssey_VTT/pull/80). CI pending.
