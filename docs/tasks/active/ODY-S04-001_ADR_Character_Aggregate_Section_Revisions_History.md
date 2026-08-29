@@ -314,6 +314,7 @@ None. This is a documentation-only ADR task; replacement evidence is repository 
 - 2026-08-29 — Decision: use narrow section locks only where a command invariant requires them; `CommandId`/`AppliedCommands` remain the duplicate-command mechanism. Authority / approval: `ADR-022` §5-6, `ADR-002`, `ADR-012`.
 - 2026-08-29 — Decision: Character events store minimal historical snapshots, not full Character sheets. Authority / approval: `ADR-022` §7, Character/Progression historical snapshot requirements, `ADR-003`, `ADR-012`.
 - 2026-08-29 — Decision: `CharacterHistoryProjection` is rebuildable from journal/current projection inputs and cannot be independently mutated. Authority / approval: `ADR-022` §8-9 and `ADR-012`.
+- 2026-08-29 — Self-correction: PM found before merge that `ADR-022` §17 incorrectly claimed dated product-owner sign-off while PR #80 was still Draft and awaiting owner review. The premature sign-off sentence was removed; actual approval remains represented only by owner review/merge, not by a prewritten ADR line. Authority / approval: PM clarification for this correction.
 
 ### Approved task changes
 

@@ -457,8 +457,6 @@ ODY-S04-004  ADR-025: Character Ownership, Lifecycle, and Ruleset Migration Oper
 - reconnect behavior for Character/history must use the existing `ADR-017`/`ADR-012` mechanisms;
 - changing this aggregate/revision/history contract requires an amendment or superseding ADR, not silent implementation drift.
 
-Принято product owner 2026-08-30 as-is, без правок содержания.
-
 ---
 
 **Конец документа**
