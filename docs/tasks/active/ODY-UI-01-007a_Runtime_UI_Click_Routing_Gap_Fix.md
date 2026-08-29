@@ -1,14 +1,14 @@
 # ODY-UI-01-007a — Runtime UI Click Routing Gap Fix
 
-**Status:** Implementation complete; draft PR pending  
+**Status:** Done  
 **Roadmap stage / slice:** SLICE-UI-01  
 **Owner:** Codex (agent)  
 **Requested by:** Product owner  
 **Branch:** `fix/ody-ui-01-007a-runtime-ui-click-routing`  
-**Pull request:** Not opened  
+**Pull request:** Initial stacked PR [#75](https://github.com/odyssey-services/Odyssey_VTT/pull/75); final mainline PR [#77](https://github.com/odyssey-services/Odyssey_VTT/pull/77)  
 **ExecPlan:** `docs/plans/active/ODY-UI-01-007a_Runtime_UI_Click_Routing_Gap_Fix.md`  
 **Created:** 2026-08-28  
-**Last updated:** 2026-08-28 16:35 UTC
+**Last updated:** 2026-08-29 20:40 UTC
 
 ## 1. Goal
 
@@ -56,7 +56,9 @@ Make real mouse clicks in Unity Play Mode reach UI Toolkit `Button.clicked` hand
 
 ### Verified facts
 
-- PR #74 is open and not merged; branch `fix/ody-ui-01-007a-runtime-ui-click-routing` was created from PR #74 HEAD `7ef87c5`.
+- PR #74 is merged into `main`; branch `fix/ody-ui-01-007a-runtime-ui-click-routing` was created from PR #74 HEAD `7ef87c5`.
+- PR #75 merged `007a` into the intermediate `feat/ody-ui-01-007-reroll-cancel-and-full-walkthrough` branch, not `main`.
+- PR #77 later merged the accumulated `007a`/`007b` branch into `main`.
 - `Bootstrap.unity` contains only the Bootstrap `GameObject` with `OdysseyRuntimeHost`; it has no `EventSystem` or `InputSystemUIInputModule`.
 - `AppShell.unity` contains an `AppShell UI` `GameObject` with `UIDocument`/`AppShellEntryPoint`, plus a camera; it has no `EventSystem` or `InputSystemUIInputModule`.
 - `ProjectSettings/EditorBuildSettings.asset` assigns project-wide input actions to `Assets/Odyssey/Client/Input/Odyssey.inputactions` by GUID `35845fe01580c41289b024647b1d1c53`.
@@ -221,7 +223,7 @@ dotnet test DotNet\Odyssey.Core.sln
 - Reason for selected mode: runtime input infrastructure plus scene/project configuration investigation and a new PlayMode regression path.
 - ExecPlan path: `docs/plans/active/ODY-UI-01-007a_Runtime_UI_Click_Routing_Gap_Fix.md`
 - Expected pull request count: 1
-- Milestone or sequencing constraints: branch is stacked on PR #74 because #74 is still open and contains the UI being unblocked.
+- Milestone or sequencing constraints: implementation originally stacked on PR #74 because #74 was then open and contained the UI being unblocked; final mainline inclusion is through PR #77.
 
 ## 15. Documentation and versioning impact
 
@@ -245,8 +247,8 @@ dotnet test DotNet\Odyssey.Core.sln
 - [x] No unapproved dependency, tool, GitHub Action, or license was introduced.
 - [x] Documentation is updated only where materially required.
 - [x] Codex/developer performed a self-review against this task and `AGENTS.md`.
-- [ ] Pull request explains changes, evidence, limitations, and follow-up work.
-- [ ] Product owner or authorized reviewer completes the required review; Codex does not merge into `main`.
+- [x] Pull request explains changes, evidence, limitations, and follow-up work.
+- [x] Product owner or authorized reviewer completes the required review; Codex does not merge into `main`.
 
 ## 17. Completion evidence
 
@@ -267,10 +269,11 @@ dotnet test DotNet\Odyssey.Core.sln
 | `.\scripts\check-repository-policy.ps1` | Pass | Repository policy check passed. |
 | `dotnet build DotNet\Odyssey.Core.sln` | Pass | Build succeeded, 0 warnings, 0 errors. Required escalation because sandbox denied `C:\Users\alexx\AppData\Local\Microsoft SDKs`. |
 | `dotnet test DotNet\Odyssey.Core.sln` | Pass | Contracts 1, Domain 27, Networking 67, Unit 105, Architecture 2, Persistence 60; all passed. Required escalation for SDK cache access. |
-| `.\scripts\test-unity.ps1` | Pass | BuildId `odyssey-local-20260828t163333z-g7ef87c54e2d4-dirty`; EditMode 62/62 passed, PlayMode 4/4 passed. |
+| `.\scripts\test-unity.ps1` | Pass | Original stacked validation: BuildId `odyssey-local-20260828t163333z-g7ef87c54e2d4-dirty`; EditMode 62/62 passed, PlayMode 4/4 passed. Final mainline PR #77 local validation: EditMode 62/62 passed, PlayMode 5/5 passed. |
 | `.\scripts\test-fast.ps1` | Pass | Clean final run passed architecture checks and .NET TRX totals: Domain 27, Contracts 1, Networking 67, Unit 105, Architecture 2, Persistence 60. Required escalation for SDK cache access. |
 | `.\scripts\verify-repository.ps1` | Pass | `REPOSITORY-VERIFY PASS repository checks passed`. Required escalation for SDK cache access. |
 | `.\scripts\verify-docs.ps1` | Not run | Script is not present in this checkout (`Test-Path` returned `False`). |
+| PR #77 CI | Pass | `repository-policy-format-structure`, `dotnet-restore-build-test`, `unity-project-package-static`, and `buildidentity-provenance` passed in GitHub Actions run `33272950562`. |
 
 ### Acceptance result
 
@@ -290,9 +293,15 @@ dotnet test DotNet\Odyssey.Core.sln
 - Checksums: Not applicable.
 - Test or quality report: Unity EditMode/PlayMode result XMLs and .NET TRX logs under `Logs/`.
 
+### Merge and PR evidence
+
+- Initial stacked PR: [#75](https://github.com/odyssey-services/Odyssey_VTT/pull/75), merged 2026-08-29 19:58 UTC into `feat/ody-ui-01-007-reroll-cancel-and-full-walkthrough`; merge SHA `e294eee9d2fd7d94a29cf59268824cbc662bf942`.
+- Final mainline PR: [#77](https://github.com/odyssey-services/Odyssey_VTT/pull/77), merged 2026-08-29 20:29 UTC into `main`; merge SHA `27b2a1dac67daa91c653ef01593aae02a089340f`.
+- Final code SHA included in `main`: `119a0db89431eb12cfaeb85ef001c6b76d341c7d` via PR #77.
+
 ### Known limitations
 
-- None known yet.
+- None known.
 
 ### Follow-up tasks
 
@@ -314,7 +323,8 @@ dotnet test DotNet\Odyssey.Core.sln
 
 ### Decisions made during execution
 
-- 2026-08-28 — Decision: stack `ODY-UI-01-007a` on PR #74 rather than `main`. Authority / approval: task §2 and verified PR #74 open/unmerged state.
+- 2026-08-28 — Decision: stack `ODY-UI-01-007a` on PR #74 rather than `main`. Authority / approval: task §2 and verified then-current PR #74 open/unmerged state.
+- 2026-08-29 — Discovery / change-control decision: PR #75 was merged into the intermediate `feat/ody-ui-01-007-reroll-cancel-and-full-walkthrough` branch, not `main`, because the PM task did not explicitly require `base=main` for the stacked PR. Codex caught the mismatch during documentation closeout preflight and did not backfill false `main` status. Final mainline inclusion was completed honestly through PR #77, merge SHA `27b2a1dac67daa91c653ef01593aae02a089340f`.
 - 2026-08-28 — Decision: first try project-wide UI Toolkit actions instead of adding scene-local `EventSystem`/`InputSystemUIInputModule`. Authority / approval: Unity Input System UI Support documentation for UI Toolkit 2023.2+ and verified `ProjectSettings/EditorBuildSettings.asset` project-wide actions assignment.
 - 2026-08-28 — Decision: add `EventSystem`/`InputSystemUIInputModule` programmatically from `AppShellEntryPoint`, not as scene YAML. Authority / approval: the real PlayMode pointer test still timed out after correcting project-wide actions only; task §4 asks to choose scene object vs composition code, and code composition avoids repeated manual scene setup.
 - 2026-08-28 — Decision: keep `PlayerSmokeInputProbe.InvokeButton` as keyboard smoke helper but record that it is not regression evidence for mouse click routing. Authority / approval: task §4 asks to decide whether to fix or document its limitation; the new PlayMode pointer test owns this bug class.
