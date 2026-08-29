@@ -1,12 +1,15 @@
+using System;
 using System.Collections;
 using System.Linq;
 using NUnit.Framework;
 using Odyssey.Application.Diagnostics;
 using Odyssey.Unity.Client;
 using UnityEngine;
+using UnityEngine.InputSystem;
 using UnityEngine.SceneManagement;
 using UnityEngine.TestTools;
 using UnityEngine.UIElements;
+using Object = UnityEngine.Object;
 
 namespace Odyssey.Tests.Unity.PlayMode
 {
@@ -114,6 +117,52 @@ namespace Odyssey.Tests.Unity.PlayMode
             Assert.That(RuntimeHostLease.IsHeld, Is.False);
         }
 
+        [UnityTest]
+        public IEnumerator RealMouseClick_RoutesThroughUiToolkitInputToDeveloperShellAndTrialScreenElements()
+        {
+            const string bootstrapPath = "Assets/Odyssey/Client/Scenes/Bootstrap.unity";
+
+            AssertUiInputActionsConfigured();
+            InputTestFixture input = new();
+            Mouse mouse = null;
+            try
+            {
+                input.Setup();
+                mouse = InputSystem.AddDevice<Mouse>();
+
+                yield return SceneManager.LoadSceneAsync(bootstrapPath, LoadSceneMode.Single);
+                yield return WaitUntil(() => FindAcceptedHosts() == 1);
+                yield return WaitUntil(() => SceneManager.GetSceneByName("AppShell").isLoaded);
+                yield return WaitUntil(() => FindEntryPoint() != null && FindEntryPoint()!.IsInitialized);
+
+                AppShellEntryPoint entryPoint = FindEntryPoint()!;
+                UIDocument document = entryPoint.GetComponent<UIDocument>();
+                yield return WaitUntil(() => ButtonReady(document, "accepted-probe-button"));
+                yield return ClickWithMouse(document, input, mouse, "accepted-probe-button");
+                yield return WaitUntil(() => Text(document, "shell-result").Contains("Accepted Probe: Accepted"));
+
+                yield return WaitUntil(() => ButtonReady(document, "trial-ui-button"));
+
+                yield return ClickWithMouse(document, input, mouse, "trial-ui-button");
+                yield return WaitUntil(() => document.rootVisualElement.Q<VisualElement>("trial-screen") != null);
+                yield return WaitUntil(() => FirstToken(document) != null && ElementReady(FirstToken(document)!));
+
+                yield return ClickWithMouse(document, input, mouse, FirstToken(document)!);
+                yield return WaitUntil(() => Text(document, "board-status").StartsWith("Selected token", StringComparison.Ordinal));
+
+                OdysseyRuntimeHost host = FindAcceptedHost()!;
+                host.Runtime!.Shutdown();
+                Object.Destroy(host.gameObject);
+                yield return null;
+                Assert.That(RuntimeHostLease.IsHeld, Is.False);
+            }
+            finally
+            {
+                if (mouse != null && mouse.added) InputSystem.RemoveDevice(mouse);
+                input.TearDown();
+            }
+        }
+
         private static IEnumerator WaitUntil(System.Func<bool> predicate)
         {
             float started = Time.realtimeSinceStartup;
@@ -178,6 +227,61 @@ namespace Odyssey.Tests.Unity.PlayMode
         private static string Text(UIDocument document, string name)
         {
             return document.rootVisualElement.Q<Label>(name)!.text;
+        }
+
+        private static bool ButtonReady(UIDocument document, string name)
+        {
+            Button button = document.rootVisualElement.Q<Button>(name);
+            return button != null && ElementReady(button);
+        }
+
+        private static bool ElementReady(VisualElement element)
+        {
+            return element.panel != null && element.worldBound.width > 0f && element.worldBound.height > 0f;
+        }
+
+        private static VisualElement? FirstToken(UIDocument document)
+        {
+            return document.rootVisualElement.Query<VisualElement>().Where(element => element.name != null && element.name.StartsWith("token-", StringComparison.Ordinal)).First();
+        }
+
+        private static void AssertUiInputActionsConfigured()
+        {
+            InputActionAsset actions = InputSystem.actions;
+            Assert.That(actions, Is.Not.Null, "Project-wide input actions are not loaded.");
+            InputAction click = actions.FindAction("UI/Click", true);
+            InputAction rightClick = actions.FindAction("UI/RightClick", true);
+            InputAction middleClick = actions.FindAction("UI/MiddleClick", true);
+            Assert.That(click.type, Is.EqualTo(InputActionType.PassThrough));
+            Assert.That(rightClick.type, Is.EqualTo(InputActionType.PassThrough));
+            Assert.That(middleClick.type, Is.EqualTo(InputActionType.PassThrough));
+        }
+
+        private static IEnumerator ClickWithMouse(UIDocument document, InputTestFixture input, Mouse mouse, string name)
+        {
+            return ClickWithMouse(document, input, mouse, document.rootVisualElement.Q<VisualElement>(name)!);
+        }
+
+        private static IEnumerator ClickWithMouse(UIDocument document, InputTestFixture input, Mouse mouse, VisualElement element)
+        {
+            Vector2 panelPosition = element.worldBound.center;
+            Vector2 bottomLeftPosition = new(panelPosition.x, Screen.height - panelPosition.y);
+            Vector2 screenPosition = bottomLeftPosition.y < 0f ? panelPosition : bottomLeftPosition;
+            Vector2 startPosition = screenPosition + new Vector2(4f, 4f);
+
+            mouse.MakeCurrent();
+            input.Move(mouse.position, startPosition);
+            yield return null;
+
+            input.Move(mouse.position, screenPosition);
+            yield return null;
+
+            input.Press(mouse.leftButton);
+            yield return null;
+
+            input.Release(mouse.leftButton);
+            yield return null;
+            yield return null;
         }
 
         private static void Click(UIDocument document, string name)

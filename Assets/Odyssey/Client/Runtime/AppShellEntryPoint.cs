@@ -2,8 +2,10 @@ using System;
 using System.IO;
 using Odyssey.Application.Results;
 using UnityEngine;
+using UnityEngine.EventSystems;
 using UnityEngine.InputSystem;
 using UnityEngine.InputSystem.LowLevel;
+using UnityEngine.InputSystem.UI;
 using UnityEngine.UIElements;
 
 namespace Odyssey.Unity.Client
@@ -15,6 +17,7 @@ namespace Odyssey.Unity.Client
         private PresentationRuntime? _presentationRuntime;
         private DeveloperShellPresenter? _presenter;
         private TrialScreenPresenter? _trialPresenter;
+        private GameObject? _ownedEventSystemObject;
 
         public bool IsInitialized => _presenter != null;
         internal bool HasDisplayedUiRoot => _document != null && _document.rootVisualElement.panel != null && _document.rootVisualElement.childCount > 0;
@@ -24,6 +27,7 @@ namespace Odyssey.Unity.Client
             if (facade == null) throw new ArgumentNullException(nameof(facade));
             if (presentationRuntime == null) throw new ArgumentNullException(nameof(presentationRuntime));
             _document = GetComponent<UIDocument>();
+            EnsureRuntimeUiInput();
             _presentationRuntime = presentationRuntime;
             _presenter = new DeveloperShellPresenter(_document, facade, presentationRuntime);
             Result result = _presenter.Initialize();
@@ -79,6 +83,31 @@ namespace Odyssey.Unity.Client
             _presenter = null;
             _trialPresenter?.Dispose();
             _trialPresenter = null;
+            if (_ownedEventSystemObject != null)
+            {
+                Destroy(_ownedEventSystemObject);
+                _ownedEventSystemObject = null;
+            }
+        }
+
+        private void EnsureRuntimeUiInput()
+        {
+            GameObject eventSystemObject;
+            if (EventSystem.current == null)
+            {
+                eventSystemObject = new GameObject("AppShell EventSystem");
+                eventSystemObject.transform.SetParent(transform, false);
+                eventSystemObject.AddComponent<EventSystem>();
+                _ownedEventSystemObject = eventSystemObject;
+            }
+            else
+            {
+                eventSystemObject = EventSystem.current.gameObject;
+            }
+
+            InputSystemUIInputModule module = eventSystemObject.GetComponent<InputSystemUIInputModule>();
+            if (module == null) module = eventSystemObject.AddComponent<InputSystemUIInputModule>();
+            if (InputSystem.actions != null) module.actionsAsset = InputSystem.actions;
         }
     }
 
