@@ -1,14 +1,14 @@
 # ODY-UI-01-007b — Trial Screen Layout Overlap Fix
 
-**Status:** In Review  
+**Status:** Done  
 **Roadmap stage / slice:** SLICE-UI-01  
 **Owner:** Codex (agent)  
 **Requested by:** Product owner  
 **Branch:** `fix/ody-ui-01-007b-trial-screen-layout-overlap`  
-**Pull request:** https://github.com/odyssey-services/Odyssey_VTT/pull/76  
+**Pull request:** Initial stacked PR [#76](https://github.com/odyssey-services/Odyssey_VTT/pull/76); final mainline PR [#77](https://github.com/odyssey-services/Odyssey_VTT/pull/77)  
 **ExecPlan:** `docs/plans/active/ODY-UI-01-007b_Trial_Screen_Layout_Overlap_Fix.md`  
 **Created:** 2026-08-29  
-**Last updated:** 2026-08-28 23:55 UTC
+**Last updated:** 2026-08-29 20:40 UTC
 
 ## 1. Goal
 
@@ -54,7 +54,9 @@ Make the composed Trial screen controls column lay out readable UI rows without 
 
 ### Verified facts
 
-- Current branch was created from local `ODY-UI-01-007a` commit `119a0db` because `007a` is not pushed or merged yet.
+- Current branch was created from local `ODY-UI-01-007a` commit `119a0db`.
+- PR #76 merged `007b` into the intermediate `fix/ody-ui-01-007a-runtime-ui-click-routing` branch, not `main`.
+- PR #77 later merged the accumulated `007a`/`007b` branch into `main`.
 - `Assets/Odyssey/Client/UI/OdysseyPanelSettings.asset` has a runtime theme assigned (`themeUss` points to `UnityDefaultRuntimeTheme.tss`) and uses scale mode 1 with reference resolution 1200x800.
 - `Assets/Odyssey/Client/UI/AppShell.uss` already exists and contains shell layout styles.
 - `Assets/Odyssey/Client/UI/AppShell.uxml` does not reference `AppShell.uss`, so custom `.app-root` and future Trial screen spacing rules are not applied by the runtime document.
@@ -216,7 +218,7 @@ dotnet test DotNet\Odyssey.Core.sln
 - Reason for selected mode: task requires investigation, multiple UI files, a PlayMode geometry regression, and visual evidence.
 - ExecPlan path: `docs/plans/active/ODY-UI-01-007b_Trial_Screen_Layout_Overlap_Fix.md`
 - Expected pull request count: 1
-- Milestone or sequencing constraints: stacked on local `007a` because `007a` is not pushed/merged yet.
+- Milestone or sequencing constraints: implementation originally stacked on local `007a`; final mainline inclusion is through PR #77.
 
 ## 15. Documentation and versioning impact
 
@@ -230,9 +232,9 @@ dotnet test DotNet\Odyssey.Core.sln
 ## 16. Definition of Done
 
 - [x] Goal is achieved without unapproved scope expansion.
-- [ ] All acceptance criteria are satisfied.
+- [x] All acceptance criteria are satisfied.
 - [x] Required automated tests pass.
-- [ ] Required manual checks are completed.
+- [x] Required manual checks are completed.
 - [x] Required commands and their real results are recorded.
 - [x] Architecture and dependency rules remain valid.
 - [x] Security, privacy, redaction, and audience rules are verified where applicable.
@@ -240,8 +242,8 @@ dotnet test DotNet\Odyssey.Core.sln
 - [x] No unapproved dependency, tool, GitHub Action, or license was introduced.
 - [x] Documentation is updated only where materially required.
 - [x] Codex/developer performed a self-review against this task and `AGENTS.md`.
-- [ ] Pull request explains changes, evidence, limitations, and follow-up work.
-- [ ] Product owner or authorized reviewer completes the required review; Codex does not merge into `main`.
+- [x] Pull request explains changes, evidence, limitations, and follow-up work.
+- [x] Product owner or authorized reviewer completes the required review; Codex does not merge into `main`.
 
 ## 17. Completion evidence
 
@@ -262,7 +264,8 @@ dotnet test DotNet\Odyssey.Core.sln
 | `dotnet test DotNet\Odyssey.Core.sln` | Pass | Contracts 1, Domain 27, Networking 67, Unit 105, Architecture 2, Persistence 60; all passed. |
 | `.\scripts\test-fast.ps1` | Pass | Architecture checks and .NET TRX totals passed. |
 | `.\scripts\verify-repository.ps1` | Pass | `REPOSITORY-VERIFY PASS repository checks passed`. |
-| `.\scripts\test-unity.ps1` | Pass | BuildId `odyssey-local-20260828t234118z-g119a0db89431-dirty`; EditMode 62/62 passed, PlayMode 5/5 passed. |
+| `.\scripts\test-unity.ps1` | Pass | Original stacked validation: BuildId `odyssey-local-20260828t234118z-g119a0db89431-dirty`; EditMode 62/62 passed, PlayMode 5/5 passed. Final mainline PR #77 local validation: EditMode 62/62 passed, PlayMode 5/5 passed. |
+| PR #77 CI | Pass | `repository-policy-format-structure`, `dotnet-restore-build-test`, `unity-project-package-static`, and `buildidentity-provenance` passed in GitHub Actions run `33272950562`. |
 
 ### Acceptance result
 
@@ -272,22 +275,28 @@ dotnet test DotNet\Odyssey.Core.sln
 | AC-2 | Pass | `RealMouseClick_TrialControlsColumnRowsDoNotOverlap` verifies named Roll Panel rows have positive size, top-to-bottom order, and no overlapping `worldBound` rectangles. |
 | AC-3 | Pass | Same PlayMode test verifies Game Log visible controls render after Roll Panel rows without overlap. |
 | AC-4 | Pass | Diff is limited to UI stylesheet/UXML, PlayMode test, and task docs. |
-| AC-5 | Pending | Codex screenshot capture attempts did not produce a PNG; owner/manual visual review remains pending. |
+| AC-5 | Pass | Product owner manually verified in Unity Play Mode after PR #77 that the Trial screen click route works and the Roll Panel/Game Log visual overlap is gone. |
 | AC-6 | Pass | Required automated validation commands passed and results are recorded above. |
 
 ### Build and artifact evidence
 
 - Build identity: `odyssey-local-20260828t234118z-g119a0db89431-dirty`.
-- Artifact path / name: Pending.
-- Checksums: Pending.
+- Artifact path / name: Not applicable.
+- Checksums: Not applicable.
 - Test or quality report: `Logs/ODY-S00-008/editmode-results.xml`, `Logs/ODY-S00-008/playmode-results.xml`, and .NET TRX logs.
-- Commit: local branch HEAD; exact SHA is reported at handoff.
+- Commit: final mainline merge SHA `27b2a1dac67daa91c653ef01593aae02a089340f`.
 
 ### Known limitations
 
 - Owner-provided screenshot was not present in the attachment directory.
-- Codex attempted batchmode and GUI screenshot capture; neither produced a PNG in this environment, so visual confirmation remains a manual review item despite passing geometry regression.
-- Draft PR opened: https://github.com/odyssey-services/Odyssey_VTT/pull/76.
+- Codex attempted batchmode and GUI screenshot capture; neither produced a PNG in this environment. Product owner later completed manual Unity Play Mode visual confirmation after PR #77.
+- Known noncritical polish item: product owner noted that some light/dark text contrast combinations remain hard to read. This is not a blocker for `ODY-UI-01-007b` or `SLICE-UI-01` closure and is left as possible future visual-polish work.
+
+### Merge and PR evidence
+
+- Initial stacked PR: [#76](https://github.com/odyssey-services/Odyssey_VTT/pull/76), merged 2026-08-29 19:58 UTC into `fix/ody-ui-01-007a-runtime-ui-click-routing`; merge SHA `703f45e76790507c139e86d586afbb8f7c02c2df`.
+- Final mainline PR: [#77](https://github.com/odyssey-services/Odyssey_VTT/pull/77), merged 2026-08-29 20:29 UTC into `main`; merge SHA `27b2a1dac67daa91c653ef01593aae02a089340f`.
+- Final code SHA included in `main`: `4c94e8d1f921ca8b30eb963594ff33307d517eab` via PR #77.
 
 ### Follow-up tasks
 
@@ -297,7 +306,7 @@ dotnet test DotNet\Odyssey.Core.sln
 
 - Scope review: Complete; no lower modules, ADRs, dependencies, scenes, or ProjectSettings changes are included.
 - Architecture review: Complete; Unity Client UI-only layout change.
-- Test review: Complete for automated coverage; visual owner review remains pending.
+- Test review: Complete; automated geometry coverage passed and owner completed manual Play Mode review.
 - Security/privacy review: Complete; no hidden-data, audience, networking, persistence, or diagnostics behavior changed.
 - Documentation/version review: Complete; no versioned contract/schema/protocol changes.
 
@@ -310,6 +319,8 @@ dotnet test DotNet\Odyssey.Core.sln
 ### Decisions made during execution
 
 - 2026-08-29 — Decision: stack `ODY-UI-01-007b` on local `ODY-UI-01-007a` commit `119a0db`. Authority / approval: task preflight requires starting from the current `007a` state; `007a` could not be pushed because the previous push was blocked by account usage limit.
+- 2026-08-29 — Discovery / change-control decision: PR #76 was merged into the intermediate `fix/ody-ui-01-007a-runtime-ui-click-routing` branch, not `main`, because the PM task did not explicitly require `base=main` for the stacked PR. Codex caught the mismatch during documentation closeout preflight and did not backfill false `main` status. Final mainline inclusion was completed honestly through PR #77, merge SHA `27b2a1dac67daa91c653ef01593aae02a089340f`.
+- 2026-08-29 — Product owner manual review: after PR #77 reached `main`, the owner personally verified in Unity Play Mode that clicks work and the visual overlap is gone. The owner also noted a known noncritical text-contrast issue with light/dark combinations; this is not a blocker and is deferred to a possible future polish task.
 - 2026-08-29 — Decision: treat the missing owner screenshot as unavailable evidence and replace it with local Game View/screenshot validation. Authority / approval: task says to request it if missing; implementation can still verify the described defect through code and local visual evidence.
 - 2026-08-29 — Finding attribution: the overlap was found by the product owner during their own manual check after `ODY-UI-01-007a`, from the referenced screenshot.
 - 2026-08-29 — Decision: use existing `AppShell.uss` plus `AppShell.uxml` stylesheet linkage instead of inline per-control style edits. Authority / approval: existing stylesheet already owns runtime shell layout and the root cause is missing/applied-insufficient stylesheet rules.
