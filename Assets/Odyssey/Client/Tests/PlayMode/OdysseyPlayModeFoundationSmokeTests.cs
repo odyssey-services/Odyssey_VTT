@@ -163,6 +163,56 @@ namespace Odyssey.Tests.Unity.PlayMode
             }
         }
 
+        [UnityTest]
+        public IEnumerator RealMouseClick_TrialControlsColumnRowsDoNotOverlap()
+        {
+            const string bootstrapPath = "Assets/Odyssey/Client/Scenes/Bootstrap.unity";
+
+            InputTestFixture input = new();
+            Mouse mouse = null;
+            try
+            {
+                input.Setup();
+                mouse = InputSystem.AddDevice<Mouse>();
+
+                yield return SceneManager.LoadSceneAsync(bootstrapPath, LoadSceneMode.Single);
+                yield return WaitUntil(() => FindAcceptedHosts() == 1);
+                yield return WaitUntil(() => SceneManager.GetSceneByName("AppShell").isLoaded);
+                yield return WaitUntil(() => FindEntryPoint() != null && FindEntryPoint()!.IsInitialized);
+
+                UIDocument document = FindEntryPoint()!.GetComponent<UIDocument>();
+                yield return WaitUntil(() => ButtonReady(document, "trial-ui-button"));
+                yield return ClickWithMouse(document, input, mouse, "trial-ui-button");
+                yield return WaitUntil(() => document.rootVisualElement.Q<VisualElement>("trial-controls-column") != null);
+                yield return WaitUntil(() => ControlsColumnRowsReady(document));
+
+                AssertRowsDoNotOverlap(document,
+                    "roll-audience",
+                    "roll-formula",
+                    "roll-button",
+                    "modifier-row",
+                    "modifier-decision-row",
+                    "override-row",
+                    "roll-result",
+                    "roll-status",
+                    "roll-lifecycle-row",
+                    "game-log-save-reopen-button",
+                    "game-log-list",
+                    "game-log-status");
+
+                OdysseyRuntimeHost host = FindAcceptedHost()!;
+                host.Runtime!.Shutdown();
+                Object.Destroy(host.gameObject);
+                yield return null;
+                Assert.That(RuntimeHostLease.IsHeld, Is.False);
+            }
+            finally
+            {
+                if (mouse != null && mouse.added) InputSystem.RemoveDevice(mouse);
+                input.TearDown();
+            }
+        }
+
         private static IEnumerator WaitUntil(System.Func<bool> predicate)
         {
             float started = Time.realtimeSinceStartup;
@@ -238,6 +288,45 @@ namespace Odyssey.Tests.Unity.PlayMode
         private static bool ElementReady(VisualElement element)
         {
             return element.panel != null && element.worldBound.width > 0f && element.worldBound.height > 0f;
+        }
+
+        private static bool ControlsColumnRowsReady(UIDocument document)
+        {
+            return new[]
+            {
+                "roll-audience",
+                "roll-formula",
+                "roll-button",
+                "modifier-row",
+                "modifier-decision-row",
+                "override-row",
+                "roll-result",
+                "roll-status",
+                "roll-lifecycle-row",
+                "game-log-save-reopen-button",
+                "game-log-list",
+                "game-log-status",
+            }.All(name =>
+            {
+                VisualElement element = document.rootVisualElement.Q<VisualElement>(name);
+                return element != null && ElementReady(element);
+            });
+        }
+
+        private static void AssertRowsDoNotOverlap(UIDocument document, params string[] names)
+        {
+            for (int index = 0; index < names.Length - 1; index++)
+            {
+                VisualElement current = document.rootVisualElement.Q<VisualElement>(names[index])!;
+                VisualElement next = document.rootVisualElement.Q<VisualElement>(names[index + 1])!;
+                Rect currentBounds = current.worldBound;
+                Rect nextBounds = next.worldBound;
+
+                Assert.That(currentBounds.width, Is.GreaterThan(0f), names[index] + " width");
+                Assert.That(currentBounds.height, Is.GreaterThan(0f), names[index] + " height");
+                Assert.That(nextBounds.yMin, Is.GreaterThanOrEqualTo(currentBounds.yMin), names[index + 1] + " should be below " + names[index]);
+                Assert.That(currentBounds.Overlaps(nextBounds), Is.False, names[index] + " overlaps " + names[index + 1]);
+            }
         }
 
         private static VisualElement? FirstToken(UIDocument document)
