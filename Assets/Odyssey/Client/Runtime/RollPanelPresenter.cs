@@ -45,7 +45,11 @@ namespace Odyssey.Unity.Client
         private Button? _change;
         private Button? _reject;
         private Button? _override;
+        private TextField? _cancelReason;
+        private Button? _reroll;
+        private Button? _cancel;
         private string? _latestModifierEntryId;
+        private readonly bool _includeRoleSelector;
         private bool _disposed;
 
         public RollPanelPresenter(RoleSelection roleSelection, PresentationRuntime presentationRuntime)
@@ -67,7 +71,7 @@ namespace Odyssey.Unity.Client
         {
         }
 
-        public RollPanelPresenter(RoleSelection roleSelection, PresentationRuntime presentationRuntime, DiceRollStore store, IAuthoritativeRandomStreamFactory rngFactory, IWallClock clock, ICampaignUserGroupDirectory groups, CampaignId campaignId, RulesetVersion rulesetVersion, RngKeyEpochId rngKeyEpochId)
+        public RollPanelPresenter(RoleSelection roleSelection, PresentationRuntime presentationRuntime, DiceRollStore store, IAuthoritativeRandomStreamFactory rngFactory, IWallClock clock, ICampaignUserGroupDirectory groups, CampaignId campaignId, RulesetVersion rulesetVersion, RngKeyEpochId rngKeyEpochId, bool includeRoleSelector = true)
         {
             _roleSelection = roleSelection ?? throw new ArgumentNullException(nameof(roleSelection));
             _presentationRuntime = presentationRuntime ?? throw new ArgumentNullException(nameof(presentationRuntime));
@@ -78,18 +82,27 @@ namespace Odyssey.Unity.Client
             _campaignId = campaignId.IsValid ? campaignId : throw new ArgumentException("Campaign id is required.", nameof(campaignId));
             _rulesetVersion = rulesetVersion.IsValid ? rulesetVersion : throw new ArgumentException("Ruleset version is required.", nameof(rulesetVersion));
             _rngKeyEpochId = rngKeyEpochId.IsValid ? rngKeyEpochId : throw new ArgumentException("RNG key epoch id is required.", nameof(rngKeyEpochId));
+            _includeRoleSelector = includeRoleSelector;
         }
 
         public DiceRoll? LastRoll { get; private set; }
         public event Action<DiceRoll>? LastRollChanged;
+
+        public bool TryGetRoll(string rollId, out DiceRoll roll)
+        {
+            return _store.TryGet(rollId, out roll);
+        }
 
         public VisualElement BuildView()
         {
             VisualElement root = new VisualElement { name = "roll-panel" };
             root.AddToClassList("roll-panel");
 
-            _roleSelectorPresenter = new RoleSelectorPresenter(_roleSelection, _presentationRuntime);
-            root.Add(_roleSelectorPresenter.BuildView());
+            if (_includeRoleSelector)
+            {
+                _roleSelectorPresenter = new RoleSelectorPresenter(_roleSelection, _presentationRuntime);
+                root.Add(_roleSelectorPresenter.BuildView());
+            }
 
             _audience = new DropdownField("Audience", AudienceChoices, AudienceChoices.IndexOf(PlayerAndGmAudience)) { name = "roll-audience" };
             root.Add(_audience);
@@ -126,6 +139,14 @@ namespace Odyssey.Unity.Client
             _status = new Label("Ready.") { name = "roll-status" };
             root.Add(_result);
             root.Add(_status);
+
+            VisualElement lifecycle = new VisualElement { name = "roll-lifecycle-row" };
+            lifecycle.AddToClassList("roll-lifecycle-row");
+            _cancelReason = new TextField("Cancel reason") { name = "cancel-reason", value = "manual_cancel" };
+            lifecycle.Add(_cancelReason);
+            _reroll = AddButton(lifecycle, "reroll-button", "Reroll", () => RequestFullReroll());
+            _cancel = AddButton(lifecycle, "cancel-roll-button", "Cancel", () => CancelRoll(_cancelReason.value));
+            root.Add(lifecycle);
 
             _presentationRuntime.AddSubscription(_roleSelection.Subscribe(ApplyRoleState));
             ApplyRoleState(_roleSelection.Current);
@@ -223,6 +244,38 @@ namespace Odyssey.Unity.Client
             return applied;
         }
 
+        public Result<DiceRoll> RequestFullReroll()
+        {
+            if (LastRoll == null)
+            {
+                return ShowFailure(DiceFailures.RollNotFound(NewCorrelationId()), "Reroll");
+            }
+
+            RoleSelectionSnapshot role = _roleSelection.Current;
+            Result<DiceRoll> rerolled = DiceRollService.RequestFullReroll(
+                _store,
+                _rngFactory,
+                _clock,
+                new RequestFullRerollRequest(LastRoll.RollId, role.ActorUserId, role.ActorIsMainGm, NewCommandId(), _rulesetVersion, _rngKeyEpochId, NewCorrelationId()));
+
+            return StoreOrShowFailure(rerolled, "Reroll");
+        }
+
+        public Result<DiceRoll> CancelRoll(string? reason)
+        {
+            if (LastRoll == null)
+            {
+                return ShowFailure(DiceFailures.RollNotFound(NewCorrelationId()), "Cancel");
+            }
+
+            RoleSelectionSnapshot role = _roleSelection.Current;
+            Result<DiceRoll> cancelled = DiceRollService.CancelRoll(
+                _store,
+                new CancelRollRequest(LastRoll.RollId, role.ActorUserId, role.ActorIsMainGm, reason, NewCorrelationId()));
+
+            return StoreOrShowFailure(cancelled, "Cancel");
+        }
+
         public void Dispose()
         {
             if (_disposed) return;
@@ -296,6 +349,8 @@ namespace Odyssey.Unity.Client
             _change?.SetEnabled(isMainGm);
             _reject?.SetEnabled(isMainGm);
             _override?.SetEnabled(isMainGm);
+            _reroll?.SetEnabled(snapshot.Role != BaselineRole.Observer);
+            _cancel?.SetEnabled(snapshot.Role != BaselineRole.Observer);
             RefreshResultDisplay();
         }
 

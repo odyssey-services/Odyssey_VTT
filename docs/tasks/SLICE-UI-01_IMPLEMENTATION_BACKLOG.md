@@ -1,12 +1,12 @@
 # Odyssey VTT — SLICE-UI-01 Minimal Trial UI Implementation Backlog
 
-**Status:** Implementation revision — `ODY-UI-01-002` through `ODY-UI-01-006` complete; next child task is `ODY-UI-01-007`
+**Status:** Implementation revision — `ODY-UI-01-002` through `ODY-UI-01-007` complete; `SLICE-UI-01` implementation complete, owner manual review pending
 **Slice:** `SLICE-UI-01 — Minimal UI Prerequisites` (renamed from `SLICE-04` 2026-08-27; see `SLICE-UI-01_BACKLOG.md` §0)
 **Parent task:** `docs/tasks/active/ODY-UI-01-001_SLICE_UI_01_Implementation_Backlog.md`
 **Predecessor backlog:** `docs/tasks/SLICE-UI-01_BACKLOG.md` (prerequisite revision — closed 2026-08-27, `ODY-UI-01-000`; zero new ADRs required, all five architectural questions confirmed against already-`Accepted` `ADR-001`/`002`/`008`)
 **ExecPlan:** Not required (Brief plan)
 **Created:** 2026-08-27
-**Last updated:** 2026-08-27 UTC
+**Last updated:** 2026-08-28 UTC
 
 ## 1. Purpose
 
@@ -69,11 +69,11 @@ Criterion 8 above ("a human can walk the full scenario") is satisfied by task 6'
 | 3 | `ODY-UI-01-004` | Roll panel + modifiers | Done | 003 | ExecPlan | `RollPanelPresenter` adds a formula field and "Roll" button calling `DiceRollService.SubmitRoll` from the current `RoleSelection`, plus modifier label/value proposal and MainGM Accept/Change/Reject decisions through `ProposeModifier`/`DecideModifier`. Stores the most recent successful `DiceRoll` as `LastRoll` for later UI tasks; default audience is `Public` because audience-aware display is `ODY-UI-01-005`. 6 new EditMode tests passed in a real `scripts/test-unity.ps1` run (50/50 EditMode, 2/2 PlayMode). Draft PR [#71](https://github.com/odyssey-services/Odyssey_VTT/pull/71) opened; CI run [33105832028](https://github.com/odyssey-services/Odyssey_VTT/actions/runs/33105832028) passed all 4 checks. |
 | 4 | `ODY-UI-01-005` | Override + audience-aware result display | Done | 003, 004 | ExecPlan | `RollPanelPresenter` now has a roll audience selector (`Public`, `PlayerAndGM`, `SelectedParticipants`) defaulting to `PlayerAndGM`, plus a MainGM-only override reason field/button calling `DiceRollService.ApplyOverride`. Result display calls `DiceRollVisibilityPolicy.TryGetVisibleRoll` before showing roll details, so Player/MainGM see the default roll and Observer gets safe-denial text with no formula/total details. 5 new/updated EditMode coverage points passed in a real `scripts/test-unity.ps1` run (55/55 EditMode, 2/2 PlayMode). Draft PR [#72](https://github.com/odyssey-services/Odyssey_VTT/pull/72) opened; CI run [33125908428](https://github.com/odyssey-services/Odyssey_VTT/actions/runs/33125908428) passed all 4 checks. |
 | 5 | `ODY-UI-01-006` | Persistence + game log | Done | 004 | ExecPlan | `GameLogPresenter` adds a "Save & Reopen Campaign" action persisting the latest roll through `SqliteGameLogRepository.SaveDiceRollEntry`, then re-listing via a fresh repository instance against the same supplied `CampaignHandle`. It renders an unstyled scrollable list of visible `GameLogEntryRecord.SummaryPayload` values filtered through `GameLogReconnectService.GetVisibleEntries`, so Player/MainGM see the default `PlayerAndGM` roll and Observer does not. 4 new EditMode tests passed in a real `scripts/test-unity.ps1` run (59/59 EditMode, 2/2 PlayMode). Draft PR [#73](https://github.com/odyssey-services/Odyssey_VTT/pull/73) opened; CI run [33127771319](https://github.com/odyssey-services/Odyssey_VTT/actions/runs/33127771319) passed all 4 checks. |
-| 6 | `ODY-UI-01-007` | Reroll/cancel + full walkthrough | Draft | 002, 003, 004, 005, 006 | Not yet determined | Reroll/Cancel buttons calling `RequestFullReroll`/`CancelRoll`; a final, manual, by-hand walkthrough of all ten `ODY-S03-008` steps through the assembled UI, with any real composition gap found reported (not silently patched around), mirroring `ODY-S03-008`'s own "report, don't improvise" instruction. Satisfies roadmap §12.6 step 10 and closes `SLICE-UI-01`'s own exit criteria (§3 above). |
+| 6 | `ODY-UI-01-007` | Reroll/cancel + full walkthrough | Done; owner review pending | 002, 003, 004, 005, 006 | ExecPlan | `RollPanelPresenter` adds Reroll/Cancel buttons calling `RequestFullReroll`/`CancelRoll`; `TrialScreenPresenter` assembles board, one role selector, roll panel, and game log into the existing Bootstrap/AppShell launch path via `Open Trial UI`. Focused reroll/cancel tests and one composed ten-step walkthrough passed in a real `scripts/test-unity.ps1` run (62/62 EditMode, 3/3 PlayMode). `scripts/build-dev.ps1` passed on commit `58ce421` and produced `artifacts/builds/odyssey-development-1787913318.1-g58ce4213832d/Windows-x64/Odyssey.exe`. Draft PR [#74](https://github.com/odyssey-services/Odyssey_VTT/pull/74) opened; CI run [33164251464](https://github.com/odyssey-services/Odyssey_VTT/actions/runs/33164251464) passed all 4 checks. |
 
 "Planning mode" is intentionally left "Not yet determined" for every child task: each task's own Brief-plan-vs-ExecPlan decision is made when that task's own contract is authored, per `PLANS.md` §1, not pre-decided by this scaffold — the same convention `SLICE-03_IMPLEMENTATION_BACKLOG.md` used.
 
-No `ODY-UI-01-002`–`007` task contract file exists yet. This backlog only reserves their numbers, titles, and boundaries; each is created and activated as its own separate task, one at a time, when picked up.
+This backlog originally reserved the `ODY-UI-01-002`–`007` numbers, titles, and boundaries. Their task contracts are now created under `docs/tasks/active/` as each child task has been picked up and implemented.
 
 ## 5. Task boundaries
 

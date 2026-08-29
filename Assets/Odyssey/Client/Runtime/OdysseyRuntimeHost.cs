@@ -70,7 +70,7 @@ namespace Odyssey.Unity.Client
             }
 
             PresentationRuntime presentationRuntime = new PresentationRuntime();
-            IDeveloperShellFacade facade = new DeveloperShellFacade(_runtime, RequestShutdownFromShell);
+            IDeveloperShellFacade facade = new DeveloperShellFacade(_runtime, entryPoint.OpenTrialScreen, RequestShutdownFromShell);
             Result initialized = entryPoint.Initialize(facade, presentationRuntime);
             if (initialized.IsFailure)
             {
@@ -221,11 +221,13 @@ namespace Odyssey.Unity.Client
     internal sealed class DeveloperShellFacade : IDeveloperShellFacade
     {
         private readonly AppRuntime _runtime;
+        private readonly System.Func<Result> _openTrialScreen;
         private readonly System.Action _requestShutdown;
 
-        public DeveloperShellFacade(AppRuntime runtime, System.Action requestShutdown)
+        public DeveloperShellFacade(AppRuntime runtime, System.Func<Result> openTrialScreen, System.Action requestShutdown)
         {
             _runtime = runtime;
+            _openTrialScreen = openTrialScreen;
             _requestShutdown = requestShutdown;
         }
 
@@ -237,6 +239,7 @@ namespace Odyssey.Unity.Client
         public Result<Odyssey.Application.Commands.CommandResult> RunRejectedProbe() => _runtime.RunRejectedProbe();
         public void EmitDiagnosticProbe() => _runtime.EmitDiagnosticProbe();
         public System.Collections.Generic.IReadOnlyList<LogEventV1> GetRecentDiagnostics() => _runtime.GetRecentDiagnostics();
+        public Result OpenTrialScreen() => _openTrialScreen();
         public void RequestShutdown() => _requestShutdown();
     }
 }

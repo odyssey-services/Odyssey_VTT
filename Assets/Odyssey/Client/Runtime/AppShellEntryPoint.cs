@@ -1,4 +1,5 @@
 using System;
+using System.IO;
 using Odyssey.Application.Results;
 using UnityEngine;
 using UnityEngine.InputSystem;
@@ -11,7 +12,9 @@ namespace Odyssey.Unity.Client
     public sealed class AppShellEntryPoint : MonoBehaviour
     {
         private UIDocument? _document;
+        private PresentationRuntime? _presentationRuntime;
         private DeveloperShellPresenter? _presenter;
+        private TrialScreenPresenter? _trialPresenter;
 
         public bool IsInitialized => _presenter != null;
         internal bool HasDisplayedUiRoot => _document != null && _document.rootVisualElement.panel != null && _document.rootVisualElement.childCount > 0;
@@ -21,6 +24,7 @@ namespace Odyssey.Unity.Client
             if (facade == null) throw new ArgumentNullException(nameof(facade));
             if (presentationRuntime == null) throw new ArgumentNullException(nameof(presentationRuntime));
             _document = GetComponent<UIDocument>();
+            _presentationRuntime = presentationRuntime;
             _presenter = new DeveloperShellPresenter(_document, facade, presentationRuntime);
             Result result = _presenter.Initialize();
             if (result.IsFailure)
@@ -49,6 +53,20 @@ namespace Odyssey.Unity.Client
             _presenter?.Refresh();
         }
 
+        public Result OpenTrialScreen()
+        {
+            if (_document == null) _document = GetComponent<UIDocument>();
+            if (_presentationRuntime == null) return Result.Failure(RuntimeErrors.CompositionInvalid());
+
+            _presenter?.Dispose();
+            _presenter = null;
+            _trialPresenter?.Dispose();
+
+            string rootDirectory = Path.Combine(UnityEngine.Application.persistentDataPath, "TrialCampaigns");
+            _trialPresenter = new TrialScreenPresenter(_document, _presentationRuntime, rootDirectory, new UnityWallClock());
+            return _trialPresenter.Initialize();
+        }
+
         internal PlayerSmokeInputResult RunPlayerSmokeInputProbe()
         {
             if (_document == null) _document = GetComponent<UIDocument>();
@@ -59,6 +77,8 @@ namespace Odyssey.Unity.Client
         {
             _presenter?.Dispose();
             _presenter = null;
+            _trialPresenter?.Dispose();
+            _trialPresenter = null;
         }
     }
 

@@ -52,6 +52,7 @@ namespace Odyssey.Unity.Client
         private readonly ISceneRepository _sceneRepository;
         private readonly CampaignHandle _campaign;
         private readonly SceneId _sceneId;
+        private readonly bool _includeRoleSelector;
         private readonly Dictionary<string, VisualElement> _tokenElementsByTokenId = new Dictionary<string, VisualElement>(StringComparer.Ordinal);
         private readonly RoleSelection? _roleSelection;
         private readonly PresentationRuntime? _presentationRuntime;
@@ -70,14 +71,16 @@ namespace Odyssey.Unity.Client
             if (!sceneId.IsValid) throw new ArgumentException("SceneId is required.", nameof(sceneId));
             if (!localActorUserId.IsValid) throw new ArgumentException("LocalActorUserId is required.", nameof(localActorUserId));
             _sceneId = sceneId;
+            _includeRoleSelector = true;
             LocalActorUserId = localActorUserId;
         }
 
-        public BoardScreenPresenter(UIDocument document, ISceneRepository sceneRepository, CampaignHandle campaign, SceneId sceneId, RoleSelection roleSelection, PresentationRuntime presentationRuntime)
+        public BoardScreenPresenter(UIDocument document, ISceneRepository sceneRepository, CampaignHandle campaign, SceneId sceneId, RoleSelection roleSelection, PresentationRuntime presentationRuntime, bool includeRoleSelector = true)
             : this(document, sceneRepository, campaign, sceneId, (roleSelection ?? throw new ArgumentNullException(nameof(roleSelection))).ActorUserId)
         {
             _roleSelection = roleSelection;
             _presentationRuntime = presentationRuntime ?? throw new ArgumentNullException(nameof(presentationRuntime));
+            _includeRoleSelector = includeRoleSelector;
             ApplyRoleSelection(roleSelection.Current, refresh: false);
             _roleSubscription = roleSelection.Subscribe(snapshot => ApplyRoleSelection(snapshot, refresh: true));
             _presentationRuntime.AddSubscription(_roleSubscription);
@@ -91,9 +94,14 @@ namespace Odyssey.Unity.Client
 
         public Result Initialize()
         {
+            return InitializeInto(null);
+        }
+
+        public Result InitializeInto(VisualElement? parent)
+        {
             try
             {
-                BuildView();
+                BuildView(parent);
                 return Refresh();
             }
             catch (Exception)
@@ -110,17 +118,17 @@ namespace Odyssey.Unity.Client
             _disposed = true;
         }
 
-        private void BuildView()
+        private void BuildView(VisualElement? parent)
         {
             VisualElement root = _document.rootVisualElement;
-            VisualElement appRoot = root.Q<VisualElement>("odyssey-root") ?? root;
+            VisualElement appRoot = parent ?? root.Q<VisualElement>("odyssey-root") ?? root;
             appRoot.Clear();
             appRoot.AddToClassList("app-root");
 
             Label title = new Label("Odyssey Board Screen (trial)") { name = "board-title" };
             appRoot.Add(title);
 
-            if (_roleSelection != null && _presentationRuntime != null)
+            if (_includeRoleSelector && _roleSelection != null && _presentationRuntime != null)
             {
                 _roleSelectorPresenter = new RoleSelectorPresenter(_roleSelection, _presentationRuntime);
                 appRoot.Add(_roleSelectorPresenter.BuildView());
@@ -329,6 +337,19 @@ namespace Odyssey.Unity.Client
             if (string.IsNullOrWhiteSpace(rootDirectory)) throw new ArgumentException("Root directory is required.", nameof(rootDirectory));
             if (clock == null) throw new ArgumentNullException(nameof(clock));
 
+            UserId localActor = UserId.Parse("user_" + Guid.NewGuid().ToString("N"));
+            UserId otherPlayer = UserId.Parse("user_" + Guid.NewGuid().ToString("N"));
+
+            return CreateFresh(rootDirectory, clock, localActor, otherPlayer);
+        }
+
+        public static Result<BoardScreenDemoCampaignHandle> CreateFresh(string rootDirectory, Odyssey.Application.Time.IWallClock clock, UserId localActor, UserId otherPlayer)
+        {
+            if (string.IsNullOrWhiteSpace(rootDirectory)) throw new ArgumentException("Root directory is required.", nameof(rootDirectory));
+            if (clock == null) throw new ArgumentNullException(nameof(clock));
+            if (!localActor.IsValid) throw new ArgumentException("Local actor UserId is required.", nameof(localActor));
+            if (!otherPlayer.IsValid) throw new ArgumentException("Other player UserId is required.", nameof(otherPlayer));
+
             var campaignRepository = new Odyssey.Persistence.Sqlite.SqliteCampaignRepository(clock);
             var createRequest = new CreateCampaignRequest(rootDirectory, "SLICE-UI-01 Trial Campaign", "ruleset.core", "1.0.0", "0.1.0");
             CorrelationId correlationId = CorrelationId.Parse("corr_" + Guid.NewGuid().ToString("N"));
@@ -338,9 +359,6 @@ namespace Odyssey.Unity.Client
             var sceneRepository = new Odyssey.Persistence.Sqlite.SqliteSceneRepository(clock);
             Result<SceneRecord> scene = sceneRepository.CreateScene(created.Value, "Trial Scene", NewCommandId(), correlationId);
             if (scene.IsFailure) return Result<BoardScreenDemoCampaignHandle>.Failure(scene.Error);
-
-            UserId localActor = UserId.Parse("user_" + Guid.NewGuid().ToString("N"));
-            UserId otherPlayer = UserId.Parse("user_" + Guid.NewGuid().ToString("N"));
 
             Result<TokenRecord> localToken = sceneRepository.CreateToken(created.Value, scene.Value.SceneId, new TokenPosition(0, 0), localActor, NewCommandId(), correlationId);
             if (localToken.IsFailure) return Result<BoardScreenDemoCampaignHandle>.Failure(localToken.Error);
