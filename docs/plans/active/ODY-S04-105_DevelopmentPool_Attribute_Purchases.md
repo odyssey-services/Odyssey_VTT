@@ -3,7 +3,7 @@
 **Status:** Active
 **Owner:** Codex (agent)
 **Branch:** `feat/ody-s04-105-development-pool-attribute-purchases`
-**Pull request:** <to be filled after `gh pr create`>
+**Pull request:** [#89](https://github.com/odyssey-services/Odyssey_VTT/pull/89)
 **Last updated:** 2026-09-01 UTC
 
 ## 1. Purpose and user-visible outcome
@@ -62,9 +62,9 @@ No Unity/UI code, no `ADR-022`/`024` content change, no concrete production bala
 - [x] `.\scripts\verify-format.ps1`.
 - [x] `docs/errors/ERROR_CODES.md` + `Tests/Metadata/test-catalog.json` entries (`TC-CHAR-038`–`049`).
 - [x] This task contract/ExecPlan, created before the final validation pass (per `ODY-S04-103`/`104`'s own discovery of `verify-test-structure.ps1`'s `TC-ARCH-001` task-contract-reference requirement).
-- [ ] `.\scripts\check-repository-policy.ps1` final green run.
-- [ ] `SLICE-04_IMPLEMENTATION_BACKLOG.md` status update.
-- [ ] Commit, push, and open Draft PR.
+- [x] `.\scripts\check-repository-policy.ps1` final green run.
+- [x] `SLICE-04_IMPLEMENTATION_BACKLOG.md` status update.
+- [x] Commit, push, and open Draft PR — [#89](https://github.com/odyssey-services/Odyssey_VTT/pull/89).
 - [ ] Record CI status.
 
 ## 6. Progress log

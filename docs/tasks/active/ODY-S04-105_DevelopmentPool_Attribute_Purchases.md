@@ -5,7 +5,7 @@
 **Owner:** Codex (agent)
 **Requested by:** Product owner
 **Branch:** `feat/ody-s04-105-development-pool-attribute-purchases`
-**Pull request:** <to be filled after `gh pr create`>
+**Pull request:** [#89](https://github.com/odyssey-services/Odyssey_VTT/pull/89)
 **ExecPlan:** `docs/plans/active/ODY-S04-105_DevelopmentPool_Attribute_Purchases.md`
 **Created:** 2026-09-01
 **Last updated:** 2026-09-01 UTC
