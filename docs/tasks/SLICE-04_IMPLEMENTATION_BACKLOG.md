@@ -1,0 +1,197 @@
+# Odyssey VTT — SLICE-04 Characters and Progression Implementation Backlog
+
+**Status:** Implementation revision — OPEN. Reserves `ODY-S04-101` through `ODY-S04-115`; no child task contract exists yet.
+**Slice:** `SLICE-04 — Characters and Progression (vertical slice implementation)`
+**Parent task:** `docs/tasks/active/ODY-S04-005_SLICE_04_Implementation_Backlog.md`
+**Predecessor backlog:** `docs/tasks/SLICE-04_BACKLOG.md` (prerequisite ADR revision — `COMPLETE` as of `ODY-S04-004`/`ADR-025`; not rewritten by this document)
+**ExecPlan:** Not required (Brief plan)
+**Created:** 2026-09-01
+**Last updated:** 2026-09-01 UTC
+
+## 1. Purpose
+
+This backlog converts roadmap `17_Roadmap_Odyssey_VTT_v0.11.md` section 13.8 (the eleven-step "Персонаж и развитие" vertical slice) and section 13.9 (exit criteria) into small, reviewable implementation tasks. It is the implementation revision `docs/tasks/SLICE-04_BACKLOG.md` §1 reserved for creation once its own prerequisite revision closed — which it did with `ADR-022` through `ADR-025` all `Accepted` (`SLICE-04_BACKLOG.md` §0/§2).
+
+This backlog does **not** itself implement anything. It only decomposes the vertical slice into ordered child tasks, each of which will be its own separate task contract and pull request, activated one at a time — the same convention `SLICE-01_IMPLEMENTATION_BACKLOG.md`/`SLICE-02_IMPLEMENTATION_BACKLOG.md`/`SLICE-03_IMPLEMENTATION_BACKLOG.md` used. No child task contract file is created by this document; it only reserves numbers, titles, and boundaries.
+
+Its sources of scope are, exclusively:
+
+- `17_Roadmap_Odyssey_VTT_v0.11.md` §13.8 (the eleven-step vertical slice scenario) and §13.9 (exit criteria) — private local reference, not committed to the repository.
+- `10_Characters_And_Progression_Odyssey_VTT_v0.2.md` §35 ("Рекомендуемые этапы реализации") — the product's own five-stage decomposition (`CAP-SLICE-01`–`05`), used as the top-level anchor for this backlog's ordering, further split where one product stage covers more than one independently-testable invariant cluster (section 2.1).
+- `10_Characters_And_Progression_Odyssey_VTT_v0.2.md` §33 (test scenarios) and §34 (readiness criteria) — used to verify each product stage's real size and to assign concrete test-scenario groups to each child task.
+- The already-`Accepted` ADRs governing each area: `ADR-002` (command/event model), `ADR-003` (serialization), `ADR-012` (append-only journal), `ADR-013` (migration runner), `ADR-017` (snapshot/delta/reconnect), `ADR-019` (permissions baseline), `ADR-022` (Character aggregate/section revisions/history), `ADR-023` (Drafts/templates/approval), `ADR-024` (development economy/progression transactions), `ADR-025` (ownership/lifecycle/Ruleset migration).
+
+No child task in this backlog reopens any decision these ADRs already made; each builds directly on those contracts as fixed.
+
+## 2. Scope decisions requiring explicit justification
+
+### 2.1 Each product `CAP-SLICE` stage is split into two or three backlog tasks
+
+`10_Characters_And_Progression_Odyssey_VTT_v0.2.md` §35 proposes five implementation stages. Checked against §33's 80 test scenarios and §34's 60 readiness criteria, each stage covers several independently-testable invariant clusters with different dependency shapes — for example, `CAP-SLICE-01` bundles the Character aggregate/lifecycle/persistence skeleton together with primary-owner-assignment audit, which is a fully separate `ADR-025` §4 concern with its own permission/audit test scenarios (§33 items 52–54) that do not require anything beyond the bare skeleton. Similarly, `CAP-SLICE-03`'s "purchases" bundles ordinary attribute/skill purchase (§33 items 13–31) with the structurally different skill-5+ evidence/recommendation/reservation workflow (§33 items 32–40) and with revert/respec compensation (§33 items 75–76) — three clusters with materially different `ADR-024` sections (§5, §6, §7) and different test setups.
+
+**Decision:** each `CAP-SLICE` stage becomes two or three `ODY-S04-1XX` tasks along the same fault lines its own governing ADR already drew, so that no single task contract must prove more than one ADR section's worth of invariants. This mirrors `SLICE-03_IMPLEMENTATION_BACKLOG.md`'s own precedent of narrowing a broader product-area list down to exactly what has independent, testable substance.
+
+### 2.2 Ownership skeleton vs. ownership-boundary operations
+
+`CAP-SLICE-01` lists "ownership" as part of the Character skeleton, while `CAP-SLICE-05` lists archive/delete/Dead/restore as separate "lifecycle operations." Reading `10_Characters_And_Progression_Odyssey_VTT_v0.2.md` §8.2 (a `PlayerCharacter` Draft's minimum required fields already include `PrimaryOwner`) against `ADR-025` §4.2 (`AssignPrimaryOwner` is the command for assigning **or replacing** an existing owner, with mandatory reason/audit) shows these are two different moments: a Draft's *initial* owner is set as an ordinary Draft field at creation/binding time (`ADR-023`'s own pipeline), while `AssignPrimaryOwner`/co-owner/control-grant commands are the *administrative* operation for changing ownership on an already-existing Character.
+
+**Decision:** initial-owner-as-a-Draft-field is implemented as part of the Draft/binding tasks (`ODY-S04-103`), not duplicated into the ownership-command task (`ODY-S04-102`), which implements only the administrative `AssignPrimaryOwner`/co-owner/control-grant commands per `ADR-025` §4. This avoids two tasks each partially implementing "how a Character gets an owner."
+
+### 2.3 No dedicated content-catalog task
+
+Roadmap §13's mechanics (attribute/skill costs, ability/resource/anatomy definitions) are explicitly data-driven through the already-existing Content Block System (`10_Characters_And_Progression_Odyssey_VTT_v0.2.md` §38, `ADR-002`'s existing Content execution boundary) and through Ruleset-supplied cost/cap tables (`10_Characters_And_Progression_Odyssey_VTT_v0.2.md` §11.2/§14.1). None of roadmap §13.8's eleven steps or §13.9's exit criteria require a specific balanced content catalog (a specific skill list, a specific ability list, specific numeric costs) — they require the *mechanism* that consumes whatever catalog/Ruleset values are already pinned.
+
+**Decision:** no task in this backlog authors concrete skill/ability/class/Ruleset-cost catalogs. Every child task uses the smallest test-fixture content needed to prove its own mechanism (the same convention already used throughout `SLICE-00`–`03`), consistent with this task's own explicit exclusion (§5 of the governing ТЗ).
+
+## 3. Slice exit criteria
+
+`SLICE-04` (vertical-slice implementation) is complete only when all of the following, taken from roadmap §13.9 and restated as an independently checkable list, are proven with real evidence:
+
+1. No production code forces a Vehicle (or any other non-PC/NPC/Creature entity) into the Character aggregate.
+2. No `CharacterLevel` field or equivalent overall-level concept exists anywhere in the Character aggregate or its projections.
+3. A Character created from a `PersonalCharacterTemplate`/`CampaignCharacterTemplate` is provably independent from that template after a later template edit (`CAP-INV-006`).
+4. Only a MainGM-issued command can grant `DevelopmentPool` points (`GrantDevelopmentPoints`).
+5. An ordinary valid attribute/skill purchase applies immediately and does not require a separate GM-approval step.
+6. A duplicate purchase command (same `CommandId`) does not spend `DevelopmentPool` points twice.
+7. A given `CriticalSuccessEvidence` cannot be consumed by two different skill-5+ advancements.
+8. `AssignPrimaryOwner` requires a `ReasonCode` and produces a durable audit event (`CharacterPrimaryOwnerAssigned`).
+9. Two commands editing unrelated Character sections (for example, a biography edit and a resource recovery) can commit concurrently without a false conflict.
+10. Both `ArchiveCharacter` and a `Dead` transition preserve the Character's full event history, renderable via `CharacterHistoryProjection`.
+11. `.odchar` import creates a new `CharacterId` and lands as a new local Draft requiring fresh GM approval — never as an already-Active Character.
+12. A Character Ruleset migration that fails mid-application leaves the Character's prior state and `RulesetVersion` completely unchanged.
+13. The full roadmap §13.8 eleven-step scenario runs end-to-end as one reproducible automated test.
+14. Roadmap Milestone `M5`/`GATE-C — Character Playable` is confirmed closed by a dedicated acceptance/closure task with real, re-run evidence against criteria 1–13.
+
+Criterion 14 (`GATE-C` closure) is a milestone-gate statement, not itself a technical property — it is satisfied by this revision's own closure task (`ODY-S04-115`) confirming criteria 1–13 hold with real evidence, mirroring how `ODY-S02-015`/`ODY-S03-009` served the same role for their own slices.
+
+## 4. No new ADR needed
+
+Every question this backlog's own decomposition touches is already answered by `ADR-022` (Character aggregate/section revisions/history), `ADR-023` (Drafts/templates/approval), `ADR-024` (development economy/progression transactions), `ADR-025` (ownership/lifecycle/Ruleset migration), and the pre-existing substrate (`ADR-001`–`003`, `ADR-012`, `ADR-013`, `ADR-017`, `ADR-019`). This task performed only engineering decomposition — assigning already-decided architecture to concrete, ordered task contracts — not new architectural decision-making. No open architectural question was found during this analysis that would require a fifth ADR; none is proposed.
+
+If a future child task, once activated, discovers a genuine architectural gap no accepted ADR answers, that child task must stop and request a dedicated ADR task rather than deciding it inline — the same discipline `ADR-022`–`025` themselves already established for their own successors.
+
+## 5. Ordered backlog
+
+| Order | Task ID | Roadmap/product source | Title | Depends on | Planning mode | Primary result |
+|---:|---|---|---|---|---|---|
+| 1 | `ODY-S04-101` | `CAP-SLICE-01`; `ADR-022` §4–7 | Character Aggregate, Lifecycle Skeleton & SQLite Persistence | None | ExecPlan | The `Character` aggregate (`CharacterKind` PC/NPC/Creature, `LifecycleStatus` six-state enum wired structurally, `ApprovalState` Draft/Approved, identity/presentation/custom fields, `CharacterRevision`/section revisions, narrow section locks) plus its SQLite projection and a minimal `CharacterHistoryProjection` fed from `DomainEvents`, reusing `ADR-002`/`ADR-012` unmodified. No archive/delete/Dead/restore operations yet (`ODY-S04-110`/`111`) — only the state values and section-revision/lock plumbing they will later use. |
+| 2 | `ODY-S04-102` | `CAP-SLICE-01`/`05`; `ADR-025` §4 | Character Ownership — Primary Owner Assignment, Co-Owners & Control Grants | 101 | ExecPlan | `AssignPrimaryOwner` (mandatory reason, audit event, no silent change to co-owner/control state), `AddCharacterCoOwner`/`RemoveCharacterCoOwner`, `GrantPermanentCharacterControl`/`GrantTemporaryCharacterControl`/`RevokeCharacterControl`, all `Character.ManageOwnership`-gated per `ADR-019`'s existing role model. Confirms ownership/control both satisfy `ADR-019`'s "assigned character" condition. |
+| 3 | `ODY-S04-103` | `CAP-SLICE-02`; `ADR-023` §4–6 | Local Draft, Templates & Independent Copy | 101 | ExecPlan | `CreateLocalCharacterDraft`, `CreatePersonalCharacterTemplate`/`CreateCampaignCharacterTemplate`/`UpdateCharacterTemplate`/`ArchiveCharacterTemplate` (one `CharacterTemplate` aggregate, `TemplateScope`-distinguished), `BindDraftToCampaign` performing deep-copy-with-fresh-identifiers from a template (or blank) plus compatibility validation and `RulesetVersion` pinning. Initial `PrimaryOwnerUserId` is set here as an ordinary Draft field (section 2.2), not via `ODY-S04-102`. |
+| 4 | `ODY-S04-104` | `CAP-SLICE-02`; `ADR-023` §7 | Draft Submit/Review/Approve Workflow | 103 | ExecPlan | `SubmitCharacterDraft`, `AddCharacterReviewComment` (conflict-free append, no section revision required), `ApproveCharacterDraft` (`Character.Approve`, MainGM-only under `ADR-019`'s baseline) transitioning `ApprovalState: Draft -> Approved`/`LifecycleStatus: Draft -> Active` on the same `CharacterId` `ODY-S04-103` created. No `Reject`/`ChangesRequested` state (`ADR-023` §7.4). |
+| 5 | `ODY-S04-105` | `CAP-SLICE-03`; `ADR-024` §4–5 | `DevelopmentPool` & Attribute Purchases | 101, 104 | ExecPlan | `DevelopmentPool` as `Mechanics`-section ledger data (`ADR-024` §4), `GrantDevelopmentPoints` (MainGM-only), `PurchaseAttributeIncrease` with `AttributeValue`/`EffectiveValue` computation, Ruleset-driven cost/cap, one-transaction pool+entry+event+ledger commit, `CommandId`/`AppliedCommands` as the sole duplicate-spend guard (`ADR-024` §5). |
+| 6 | `ODY-S04-106` | `CAP-SLICE-03`; `ADR-024` §6–7.1 | Skill Purchases, Critical Evidence & Skill 5+ Recommendation | 105 | ExecPlan | `CharacterSkill` (no record for an unpossessed skill), `PurchaseSkillLevel` for levels below 5, `CriticalSuccessEvidence` with `UsedByAdvancementId` single-use guarded by its own revision, `RequestSkillAdvancedRecommendation`/`ResolveAdvancementRecommendation` implementing `ADR-024` §6.1's `Reserved`-then-convert-or-release pending workflow. |
+| 7 | `ODY-S04-107` | `CAP-SLICE-03`/`05`; `ADR-024` §6.2/§7.2 | Advancement Revert & `CharacterRespec` | 105, 106 | ExecPlan | `RevertAdvancementPurchase` as an `ADR-012` §6 compensating command with a dependency check; `PreviewCharacterRespec` (read-only Query) and `ApplyCharacterRespec` producing an inspectable ordered batch (`RespecReturn`/`RespecSpend`/reverted-purchase events grouped by `CharacterRespecCompleted`) per `ADR-024` §7.2. |
+| 8 | `ODY-S04-108` | `CAP-SLICE-04` | `CharacterAbility` Instances, Sources & Rank Modes | 101, 105 | ExecPlan | `AbilityDefinition` (Content Block System-published) vs. `CharacterAbility` instance split, `AcquireAbility`, source tracking (from-item vs. permanent-purchased), `RankMode` `None`/`Numeric`/`Named` validated independently, ability-from-item removal cascading correctly while a permanent purchased ability survives unequip. |
+| 9 | `ODY-S04-109` | `CAP-SLICE-04` | `CharacterResource` & `AnatomyProfile` | 101 | ExecPlan | Typed `CharacterResource` with computed effective maximum and typed `RecoveryRule` (including `None` = no automatic recovery), maximum-reduction correctly clamping current without a later increase restoring the lost current; `AnatomyProfile` snapshot decoupled from its source profile definition, individual anatomy modifications journaled, dependency preview before removing a body part with a dependent item. |
+| 10 | `ODY-S04-110` | `CAP-SLICE-05`; `ADR-025` §5 | Archive & Dependency-Aware Physical Delete | 101 | ExecPlan | `ArchiveCharacter` as an ordinary `Lifecycle`-section transition; `DeleteCharacterPermanently` (MainGM-only, host-revalidated dependency check against board/inventory/GameLog references, live-row-only removal, `DomainEvents` never deleted) proving `CharacterHistoryProjection` still renders a deleted Character's past via `ADR-022`'s existing historical snapshots. |
+| 11 | `ODY-S04-111` | `CAP-SLICE-05`; `ADR-025` §6 | Dead & `CharacterRestored` | 101 (108, 109 for full restore-state fixtures) | ExecPlan | `Dead` transition restricted to `HostSystem`(`FatalDamagePending`)/MainGM(`GMOverride`) issuers, using the `Lifecycle` section lock, leaving `ADR-024` reservations untouched; `RestoreDeadCharacter` as a forward `CharacterRestored` event (never compensating) with the GM's explicit chosen lifecycle/anatomy/resource/position state. |
+| 12 | `ODY-S04-112` | `CAP-SLICE-05`; `ADR-025` §7.6, `ADR-023` | `.odchar` Export & Import | 101, 103 | ExecPlan | `ExportCharacter` (permission-filtered, GM-only fields excluded without the right, secrets excluded); `ImportCharacter` reusing `ODY-S04-103`'s unmodified local-Draft/`BindDraftToCampaign` pipeline with the imported file as the seed source — fresh `CharacterId`/nested IDs, `RulesetVersion` re-pinned to the target campaign, lands as a new Draft requiring fresh approval. |
+| 13 | `ODY-S04-113` | `CAP-SLICE-05`; `ADR-025` §7.1–7.5 | Character Ruleset Migration | 101, 107 | ExecPlan | `PreviewCharacterRulesetMigration` (read-only Query building `CharacterRulesetMigrationPlan`) and `ApplyCharacterRulesetMigration` (one transaction; failure-before-commit rolls back via ordinary `ADR-012` atomicity); reverting an already-committed migration reuses `ODY-S04-107`'s compensating-batch pattern. Explicitly distinct from `ADR-013`'s schema migration runner. |
+| 14 | `ODY-S04-114` | Roadmap §13.8, all 11 steps | `SLICE-04` Vertical Slice Integration | 101–113 | Brief plan | The roadmap §13.8 eleven-step scenario as one automated, reproducible end-to-end test exercising every prior task's deliverable together — the same "integration proof, not a new feature" role `ODY-S01-013`/`ODY-S02-013`/`ODY-S03-008` played for their own slices. No new production code. |
+| 15 | `ODY-S04-115` | Roadmap §13.9/§13.10 | `SLICE-04` Acceptance and Closure Gate | 114 | Brief plan | Traceability matrix checking all 14 exit criteria in section 3 (including `GATE-C` closure) against real, re-run evidence from `ODY-S04-101`–`114`; records explicit product-owner acceptance, mirroring `ODY-S02-015`/`ODY-S03-009`'s closure pattern. |
+
+"Planning mode" for tasks 1–13 reflects the expectation that each changes a future public contract, persistence behavior, or authoritative lifecycle/economy semantics (matching every prerequisite ADR task's own precedent); each child task still makes and justifies its own Brief-plan-vs-ExecPlan decision per `PLANS.md` §1 when its own contract is authored, exactly as `SLICE-03_IMPLEMENTATION_BACKLOG.md` §4 already did for its own children. Tasks 14–15 are expected to be Brief plan, mirroring `ODY-S03-008`/`ODY-S03-009`'s own precedent (integration/closure tasks introduce no new architecture).
+
+No `ODY-S04-1XX` task contract file exists yet. Each is created and activated as its own separate task, one at a time, when picked up — not by this scaffold.
+
+## 6. Task boundaries
+
+### `ODY-S04-101` — Character Aggregate, Lifecycle Skeleton & SQLite Persistence
+
+Implements the `Character` aggregate itself per `ADR-022` §4 (one aggregate root, not several independent records), the six-state `LifecycleStatus` enum and `ApprovalState` Draft/Approved values as structural data (transition *legality* for archive/delete/Dead/restore is `ODY-S04-110`/`111`'s job — this task only ensures the field exists and the state machine's *allowed-transitions table* is enforced generically), identity/presentation/custom-field sections, `CharacterRevision`/section revisions and narrow section locks (`ADR-022` §5–6), and a minimal `CharacterHistoryProjection` rebuildable from `DomainEvents` (`ADR-022` §8). Does not implement Draft/template/approval (`ODY-S04-103`/`104`), development economy (`ODY-S04-105`–`107`), ability/resource/anatomy (`ODY-S04-108`/`109`), or any lifecycle-boundary operation (`ODY-S04-110`–`113`) beyond the state values themselves.
+
+### `ODY-S04-102` — Character Ownership — Primary Owner Assignment, Co-Owners & Control Grants
+
+Implements `ADR-025` §4's `Character.ManageOwnership`-gated commands: `AssignPrimaryOwner` (mandatory `ReasonCode`, `CharacterPrimaryOwnerAssigned` audit event, no silent change to `CoOwnerUserIds`/control grants), `AddCharacterCoOwner`/`RemoveCharacterCoOwner`, and `GrantPermanentCharacterControl`/`GrantTemporaryCharacterControl`/`RevokeCharacterControl`. Confirms both ownership and an active control grant satisfy `ADR-019`'s "assigned character" condition without redefining `ADR-019`. Does not implement the initial-owner-at-Draft-creation path (`ODY-S04-103`, section 2.2) or any delegation/`AssistantGM` mechanism (out of scope per `ADR-025` §8).
+
+### `ODY-S04-103` — Local Draft, Templates & Independent Copy
+
+Implements `ADR-023` §4–6: `CreateLocalCharacterDraft` (personal-profile boundary, no `CampaignId`/`CharacterId` yet), the single `CharacterTemplate` aggregate distinguished by `TemplateScope` (`CreatePersonalCharacterTemplate`/`CreateCampaignCharacterTemplate`/`UpdateCharacterTemplate`/`ArchiveCharacterTemplate`), and `BindDraftToCampaign` — deep value copy with freshly minted nested identifiers, `TemplateId`/`TemplateVersion` immutable provenance, synchronous compatibility validation, and `RulesetVersion` pinning to the target campaign. Sets the Draft's initial `PrimaryOwnerUserId` field per section 2.2. Does not implement submit/review/approve (`ODY-S04-104`) or `.odchar` import's own reuse of this pipeline (`ODY-S04-112`) beyond making the pipeline itself reusable.
+
+### `ODY-S04-104` — Draft Submit/Review/Approve Workflow
+
+Implements `ADR-023` §7: `SubmitCharacterDraft` (light revision check, `ApprovalState` remains `Draft`), `AddCharacterReviewComment` (no `ExpectedCharacterRevision` required, conflict-free append), and `ApproveCharacterDraft` (`Character.Approve`, MainGM-only, `LifecycleStatus: Draft -> Active`/`ApprovalState: Draft -> Approved` on the same `CharacterId`). Does not implement a `Reject`/`ChangesRequested` mechanism (explicitly excluded by `ADR-023` §7.4) or `AssistantGM`-delegated approval (`ADR-019`'s own deferred scope).
+
+### `ODY-S04-105` — `DevelopmentPool` & Attribute Purchases
+
+Implements `ADR-024` §4–5: `DevelopmentPool` as `Mechanics`-section ledger data inside the `ADR-022` Character aggregate (not a subordinate aggregate), `DevelopmentTransaction` as a co-committed ledger projection, `GrantDevelopmentPoints` (MainGM-only), and `PurchaseAttributeIncrease` — one-transaction pool+entry+event+ledger commit, `CommandId`/`AppliedCommands` as the sole idempotency mechanism, Ruleset-driven cost/cap validation, `AttributeValue.EffectiveValue` computed (never directly editable). Does not implement skill purchases/evidence/recommendation (`ODY-S04-106`) or revert/respec (`ODY-S04-107`).
+
+### `ODY-S04-106` — Skill Purchases, Critical Evidence & Skill 5+ Recommendation
+
+Implements `ADR-024` §6/§7.1: `CharacterSkill` (no record created for an unpossessed skill), `PurchaseSkillLevel` for levels below 5 reusing `ODY-S04-105`'s purchase pipeline, `CriticalSuccessEvidence` with single-use enforced via `UsedByAdvancementId` guarded by its own revision, and `RequestSkillAdvancedRecommendation`/`ResolveAdvancementRecommendation` implementing the `Reserved`-then-convert-or-release pending workflow (`ADR-002` §20-equivalent event pair). Does not implement revert/respec (`ODY-S04-107`).
+
+### `ODY-S04-107` — Advancement Revert & `CharacterRespec`
+
+Implements `ADR-024` §6.2/§7.2: `RevertAdvancementPurchase` as an `ADR-012` §6 compensating command with a dependency check (rejecting revert when a later purchase depends on the reverted value); `PreviewCharacterRespec` (read-only `Query`, no events) and `ApplyCharacterRespec` (one transaction, ordered `RespecReturn`/`RespecSpend`/reverted-purchase events grouped by one `CharacterRespecCompleted` event — not a single opaque event). Does not implement Character Ruleset migration's own reuse of this same compensating-batch shape (`ODY-S04-113`) beyond making the pattern itself reusable.
+
+### `ODY-S04-108` — `CharacterAbility` Instances, Sources & Rank Modes
+
+Implements the `AbilityDefinition`/`CharacterAbility` split (Content Block System-published definitions vs. Character-owned instances, `10_Characters_And_Progression_Odyssey_VTT_v0.2.md` §38), `AcquireAbility`, source tracking (an ability sourced from an item disappears when the item is removed; a permanent purchased ability survives unequip), and `RankMode` (`None`/`Numeric`/`Named`) validated independently per mode. Does not implement `CharacterResource`/`AnatomyProfile` (`ODY-S04-109`).
+
+### `ODY-S04-109` — `CharacterResource` & `AnatomyProfile`
+
+Implements typed `CharacterResource` (computed effective maximum, typed `RecoveryRule` including `None`), the maximum-reduction-clamps-current invariant (a later maximum increase does not restore lost current), and `AnatomyProfile` (an independent `CharacterAnatomy` snapshot decoupled from its source profile definition — editing the definition later does not change an already-created Character, individual anatomy modifications journaled, dependency preview before removing a body part with a dependent item). Does not implement `CharacterAbility` (`ODY-S04-108`).
+
+### `ODY-S04-110` — Archive & Dependency-Aware Physical Delete
+
+Implements `ADR-025` §5: `ArchiveCharacter` as an ordinary `Lifecycle`-section transition, and `DeleteCharacterPermanently` — MainGM-only, host-revalidated dependency check (board tokens, inventory/item references, GameLog references) rejecting on any blocking dependency with no partial state change, live-row-only removal (`DomainEvents` never deleted), and proof that `CharacterHistoryProjection` still renders the deleted Character's past purely from `ADR-022`'s already-required historical event snapshots. Does not implement Dead/restore (`ODY-S04-111`).
+
+### `ODY-S04-111` — Dead & `CharacterRestored`
+
+Implements `ADR-025` §6: the `Dead` transition restricted to `HostSystem`(`FatalDamagePending`)/MainGM(`GMOverride`) issuers using the `Lifecycle` section lock, confirming outstanding `ADR-024` reservations are untouched by the transition; `RestoreDeadCharacter` as a forward `CharacterRestored` event (never an `ADR-012` compensating event referencing the death event) with the GM's explicit chosen `LifecycleStatus`/anatomy/resource/position state. Full restore-state test fixtures reuse `ODY-S04-108`/`109`'s ability/resource/anatomy sections; the core Dead/Restore contract itself depends only on `ODY-S04-101`. Does not implement archive/physical delete (`ODY-S04-110`).
+
+### `ODY-S04-112` — `.odchar` Export & Import
+
+Implements `ADR-025` §7.6: `ExportCharacter` (permission-filtered — GM-only fields excluded without the right, secret tokens/credentials never included, Ruleset/definition references preserved) and `ImportCharacter`, reusing `ODY-S04-103`'s unmodified local-Draft/`BindDraftToCampaign` pipeline with the imported file as the seed source in place of a `CharacterTemplate` — fresh `CharacterId` and nested identifiers, `RulesetVersion` re-pinned to the target campaign at bind time (never carried over from the file uncompared), landing as a new Draft requiring fresh GM approval (`ODY-S04-104`'s pipeline, not reopened here). Does not define the `.odchar` file format itself beyond what this interaction requires (`ADR-025` §8's own exclusion).
+
+### `ODY-S04-113` — Character Ruleset Migration
+
+Implements `ADR-025` §7.1–7.5: `PreviewCharacterRulesetMigration` (read-only `Query` building `CharacterRulesetMigrationPlan` — `SourceRulesetVersion`/`TargetRulesetVersion`/`ValueChanges`/`DefinitionMappings`/`UnresolvedDecisions`/`PreviewHash`, no events, no mutation) and `ApplyCharacterRulesetMigration` (one `ADR-012` transaction; a failure before commit rolls back via ordinary transaction atomicity — no new rollback mechanism). Reverting an already-committed migration reuses `ODY-S04-107`'s compensating-batch pattern unmodified. Confirms the explicit boundary with `ADR-013`'s database schema migration runner (never routed through it). Does not implement a full-campaign backup requirement (optional, `ADR-025` §7.5 — only mandatory if an implementation chooses one, reusing `ADR-012`'s existing snapshot contract).
+
+### `ODY-S04-114` — `SLICE-04` Vertical Slice Integration
+
+Implements the roadmap §13.8 eleven-step scenario as a single, automated, reproducible end-to-end check exercising every prior task's deliverable together — the same "integration proof, not a new feature" role `ODY-S01-013`/`ODY-S02-013`/`ODY-S03-008` played for their own slices. Does not introduce new behavior beyond what `ODY-S04-101`–`113` already implement.
+
+### `ODY-S04-115` — `SLICE-04` Acceptance and Closure Gate
+
+Produces a traceability matrix and quality report mirroring `ODY-S02-015`/`ODY-S03-009`'s pattern, checks all 14 exit criteria in section 3 (including `GATE-C` milestone closure) against real evidence from `ODY-S04-101`–`114`, and records explicit product-owner acceptance. Does not implement new product behavior — closure/evidence only.
+
+## 7. Dependency rules
+
+- `ODY-S04-101` has no dependency — it is the foundational aggregate/persistence task every later task builds on.
+- `ODY-S04-102` depends on `ODY-S04-101` (needs the `Ownership` section to exist).
+- `ODY-S04-103` depends on `ODY-S04-101` (needs the Character aggregate to bind a Draft into) but not on `ODY-S04-102` (initial ownership is a Draft field, section 2.2).
+- `ODY-S04-104` depends on `ODY-S04-103` (needs a bound Draft to submit/review/approve).
+- `ODY-S04-105` depends on `ODY-S04-101` (aggregate/`Mechanics` section) and `ODY-S04-104` (purchases apply to an already-Active Character, roadmap §13.8 step 6 follows step 5).
+- `ODY-S04-106` depends on `ODY-S04-105` (reuses the purchase pipeline/`DevelopmentPool`).
+- `ODY-S04-107` depends on `ODY-S04-105` and `ODY-S04-106` (needs both attribute and skill purchases to exist to revert/respec meaningfully).
+- `ODY-S04-108` depends on `ODY-S04-101` (aggregate) and `ODY-S04-105` (a purchased ability consumes `DevelopmentPool`).
+- `ODY-S04-109` depends on `ODY-S04-101` only — resources/anatomy are independent of the development economy.
+- `ODY-S04-110` depends on `ODY-S04-101` (Lifecycle section).
+- `ODY-S04-111` depends on `ODY-S04-101`; full restore-state test fixtures additionally reuse `ODY-S04-108`/`109`'s sections, but the core contract does not require them to exist first.
+- `ODY-S04-112` depends on `ODY-S04-101` and `ODY-S04-103` (reuses the Draft-binding pipeline unmodified).
+- `ODY-S04-113` depends on `ODY-S04-101` and `ODY-S04-107` (reuses the compensating-batch pattern established there).
+- `ODY-S04-114` depends on all of `ODY-S04-101`–`113` (it is the integration proof exercising every prior deliverable together).
+- `ODY-S04-115` depends on `ODY-S04-114` (closure requires the integration proof to exist as evidence).
+
+## 8. Global non-goals
+
+This backlog revision excludes:
+
+- Any revision or amendment to `ADR-022`–`025` — all four remain accepted as-is; any child task discovering a genuine gap must stop and request a dedicated ADR task, not decide it inline (section 4).
+- Concrete content catalogs — specific skill/ability/class lists, balanced numeric Ruleset cost/cap tables — beyond the minimal test fixtures each child task needs (section 2.3).
+- `AssistantGM`, delegation, or any extension of `ADR-019`'s three-role baseline — remains `ADR-019`'s own future amendment scope, not reopened here.
+- The `.odchar` file format itself (concrete `manifest.json`/`character.json` schema) beyond what `ODY-S04-112`'s Draft-creation/`RulesetVersion`-pinning interaction requires.
+- Full production Character-sheet UI, template picker, or approval-review UI — `SLICE-10` scope; this vertical slice is implemented on the same minimal/test UI layer already used for `SLICE-01`–`03`.
+- Any change to `docs/tasks/SLICE-04_BACKLOG.md` (the closed prerequisite backlog) — it remains a historical artifact, referenced but not edited.
+- Full-text search, archive/export beyond `.odchar`, or any Game-Log-specific feature already scoped out of `SLICE-03`.
+
+## 9. Backlog change control
+
+- New work requires a new `ODY-S04-1XX` task contract; this document only reserves numbers `ODY-S04-101` through `ODY-S04-115`.
+- A task may be split before implementation by updating this backlog (and, if a governing ExecPlan exists for that specific child task, that ExecPlan too), following the same rule prior backlog revisions in this repository already use.
+- A task may not be merged with unrelated cleanup merely to reduce task count.
+- Completed task files move to `docs/tasks/completed/` only after required review, per the established convention in this repository.
+- This backlog does not replace any task's own acceptance criteria or any ADR's content; it does not itself decide any technical question beyond the three explicit scope decisions in section 2.
+- The predecessor `docs/tasks/SLICE-04_BACKLOG.md` (prerequisite ADR revision) is not rewritten by this document — it remains a closed, historical artifact.
+- If this document's section 2 narrowing decisions are later found incorrect or resolved sooner than expected, that is a new task/backlog-revision decision, not a silent edit to this document's already-recorded reasoning — this document would gain an explicit amendment note, not a rewritten section 2.
