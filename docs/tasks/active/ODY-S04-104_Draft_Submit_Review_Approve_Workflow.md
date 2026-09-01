@@ -5,7 +5,7 @@
 **Owner:** Codex (agent)
 **Requested by:** Product owner
 **Branch:** `feat/ody-s04-104-draft-submit-review-approve`
-**Pull request:** <to be filled after `gh pr create`>
+**Pull request:** [#88](https://github.com/odyssey-services/Odyssey_VTT/pull/88)
 **ExecPlan:** `docs/plans/active/ODY-S04-104_Draft_Submit_Review_Approve_Workflow.md`
 **Created:** 2026-09-01
 **Last updated:** 2026-09-01 UTC

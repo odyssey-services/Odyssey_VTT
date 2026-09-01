@@ -3,7 +3,7 @@
 **Status:** Active
 **Owner:** Codex (agent)
 **Branch:** `feat/ody-s04-104-draft-submit-review-approve`
-**Pull request:** <to be filled after `gh pr create`>
+**Pull request:** [#88](https://github.com/odyssey-services/Odyssey_VTT/pull/88)
 **Last updated:** 2026-09-01 UTC
 
 ## 1. Purpose and user-visible outcome
@@ -59,9 +59,9 @@ No Unity/UI code, no `ADR-022`/`023` content change, no `Reject`/`ChangesRequest
 - [x] `.\scripts\verify-format.ps1`.
 - [x] `docs/errors/ERROR_CODES.md` + `Tests/Metadata/test-catalog.json` entries (`TC-CHAR-028`–`037`).
 - [x] This task contract/ExecPlan, created before the final `check-repository-policy.ps1` pass.
-- [ ] `.\scripts\check-repository-policy.ps1` final green run.
-- [ ] `SLICE-04_IMPLEMENTATION_BACKLOG.md` status update.
-- [ ] Commit, push, and open Draft PR.
+- [x] `.\scripts\check-repository-policy.ps1` final green run.
+- [x] `SLICE-04_IMPLEMENTATION_BACKLOG.md` status update.
+- [x] Commit, push, and open Draft PR — [#88](https://github.com/odyssey-services/Odyssey_VTT/pull/88).
 - [ ] Record CI status.
 
 ## 6. Progress log
