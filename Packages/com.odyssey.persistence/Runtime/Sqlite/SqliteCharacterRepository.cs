@@ -53,6 +53,7 @@ namespace Odyssey.Persistence.Sqlite
             "odyssey.persistence.character_co_owner_removed",
             "odyssey.persistence.character_control_granted",
             "odyssey.persistence.character_control_revoked",
+            "odyssey.persistence.character_draft_bound",
         };
 
         public SqliteCharacterRepository(IWallClock clock)
@@ -97,12 +98,14 @@ namespace Odyssey.Persistence.Sqlite
                                 "CharacterRevision, IdentityRevision, PresentationRevision, CustomFieldsRevision, MechanicsRevision, " +
                                 "AttributeValuesRevision, CharacterSkillsRevision, CharacterAbilitiesRevision, CharacterResourcesRevision, " +
                                 "CharacterAnatomyRevision, OwnershipRevision, LifecycleRevision, RuntimeStateRevision, " +
+                                "RulesetVersion, AnatomyProfileRef, TemplateId, TemplateVersionAtCopyTime, SeedCopyJson, " +
                                 "CreatedAt, UpdatedAt, LastCommandId) VALUES (" +
                                 "$characterId, $campaignId, $characterKind, $lifecycleStatus, $approvalState, $displayName, NULL, " +
                                 "NULL, $coOwners, $permanentControllers, $temporaryGrants, " +
                                 "$characterRevision, $identityRevision, $presentationRevision, $customFieldsRevision, $mechanicsRevision, " +
                                 "$attributeValuesRevision, $characterSkillsRevision, $characterAbilitiesRevision, $characterResourcesRevision, " +
                                 "$characterAnatomyRevision, $ownershipRevision, $lifecycleRevision, $runtimeStateRevision, " +
+                                "'', NULL, NULL, NULL, '[]', " +
                                 "$createdAt, $updatedAt, $lastCommandId);";
                             insert.Parameters.AddWithValue("$characterId", characterId.ToString());
                             insert.Parameters.AddWithValue("$campaignId", campaign.CampaignId.ToString());
@@ -120,7 +123,11 @@ namespace Odyssey.Persistence.Sqlite
                             insert.ExecuteNonQuery();
                         }
 
-                        var record = new CharacterRecord(characterId, campaign.CampaignId, request.CharacterKind, lifecycleStatus, approvalState, request.DisplayName, null, ownership, revisions, now, now);
+                        // ODY-S04-101's own bare skeleton path -- no ruleset
+                        // pinning, no template, no initial owner. See
+                        // BindDraftToCampaign for the ADR-023-compliant real
+                        // creation path this task adds alongside it.
+                        var record = new CharacterRecord(characterId, campaign.CampaignId, request.CharacterKind, lifecycleStatus, approvalState, request.DisplayName, null, ownership, revisions, string.Empty, null, null, null, Array.Empty<CopiedCharacterSeedItem>(), now, now);
 
                         var payload = new JObject
                         {
@@ -133,6 +140,123 @@ namespace Odyssey.Persistence.Sqlite
 
                         return Result<PipelineWrite<CharacterRecord>>.Success(new PipelineWrite<CharacterRecord>(
                             record, "odyssey.persistence.character_created", payload.ToString(Newtonsoft.Json.Formatting.None), characterId.ToString(),
+                            aggregateType: "character", aggregateId: characterId.ToString(), aggregateRevision: revisions.CharacterRevision));
+                    });
+            }
+            catch (Exception ex) when (ex is IOException || ex is UnauthorizedAccessException || ex is SqliteException)
+            {
+                return Result<CharacterRecord>.Failure(PersistenceFailures.CharacterIoFailed(correlationId));
+            }
+        }
+
+        public Result<CharacterRecord> BindDraftToCampaign(BindDraftToCampaignRequest request, CommandId commandId, CorrelationId correlationId)
+        {
+            if (request == null) throw new ArgumentNullException(nameof(request));
+            if (!commandId.IsValid) throw new ArgumentException("CommandId is required.", nameof(commandId));
+
+            CampaignHandle campaign = request.Campaign;
+
+            // ADR-023 section 6.1: deterministic compatibility validation,
+            // rejected before any Character aggregate is created -- no
+            // partial state, no database write attempted at all when a
+            // template is used and incompatible.
+            if (request.Seed.TemplateId.HasValue)
+            {
+                bool compatible = CharacterTemplateCompatibility.IsCompatible(
+                    request.TemplateRulesetId!, request.TemplateRulesetVersion!,
+                    campaign.Manifest.RulesetId, campaign.Manifest.RulesetVersion);
+                if (!compatible)
+                {
+                    return Result<CharacterRecord>.Failure(PersistenceFailures.CharacterDraftRulesetIncompatible(correlationId));
+                }
+            }
+
+            try
+            {
+                using SqliteConnection connection = OpenConnection(campaign.RootPath);
+                EnsureCharacterTables(connection);
+                UtcInstant now = _clock.GetUtcNow();
+
+                return _pipeline.Execute(
+                    connection,
+                    campaign.CampaignId,
+                    commandId,
+                    correlationId,
+                    tryReplay: transaction => ReplayCharacter(connection, transaction, campaign.CampaignId, "LastCommandId = $commandId", commandId, correlationId),
+                    apply: transaction =>
+                    {
+                        CharacterId characterId = CharacterId.NewId(now);
+                        CharacterSectionRevisions revisions = CharacterSectionRevisions.Initial();
+                        // ADR-025 section 4.2's CAP-INV-007 administrative
+                        // reassignment is a separate concern (ODY-S04-102) --
+                        // this is the Draft's own initial owner, an ordinary
+                        // field set once at creation (backlog section 2.2).
+                        var ownership = new CharacterOwnership(request.InitialPrimaryOwnerUserId, Array.Empty<UserId>(), Array.Empty<UserId>(), Array.Empty<CharacterTemporaryControlGrant>());
+                        const CharacterLifecycleStatus lifecycleStatus = CharacterLifecycleStatus.Draft;
+                        const CharacterApprovalState approvalState = CharacterApprovalState.Draft;
+                        // ADR-023 section 6.2: pinned to the campaign's own
+                        // current ruleset version at this moment -- never the
+                        // template's own recorded RulesetVersion, and never
+                        // re-read later.
+                        string pinnedRulesetVersion = campaign.Manifest.RulesetVersion;
+
+                        using (var insert = connection.CreateCommand())
+                        {
+                            insert.Transaction = transaction;
+                            insert.CommandText = "INSERT INTO Character (" +
+                                "CharacterId, CampaignId, CharacterKind, LifecycleStatus, ApprovalState, DisplayName, PortraitReference, " +
+                                "PrimaryOwnerUserId, CoOwnerUserIdsJson, PermanentControllerUserIdsJson, TemporaryControlGrantsJson, " +
+                                "CharacterRevision, IdentityRevision, PresentationRevision, CustomFieldsRevision, MechanicsRevision, " +
+                                "AttributeValuesRevision, CharacterSkillsRevision, CharacterAbilitiesRevision, CharacterResourcesRevision, " +
+                                "CharacterAnatomyRevision, OwnershipRevision, LifecycleRevision, RuntimeStateRevision, " +
+                                "RulesetVersion, AnatomyProfileRef, TemplateId, TemplateVersionAtCopyTime, SeedCopyJson, " +
+                                "CreatedAt, UpdatedAt, LastCommandId) VALUES (" +
+                                "$characterId, $campaignId, $characterKind, $lifecycleStatus, $approvalState, $displayName, NULL, " +
+                                "$primaryOwnerUserId, $coOwners, $permanentControllers, $temporaryGrants, " +
+                                "$characterRevision, $identityRevision, $presentationRevision, $customFieldsRevision, $mechanicsRevision, " +
+                                "$attributeValuesRevision, $characterSkillsRevision, $characterAbilitiesRevision, $characterResourcesRevision, " +
+                                "$characterAnatomyRevision, $ownershipRevision, $lifecycleRevision, $runtimeStateRevision, " +
+                                "$rulesetVersion, $anatomyProfileRef, $templateId, $templateVersion, $seedCopyJson, " +
+                                "$createdAt, $updatedAt, $lastCommandId);";
+                            insert.Parameters.AddWithValue("$characterId", characterId.ToString());
+                            insert.Parameters.AddWithValue("$campaignId", campaign.CampaignId.ToString());
+                            insert.Parameters.AddWithValue("$characterKind", request.CharacterKind.ToString());
+                            insert.Parameters.AddWithValue("$lifecycleStatus", lifecycleStatus.ToString());
+                            insert.Parameters.AddWithValue("$approvalState", approvalState.ToString());
+                            insert.Parameters.AddWithValue("$displayName", request.DisplayName);
+                            insert.Parameters.AddWithValue("$primaryOwnerUserId", (object?)request.InitialPrimaryOwnerUserId?.ToString() ?? DBNull.Value);
+                            insert.Parameters.AddWithValue("$coOwners", SerializeUserIds(ownership.CoOwnerUserIds));
+                            insert.Parameters.AddWithValue("$permanentControllers", SerializeUserIds(ownership.PermanentControllerUserIds));
+                            insert.Parameters.AddWithValue("$temporaryGrants", SerializeGrants(ownership.TemporaryControlGrants));
+                            AddRevisionParameters(insert, revisions);
+                            insert.Parameters.AddWithValue("$rulesetVersion", pinnedRulesetVersion);
+                            insert.Parameters.AddWithValue("$anatomyProfileRef", request.AnatomyProfileRef);
+                            insert.Parameters.AddWithValue("$templateId", (object?)request.Seed.TemplateId?.ToString() ?? DBNull.Value);
+                            insert.Parameters.AddWithValue("$templateVersion", (object?)request.Seed.TemplateVersionAtCopyTime ?? DBNull.Value);
+                            insert.Parameters.AddWithValue("$seedCopyJson", SqliteLocalCharacterDraftRepository.SerializeSeedCopy(request.Seed.Items));
+                            insert.Parameters.AddWithValue("$createdAt", now.ToString());
+                            insert.Parameters.AddWithValue("$updatedAt", now.ToString());
+                            insert.Parameters.AddWithValue("$lastCommandId", commandId.ToString());
+                            insert.ExecuteNonQuery();
+                        }
+
+                        var record = new CharacterRecord(characterId, campaign.CampaignId, request.CharacterKind, lifecycleStatus, approvalState, request.DisplayName, null, ownership, revisions, pinnedRulesetVersion, request.AnatomyProfileRef, request.Seed.TemplateId, request.Seed.TemplateVersionAtCopyTime, request.Seed.Items, now, now);
+
+                        var payload = new JObject
+                        {
+                            ["characterId"] = characterId.ToString(),
+                            ["campaignId"] = campaign.CampaignId.ToString(),
+                            ["characterKind"] = request.CharacterKind.ToString(),
+                            ["displayNameSnapshot"] = request.DisplayName,
+                            ["rulesetVersion"] = pinnedRulesetVersion,
+                            ["templateId"] = request.Seed.TemplateId?.ToString(),
+                            ["templateVersionAtCopyTime"] = request.Seed.TemplateVersionAtCopyTime,
+                            ["initialPrimaryOwnerUserId"] = request.InitialPrimaryOwnerUserId?.ToString(),
+                            ["newCharacterRevision"] = revisions.CharacterRevision,
+                        };
+
+                        return Result<PipelineWrite<CharacterRecord>>.Success(new PipelineWrite<CharacterRecord>(
+                            record, "odyssey.persistence.character_draft_bound", payload.ToString(Newtonsoft.Json.Formatting.None), characterId.ToString(),
                             aggregateType: "character", aggregateId: characterId.ToString(), aggregateRevision: revisions.CharacterRevision));
                     });
             }
@@ -225,7 +349,7 @@ namespace Odyssey.Persistence.Sqlite
                         }
 
                         CharacterSectionRevisions newRevisions = WithRevisions(current.Revisions, characterRevision: newCharacterRevision, identityRevision: newIdentityRevision);
-                        var record = new CharacterRecord(characterId, campaign.CampaignId, current.CharacterKind, current.LifecycleStatus, current.ApprovalState, newDisplayName, current.PortraitReference, current.Ownership, newRevisions, current.CreatedAt, now);
+                        var record = new CharacterRecord(characterId, campaign.CampaignId, current.CharacterKind, current.LifecycleStatus, current.ApprovalState, newDisplayName, current.PortraitReference, current.Ownership, newRevisions, current.RulesetVersion, current.AnatomyProfileRef, current.TemplateId, current.TemplateVersionAtCopyTime, current.SeedCopy, current.CreatedAt, now);
 
                         var payload = new JObject
                         {
@@ -298,7 +422,7 @@ namespace Odyssey.Persistence.Sqlite
                         }
 
                         CharacterSectionRevisions newRevisions = WithRevisions(current.Revisions, characterRevision: newCharacterRevision, presentationRevision: newPresentationRevision);
-                        var record = new CharacterRecord(characterId, campaign.CampaignId, current.CharacterKind, current.LifecycleStatus, current.ApprovalState, current.DisplayName, portraitReference, current.Ownership, newRevisions, current.CreatedAt, now);
+                        var record = new CharacterRecord(characterId, campaign.CampaignId, current.CharacterKind, current.LifecycleStatus, current.ApprovalState, current.DisplayName, portraitReference, current.Ownership, newRevisions, current.RulesetVersion, current.AnatomyProfileRef, current.TemplateId, current.TemplateVersionAtCopyTime, current.SeedCopy, current.CreatedAt, now);
 
                         var payload = new JObject
                         {
@@ -391,7 +515,7 @@ namespace Odyssey.Persistence.Sqlite
                         }
 
                         CharacterSectionRevisions newRevisions = WithRevisions(current.Revisions, characterRevision: newCharacterRevision, ownershipRevision: newOwnershipRevision);
-                        var record = new CharacterRecord(characterId, campaign.CampaignId, current.CharacterKind, current.LifecycleStatus, current.ApprovalState, current.DisplayName, current.PortraitReference, newOwnership, newRevisions, current.CreatedAt, now);
+                        var record = new CharacterRecord(characterId, campaign.CampaignId, current.CharacterKind, current.LifecycleStatus, current.ApprovalState, current.DisplayName, current.PortraitReference, newOwnership, newRevisions, current.RulesetVersion, current.AnatomyProfileRef, current.TemplateId, current.TemplateVersionAtCopyTime, current.SeedCopy, current.CreatedAt, now);
 
                         var payload = new JObject
                         {
@@ -600,7 +724,7 @@ namespace Odyssey.Persistence.Sqlite
                         }
 
                         CharacterSectionRevisions newRevisions = WithRevisions(current.Revisions, characterRevision: newCharacterRevision, ownershipRevision: newOwnershipRevision);
-                        var record = new CharacterRecord(characterId, campaign.CampaignId, current.CharacterKind, current.LifecycleStatus, current.ApprovalState, current.DisplayName, current.PortraitReference, newOwnership, newRevisions, current.CreatedAt, now);
+                        var record = new CharacterRecord(characterId, campaign.CampaignId, current.CharacterKind, current.LifecycleStatus, current.ApprovalState, current.DisplayName, current.PortraitReference, newOwnership, newRevisions, current.RulesetVersion, current.AnatomyProfileRef, current.TemplateId, current.TemplateVersionAtCopyTime, current.SeedCopy, current.CreatedAt, now);
 
                         payloadExtra["characterId"] = characterId.ToString();
                         payloadExtra["displayNameSnapshot"] = current.DisplayName;
@@ -723,7 +847,8 @@ namespace Odyssey.Persistence.Sqlite
             "PrimaryOwnerUserId, CoOwnerUserIdsJson, PermanentControllerUserIdsJson, TemporaryControlGrantsJson, " +
             "CharacterRevision, IdentityRevision, PresentationRevision, CustomFieldsRevision, MechanicsRevision, " +
             "AttributeValuesRevision, CharacterSkillsRevision, CharacterAbilitiesRevision, CharacterResourcesRevision, " +
-            "CharacterAnatomyRevision, OwnershipRevision, LifecycleRevision, RuntimeStateRevision, CreatedAt, UpdatedAt";
+            "CharacterAnatomyRevision, OwnershipRevision, LifecycleRevision, RuntimeStateRevision, " +
+            "RulesetVersion, AnatomyProfileRef, TemplateId, TemplateVersionAtCopyTime, SeedCopyJson, CreatedAt, UpdatedAt";
 
         /// <summary>
         /// ODY-S04-101/102: shared column-order contract for every SELECT
@@ -761,10 +886,15 @@ namespace Odyssey.Persistence.Sqlite
                 ownershipRevision: reader.GetInt64(21),
                 lifecycleRevision: reader.GetInt64(22),
                 runtimeStateRevision: reader.GetInt64(23));
-            UtcInstant createdAt = UtcInstant.Parse(reader.GetString(24));
-            UtcInstant updatedAt = UtcInstant.Parse(reader.GetString(25));
+            string rulesetVersion = reader.GetString(24);
+            string? anatomyProfileRef = reader.IsDBNull(25) ? null : reader.GetString(25);
+            CharacterTemplateId? templateId = reader.IsDBNull(26) ? (CharacterTemplateId?)null : CharacterTemplateId.Parse(reader.GetString(26));
+            long? templateVersionAtCopyTime = reader.IsDBNull(27) ? (long?)null : reader.GetInt64(27);
+            IReadOnlyList<CopiedCharacterSeedItem> seedCopy = SqliteLocalCharacterDraftRepository.DeserializeSeedCopy(reader.GetString(28));
+            UtcInstant createdAt = UtcInstant.Parse(reader.GetString(29));
+            UtcInstant updatedAt = UtcInstant.Parse(reader.GetString(30));
 
-            return new CharacterRecord(characterId, campaignId, characterKind, lifecycleStatus, approvalState, displayName, portraitReference, ownership, revisions, createdAt, updatedAt);
+            return new CharacterRecord(characterId, campaignId, characterKind, lifecycleStatus, approvalState, displayName, portraitReference, ownership, revisions, rulesetVersion, anatomyProfileRef, templateId, templateVersionAtCopyTime, seedCopy, createdAt, updatedAt);
         }
 
         private static void AddRevisionParameters(SqliteCommand command, CharacterSectionRevisions revisions)
@@ -866,7 +996,7 @@ namespace Odyssey.Persistence.Sqlite
         /// string field a plain string parsed explicitly by this
         /// repository's own <see cref="UtcInstant.Parse"/> only.
         /// </summary>
-        private static JToken ParseJsonPreservingStrings(string json)
+        internal static JToken ParseJsonPreservingStrings(string json)
         {
             using var stringReader = new StringReader(json);
             using var jsonReader = new Newtonsoft.Json.JsonTextReader(stringReader) { DateParseHandling = Newtonsoft.Json.DateParseHandling.None };
@@ -935,6 +1065,11 @@ CREATE TABLE IF NOT EXISTS Character (
     OwnershipRevision INTEGER NOT NULL,
     LifecycleRevision INTEGER NOT NULL,
     RuntimeStateRevision INTEGER NOT NULL,
+    RulesetVersion TEXT NOT NULL DEFAULT '',
+    AnatomyProfileRef TEXT,
+    TemplateId TEXT,
+    TemplateVersionAtCopyTime INTEGER,
+    SeedCopyJson TEXT NOT NULL DEFAULT '[]',
     CreatedAt TEXT NOT NULL,
     UpdatedAt TEXT NOT NULL,
     LastCommandId TEXT NOT NULL

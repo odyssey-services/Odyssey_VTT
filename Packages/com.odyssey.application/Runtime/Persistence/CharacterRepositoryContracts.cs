@@ -87,6 +87,83 @@ namespace Odyssey.Application.Persistence
 
         /// <summary>ODY-S04-102: ADR-025 section 4.3, <c>Character.ManageOwnership</c>-gated. Revokes both a permanent controller entry and/or a temporary grant for the given user, whichever is present.</summary>
         Result<CharacterRecord> RevokeCharacterControl(CampaignHandle campaign, CharacterId characterId, UserId controlUserId, bool actorIsMainGm, long expectedOwnershipRevision, CommandId commandId, CorrelationId correlationId);
+
+        /// <summary>
+        /// ODY-S04-103: ADR-023 section 4.2 -- creates exactly one, permanent
+        /// ADR-022 Character aggregate instance, at <c>LifecycleStatus=Draft</c>/
+        /// <c>ApprovalState=Draft</c>. This is the ADR-023-compliant real
+        /// creation path (deep-copy-with-fresh-identifiers, compatibility
+        /// validation, RulesetVersion pinning, initial owner) -- unlike
+        /// <see cref="CreateCharacter"/>, which remains ODY-S04-101's own
+        /// bare skeleton path, unmodified, so existing callers/tests are
+        /// unaffected. Per ADR-023 section 4.4, a GM-created, never-local
+        /// Draft is simply this same method invoked with
+        /// <see cref="CharacterCreationSeed.None"/> and no preceding
+        /// <c>CreateLocalCharacterDraft</c>.
+        /// </summary>
+        Result<CharacterRecord> BindDraftToCampaign(BindDraftToCampaignRequest request, CommandId commandId, CorrelationId correlationId);
+    }
+
+    /// <summary>
+    /// ODY-S04-103: ADR-023 section 4.2/6's inputs to
+    /// <see cref="ICharacterRepository.BindDraftToCampaign"/>. Product section
+    /// 8.2's minimum required fields are enforced here:
+    /// <see cref="DisplayName"/>/<see cref="CharacterKind"/>/
+    /// <see cref="AnatomyProfileRef"/> are always required, and
+    /// <see cref="InitialPrimaryOwnerUserId"/> is required exactly when
+    /// <see cref="CharacterKind"/> is <see cref="Character.CharacterKind.PlayerCharacter"/>
+    /// (backlog section 2.2 -- an ordinary Draft field, not
+    /// <c>AssignPrimaryOwner</c>). <see cref="TemplateRulesetId"/>/
+    /// <see cref="TemplateRulesetVersion"/> are required exactly when
+    /// <paramref name="seed"/> carries a <see cref="CharacterCreationSeed.TemplateId"/>
+    /// -- they are this request's own compatibility-validation inputs
+    /// (ADR-023 section 6.1), evaluated inside <c>BindDraftToCampaign</c>
+    /// itself, not by the caller.
+    /// </summary>
+    public sealed class BindDraftToCampaignRequest
+    {
+        public BindDraftToCampaignRequest(
+            CampaignHandle campaign,
+            CharacterKind characterKind,
+            string displayName,
+            string anatomyProfileRef,
+            UserId? initialPrimaryOwnerUserId,
+            CharacterCreationSeed seed,
+            string? templateRulesetId,
+            string? templateRulesetVersion)
+        {
+            if (campaign == null) throw new ArgumentNullException(nameof(campaign));
+            if (!Enum.IsDefined(typeof(CharacterKind), characterKind)) throw new ArgumentOutOfRangeException(nameof(characterKind));
+            if (string.IsNullOrWhiteSpace(displayName) || displayName.Length > 128) throw new ArgumentException("DisplayName is not safe.", nameof(displayName));
+            if (string.IsNullOrWhiteSpace(anatomyProfileRef)) throw new ArgumentException("AnatomyProfileRef is required.", nameof(anatomyProfileRef));
+            if (characterKind == CharacterKind.PlayerCharacter && (!initialPrimaryOwnerUserId.HasValue || !initialPrimaryOwnerUserId.Value.IsValid))
+            {
+                throw new ArgumentException("InitialPrimaryOwnerUserId is required for a PlayerCharacter.", nameof(initialPrimaryOwnerUserId));
+            }
+
+            Seed = seed ?? throw new ArgumentNullException(nameof(seed));
+            if (Seed.TemplateId.HasValue && (string.IsNullOrWhiteSpace(templateRulesetId) || string.IsNullOrWhiteSpace(templateRulesetVersion)))
+            {
+                throw new ArgumentException("TemplateRulesetId/TemplateRulesetVersion are required when the seed references a template.");
+            }
+
+            Campaign = campaign;
+            CharacterKind = characterKind;
+            DisplayName = displayName;
+            AnatomyProfileRef = anatomyProfileRef;
+            InitialPrimaryOwnerUserId = initialPrimaryOwnerUserId;
+            TemplateRulesetId = templateRulesetId;
+            TemplateRulesetVersion = templateRulesetVersion;
+        }
+
+        public CampaignHandle Campaign { get; }
+        public CharacterKind CharacterKind { get; }
+        public string DisplayName { get; }
+        public string AnatomyProfileRef { get; }
+        public UserId? InitialPrimaryOwnerUserId { get; }
+        public CharacterCreationSeed Seed { get; }
+        public string? TemplateRulesetId { get; }
+        public string? TemplateRulesetVersion { get; }
     }
 
     public sealed class CreateCharacterRequest
@@ -126,6 +203,11 @@ namespace Odyssey.Application.Persistence
             string? portraitReference,
             CharacterOwnership ownership,
             CharacterSectionRevisions revisions,
+            string rulesetVersion,
+            string? anatomyProfileRef,
+            CharacterTemplateId? templateId,
+            long? templateVersionAtCopyTime,
+            IReadOnlyList<CopiedCharacterSeedItem> seedCopy,
             UtcInstant createdAt,
             UtcInstant updatedAt)
         {
@@ -135,6 +217,7 @@ namespace Odyssey.Application.Persistence
             if (!Enum.IsDefined(typeof(CharacterLifecycleStatus), lifecycleStatus)) throw new ArgumentOutOfRangeException(nameof(lifecycleStatus));
             if (!Enum.IsDefined(typeof(CharacterApprovalState), approvalState)) throw new ArgumentOutOfRangeException(nameof(approvalState));
             if (string.IsNullOrWhiteSpace(displayName)) throw new ArgumentException("DisplayName is required.", nameof(displayName));
+            if (rulesetVersion == null) throw new ArgumentNullException(nameof(rulesetVersion));
 
             CharacterId = characterId;
             CampaignId = campaignId;
@@ -145,6 +228,11 @@ namespace Odyssey.Application.Persistence
             PortraitReference = portraitReference;
             Ownership = ownership ?? throw new ArgumentNullException(nameof(ownership));
             Revisions = revisions;
+            RulesetVersion = rulesetVersion;
+            AnatomyProfileRef = anatomyProfileRef;
+            TemplateId = templateId;
+            TemplateVersionAtCopyTime = templateVersionAtCopyTime;
+            SeedCopy = seedCopy ?? throw new ArgumentNullException(nameof(seedCopy));
             CreatedAt = createdAt;
             UpdatedAt = updatedAt;
         }
@@ -160,6 +248,27 @@ namespace Odyssey.Application.Persistence
         /// <summary>ODY-S04-102: ADR-022's already-reserved <c>Ownership</c> section content -- see <see cref="CharacterSectionRevisions.OwnershipRevision"/> for its revision counter.</summary>
         public CharacterOwnership Ownership { get; }
         public CharacterSectionRevisions Revisions { get; }
+
+        /// <summary>
+        /// ODY-S04-103: ADR-022 section 4's <c>CreationInfo</c> conceptual
+        /// area -- immutable metadata set once at creation (<see cref="CreateCharacter"/>
+        /// or <see cref="ICharacterRepository.BindDraftToCampaign"/>) and
+        /// never independently revised (ADR-022 section 5 reserves no
+        /// <c>CreationInfoRevision</c> counter). Empty string for a Character
+        /// created via <see cref="CreateCharacter"/> (ODY-S04-101's own bare
+        /// skeleton path, which pins no ruleset) -- always a real pinned
+        /// value (ADR-023 section 6.2) for one created via
+        /// <see cref="ICharacterRepository.BindDraftToCampaign"/>.
+        /// </summary>
+        public string RulesetVersion { get; }
+        public string? AnatomyProfileRef { get; }
+
+        /// <summary>ADR-023 section 5.3: immutable provenance only, never a live reference back to the source template.</summary>
+        public CharacterTemplateId? TemplateId { get; }
+        public long? TemplateVersionAtCopyTime { get; }
+
+        /// <summary>ADR-023 section 5.3's deep-copy-with-fresh-identifiers result, captured once at creation time. Empty for a blank Character/Draft.</summary>
+        public IReadOnlyList<CopiedCharacterSeedItem> SeedCopy { get; }
         public UtcInstant CreatedAt { get; }
         public UtcInstant UpdatedAt { get; }
     }
