@@ -213,6 +213,32 @@ namespace Odyssey.Application.Persistence
             RetryDirective.ManualRecoveryRequired,
             correlationId);
 
+        /// <summary>ODY-S04-101: <c>SqliteCharacterRepository</c>'s wrapper for Character file or SQLite I/O failures, mirroring <see cref="SceneIoFailed"/>'s exact convention for a new aggregate.</summary>
+        public static Error CharacterIoFailed(CorrelationId correlationId) => Error.Create(
+            ErrorCodes.PersistenceCharacterIoFailed,
+            ErrorCategory.PermanentInfrastructure,
+            SafeReasonCode.UnexpectedError,
+            UserMessageKey.Parse("errors.persistence.character_io_failed"),
+            RetryDirective.ManualRecoveryRequired,
+            correlationId);
+
+        public static Error CharacterNotFound(CorrelationId correlationId) => Error.Create(
+            ErrorCodes.PersistenceCharacterNotFound,
+            ErrorCategory.NotFound,
+            SafeReasonCode.TargetUnavailable,
+            UserMessageKey.Parse("errors.persistence.character_not_found"),
+            RetryDirective.DoNotRetry,
+            correlationId);
+
+        /// <summary>ODY-S04-101: ADR-022 section 5's per-section optimistic-concurrency guard, mirroring <see cref="TokenRevisionConflict"/>'s exact convention -- enforced atomically inside the affected section's own transaction, independent of any Application-layer pre-check.</summary>
+        public static Error CharacterRevisionConflict(CorrelationId correlationId) => Error.Create(
+            ErrorCodes.PersistenceCharacterRevisionConflict,
+            ErrorCategory.Conflict,
+            SafeReasonCode.StateChanged,
+            UserMessageKey.Parse("errors.persistence.character_revision_conflict"),
+            RetryDirective.DoNotRetry,
+            correlationId);
+
         // Used only by the codec's Read path (CampaignManifest.cs), which does not
         // receive a caller CorrelationId; matches the existing SerializationFailures
         // placeholder-correlation convention for codec-level structural failures.

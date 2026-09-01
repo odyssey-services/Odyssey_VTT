@@ -103,12 +103,22 @@ namespace Odyssey.Domain.Identity
 
         private CharacterId(string value) => _value = value;
         public bool IsValid => _value != null;
+
+        /// <summary>
+        /// ODY-S04-101: added alongside SceneId/TokenId/AssetId/BackupId's own
+        /// existing NewId factory -- Character is now an aggregate root minting
+        /// its own identity at creation time (ADR-022 section 4), the same
+        /// pattern those sibling identifiers already established.
+        /// </summary>
+        public static CharacterId NewId(Odyssey.Domain.Time.UtcInstant now) => new CharacterId(Prefix + Uuid7.NewHex32(now));
         public static bool TryParse(string? value, out CharacterId id) => CanonicalId.TryParse(value, Prefix, HexLength, out id, static v => new CharacterId(v));
         public static CharacterId Parse(string value) => TryParse(value, out CharacterId id) ? id : throw new FormatException("CharacterId is not canonical.");
         public override string ToString() => _value ?? string.Empty;
         public bool Equals(CharacterId other) => string.Equals(_value, other._value, StringComparison.Ordinal);
         public override bool Equals(object? obj) => obj is CharacterId other && Equals(other);
         public override int GetHashCode() => _value == null ? 0 : StringComparer.Ordinal.GetHashCode(_value);
+        public static bool operator ==(CharacterId left, CharacterId right) => left.Equals(right);
+        public static bool operator !=(CharacterId left, CharacterId right) => !left.Equals(right);
     }
 
     /// <summary>
