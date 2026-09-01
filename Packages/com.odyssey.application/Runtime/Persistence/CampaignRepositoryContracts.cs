@@ -257,6 +257,60 @@ namespace Odyssey.Application.Persistence
             RetryDirective.DoNotRetry,
             correlationId);
 
+        /// <summary>ODY-S04-103: <c>CharacterTemplate</c> lookup failure, mirroring <see cref="CharacterNotFound"/>'s exact convention for a sibling aggregate.</summary>
+        public static Error CharacterTemplateNotFound(CorrelationId correlationId) => Error.Create(
+            ErrorCodes.PersistenceCharacterTemplateNotFound,
+            ErrorCategory.NotFound,
+            SafeReasonCode.TargetUnavailable,
+            UserMessageKey.Parse("errors.persistence.character_template_not_found"),
+            RetryDirective.DoNotRetry,
+            correlationId);
+
+        /// <summary>ODY-S04-103: <c>CharacterTemplate</c> file or SQLite I/O failure, mirroring <see cref="CharacterIoFailed"/>'s exact convention.</summary>
+        public static Error CharacterTemplateIoFailed(CorrelationId correlationId) => Error.Create(
+            ErrorCodes.PersistenceCharacterTemplateIoFailed,
+            ErrorCategory.PermanentInfrastructure,
+            SafeReasonCode.UnexpectedError,
+            UserMessageKey.Parse("errors.persistence.character_template_io_failed"),
+            RetryDirective.ManualRecoveryRequired,
+            correlationId);
+
+        /// <summary>ODY-S04-103: product section 9.1's <c>Revision</c> optimistic-concurrency guard for <c>UpdateCharacterTemplate</c>/<c>ArchiveCharacterTemplate</c>, mirroring <see cref="CharacterRevisionConflict"/>'s exact convention.</summary>
+        public static Error CharacterTemplateRevisionConflict(CorrelationId correlationId) => Error.Create(
+            ErrorCodes.PersistenceCharacterTemplateRevisionConflict,
+            ErrorCategory.Conflict,
+            SafeReasonCode.StateChanged,
+            UserMessageKey.Parse("errors.persistence.character_template_revision_conflict"),
+            RetryDirective.DoNotRetry,
+            correlationId);
+
+        /// <summary>ODY-S04-103: ADR-023 section 4.1's local Draft lookup failure.</summary>
+        public static Error LocalCharacterDraftNotFound(CorrelationId correlationId) => Error.Create(
+            ErrorCodes.PersistenceLocalCharacterDraftNotFound,
+            ErrorCategory.NotFound,
+            SafeReasonCode.TargetUnavailable,
+            UserMessageKey.Parse("errors.persistence.local_character_draft_not_found"),
+            RetryDirective.DoNotRetry,
+            correlationId);
+
+        /// <summary>ODY-S04-103: local-profile-storage file or SQLite I/O failure, mirroring <see cref="CharacterIoFailed"/>'s exact convention for a different storage boundary.</summary>
+        public static Error LocalCharacterDraftIoFailed(CorrelationId correlationId) => Error.Create(
+            ErrorCodes.PersistenceLocalCharacterDraftIoFailed,
+            ErrorCategory.PermanentInfrastructure,
+            SafeReasonCode.UnexpectedError,
+            UserMessageKey.Parse("errors.persistence.local_character_draft_io_failed"),
+            RetryDirective.ManualRecoveryRequired,
+            correlationId);
+
+        /// <summary>ODY-S04-103: ADR-023 section 6.1 -- a template's ruleset is not usable with the target campaign's own pinned ruleset. Rejected before any Character aggregate is created (ADR-023 section 11 item 4).</summary>
+        public static Error CharacterDraftRulesetIncompatible(CorrelationId correlationId) => Error.Create(
+            ErrorCodes.PersistenceCharacterDraftRulesetIncompatible,
+            ErrorCategory.Validation,
+            SafeReasonCode.InvalidRequest,
+            UserMessageKey.Parse("errors.persistence.character_draft_ruleset_incompatible"),
+            RetryDirective.DoNotRetry,
+            correlationId);
+
         // Used only by the codec's Read path (CampaignManifest.cs), which does not
         // receive a caller CorrelationId; matches the existing SerializationFailures
         // placeholder-correlation convention for codec-level structural failures.

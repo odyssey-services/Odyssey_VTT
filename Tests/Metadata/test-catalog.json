@@ -2151,6 +2151,94 @@
                           "runner":  "dotnet test",
                           "path":  "DotNet/Tests/Odyssey.Tests.Persistence/SqliteCharacterRepositoryTests.cs",
                           "check":  "CharacterOwnershipAssignment.IsAssignedCharacter returns true for the primary owner and for a still-active temporary control grant, and false for a grant whose expiry has already passed and for an unrelated user"
+                      },
+                      {
+                          "testCaseId":  "TC-CHAR-017",
+                          "taskId":  "ODY-S04-103",
+                          "authority":  "ADR-023 section 4.1; 10_Characters_And_Progression section 8.2; ODY-S04-103",
+                          "runner":  "dotnet test",
+                          "path":  "DotNet/Tests/Odyssey.Tests.Persistence/CharacterTemplateAndDraftBindingTests.cs",
+                          "check":  "CreateLocalCharacterDraft with all required minimum fields (Name/CharacterKind/AnatomyProfileRef) succeeds and returns no TemplateId/SeedCopy for a blank Draft"
+                      },
+                      {
+                          "testCaseId":  "TC-CHAR-018",
+                          "taskId":  "ODY-S04-103",
+                          "authority":  "10_Characters_And_Progression section 8.2; ODY-S04-103",
+                          "runner":  "dotnet test",
+                          "path":  "DotNet/Tests/Odyssey.Tests.Persistence/CharacterTemplateAndDraftBindingTests.cs",
+                          "check":  "CreateLocalCharacterDraftRequest rejects a missing Name or a missing AnatomyProfileRef"
+                      },
+                      {
+                          "testCaseId":  "TC-CHAR-019",
+                          "taskId":  "ODY-S04-103",
+                          "authority":  "ADR-023 section 5.1/5.2; ODY-S04-103",
+                          "runner":  "dotnet test",
+                          "path":  "DotNet/Tests/Odyssey.Tests.Persistence/CharacterTemplateAndDraftBindingTests.cs",
+                          "check":  "CreatePersonalCharacterTemplate and CreateCampaignCharacterTemplate both persist through the single CharacterTemplate aggregate/table, distinguished only by TemplateScope, and are both independently retrievable"
+                      },
+                      {
+                          "testCaseId":  "TC-CHAR-020",
+                          "taskId":  "ODY-S04-103",
+                          "authority":  "ADR-023 section 4.2/5.3; ODY-S04-103",
+                          "runner":  "dotnet test",
+                          "path":  "DotNet/Tests/Odyssey.Tests.Persistence/CharacterTemplateAndDraftBindingTests.cs",
+                          "check":  "BindDraftToCampaign from a CampaignCharacterTemplate creates exactly one Character with a new CharacterId, and the copied nested seed item gets a fresh identifier distinct from the template's own source seed item id; two Characters bound from the same template never share a nested seed item id"
+                      },
+                      {
+                          "testCaseId":  "TC-CHAR-021",
+                          "taskId":  "ODY-S04-103",
+                          "authority":  "ADR-023 section 5.3; CAP-INV-006; ODY-S04-103",
+                          "runner":  "dotnet test",
+                          "path":  "DotNet/Tests/Odyssey.Tests.Persistence/CharacterTemplateAndDraftBindingTests.cs",
+                          "check":  "UpdateCharacterTemplate on the source template after BindDraftToCampaign has zero effect on the already-created Character's DisplayName, TemplateVersionAtCopyTime, or copied seed value"
+                      },
+                      {
+                          "testCaseId":  "TC-CHAR-022",
+                          "taskId":  "ODY-S04-103",
+                          "authority":  "ADR-023 section 6.1; ODY-S04-103",
+                          "runner":  "dotnet test",
+                          "path":  "DotNet/Tests/Odyssey.Tests.Persistence/CharacterTemplateAndDraftBindingTests.cs",
+                          "check":  "BindDraftToCampaign rejects an incompatible RulesetId or an incompatible major RulesetVersion with a typed CharacterDraftRulesetIncompatible error, before any Character row is created"
+                      },
+                      {
+                          "testCaseId":  "TC-CHAR-023",
+                          "taskId":  "ODY-S04-103",
+                          "authority":  "ADR-023 section 6.2; ODY-S04-103",
+                          "runner":  "dotnet test",
+                          "path":  "DotNet/Tests/Odyssey.Tests.Persistence/CharacterTemplateAndDraftBindingTests.cs",
+                          "check":  "The bound Character's RulesetVersion equals the campaign's own current RulesetVersion at bind time, not the compatible-but-different version recorded on the template reference"
+                      },
+                      {
+                          "testCaseId":  "TC-CHAR-024",
+                          "taskId":  "ODY-S04-103",
+                          "authority":  "backlog section 2.2; ADR-025 section 4.3 (IsAssignedCharacter reuse); ODY-S04-103",
+                          "runner":  "dotnet test",
+                          "path":  "DotNet/Tests/Odyssey.Tests.Persistence/CharacterTemplateAndDraftBindingTests.cs",
+                          "check":  "BindDraftToCampaign sets the initial PrimaryOwnerUserId as an ordinary Draft field, visible through the existing CharacterOwnership/IsAssignedCharacter mechanism; a PlayerCharacter without an initial owner is rejected at request construction, a non-PlayerCharacter does not require one"
+                      },
+                      {
+                          "testCaseId":  "TC-CHAR-025",
+                          "taskId":  "ODY-S04-103",
+                          "authority":  "ADR-002; ADR-023 section 11 item 7; ODY-S04-103",
+                          "runner":  "dotnet test",
+                          "path":  "DotNet/Tests/Odyssey.Tests.Persistence/CharacterTemplateAndDraftBindingTests.cs",
+                          "check":  "A duplicate BindDraftToCampaign CommandId replays the stored result and does not create a second Character"
+                      },
+                      {
+                          "testCaseId":  "TC-CHAR-026",
+                          "taskId":  "ODY-S04-103",
+                          "authority":  "ADR-023 section 5.3; ODY-S04-103",
+                          "runner":  "dotnet test",
+                          "path":  "DotNet/Tests/Odyssey.Tests.Persistence/CharacterTemplateAndDraftBindingTests.cs",
+                          "check":  "CreateLocalCharacterDraft from a Personal template deep-copies with fresh identifiers once, at Draft-creation time; BindDraftToCampaign carries the same already-copied seed item identifiers through unchanged rather than re-copying"
+                      },
+                      {
+                          "testCaseId":  "TC-CHAR-027",
+                          "taskId":  "ODY-S04-103",
+                          "authority":  "product section 9.1; ODY-S04-103",
+                          "runner":  "dotnet test",
+                          "path":  "DotNet/Tests/Odyssey.Tests.Persistence/CharacterTemplateAndDraftBindingTests.cs",
+                          "check":  "ArchiveCharacterTemplate transitions Status to Archived and a stale expectedRevision is rejected with CharacterTemplateRevisionConflict"
                       }
                   ]
 }

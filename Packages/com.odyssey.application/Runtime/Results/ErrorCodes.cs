@@ -37,6 +37,12 @@ namespace Odyssey.Application.Results
         public static readonly ErrorCode PersistenceCharacterRevisionConflict = ErrorCode.Parse("persistence.character.revision_conflict");
         public static readonly ErrorCode PersistenceCharacterOwnershipDenied = ErrorCode.Parse("persistence.character.ownership_denied");
         public static readonly ErrorCode PersistenceCharacterOwnershipReasonRequired = ErrorCode.Parse("persistence.character.ownership_reason_required");
+        public static readonly ErrorCode PersistenceCharacterTemplateNotFound = ErrorCode.Parse("persistence.character_template.not_found");
+        public static readonly ErrorCode PersistenceCharacterTemplateIoFailed = ErrorCode.Parse("persistence.character_template.io_failed");
+        public static readonly ErrorCode PersistenceCharacterTemplateRevisionConflict = ErrorCode.Parse("persistence.character_template.revision_conflict");
+        public static readonly ErrorCode PersistenceLocalCharacterDraftNotFound = ErrorCode.Parse("persistence.local_character_draft.not_found");
+        public static readonly ErrorCode PersistenceLocalCharacterDraftIoFailed = ErrorCode.Parse("persistence.local_character_draft.io_failed");
+        public static readonly ErrorCode PersistenceCharacterDraftRulesetIncompatible = ErrorCode.Parse("persistence.character_draft.ruleset_incompatible");
         public static readonly ErrorCode NetworkingTransportConnectFailed = ErrorCode.Parse("networking.transport.connect_failed");
         public static readonly ErrorCode NetworkingTransportConnectTimedOut = ErrorCode.Parse("networking.transport.connect_timed_out");
         public static readonly ErrorCode NetworkingProtocolVersionUnsupported = ErrorCode.Parse("networking.protocol.version_unsupported");

@@ -122,6 +122,85 @@ namespace Odyssey.Domain.Identity
     }
 
     /// <summary>
+    /// ODY-S04-103: identifies one <c>CharacterTemplate</c> aggregate row
+    /// (ADR-023 section 5.1) -- the single aggregate type shared by
+    /// <c>PersonalCharacterTemplate</c>/<c>CampaignCharacterTemplate</c>,
+    /// distinguished only by <c>TemplateScope</c>, not by identifier prefix.
+    /// </summary>
+    public readonly struct CharacterTemplateId : IEquatable<CharacterTemplateId>
+    {
+        private const string Prefix = "tmpl_";
+        private const int HexLength = 32;
+        private readonly string _value;
+
+        private CharacterTemplateId(string value) => _value = value;
+        public bool IsValid => _value != null;
+        public static CharacterTemplateId NewId(Odyssey.Domain.Time.UtcInstant now) => new CharacterTemplateId(Prefix + Uuid7.NewHex32(now));
+        public static bool TryParse(string? value, out CharacterTemplateId id) => CanonicalId.TryParse(value, Prefix, HexLength, out id, static v => new CharacterTemplateId(v));
+        public static CharacterTemplateId Parse(string value) => TryParse(value, out CharacterTemplateId id) ? id : throw new FormatException("CharacterTemplateId is not canonical.");
+        public override string ToString() => _value ?? string.Empty;
+        public bool Equals(CharacterTemplateId other) => string.Equals(_value, other._value, StringComparison.Ordinal);
+        public override bool Equals(object? obj) => obj is CharacterTemplateId other && Equals(other);
+        public override int GetHashCode() => _value == null ? 0 : StringComparer.Ordinal.GetHashCode(_value);
+        public static bool operator ==(CharacterTemplateId left, CharacterTemplateId right) => left.Equals(right);
+        public static bool operator !=(CharacterTemplateId left, CharacterTemplateId right) => !left.Equals(right);
+    }
+
+    /// <summary>
+    /// ODY-S04-103: identifies a local, pre-campaign-binding Draft (ADR-023
+    /// section 4.1). Deliberately a distinct prefix/identifier type from
+    /// <see cref="CharacterId"/> -- a local Draft is never an ADR-022
+    /// Character aggregate instance and never carries a <see cref="CharacterId"/>
+    /// before <c>BindDraftToCampaign</c>.
+    /// </summary>
+    public readonly struct LocalCharacterDraftId : IEquatable<LocalCharacterDraftId>
+    {
+        private const string Prefix = "draft_";
+        private const int HexLength = 32;
+        private readonly string _value;
+
+        private LocalCharacterDraftId(string value) => _value = value;
+        public bool IsValid => _value != null;
+        public static LocalCharacterDraftId NewId(Odyssey.Domain.Time.UtcInstant now) => new LocalCharacterDraftId(Prefix + Uuid7.NewHex32(now));
+        public static bool TryParse(string? value, out LocalCharacterDraftId id) => CanonicalId.TryParse(value, Prefix, HexLength, out id, static v => new LocalCharacterDraftId(v));
+        public static LocalCharacterDraftId Parse(string value) => TryParse(value, out LocalCharacterDraftId id) ? id : throw new FormatException("LocalCharacterDraftId is not canonical.");
+        public override string ToString() => _value ?? string.Empty;
+        public bool Equals(LocalCharacterDraftId other) => string.Equals(_value, other._value, StringComparison.Ordinal);
+        public override bool Equals(object? obj) => obj is LocalCharacterDraftId other && Equals(other);
+        public override int GetHashCode() => _value == null ? 0 : StringComparer.Ordinal.GetHashCode(_value);
+        public static bool operator ==(LocalCharacterDraftId left, LocalCharacterDraftId right) => left.Equals(right);
+        public static bool operator !=(LocalCharacterDraftId left, LocalCharacterDraftId right) => !left.Equals(right);
+    }
+
+    /// <summary>
+    /// ODY-S04-103: identifies one nested seed entry inside a
+    /// <c>CharacterTemplate</c>'s seed data (template-scoped), or one freshly
+    /// minted nested instance produced by
+    /// <c>CharacterTemplateSeedCopier.CopyWithFreshIdentifiers</c>
+    /// (Character/Draft-scoped) -- ADR-023 section 5.3's "mints a fresh
+    /// identifier for every nested instance." The same identifier shape is
+    /// reused for both the source and the copy; only the value differs.
+    /// </summary>
+    public readonly struct TemplateSeedItemId : IEquatable<TemplateSeedItemId>
+    {
+        private const string Prefix = "seed_";
+        private const int HexLength = 32;
+        private readonly string _value;
+
+        private TemplateSeedItemId(string value) => _value = value;
+        public bool IsValid => _value != null;
+        public static TemplateSeedItemId NewId(Odyssey.Domain.Time.UtcInstant now) => new TemplateSeedItemId(Prefix + Uuid7.NewHex32(now));
+        public static bool TryParse(string? value, out TemplateSeedItemId id) => CanonicalId.TryParse(value, Prefix, HexLength, out id, static v => new TemplateSeedItemId(v));
+        public static TemplateSeedItemId Parse(string value) => TryParse(value, out TemplateSeedItemId id) ? id : throw new FormatException("TemplateSeedItemId is not canonical.");
+        public override string ToString() => _value ?? string.Empty;
+        public bool Equals(TemplateSeedItemId other) => string.Equals(_value, other._value, StringComparison.Ordinal);
+        public override bool Equals(object? obj) => obj is TemplateSeedItemId other && Equals(other);
+        public override int GetHashCode() => _value == null ? 0 : StringComparer.Ordinal.GetHashCode(_value);
+        public static bool operator ==(TemplateSeedItemId left, TemplateSeedItemId right) => left.Equals(right);
+        public static bool operator !=(TemplateSeedItemId left, TemplateSeedItemId right) => !left.Equals(right);
+    }
+
+    /// <summary>
     /// ODY-S01-008 minimal domain model. Full Scene aggregate fields (BoardId,
     /// LayerDefinitions, FogSettings, PermissionOverrides, etc. per
     /// 03_Domain_Model section 10.1) are not implemented by this identifier or the
