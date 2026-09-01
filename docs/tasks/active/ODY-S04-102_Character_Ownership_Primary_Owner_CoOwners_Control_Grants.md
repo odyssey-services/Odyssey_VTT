@@ -5,7 +5,7 @@
 **Owner:** Codex (agent)
 **Requested by:** Product owner
 **Branch:** `feat/ody-s04-102-character-ownership`
-**Pull request:** <to be filled after `gh pr create`>
+**Pull request:** [#86](https://github.com/odyssey-services/Odyssey_VTT/pull/86)
 **ExecPlan:** `docs/plans/active/ODY-S04-102_Character_Ownership_Primary_Owner_CoOwners_Control_Grants.md`
 **Created:** 2026-09-01
 **Last updated:** 2026-09-01 UTC

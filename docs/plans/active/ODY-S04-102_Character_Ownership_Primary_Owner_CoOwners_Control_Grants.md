@@ -3,7 +3,7 @@
 **Status:** Active
 **Owner:** Codex (agent)
 **Branch:** `feat/ody-s04-102-character-ownership`
-**Pull request:** <to be filled after `gh pr create`>
+**Pull request:** [#86](https://github.com/odyssey-services/Odyssey_VTT/pull/86)
 **Last updated:** 2026-09-01 UTC
 
 ## 1. Purpose and user-visible outcome
@@ -63,7 +63,7 @@ No Unity/UI code, no `ADR-022`/`025` content change, no role-model extension.
 - [x] `.\scripts\verify-format.ps1`.
 - [x] `.\scripts\check-repository-policy.ps1`.
 - [x] `SLICE-04_IMPLEMENTATION_BACKLOG.md` status update.
-- [ ] Commit, push, and open Draft PR.
+- [x] Commit, push, and open Draft PR — [#86](https://github.com/odyssey-services/Odyssey_VTT/pull/86).
 - [ ] Record CI status.
 
 ## 6. Progress log
