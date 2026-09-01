@@ -5,7 +5,7 @@
 **Owner:** Codex (agent)
 **Requested by:** Product owner
 **Branch:** `feat/ody-s04-103-local-draft-templates`
-**Pull request:** <to be filled after `gh pr create`>
+**Pull request:** [#87](https://github.com/odyssey-services/Odyssey_VTT/pull/87)
 **ExecPlan:** `docs/plans/active/ODY-S04-103_Local_Draft_Templates_Independent_Copy.md`
 **Created:** 2026-09-01
 **Last updated:** 2026-09-01 UTC

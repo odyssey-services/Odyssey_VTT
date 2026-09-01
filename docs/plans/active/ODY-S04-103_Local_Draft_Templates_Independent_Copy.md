@@ -3,7 +3,7 @@
 **Status:** Active
 **Owner:** Codex (agent)
 **Branch:** `feat/ody-s04-103-local-draft-templates`
-**Pull request:** <to be filled after `gh pr create`>
+**Pull request:** [#87](https://github.com/odyssey-services/Odyssey_VTT/pull/87)
 **Last updated:** 2026-09-01 UTC
 
 ## 1. Purpose and user-visible outcome
@@ -64,9 +64,9 @@ No Unity/UI code, no `ADR-022`/`023` content change, no new permission gate.
 - [x] `.\scripts\verify-format.ps1`.
 - [x] `docs/errors/ERROR_CODES.md` + `Tests/Metadata/test-catalog.json` entries.
 - [x] This task contract, created before `check-repository-policy.ps1`'s `verify-test-structure.ps1`/`TC-ARCH-001` check (which requires a task contract file per referenced `taskId`) could pass.
-- [ ] `.\scripts\check-repository-policy.ps1` final green run.
-- [ ] `SLICE-04_IMPLEMENTATION_BACKLOG.md` status update.
-- [ ] Commit, push, and open Draft PR.
+- [x] `.\scripts\check-repository-policy.ps1` final green run.
+- [x] `SLICE-04_IMPLEMENTATION_BACKLOG.md` status update.
+- [x] Commit, push, and open Draft PR — [#87](https://github.com/odyssey-services/Odyssey_VTT/pull/87).
 - [ ] Record CI status.
 
 ## 6. Progress log
