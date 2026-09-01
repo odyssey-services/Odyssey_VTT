@@ -102,6 +102,82 @@ namespace Odyssey.Application.Persistence
         /// <c>CreateLocalCharacterDraft</c>.
         /// </summary>
         Result<CharacterRecord> BindDraftToCampaign(BindDraftToCampaignRequest request, CommandId commandId, CorrelationId correlationId);
+
+        /// <summary>
+        /// ODY-S04-104: ADR-023 section 7.1 -- a light revision check, not a
+        /// lock; does not change <see cref="CharacterApprovalState"/>. This
+        /// task's own decision for what is actually mutated: <see cref="CharacterRecord.SubmittedAt"/>,
+        /// gated by the <c>Lifecycle</c> section's own revision (the same
+        /// section key ADR-022 section 6 already reserves), since submitting
+        /// is a workflow-visibility fact about the Character as a whole, not
+        /// a value any other existing section already owns. Only legal while
+        /// <see cref="CharacterLifecycleStatus"/> is <see cref="Character.CharacterLifecycleStatus.Draft"/>.
+        /// </summary>
+        Result<CharacterRecord> SubmitCharacterDraft(CampaignHandle campaign, CharacterId characterId, long expectedLifecycleRevision, CommandId commandId, CorrelationId correlationId);
+
+        /// <summary>
+        /// ODY-S04-104: ADR-023 section 7.1 -- a conflict-free append,
+        /// architecturally the same shape as a <c>GameLogEntry</c> append
+        /// (ADR-002 section 17.1). Requires no <c>ExpectedCharacterRevision</c>/
+        /// section revision at all; never touches <see cref="CharacterRecord.Revisions"/>
+        /// and can never conflict with, or be conflicted by, any other
+        /// Character command.
+        /// </summary>
+        Result<CharacterReviewCommentRecord> AddCharacterReviewComment(CampaignHandle campaign, CharacterId characterId, UserId authorUserId, string text, CommandId commandId, CorrelationId correlationId);
+
+        /// <summary>
+        /// ODY-S04-104: ADR-023 section 7.1/7.3 -- <c>Character.Approve</c>,
+        /// MainGM-only (<paramref name="actorIsMainGm"/>, the same caller-
+        /// supplied-boolean convention <see cref="AssignPrimaryOwner"/> already
+        /// uses). Declares the expected <c>LifecycleRevision</c>. The sole
+        /// state-legality gate is <see cref="CharacterLifecycleTransitions.IsValidTransition"/>
+        /// on the current <see cref="CharacterLifecycleStatus"/> -&gt;
+        /// <see cref="Character.CharacterLifecycleStatus.Active"/> edge -- not a
+        /// duplicated ad hoc check -- so a repeat call on an already-<c>Active</c>
+        /// Character is rejected because that table's own same-status rule
+        /// returns false, not because of a separate business precondition.
+        /// <see cref="CharacterLifecycleStatus"/> and <see cref="CharacterApprovalState"/>
+        /// change together in the same <c>UPDATE</c> statement inside the
+        /// same transaction <see cref="SqliteSavingPipeline"/> already commits
+        /// atomically -- there is no intermediate state where one field
+        /// changed and the other did not.
+        /// </summary>
+        Result<CharacterRecord> ApproveCharacterDraft(CampaignHandle campaign, CharacterId characterId, bool actorIsMainGm, long expectedLifecycleRevision, CommandId commandId, CorrelationId correlationId);
+
+        /// <summary>ODY-S04-104: reads the full, ordered review-comment thread for one Character -- no audience/redaction filtering (product names no hidden-comment concept), matching <see cref="IGameLogRepository.ListGameLog"/>'s own "Persistence stores everything" convention.</summary>
+        Result<IReadOnlyList<CharacterReviewCommentRecord>> GetCharacterReviewComments(CampaignHandle campaign, CharacterId characterId, CorrelationId correlationId);
+    }
+
+    /// <summary>
+    /// ODY-S04-104: product section 8.4's <c>CharacterReviewComment</c>,
+    /// narrowed to what this task actually needs (no <c>ResolvedAt</c>
+    /// mutation command exists yet -- the field is carried for forward
+    /// compatibility with a future resolve-comment task, always <c>null</c>
+    /// from this task's own write path).
+    /// </summary>
+    public sealed class CharacterReviewCommentRecord
+    {
+        public CharacterReviewCommentRecord(CharacterReviewCommentId commentId, CharacterId characterId, UserId authorUserId, string text, UtcInstant createdAt, UtcInstant? resolvedAt)
+        {
+            if (!commentId.IsValid) throw new ArgumentException("CommentId is required.", nameof(commentId));
+            if (!characterId.IsValid) throw new ArgumentException("CharacterId is required.", nameof(characterId));
+            if (!authorUserId.IsValid) throw new ArgumentException("AuthorUserId is required.", nameof(authorUserId));
+            if (string.IsNullOrWhiteSpace(text) || text.Length > 2000) throw new ArgumentException("Text is not safe.", nameof(text));
+
+            CommentId = commentId;
+            CharacterId = characterId;
+            AuthorUserId = authorUserId;
+            Text = text;
+            CreatedAt = createdAt;
+            ResolvedAt = resolvedAt;
+        }
+
+        public CharacterReviewCommentId CommentId { get; }
+        public CharacterId CharacterId { get; }
+        public UserId AuthorUserId { get; }
+        public string Text { get; }
+        public UtcInstant CreatedAt { get; }
+        public UtcInstant? ResolvedAt { get; }
     }
 
     /// <summary>
@@ -208,6 +284,7 @@ namespace Odyssey.Application.Persistence
             CharacterTemplateId? templateId,
             long? templateVersionAtCopyTime,
             IReadOnlyList<CopiedCharacterSeedItem> seedCopy,
+            UtcInstant? submittedAt,
             UtcInstant createdAt,
             UtcInstant updatedAt)
         {
@@ -233,6 +310,7 @@ namespace Odyssey.Application.Persistence
             TemplateId = templateId;
             TemplateVersionAtCopyTime = templateVersionAtCopyTime;
             SeedCopy = seedCopy ?? throw new ArgumentNullException(nameof(seedCopy));
+            SubmittedAt = submittedAt;
             CreatedAt = createdAt;
             UpdatedAt = updatedAt;
         }
@@ -269,6 +347,9 @@ namespace Odyssey.Application.Persistence
 
         /// <summary>ADR-023 section 5.3's deep-copy-with-fresh-identifiers result, captured once at creation time. Empty for a blank Character/Draft.</summary>
         public IReadOnlyList<CopiedCharacterSeedItem> SeedCopy { get; }
+
+        /// <summary>ODY-S04-104: set by <see cref="ICharacterRepository.SubmitCharacterDraft"/>, gated by <see cref="CharacterSectionRevisions.LifecycleRevision"/>. Null until the Draft has been submitted for review at least once.</summary>
+        public UtcInstant? SubmittedAt { get; }
         public UtcInstant CreatedAt { get; }
         public UtcInstant UpdatedAt { get; }
     }
