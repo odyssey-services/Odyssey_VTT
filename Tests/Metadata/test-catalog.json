@@ -2023,6 +2023,70 @@
                           "runner":  "dotnet test",
                           "path":  "DotNet/Tests/Odyssey.Tests.Networking/Integration/VerticalSliceIntegrationTests.cs",
                           "check":  "Roadmap 11.6's full ten-step vertical slice (host starts session -> player joins by code -> role assigned -> scene delivered redacted -> token moved -> host validates -> two clients converge -> player disconnects -> reconnects -> resumes via catch-up without replaying the original command) runs end-to-end over real InProcessSessionTransport, composing ODY-S02-009 through 012's already-merged public APIs with no new production code"
+                      },
+                      {
+                          "testCaseId":  "TC-CHAR-001",
+                          "taskId":  "ODY-S04-101",
+                          "authority":  "ADR-022 section 4; ODY-S04-101",
+                          "runner":  "dotnet test",
+                          "path":  "DotNet/Tests/Odyssey.Tests.Persistence/SqliteCharacterRepositoryTests.cs",
+                          "check":  "CreateCharacter for every CharacterKind (PC/NPC/Creature) returns a Draft Character at CharacterRevision 1 with all twelve ADR-022 section 5 section revisions initialized"
+                      },
+                      {
+                          "testCaseId":  "TC-CHAR-002",
+                          "taskId":  "ODY-S04-101",
+                          "authority":  "ADR-022 section 4; ODY-S04-101",
+                          "runner":  "dotnet test",
+                          "path":  "DotNet/Tests/Odyssey.Tests.Persistence/SqliteCharacterRepositoryTests.cs",
+                          "check":  "GetCharacter against a CharacterId that was never created returns a typed CharacterNotFound error, not a raw exception"
+                      },
+                      {
+                          "testCaseId":  "TC-CHAR-003",
+                          "taskId":  "ODY-S04-101",
+                          "authority":  "ADR-022 section 5; ODY-S04-101",
+                          "runner":  "dotnet test",
+                          "path":  "DotNet/Tests/Odyssey.Tests.Persistence/SqliteCharacterRepositoryTests.cs",
+                          "check":  "UpdateIdentity called twice with the same now-stale expected IdentityRevision succeeds once and is rejected with CharacterRevisionConflict the second time, with no state change from the rejected call"
+                      },
+                      {
+                          "testCaseId":  "TC-CHAR-004",
+                          "taskId":  "ODY-S04-101",
+                          "authority":  "ADR-022 section 5; SLICE-04_IMPLEMENTATION_BACKLOG.md section 3 item 9; ODY-S04-101",
+                          "runner":  "dotnet test",
+                          "path":  "DotNet/Tests/Odyssey.Tests.Persistence/SqliteCharacterRepositoryTests.cs",
+                          "check":  "An Identity-section edit and a Presentation-section edit on the same Character both commit successfully with no false cross-section conflict, and CharacterRevision reflects both committed changes"
+                      },
+                      {
+                          "testCaseId":  "TC-CHAR-005",
+                          "taskId":  "ODY-S04-101",
+                          "authority":  "ADR-022 section 8; ODY-S04-101",
+                          "runner":  "dotnet test",
+                          "path":  "DotNet/Tests/Odyssey.Tests.Persistence/SqliteCharacterRepositoryTests.cs",
+                          "check":  "GetCharacterHistory, called on a fresh repository instance with no in-memory state of its own, rebuilds the full, correctly ordered history purely from the DomainEvents journal, and historical entries keep their own DisplayNameSnapshot after a later rename"
+                      },
+                      {
+                          "testCaseId":  "TC-CHAR-006",
+                          "taskId":  "ODY-S04-101",
+                          "authority":  "ADR-011 section 7.1; ADR-012 section 5; ODY-S04-101",
+                          "runner":  "dotnet test",
+                          "path":  "DotNet/Tests/Odyssey.Tests.Persistence/SqliteCharacterRepositoryTests.cs",
+                          "check":  "A created and edited Character, plus its rebuildable history, survive closing and reopening the campaign against a fresh repository instance reading from disk"
+                      },
+                      {
+                          "testCaseId":  "TC-CHAR-007",
+                          "taskId":  "ODY-S04-101",
+                          "authority":  "ADR-002 section 9.2; ADR-012 section 7.2; ODY-S04-101",
+                          "runner":  "dotnet test",
+                          "path":  "DotNet/Tests/Odyssey.Tests.Persistence/SqliteCharacterRepositoryTests.cs",
+                          "check":  "Redelivering CreateCharacter with the same CommandId replays the stored result and does not create a second Character or a second character_created history entry"
+                      },
+                      {
+                          "testCaseId":  "TC-CHAR-008",
+                          "taskId":  "ODY-S04-101",
+                          "authority":  "10_Characters_And_Progression section 7.1; ODY-S04-101",
+                          "runner":  "dotnet test",
+                          "path":  "DotNet/Tests/Odyssey.Tests.Domain/Character/CharacterLifecycleTransitionsTests.cs",
+                          "check":  "CharacterLifecycleTransitions.IsValidTransition returns true for every edge in product section 7.1's table and false for every non-table edge, including same-status no-ops"
                       }
                   ]
 }
