@@ -329,6 +329,42 @@ namespace Odyssey.Application.Persistence
             RetryDirective.DoNotRetry,
             correlationId);
 
+        /// <summary>ODY-S04-105: product section 12.2 -- <c>GrantDevelopmentPoints</c> is MainGM-only, mirroring <see cref="CharacterOwnershipDenied"/>'s exact convention for a different command.</summary>
+        public static Error CharacterDevelopmentGrantDenied(CorrelationId correlationId) => Error.Create(
+            ErrorCodes.PersistenceCharacterDevelopmentGrantDenied,
+            ErrorCategory.Authorization,
+            SafeReasonCode.PermissionDenied,
+            UserMessageKey.Parse("errors.persistence.character_development_grant_denied"),
+            RetryDirective.DoNotRetry,
+            correlationId);
+
+        /// <summary>ODY-S04-105: product section 13.1 -- <c>PurchaseAttributeIncrease</c> rejection when the actor is neither MainGM nor an assigned user of the Character.</summary>
+        public static Error CharacterDevelopmentPurchaseDenied(CorrelationId correlationId) => Error.Create(
+            ErrorCodes.PersistenceCharacterDevelopmentPurchaseDenied,
+            ErrorCategory.Authorization,
+            SafeReasonCode.PermissionDenied,
+            UserMessageKey.Parse("errors.persistence.character_development_purchase_denied"),
+            RetryDirective.DoNotRetry,
+            correlationId);
+
+        /// <summary>ODY-S04-105: ADR-024 section 5.1 step 2 -- insufficient <c>DevelopmentPool.Available</c> for the requested purchase; rejected with no state change.</summary>
+        public static Error CharacterDevelopmentInsufficientBalance(CorrelationId correlationId) => Error.Create(
+            ErrorCodes.PersistenceCharacterDevelopmentInsufficientBalance,
+            ErrorCategory.Validation,
+            SafeReasonCode.InvalidRequest,
+            UserMessageKey.Parse("errors.persistence.character_development_insufficient_balance"),
+            RetryDirective.DoNotRetry,
+            correlationId);
+
+        /// <summary>ODY-S04-105: product section 11.3 -- the requested attribute increase exceeds <c>NormalDevelopmentCap</c> with no applicable rule/ability/GM override (none exist yet in this codebase).</summary>
+        public static Error CharacterAttributeCapExceeded(CorrelationId correlationId) => Error.Create(
+            ErrorCodes.PersistenceCharacterAttributeCapExceeded,
+            ErrorCategory.Validation,
+            SafeReasonCode.InvalidRequest,
+            UserMessageKey.Parse("errors.persistence.character_attribute_cap_exceeded"),
+            RetryDirective.DoNotRetry,
+            correlationId);
+
         // Used only by the codec's Read path (CampaignManifest.cs), which does not
         // receive a caller CorrelationId; matches the existing SerializationFailures
         // placeholder-correlation convention for codec-level structural failures.

@@ -226,6 +226,31 @@ namespace Odyssey.Domain.Identity
     }
 
     /// <summary>
+    /// ODY-S04-105: identifies one <c>DevelopmentTransaction</c> ledger row
+    /// (ADR-024 section 3.2/4.3, product section 12.1). The row is a
+    /// rebuildable ledger projection, not a <c>DomainEvent</c> itself -- this
+    /// identifier only names one such row, not an event.
+    /// </summary>
+    public readonly struct DevelopmentTransactionId : IEquatable<DevelopmentTransactionId>
+    {
+        private const string Prefix = "dtxn_";
+        private const int HexLength = 32;
+        private readonly string _value;
+
+        private DevelopmentTransactionId(string value) => _value = value;
+        public bool IsValid => _value != null;
+        public static DevelopmentTransactionId NewId(Odyssey.Domain.Time.UtcInstant now) => new DevelopmentTransactionId(Prefix + Uuid7.NewHex32(now));
+        public static bool TryParse(string? value, out DevelopmentTransactionId id) => CanonicalId.TryParse(value, Prefix, HexLength, out id, static v => new DevelopmentTransactionId(v));
+        public static DevelopmentTransactionId Parse(string value) => TryParse(value, out DevelopmentTransactionId id) ? id : throw new FormatException("DevelopmentTransactionId is not canonical.");
+        public override string ToString() => _value ?? string.Empty;
+        public bool Equals(DevelopmentTransactionId other) => string.Equals(_value, other._value, StringComparison.Ordinal);
+        public override bool Equals(object? obj) => obj is DevelopmentTransactionId other && Equals(other);
+        public override int GetHashCode() => _value == null ? 0 : StringComparer.Ordinal.GetHashCode(_value);
+        public static bool operator ==(DevelopmentTransactionId left, DevelopmentTransactionId right) => left.Equals(right);
+        public static bool operator !=(DevelopmentTransactionId left, DevelopmentTransactionId right) => !left.Equals(right);
+    }
+
+    /// <summary>
     /// ODY-S01-008 minimal domain model. Full Scene aggregate fields (BoardId,
     /// LayerDefinitions, FogSettings, PermissionOverrides, etc. per
     /// 03_Domain_Model section 10.1) are not implemented by this identifier or the

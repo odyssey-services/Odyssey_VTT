@@ -2319,6 +2319,102 @@
                           "runner":  "dotnet test",
                           "path":  "DotNet/Tests/Odyssey.Tests.Persistence/CharacterDraftSubmitReviewApproveTests.cs",
                           "check":  "A stale expectedLifecycleRevision rejects ApproveCharacterDraft with CharacterRevisionConflict and no state change"
+                      },
+                      {
+                          "testCaseId":  "TC-CHAR-038",
+                          "taskId":  "ODY-S04-105",
+                          "authority":  "product section 12.2; ADR-024 section 4; ODY-S04-105",
+                          "runner":  "dotnet test",
+                          "path":  "DotNet/Tests/Odyssey.Tests.Persistence/CharacterDevelopmentPoolAttributePurchaseTests.cs",
+                          "check":  "GrantDevelopmentPoints by a non-MainGM actor is rejected"
+                      },
+                      {
+                          "testCaseId":  "TC-CHAR-039",
+                          "taskId":  "ODY-S04-105",
+                          "authority":  "product section 12.2; ADR-024 section 4.2; ODY-S04-105",
+                          "runner":  "dotnet test",
+                          "path":  "DotNet/Tests/Odyssey.Tests.Persistence/CharacterDevelopmentPoolAttributePurchaseTests.cs",
+                          "check":  "GrantDevelopmentPoints by MainGM increases DevelopmentPool.Earned/Available and advances MechanicsRevision"
+                      },
+                      {
+                          "testCaseId":  "TC-CHAR-040",
+                          "taskId":  "ODY-S04-105",
+                          "authority":  "ADR-024 section 5.1; product section 11; ODY-S04-105",
+                          "runner":  "dotnet test",
+                          "path":  "DotNet/Tests/Odyssey.Tests.Persistence/CharacterDevelopmentPoolAttributePurchaseTests.cs",
+                          "check":  "PurchaseAttributeIncrease with sufficient balance succeeds; balance decreases by the fixture cost, AttributeValue.BaseValue/EffectiveValue update correctly"
+                      },
+                      {
+                          "testCaseId":  "TC-CHAR-041",
+                          "taskId":  "ODY-S04-105",
+                          "authority":  "ADR-024 section 5.1 step 2; ODY-S04-105",
+                          "runner":  "dotnet test",
+                          "path":  "DotNet/Tests/Odyssey.Tests.Persistence/CharacterDevelopmentPoolAttributePurchaseTests.cs",
+                          "check":  "PurchaseAttributeIncrease with insufficient balance is rejected with CharacterDevelopmentInsufficientBalance; neither the pool nor the attribute is touched"
+                      },
+                      {
+                          "testCaseId":  "TC-CHAR-042",
+                          "taskId":  "ODY-S04-105",
+                          "authority":  "product section 11.3; ODY-S04-105",
+                          "runner":  "dotnet test",
+                          "path":  "DotNet/Tests/Odyssey.Tests.Persistence/CharacterDevelopmentPoolAttributePurchaseTests.cs",
+                          "check":  "PurchaseAttributeIncrease above NormalDevelopmentCap (fixture value 15) is rejected with CharacterAttributeCapExceeded"
+                      },
+                      {
+                          "testCaseId":  "TC-CHAR-043",
+                          "taskId":  "ODY-S04-105",
+                          "authority":  "ADR-024 section 5; ADR-002; ODY-S04-105",
+                          "runner":  "dotnet test",
+                          "path":  "DotNet/Tests/Odyssey.Tests.Persistence/CharacterDevelopmentPoolAttributePurchaseTests.cs",
+                          "check":  "A duplicate CommandId for PurchaseAttributeIncrease does not spend the balance a second time -- the real DevelopmentPool.Spent/Available values after replay are asserted directly, not just command rejection"
+                      },
+                      {
+                          "testCaseId":  "TC-CHAR-044",
+                          "taskId":  "ODY-S04-105",
+                          "authority":  "ADR-022 section 5; ODY-S04-105",
+                          "runner":  "dotnet test",
+                          "path":  "DotNet/Tests/Odyssey.Tests.Persistence/CharacterDevelopmentPoolAttributePurchaseTests.cs",
+                          "check":  "A Mechanics-section edit (GrantDevelopmentPoints) and an Identity-section edit commit concurrently without a false conflict"
+                      },
+                      {
+                          "testCaseId":  "TC-CHAR-045",
+                          "taskId":  "ODY-S04-105",
+                          "authority":  "ADR-022 section 5; ODY-S04-105",
+                          "runner":  "dotnet test",
+                          "path":  "DotNet/Tests/Odyssey.Tests.Persistence/CharacterDevelopmentPoolAttributePurchaseTests.cs",
+                          "check":  "A stale expectedMechanicsRevision rejects GrantDevelopmentPoints with CharacterRevisionConflict and no state change"
+                      },
+                      {
+                          "testCaseId":  "TC-CHAR-046",
+                          "taskId":  "ODY-S04-105",
+                          "authority":  "ADR-024 section 3.2/4.3; product section 12.1; ODY-S04-105",
+                          "runner":  "dotnet test",
+                          "path":  "DotNet/Tests/Odyssey.Tests.Persistence/CharacterDevelopmentPoolAttributePurchaseTests.cs",
+                          "check":  "GetDevelopmentLedger correctly reflects a Grant and a Spend transaction -- amount, Kind (accounting direction), and the addressed AttributeDefinitionId (SourceRef) for the Spend"
+                      },
+                      {
+                          "testCaseId":  "TC-CHAR-047",
+                          "taskId":  "ODY-S04-105",
+                          "authority":  "product section 13.1; ODY-S04-105",
+                          "runner":  "dotnet test",
+                          "path":  "DotNet/Tests/Odyssey.Tests.Persistence/CharacterDevelopmentPoolAttributePurchaseTests.cs",
+                          "check":  "PurchaseAttributeIncrease by an actor who is neither MainGM nor assigned to the Character is rejected with CharacterDevelopmentPurchaseDenied"
+                      },
+                      {
+                          "testCaseId":  "TC-CHAR-048",
+                          "taskId":  "ODY-S04-105",
+                          "authority":  "product section 13.1; ADR-025 section 4.3 (IsAssignedCharacter reuse); ODY-S04-105",
+                          "runner":  "dotnet test",
+                          "path":  "DotNet/Tests/Odyssey.Tests.Persistence/CharacterDevelopmentPoolAttributePurchaseTests.cs",
+                          "check":  "PurchaseAttributeIncrease by the Character's own assigned primary owner (not MainGM) succeeds, reusing ODY-S04-102's IsAssignedCharacter predicate rather than duplicating an ownership check"
+                      },
+                      {
+                          "testCaseId":  "TC-CHAR-049",
+                          "taskId":  "ODY-S04-105",
+                          "authority":  "ADR-024 section 4.2; ODY-S04-105",
+                          "runner":  "dotnet test",
+                          "path":  "DotNet/Tests/Odyssey.Tests.Persistence/CharacterDevelopmentPoolAttributePurchaseTests.cs",
+                          "check":  "A stale expectedAttributeRevision (the entry-level gate, independent of MechanicsRevision) rejects a second purchase against the same attribute with CharacterRevisionConflict"
                       }
                   ]
 }
