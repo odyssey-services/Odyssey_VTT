@@ -8,6 +8,7 @@ using Odyssey.Application.Results;
 using Odyssey.Application.Time;
 using Odyssey.Domain.Character;
 using Odyssey.Domain.Identity;
+using Odyssey.Domain.Time;
 using Odyssey.Persistence.Sqlite;
 
 namespace Odyssey.Tests.Persistence
@@ -26,6 +27,7 @@ namespace Odyssey.Tests.Persistence
         private static readonly IWallClock Clock = new SystemWallClock();
         private string _workDir = null!;
         private static CommandId NewCommandId() => CommandId.Parse("cmd_" + Guid.NewGuid().ToString("N"));
+        private static UserId NewUserId() => UserId.Parse("user_" + Guid.NewGuid().ToString("N"));
         private CampaignHandle _campaign = null!;
         private SqliteCampaignRepository _campaignRepository = null!;
 
@@ -254,6 +256,259 @@ namespace Odyssey.Tests.Persistence
             Assert.That(result.IsFailure, Is.True);
             Assert.That(result.Error.Code, Is.EqualTo(ErrorCodes.PersistenceCharacterNotFound));
             Assert.That(result.Error.Category, Is.EqualTo(ErrorCategory.NotFound));
+        }
+
+        [Test]
+        public void AssignPrimaryOwner_WithEmptyReasonCode_IsRejected_NoStateChange()
+        {
+            var repository = new SqliteCharacterRepository(Clock);
+            CharacterRecord created = repository.CreateCharacter(new CreateCharacterRequest(_campaign, CharacterKind.PlayerCharacter, "Owned Character"), NewCommandId(), TestCorrelationId).Value;
+            UserId newOwner = NewUserId();
+
+            Result<CharacterRecord> result = repository.AssignPrimaryOwner(_campaign, created.CharacterId, newOwner, reasonCode: "", actorIsMainGm: true, created.Revisions.OwnershipRevision, NewCommandId(), TestCorrelationId);
+
+            Assert.That(result.IsFailure, Is.True);
+            Assert.That(result.Error.Code, Is.EqualTo(ErrorCodes.PersistenceCharacterOwnershipReasonRequired));
+            Assert.That(result.Error.Category, Is.EqualTo(ErrorCategory.Validation));
+
+            CharacterRecord unchanged = repository.GetCharacter(_campaign, created.CharacterId, TestCorrelationId).Value;
+            Assert.That(unchanged.Ownership.PrimaryOwnerUserId, Is.Null, "a rejected AssignPrimaryOwner must not set an owner");
+            Assert.That(unchanged.Revisions.OwnershipRevision, Is.EqualTo(1));
+        }
+
+        [Test]
+        public void AssignPrimaryOwner_ByNonMainGm_IsRejected_NoStateChange()
+        {
+            var repository = new SqliteCharacterRepository(Clock);
+            CharacterRecord created = repository.CreateCharacter(new CreateCharacterRequest(_campaign, CharacterKind.PlayerCharacter, "Owned Character"), NewCommandId(), TestCorrelationId).Value;
+            UserId newOwner = NewUserId();
+
+            // Character.ManageOwnership is MainGM-only (ADR-025 section 4) --
+            // this asserts the gate is actually enforced by the repository
+            // method itself, not merely documented.
+            Result<CharacterRecord> result = repository.AssignPrimaryOwner(_campaign, created.CharacterId, newOwner, reasonCode: "GM decision", actorIsMainGm: false, created.Revisions.OwnershipRevision, NewCommandId(), TestCorrelationId);
+
+            Assert.That(result.IsFailure, Is.True);
+            Assert.That(result.Error.Code, Is.EqualTo(ErrorCodes.PersistenceCharacterOwnershipDenied));
+            Assert.That(result.Error.Category, Is.EqualTo(ErrorCategory.Authorization));
+
+            CharacterRecord unchanged = repository.GetCharacter(_campaign, created.CharacterId, TestCorrelationId).Value;
+            Assert.That(unchanged.Ownership.PrimaryOwnerUserId, Is.Null);
+        }
+
+        [TestCase(true)]
+        [TestCase(false)]
+        public void NonMainGmActor_IsRejected_ForEveryOwnershipCommand(bool actorIsMainGm)
+        {
+            // Parameterized to make the contrast explicit in test output:
+            // the same call succeeds when actorIsMainGm=true and is denied
+            // when actorIsMainGm=false, for every one of the five
+            // Character.ManageOwnership-gated commands beyond AssignPrimaryOwner.
+            var repository = new SqliteCharacterRepository(Clock);
+            CharacterRecord created = repository.CreateCharacter(new CreateCharacterRequest(_campaign, CharacterKind.PlayerCharacter, "Gate Test Character"), NewCommandId(), TestCorrelationId).Value;
+            UserId targetUser = NewUserId();
+
+            Result<CharacterRecord> addCoOwner = repository.AddCharacterCoOwner(_campaign, created.CharacterId, targetUser, actorIsMainGm, created.Revisions.OwnershipRevision, NewCommandId(), TestCorrelationId);
+            Assert.That(addCoOwner.IsSuccess, Is.EqualTo(actorIsMainGm));
+            if (!actorIsMainGm) Assert.That(addCoOwner.Error.Code, Is.EqualTo(ErrorCodes.PersistenceCharacterOwnershipDenied));
+        }
+
+        [Test]
+        public void AssignPrimaryOwner_ByMainGm_Succeeds_AuditedCorrectly_DoesNotChangeCoOwnersOrControl()
+        {
+            var repository = new SqliteCharacterRepository(Clock);
+            CharacterRecord created = repository.CreateCharacter(new CreateCharacterRequest(_campaign, CharacterKind.PlayerCharacter, "Owned Character"), NewCommandId(), TestCorrelationId).Value;
+            UserId existingCoOwner = NewUserId();
+            repository.AddCharacterCoOwner(_campaign, created.CharacterId, existingCoOwner, actorIsMainGm: true, created.Revisions.OwnershipRevision, NewCommandId(), TestCorrelationId);
+            UserId existingController = NewUserId();
+            CharacterRecord afterCoOwner = repository.GetCharacter(_campaign, created.CharacterId, TestCorrelationId).Value;
+            repository.GrantPermanentCharacterControl(_campaign, created.CharacterId, existingController, actorIsMainGm: true, afterCoOwner.Revisions.OwnershipRevision, NewCommandId(), TestCorrelationId);
+
+            CharacterRecord beforeAssign = repository.GetCharacter(_campaign, created.CharacterId, TestCorrelationId).Value;
+            UserId newOwner = NewUserId();
+
+            Result<CharacterRecord> result = repository.AssignPrimaryOwner(_campaign, created.CharacterId, newOwner, reasonCode: "Player left the table", actorIsMainGm: true, beforeAssign.Revisions.OwnershipRevision, NewCommandId(), TestCorrelationId);
+
+            Assert.That(result.IsSuccess, Is.True);
+            Assert.That(result.Value.Ownership.PrimaryOwnerUserId, Is.EqualTo(newOwner));
+
+            // CAP-INV-007: assigning a new owner must not silently touch
+            // co-owner/control grants already present.
+            Assert.That(result.Value.Ownership.CoOwnerUserIds, Does.Contain(existingCoOwner));
+            Assert.That(result.Value.Ownership.PermanentControllerUserIds, Does.Contain(existingController));
+
+            // Audit trail: a real, persisted event carries who/when/why.
+            Result<IReadOnlyList<CharacterHistoryEntry>> history = repository.GetCharacterHistory(_campaign, created.CharacterId, TestCorrelationId);
+            CharacterHistoryEntry auditEntry = Find(history.Value, "odyssey.persistence.character_primary_owner_assigned");
+            Assert.That(auditEntry.CharacterId, Is.EqualTo(created.CharacterId));
+        }
+
+        [Test]
+        public void AssignPrimaryOwner_WithStaleExpectedOwnershipRevision_IsRejected_NoStateChange()
+        {
+            var repository = new SqliteCharacterRepository(Clock);
+            CharacterRecord created = repository.CreateCharacter(new CreateCharacterRequest(_campaign, CharacterKind.PlayerCharacter, "Owned Character"), NewCommandId(), TestCorrelationId).Value;
+            UserId firstOwner = NewUserId();
+            repository.AssignPrimaryOwner(_campaign, created.CharacterId, firstOwner, "Initial assignment", actorIsMainGm: true, created.Revisions.OwnershipRevision, NewCommandId(), TestCorrelationId);
+
+            UserId secondOwner = NewUserId();
+            Result<CharacterRecord> staleAssign = repository.AssignPrimaryOwner(_campaign, created.CharacterId, secondOwner, "Should not apply", actorIsMainGm: true, created.Revisions.OwnershipRevision, NewCommandId(), TestCorrelationId);
+
+            Assert.That(staleAssign.IsFailure, Is.True);
+            Assert.That(staleAssign.Error.Code, Is.EqualTo(ErrorCodes.PersistenceCharacterRevisionConflict));
+
+            CharacterRecord unchanged = repository.GetCharacter(_campaign, created.CharacterId, TestCorrelationId).Value;
+            Assert.That(unchanged.Ownership.PrimaryOwnerUserId, Is.EqualTo(firstOwner), "the rejected stale-revision assignment must not have applied");
+        }
+
+        [Test]
+        public void ConcurrentEditsToOwnershipAndIdentity_BothCommit_NoFalseConflict()
+        {
+            // Direct extension of ODY-S04-101's own cross-section test to a
+            // third independent section (Ownership), reusing the exact same
+            // property under test: neither call declares or checks the
+            // other's section revision.
+            var repository = new SqliteCharacterRepository(Clock);
+            CharacterRecord created = repository.CreateCharacter(new CreateCharacterRequest(_campaign, CharacterKind.PlayerCharacter, "Original Name"), NewCommandId(), TestCorrelationId).Value;
+            UserId newOwner = NewUserId();
+
+            Result<CharacterRecord> identityResult = repository.UpdateIdentity(_campaign, created.CharacterId, "Renamed", created.Revisions.IdentityRevision, NewCommandId(), TestCorrelationId);
+            Result<CharacterRecord> ownershipResult = repository.AssignPrimaryOwner(_campaign, created.CharacterId, newOwner, "Initial owner", actorIsMainGm: true, created.Revisions.OwnershipRevision, NewCommandId(), TestCorrelationId);
+
+            Assert.That(identityResult.IsSuccess, Is.True, "an Identity edit must not be rejected by a concurrent, unrelated Ownership edit");
+            Assert.That(ownershipResult.IsSuccess, Is.True, "an Ownership edit must not be rejected by a concurrent, unrelated Identity edit");
+
+            CharacterRecord final = repository.GetCharacter(_campaign, created.CharacterId, TestCorrelationId).Value;
+            Assert.That(final.DisplayName, Is.EqualTo("Renamed"));
+            Assert.That(final.Ownership.PrimaryOwnerUserId, Is.EqualTo(newOwner));
+            Assert.That(final.Revisions.IdentityRevision, Is.EqualTo(2));
+            Assert.That(final.Revisions.OwnershipRevision, Is.EqualTo(2));
+        }
+
+        [Test]
+        public void AddCharacterCoOwner_CalledTwiceForSameUser_DoesNotCreateDuplicateEntry()
+        {
+            var repository = new SqliteCharacterRepository(Clock);
+            CharacterRecord created = repository.CreateCharacter(new CreateCharacterRequest(_campaign, CharacterKind.PlayerCharacter, "Co-owned Character"), NewCommandId(), TestCorrelationId).Value;
+            UserId coOwner = NewUserId();
+
+            Result<CharacterRecord> first = repository.AddCharacterCoOwner(_campaign, created.CharacterId, coOwner, actorIsMainGm: true, created.Revisions.OwnershipRevision, NewCommandId(), TestCorrelationId);
+            Assert.That(first.IsSuccess, Is.True);
+            Result<CharacterRecord> second = repository.AddCharacterCoOwner(_campaign, created.CharacterId, coOwner, actorIsMainGm: true, first.Value.Revisions.OwnershipRevision, NewCommandId(), TestCorrelationId);
+            Assert.That(second.IsSuccess, Is.True);
+
+            int occurrences = 0;
+            foreach (UserId id in second.Value.Ownership.CoOwnerUserIds)
+            {
+                if (id.Equals(coOwner)) occurrences++;
+            }
+
+            Assert.That(occurrences, Is.EqualTo(1), "adding the same co-owner twice must not create a duplicate list entry");
+        }
+
+        [Test]
+        public void RemoveCharacterCoOwner_RemovesExactlyThatUser()
+        {
+            var repository = new SqliteCharacterRepository(Clock);
+            CharacterRecord created = repository.CreateCharacter(new CreateCharacterRequest(_campaign, CharacterKind.PlayerCharacter, "Co-owned Character"), NewCommandId(), TestCorrelationId).Value;
+            UserId coOwnerA = NewUserId();
+            UserId coOwnerB = NewUserId();
+
+            CharacterRecord afterA = repository.AddCharacterCoOwner(_campaign, created.CharacterId, coOwnerA, actorIsMainGm: true, created.Revisions.OwnershipRevision, NewCommandId(), TestCorrelationId).Value;
+            CharacterRecord afterB = repository.AddCharacterCoOwner(_campaign, created.CharacterId, coOwnerB, actorIsMainGm: true, afterA.Revisions.OwnershipRevision, NewCommandId(), TestCorrelationId).Value;
+
+            Result<CharacterRecord> afterRemove = repository.RemoveCharacterCoOwner(_campaign, created.CharacterId, coOwnerA, actorIsMainGm: true, afterB.Revisions.OwnershipRevision, NewCommandId(), TestCorrelationId);
+
+            Assert.That(afterRemove.IsSuccess, Is.True);
+            Assert.That(afterRemove.Value.Ownership.CoOwnerUserIds, Does.Not.Contain(coOwnerA));
+            Assert.That(afterRemove.Value.Ownership.CoOwnerUserIds, Does.Contain(coOwnerB));
+        }
+
+        [Test]
+        public void GrantPermanentControl_ThenRevoke_RemovesController()
+        {
+            var repository = new SqliteCharacterRepository(Clock);
+            CharacterRecord created = repository.CreateCharacter(new CreateCharacterRequest(_campaign, CharacterKind.PlayerCharacter, "Controlled Character"), NewCommandId(), TestCorrelationId).Value;
+            UserId controller = NewUserId();
+
+            CharacterRecord afterGrant = repository.GrantPermanentCharacterControl(_campaign, created.CharacterId, controller, actorIsMainGm: true, created.Revisions.OwnershipRevision, NewCommandId(), TestCorrelationId).Value;
+            Assert.That(afterGrant.Ownership.PermanentControllerUserIds, Does.Contain(controller));
+
+            Result<CharacterRecord> afterRevoke = repository.RevokeCharacterControl(_campaign, created.CharacterId, controller, actorIsMainGm: true, afterGrant.Revisions.OwnershipRevision, NewCommandId(), TestCorrelationId);
+
+            Assert.That(afterRevoke.IsSuccess, Is.True);
+            Assert.That(afterRevoke.Value.Ownership.PermanentControllerUserIds, Does.Not.Contain(controller));
+        }
+
+        [Test]
+        public void GrantTemporaryControl_ThenRevoke_RemovesGrant()
+        {
+            var repository = new SqliteCharacterRepository(Clock);
+            CharacterRecord created = repository.CreateCharacter(new CreateCharacterRequest(_campaign, CharacterKind.PlayerCharacter, "Controlled Character"), NewCommandId(), TestCorrelationId).Value;
+            UserId controller = NewUserId();
+            UtcInstant expiresAt = UtcInstant.FromDateTimeOffset(DateTimeOffset.UtcNow.AddHours(1));
+
+            CharacterRecord afterGrant = repository.GrantTemporaryCharacterControl(_campaign, created.CharacterId, controller, expiresAt, actorIsMainGm: true, created.Revisions.OwnershipRevision, NewCommandId(), TestCorrelationId).Value;
+            Assert.That(afterGrant.Ownership.TemporaryControlGrants, Has.Count.EqualTo(1));
+            Assert.That(afterGrant.Ownership.TemporaryControlGrants[0].UserId, Is.EqualTo(controller));
+            Assert.That(afterGrant.Ownership.TemporaryControlGrants[0].ExpiresAt, Is.EqualTo(expiresAt));
+
+            Result<CharacterRecord> afterRevoke = repository.RevokeCharacterControl(_campaign, created.CharacterId, controller, actorIsMainGm: true, afterGrant.Revisions.OwnershipRevision, NewCommandId(), TestCorrelationId);
+
+            Assert.That(afterRevoke.IsSuccess, Is.True);
+            Assert.That(afterRevoke.Value.Ownership.TemporaryControlGrants, Is.Empty);
+        }
+
+        [Test]
+        public void IsAssignedCharacter_PrimaryOwnerAndActiveControlGrant_BothSatisfyAssignedCondition_UnrelatedUserDoesNot()
+        {
+            // ADR-025 section 4.3: ownership and an active control grant both
+            // satisfy ADR-019's "assigned character" condition. This test
+            // calls the one real, canonical predicate
+            // (CharacterOwnershipAssignment.IsAssignedCharacter) that any
+            // future Player-action-eligibility check against a Character
+            // must reuse, rather than re-deriving its own separate
+            // ownership/control logic.
+            var repository = new SqliteCharacterRepository(Clock);
+            CharacterRecord created = repository.CreateCharacter(new CreateCharacterRequest(_campaign, CharacterKind.PlayerCharacter, "Assigned Character"), NewCommandId(), TestCorrelationId).Value;
+
+            UserId owner = NewUserId();
+            CharacterRecord afterOwner = repository.AssignPrimaryOwner(_campaign, created.CharacterId, owner, "assign", actorIsMainGm: true, created.Revisions.OwnershipRevision, NewCommandId(), TestCorrelationId).Value;
+
+            // A grant's ExpiresAt can never precede its own GrantedAt (the
+            // domain constructor enforces this -- granting something already
+            // expired at grant time is nonsensical). The realistic "expired"
+            // scenario is a grant that was valid *when created* and has
+            // since lapsed -- simulated here by evaluating IsAssignedCharacter
+            // at a later "now" than a short-lived grant's own expiry, not by
+            // trying to construct an already-past-expiry grant directly.
+            UserId activeGrantee = NewUserId();
+            UtcInstant distantFuture = UtcInstant.FromDateTimeOffset(DateTimeOffset.UtcNow.AddHours(1));
+            CharacterRecord afterGrant = repository.GrantTemporaryCharacterControl(_campaign, created.CharacterId, activeGrantee, distantFuture, actorIsMainGm: true, afterOwner.Revisions.OwnershipRevision, NewCommandId(), TestCorrelationId).Value;
+
+            UserId expiredGrantee = NewUserId();
+            UtcInstant nearFuture = UtcInstant.FromDateTimeOffset(DateTimeOffset.UtcNow.AddSeconds(1));
+            CharacterRecord afterExpiredGrant = repository.GrantTemporaryCharacterControl(_campaign, created.CharacterId, expiredGrantee, nearFuture, actorIsMainGm: true, afterGrant.Revisions.OwnershipRevision, NewCommandId(), TestCorrelationId).Value;
+
+            // Between the two grants' expiries: after the 1-second grant has
+            // lapsed, but well before the 1-hour grant expires.
+            UtcInstant checkAsOfLater = UtcInstant.FromDateTimeOffset(DateTimeOffset.UtcNow.AddMinutes(5));
+            UserId unrelatedUser = NewUserId();
+
+            Assert.That(CharacterOwnershipAssignment.IsAssignedCharacter(afterExpiredGrant.Ownership, owner, checkAsOfLater), Is.True, "primary owner is an assigned character");
+            Assert.That(CharacterOwnershipAssignment.IsAssignedCharacter(afterExpiredGrant.Ownership, activeGrantee, checkAsOfLater), Is.True, "a temporary control grant expiring further in the future than the check time is an assigned character");
+            Assert.That(CharacterOwnershipAssignment.IsAssignedCharacter(afterExpiredGrant.Ownership, expiredGrantee, checkAsOfLater), Is.False, "a temporary control grant whose expiry has already passed by the check time is not an assigned character");
+            Assert.That(CharacterOwnershipAssignment.IsAssignedCharacter(afterExpiredGrant.Ownership, unrelatedUser, checkAsOfLater), Is.False, "a user with no ownership/control relationship is not an assigned character");
+        }
+
+        private static CharacterHistoryEntry Find(IReadOnlyList<CharacterHistoryEntry> entries, string eventType)
+        {
+            foreach (CharacterHistoryEntry entry in entries)
+            {
+                if (entry.EventType == eventType) return entry;
+            }
+
+            throw new InvalidOperationException("Expected history entry of type " + eventType + " not found.");
         }
 
         [Test]

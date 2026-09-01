@@ -14,20 +14,22 @@ using Odyssey.Domain.Time;
 namespace Odyssey.Persistence.Sqlite
 {
     /// <summary>
-    /// ODY-S04-101 implementation of <see cref="ICharacterRepository"/>. Mirrors
-    /// <see cref="SqliteSceneRepository"/>'s exact shape -- each method opens
-    /// its own short-lived connection under the ADR-011 section 7.1 PRAGMA
-    /// profile, every mutating method commits through the shared
+    /// ODY-S04-101/102 implementation of <see cref="ICharacterRepository"/>.
+    /// Mirrors <see cref="SqliteSceneRepository"/>'s exact shape -- each
+    /// method opens its own short-lived connection under the ADR-011 section
+    /// 7.1 PRAGMA profile, every mutating method commits through the shared
     /// <see cref="SqliteSavingPipeline"/> (current-state row + DomainEvent +
     /// AppliedCommands in one ADR-012 section 5 transaction).
     ///
     /// ADR-022 section 5's twelve section revisions are all real columns on
     /// the single <c>Character</c> row from creation onward (see
-    /// <c>EnsureCharacterTables</c>) -- this task's own commands
-    /// (<see cref="UpdateIdentity"/>/<see cref="UpdatePresentation"/>) only
-    /// ever touch <c>IdentityRevision</c>/<c>PresentationRevision</c> plus the
-    /// overall <c>CharacterRevision</c>; every other section revision is
-    /// reserved, unused schema for later tasks (ODY-S04-102/105-111).
+    /// <c>EnsureCharacterTables</c>). ODY-S04-101 wired Identity/Presentation;
+    /// ODY-S04-102 is the first task to actually use the <c>Ownership</c>
+    /// section -- <see cref="AssignPrimaryOwner"/>/co-owner/control-grant
+    /// commands each declare only <c>OwnershipRevision</c>, never any other
+    /// section's revision, following the exact same per-section-gating
+    /// pattern <see cref="UpdateIdentity"/>/<see cref="UpdatePresentation"/>
+    /// already established.
     ///
     /// <see cref="GetCharacterHistory"/> deliberately does not read from any
     /// dedicated, separately-maintained history table -- there is none. It
@@ -46,6 +48,11 @@ namespace Odyssey.Persistence.Sqlite
             "odyssey.persistence.character_created",
             "odyssey.persistence.character_identity_updated",
             "odyssey.persistence.character_presentation_updated",
+            "odyssey.persistence.character_primary_owner_assigned",
+            "odyssey.persistence.character_co_owner_added",
+            "odyssey.persistence.character_co_owner_removed",
+            "odyssey.persistence.character_control_granted",
+            "odyssey.persistence.character_control_revoked",
         };
 
         public SqliteCharacterRepository(IWallClock clock)
@@ -77,6 +84,7 @@ namespace Odyssey.Persistence.Sqlite
                     {
                         CharacterId characterId = CharacterId.NewId(now);
                         CharacterSectionRevisions revisions = CharacterSectionRevisions.Initial();
+                        CharacterOwnership ownership = CharacterOwnership.Empty();
                         const CharacterLifecycleStatus lifecycleStatus = CharacterLifecycleStatus.Draft;
                         const CharacterApprovalState approvalState = CharacterApprovalState.Draft;
 
@@ -85,11 +93,13 @@ namespace Odyssey.Persistence.Sqlite
                             insert.Transaction = transaction;
                             insert.CommandText = "INSERT INTO Character (" +
                                 "CharacterId, CampaignId, CharacterKind, LifecycleStatus, ApprovalState, DisplayName, PortraitReference, " +
+                                "PrimaryOwnerUserId, CoOwnerUserIdsJson, PermanentControllerUserIdsJson, TemporaryControlGrantsJson, " +
                                 "CharacterRevision, IdentityRevision, PresentationRevision, CustomFieldsRevision, MechanicsRevision, " +
                                 "AttributeValuesRevision, CharacterSkillsRevision, CharacterAbilitiesRevision, CharacterResourcesRevision, " +
                                 "CharacterAnatomyRevision, OwnershipRevision, LifecycleRevision, RuntimeStateRevision, " +
                                 "CreatedAt, UpdatedAt, LastCommandId) VALUES (" +
                                 "$characterId, $campaignId, $characterKind, $lifecycleStatus, $approvalState, $displayName, NULL, " +
+                                "NULL, $coOwners, $permanentControllers, $temporaryGrants, " +
                                 "$characterRevision, $identityRevision, $presentationRevision, $customFieldsRevision, $mechanicsRevision, " +
                                 "$attributeValuesRevision, $characterSkillsRevision, $characterAbilitiesRevision, $characterResourcesRevision, " +
                                 "$characterAnatomyRevision, $ownershipRevision, $lifecycleRevision, $runtimeStateRevision, " +
@@ -100,6 +110,9 @@ namespace Odyssey.Persistence.Sqlite
                             insert.Parameters.AddWithValue("$lifecycleStatus", lifecycleStatus.ToString());
                             insert.Parameters.AddWithValue("$approvalState", approvalState.ToString());
                             insert.Parameters.AddWithValue("$displayName", request.DisplayName);
+                            insert.Parameters.AddWithValue("$coOwners", SerializeUserIds(ownership.CoOwnerUserIds));
+                            insert.Parameters.AddWithValue("$permanentControllers", SerializeUserIds(ownership.PermanentControllerUserIds));
+                            insert.Parameters.AddWithValue("$temporaryGrants", SerializeGrants(ownership.TemporaryControlGrants));
                             AddRevisionParameters(insert, revisions);
                             insert.Parameters.AddWithValue("$createdAt", now.ToString());
                             insert.Parameters.AddWithValue("$updatedAt", now.ToString());
@@ -107,7 +120,7 @@ namespace Odyssey.Persistence.Sqlite
                             insert.ExecuteNonQuery();
                         }
 
-                        var record = new CharacterRecord(characterId, campaign.CampaignId, request.CharacterKind, lifecycleStatus, approvalState, request.DisplayName, null, revisions, now, now);
+                        var record = new CharacterRecord(characterId, campaign.CampaignId, request.CharacterKind, lifecycleStatus, approvalState, request.DisplayName, null, ownership, revisions, now, now);
 
                         var payload = new JObject
                         {
@@ -185,8 +198,9 @@ namespace Odyssey.Persistence.Sqlite
 
                         // ADR-022 section 5: only the Identity section's own
                         // revision gates this command -- a concurrent, already
-                        // committed Presentation edit (different section) is
-                        // never checked here and never blocks this one.
+                        // committed Presentation/Ownership edit (different
+                        // section) is never checked here and never blocks
+                        // this one.
                         if (current.Revisions.IdentityRevision != expectedIdentityRevision)
                         {
                             return Result<PipelineWrite<CharacterRecord>>.Failure(PersistenceFailures.CharacterRevisionConflict(correlationId));
@@ -210,8 +224,8 @@ namespace Odyssey.Persistence.Sqlite
                             update.ExecuteNonQuery();
                         }
 
-                        CharacterSectionRevisions newRevisions = WithIdentityRevision(current.Revisions, newIdentityRevision, newCharacterRevision);
-                        var record = new CharacterRecord(characterId, campaign.CampaignId, current.CharacterKind, current.LifecycleStatus, current.ApprovalState, newDisplayName, current.PortraitReference, newRevisions, current.CreatedAt, now);
+                        CharacterSectionRevisions newRevisions = WithRevisions(current.Revisions, characterRevision: newCharacterRevision, identityRevision: newIdentityRevision);
+                        var record = new CharacterRecord(characterId, campaign.CampaignId, current.CharacterKind, current.LifecycleStatus, current.ApprovalState, newDisplayName, current.PortraitReference, current.Ownership, newRevisions, current.CreatedAt, now);
 
                         var payload = new JObject
                         {
@@ -260,9 +274,7 @@ namespace Odyssey.Persistence.Sqlite
                         }
 
                         // ADR-022 section 5: only the Presentation section's
-                        // own revision gates this command -- a concurrent,
-                        // already committed Identity edit never blocks this
-                        // one, and this command never checks IdentityRevision.
+                        // own revision gates this command.
                         if (current.Revisions.PresentationRevision != expectedPresentationRevision)
                         {
                             return Result<PipelineWrite<CharacterRecord>>.Failure(PersistenceFailures.CharacterRevisionConflict(correlationId));
@@ -285,8 +297,8 @@ namespace Odyssey.Persistence.Sqlite
                             update.ExecuteNonQuery();
                         }
 
-                        CharacterSectionRevisions newRevisions = WithPresentationRevision(current.Revisions, newPresentationRevision, newCharacterRevision);
-                        var record = new CharacterRecord(characterId, campaign.CampaignId, current.CharacterKind, current.LifecycleStatus, current.ApprovalState, current.DisplayName, portraitReference, newRevisions, current.CreatedAt, now);
+                        CharacterSectionRevisions newRevisions = WithRevisions(current.Revisions, characterRevision: newCharacterRevision, presentationRevision: newPresentationRevision);
+                        var record = new CharacterRecord(characterId, campaign.CampaignId, current.CharacterKind, current.LifecycleStatus, current.ApprovalState, current.DisplayName, portraitReference, current.Ownership, newRevisions, current.CreatedAt, now);
 
                         var payload = new JObject
                         {
@@ -299,6 +311,304 @@ namespace Odyssey.Persistence.Sqlite
 
                         return Result<PipelineWrite<CharacterRecord>>.Success(new PipelineWrite<CharacterRecord>(
                             record, "odyssey.persistence.character_presentation_updated", payload.ToString(Newtonsoft.Json.Formatting.None), characterId.ToString(),
+                            aggregateType: "character", aggregateId: characterId.ToString(), aggregateRevision: newCharacterRevision));
+                    });
+            }
+            catch (Exception ex) when (ex is IOException || ex is UnauthorizedAccessException || ex is SqliteException)
+            {
+                return Result<CharacterRecord>.Failure(PersistenceFailures.CharacterIoFailed(correlationId));
+            }
+        }
+
+        public Result<CharacterRecord> AssignPrimaryOwner(CampaignHandle campaign, CharacterId characterId, UserId newPrimaryOwnerUserId, string reasonCode, bool actorIsMainGm, long expectedOwnershipRevision, CommandId commandId, CorrelationId correlationId)
+        {
+            if (campaign == null) throw new ArgumentNullException(nameof(campaign));
+            if (!characterId.IsValid) throw new ArgumentException("CharacterId is required.", nameof(characterId));
+            if (!newPrimaryOwnerUserId.IsValid) throw new ArgumentException("NewPrimaryOwnerUserId is required.", nameof(newPrimaryOwnerUserId));
+            if (expectedOwnershipRevision < 1) throw new ArgumentOutOfRangeException(nameof(expectedOwnershipRevision));
+            if (!commandId.IsValid) throw new ArgumentException("CommandId is required.", nameof(commandId));
+
+            // ADR-025 section 4.2: MainGM-only (CAP-INV-007) -- the same
+            // caller-supplied-boolean baseline BoardMovementService/
+            // DiceRollService already use, checked before touching the
+            // database at all.
+            if (!actorIsMainGm)
+            {
+                return Result<CharacterRecord>.Failure(PersistenceFailures.CharacterOwnershipDenied(correlationId));
+            }
+
+            if (string.IsNullOrWhiteSpace(reasonCode))
+            {
+                return Result<CharacterRecord>.Failure(PersistenceFailures.CharacterOwnershipReasonRequired(correlationId));
+            }
+
+            try
+            {
+                using SqliteConnection connection = OpenConnection(campaign.RootPath);
+                EnsureCharacterTables(connection);
+
+                return _pipeline.Execute(
+                    connection,
+                    campaign.CampaignId,
+                    commandId,
+                    correlationId,
+                    tryReplay: transaction => ReplayCharacter(connection, transaction, campaign.CampaignId, "CharacterId = $characterId AND LastCommandId = $commandId", commandId, correlationId, characterId),
+                    apply: transaction =>
+                    {
+                        CharacterRecord? current = SelectForUpdate(connection, transaction, characterId);
+                        if (current == null)
+                        {
+                            return Result<PipelineWrite<CharacterRecord>>.Failure(PersistenceFailures.CharacterNotFound(correlationId));
+                        }
+
+                        // ADR-022 section 5: only the Ownership section's own
+                        // revision gates this command.
+                        if (current.Revisions.OwnershipRevision != expectedOwnershipRevision)
+                        {
+                            return Result<PipelineWrite<CharacterRecord>>.Failure(PersistenceFailures.CharacterRevisionConflict(correlationId));
+                        }
+
+                        UtcInstant now = _clock.GetUtcNow();
+                        long newOwnershipRevision = current.Revisions.OwnershipRevision + 1;
+                        long newCharacterRevision = current.Revisions.CharacterRevision + 1;
+                        UserId? previousPrimaryOwnerUserId = current.Ownership.PrimaryOwnerUserId;
+
+                        // CAP-INV-007: never silently changes CoOwnerUserIds/
+                        // control grants -- only PrimaryOwnerUserId itself.
+                        var newOwnership = new CharacterOwnership(newPrimaryOwnerUserId, current.Ownership.CoOwnerUserIds, current.Ownership.PermanentControllerUserIds, current.Ownership.TemporaryControlGrants);
+
+                        using (var update = connection.CreateCommand())
+                        {
+                            update.Transaction = transaction;
+                            update.CommandText = "UPDATE Character SET PrimaryOwnerUserId = $primaryOwnerUserId, OwnershipRevision = $ownershipRevision, CharacterRevision = $characterRevision, UpdatedAt = $updatedAt, LastCommandId = $lastCommandId WHERE CharacterId = $characterId;";
+                            update.Parameters.AddWithValue("$primaryOwnerUserId", newPrimaryOwnerUserId.ToString());
+                            update.Parameters.AddWithValue("$ownershipRevision", newOwnershipRevision);
+                            update.Parameters.AddWithValue("$characterRevision", newCharacterRevision);
+                            update.Parameters.AddWithValue("$updatedAt", now.ToString());
+                            update.Parameters.AddWithValue("$lastCommandId", commandId.ToString());
+                            update.Parameters.AddWithValue("$characterId", characterId.ToString());
+                            update.ExecuteNonQuery();
+                        }
+
+                        CharacterSectionRevisions newRevisions = WithRevisions(current.Revisions, characterRevision: newCharacterRevision, ownershipRevision: newOwnershipRevision);
+                        var record = new CharacterRecord(characterId, campaign.CampaignId, current.CharacterKind, current.LifecycleStatus, current.ApprovalState, current.DisplayName, current.PortraitReference, newOwnership, newRevisions, current.CreatedAt, now);
+
+                        var payload = new JObject
+                        {
+                            ["characterId"] = characterId.ToString(),
+                            ["displayNameSnapshot"] = current.DisplayName,
+                            ["previousPrimaryOwnerUserId"] = previousPrimaryOwnerUserId?.ToString(),
+                            ["newPrimaryOwnerUserId"] = newPrimaryOwnerUserId.ToString(),
+                            ["reasonCode"] = reasonCode,
+                            ["newOwnershipRevision"] = newOwnershipRevision,
+                            ["newCharacterRevision"] = newCharacterRevision,
+                        };
+
+                        return Result<PipelineWrite<CharacterRecord>>.Success(new PipelineWrite<CharacterRecord>(
+                            record, "odyssey.persistence.character_primary_owner_assigned", payload.ToString(Newtonsoft.Json.Formatting.None), characterId.ToString(),
+                            aggregateType: "character", aggregateId: characterId.ToString(), aggregateRevision: newCharacterRevision));
+                    });
+            }
+            catch (Exception ex) when (ex is IOException || ex is UnauthorizedAccessException || ex is SqliteException)
+            {
+                return Result<CharacterRecord>.Failure(PersistenceFailures.CharacterIoFailed(correlationId));
+            }
+        }
+
+        public Result<CharacterRecord> AddCharacterCoOwner(CampaignHandle campaign, CharacterId characterId, UserId coOwnerUserId, bool actorIsMainGm, long expectedOwnershipRevision, CommandId commandId, CorrelationId correlationId)
+        {
+            return MutateOwnership(
+                campaign, characterId, actorIsMainGm, expectedOwnershipRevision, commandId, correlationId,
+                mutate: current =>
+                {
+                    var coOwners = new List<UserId>(current.Ownership.CoOwnerUserIds);
+                    if (!coOwners.Contains(coOwnerUserId))
+                    {
+                        // "A duplicate add does not create a duplicate entry"
+                        // (this task's own explicit requirement) -- the list
+                        // never holds the same UserId twice, regardless of how
+                        // many times this command is issued with different
+                        // CommandIds.
+                        coOwners.Add(coOwnerUserId);
+                    }
+
+                    return (
+                        new CharacterOwnership(current.Ownership.PrimaryOwnerUserId, coOwners, current.Ownership.PermanentControllerUserIds, current.Ownership.TemporaryControlGrants),
+                        "odyssey.persistence.character_co_owner_added",
+                        new JObject { ["coOwnerUserId"] = coOwnerUserId.ToString() });
+                });
+        }
+
+        public Result<CharacterRecord> RemoveCharacterCoOwner(CampaignHandle campaign, CharacterId characterId, UserId coOwnerUserId, bool actorIsMainGm, long expectedOwnershipRevision, CommandId commandId, CorrelationId correlationId)
+        {
+            return MutateOwnership(
+                campaign, characterId, actorIsMainGm, expectedOwnershipRevision, commandId, correlationId,
+                mutate: current =>
+                {
+                    var coOwners = new List<UserId>();
+                    foreach (UserId existing in current.Ownership.CoOwnerUserIds)
+                    {
+                        if (!existing.Equals(coOwnerUserId)) coOwners.Add(existing);
+                    }
+
+                    return (
+                        new CharacterOwnership(current.Ownership.PrimaryOwnerUserId, coOwners, current.Ownership.PermanentControllerUserIds, current.Ownership.TemporaryControlGrants),
+                        "odyssey.persistence.character_co_owner_removed",
+                        new JObject { ["coOwnerUserId"] = coOwnerUserId.ToString() });
+                });
+        }
+
+        public Result<CharacterRecord> GrantPermanentCharacterControl(CampaignHandle campaign, CharacterId characterId, UserId controlUserId, bool actorIsMainGm, long expectedOwnershipRevision, CommandId commandId, CorrelationId correlationId)
+        {
+            return MutateOwnership(
+                campaign, characterId, actorIsMainGm, expectedOwnershipRevision, commandId, correlationId,
+                mutate: current =>
+                {
+                    var controllers = new List<UserId>(current.Ownership.PermanentControllerUserIds);
+                    if (!controllers.Contains(controlUserId)) controllers.Add(controlUserId);
+
+                    return (
+                        new CharacterOwnership(current.Ownership.PrimaryOwnerUserId, current.Ownership.CoOwnerUserIds, controllers, current.Ownership.TemporaryControlGrants),
+                        "odyssey.persistence.character_control_granted",
+                        new JObject { ["controlUserId"] = controlUserId.ToString(), ["grantKind"] = "Permanent" });
+                });
+        }
+
+        public Result<CharacterRecord> GrantTemporaryCharacterControl(CampaignHandle campaign, CharacterId characterId, UserId controlUserId, UtcInstant? expiresAt, bool actorIsMainGm, long expectedOwnershipRevision, CommandId commandId, CorrelationId correlationId)
+        {
+            return MutateOwnership(
+                campaign, characterId, actorIsMainGm, expectedOwnershipRevision, commandId, correlationId,
+                mutate: current =>
+                {
+                    UtcInstant grantedAt = _clock.GetUtcNow();
+                    var grants = new List<CharacterTemporaryControlGrant>();
+                    foreach (CharacterTemporaryControlGrant existing in current.Ownership.TemporaryControlGrants)
+                    {
+                        // Replacing an existing grant for the same user rather
+                        // than accumulating two grants for one user, mirroring
+                        // the co-owner/permanent-controller de-duplication
+                        // convention above.
+                        if (!existing.UserId.Equals(controlUserId)) grants.Add(existing);
+                    }
+
+                    grants.Add(new CharacterTemporaryControlGrant(controlUserId, grantedAt, expiresAt));
+
+                    return (
+                        new CharacterOwnership(current.Ownership.PrimaryOwnerUserId, current.Ownership.CoOwnerUserIds, current.Ownership.PermanentControllerUserIds, grants),
+                        "odyssey.persistence.character_control_granted",
+                        new JObject { ["controlUserId"] = controlUserId.ToString(), ["grantKind"] = "Temporary", ["expiresAt"] = expiresAt?.ToString() });
+                });
+        }
+
+        public Result<CharacterRecord> RevokeCharacterControl(CampaignHandle campaign, CharacterId characterId, UserId controlUserId, bool actorIsMainGm, long expectedOwnershipRevision, CommandId commandId, CorrelationId correlationId)
+        {
+            return MutateOwnership(
+                campaign, characterId, actorIsMainGm, expectedOwnershipRevision, commandId, correlationId,
+                mutate: current =>
+                {
+                    var controllers = new List<UserId>();
+                    foreach (UserId existing in current.Ownership.PermanentControllerUserIds)
+                    {
+                        if (!existing.Equals(controlUserId)) controllers.Add(existing);
+                    }
+
+                    var grants = new List<CharacterTemporaryControlGrant>();
+                    foreach (CharacterTemporaryControlGrant existing in current.Ownership.TemporaryControlGrants)
+                    {
+                        if (!existing.UserId.Equals(controlUserId)) grants.Add(existing);
+                    }
+
+                    return (
+                        new CharacterOwnership(current.Ownership.PrimaryOwnerUserId, current.Ownership.CoOwnerUserIds, controllers, grants),
+                        "odyssey.persistence.character_control_revoked",
+                        new JObject { ["controlUserId"] = controlUserId.ToString() });
+                });
+        }
+
+        /// <summary>
+        /// ODY-S04-102: the shared shape every Ownership-section command
+        /// (except <see cref="AssignPrimaryOwner"/>, which additionally
+        /// requires a mandatory reason) follows -- MainGM-gate, load,
+        /// OwnershipRevision check, caller-supplied pure mutation of
+        /// <see cref="CharacterOwnership"/>, one transaction commit. Keeps
+        /// the five co-owner/control-grant commands from each re-implementing
+        /// the identical gate/load/check/commit sequence.
+        /// </summary>
+        private Result<CharacterRecord> MutateOwnership(
+            CampaignHandle campaign,
+            CharacterId characterId,
+            bool actorIsMainGm,
+            long expectedOwnershipRevision,
+            CommandId commandId,
+            CorrelationId correlationId,
+            Func<CharacterRecord, (CharacterOwnership NewOwnership, string EventType, JObject PayloadExtra)> mutate)
+        {
+            if (campaign == null) throw new ArgumentNullException(nameof(campaign));
+            if (!characterId.IsValid) throw new ArgumentException("CharacterId is required.", nameof(characterId));
+            if (expectedOwnershipRevision < 1) throw new ArgumentOutOfRangeException(nameof(expectedOwnershipRevision));
+            if (!commandId.IsValid) throw new ArgumentException("CommandId is required.", nameof(commandId));
+
+            if (!actorIsMainGm)
+            {
+                return Result<CharacterRecord>.Failure(PersistenceFailures.CharacterOwnershipDenied(correlationId));
+            }
+
+            try
+            {
+                using SqliteConnection connection = OpenConnection(campaign.RootPath);
+                EnsureCharacterTables(connection);
+
+                return _pipeline.Execute(
+                    connection,
+                    campaign.CampaignId,
+                    commandId,
+                    correlationId,
+                    tryReplay: transaction => ReplayCharacter(connection, transaction, campaign.CampaignId, "CharacterId = $characterId AND LastCommandId = $commandId", commandId, correlationId, characterId),
+                    apply: transaction =>
+                    {
+                        CharacterRecord? current = SelectForUpdate(connection, transaction, characterId);
+                        if (current == null)
+                        {
+                            return Result<PipelineWrite<CharacterRecord>>.Failure(PersistenceFailures.CharacterNotFound(correlationId));
+                        }
+
+                        if (current.Revisions.OwnershipRevision != expectedOwnershipRevision)
+                        {
+                            return Result<PipelineWrite<CharacterRecord>>.Failure(PersistenceFailures.CharacterRevisionConflict(correlationId));
+                        }
+
+                        (CharacterOwnership newOwnership, string eventType, JObject payloadExtra) = mutate(current);
+
+                        UtcInstant now = _clock.GetUtcNow();
+                        long newOwnershipRevision = current.Revisions.OwnershipRevision + 1;
+                        long newCharacterRevision = current.Revisions.CharacterRevision + 1;
+
+                        using (var update = connection.CreateCommand())
+                        {
+                            update.Transaction = transaction;
+                            update.CommandText = "UPDATE Character SET PrimaryOwnerUserId = $primaryOwnerUserId, CoOwnerUserIdsJson = $coOwners, PermanentControllerUserIdsJson = $permanentControllers, TemporaryControlGrantsJson = $temporaryGrants, OwnershipRevision = $ownershipRevision, CharacterRevision = $characterRevision, UpdatedAt = $updatedAt, LastCommandId = $lastCommandId WHERE CharacterId = $characterId;";
+                            update.Parameters.AddWithValue("$primaryOwnerUserId", (object?)newOwnership.PrimaryOwnerUserId?.ToString() ?? DBNull.Value);
+                            update.Parameters.AddWithValue("$coOwners", SerializeUserIds(newOwnership.CoOwnerUserIds));
+                            update.Parameters.AddWithValue("$permanentControllers", SerializeUserIds(newOwnership.PermanentControllerUserIds));
+                            update.Parameters.AddWithValue("$temporaryGrants", SerializeGrants(newOwnership.TemporaryControlGrants));
+                            update.Parameters.AddWithValue("$ownershipRevision", newOwnershipRevision);
+                            update.Parameters.AddWithValue("$characterRevision", newCharacterRevision);
+                            update.Parameters.AddWithValue("$updatedAt", now.ToString());
+                            update.Parameters.AddWithValue("$lastCommandId", commandId.ToString());
+                            update.Parameters.AddWithValue("$characterId", characterId.ToString());
+                            update.ExecuteNonQuery();
+                        }
+
+                        CharacterSectionRevisions newRevisions = WithRevisions(current.Revisions, characterRevision: newCharacterRevision, ownershipRevision: newOwnershipRevision);
+                        var record = new CharacterRecord(characterId, campaign.CampaignId, current.CharacterKind, current.LifecycleStatus, current.ApprovalState, current.DisplayName, current.PortraitReference, newOwnership, newRevisions, current.CreatedAt, now);
+
+                        payloadExtra["characterId"] = characterId.ToString();
+                        payloadExtra["displayNameSnapshot"] = current.DisplayName;
+                        payloadExtra["newOwnershipRevision"] = newOwnershipRevision;
+                        payloadExtra["newCharacterRevision"] = newCharacterRevision;
+
+                        return Result<PipelineWrite<CharacterRecord>>.Success(new PipelineWrite<CharacterRecord>(
+                            record, eventType, payloadExtra.ToString(Newtonsoft.Json.Formatting.None), characterId.ToString(),
                             aggregateType: "character", aggregateId: characterId.ToString(), aggregateRevision: newCharacterRevision));
                     });
             }
@@ -323,13 +633,22 @@ namespace Odyssey.Persistence.Sqlite
 
                 using (var select = connection.CreateCommand())
                 {
+                    var placeholders = new List<string>();
+                    for (int index = 0; index < HistoryEventTypes.Length; index++)
+                    {
+                        string parameterName = "$t" + index;
+                        placeholders.Add(parameterName);
+                    }
+
                     select.CommandText =
                         "SELECT EventSequence, EventType, PayloadJson, CreatedAtHost FROM DomainEvents " +
-                        "WHERE CampaignId = $campaignId AND EventType IN ($t0, $t1, $t2) ORDER BY EventSequence;";
+                        "WHERE CampaignId = $campaignId AND EventType IN (" + string.Join(", ", placeholders) + ") ORDER BY EventSequence;";
                     select.Parameters.AddWithValue("$campaignId", campaign.CampaignId.ToString());
-                    select.Parameters.AddWithValue("$t0", HistoryEventTypes[0]);
-                    select.Parameters.AddWithValue("$t1", HistoryEventTypes[1]);
-                    select.Parameters.AddWithValue("$t2", HistoryEventTypes[2]);
+                    for (int index = 0; index < HistoryEventTypes.Length; index++)
+                    {
+                        select.Parameters.AddWithValue("$t" + index, HistoryEventTypes[index]);
+                    }
+
                     using SqliteDataReader reader = select.ExecuteReader();
                     while (reader.Read())
                     {
@@ -338,7 +657,7 @@ namespace Odyssey.Persistence.Sqlite
                         string payloadJson = reader.GetString(2);
                         UtcInstant occurredAt = UtcInstant.Parse(reader.GetString(3));
 
-                        JObject payload = JObject.Parse(payloadJson);
+                        JObject payload = (JObject)ParseJsonPreservingStrings(payloadJson);
                         string? payloadCharacterId = (string?)payload["characterId"];
                         if (!string.Equals(payloadCharacterId, targetCharacterId, StringComparison.Ordinal))
                         {
@@ -401,15 +720,16 @@ namespace Odyssey.Persistence.Sqlite
 
         private const string SelectColumns =
             "SELECT CharacterId, CampaignId, CharacterKind, LifecycleStatus, ApprovalState, DisplayName, PortraitReference, " +
+            "PrimaryOwnerUserId, CoOwnerUserIdsJson, PermanentControllerUserIdsJson, TemporaryControlGrantsJson, " +
             "CharacterRevision, IdentityRevision, PresentationRevision, CustomFieldsRevision, MechanicsRevision, " +
             "AttributeValuesRevision, CharacterSkillsRevision, CharacterAbilitiesRevision, CharacterResourcesRevision, " +
             "CharacterAnatomyRevision, OwnershipRevision, LifecycleRevision, RuntimeStateRevision, CreatedAt, UpdatedAt";
 
         /// <summary>
-        /// ODY-S04-101: shared column-order contract for every SELECT against
-        /// <c>Character</c> that returns a full row, matching
-        /// <see cref="SelectColumns"/>'s exact order -- the same
-        /// "one shared column list, every caller uses it" convention
+        /// ODY-S04-101/102: shared column-order contract for every SELECT
+        /// against <c>Character</c> that returns a full row, matching
+        /// <see cref="SelectColumns"/>'s exact order -- the same "one shared
+        /// column list, every caller uses it" convention
         /// <c>SqliteSceneRepository.ReadTokenRecord</c> already established.
         /// </summary>
         private static CharacterRecord ReadCharacterRecord(SqliteDataReader reader)
@@ -421,24 +741,30 @@ namespace Odyssey.Persistence.Sqlite
             var approvalState = (CharacterApprovalState)Enum.Parse(typeof(CharacterApprovalState), reader.GetString(4));
             string displayName = reader.GetString(5);
             string? portraitReference = reader.IsDBNull(6) ? null : reader.GetString(6);
-            var revisions = new CharacterSectionRevisions(
-                characterRevision: reader.GetInt64(7),
-                identityRevision: reader.GetInt64(8),
-                presentationRevision: reader.GetInt64(9),
-                customFieldsRevision: reader.GetInt64(10),
-                mechanicsRevision: reader.GetInt64(11),
-                attributeValuesRevision: reader.GetInt64(12),
-                characterSkillsRevision: reader.GetInt64(13),
-                characterAbilitiesRevision: reader.GetInt64(14),
-                characterResourcesRevision: reader.GetInt64(15),
-                characterAnatomyRevision: reader.GetInt64(16),
-                ownershipRevision: reader.GetInt64(17),
-                lifecycleRevision: reader.GetInt64(18),
-                runtimeStateRevision: reader.GetInt64(19));
-            UtcInstant createdAt = UtcInstant.Parse(reader.GetString(20));
-            UtcInstant updatedAt = UtcInstant.Parse(reader.GetString(21));
+            UserId? primaryOwnerUserId = reader.IsDBNull(7) ? (UserId?)null : UserId.Parse(reader.GetString(7));
+            IReadOnlyList<UserId> coOwnerUserIds = DeserializeUserIds(reader.GetString(8));
+            IReadOnlyList<UserId> permanentControllerUserIds = DeserializeUserIds(reader.GetString(9));
+            IReadOnlyList<CharacterTemporaryControlGrant> temporaryControlGrants = DeserializeGrants(reader.GetString(10));
+            var ownership = new CharacterOwnership(primaryOwnerUserId, coOwnerUserIds, permanentControllerUserIds, temporaryControlGrants);
 
-            return new CharacterRecord(characterId, campaignId, characterKind, lifecycleStatus, approvalState, displayName, portraitReference, revisions, createdAt, updatedAt);
+            var revisions = new CharacterSectionRevisions(
+                characterRevision: reader.GetInt64(11),
+                identityRevision: reader.GetInt64(12),
+                presentationRevision: reader.GetInt64(13),
+                customFieldsRevision: reader.GetInt64(14),
+                mechanicsRevision: reader.GetInt64(15),
+                attributeValuesRevision: reader.GetInt64(16),
+                characterSkillsRevision: reader.GetInt64(17),
+                characterAbilitiesRevision: reader.GetInt64(18),
+                characterResourcesRevision: reader.GetInt64(19),
+                characterAnatomyRevision: reader.GetInt64(20),
+                ownershipRevision: reader.GetInt64(21),
+                lifecycleRevision: reader.GetInt64(22),
+                runtimeStateRevision: reader.GetInt64(23));
+            UtcInstant createdAt = UtcInstant.Parse(reader.GetString(24));
+            UtcInstant updatedAt = UtcInstant.Parse(reader.GetString(25));
+
+            return new CharacterRecord(characterId, campaignId, characterKind, lifecycleStatus, approvalState, displayName, portraitReference, ownership, revisions, createdAt, updatedAt);
         }
 
         private static void AddRevisionParameters(SqliteCommand command, CharacterSectionRevisions revisions)
@@ -458,15 +784,109 @@ namespace Odyssey.Persistence.Sqlite
             command.Parameters.AddWithValue("$runtimeStateRevision", revisions.RuntimeStateRevision);
         }
 
-        private static CharacterSectionRevisions WithIdentityRevision(CharacterSectionRevisions source, long newIdentityRevision, long newCharacterRevision) => new CharacterSectionRevisions(
-            newCharacterRevision, newIdentityRevision, source.PresentationRevision, source.CustomFieldsRevision, source.MechanicsRevision,
-            source.AttributeValuesRevision, source.CharacterSkillsRevision, source.CharacterAbilitiesRevision, source.CharacterResourcesRevision,
-            source.CharacterAnatomyRevision, source.OwnershipRevision, source.LifecycleRevision, source.RuntimeStateRevision);
+        /// <summary>
+        /// ODY-S04-102: replaces <c>ODY-S04-101</c>'s narrower
+        /// <c>WithIdentityRevision</c>/<c>WithPresentationRevision</c>
+        /// helpers with one shared "copy with named overrides" function, now
+        /// that a third section (<c>Ownership</c>) needs the identical
+        /// pattern -- avoids a fourth/fifth near-duplicate helper as later
+        /// tasks add their own sections.
+        /// </summary>
+        private static CharacterSectionRevisions WithRevisions(
+            CharacterSectionRevisions source,
+            long? characterRevision = null,
+            long? identityRevision = null,
+            long? presentationRevision = null,
+            long? ownershipRevision = null) => new CharacterSectionRevisions(
+                characterRevision ?? source.CharacterRevision,
+                identityRevision ?? source.IdentityRevision,
+                presentationRevision ?? source.PresentationRevision,
+                source.CustomFieldsRevision,
+                source.MechanicsRevision,
+                source.AttributeValuesRevision,
+                source.CharacterSkillsRevision,
+                source.CharacterAbilitiesRevision,
+                source.CharacterResourcesRevision,
+                source.CharacterAnatomyRevision,
+                ownershipRevision ?? source.OwnershipRevision,
+                source.LifecycleRevision,
+                source.RuntimeStateRevision);
 
-        private static CharacterSectionRevisions WithPresentationRevision(CharacterSectionRevisions source, long newPresentationRevision, long newCharacterRevision) => new CharacterSectionRevisions(
-            newCharacterRevision, source.IdentityRevision, newPresentationRevision, source.CustomFieldsRevision, source.MechanicsRevision,
-            source.AttributeValuesRevision, source.CharacterSkillsRevision, source.CharacterAbilitiesRevision, source.CharacterResourcesRevision,
-            source.CharacterAnatomyRevision, source.OwnershipRevision, source.LifecycleRevision, source.RuntimeStateRevision);
+        private static string SerializeUserIds(IReadOnlyList<UserId> userIds)
+        {
+            var array = new JArray();
+            foreach (UserId userId in userIds)
+            {
+                array.Add(userId.ToString());
+            }
+
+            return array.ToString(Newtonsoft.Json.Formatting.None);
+        }
+
+        private static IReadOnlyList<UserId> DeserializeUserIds(string json)
+        {
+            var array = (JArray)ParseJsonPreservingStrings(json);
+            var list = new List<UserId>(array.Count);
+            foreach (JToken item in array)
+            {
+                list.Add(UserId.Parse((string)item!));
+            }
+
+            return list;
+        }
+
+        private static string SerializeGrants(IReadOnlyList<CharacterTemporaryControlGrant> grants)
+        {
+            var array = new JArray();
+            foreach (CharacterTemporaryControlGrant grant in grants)
+            {
+                array.Add(new JObject
+                {
+                    ["userId"] = grant.UserId.ToString(),
+                    ["grantedAt"] = grant.GrantedAt.ToString(),
+                    ["expiresAt"] = grant.ExpiresAt?.ToString(),
+                });
+            }
+
+            return array.ToString(Newtonsoft.Json.Formatting.None);
+        }
+
+        /// <summary>
+        /// Newtonsoft's default <c>JArray.Parse</c>/<c>JObject.Parse</c>
+        /// (which use a plain <c>JsonTextReader</c> internally with its own
+        /// default <c>DateParseHandling.DateTime</c>) auto-detect date-like
+        /// strings and silently convert them into <c>JTokenType.Date</c>
+        /// tokens -- reading one back with a plain string cast then
+        /// reformats it using .NET's own culture-default
+        /// <c>DateTimeOffset.ToString()</c>, corrupting <see cref="UtcInstant"/>'s
+        /// exact round-trip format. <see cref="JsonLoadSettings"/> has no
+        /// <c>DateParseHandling</c> property in the approved Newtonsoft.Json
+        /// 13.0.2 (<c>ADR-003</c>) -- the reader itself must be configured
+        /// directly, which is what this helper does, keeping every JSON
+        /// string field a plain string parsed explicitly by this
+        /// repository's own <see cref="UtcInstant.Parse"/> only.
+        /// </summary>
+        private static JToken ParseJsonPreservingStrings(string json)
+        {
+            using var stringReader = new StringReader(json);
+            using var jsonReader = new Newtonsoft.Json.JsonTextReader(stringReader) { DateParseHandling = Newtonsoft.Json.DateParseHandling.None };
+            return JToken.Load(jsonReader);
+        }
+
+        private static IReadOnlyList<CharacterTemporaryControlGrant> DeserializeGrants(string json)
+        {
+            var array = (JArray)ParseJsonPreservingStrings(json);
+            var list = new List<CharacterTemporaryControlGrant>(array.Count);
+            foreach (JToken item in array)
+            {
+                UserId userId = UserId.Parse((string)item["userId"]!);
+                UtcInstant grantedAt = UtcInstant.Parse((string)item["grantedAt"]!);
+                UtcInstant? expiresAt = item["expiresAt"]!.Type == JTokenType.Null ? (UtcInstant?)null : UtcInstant.Parse((string)item["expiresAt"]!);
+                list.Add(new CharacterTemporaryControlGrant(userId, grantedAt, expiresAt));
+            }
+
+            return list;
+        }
 
         private static SqliteConnection OpenConnection(string campaignRootPath)
         {
@@ -498,6 +918,10 @@ CREATE TABLE IF NOT EXISTS Character (
     ApprovalState TEXT NOT NULL,
     DisplayName TEXT NOT NULL,
     PortraitReference TEXT,
+    PrimaryOwnerUserId TEXT,
+    CoOwnerUserIdsJson TEXT NOT NULL DEFAULT '[]',
+    PermanentControllerUserIdsJson TEXT NOT NULL DEFAULT '[]',
+    TemporaryControlGrantsJson TEXT NOT NULL DEFAULT '[]',
     CharacterRevision INTEGER NOT NULL,
     IdentityRevision INTEGER NOT NULL,
     PresentationRevision INTEGER NOT NULL,
