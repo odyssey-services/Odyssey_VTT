@@ -146,6 +146,84 @@ namespace Odyssey.Application.Persistence
 
         /// <summary>ODY-S04-104: reads the full, ordered review-comment thread for one Character -- no audience/redaction filtering (product names no hidden-comment concept), matching <see cref="IGameLogRepository.ListGameLog"/>'s own "Persistence stores everything" convention.</summary>
         Result<IReadOnlyList<CharacterReviewCommentRecord>> GetCharacterReviewComments(CampaignHandle campaign, CharacterId characterId, CorrelationId correlationId);
+
+        /// <summary>
+        /// ODY-S04-105: ADR-024 section 4/5, product section 12.2 --
+        /// <c>MainGM</c>-only (<paramref name="actorIsMainGm"/>, the same
+        /// caller-supplied-boolean convention <see cref="AssignPrimaryOwner"/>
+        /// already uses). Increases <c>DevelopmentPool.Earned</c>, gated by
+        /// <c>MechanicsRevision</c> (ADR-024 section 4.2: pool fields are
+        /// <c>Mechanics</c>-level metadata). Commits the pool update, a
+        /// <c>DevelopmentPointsGranted</c> event, and a co-committed
+        /// <c>DevelopmentTransaction</c> (<c>Kind=Grant</c>) ledger row in one
+        /// transaction. <see cref="CommandId"/>/<c>AppliedCommands</c> remain
+        /// the sole idempotency mechanism (ADR-024 section 5) -- no second
+        /// economy-specific dedup key.
+        /// </summary>
+        Result<CharacterRecord> GrantDevelopmentPoints(CampaignHandle campaign, CharacterId characterId, long amount, string reason, UserId actorUserId, bool actorIsMainGm, long expectedMechanicsRevision, CommandId commandId, CorrelationId correlationId);
+
+        /// <summary>
+        /// ODY-S04-105: ADR-024 section 5.1, product section 11/13.1 --
+        /// an ordinary immediate purchase (no reservation, ADR-024 section
+        /// 6.1 -- reservation is reserved for a genuinely pending operation,
+        /// ODY-S04-106's own scope, not this command). Permission: MainGM or
+        /// an assigned user of this Character (<see cref="CharacterOwnershipAssignment.IsAssignedCharacter"/>,
+        /// reused from ODY-S04-102, not duplicated), matching product section
+        /// 13.1's "у пользователя есть право развивать персонажа." Declares
+        /// both <paramref name="expectedMechanicsRevision"/> (the pool) and
+        /// <paramref name="expectedAttributeRevision"/> (the addressed
+        /// <c>AttributeValue</c>'s own entry-level revision, ADR-024 section
+        /// 4.2's <c>AttributeValue:&lt;AttributeDefinitionId&gt;</c> lock
+        /// key) -- an attribute never previously purchased has revision
+        /// <c>0</c>. Cost/cap come from <see cref="Odyssey.Rules.Character.AttributeCostRules"/>,
+        /// this task's own explicitly-flagged test fixture -- no Ruleset-
+        /// catalog mechanism exists yet anywhere in this codebase. Commits
+        /// the pool decrement, the attribute's new <c>BaseValue</c>/
+        /// <c>Revision</c>, an <c>AttributeIncreased</c> event, and a
+        /// co-committed <c>DevelopmentTransaction</c> (<c>Kind=Spend</c>)
+        /// ledger row in one transaction -- <see cref="CommandId"/>/
+        /// <c>AppliedCommands</c> are the sole duplicate-spend guard.
+        /// </summary>
+        Result<CharacterRecord> PurchaseAttributeIncrease(CampaignHandle campaign, CharacterId characterId, AttributeDefinitionId attributeDefinitionId, long toValue, UserId actorUserId, bool actorIsMainGm, long expectedMechanicsRevision, long expectedAttributeRevision, CommandId commandId, CorrelationId correlationId);
+
+        /// <summary>ODY-S04-105: reads the full development ledger for one Character, ordered by <see cref="DevelopmentTransactionRecord.CreatedAt"/> -- matching <see cref="IGameLogRepository.ListGameLog"/>'s own "Persistence stores everything" convention. Rebuildable from <c>DomainEvents</c> if ever lost (ADR-024 section 4.3); this method reads the co-committed ledger table directly, the same way <see cref="GetCharacter"/> reads current state directly rather than rebuilding it from events on every call.</summary>
+        Result<IReadOnlyList<DevelopmentTransactionRecord>> GetDevelopmentLedger(CampaignHandle campaign, CharacterId characterId, CorrelationId correlationId);
+    }
+
+    /// <summary>ODY-S04-105: ADR-024 section 3.2's <c>DevelopmentTransaction</c> read-model row -- see <see cref="Character.DevelopmentTransaction"/>'s own doc comment for why it carries no independent authority.</summary>
+    public sealed class DevelopmentTransactionRecord
+    {
+        public DevelopmentTransactionRecord(DevelopmentTransactionId transactionId, CharacterId characterId, DevelopmentTransactionKind kind, long amount, string? sourceRef, string reason, UserId actorUserId, string rulesetVersion, UtcInstant createdAt, CorrelationId correlationId)
+        {
+            if (!transactionId.IsValid) throw new ArgumentException("TransactionId is required.", nameof(transactionId));
+            if (!characterId.IsValid) throw new ArgumentException("CharacterId is required.", nameof(characterId));
+            if (amount <= 0) throw new ArgumentOutOfRangeException(nameof(amount));
+            if (string.IsNullOrWhiteSpace(reason)) throw new ArgumentException("Reason is required.", nameof(reason));
+            if (!actorUserId.IsValid) throw new ArgumentException("ActorUserId is required.", nameof(actorUserId));
+            if (string.IsNullOrWhiteSpace(rulesetVersion)) throw new ArgumentException("RulesetVersion is required.", nameof(rulesetVersion));
+
+            TransactionId = transactionId;
+            CharacterId = characterId;
+            Kind = kind;
+            Amount = amount;
+            SourceRef = sourceRef;
+            Reason = reason;
+            ActorUserId = actorUserId;
+            RulesetVersion = rulesetVersion;
+            CreatedAt = createdAt;
+            CorrelationId = correlationId;
+        }
+
+        public DevelopmentTransactionId TransactionId { get; }
+        public CharacterId CharacterId { get; }
+        public DevelopmentTransactionKind Kind { get; }
+        public long Amount { get; }
+        public string? SourceRef { get; }
+        public string Reason { get; }
+        public UserId ActorUserId { get; }
+        public string RulesetVersion { get; }
+        public UtcInstant CreatedAt { get; }
+        public CorrelationId CorrelationId { get; }
     }
 
     /// <summary>
@@ -285,6 +363,8 @@ namespace Odyssey.Application.Persistence
             long? templateVersionAtCopyTime,
             IReadOnlyList<CopiedCharacterSeedItem> seedCopy,
             UtcInstant? submittedAt,
+            DevelopmentPool developmentPool,
+            IReadOnlyList<AttributeValue> attributes,
             UtcInstant createdAt,
             UtcInstant updatedAt)
         {
@@ -311,6 +391,8 @@ namespace Odyssey.Application.Persistence
             TemplateVersionAtCopyTime = templateVersionAtCopyTime;
             SeedCopy = seedCopy ?? throw new ArgumentNullException(nameof(seedCopy));
             SubmittedAt = submittedAt;
+            DevelopmentPool = developmentPool ?? throw new ArgumentNullException(nameof(developmentPool));
+            Attributes = attributes ?? throw new ArgumentNullException(nameof(attributes));
             CreatedAt = createdAt;
             UpdatedAt = updatedAt;
         }
@@ -350,6 +432,12 @@ namespace Odyssey.Application.Persistence
 
         /// <summary>ODY-S04-104: set by <see cref="ICharacterRepository.SubmitCharacterDraft"/>, gated by <see cref="CharacterSectionRevisions.LifecycleRevision"/>. Null until the Draft has been submitted for review at least once.</summary>
         public UtcInstant? SubmittedAt { get; }
+
+        /// <summary>ODY-S04-105: ADR-024 section 4's <c>Mechanics</c>-section ledger accounting -- see <see cref="CharacterSectionRevisions.MechanicsRevision"/> for its gating revision.</summary>
+        public DevelopmentPool DevelopmentPool { get; }
+
+        /// <summary>ODY-S04-105: product section 11's <c>AttributeValue</c> rows purchased so far -- empty until the first <c>PurchaseAttributeIncrease</c>. Each entry's own <see cref="AttributeValue.Revision"/> is the ADR-024 section 4.2 entry-level gate for further purchases against that same attribute.</summary>
+        public IReadOnlyList<AttributeValue> Attributes { get; }
         public UtcInstant CreatedAt { get; }
         public UtcInstant UpdatedAt { get; }
     }

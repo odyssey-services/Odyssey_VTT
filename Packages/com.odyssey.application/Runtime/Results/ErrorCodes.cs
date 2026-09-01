@@ -45,6 +45,10 @@ namespace Odyssey.Application.Results
         public static readonly ErrorCode PersistenceCharacterDraftRulesetIncompatible = ErrorCode.Parse("persistence.character_draft.ruleset_incompatible");
         public static readonly ErrorCode PersistenceCharacterLifecycleTransitionInvalid = ErrorCode.Parse("persistence.character.lifecycle_transition_invalid");
         public static readonly ErrorCode PersistenceCharacterApprovalDenied = ErrorCode.Parse("persistence.character.approval_denied");
+        public static readonly ErrorCode PersistenceCharacterDevelopmentGrantDenied = ErrorCode.Parse("persistence.character.development_grant_denied");
+        public static readonly ErrorCode PersistenceCharacterDevelopmentPurchaseDenied = ErrorCode.Parse("persistence.character.development_purchase_denied");
+        public static readonly ErrorCode PersistenceCharacterDevelopmentInsufficientBalance = ErrorCode.Parse("persistence.character.development_insufficient_balance");
+        public static readonly ErrorCode PersistenceCharacterAttributeCapExceeded = ErrorCode.Parse("persistence.character.attribute_cap_exceeded");
         public static readonly ErrorCode NetworkingTransportConnectFailed = ErrorCode.Parse("networking.transport.connect_failed");
         public static readonly ErrorCode NetworkingTransportConnectTimedOut = ErrorCode.Parse("networking.transport.connect_timed_out");
         public static readonly ErrorCode NetworkingProtocolVersionUnsupported = ErrorCode.Parse("networking.protocol.version_unsupported");
