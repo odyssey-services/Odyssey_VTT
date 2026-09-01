@@ -201,6 +201,31 @@ namespace Odyssey.Domain.Identity
     }
 
     /// <summary>
+    /// ODY-S04-104: identifies one <c>CharacterReviewComment</c> (ADR-023
+    /// section 7.1/product section 8.4). A conflict-free append -- the
+    /// aggregate whose thread it belongs to is addressed by
+    /// <see cref="CharacterId"/>, not this identifier.
+    /// </summary>
+    public readonly struct CharacterReviewCommentId : IEquatable<CharacterReviewCommentId>
+    {
+        private const string Prefix = "cmnt_";
+        private const int HexLength = 32;
+        private readonly string _value;
+
+        private CharacterReviewCommentId(string value) => _value = value;
+        public bool IsValid => _value != null;
+        public static CharacterReviewCommentId NewId(Odyssey.Domain.Time.UtcInstant now) => new CharacterReviewCommentId(Prefix + Uuid7.NewHex32(now));
+        public static bool TryParse(string? value, out CharacterReviewCommentId id) => CanonicalId.TryParse(value, Prefix, HexLength, out id, static v => new CharacterReviewCommentId(v));
+        public static CharacterReviewCommentId Parse(string value) => TryParse(value, out CharacterReviewCommentId id) ? id : throw new FormatException("CharacterReviewCommentId is not canonical.");
+        public override string ToString() => _value ?? string.Empty;
+        public bool Equals(CharacterReviewCommentId other) => string.Equals(_value, other._value, StringComparison.Ordinal);
+        public override bool Equals(object? obj) => obj is CharacterReviewCommentId other && Equals(other);
+        public override int GetHashCode() => _value == null ? 0 : StringComparer.Ordinal.GetHashCode(_value);
+        public static bool operator ==(CharacterReviewCommentId left, CharacterReviewCommentId right) => left.Equals(right);
+        public static bool operator !=(CharacterReviewCommentId left, CharacterReviewCommentId right) => !left.Equals(right);
+    }
+
+    /// <summary>
     /// ODY-S01-008 minimal domain model. Full Scene aggregate fields (BoardId,
     /// LayerDefinitions, FogSettings, PermissionOverrides, etc. per
     /// 03_Domain_Model section 10.1) are not implemented by this identifier or the

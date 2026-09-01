@@ -2239,6 +2239,86 @@
                           "runner":  "dotnet test",
                           "path":  "DotNet/Tests/Odyssey.Tests.Persistence/CharacterTemplateAndDraftBindingTests.cs",
                           "check":  "ArchiveCharacterTemplate transitions Status to Archived and a stale expectedRevision is rejected with CharacterTemplateRevisionConflict"
+                      },
+                      {
+                          "testCaseId":  "TC-CHAR-028",
+                          "taskId":  "ODY-S04-104",
+                          "authority":  "ADR-023 section 7.1; ODY-S04-104",
+                          "runner":  "dotnet test",
+                          "path":  "DotNet/Tests/Odyssey.Tests.Persistence/CharacterDraftSubmitReviewApproveTests.cs",
+                          "check":  "SubmitCharacterDraft on a valid Draft succeeds, records SubmittedAt, and advances LifecycleRevision without changing ApprovalState"
+                      },
+                      {
+                          "testCaseId":  "TC-CHAR-029",
+                          "taskId":  "ODY-S04-104",
+                          "authority":  "ADR-023 section 7.1; ODY-S04-104",
+                          "runner":  "dotnet test",
+                          "path":  "DotNet/Tests/Odyssey.Tests.Persistence/CharacterDraftSubmitReviewApproveTests.cs",
+                          "check":  "SubmitCharacterDraft on an already-Active Character is rejected with CharacterLifecycleTransitionInvalid"
+                      },
+                      {
+                          "testCaseId":  "TC-CHAR-030",
+                          "taskId":  "ODY-S04-104",
+                          "authority":  "ADR-023 section 7.1; product section 8.4; ODY-S04-104",
+                          "runner":  "dotnet test",
+                          "path":  "DotNet/Tests/Odyssey.Tests.Persistence/CharacterDraftSubmitReviewApproveTests.cs",
+                          "check":  "AddCharacterReviewComment requires no ExpectedCharacterRevision/section revision; a concurrent Identity edit and a comment both commit without a false conflict, and the comment never bumps CharacterRevision"
+                      },
+                      {
+                          "testCaseId":  "TC-CHAR-031",
+                          "taskId":  "ODY-S04-104",
+                          "authority":  "product section 8.4; ODY-S04-104",
+                          "runner":  "dotnet test",
+                          "path":  "DotNet/Tests/Odyssey.Tests.Persistence/CharacterDraftSubmitReviewApproveTests.cs",
+                          "check":  "Several review comments from different authors all accumulate correctly; none is lost or overwritten"
+                      },
+                      {
+                          "testCaseId":  "TC-CHAR-032",
+                          "taskId":  "ODY-S04-104",
+                          "authority":  "ADR-023 section 7.3; ODY-S04-104",
+                          "runner":  "dotnet test",
+                          "path":  "DotNet/Tests/Odyssey.Tests.Persistence/CharacterDraftSubmitReviewApproveTests.cs",
+                          "check":  "ApproveCharacterDraft by a non-MainGM actor is rejected with CharacterApprovalDenied, with no state change"
+                      },
+                      {
+                          "testCaseId":  "TC-CHAR-033",
+                          "taskId":  "ODY-S04-104",
+                          "authority":  "ADR-023 section 7.1; ODY-S04-104",
+                          "runner":  "dotnet test",
+                          "path":  "DotNet/Tests/Odyssey.Tests.Persistence/CharacterDraftSubmitReviewApproveTests.cs",
+                          "check":  "ApproveCharacterDraft by MainGM transitions LifecycleStatus to Active and ApprovalState to Approved atomically in one transaction; a fresh read confirms both landed together"
+                      },
+                      {
+                          "testCaseId":  "TC-CHAR-034",
+                          "taskId":  "ODY-S04-104",
+                          "authority":  "ADR-022 section 5 (CharacterLifecycleTransitions); ODY-S04-104",
+                          "runner":  "dotnet test",
+                          "path":  "DotNet/Tests/Odyssey.Tests.Persistence/CharacterDraftSubmitReviewApproveTests.cs",
+                          "check":  "A repeat ApproveCharacterDraft on an already-Active Character is rejected because CharacterLifecycleTransitions.IsValidTransition(Active, Active) returns false -- the business code actually calls the generic transition table rather than duplicating its logic"
+                      },
+                      {
+                          "testCaseId":  "TC-CHAR-035",
+                          "taskId":  "ODY-S04-104",
+                          "authority":  "ADR-002; ODY-S04-104",
+                          "runner":  "dotnet test",
+                          "path":  "DotNet/Tests/Odyssey.Tests.Persistence/CharacterDraftSubmitReviewApproveTests.cs",
+                          "check":  "A duplicate ApproveCharacterDraft CommandId replays the stored result and does not reapply the transition or emit a second event"
+                      },
+                      {
+                          "testCaseId":  "TC-CHAR-036",
+                          "taskId":  "ODY-S04-104",
+                          "authority":  "ADR-022 section 5; ODY-S04-104",
+                          "runner":  "dotnet test",
+                          "path":  "DotNet/Tests/Odyssey.Tests.Persistence/CharacterDraftSubmitReviewApproveTests.cs",
+                          "check":  "A stale expectedLifecycleRevision rejects a second SubmitCharacterDraft call with CharacterRevisionConflict"
+                      },
+                      {
+                          "testCaseId":  "TC-CHAR-037",
+                          "taskId":  "ODY-S04-104",
+                          "authority":  "ADR-022 section 5; ODY-S04-104",
+                          "runner":  "dotnet test",
+                          "path":  "DotNet/Tests/Odyssey.Tests.Persistence/CharacterDraftSubmitReviewApproveTests.cs",
+                          "check":  "A stale expectedLifecycleRevision rejects ApproveCharacterDraft with CharacterRevisionConflict and no state change"
                       }
                   ]
 }

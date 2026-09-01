@@ -311,6 +311,24 @@ namespace Odyssey.Application.Persistence
             RetryDirective.DoNotRetry,
             correlationId);
 
+        /// <summary>ODY-S04-104: <c>SubmitCharacterDraft</c>/<c>ApproveCharacterDraft</c> rejection when the requested operation is not legal for the Character's current <c>LifecycleStatus</c> -- <c>SubmitCharacterDraft</c>'s own precondition, or <c>CharacterLifecycleTransitions.IsValidTransition</c> returning false for <c>ApproveCharacterDraft</c> (ADR-022 section 5/6's already-reserved <c>Lifecycle</c> section).</summary>
+        public static Error CharacterLifecycleTransitionInvalid(CorrelationId correlationId) => Error.Create(
+            ErrorCodes.PersistenceCharacterLifecycleTransitionInvalid,
+            ErrorCategory.Conflict,
+            SafeReasonCode.StateChanged,
+            UserMessageKey.Parse("errors.persistence.character_lifecycle_transition_invalid"),
+            RetryDirective.DoNotRetry,
+            correlationId);
+
+        /// <summary>ODY-S04-104: ADR-023 section 7.3 -- <c>Character.Approve</c> gate rejection for a non-MainGM actor, mirroring <see cref="CharacterOwnershipDenied"/>'s exact convention for a different command set.</summary>
+        public static Error CharacterApprovalDenied(CorrelationId correlationId) => Error.Create(
+            ErrorCodes.PersistenceCharacterApprovalDenied,
+            ErrorCategory.Authorization,
+            SafeReasonCode.PermissionDenied,
+            UserMessageKey.Parse("errors.persistence.character_approval_denied"),
+            RetryDirective.DoNotRetry,
+            correlationId);
+
         // Used only by the codec's Read path (CampaignManifest.cs), which does not
         // receive a caller CorrelationId; matches the existing SerializationFailures
         // placeholder-correlation convention for codec-level structural failures.
