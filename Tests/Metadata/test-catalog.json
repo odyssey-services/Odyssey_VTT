@@ -2087,6 +2087,70 @@
                           "runner":  "dotnet test",
                           "path":  "DotNet/Tests/Odyssey.Tests.Domain/Character/CharacterLifecycleTransitionsTests.cs",
                           "check":  "CharacterLifecycleTransitions.IsValidTransition returns true for every edge in product section 7.1's table and false for every non-table edge, including same-status no-ops"
+                      },
+                      {
+                          "testCaseId":  "TC-CHAR-009",
+                          "taskId":  "ODY-S04-102",
+                          "authority":  "ADR-025 section 4.2; CAP-INV-007; ODY-S04-102",
+                          "runner":  "dotnet test",
+                          "path":  "DotNet/Tests/Odyssey.Tests.Persistence/SqliteCharacterRepositoryTests.cs",
+                          "check":  "AssignPrimaryOwner with an empty ReasonCode is rejected with CharacterOwnershipReasonRequired and applies no state change"
+                      },
+                      {
+                          "testCaseId":  "TC-CHAR-010",
+                          "taskId":  "ODY-S04-102",
+                          "authority":  "ADR-025 section 4; ADR-019; ODY-S04-102",
+                          "runner":  "dotnet test",
+                          "path":  "DotNet/Tests/Odyssey.Tests.Persistence/SqliteCharacterRepositoryTests.cs",
+                          "check":  "A non-MainGM actor calling AssignPrimaryOwner, or any of the five Character.ManageOwnership-gated commands, is rejected with CharacterOwnershipDenied and applies no state change; the same call with actorIsMainGm=true succeeds"
+                      },
+                      {
+                          "testCaseId":  "TC-CHAR-011",
+                          "taskId":  "ODY-S04-102",
+                          "authority":  "ADR-025 section 4.2; CAP-INV-007; ODY-S04-102",
+                          "runner":  "dotnet test",
+                          "path":  "DotNet/Tests/Odyssey.Tests.Persistence/SqliteCharacterRepositoryTests.cs",
+                          "check":  "AssignPrimaryOwner by MainGM succeeds, produces a CharacterPrimaryOwnerAssigned audit history entry, and does not silently change already-present co-owner/permanent-controller entries"
+                      },
+                      {
+                          "testCaseId":  "TC-CHAR-012",
+                          "taskId":  "ODY-S04-102",
+                          "authority":  "ADR-022 section 5; ODY-S04-102",
+                          "runner":  "dotnet test",
+                          "path":  "DotNet/Tests/Odyssey.Tests.Persistence/SqliteCharacterRepositoryTests.cs",
+                          "check":  "AssignPrimaryOwner called twice with the same now-stale expected OwnershipRevision succeeds once and is rejected with CharacterRevisionConflict the second time, with no state change from the rejected call"
+                      },
+                      {
+                          "testCaseId":  "TC-CHAR-013",
+                          "taskId":  "ODY-S04-102",
+                          "authority":  "ADR-022 section 5; ODY-S04-102",
+                          "runner":  "dotnet test",
+                          "path":  "DotNet/Tests/Odyssey.Tests.Persistence/SqliteCharacterRepositoryTests.cs",
+                          "check":  "An Identity-section edit and an Ownership-section edit on the same Character both commit successfully with no false cross-section conflict, extending ODY-S04-101's own two-section test to a third independent section"
+                      },
+                      {
+                          "testCaseId":  "TC-CHAR-014",
+                          "taskId":  "ODY-S04-102",
+                          "authority":  "ADR-025 section 4.3; ODY-S04-102",
+                          "runner":  "dotnet test",
+                          "path":  "DotNet/Tests/Odyssey.Tests.Persistence/SqliteCharacterRepositoryTests.cs",
+                          "check":  "AddCharacterCoOwner called twice for the same user does not create a duplicate CoOwnerUserIds entry; RemoveCharacterCoOwner removes exactly the targeted user"
+                      },
+                      {
+                          "testCaseId":  "TC-CHAR-015",
+                          "taskId":  "ODY-S04-102",
+                          "authority":  "ADR-025 section 4.3; ODY-S04-102",
+                          "runner":  "dotnet test",
+                          "path":  "DotNet/Tests/Odyssey.Tests.Persistence/SqliteCharacterRepositoryTests.cs",
+                          "check":  "GrantPermanentCharacterControl/GrantTemporaryCharacterControl followed by RevokeCharacterControl correctly adds then removes the controller entry or temporary grant"
+                      },
+                      {
+                          "testCaseId":  "TC-CHAR-016",
+                          "taskId":  "ODY-S04-102",
+                          "authority":  "ADR-025 section 4.3; ADR-019 section 5.2; ODY-S04-102",
+                          "runner":  "dotnet test",
+                          "path":  "DotNet/Tests/Odyssey.Tests.Persistence/SqliteCharacterRepositoryTests.cs",
+                          "check":  "CharacterOwnershipAssignment.IsAssignedCharacter returns true for the primary owner and for a still-active temporary control grant, and false for a grant whose expiry has already passed and for an unrelated user"
                       }
                   ]
 }

@@ -239,6 +239,24 @@ namespace Odyssey.Application.Persistence
             RetryDirective.DoNotRetry,
             correlationId);
 
+        /// <summary>ODY-S04-102: ADR-025 section 4 -- <c>Character.ManageOwnership</c>-gated commands rejected for a non-MainGM actor, mirroring <c>Odyssey.Application.Board.BoardFailures.MoveDenied</c>'s exact convention (same <see cref="ErrorCategory.Authorization"/>/<see cref="SafeReasonCode.PermissionDenied"/> pair) for a different aggregate.</summary>
+        public static Error CharacterOwnershipDenied(CorrelationId correlationId) => Error.Create(
+            ErrorCodes.PersistenceCharacterOwnershipDenied,
+            ErrorCategory.Authorization,
+            SafeReasonCode.PermissionDenied,
+            UserMessageKey.Parse("errors.persistence.character_ownership_denied"),
+            RetryDirective.DoNotRetry,
+            correlationId);
+
+        /// <summary>ODY-S04-102: ADR-025 section 4.2 -- <c>AssignPrimaryOwner</c> requires a non-empty <c>ReasonCode</c> (CAP-INV-007).</summary>
+        public static Error CharacterOwnershipReasonRequired(CorrelationId correlationId) => Error.Create(
+            ErrorCodes.PersistenceCharacterOwnershipReasonRequired,
+            ErrorCategory.Validation,
+            SafeReasonCode.InvalidRequest,
+            UserMessageKey.Parse("errors.persistence.character_ownership_reason_required"),
+            RetryDirective.DoNotRetry,
+            correlationId);
+
         // Used only by the codec's Read path (CampaignManifest.cs), which does not
         // receive a caller CorrelationId; matches the existing SerializationFailures
         // placeholder-correlation convention for codec-level structural failures.

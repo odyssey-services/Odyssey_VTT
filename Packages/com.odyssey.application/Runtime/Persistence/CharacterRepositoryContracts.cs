@@ -54,6 +54,39 @@ namespace Odyssey.Application.Persistence
         /// separately written."
         /// </summary>
         Result<IReadOnlyList<CharacterHistoryEntry>> GetCharacterHistory(CampaignHandle campaign, CharacterId characterId, CorrelationId correlationId);
+
+        /// <summary>
+        /// ODY-S04-102: ADR-025 section 4.2. <paramref name="actorIsMainGm"/>
+        /// is the same caller-supplied-boolean baseline simplification
+        /// <c>BoardMovementService</c>/<c>DiceRollService</c> already use for
+        /// MainGM-gated operations (ADR-019's own accepted simplification,
+        /// not reopened here) -- not a new permission-decision service.
+        /// Declares only the <c>Ownership</c> section's expected revision;
+        /// never silently changes <see cref="CharacterOwnership.CoOwnerUserIds"/>/
+        /// control grants.
+        /// </summary>
+        Result<CharacterRecord> AssignPrimaryOwner(CampaignHandle campaign, CharacterId characterId, UserId newPrimaryOwnerUserId, string reasonCode, bool actorIsMainGm, long expectedOwnershipRevision, CommandId commandId, CorrelationId correlationId);
+
+        /// <summary>ODY-S04-102: ADR-025 section 4.3, <c>Character.ManageOwnership</c>-gated. A duplicate add of an already-present co-owner does not append a second entry.</summary>
+        Result<CharacterRecord> AddCharacterCoOwner(CampaignHandle campaign, CharacterId characterId, UserId coOwnerUserId, bool actorIsMainGm, long expectedOwnershipRevision, CommandId commandId, CorrelationId correlationId);
+
+        /// <summary>ODY-S04-102: ADR-025 section 4.3, <c>Character.ManageOwnership</c>-gated.</summary>
+        Result<CharacterRecord> RemoveCharacterCoOwner(CampaignHandle campaign, CharacterId characterId, UserId coOwnerUserId, bool actorIsMainGm, long expectedOwnershipRevision, CommandId commandId, CorrelationId correlationId);
+
+        /// <summary>ODY-S04-102: ADR-025 section 4.3, <c>Character.ManageOwnership</c>-gated.</summary>
+        Result<CharacterRecord> GrantPermanentCharacterControl(CampaignHandle campaign, CharacterId characterId, UserId controlUserId, bool actorIsMainGm, long expectedOwnershipRevision, CommandId commandId, CorrelationId correlationId);
+
+        /// <summary>
+        /// ODY-S04-102: ADR-025 section 4.3, <c>Character.ManageOwnership</c>-gated.
+        /// <paramref name="expiresAt"/> is optional, caller-supplied, stored
+        /// provenance only -- see <see cref="CharacterTemporaryControlGrant"/>'s
+        /// own doc comment for why no automatic expiry-enforcement mechanism
+        /// is introduced here.
+        /// </summary>
+        Result<CharacterRecord> GrantTemporaryCharacterControl(CampaignHandle campaign, CharacterId characterId, UserId controlUserId, UtcInstant? expiresAt, bool actorIsMainGm, long expectedOwnershipRevision, CommandId commandId, CorrelationId correlationId);
+
+        /// <summary>ODY-S04-102: ADR-025 section 4.3, <c>Character.ManageOwnership</c>-gated. Revokes both a permanent controller entry and/or a temporary grant for the given user, whichever is present.</summary>
+        Result<CharacterRecord> RevokeCharacterControl(CampaignHandle campaign, CharacterId characterId, UserId controlUserId, bool actorIsMainGm, long expectedOwnershipRevision, CommandId commandId, CorrelationId correlationId);
     }
 
     public sealed class CreateCharacterRequest
@@ -91,6 +124,7 @@ namespace Odyssey.Application.Persistence
             CharacterApprovalState approvalState,
             string displayName,
             string? portraitReference,
+            CharacterOwnership ownership,
             CharacterSectionRevisions revisions,
             UtcInstant createdAt,
             UtcInstant updatedAt)
@@ -109,6 +143,7 @@ namespace Odyssey.Application.Persistence
             ApprovalState = approvalState;
             DisplayName = displayName;
             PortraitReference = portraitReference;
+            Ownership = ownership ?? throw new ArgumentNullException(nameof(ownership));
             Revisions = revisions;
             CreatedAt = createdAt;
             UpdatedAt = updatedAt;
@@ -121,6 +156,9 @@ namespace Odyssey.Application.Persistence
         public CharacterApprovalState ApprovalState { get; }
         public string DisplayName { get; }
         public string? PortraitReference { get; }
+
+        /// <summary>ODY-S04-102: ADR-022's already-reserved <c>Ownership</c> section content -- see <see cref="CharacterSectionRevisions.OwnershipRevision"/> for its revision counter.</summary>
+        public CharacterOwnership Ownership { get; }
         public CharacterSectionRevisions Revisions { get; }
         public UtcInstant CreatedAt { get; }
         public UtcInstant UpdatedAt { get; }
