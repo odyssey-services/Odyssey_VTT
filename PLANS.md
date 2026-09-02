@@ -308,3 +308,16 @@ An ExecPlan may be marked `Completed` only when:
 9. no private requirement text or secrets were added to the authoritative repository.
 
 A completed plan is evidence of how the result was produced. It is not evidence that the owner approved or merged it.
+
+## 13. Current near-term execution order (owner decision, 2026-09-02)
+
+This section records a sequencing decision for the current segment of work (closing out `SLICE-04` and the step immediately after it). It does not change any rule in sections 1–12 above, and it does not extend to later Roadmap stages beyond this segment (see `17_Roadmap_Odyssey_VTT_v*.md` §32 for the authoritative, up-to-date version of this decision).
+
+Order for this segment:
+
+1. Finish the remaining `SLICE-04` domain/Application/Persistence logic (`docs/tasks/SLICE-04_IMPLEMENTATION_BACKLOG.md` rows still open) — no Unity/UI code, same convention as every prior task in that backlog.
+2. Build one temporary verification UI (following the `SLICE-UI-01` precedent already used between `SLICE-03` and `SLICE-04`) to exercise the completed `Characters and Progression` logic end-to-end by hand.
+3. Only after that, treat .NET SDK / build-and-test infrastructure (`dotnet build`/`dotnet test`, CI) hardening as its own explicit task, separate from any single feature ExecPlan.
+4. The full, polished UI/UX pass stays exactly where the Roadmap already plans it (Stage 11) — this decision does not move it earlier.
+
+An ExecPlan for a task inside this segment should reflect this order when sequencing its own milestones, but this section does not itself replace or override that task's own ExecPlan.

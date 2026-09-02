@@ -602,6 +602,36 @@ namespace Odyssey.Application.Persistence
         /// own Board commands after this call returns, not by this method).
         /// </summary>
         Result<CharacterRecord> RestoreDeadCharacter(RestoreDeadCharacterRequest request, CommandId commandId, CorrelationId correlationId);
+
+        /// <summary>
+        /// ODY-S04-112: ADR-026. A read-only ADR-002 section 4.2 Query -- no
+        /// `CommandId`, no event, no transaction, never mutates
+        /// <paramref name="characterId"/>. Writes a `.odchar` directory
+        /// bundle (`manifest.json`/`character.json`) to
+        /// <paramref name="bundleDirectoryPath"/> via `RedactCharacterForExport`,
+        /// and returns the same manifest/payload pair in memory.
+        /// </summary>
+        Result<CharacterExportBundle> ExportCharacter(CampaignHandle campaign, CharacterId characterId, string bundleDirectoryPath, ExportActorContext actorContext, CorrelationId correlationId);
+
+        /// <summary>
+        /// ODY-S04-112: ADR-025 section 7.6/ADR-026. Reads the `.odchar`
+        /// bundle at <paramref name="request"/>'s own `BundleDirectoryPath`,
+        /// validates Ruleset compatibility against
+        /// <paramref name="request"/>'s own target campaign using the exact
+        /// same `CharacterTemplateCompatibility.IsCompatible` function
+        /// `BindDraftToCampaign` itself already uses (no second,
+        /// import-specific check), then calls `BindDraftToCampaign`
+        /// unmodified (with `CharacterCreationSeed.None()`) to create a
+        /// fresh Draft, and finally applies every mechanics/anatomy/resource
+        /// value from the bundle onto that Draft in one additional,
+        /// dedicated transaction (<paramref name="applyStateCommandId"/>) --
+        /// never touching `RuntimeState`/`CharacterOwnership`/`CharacterId`/
+        /// `CampaignId` from the source file (all three of the latter are
+        /// freshly assigned by `BindDraftToCampaign` itself). Two distinct
+        /// `CommandId`s are required because these are two independent
+        /// writes, each with its own `AppliedCommands` idempotency row.
+        /// </summary>
+        Result<CharacterRecord> ImportCharacter(ImportCharacterRequest request, CommandId bindCommandId, CommandId applyStateCommandId, CorrelationId correlationId);
     }
 
     /// <summary>

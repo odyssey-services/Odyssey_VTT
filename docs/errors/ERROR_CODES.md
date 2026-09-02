@@ -3,7 +3,7 @@
 **Status:** Active  
 **Owner:** Odyssey.Application  
 **Introduced by:** ODY-S00-004  
-**Last updated:** 2026-09-02
+**Last updated:** 2026-09-03
 
 This registry contains only ErrorCodes introduced in production source. Do not pre-register future gameplay, persistence, networking, protocol, or UI codes.
 
@@ -88,6 +88,7 @@ ErrorCode format is lowercase dot-separated `<area>.<subject>.<condition>`. Segm
 | `persistence.character.restore_denied` | `Odyssey.Application` | `Authorization` | `PermissionDenied` | `errors.persistence.character_restore_denied` | `DoNotRetry` | `0.1.0` | Active | - | Public-safe ODY-S04-111 `SqliteCharacterRepository.RestoreDeadCharacter` MainGM-only gate (product section 23.2) rejection for a non-MainGM actor. | `TC-CHAR-138` |
 | `persistence.character.restore_reason_required` | `Odyssey.Application` | `Validation` | `InvalidRequest` | `errors.persistence.character_restore_reason_required` | `DoNotRetry` | `0.1.0` | Active | - | Public-safe ODY-S04-111 `SqliteCharacterRepository.RestoreDeadCharacter` rejection when `ReasonCode` is missing (ADR-025 section 6.3's "обязательной причиной"). | `TC-CHAR-137` |
 | `persistence.character.restore_not_dead` | `Odyssey.Application` | `Conflict` | `StateChanged` | `errors.persistence.character_restore_not_dead` | `DoNotRetry` | `0.1.0` | Active | - | Public-safe ODY-S04-111 `SqliteCharacterRepository.RestoreDeadCharacter` rejection when the Character's current `LifecycleStatus` is not `Dead` (ADR-025 section 6.1: `RestoreDeadCharacter` is legal only from `Dead`). | `TC-CHAR-136` |
+| `persistence.character.export_bundle_malformed` | `Odyssey.Application` | `Validation` | `InvalidRequest` | `errors.persistence.character_export_bundle_malformed` | `DoNotRetry` | `0.1.0` | Active | - | Public-safe ODY-S04-112 `SqliteCharacterRepository.ImportCharacter` rejection when the `.odchar` bundle directory is missing `manifest.json`/`character.json`, or either file fails to parse into the expected shape (ADR-026). | `TC-CHAR-149` |
 | `persistence.character.critical_evidence_not_found` | `Odyssey.Application` | `Integrity` | `DataCorrupted` | `errors.persistence.character_critical_evidence_not_found` | `ManualRecoveryRequired` | `0.1.0` | Active | - | Public-safe ODY-S04-106 `SqliteCharacterRepository.ResolveAdvancementRecommendation` integrity failure when a referenced `CriticalSuccessEvidenceId` does not exist. | `TC-CHAR-054` |
 | `networking.transport.connect_failed` | `Odyssey.Application` | `TransientInfrastructure` | `ServiceUnavailable` | `errors.networking.transport_connect_failed` | `RetryWithBackoff` | `0.1.0` | Active | - | Public-safe ODY-S02-001 `ISessionTransport.ConnectAsync` failure when the transport cannot reach a peer at all; response must not expose raw socket/relay SDK exception text or endpoint details. | `TC-NET-001` |
 | `networking.transport.connect_timed_out` | `Odyssey.Application` | `TransientInfrastructure` | `OperationTimedOut` | `errors.networking.transport_connect_timed_out` | `RetryWithBackoff` | `0.1.0` | Active | - | Public-safe ODY-S02-001 `ISessionTransport.ConnectAsync` failure when connection setup exceeds `TransportTimeoutPolicy.ConnectTimeout`; reserved for a real transport (`ODY-S02-002`/`003`) -- not triggered by the in-process mock, which has no artificial delay per `ADR-008`. | `TC-NET-002` |

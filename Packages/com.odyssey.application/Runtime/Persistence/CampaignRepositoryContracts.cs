@@ -644,6 +644,15 @@ namespace Odyssey.Application.Persistence
             RetryDirective.ManualRecoveryRequired,
             correlationId);
 
+        /// <summary>ODY-S04-112: <c>ImportCharacter</c> rejection when the `.odchar` bundle at the given directory is missing its `manifest.json`/`character.json`, or either file fails to parse into the expected shape -- a graceful `Result.Failure`, never a thrown exception, for a malformed or truncated file.</summary>
+        public static Error CharacterExportBundleMalformed(CorrelationId correlationId) => Error.Create(
+            ErrorCodes.PersistenceCharacterExportBundleMalformed,
+            ErrorCategory.Validation,
+            SafeReasonCode.InvalidRequest,
+            UserMessageKey.Parse("errors.persistence.character_export_bundle_malformed"),
+            RetryDirective.DoNotRetry,
+            correlationId);
+
         // Used only by the codec's Read path (CampaignManifest.cs), which does not
         // receive a caller CorrelationId; matches the existing SerializationFailures
         // placeholder-correlation convention for codec-level structural failures.
