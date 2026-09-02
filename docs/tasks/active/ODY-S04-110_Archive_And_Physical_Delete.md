@@ -5,7 +5,7 @@
 **Owner:** Codex (agent)
 **Requested by:** Product owner
 **Branch:** `feat/ody-s04-110-archive-physical-delete`
-**Pull request:** <to be filled after `gh pr create`>
+**Pull request:** [#94](https://github.com/odyssey-services/Odyssey_VTT/pull/94)
 **ExecPlan:** `docs/plans/active/ODY-S04-110_Archive_And_Physical_Delete.md`
 **Created:** 2026-09-02
 **Last updated:** 2026-09-02 UTC

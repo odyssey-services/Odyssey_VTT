@@ -3,7 +3,7 @@
 **Status:** Active
 **Owner:** Codex (agent)
 **Branch:** `feat/ody-s04-110-archive-physical-delete`
-**Pull request:** <to be filled after `gh pr create`>
+**Pull request:** [#94](https://github.com/odyssey-services/Odyssey_VTT/pull/94)
 **Last updated:** 2026-09-02 UTC
 
 ## 1. Purpose and user-visible outcome
@@ -109,4 +109,4 @@ None.
 
 ## 13. Outcome and follow-up
 
-Draft PR: <to be filled after `gh pr create`>. CI pending. `ODY-S04-111` (Dead & `CharacterRestored`) is the next task in the backlog; a future Item/Inventory/Board/GameLog task would be the first real occasion to register a genuine `ICharacterDeletionDependencyChecker` implementation.
+Draft PR: [#94](https://github.com/odyssey-services/Odyssey_VTT/pull/94). CI pending. `ODY-S04-111` (Dead & `CharacterRestored`) is the next task in the backlog; a future Item/Inventory/Board/GameLog task would be the first real occasion to register a genuine `ICharacterDeletionDependencyChecker` implementation.
