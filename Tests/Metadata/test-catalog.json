@@ -3167,6 +3167,78 @@
                           "runner":  "dotnet test",
                           "path":  "DotNet/Tests/Odyssey.Tests.Persistence/CharacterDeadRestoredTests.cs",
                           "check":  "An independent Mechanics-section command (GrantDevelopmentPoints) commits successfully after an earlier, unrelated Lifecycle-section Dead transition -- no false conflict"
+                      },
+                      {
+                          "testCaseId":  "TC-CHAR-144",
+                          "taskId":  "ODY-S04-112",
+                          "authority":  "ADR-026 section 4",
+                          "runner":  "dotnet test",
+                          "path":  "DotNet/Tests/Odyssey.Tests.Persistence/CharacterExportImportTests.cs",
+                          "check":  "ExportCharacter writes manifest.json/character.json to the bundle directory; character.json never contains CharacterOwnership/CharacterId/CampaignId, verified directly against the serialized text"
+                      },
+                      {
+                          "testCaseId":  "TC-CHAR-145",
+                          "taskId":  "ODY-S04-112",
+                          "authority":  "ADR-026 section 5",
+                          "runner":  "dotnet test",
+                          "path":  "DotNet/Tests/Odyssey.Tests.Persistence/CharacterExportImportTests.cs",
+                          "check":  "ExportCharacter by MainGM and by the Character's own owner produce byte-identical character.json"
+                      },
+                      {
+                          "testCaseId":  "TC-CHAR-146",
+                          "taskId":  "ODY-S04-112",
+                          "authority":  "ADR-026",
+                          "runner":  "dotnet test",
+                          "path":  "DotNet/Tests/Odyssey.Tests.Persistence/CharacterExportImportTests.cs",
+                          "check":  "ExportCharacter on an unknown CharacterId is rejected"
+                      },
+                      {
+                          "testCaseId":  "TC-CHAR-147",
+                          "taskId":  "ODY-S04-112",
+                          "authority":  "ADR-025 section 7.6",
+                          "runner":  "dotnet test",
+                          "path":  "DotNet/Tests/Odyssey.Tests.Persistence/CharacterExportImportTests.cs",
+                          "check":  "ImportCharacter creates a fresh CharacterId, a Draft requiring approval, and pins RulesetVersion to the target campaign's own current Ruleset"
+                      },
+                      {
+                          "testCaseId":  "TC-CHAR-148",
+                          "taskId":  "ODY-S04-112",
+                          "authority":  "ADR-025 section 7.6; ADR-026 section 8 rule 6",
+                          "runner":  "dotnet test",
+                          "path":  "DotNet/Tests/Odyssey.Tests.Persistence/CharacterExportImportTests.cs",
+                          "check":  "ImportCharacter with an incompatible Ruleset is rejected using the same error code/function BindDraftToCampaign's own compatibility gate already uses"
+                      },
+                      {
+                          "testCaseId":  "TC-CHAR-149",
+                          "taskId":  "ODY-S04-112",
+                          "authority":  "this task's own section 13 (malformed-input handling)",
+                          "runner":  "dotnet test",
+                          "path":  "DotNet/Tests/Odyssey.Tests.Persistence/CharacterExportImportTests.cs",
+                          "check":  "ImportCharacter against a missing bundle directory is rejected gracefully (Result.Failure), not via a thrown exception"
+                      },
+                      {
+                          "testCaseId":  "TC-CHAR-150",
+                          "taskId":  "ODY-S04-112",
+                          "authority":  "ADR-026 section 9 item 4",
+                          "runner":  "dotnet test",
+                          "path":  "DotNet/Tests/Odyssey.Tests.Persistence/CharacterExportImportTests.cs",
+                          "check":  "A full export-then-import round trip preserves DevelopmentPool.Earned/Spent, attribute/skill values, ability/resource values, and anatomy body-part count, while minting a fresh CharacterAbilityId/CharacterResourceId for each nested instance and resetting Reserved to 0"
+                      },
+                      {
+                          "testCaseId":  "TC-CHAR-151",
+                          "taskId":  "ODY-S04-112",
+                          "authority":  "ADR-022 section 5 rule 2 (same spirit)",
+                          "runner":  "dotnet test",
+                          "path":  "DotNet/Tests/Odyssey.Tests.Persistence/CharacterExportImportTests.cs",
+                          "check":  "Importing a bundle with no abilities/resources/anatomy leaves the target Draft's own Abilities/Resources/Anatomy sections at their initial, untouched state"
+                      },
+                      {
+                          "testCaseId":  "TC-CHAR-152",
+                          "taskId":  "ODY-S04-112",
+                          "authority":  "ADR-012 section 7",
+                          "runner":  "dotnet test",
+                          "path":  "DotNet/Tests/Odyssey.Tests.Persistence/CharacterExportImportTests.cs",
+                          "check":  "A duplicate CommandId pair for ImportCharacter's own two internal steps (bind, apply-state) does not create a second imported Character -- including correct replay when the bind step's own live-row LastCommandId has already been overwritten by the later apply-state step"
                       }
                   ]
 }

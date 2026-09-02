@@ -69,6 +69,7 @@ namespace Odyssey.Persistence.Sqlite
             "odyssey.persistence.character_deleted",
             "odyssey.persistence.character_died",
             "odyssey.persistence.character_restored",
+            "odyssey.persistence.character_import_state_applied",
         };
 
         /// <summary>
@@ -1174,6 +1175,582 @@ namespace Odyssey.Persistence.Sqlite
             {
                 return Result<CharacterRecord>.Failure(PersistenceFailures.CharacterIoFailed(correlationId));
             }
+        }
+
+        private const string OdcharManifestFileName = "manifest.json";
+        private const string OdcharCharacterFileName = "character.json";
+        private const string OdcharFormatVersion = "1.0";
+
+        /// <summary>
+        /// ODY-S04-112: ADR-026. Read-only -- no <c>CommandId</c>, no event,
+        /// no transaction (ADR-002 section 4.2 Query). Reads the live
+        /// <see cref="Character"/> row directly (no <c>SelectForUpdate</c>/
+        /// transaction needed for a read), redacts it via
+        /// <see cref="RedactCharacterForExport"/>, and writes both bundle
+        /// files to <paramref name="bundleDirectoryPath"/>.
+        /// </summary>
+        public Result<CharacterExportBundle> ExportCharacter(CampaignHandle campaign, CharacterId characterId, string bundleDirectoryPath, ExportActorContext actorContext, CorrelationId correlationId)
+        {
+            if (campaign == null) throw new ArgumentNullException(nameof(campaign));
+            if (!characterId.IsValid) throw new ArgumentException("CharacterId is required.", nameof(characterId));
+            if (string.IsNullOrWhiteSpace(bundleDirectoryPath)) throw new ArgumentException("BundleDirectoryPath is required.", nameof(bundleDirectoryPath));
+            if (actorContext == null) throw new ArgumentNullException(nameof(actorContext));
+
+            try
+            {
+                using SqliteConnection connection = OpenConnection(campaign.RootPath);
+                EnsureCharacterTables(connection);
+
+                CharacterRecord current;
+                using (var select = connection.CreateCommand())
+                {
+                    select.CommandText = SelectColumns + " FROM Character WHERE CharacterId = $characterId LIMIT 1;";
+                    select.Parameters.AddWithValue("$characterId", characterId.ToString());
+                    using SqliteDataReader reader = select.ExecuteReader();
+                    if (!reader.Read())
+                    {
+                        return Result<CharacterExportBundle>.Failure(PersistenceFailures.CharacterNotFound(correlationId));
+                    }
+
+                    current = ReadCharacterRecord(reader);
+                }
+
+                UtcInstant now = _clock.GetUtcNow();
+                CharacterExportPayload payload = RedactCharacterForExport.Redact(current, actorContext);
+                string exportedByRole = RedactCharacterForExport.ResolveExportedByRole(current.Ownership, actorContext, now);
+                var manifest = new CharacterExportManifest(OdcharFormatVersion, now, exportedByRole, campaign.Manifest.RulesetId, campaign.Manifest.RulesetVersion);
+
+                Directory.CreateDirectory(bundleDirectoryPath);
+                File.WriteAllText(Path.Combine(bundleDirectoryPath, OdcharManifestFileName), SerializeExportManifest(manifest).ToString(Newtonsoft.Json.Formatting.Indented));
+                File.WriteAllText(Path.Combine(bundleDirectoryPath, OdcharCharacterFileName), SerializeExportPayload(payload).ToString(Newtonsoft.Json.Formatting.Indented));
+
+                return Result<CharacterExportBundle>.Success(new CharacterExportBundle(manifest, payload));
+            }
+            catch (Exception ex) when (ex is IOException || ex is UnauthorizedAccessException || ex is SqliteException)
+            {
+                return Result<CharacterExportBundle>.Failure(PersistenceFailures.CharacterIoFailed(correlationId));
+            }
+        }
+
+        /// <summary>
+        /// ODY-S04-112: ADR-025 section 7.6/ADR-026. Reads the bundle,
+        /// checks Ruleset compatibility itself (via the exact same
+        /// <see cref="CharacterTemplateCompatibility.IsCompatible"/>
+        /// function <c>BindDraftToCampaign</c> already calls internally --
+        /// see this task's own ExecPlan section 4/5 for why this avoids any
+        /// change to <c>BindDraftToCampaign</c>/<c>CharacterCreationSeed</c>),
+        /// then binds a fresh Draft and applies the bundle's own mechanics/
+        /// anatomy/resource state onto it in one further dedicated
+        /// transaction.
+        /// </summary>
+        public Result<CharacterRecord> ImportCharacter(ImportCharacterRequest request, CommandId bindCommandId, CommandId applyStateCommandId, CorrelationId correlationId)
+        {
+            if (request == null) throw new ArgumentNullException(nameof(request));
+            if (!bindCommandId.IsValid) throw new ArgumentException("BindCommandId is required.", nameof(bindCommandId));
+            if (!applyStateCommandId.IsValid) throw new ArgumentException("ApplyStateCommandId is required.", nameof(applyStateCommandId));
+
+            string manifestPath = Path.Combine(request.BundleDirectoryPath, OdcharManifestFileName);
+            string characterPath = Path.Combine(request.BundleDirectoryPath, OdcharCharacterFileName);
+            if (!File.Exists(manifestPath) || !File.Exists(characterPath))
+            {
+                return Result<CharacterRecord>.Failure(PersistenceFailures.CharacterExportBundleMalformed(correlationId));
+            }
+
+            CharacterExportManifest manifest;
+            CharacterExportPayload payload;
+            try
+            {
+                manifest = DeserializeExportManifest(File.ReadAllText(manifestPath));
+                payload = DeserializeExportPayload(File.ReadAllText(characterPath));
+            }
+            catch (Exception ex) when (ex is Newtonsoft.Json.JsonException || ex is FormatException || ex is ArgumentException || ex is NullReferenceException || ex is InvalidCastException)
+            {
+                return Result<CharacterRecord>.Failure(PersistenceFailures.CharacterExportBundleMalformed(correlationId));
+            }
+
+            CampaignHandle campaign = request.TargetCampaign;
+
+            // ADR-025 section 7.6 / ADR-026 section 8 rule 6: the exact same
+            // decision BindDraftToCampaign's own compatibility gate makes,
+            // using the exact same pure function -- never a second,
+            // divergent import-specific check, and zero changes to
+            // BindDraftToCampaign/CharacterCreationSeed's own code.
+            bool compatible = CharacterTemplateCompatibility.IsCompatible(
+                manifest.SourceRulesetId, manifest.SourceRulesetVersion,
+                campaign.Manifest.RulesetId, campaign.Manifest.RulesetVersion);
+            if (!compatible)
+            {
+                return Result<CharacterRecord>.Failure(PersistenceFailures.CharacterDraftRulesetIncompatible(correlationId));
+            }
+
+            // Section 5 of this task's own ExecPlan: BindDraftToCampaign's
+            // own generic replay lookup ("LastCommandId = $commandId" on the
+            // live row, no CharacterId filter -- correct for every existing
+            // caller, none of which runs a second write against the same
+            // row afterward) breaks specifically for ImportCharacter, since
+            // ApplyImportedCharacterState's own later write overwrites
+            // LastCommandId with its own commandId. A replayed bindCommandId
+            // is therefore resolved directly from the already-committed
+            // odyssey.persistence.character_draft_bound DomainEvents row
+            // (which carries CommandId as its own column, ADR-012's shared
+            // journal shape) instead of re-invoking BindDraftToCampaign's
+            // own live-row-based replay path -- BindDraftToCampaign's own
+            // code is not touched by this at all.
+            CharacterId characterId;
+            try
+            {
+                using SqliteConnection precheckConnection = OpenConnection(campaign.RootPath);
+                EnsureCharacterTables(precheckConnection);
+                if (IsCommandAlreadyApplied(precheckConnection, bindCommandId))
+                {
+                    CharacterId? replayedCharacterId = FindCharacterIdByDraftBoundCommandId(precheckConnection, bindCommandId);
+                    if (!replayedCharacterId.HasValue)
+                    {
+                        return Result<CharacterRecord>.Failure(PersistenceFailures.CommandReplayFailed(correlationId));
+                    }
+
+                    characterId = replayedCharacterId.Value;
+                }
+                else
+                {
+                    var bindRequest = new BindDraftToCampaignRequest(
+                        campaign, payload.CharacterKind, payload.DisplayName, payload.AnatomyProfileRef,
+                        request.InitialPrimaryOwnerUserId, CharacterCreationSeed.None(), null, null);
+                    Result<CharacterRecord> bound = BindDraftToCampaign(bindRequest, bindCommandId, correlationId);
+                    if (bound.IsFailure)
+                    {
+                        return bound;
+                    }
+
+                    characterId = bound.Value.CharacterId;
+                }
+            }
+            catch (Exception ex) when (ex is IOException || ex is UnauthorizedAccessException || ex is SqliteException)
+            {
+                return Result<CharacterRecord>.Failure(PersistenceFailures.CharacterIoFailed(correlationId));
+            }
+
+            return ApplyImportedCharacterState(campaign, characterId, payload, applyStateCommandId, correlationId);
+        }
+
+        private static CharacterId? FindCharacterIdByDraftBoundCommandId(SqliteConnection connection, CommandId commandId)
+        {
+            using var select = connection.CreateCommand();
+            select.CommandText = "SELECT PayloadJson FROM DomainEvents WHERE CommandId = $commandId AND EventType = 'odyssey.persistence.character_draft_bound' LIMIT 1;";
+            select.Parameters.AddWithValue("$commandId", commandId.ToString());
+            object? result = select.ExecuteScalar();
+            if (result == null || result is DBNull)
+            {
+                return null;
+            }
+
+            var payload = (JObject)ParseJsonPreservingStrings((string)result);
+            string? characterIdRaw = (string?)payload["characterId"];
+            return characterIdRaw == null ? (CharacterId?)null : CharacterId.Parse(characterIdRaw);
+        }
+
+        /// <summary>
+        /// ODY-S04-112: this task's own dedicated cross-section step (see
+        /// ExecPlan section 4/5), following the exact same "one dedicated
+        /// method for a genuinely cross-cutting operation" precedent
+        /// <c>RestoreDeadCharacter</c>/<c>ApplyCharacterRespec</c> already
+        /// established. Runs immediately after a successful
+        /// <c>BindDraftToCampaign</c>, writing every mechanics/anatomy/
+        /// resource value from <paramref name="payload"/> onto the brand
+        /// new, still-empty Draft in one transaction. Mints a fresh
+        /// <see cref="CharacterAbilityId"/>/<see cref="CharacterResourceId"/>/
+        /// <see cref="PermanentModificationId"/> for every nested instance
+        /// (CAP-INV-006's same spirit); <see cref="BodyPartId"/> is kept
+        /// as-is (a catalog-style key, not a minted per-instance id,
+        /// matching <c>ReplaceAnatomyProfile</c>'s own convention).
+        /// <c>DevelopmentPool.Reserved</c> is always <c>0</c> -- see this
+        /// task's own ExecPlan Decisions for why it is never exported/imported.
+        /// </summary>
+        private Result<CharacterRecord> ApplyImportedCharacterState(CampaignHandle campaign, CharacterId characterId, CharacterExportPayload payload, CommandId commandId, CorrelationId correlationId)
+        {
+            try
+            {
+                using SqliteConnection connection = OpenConnection(campaign.RootPath);
+                EnsureCharacterTables(connection);
+
+                return _pipeline.Execute(
+                    connection,
+                    campaign.CampaignId,
+                    commandId,
+                    correlationId,
+                    tryReplay: transaction => ReplayCharacter(connection, transaction, campaign.CampaignId, "CharacterId = $characterId AND LastCommandId = $commandId", commandId, correlationId, characterId),
+                    apply: transaction =>
+                    {
+                        CharacterRecord? current = SelectForUpdate(connection, transaction, characterId);
+                        if (current == null)
+                        {
+                            return Result<PipelineWrite<CharacterRecord>>.Failure(PersistenceFailures.CharacterNotFound(correlationId));
+                        }
+
+                        UtcInstant now = _clock.GetUtcNow();
+
+                        var newPool = new DevelopmentPool(payload.DevelopmentPoolEarned, payload.DevelopmentPoolSpent, 0);
+
+                        var newAttributes = new List<AttributeValue>(payload.Attributes.Count);
+                        foreach (ExportedAttributeValue attribute in payload.Attributes)
+                        {
+                            newAttributes.Add(new AttributeValue(attribute.AttributeDefinitionId, attribute.BaseValue, attribute.PermanentAdjustment, attribute.SpentDevelopmentPoints, 1));
+                        }
+
+                        var newSkills = new List<CharacterSkill>(payload.Skills.Count);
+                        foreach (ExportedSkill skill in payload.Skills)
+                        {
+                            newSkills.Add(new CharacterSkill(skill.SkillDefinitionId, skill.Level, skill.PermanentAdjustment, skill.SpentDevelopmentPoints, 1));
+                        }
+
+                        var newAbilities = new List<CharacterAbility>(payload.Abilities.Count);
+                        foreach (ExportedAbility ability in payload.Abilities)
+                        {
+                            CharacterAbilityId freshId = CharacterAbilityId.NewId(now);
+                            newAbilities.Add(new CharacterAbility(freshId, ability.AbilityDefinitionId, ability.SourceKind, ability.SourceRef, now, ability.RankMode, ability.NumericRank, ability.NamedRankKey, ability.IsEnabled, ability.Configuration, ability.UsesState, 1));
+                        }
+
+                        var newResources = new List<CharacterResource>(payload.Resources.Count);
+                        foreach (ExportedResource resource in payload.Resources)
+                        {
+                            CharacterResourceId freshId = CharacterResourceId.NewId(now);
+                            newResources.Add(new CharacterResource(freshId, resource.ResourceDefinitionId, resource.CurrentValue, resource.BaseMaximum, resource.PermanentMaximumAdjustment, resource.MinimumValue, resource.RecoveryRule, 1));
+                        }
+
+                        CharacterAnatomy? newAnatomy = null;
+                        if (payload.Anatomy != null)
+                        {
+                            var newBodyParts = new List<BodyPart>(payload.Anatomy.BodyParts.Count);
+                            foreach (ExportedBodyPart bodyPart in payload.Anatomy.BodyParts)
+                            {
+                                newBodyParts.Add(new BodyPart(bodyPart.BodyPartId, bodyPart.Name, bodyPart.DamageLimit, bodyPart.AttachedToBodyPartId, bodyPart.Properties));
+                            }
+
+                            var newModifications = new List<PermanentModification>(payload.Anatomy.PermanentModifications.Count);
+                            foreach (ExportedPermanentModification modification in payload.Anatomy.PermanentModifications)
+                            {
+                                PermanentModificationId freshId = PermanentModificationId.NewId(now);
+                                newModifications.Add(new PermanentModification(freshId, modification.AttachedToBodyPartId, modification.Kind, modification.Description, modification.AppliedAt));
+                            }
+
+                            var migrationHistory = new[] { new AnatomyMigrationEntry("Imported", "CharacterAnatomy set from an imported .odchar bundle", now) };
+                            newAnatomy = new CharacterAnatomy(payload.Anatomy.AnatomyProfileDefinitionId, payload.Anatomy.AnatomyProfileVersion, newBodyParts, newModifications, migrationHistory, 1);
+                        }
+
+                        // Note: Attributes/Skills are gated by the single,
+                        // combined MechanicsRevision column, exactly like
+                        // every existing Mechanics command (PurchaseAttributeIncrease/
+                        // PurchaseSkillLevel/GrantDevelopmentPoints, via their
+                        // own shared MutateMechanics helper) -- ADR-022's own
+                        // separately-reserved AttributeValuesRevision/
+                        // CharacterSkillsRevision columns are never
+                        // independently bumped anywhere in this codebase
+                        // (entry-level gating instead uses each AttributeValue/
+                        // CharacterSkill's own per-entry Revision field), so
+                        // this method does not touch them either, for
+                        // consistency with that existing convention.
+                        long newCharacterRevision = current.Revisions.CharacterRevision + 1;
+                        long newMechanicsRevision = current.Revisions.MechanicsRevision + 1;
+                        long newAbilitiesRevision = payload.Abilities.Count > 0 ? current.Revisions.CharacterAbilitiesRevision + 1 : current.Revisions.CharacterAbilitiesRevision;
+                        long newResourcesRevision = payload.Resources.Count > 0 ? current.Revisions.CharacterResourcesRevision + 1 : current.Revisions.CharacterResourcesRevision;
+                        long newAnatomyRevision = payload.Anatomy != null ? current.Revisions.CharacterAnatomyRevision + 1 : current.Revisions.CharacterAnatomyRevision;
+
+                        using (var update = connection.CreateCommand())
+                        {
+                            update.Transaction = transaction;
+                            update.CommandText = "UPDATE Character SET PoolEarned = $poolEarned, PoolSpent = $poolSpent, PoolReserved = 0, MechanicsRevision = $mechanicsRevision, " +
+                                "AttributesJson = $attributesJson, SkillsJson = $skillsJson, " +
+                                "AbilitiesJson = $abilitiesJson, CharacterAbilitiesRevision = $abilitiesRevision, " +
+                                "ResourcesJson = $resourcesJson, CharacterResourcesRevision = $resourcesRevision, " +
+                                "AnatomyJson = $anatomyJson, CharacterAnatomyRevision = $anatomyRevision, " +
+                                "CharacterRevision = $characterRevision, UpdatedAt = $updatedAt, LastCommandId = $lastCommandId WHERE CharacterId = $characterId;";
+                            update.Parameters.AddWithValue("$poolEarned", newPool.Earned);
+                            update.Parameters.AddWithValue("$poolSpent", newPool.Spent);
+                            update.Parameters.AddWithValue("$mechanicsRevision", newMechanicsRevision);
+                            update.Parameters.AddWithValue("$attributesJson", SerializeAttributes(newAttributes));
+                            update.Parameters.AddWithValue("$skillsJson", SerializeSkills(newSkills));
+                            update.Parameters.AddWithValue("$abilitiesJson", SerializeAbilities(newAbilities));
+                            update.Parameters.AddWithValue("$abilitiesRevision", newAbilitiesRevision);
+                            update.Parameters.AddWithValue("$resourcesJson", SerializeResources(newResources));
+                            update.Parameters.AddWithValue("$resourcesRevision", newResourcesRevision);
+                            update.Parameters.AddWithValue("$anatomyJson", newAnatomy != null ? SerializeAnatomy(newAnatomy) : (object)DBNull.Value);
+                            update.Parameters.AddWithValue("$anatomyRevision", newAnatomyRevision);
+                            update.Parameters.AddWithValue("$characterRevision", newCharacterRevision);
+                            update.Parameters.AddWithValue("$updatedAt", now.ToString());
+                            update.Parameters.AddWithValue("$lastCommandId", commandId.ToString());
+                            update.Parameters.AddWithValue("$characterId", characterId.ToString());
+                            update.ExecuteNonQuery();
+                        }
+
+                        CharacterSectionRevisions newRevisions = WithRevisions(current.Revisions, characterRevision: newCharacterRevision, mechanicsRevision: newMechanicsRevision,
+                            characterAbilitiesRevision: payload.Abilities.Count > 0 ? newAbilitiesRevision : (long?)null,
+                            characterResourcesRevision: payload.Resources.Count > 0 ? newResourcesRevision : (long?)null,
+                            characterAnatomyRevision: payload.Anatomy != null ? newAnatomyRevision : (long?)null);
+
+                        var record = new CharacterRecord(characterId, campaign.CampaignId, current.CharacterKind, current.LifecycleStatus, current.ApprovalState, current.DisplayName, current.PortraitReference, current.Ownership, newRevisions, current.RulesetVersion, current.AnatomyProfileRef, current.TemplateId, current.TemplateVersionAtCopyTime, current.SeedCopy, current.SubmittedAt, newPool, newAttributes, newSkills, newAbilities, newResources, newAnatomy, current.CreatedAt, now);
+
+                        var eventPayload = new JObject
+                        {
+                            ["characterId"] = characterId.ToString(),
+                            ["displayNameSnapshot"] = current.DisplayName,
+                            ["rulesetVersion"] = current.RulesetVersion,
+                            ["importedAttributeCount"] = payload.Attributes.Count,
+                            ["importedSkillCount"] = payload.Skills.Count,
+                            ["importedAbilityCount"] = payload.Abilities.Count,
+                            ["importedResourceCount"] = payload.Resources.Count,
+                            ["importedAnatomy"] = payload.Anatomy != null,
+                            ["newCharacterRevision"] = newCharacterRevision,
+                        };
+
+                        return Result<PipelineWrite<CharacterRecord>>.Success(new PipelineWrite<CharacterRecord>(
+                            record, "odyssey.persistence.character_import_state_applied", eventPayload.ToString(Newtonsoft.Json.Formatting.None), characterId.ToString(),
+                            aggregateType: "character", aggregateId: characterId.ToString(), aggregateRevision: newCharacterRevision));
+                    });
+            }
+            catch (Exception ex) when (ex is IOException || ex is UnauthorizedAccessException || ex is SqliteException)
+            {
+                return Result<CharacterRecord>.Failure(PersistenceFailures.CharacterIoFailed(correlationId));
+            }
+        }
+
+        private static JObject SerializeExportManifest(CharacterExportManifest manifest)
+        {
+            return new JObject
+            {
+                ["formatVersion"] = manifest.FormatVersion,
+                ["exportedAt"] = manifest.ExportedAt.ToString(),
+                ["exportedByRole"] = manifest.ExportedByRole,
+                ["sourceRulesetId"] = manifest.SourceRulesetId,
+                ["sourceRulesetVersion"] = manifest.SourceRulesetVersion,
+            };
+        }
+
+        private static CharacterExportManifest DeserializeExportManifest(string json)
+        {
+            var root = (JObject)ParseJsonPreservingStrings(json);
+            return new CharacterExportManifest(
+                (string)root["formatVersion"]!,
+                UtcInstant.Parse((string)root["exportedAt"]!),
+                (string)root["exportedByRole"]!,
+                (string)root["sourceRulesetId"]!,
+                (string)root["sourceRulesetVersion"]!);
+        }
+
+        private static JObject SerializeExportPayload(CharacterExportPayload payload)
+        {
+            var attributes = new JArray();
+            foreach (ExportedAttributeValue attribute in payload.Attributes)
+            {
+                attributes.Add(new JObject
+                {
+                    ["attributeDefinitionId"] = attribute.AttributeDefinitionId.ToString(),
+                    ["baseValue"] = attribute.BaseValue,
+                    ["permanentAdjustment"] = attribute.PermanentAdjustment,
+                    ["spentDevelopmentPoints"] = attribute.SpentDevelopmentPoints,
+                });
+            }
+
+            var skills = new JArray();
+            foreach (ExportedSkill skill in payload.Skills)
+            {
+                skills.Add(new JObject
+                {
+                    ["skillDefinitionId"] = skill.SkillDefinitionId.ToString(),
+                    ["level"] = skill.Level,
+                    ["permanentAdjustment"] = skill.PermanentAdjustment,
+                    ["spentDevelopmentPoints"] = skill.SpentDevelopmentPoints,
+                });
+            }
+
+            var abilities = new JArray();
+            foreach (ExportedAbility ability in payload.Abilities)
+            {
+                abilities.Add(new JObject
+                {
+                    ["sourceCharacterAbilityId"] = ability.SourceCharacterAbilityId.ToString(),
+                    ["abilityDefinitionId"] = ability.AbilityDefinitionId.ToString(),
+                    ["sourceKind"] = ability.SourceKind.ToString(),
+                    ["sourceRef"] = ability.SourceRef,
+                    ["rankMode"] = ability.RankMode.ToString(),
+                    ["numericRank"] = ability.NumericRank,
+                    ["namedRankKey"] = ability.NamedRankKey,
+                    ["isEnabled"] = ability.IsEnabled,
+                    ["configuration"] = ability.Configuration,
+                    ["usesState"] = ability.UsesState,
+                });
+            }
+
+            var resources = new JArray();
+            foreach (ExportedResource resource in payload.Resources)
+            {
+                resources.Add(new JObject
+                {
+                    ["sourceCharacterResourceId"] = resource.SourceCharacterResourceId.ToString(),
+                    ["resourceDefinitionId"] = resource.ResourceDefinitionId.ToString(),
+                    ["currentValue"] = resource.CurrentValue,
+                    ["baseMaximum"] = resource.BaseMaximum,
+                    ["permanentMaximumAdjustment"] = resource.PermanentMaximumAdjustment,
+                    ["minimumValue"] = resource.MinimumValue,
+                    ["recoveryRule"] = resource.RecoveryRule.ToString(),
+                });
+            }
+
+            JObject? anatomy = null;
+            if (payload.Anatomy != null)
+            {
+                var bodyParts = new JArray();
+                foreach (ExportedBodyPart bodyPart in payload.Anatomy.BodyParts)
+                {
+                    bodyParts.Add(new JObject
+                    {
+                        ["bodyPartId"] = bodyPart.BodyPartId.ToString(),
+                        ["name"] = bodyPart.Name,
+                        ["damageLimit"] = bodyPart.DamageLimit,
+                        ["attachedToBodyPartId"] = bodyPart.AttachedToBodyPartId?.ToString(),
+                        ["properties"] = bodyPart.Properties,
+                    });
+                }
+
+                var modifications = new JArray();
+                foreach (ExportedPermanentModification modification in payload.Anatomy.PermanentModifications)
+                {
+                    modifications.Add(new JObject
+                    {
+                        ["sourcePermanentModificationId"] = modification.SourcePermanentModificationId.ToString(),
+                        ["attachedToBodyPartId"] = modification.AttachedToBodyPartId.ToString(),
+                        ["kind"] = modification.Kind,
+                        ["description"] = modification.Description,
+                        ["appliedAt"] = modification.AppliedAt.ToString(),
+                    });
+                }
+
+                anatomy = new JObject
+                {
+                    ["anatomyProfileDefinitionId"] = payload.Anatomy.AnatomyProfileDefinitionId.ToString(),
+                    ["anatomyProfileVersion"] = payload.Anatomy.AnatomyProfileVersion,
+                    ["bodyParts"] = bodyParts,
+                    ["permanentModifications"] = modifications,
+                };
+            }
+
+            return new JObject
+            {
+                ["characterKind"] = payload.CharacterKind.ToString(),
+                ["displayName"] = payload.DisplayName,
+                ["portraitReference"] = payload.PortraitReference,
+                ["anatomyProfileRef"] = payload.AnatomyProfileRef,
+                ["rulesetVersion"] = payload.RulesetVersion,
+                ["developmentPoolEarned"] = payload.DevelopmentPoolEarned,
+                ["developmentPoolSpent"] = payload.DevelopmentPoolSpent,
+                ["attributes"] = attributes,
+                ["skills"] = skills,
+                ["abilities"] = abilities,
+                ["resources"] = resources,
+                ["anatomy"] = (JToken?)anatomy ?? JValue.CreateNull(),
+            };
+        }
+
+        private static CharacterExportPayload DeserializeExportPayload(string json)
+        {
+            var root = (JObject)ParseJsonPreservingStrings(json);
+
+            var attributes = new List<ExportedAttributeValue>();
+            foreach (JToken token in (JArray)root["attributes"]!)
+            {
+                attributes.Add(new ExportedAttributeValue(
+                    AttributeDefinitionId.Parse((string)token["attributeDefinitionId"]!),
+                    (long)token["baseValue"]!,
+                    (long)token["permanentAdjustment"]!,
+                    (long)token["spentDevelopmentPoints"]!));
+            }
+
+            var skills = new List<ExportedSkill>();
+            foreach (JToken token in (JArray)root["skills"]!)
+            {
+                skills.Add(new ExportedSkill(
+                    SkillDefinitionId.Parse((string)token["skillDefinitionId"]!),
+                    (long)token["level"]!,
+                    (long)token["permanentAdjustment"]!,
+                    (long)token["spentDevelopmentPoints"]!));
+            }
+
+            var abilities = new List<ExportedAbility>();
+            foreach (JToken token in (JArray)root["abilities"]!)
+            {
+                var rankMode = (RankMode)Enum.Parse(typeof(RankMode), (string)token["rankMode"]!);
+                abilities.Add(new ExportedAbility(
+                    CharacterAbilityId.Parse((string)token["sourceCharacterAbilityId"]!),
+                    AbilityDefinitionId.Parse((string)token["abilityDefinitionId"]!),
+                    (SourceKind)Enum.Parse(typeof(SourceKind), (string)token["sourceKind"]!),
+                    (string?)token["sourceRef"],
+                    rankMode,
+                    (long?)token["numericRank"],
+                    (string?)token["namedRankKey"],
+                    (bool)token["isEnabled"]!,
+                    (string)token["configuration"]!,
+                    (string?)token["usesState"]));
+            }
+
+            var resources = new List<ExportedResource>();
+            foreach (JToken token in (JArray)root["resources"]!)
+            {
+                resources.Add(new ExportedResource(
+                    CharacterResourceId.Parse((string)token["sourceCharacterResourceId"]!),
+                    ResourceDefinitionId.Parse((string)token["resourceDefinitionId"]!),
+                    (long)token["currentValue"]!,
+                    (long)token["baseMaximum"]!,
+                    (long)token["permanentMaximumAdjustment"]!,
+                    (long)token["minimumValue"]!,
+                    (RecoveryRule)Enum.Parse(typeof(RecoveryRule), (string)token["recoveryRule"]!)));
+            }
+
+            ExportedAnatomy? anatomy = null;
+            if (root["anatomy"] != null && root["anatomy"]!.Type != JTokenType.Null)
+            {
+                JObject anatomyToken = (JObject)root["anatomy"]!;
+                var bodyParts = new List<ExportedBodyPart>();
+                foreach (JToken token in (JArray)anatomyToken["bodyParts"]!)
+                {
+                    string? attachedRaw = (string?)token["attachedToBodyPartId"];
+                    bodyParts.Add(new ExportedBodyPart(
+                        BodyPartId.Parse((string)token["bodyPartId"]!),
+                        (string)token["name"]!,
+                        (long)token["damageLimit"]!,
+                        attachedRaw == null ? (BodyPartId?)null : BodyPartId.Parse(attachedRaw),
+                        (string)token["properties"]!));
+                }
+
+                var modifications = new List<ExportedPermanentModification>();
+                foreach (JToken token in (JArray)anatomyToken["permanentModifications"]!)
+                {
+                    modifications.Add(new ExportedPermanentModification(
+                        PermanentModificationId.Parse((string)token["sourcePermanentModificationId"]!),
+                        BodyPartId.Parse((string)token["attachedToBodyPartId"]!),
+                        (string)token["kind"]!,
+                        (string)token["description"]!,
+                        UtcInstant.Parse((string)token["appliedAt"]!)));
+                }
+
+                anatomy = new ExportedAnatomy(
+                    AnatomyProfileDefinitionId.Parse((string)anatomyToken["anatomyProfileDefinitionId"]!),
+                    (string)anatomyToken["anatomyProfileVersion"]!,
+                    bodyParts,
+                    modifications);
+            }
+
+            return new CharacterExportPayload(
+                (CharacterKind)Enum.Parse(typeof(CharacterKind), (string)root["characterKind"]!),
+                (string)root["displayName"]!,
+                (string?)root["portraitReference"],
+                (string)root["anatomyProfileRef"]!,
+                (string)root["rulesetVersion"]!,
+                (long)root["developmentPoolEarned"]!,
+                (long)root["developmentPoolSpent"]!,
+                attributes,
+                skills,
+                abilities,
+                resources,
+                anatomy);
         }
 
         public Result<IReadOnlyList<CharacterReviewCommentRecord>> GetCharacterReviewComments(CampaignHandle campaign, CharacterId characterId, CorrelationId correlationId)

@@ -80,6 +80,7 @@ namespace Odyssey.Application.Results
         public static readonly ErrorCode PersistenceCharacterRestoreReasonRequired = ErrorCode.Parse("persistence.character.restore_reason_required");
         public static readonly ErrorCode PersistenceCharacterRestoreNotDead = ErrorCode.Parse("persistence.character.restore_not_dead");
         public static readonly ErrorCode PersistenceCharacterCriticalEvidenceNotFound = ErrorCode.Parse("persistence.character.critical_evidence_not_found");
+        public static readonly ErrorCode PersistenceCharacterExportBundleMalformed = ErrorCode.Parse("persistence.character.export_bundle_malformed");
         public static readonly ErrorCode NetworkingTransportConnectFailed = ErrorCode.Parse("networking.transport.connect_failed");
         public static readonly ErrorCode NetworkingTransportConnectTimedOut = ErrorCode.Parse("networking.transport.connect_timed_out");
         public static readonly ErrorCode NetworkingProtocolVersionUnsupported = ErrorCode.Parse("networking.protocol.version_unsupported");
