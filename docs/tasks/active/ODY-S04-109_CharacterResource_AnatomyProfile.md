@@ -5,7 +5,7 @@
 **Owner:** Codex (agent)
 **Requested by:** Product owner
 **Branch:** `feat/ody-s04-109-character-resource-anatomy`
-**Pull request:** <to be filled after `gh pr create`>
+**Pull request:** [#93](https://github.com/odyssey-services/Odyssey_VTT/pull/93)
 **ExecPlan:** `docs/plans/active/ODY-S04-109_CharacterResource_AnatomyProfile.md`
 **Created:** 2026-09-02
 **Last updated:** 2026-09-02 UTC

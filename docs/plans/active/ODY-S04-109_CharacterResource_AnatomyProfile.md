@@ -3,7 +3,7 @@
 **Status:** Active
 **Owner:** Codex (agent)
 **Branch:** `feat/ody-s04-109-character-resource-anatomy`
-**Pull request:** <to be filled after `gh pr create`>
+**Pull request:** [#93](https://github.com/odyssey-services/Odyssey_VTT/pull/93)
 **Last updated:** 2026-09-02 UTC
 
 ## 1. Purpose and user-visible outcome
@@ -122,4 +122,4 @@ None.
 
 ## 15. Outcome and follow-up
 
-Draft PR: <to be filled after `gh pr create`>. CI pending. `ODY-S04-110` (Archive & Dependency-Aware Physical Delete) is the next task in the backlog; a future Item/Inventory task would be the first real occasion to extend `RemoveBodyPart`'s dependency check with the item-dependency half this task explicitly stubbed.
+Draft PR: [#93](https://github.com/odyssey-services/Odyssey_VTT/pull/93). CI pending. `ODY-S04-110` (Archive & Dependency-Aware Physical Delete) is the next task in the backlog; a future Item/Inventory task would be the first real occasion to extend `RemoveBodyPart`'s dependency check with the item-dependency half this task explicitly stubbed.
