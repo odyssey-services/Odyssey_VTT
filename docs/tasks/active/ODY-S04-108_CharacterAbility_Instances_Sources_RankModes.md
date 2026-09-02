@@ -5,7 +5,7 @@
 **Owner:** Codex (agent)
 **Requested by:** Product owner
 **Branch:** `feat/ody-s04-108-character-ability-instances`
-**Pull request:** <to be filled after `gh pr create`>
+**Pull request:** [#92](https://github.com/odyssey-services/Odyssey_VTT/pull/92)
 **ExecPlan:** `docs/plans/active/ODY-S04-108_CharacterAbility_Instances_Sources_RankModes.md`
 **Created:** 2026-09-02
 **Last updated:** 2026-09-02 UTC

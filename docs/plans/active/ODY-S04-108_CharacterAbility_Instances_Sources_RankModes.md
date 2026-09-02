@@ -3,7 +3,7 @@
 **Status:** Active
 **Owner:** Codex (agent)
 **Branch:** `feat/ody-s04-108-character-ability-instances`
-**Pull request:** <to be filled after `gh pr create`>
+**Pull request:** [#92](https://github.com/odyssey-services/Odyssey_VTT/pull/92)
 **Last updated:** 2026-09-02 UTC
 
 ## 1. Purpose and user-visible outcome
@@ -114,4 +114,4 @@ None.
 
 ## 12. Outcome and follow-up
 
-Draft PR: <to be filled after `gh pr create`>. CI pending. `ODY-S04-109` (`CharacterResource`/`AnatomyProfile`) is the next task in the backlog; a future Item/Inventory/ActiveEffect task would be the first real caller of `AcquireAbility`'s `Item`/`ActiveEffect` `SourceKind` values and should revisit this task's own MainGM-only default for them.
+Draft PR: [#92](https://github.com/odyssey-services/Odyssey_VTT/pull/92). CI pending. `ODY-S04-109` (`CharacterResource`/`AnatomyProfile`) is the next task in the backlog; a future Item/Inventory/ActiveEffect task would be the first real caller of `AcquireAbility`'s `Item`/`ActiveEffect` `SourceKind` values and should revisit this task's own MainGM-only default for them.
