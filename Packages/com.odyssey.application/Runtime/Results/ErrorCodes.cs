@@ -58,6 +58,10 @@ namespace Odyssey.Application.Results
         public static readonly ErrorCode PersistenceCharacterAdvancementPurchaseNotFound = ErrorCode.Parse("persistence.character.advancement_purchase_not_found");
         public static readonly ErrorCode PersistenceCharacterAdvancementPurchaseNotApplied = ErrorCode.Parse("persistence.character.advancement_purchase_not_applied");
         public static readonly ErrorCode PersistenceCharacterAdvancementPurchaseHasDependent = ErrorCode.Parse("persistence.character.advancement_purchase_has_dependent");
+        public static readonly ErrorCode PersistenceCharacterAdvancementOperationKindNotSupported = ErrorCode.Parse("persistence.character.advancement_operation_kind_not_supported");
+        public static readonly ErrorCode PersistenceCharacterAbilityGrantDenied = ErrorCode.Parse("persistence.character.ability_grant_denied");
+        public static readonly ErrorCode PersistenceCharacterAbilityNotFound = ErrorCode.Parse("persistence.character.ability_not_found");
+        public static readonly ErrorCode PersistenceCharacterAbilityRemovalNotAllowed = ErrorCode.Parse("persistence.character.ability_removal_not_allowed");
         public static readonly ErrorCode PersistenceCharacterCriticalEvidenceNotFound = ErrorCode.Parse("persistence.character.critical_evidence_not_found");
         public static readonly ErrorCode NetworkingTransportConnectFailed = ErrorCode.Parse("networking.transport.connect_failed");
         public static readonly ErrorCode NetworkingTransportConnectTimedOut = ErrorCode.Parse("networking.transport.connect_timed_out");
