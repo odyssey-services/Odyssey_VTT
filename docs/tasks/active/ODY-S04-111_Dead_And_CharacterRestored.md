@@ -5,7 +5,7 @@
 **Owner:** Codex (agent)
 **Requested by:** Product owner
 **Branch:** `feat/ody-s04-111-dead-character-restored`
-**Pull request:** TBD
+**Pull request:** [#95](https://github.com/odyssey-services/Odyssey_VTT/pull/95)
 **ExecPlan:** `docs/plans/active/ODY-S04-111_Dead_And_CharacterRestored.md`
 **Created:** 2026-09-02
 **Last updated:** 2026-09-02 UTC

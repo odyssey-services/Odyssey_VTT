@@ -3,7 +3,7 @@
 **Status:** Active
 **Owner:** Codex (agent)
 **Branch:** `feat/ody-s04-111-dead-character-restored`
-**Pull request:** TBD
+**Pull request:** [#95](https://github.com/odyssey-services/Odyssey_VTT/pull/95)
 **Last updated:** 2026-09-02 UTC
 
 ## 1. Purpose and user-visible outcome
@@ -116,4 +116,4 @@ None.
 
 ## 13. Outcome and follow-up
 
-Draft PR: TBD. CI pending. `ODY-S04-112` (`.odchar` Export/Import) is the next task in the backlog; a future Rules Engine task would be the first real occasion to drive `TransitionCharacterToDead` via the `HostSystemFatalDamageCompletion` path with a genuine completed `FatalDamagePending` workflow, and a future Board/Scene task would be the first real occasion to coordinate `RuntimeState`/token-position restoration alongside a `RestoreDeadCharacter` call.
+Draft PR: [#95](https://github.com/odyssey-services/Odyssey_VTT/pull/95). CI pending. `ODY-S04-112` (`.odchar` Export/Import) is the next task in the backlog; a future Rules Engine task would be the first real occasion to drive `TransitionCharacterToDead` via the `HostSystemFatalDamageCompletion` path with a genuine completed `FatalDamagePending` workflow, and a future Board/Scene task would be the first real occasion to coordinate `RuntimeState`/token-position restoration alongside a `RestoreDeadCharacter` call.
