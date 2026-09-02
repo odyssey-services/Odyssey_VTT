@@ -502,6 +502,85 @@ namespace Odyssey.Application.Persistence
 
         /// <summary>ODY-S04-109: product section 18 -- "применить протез, мутацию или постоянную модификацию," one generic command for all three (product itself groups them with no separate schema per kind -- see <see cref="PermanentModification"/>'s own doc comment). MainGM-only.</summary>
         Result<CharacterRecord> ApplyPermanentModification(CampaignHandle campaign, CharacterId characterId, BodyPartId attachedToBodyPartId, string kind, string description, UserId actorUserId, bool actorIsMainGm, long expectedCharacterAnatomyRevision, CommandId commandId, CorrelationId correlationId);
+
+        /// <summary>
+        /// ODY-S04-110: ADR-025 section 5.1 -- an ordinary `Lifecycle`-section
+        /// transition (`LifecycleStatus → Archived`, product section 7.1's
+        /// "Draft|Active|Inactive|Retired|Dead -> Archived") through the
+        /// already-existing <see cref="CharacterLifecycleTransitions.IsValidTransition"/>
+        /// table -- never a duplicated ad hoc legality check. Gated by
+        /// <paramref name="expectedLifecycleRevision"/>.
+        ///
+        /// Actor: MainGM OR an assigned user of this Character
+        /// (<see cref="CharacterOwnershipAssignment.IsAssignedCharacter"/>,
+        /// the same convention <see cref="PurchaseAttributeIncrease"/>/
+        /// <see cref="PurchaseSkillLevel"/> already use) -- NOT MainGM-only.
+        /// ADR-025 section 5.1's own text: "`Character.Archive` is checked
+        /// normally under the existing permission model; this ADR does not
+        /// restrict it beyond what the permission itself already implies,"
+        /// and product section 26's own MVP MainGM-exclusive permission list
+        /// names only `GrantDevelopment`/`Respec`/`ManageOwnership`/
+        /// `RestoreDead` -- `Character.Archive` is conspicuously absent from
+        /// that list, unlike <see cref="DeleteCharacterPermanently"/>, which
+        /// product section 22.2 states is MainGM-only in so many words. This
+        /// is a deliberate choice, not a copy of the stricter sibling
+        /// command's own gate.
+        /// </summary>
+        Result<CharacterRecord> ArchiveCharacter(CampaignHandle campaign, CharacterId characterId, UserId actorUserId, bool actorIsMainGm, long expectedLifecycleRevision, CommandId commandId, CorrelationId correlationId);
+
+        /// <summary>
+        /// ODY-S04-110: ADR-025 section 5.2 -- MainGM-only. Before
+        /// committing: (a) re-checks dependencies through the extensible,
+        /// currently-empty-by-default <see cref="ICharacterDeletionDependencyChecker"/>
+        /// mechanism (section 1.1 of this task's own ТЗ) -- a blocking
+        /// dependency rejects with <c>CharacterDeletionHasDependent</c>, no
+        /// state change; (b) creates a full campaign backup via the
+        /// already-existing <c>IBackupRepository.CreateBackup</c>
+        /// (ODY-S01-011, section 1.2 -- never a new, Character-specific
+        /// backup mechanism), with reason <c>"pre-delete-character:&lt;CharacterId&gt;"</c>.
+        /// On success, in one transaction: removes the Character's live
+        /// current-state row (and any live cross-reference this codebase
+        /// actually stores -- none exist today, confirmed by search) and
+        /// commits a <c>CharacterDeleted</c> event (product section 28)
+        /// carrying ADR-022 section 7's minimum historical snapshot
+        /// (<c>DisplayNameSnapshot</c>, <c>PortraitReferenceSnapshot?</c>,
+        /// <c>RelevantValueSnapshots</c>, <c>RulesetVersion</c>). Never
+        /// deletes any `DomainEvents` row for this `CharacterId` -- ADR-012
+        /// section 4.2's append-only guarantee has no "Character deleted"
+        /// exception; <see cref="GetCharacterHistory"/> continues to render
+        /// this Character's past from those events after this call
+        /// (ADR-022 section 7 rule 3/section 8, ADR-025 section 5.3).
+        /// <paramref name="reasonCode"/> is required (product section 22.2's
+        /// "отдельного подтверждения," realized as this codebase's own
+        /// established `ReasonCode` convention for GM-correction/irreversible
+        /// operations). Returns a non-generic <see cref="Result"/> -- there
+        /// is no live <see cref="CharacterRecord"/> left to return.
+        /// </summary>
+        Result DeleteCharacterPermanently(CampaignHandle campaign, CharacterId characterId, string reasonCode, UserId actorUserId, bool actorIsMainGm, long expectedLifecycleRevision, CommandId commandId, CorrelationId correlationId);
+    }
+
+    /// <summary>
+    /// ODY-S04-110 section 1.1: ADR-025 section 5.2's host-authoritative
+    /// dependency re-check for <see cref="ICharacterRepository.DeleteCharacterPermanently"/> --
+    /// board-token references, inventory/item references, GameLog
+    /// references, and any other live cross-reference. Direct search
+    /// confirms none of Board/Scene, GameLog, or any other existing
+    /// persistence implementation in this codebase stores a
+    /// <see cref="CharacterId"/> anywhere -- there is nothing to check
+    /// today for real, for all three named sources at once (unlike
+    /// ODY-S04-108/109's own item-dependency stub, where only one of
+    /// several checked sources was unimplementable). This interface exists
+    /// so `DeleteCharacterPermanently` never hard-codes "no dependencies" as
+    /// a literal, un-extensible constant: a future task that gives Board/
+    /// Item/GameLog a real `CharacterId` cross-reference implements this
+    /// interface and is registered into <c>SqliteCharacterRepository</c>'s
+    /// own checker list, without changing `DeleteCharacterPermanently`'s own
+    /// shape or call site at all.
+    /// </summary>
+    public interface ICharacterDeletionDependencyChecker
+    {
+        /// <summary>Returns a short, human-readable description of the blocking dependency if one exists, or <c>null</c> if this checker finds none.</summary>
+        string? CheckBlockingDependency(CampaignHandle campaign, CharacterId characterId);
     }
 
     /// <summary>ODY-S04-107: one addressed attribute-or-skill target for a respec, and the value the caller wants it to end up at after the batch (0 means "fully undo, do not repurchase").</summary>

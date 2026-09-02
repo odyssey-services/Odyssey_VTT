@@ -2935,6 +2935,118 @@
                           "runner":  "dotnet test",
                           "path":  "DotNet/Tests/Odyssey.Tests.Persistence/CharacterResourceAnatomyTests.cs",
                           "check":  "A concurrent InitializeCharacterResource (CharacterResources section) and InitializeCharacterAnatomy (CharacterAnatomy section) both commit successfully without a false conflict"
+                      },
+                      {
+                          "testCaseId":  "TC-CHAR-115",
+                          "taskId":  "ODY-S04-110",
+                          "authority":  "ADR-025 section 5.1; product section 7.1",
+                          "runner":  "dotnet test",
+                          "path":  "DotNet/Tests/Odyssey.Tests.Persistence/CharacterArchivePhysicalDeleteTests.cs",
+                          "check":  "ArchiveCharacter transitions Draft -> Archived through CharacterLifecycleTransitions.IsValidTransition"
+                      },
+                      {
+                          "testCaseId":  "TC-CHAR-116",
+                          "taskId":  "ODY-S04-110",
+                          "authority":  "ADR-025 section 5.1; product section 7.1",
+                          "runner":  "dotnet test",
+                          "path":  "DotNet/Tests/Odyssey.Tests.Persistence/CharacterArchivePhysicalDeleteTests.cs",
+                          "check":  "ArchiveCharacter transitions Active -> Archived"
+                      },
+                      {
+                          "testCaseId":  "TC-CHAR-117",
+                          "taskId":  "ODY-S04-110",
+                          "authority":  "product section 7.1; ODY-S04-110",
+                          "runner":  "dotnet test",
+                          "path":  "DotNet/Tests/Odyssey.Tests.Persistence/CharacterArchivePhysicalDeleteTests.cs",
+                          "check":  "A second ArchiveCharacter call on an already-Archived Character is rejected with CharacterLifecycleTransitionInvalid (Archived -> Archived is not a legal edge)"
+                      },
+                      {
+                          "testCaseId":  "TC-CHAR-118",
+                          "taskId":  "ODY-S04-110",
+                          "authority":  "ODY-S04-110 section 1.3; ADR-025 section 5.1",
+                          "runner":  "dotnet test",
+                          "path":  "DotNet/Tests/Odyssey.Tests.Persistence/CharacterArchivePhysicalDeleteTests.cs",
+                          "check":  "ArchiveCharacter succeeds for an assigned (primary-owner) user who is not MainGM -- confirms the MainGM-or-assigned actor decision"
+                      },
+                      {
+                          "testCaseId":  "TC-CHAR-119",
+                          "taskId":  "ODY-S04-110",
+                          "authority":  "ODY-S04-110 section 1.3; ADR-025 section 5.1",
+                          "runner":  "dotnet test",
+                          "path":  "DotNet/Tests/Odyssey.Tests.Persistence/CharacterArchivePhysicalDeleteTests.cs",
+                          "check":  "ArchiveCharacter by an actor who is neither MainGM nor assigned is rejected with CharacterArchiveDenied, no state change"
+                      },
+                      {
+                          "testCaseId":  "TC-CHAR-120",
+                          "taskId":  "ODY-S04-110",
+                          "authority":  "ADR-012 section 7; ODY-S04-110",
+                          "runner":  "dotnet test",
+                          "path":  "DotNet/Tests/Odyssey.Tests.Persistence/CharacterArchivePhysicalDeleteTests.cs",
+                          "check":  "A duplicate CommandId for ArchiveCharacter does not transition twice -- checked against the real LifecycleRevision after replay"
+                      },
+                      {
+                          "testCaseId":  "TC-CHAR-121",
+                          "taskId":  "ODY-S04-110",
+                          "authority":  "product section 22.2; ADR-025 section 5.2",
+                          "runner":  "dotnet test",
+                          "path":  "DotNet/Tests/Odyssey.Tests.Persistence/CharacterArchivePhysicalDeleteTests.cs",
+                          "check":  "DeleteCharacterPermanently by a non-MainGM actor is rejected with CharacterDeletionDenied, no state change"
+                      },
+                      {
+                          "testCaseId":  "TC-CHAR-122",
+                          "taskId":  "ODY-S04-110",
+                          "authority":  "product section 22.2; ODY-S04-110",
+                          "runner":  "dotnet test",
+                          "path":  "DotNet/Tests/Odyssey.Tests.Persistence/CharacterArchivePhysicalDeleteTests.cs",
+                          "check":  "DeleteCharacterPermanently without a ReasonCode is rejected with CharacterDeletionReasonRequired"
+                      },
+                      {
+                          "testCaseId":  "TC-CHAR-123",
+                          "taskId":  "ODY-S04-110",
+                          "authority":  "ODY-S04-110 section 1.1; ADR-025 section 5.2",
+                          "runner":  "dotnet test",
+                          "path":  "DotNet/Tests/Odyssey.Tests.Persistence/CharacterArchivePhysicalDeleteTests.cs",
+                          "check":  "DeleteCharacterPermanently succeeds when the (default, currently empty) dependency checker list finds no blocking dependency"
+                      },
+                      {
+                          "testCaseId":  "TC-CHAR-124",
+                          "taskId":  "ODY-S04-110",
+                          "authority":  "ODY-S04-110 section 1.2; ADR-025 section 5.2",
+                          "runner":  "dotnet test",
+                          "path":  "DotNet/Tests/Odyssey.Tests.Persistence/CharacterArchivePhysicalDeleteTests.cs",
+                          "check":  "DeleteCharacterPermanently creates a real campaign backup (via the existing IBackupRepository) before deleting -- verified via ListBackups showing a new backup with a Reason referencing the deleted CharacterId"
+                      },
+                      {
+                          "testCaseId":  "TC-CHAR-125",
+                          "taskId":  "ODY-S04-110",
+                          "authority":  "ADR-022 section 7-8; ADR-025 section 5.3",
+                          "runner":  "dotnet test",
+                          "path":  "DotNet/Tests/Odyssey.Tests.Persistence/CharacterArchivePhysicalDeleteTests.cs",
+                          "check":  "After DeleteCharacterPermanently, GetCharacter returns CharacterNotFound but GetCharacterHistory still returns every prior entry with correct DisplayNameSnapshot, plus the new CharacterDeleted entry, and the CharacterDeleted event's own payload contains the original RulesetVersion"
+                      },
+                      {
+                          "testCaseId":  "TC-CHAR-126",
+                          "taskId":  "ODY-S04-110",
+                          "authority":  "ADR-012 section 4.2; ADR-025 section 5.2",
+                          "runner":  "dotnet test",
+                          "path":  "DotNet/Tests/Odyssey.Tests.Persistence/CharacterArchivePhysicalDeleteTests.cs",
+                          "check":  "DeleteCharacterPermanently never deletes a DomainEvents row for this CharacterId -- direct COUNT(*) check before/after only grows by exactly one (the new CharacterDeleted event)"
+                      },
+                      {
+                          "testCaseId":  "TC-CHAR-127",
+                          "taskId":  "ODY-S04-110",
+                          "authority":  "ADR-012 section 7; ODY-S04-110",
+                          "runner":  "dotnet test",
+                          "path":  "DotNet/Tests/Odyssey.Tests.Persistence/CharacterArchivePhysicalDeleteTests.cs",
+                          "check":  "A duplicate CommandId for DeleteCharacterPermanently does not duplicate the effect -- exactly one CharacterDeleted event exists after replay"
+                      },
+                      {
+                          "testCaseId":  "TC-CHAR-128",
+                          "taskId":  "ODY-S04-110",
+                          "authority":  "ODY-S04-110 section 1.1; ADR-025 section 5.2",
+                          "runner":  "dotnet test",
+                          "path":  "DotNet/Tests/Odyssey.Tests.Persistence/CharacterArchivePhysicalDeleteTests.cs",
+                          "check":  "A test ICharacterDeletionDependencyChecker that always reports a blocking dependency actually prevents DeleteCharacterPermanently -- proves the extension point is not merely an unused parameter"
                       }
                   ]
 }
