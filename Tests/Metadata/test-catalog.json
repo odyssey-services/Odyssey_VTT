@@ -2591,6 +2591,174 @@
                           "runner":  "dotnet test",
                           "path":  "DotNet/Tests/Odyssey.Tests.Persistence/CharacterAdvancementRevertRespecTests.cs",
                           "check":  "A duplicate CommandId for ApplyCharacterRespec does not duplicate the batch -- exactly one CharacterRespecCompleted event exists after replay"
+                      },
+                      {
+                          "testCaseId":  "TC-CHAR-072",
+                          "taskId":  "ODY-S04-108",
+                          "authority":  "ADR-024 section 5.1/9; ODY-S04-108",
+                          "runner":  "dotnet test",
+                          "path":  "DotNet/Tests/Odyssey.Tests.Persistence/CharacterAbilityInstancesTests.cs",
+                          "check":  "AcquireAbility(ProgressionPurchase) with sufficient balance succeeds -- ability created, DevelopmentPool.Spent increases by the fixture cost"
+                      },
+                      {
+                          "testCaseId":  "TC-CHAR-073",
+                          "taskId":  "ODY-S04-108",
+                          "authority":  "ADR-024 section 5.1; ODY-S04-108",
+                          "runner":  "dotnet test",
+                          "path":  "DotNet/Tests/Odyssey.Tests.Persistence/CharacterAbilityInstancesTests.cs",
+                          "check":  "AcquireAbility(ProgressionPurchase) with insufficient balance is rejected with no state change (no ability, no pool spend, no CharacterAbilitiesRevision bump)"
+                      },
+                      {
+                          "testCaseId":  "TC-CHAR-074",
+                          "taskId":  "ODY-S04-108",
+                          "authority":  "ADR-024 section 5.1 step 4; ODY-S04-108",
+                          "runner":  "dotnet test",
+                          "path":  "DotNet/Tests/Odyssey.Tests.Persistence/CharacterAbilityInstancesTests.cs",
+                          "check":  "AcquireAbility(ProgressionPurchase) co-commits an AdvancementPurchase (OperationKind=AbilityAcquisition, FromValue=0, ToValue=1, Status=Applied)"
+                      },
+                      {
+                          "testCaseId":  "TC-CHAR-075",
+                          "taskId":  "ODY-S04-108",
+                          "authority":  "ADR-012 section 7; ODY-S04-108",
+                          "runner":  "dotnet test",
+                          "path":  "DotNet/Tests/Odyssey.Tests.Persistence/CharacterAbilityInstancesTests.cs",
+                          "check":  "A duplicate CommandId for AcquireAbility(ProgressionPurchase) does not acquire a second ability or double-spend -- checked against real Abilities count and Spent"
+                      },
+                      {
+                          "testCaseId":  "TC-CHAR-076",
+                          "taskId":  "ODY-S04-108",
+                          "authority":  "product section 16; ODY-S04-108",
+                          "runner":  "dotnet test",
+                          "path":  "DotNet/Tests/Odyssey.Tests.Persistence/CharacterAbilityInstancesTests.cs",
+                          "check":  "AcquireAbility(GMGrant) by a non-MainGM actor is rejected with CharacterAbilityGrantDenied"
+                      },
+                      {
+                          "testCaseId":  "TC-CHAR-077",
+                          "taskId":  "ODY-S04-108",
+                          "authority":  "product section 16; ODY-S04-108",
+                          "runner":  "dotnet test",
+                          "path":  "DotNet/Tests/Odyssey.Tests.Persistence/CharacterAbilityInstancesTests.cs",
+                          "check":  "AcquireAbility(GMGrant) by MainGM succeeds, does not change DevelopmentPool, and creates no AdvancementPurchase"
+                      },
+                      {
+                          "testCaseId":  "TC-CHAR-078",
+                          "taskId":  "ODY-S04-108",
+                          "authority":  "ADR-022 section 5; ODY-S04-108 section 1.1",
+                          "runner":  "dotnet test",
+                          "path":  "DotNet/Tests/Odyssey.Tests.Persistence/CharacterAbilityInstancesTests.cs",
+                          "check":  "AcquireAbility/RemoveAbility actually increment CharacterAbilitiesRevision by 1 per call -- direct value check, not just success, regression against section 1.1 (ODY-S04-105/106 never incremented this column for real)"
+                      },
+                      {
+                          "testCaseId":  "TC-CHAR-079",
+                          "taskId":  "ODY-S04-108",
+                          "authority":  "product section 16; ODY-S04-108",
+                          "runner":  "dotnet test",
+                          "path":  "DotNet/Tests/Odyssey.Tests.Persistence/CharacterAbilityInstancesTests.cs",
+                          "check":  "CharacterAbility construction with RankMode=Numeric and no NumericRank is rejected by the constructor"
+                      },
+                      {
+                          "testCaseId":  "TC-CHAR-080",
+                          "taskId":  "ODY-S04-108",
+                          "authority":  "product section 16; ODY-S04-108",
+                          "runner":  "dotnet test",
+                          "path":  "DotNet/Tests/Odyssey.Tests.Persistence/CharacterAbilityInstancesTests.cs",
+                          "check":  "CharacterAbility construction with RankMode=Named and no NamedRankKey is rejected by the constructor"
+                      },
+                      {
+                          "testCaseId":  "TC-CHAR-081",
+                          "taskId":  "ODY-S04-108",
+                          "authority":  "product section 16; ODY-S04-108",
+                          "runner":  "dotnet test",
+                          "path":  "DotNet/Tests/Odyssey.Tests.Persistence/CharacterAbilityInstancesTests.cs",
+                          "check":  "CharacterAbility construction with RankMode=None and NumericRank set is rejected by the constructor"
+                      },
+                      {
+                          "testCaseId":  "TC-CHAR-082",
+                          "taskId":  "ODY-S04-108",
+                          "authority":  "product section 16; ODY-S04-108",
+                          "runner":  "dotnet test",
+                          "path":  "DotNet/Tests/Odyssey.Tests.Persistence/CharacterAbilityInstancesTests.cs",
+                          "check":  "CharacterAbility construction with RankMode=None and NamedRankKey set is rejected by the constructor"
+                      },
+                      {
+                          "testCaseId":  "TC-CHAR-083",
+                          "taskId":  "ODY-S04-108",
+                          "authority":  "product section 16; ODY-S04-108",
+                          "runner":  "dotnet test",
+                          "path":  "DotNet/Tests/Odyssey.Tests.Persistence/CharacterAbilityInstancesTests.cs",
+                          "check":  "CharacterAbility construction with RankMode=Numeric and a correct NumericRank succeeds"
+                      },
+                      {
+                          "testCaseId":  "TC-CHAR-084",
+                          "taskId":  "ODY-S04-108",
+                          "authority":  "product section 16; ODY-S04-108",
+                          "runner":  "dotnet test",
+                          "path":  "DotNet/Tests/Odyssey.Tests.Persistence/CharacterAbilityInstancesTests.cs",
+                          "check":  "CharacterAbility construction with RankMode=Named and a correct NamedRankKey succeeds"
+                      },
+                      {
+                          "testCaseId":  "TC-CHAR-085",
+                          "taskId":  "ODY-S04-108",
+                          "authority":  "ODY-S04-108",
+                          "runner":  "dotnet test",
+                          "path":  "DotNet/Tests/Odyssey.Tests.Persistence/CharacterAbilityInstancesTests.cs",
+                          "check":  "RemoveAbility on an unknown CharacterAbilityId is rejected with CharacterAbilityNotFound"
+                      },
+                      {
+                          "testCaseId":  "TC-CHAR-086",
+                          "taskId":  "ODY-S04-108",
+                          "authority":  "product section 16; ODY-S04-108",
+                          "runner":  "dotnet test",
+                          "path":  "DotNet/Tests/Odyssey.Tests.Persistence/CharacterAbilityInstancesTests.cs",
+                          "check":  "RemoveAbility on a SourceKind=Item ability succeeds"
+                      },
+                      {
+                          "testCaseId":  "TC-CHAR-087",
+                          "taskId":  "ODY-S04-108",
+                          "authority":  "product section 16; ODY-S04-108",
+                          "runner":  "dotnet test",
+                          "path":  "DotNet/Tests/Odyssey.Tests.Persistence/CharacterAbilityInstancesTests.cs",
+                          "check":  "RemoveAbility on a SourceKind=ActiveEffect ability succeeds"
+                      },
+                      {
+                          "testCaseId":  "TC-CHAR-088",
+                          "taskId":  "ODY-S04-108",
+                          "authority":  "product section 16; ODY-S04-108",
+                          "runner":  "dotnet test",
+                          "path":  "DotNet/Tests/Odyssey.Tests.Persistence/CharacterAbilityInstancesTests.cs",
+                          "check":  "RemoveAbility on ProgressionPurchase/GMGrant/CharacterTemplate/RulesetAdvancement-sourced abilities is rejected with CharacterAbilityRemovalNotAllowed, no state change (parameterized across all four)"
+                      },
+                      {
+                          "testCaseId":  "TC-CHAR-089",
+                          "taskId":  "ODY-S04-108",
+                          "authority":  "ADR-012 section 7; ODY-S04-108",
+                          "runner":  "dotnet test",
+                          "path":  "DotNet/Tests/Odyssey.Tests.Persistence/CharacterAbilityInstancesTests.cs",
+                          "check":  "A duplicate CommandId for RemoveAbility does not remove twice -- checked against the real Abilities list after replay"
+                      },
+                      {
+                          "testCaseId":  "TC-CHAR-090",
+                          "taskId":  "ODY-S04-108",
+                          "authority":  "ODY-S04-108 section 1.3; ADR-024 section 6.2",
+                          "runner":  "dotnet test",
+                          "path":  "DotNet/Tests/Odyssey.Tests.Persistence/CharacterAbilityInstancesTests.cs",
+                          "check":  "RevertAdvancementPurchase on an AdvancementPurchase with OperationKind=AbilityAcquisition is rejected explicitly with CharacterAdvancementOperationKindNotSupported, not the misleading CharacterAdvancementPurchaseHasDependent, and does not mis-parse TargetDefinitionId as a SkillDefinitionId"
+                      },
+                      {
+                          "testCaseId":  "TC-CHAR-091",
+                          "taskId":  "ODY-S04-108",
+                          "authority":  "ODY-S04-108 section 1.3; ADR-024 section 7.2",
+                          "runner":  "dotnet test",
+                          "path":  "DotNet/Tests/Odyssey.Tests.Persistence/CharacterAbilityInstancesTests.cs",
+                          "check":  "PreviewCharacterRespec/ApplyCharacterRespec targeting AdvancementOperationKind.AbilityAcquisition are both rejected explicitly with CharacterAdvancementOperationKindNotSupported, no state change"
+                      },
+                      {
+                          "testCaseId":  "TC-CHAR-092",
+                          "taskId":  "ODY-S04-108",
+                          "authority":  "ADR-022 section 5; ODY-S04-108",
+                          "runner":  "dotnet test",
+                          "path":  "DotNet/Tests/Odyssey.Tests.Persistence/CharacterAbilityInstancesTests.cs",
+                          "check":  "A concurrent AcquireAbility(GMGrant) (CharacterAbilities section) and PurchaseAttributeIncrease (Mechanics section) both commit successfully without a false conflict"
                       }
                   ]
 }

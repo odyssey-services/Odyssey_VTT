@@ -446,6 +446,42 @@ namespace Odyssey.Application.Persistence
             RetryDirective.DoNotRetry,
             correlationId);
 
+        /// <summary>ODY-S04-108: section 1.3's own explicit defense -- <c>RevertAdvancementPurchase</c>/<c>ApplyCharacterRespec</c>/<c>ComputeRespecPlan</c> reject an <c>AdvancementPurchase</c>/<c>CharacterRespecTarget</c> whose <c>OperationKind</c> is not one they know how to revert/respec (currently only <c>AttributeIncrease</c>/<c>SkillLevelPurchase</c> -- <c>AbilityAcquisition</c> is explicitly out of scope), rather than mis-parsing <c>TargetDefinitionId</c> as the wrong id type and producing a misleading <c>CharacterAdvancementPurchaseHasDependent</c>.</summary>
+        public static Error CharacterAdvancementOperationKindNotSupported(CorrelationId correlationId) => Error.Create(
+            ErrorCodes.PersistenceCharacterAdvancementOperationKindNotSupported,
+            ErrorCategory.Validation,
+            SafeReasonCode.InvalidRequest,
+            UserMessageKey.Parse("errors.persistence.character_advancement_operation_kind_not_supported"),
+            RetryDirective.DoNotRetry,
+            correlationId);
+
+        /// <summary>ODY-S04-108: product section 16 -- <c>AcquireAbility</c> with <c>SourceKind=GMGrant</c> is MainGM-only, mirroring <see cref="CharacterDevelopmentGrantDenied"/>'s exact convention for a sibling GM-only grant.</summary>
+        public static Error CharacterAbilityGrantDenied(CorrelationId correlationId) => Error.Create(
+            ErrorCodes.PersistenceCharacterAbilityGrantDenied,
+            ErrorCategory.Authorization,
+            SafeReasonCode.PermissionDenied,
+            UserMessageKey.Parse("errors.persistence.character_ability_grant_denied"),
+            RetryDirective.DoNotRetry,
+            correlationId);
+
+        /// <summary>ODY-S04-108: <c>RemoveAbility</c> lookup failure for an unknown <c>CharacterAbilityId</c>, mirroring <see cref="CharacterAdvancementPurchaseNotFound"/>'s exact convention for a sibling entity.</summary>
+        public static Error CharacterAbilityNotFound(CorrelationId correlationId) => Error.Create(
+            ErrorCodes.PersistenceCharacterAbilityNotFound,
+            ErrorCategory.NotFound,
+            SafeReasonCode.TargetUnavailable,
+            UserMessageKey.Parse("errors.persistence.character_ability_not_found"),
+            RetryDirective.DoNotRetry,
+            correlationId);
+
+        /// <summary>ODY-S04-108: product section 16 -- "a permanent purchased ability survives unequip"; <c>RemoveAbility</c> is legal only for <c>SourceKind=Item</c>/<c>ActiveEffect</c>, rejected for every other source.</summary>
+        public static Error CharacterAbilityRemovalNotAllowed(CorrelationId correlationId) => Error.Create(
+            ErrorCodes.PersistenceCharacterAbilityRemovalNotAllowed,
+            ErrorCategory.Validation,
+            SafeReasonCode.InvalidRequest,
+            UserMessageKey.Parse("errors.persistence.character_ability_removal_not_allowed"),
+            RetryDirective.DoNotRetry,
+            correlationId);
+
         /// <summary>ODY-S04-106: <c>ResolveAdvancementRecommendation</c> references a <c>CriticalSuccessEvidenceId</c> that does not exist -- an integrity condition, not a normal user-facing rejection path (the recommendation's own evidence list is validated to reference real rows at request time).</summary>
         public static Error CharacterCriticalEvidenceNotFound(CorrelationId correlationId) => Error.Create(
             ErrorCodes.PersistenceCharacterCriticalEvidenceNotFound,

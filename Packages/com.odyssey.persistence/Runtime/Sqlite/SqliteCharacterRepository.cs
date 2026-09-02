@@ -12,6 +12,7 @@ using Odyssey.Domain.Identity;
 using Odyssey.Domain.Time;
 using RulesAttributeCostRules = Odyssey.Rules.Character.AttributeCostRules;
 using RulesSkillCostRules = Odyssey.Rules.Character.SkillCostRules;
+using RulesAbilityCostRules = Odyssey.Rules.Character.AbilityCostRules;
 
 namespace Odyssey.Persistence.Sqlite
 {
@@ -105,7 +106,7 @@ namespace Odyssey.Persistence.Sqlite
                                 "AttributeValuesRevision, CharacterSkillsRevision, CharacterAbilitiesRevision, CharacterResourcesRevision, " +
                                 "CharacterAnatomyRevision, OwnershipRevision, LifecycleRevision, RuntimeStateRevision, " +
                                 "RulesetVersion, AnatomyProfileRef, TemplateId, TemplateVersionAtCopyTime, SeedCopyJson, SubmittedAt, " +
-                                "PoolEarned, PoolSpent, PoolReserved, AttributesJson, SkillsJson, " +
+                                "PoolEarned, PoolSpent, PoolReserved, AttributesJson, SkillsJson, AbilitiesJson, " +
                                 "CreatedAt, UpdatedAt, LastCommandId) VALUES (" +
                                 "$characterId, $campaignId, $characterKind, $lifecycleStatus, $approvalState, $displayName, NULL, " +
                                 "NULL, $coOwners, $permanentControllers, $temporaryGrants, " +
@@ -113,7 +114,7 @@ namespace Odyssey.Persistence.Sqlite
                                 "$attributeValuesRevision, $characterSkillsRevision, $characterAbilitiesRevision, $characterResourcesRevision, " +
                                 "$characterAnatomyRevision, $ownershipRevision, $lifecycleRevision, $runtimeStateRevision, " +
                                 "'', NULL, NULL, NULL, '[]', NULL, " +
-                                "0, 0, 0, '[]', '[]', " +
+                                "0, 0, 0, '[]', '[]', '[]', " +
                                 "$createdAt, $updatedAt, $lastCommandId);";
                             insert.Parameters.AddWithValue("$characterId", characterId.ToString());
                             insert.Parameters.AddWithValue("$campaignId", campaign.CampaignId.ToString());
@@ -135,7 +136,7 @@ namespace Odyssey.Persistence.Sqlite
                         // pinning, no template, no initial owner. See
                         // BindDraftToCampaign for the ADR-023-compliant real
                         // creation path this task adds alongside it.
-                        var record = new CharacterRecord(characterId, campaign.CampaignId, request.CharacterKind, lifecycleStatus, approvalState, request.DisplayName, null, ownership, revisions, string.Empty, null, null, null, Array.Empty<CopiedCharacterSeedItem>(), null, DevelopmentPool.Empty(), Array.Empty<AttributeValue>(), Array.Empty<CharacterSkill>(), now, now);
+                        var record = new CharacterRecord(characterId, campaign.CampaignId, request.CharacterKind, lifecycleStatus, approvalState, request.DisplayName, null, ownership, revisions, string.Empty, null, null, null, Array.Empty<CopiedCharacterSeedItem>(), null, DevelopmentPool.Empty(), Array.Empty<AttributeValue>(), Array.Empty<CharacterSkill>(), Array.Empty<CharacterAbility>(), now, now);
 
                         var payload = new JObject
                         {
@@ -218,7 +219,7 @@ namespace Odyssey.Persistence.Sqlite
                                 "AttributeValuesRevision, CharacterSkillsRevision, CharacterAbilitiesRevision, CharacterResourcesRevision, " +
                                 "CharacterAnatomyRevision, OwnershipRevision, LifecycleRevision, RuntimeStateRevision, " +
                                 "RulesetVersion, AnatomyProfileRef, TemplateId, TemplateVersionAtCopyTime, SeedCopyJson, SubmittedAt, " +
-                                "PoolEarned, PoolSpent, PoolReserved, AttributesJson, SkillsJson, " +
+                                "PoolEarned, PoolSpent, PoolReserved, AttributesJson, SkillsJson, AbilitiesJson, " +
                                 "CreatedAt, UpdatedAt, LastCommandId) VALUES (" +
                                 "$characterId, $campaignId, $characterKind, $lifecycleStatus, $approvalState, $displayName, NULL, " +
                                 "$primaryOwnerUserId, $coOwners, $permanentControllers, $temporaryGrants, " +
@@ -226,7 +227,7 @@ namespace Odyssey.Persistence.Sqlite
                                 "$attributeValuesRevision, $characterSkillsRevision, $characterAbilitiesRevision, $characterResourcesRevision, " +
                                 "$characterAnatomyRevision, $ownershipRevision, $lifecycleRevision, $runtimeStateRevision, " +
                                 "$rulesetVersion, $anatomyProfileRef, $templateId, $templateVersion, $seedCopyJson, NULL, " +
-                                "0, 0, 0, '[]', '[]', " +
+                                "0, 0, 0, '[]', '[]', '[]', " +
                                 "$createdAt, $updatedAt, $lastCommandId);";
                             insert.Parameters.AddWithValue("$characterId", characterId.ToString());
                             insert.Parameters.AddWithValue("$campaignId", campaign.CampaignId.ToString());
@@ -250,7 +251,7 @@ namespace Odyssey.Persistence.Sqlite
                             insert.ExecuteNonQuery();
                         }
 
-                        var record = new CharacterRecord(characterId, campaign.CampaignId, request.CharacterKind, lifecycleStatus, approvalState, request.DisplayName, null, ownership, revisions, pinnedRulesetVersion, request.AnatomyProfileRef, request.Seed.TemplateId, request.Seed.TemplateVersionAtCopyTime, request.Seed.Items, null, DevelopmentPool.Empty(), Array.Empty<AttributeValue>(), Array.Empty<CharacterSkill>(), now, now);
+                        var record = new CharacterRecord(characterId, campaign.CampaignId, request.CharacterKind, lifecycleStatus, approvalState, request.DisplayName, null, ownership, revisions, pinnedRulesetVersion, request.AnatomyProfileRef, request.Seed.TemplateId, request.Seed.TemplateVersionAtCopyTime, request.Seed.Items, null, DevelopmentPool.Empty(), Array.Empty<AttributeValue>(), Array.Empty<CharacterSkill>(), Array.Empty<CharacterAbility>(), now, now);
 
                         var payload = new JObject
                         {
@@ -338,7 +339,7 @@ namespace Odyssey.Persistence.Sqlite
                         }
 
                         CharacterSectionRevisions newRevisions = WithRevisions(current.Revisions, characterRevision: newCharacterRevision, lifecycleRevision: newLifecycleRevision);
-                        var record = new CharacterRecord(characterId, campaign.CampaignId, current.CharacterKind, current.LifecycleStatus, current.ApprovalState, current.DisplayName, current.PortraitReference, current.Ownership, newRevisions, current.RulesetVersion, current.AnatomyProfileRef, current.TemplateId, current.TemplateVersionAtCopyTime, current.SeedCopy, now, current.DevelopmentPool, current.Attributes, current.Skills, current.CreatedAt, now);
+                        var record = new CharacterRecord(characterId, campaign.CampaignId, current.CharacterKind, current.LifecycleStatus, current.ApprovalState, current.DisplayName, current.PortraitReference, current.Ownership, newRevisions, current.RulesetVersion, current.AnatomyProfileRef, current.TemplateId, current.TemplateVersionAtCopyTime, current.SeedCopy, now, current.DevelopmentPool, current.Attributes, current.Skills, current.Abilities, current.CreatedAt, now);
 
                         var payload = new JObject
                         {
@@ -512,7 +513,7 @@ namespace Odyssey.Persistence.Sqlite
                         }
 
                         CharacterSectionRevisions newRevisions = WithRevisions(current.Revisions, characterRevision: newCharacterRevision, lifecycleRevision: newLifecycleRevision);
-                        var record = new CharacterRecord(characterId, campaign.CampaignId, current.CharacterKind, newLifecycleStatus, newApprovalState, current.DisplayName, current.PortraitReference, current.Ownership, newRevisions, current.RulesetVersion, current.AnatomyProfileRef, current.TemplateId, current.TemplateVersionAtCopyTime, current.SeedCopy, current.SubmittedAt, current.DevelopmentPool, current.Attributes, current.Skills, current.CreatedAt, now);
+                        var record = new CharacterRecord(characterId, campaign.CampaignId, current.CharacterKind, newLifecycleStatus, newApprovalState, current.DisplayName, current.PortraitReference, current.Ownership, newRevisions, current.RulesetVersion, current.AnatomyProfileRef, current.TemplateId, current.TemplateVersionAtCopyTime, current.SeedCopy, current.SubmittedAt, current.DevelopmentPool, current.Attributes, current.Skills, current.Abilities, current.CreatedAt, now);
 
                         var payload = new JObject
                         {
@@ -1306,7 +1307,7 @@ namespace Odyssey.Persistence.Sqlite
 
                     newAttributes = replacedAttributes;
                 }
-                else
+                else if (purchase.OperationKind == AdvancementOperationKind.SkillLevelPurchase)
                 {
                     SkillDefinitionId targetId = SkillDefinitionId.Parse(purchase.TargetDefinitionId);
                     CharacterSkill? existing = null;
@@ -1328,6 +1329,15 @@ namespace Odyssey.Persistence.Sqlite
                     }
 
                     newSkills = replacedSkills;
+                }
+                else
+                {
+                    // ODY-S04-108 section 1.3: AbilityAcquisition (or any
+                    // future OperationKind) is explicitly not supported by
+                    // this revert -- reject explicitly rather than silently
+                    // mis-parsing TargetDefinitionId as a SkillDefinitionId
+                    // and returning a misleading CharacterAdvancementPurchaseHasDependent.
+                    return Result<MechanicsMutation>.Failure(PersistenceFailures.CharacterAdvancementOperationKindNotSupported(correlationId));
                 }
 
                 // ADR-024 section 6.2: Available increases by Cost, Spent
@@ -1379,7 +1389,7 @@ namespace Odyssey.Persistence.Sqlite
         /// entry, plus one Spend entry per target whose DesiredValue exceeds
         /// zero.
         /// </summary>
-        private static CharacterRespecPreview ComputeRespecPlan(CharacterRecord current, IReadOnlyList<AdvancementPurchase> allPurchases, IReadOnlyList<CharacterRespecTarget> targets)
+        private static Result<CharacterRespecPreview> ComputeRespecPlan(CharacterRecord current, IReadOnlyList<AdvancementPurchase> allPurchases, IReadOnlyList<CharacterRespecTarget> targets, CorrelationId correlationId)
         {
             var entries = new List<CharacterRespecPlanEntry>();
             long totalReturned = 0;
@@ -1399,7 +1409,7 @@ namespace Odyssey.Persistence.Sqlite
 
                     currentValue = existing?.BaseValue ?? 0;
                 }
-                else
+                else if (target.OperationKind == AdvancementOperationKind.SkillLevelPurchase)
                 {
                     SkillDefinitionId targetId = SkillDefinitionId.Parse(target.TargetDefinitionId);
                     CharacterSkill? existing = null;
@@ -1409,6 +1419,13 @@ namespace Odyssey.Persistence.Sqlite
                     }
 
                     currentValue = existing?.Level ?? 0;
+                }
+                else
+                {
+                    // ODY-S04-108 section 1.3: AbilityAcquisition respec is
+                    // explicitly out of scope -- reject explicitly rather
+                    // than mis-parsing TargetDefinitionId as the wrong id type.
+                    return Result<CharacterRespecPreview>.Failure(PersistenceFailures.CharacterAdvancementOperationKindNotSupported(correlationId));
                 }
 
                 if (currentValue == target.DesiredValue) continue;
@@ -1425,15 +1442,23 @@ namespace Odyssey.Persistence.Sqlite
 
                 if (target.DesiredValue > 0)
                 {
-                    long cost = target.OperationKind == AdvancementOperationKind.AttributeIncrease
-                        ? RulesAttributeCostRules.CostForIncrease(0, target.DesiredValue)
-                        : RulesSkillCostRules.CostForIncrease(0, target.DesiredValue);
+                    long cost;
+                    if (target.OperationKind == AdvancementOperationKind.AttributeIncrease)
+                    {
+                        cost = RulesAttributeCostRules.CostForIncrease(0, target.DesiredValue);
+                    }
+                    else
+                    {
+                        // Only SkillLevelPurchase reaches here -- AbilityAcquisition already returned above.
+                        cost = RulesSkillCostRules.CostForIncrease(0, target.DesiredValue);
+                    }
+
                     entries.Add(new CharacterRespecPlanEntry(CharacterRespecPlanAction.Spend, target.OperationKind, target.TargetDefinitionId, cost, null));
                     totalSpent += cost;
                 }
             }
 
-            return new CharacterRespecPreview(entries, totalReturned, totalSpent);
+            return Result<CharacterRespecPreview>.Success(new CharacterRespecPreview(entries, totalReturned, totalSpent));
         }
 
         /// <summary>
@@ -1468,7 +1493,7 @@ namespace Odyssey.Persistence.Sqlite
                 }
 
                 IReadOnlyList<AdvancementPurchase> allPurchases = SelectAdvancementPurchasesForCharacter(connection, null, characterId);
-                return Result<CharacterRespecPreview>.Success(ComputeRespecPlan(current, allPurchases, targets));
+                return ComputeRespecPlan(current, allPurchases, targets, correlationId);
             }
             catch (Exception ex) when (ex is IOException || ex is UnauthorizedAccessException || ex is SqliteException)
             {
@@ -1559,7 +1584,13 @@ namespace Odyssey.Persistence.Sqlite
                         // CAP-INV-004: fresh read inside the transaction --
                         // never trusts a client-supplied preview.
                         IReadOnlyList<AdvancementPurchase> allPurchases = SelectAdvancementPurchasesForCharacter(connection, transaction, characterId);
-                        CharacterRespecPreview plan = ComputeRespecPlan(current, allPurchases, targets);
+                        Result<CharacterRespecPreview> planResult = ComputeRespecPlan(current, allPurchases, targets, correlationId);
+                        if (planResult.IsFailure)
+                        {
+                            return Result<PipelineWrite<CharacterRecord>>.Failure(planResult.Error);
+                        }
+
+                        CharacterRespecPreview plan = planResult.Value;
 
                         string compensationGroupId = commandId.ToString();
                         UtcInstant now = _clock.GetUtcNow();
@@ -1580,6 +1611,17 @@ namespace Odyssey.Persistence.Sqlite
 
                         foreach (CharacterRespecPlanEntry entry in plan.Entries)
                         {
+                            // ODY-S04-108 section 1.3: defense in depth --
+                            // ComputeRespecPlan already rejects an
+                            // AbilityAcquisition target before producing any
+                            // plan entry, so this can only trip if a future
+                            // change adds a fourth OperationKind without
+                            // updating this loop too.
+                            if (entry.OperationKind != AdvancementOperationKind.AttributeIncrease && entry.OperationKind != AdvancementOperationKind.SkillLevelPurchase)
+                            {
+                                return Result<PipelineWrite<CharacterRecord>>.Failure(PersistenceFailures.CharacterAdvancementOperationKindNotSupported(correlationId));
+                            }
+
                             if (entry.Action == CharacterRespecPlanAction.Return)
                             {
                                 AdvancementPurchase reverted = purchasesByPurchaseId[entry.SourcePurchaseId!.Value.ToString()];
@@ -1714,7 +1756,7 @@ namespace Odyssey.Persistence.Sqlite
                         }
 
                         CharacterSectionRevisions newRevisions = WithRevisions(current.Revisions, characterRevision: newCharacterRevision, mechanicsRevision: newMechanicsRevision);
-                        var record = new CharacterRecord(characterId, campaign.CampaignId, current.CharacterKind, current.LifecycleStatus, current.ApprovalState, current.DisplayName, current.PortraitReference, current.Ownership, newRevisions, current.RulesetVersion, current.AnatomyProfileRef, current.TemplateId, current.TemplateVersionAtCopyTime, current.SeedCopy, current.SubmittedAt, newPool, newAttributes, newSkills, current.CreatedAt, now);
+                        var record = new CharacterRecord(characterId, campaign.CampaignId, current.CharacterKind, current.LifecycleStatus, current.ApprovalState, current.DisplayName, current.PortraitReference, current.Ownership, newRevisions, current.RulesetVersion, current.AnatomyProfileRef, current.TemplateId, current.TemplateVersionAtCopyTime, current.SeedCopy, current.SubmittedAt, newPool, newAttributes, newSkills, current.Abilities, current.CreatedAt, now);
 
                         var completedPayload = new JObject
                         {
@@ -1742,6 +1784,385 @@ namespace Odyssey.Persistence.Sqlite
             {
                 return Result<CharacterRecord>.Failure(PersistenceFailures.CharacterIoFailed(correlationId));
             }
+        }
+
+        /// <summary>
+        /// ODY-S04-108: product section 16, ADR-024 section 5.1/9. Dispatches
+        /// on <paramref name="sourceKind"/>:
+        ///
+        /// <see cref="Odyssey.Domain.Character.SourceKind.ProgressionPurchase"/>
+        /// goes through <see cref="AcquireAbilityViaProgressionPurchase"/> --
+        /// a genuinely cross-section transaction (<c>Mechanics</c> +
+        /// <c>CharacterAbilities</c>) that neither <see cref="MutateMechanics"/>
+        /// nor <see cref="MutateAbilities"/> alone can express, so it gets
+        /// its own dedicated <c>_pipeline.Execute</c> call -- the same
+        /// precedent <c>ApplyCharacterRespec</c> (ODY-S04-107) already
+        /// established for "one genuinely cross-cutting case gets its own
+        /// method, rather than forcing a third generalization onto a
+        /// single-section helper."
+        ///
+        /// Every other <see cref="SourceKind"/> touches only
+        /// <c>CharacterAbilities</c> and reuses <see cref="MutateAbilities"/>.
+        /// Permission decision for this task's own scope: MainGM-only for
+        /// ALL of them, including <see cref="Odyssey.Domain.Character.SourceKind.CharacterTemplate"/>/
+        /// <see cref="Odyssey.Domain.Character.SourceKind.Item"/>/
+        /// <see cref="Odyssey.Domain.Character.SourceKind.ActiveEffect"/>/
+        /// <see cref="Odyssey.Domain.Character.SourceKind.RulesetAdvancement"/>
+        /// -- product section 16 only specifies <c>GMGrant</c> as MainGM-only
+        /// explicitly, and no Item/Inventory/ActiveEffect/template-copy
+        /// system exists anywhere in this codebase yet to call this command
+        /// on a player's behalf (confirmed by search) -- gating the
+        /// remaining four identically to <c>GMGrant</c> is the smallest,
+        /// safest default a future system can revisit explicitly when it is
+        /// actually built, rather than shipping an undecided/ungated
+        /// permission surface today.
+        /// </summary>
+        public Result<CharacterRecord> AcquireAbility(CampaignHandle campaign, CharacterId characterId, AbilityDefinitionId abilityDefinitionId, SourceKind sourceKind, string? sourceRef, RankMode rankMode, long? numericRank, string? namedRankKey, string configuration, UserId actorUserId, bool actorIsMainGm, long? expectedMechanicsRevision, long expectedCharacterAbilitiesRevision, CommandId commandId, CorrelationId correlationId)
+        {
+            if (!abilityDefinitionId.IsValid) throw new ArgumentException("AbilityDefinitionId is required.", nameof(abilityDefinitionId));
+            if (!Enum.IsDefined(typeof(SourceKind), sourceKind)) throw new ArgumentOutOfRangeException(nameof(sourceKind));
+            if (!Enum.IsDefined(typeof(RankMode), rankMode)) throw new ArgumentOutOfRangeException(nameof(rankMode));
+            if (configuration == null) throw new ArgumentNullException(nameof(configuration));
+            if (!actorUserId.IsValid) throw new ArgumentException("ActorUserId is required.", nameof(actorUserId));
+
+            if (sourceKind == SourceKind.ProgressionPurchase)
+            {
+                if (!expectedMechanicsRevision.HasValue || expectedMechanicsRevision.Value < 1)
+                {
+                    throw new ArgumentException("ExpectedMechanicsRevision is required for SourceKind.ProgressionPurchase.", nameof(expectedMechanicsRevision));
+                }
+
+                return AcquireAbilityViaProgressionPurchase(campaign, characterId, abilityDefinitionId, sourceRef, rankMode, numericRank, namedRankKey, configuration, actorUserId, actorIsMainGm, expectedMechanicsRevision.Value, expectedCharacterAbilitiesRevision, commandId, correlationId);
+            }
+
+            if (!actorIsMainGm)
+            {
+                return Result<CharacterRecord>.Failure(PersistenceFailures.CharacterAbilityGrantDenied(correlationId));
+            }
+
+            return MutateAbilities(campaign, characterId, expectedCharacterAbilitiesRevision, commandId, correlationId, (current, connection, transaction) =>
+            {
+                UtcInstant now = _clock.GetUtcNow();
+                CharacterAbilityId newAbilityId = CharacterAbilityId.NewId(now);
+                var newAbility = new CharacterAbility(newAbilityId, abilityDefinitionId, sourceKind, sourceRef, now, rankMode, numericRank, namedRankKey, isEnabled: true, configuration, usesState: null, revision: 1);
+
+                var newAbilities = new List<CharacterAbility>(current.Abilities.Count + 1);
+                newAbilities.AddRange(current.Abilities);
+                newAbilities.Add(newAbility);
+
+                var payload = new JObject
+                {
+                    ["characterAbilityId"] = newAbilityId.ToString(),
+                    ["abilityDefinitionId"] = abilityDefinitionId.ToString(),
+                    ["sourceKind"] = sourceKind.ToString(),
+                    ["sourceRef"] = sourceRef,
+                    ["actorUserId"] = actorUserId.ToString(),
+                };
+
+                return Result<AbilitiesMutation>.Success(new AbilitiesMutation(newAbilities, "odyssey.persistence.character_ability_acquired", payload));
+            });
+        }
+
+        /// <summary>
+        /// ODY-S04-108 section 1.2: the one genuinely cross-section
+        /// transaction this task introduces -- <c>Mechanics</c> (pool spend
+        /// + <c>AdvancementPurchase</c>) and <c>CharacterAbilities</c> (new
+        /// <c>CharacterAbility</c>) commit atomically in a single
+        /// <c>_pipeline.Execute</c> call, with BOTH section revisions
+        /// checked independently per ADR-022 section 5 rule 2. Reuses
+        /// <c>PurchaseAttributeIncrease</c>/<c>PurchaseSkillLevel</c>'s own
+        /// permission convention (MainGM or an assigned user, product
+        /// section 13.1's framing extended verbatim to abilities per
+        /// ADR-024 section 9's own module-boundary list naming
+        /// <c>AcquireAbility</c> alongside them).
+        /// </summary>
+        private Result<CharacterRecord> AcquireAbilityViaProgressionPurchase(CampaignHandle campaign, CharacterId characterId, AbilityDefinitionId abilityDefinitionId, string? sourceRef, RankMode rankMode, long? numericRank, string? namedRankKey, string configuration, UserId actorUserId, bool actorIsMainGm, long expectedMechanicsRevision, long expectedCharacterAbilitiesRevision, CommandId commandId, CorrelationId correlationId)
+        {
+            if (campaign == null) throw new ArgumentNullException(nameof(campaign));
+            if (!characterId.IsValid) throw new ArgumentException("CharacterId is required.", nameof(characterId));
+            if (expectedMechanicsRevision < 1) throw new ArgumentOutOfRangeException(nameof(expectedMechanicsRevision));
+            if (expectedCharacterAbilitiesRevision < 1) throw new ArgumentOutOfRangeException(nameof(expectedCharacterAbilitiesRevision));
+            if (!commandId.IsValid) throw new ArgumentException("CommandId is required.", nameof(commandId));
+
+            try
+            {
+                using SqliteConnection connection = OpenConnection(campaign.RootPath);
+                EnsureCharacterTables(connection);
+
+                return _pipeline.Execute(
+                    connection,
+                    campaign.CampaignId,
+                    commandId,
+                    correlationId,
+                    tryReplay: transaction => ReplayCharacter(connection, transaction, campaign.CampaignId, "CharacterId = $characterId AND LastCommandId = $commandId", commandId, correlationId, characterId),
+                    apply: transaction =>
+                    {
+                        CharacterRecord? current = SelectForUpdate(connection, transaction, characterId);
+                        if (current == null)
+                        {
+                            return Result<PipelineWrite<CharacterRecord>>.Failure(PersistenceFailures.CharacterNotFound(correlationId));
+                        }
+
+                        // ADR-022 section 5 rule 2: a command depending on
+                        // several sections lists all required section
+                        // revisions -- both are checked independently, and
+                        // a stale EITHER one rejects the whole command.
+                        if (current.Revisions.MechanicsRevision != expectedMechanicsRevision)
+                        {
+                            return Result<PipelineWrite<CharacterRecord>>.Failure(PersistenceFailures.CharacterRevisionConflict(correlationId));
+                        }
+
+                        if (current.Revisions.CharacterAbilitiesRevision != expectedCharacterAbilitiesRevision)
+                        {
+                            return Result<PipelineWrite<CharacterRecord>>.Failure(PersistenceFailures.CharacterRevisionConflict(correlationId));
+                        }
+
+                        UtcInstant now = _clock.GetUtcNow();
+                        bool permitted = actorIsMainGm || CharacterOwnershipAssignment.IsAssignedCharacter(current.Ownership, actorUserId, now);
+                        if (!permitted)
+                        {
+                            return Result<PipelineWrite<CharacterRecord>>.Failure(PersistenceFailures.CharacterDevelopmentPurchaseDenied(correlationId));
+                        }
+
+                        long cost = RulesAbilityCostRules.CostForAcquisition();
+                        if (cost > current.DevelopmentPool.Available)
+                        {
+                            return Result<PipelineWrite<CharacterRecord>>.Failure(PersistenceFailures.CharacterDevelopmentInsufficientBalance(correlationId));
+                        }
+
+                        CharacterAbilityId newAbilityId = CharacterAbilityId.NewId(now);
+                        var newAbility = new CharacterAbility(newAbilityId, abilityDefinitionId, SourceKind.ProgressionPurchase, sourceRef, now, rankMode, numericRank, namedRankKey, isEnabled: true, configuration, usesState: null, revision: 1);
+                        var newAbilities = new List<CharacterAbility>(current.Abilities.Count + 1);
+                        newAbilities.AddRange(current.Abilities);
+                        newAbilities.Add(newAbility);
+
+                        var newPool = new DevelopmentPool(current.DevelopmentPool.Earned, current.DevelopmentPool.Spent + cost, current.DevelopmentPool.Reserved);
+
+                        // ADR-024 section 5.1 step 4: AcquireAbility is
+                        // named alongside PurchaseAttributeIncrease/
+                        // PurchaseSkillLevel -- it too creates an
+                        // AdvancementPurchase (OperationKind=AbilityAcquisition,
+                        // FromValue=0/ToValue=1: an ability is either owned
+                        // or not, no intermediate levels in this task).
+                        AdvancementPurchaseId purchaseId = AdvancementPurchaseId.NewId(now);
+                        var purchase = new AdvancementPurchase(purchaseId, characterId, AdvancementOperationKind.AbilityAcquisition, abilityDefinitionId.ToString(), 0, 1, cost, "{}", campaign.Manifest.RulesetVersion, actorUserId, now, AdvancementPurchaseStatus.Applied);
+                        InsertAdvancementPurchase(connection, transaction, campaign.CampaignId, purchase);
+
+                        var ledgerEntry = new DevelopmentTransactionRecord(
+                            DevelopmentTransactionId.NewId(now), characterId, DevelopmentTransactionKind.Spend, cost, abilityDefinitionId.ToString(), "Ability acquisition purchase", actorUserId, campaign.Manifest.RulesetVersion, now, correlationId);
+                        InsertDevelopmentTransaction(connection, transaction, campaign.CampaignId, ledgerEntry);
+
+                        long newMechanicsRevision = current.Revisions.MechanicsRevision + 1;
+                        long newAbilitiesRevision = current.Revisions.CharacterAbilitiesRevision + 1;
+                        long newCharacterRevision = current.Revisions.CharacterRevision + 1;
+
+                        using (var update = connection.CreateCommand())
+                        {
+                            update.Transaction = transaction;
+                            update.CommandText = "UPDATE Character SET PoolEarned = $poolEarned, PoolSpent = $poolSpent, PoolReserved = $poolReserved, AbilitiesJson = $abilitiesJson, MechanicsRevision = $mechanicsRevision, CharacterAbilitiesRevision = $abilitiesRevision, CharacterRevision = $characterRevision, UpdatedAt = $updatedAt, LastCommandId = $lastCommandId WHERE CharacterId = $characterId;";
+                            update.Parameters.AddWithValue("$poolEarned", newPool.Earned);
+                            update.Parameters.AddWithValue("$poolSpent", newPool.Spent);
+                            update.Parameters.AddWithValue("$poolReserved", newPool.Reserved);
+                            update.Parameters.AddWithValue("$abilitiesJson", SerializeAbilities(newAbilities));
+                            update.Parameters.AddWithValue("$mechanicsRevision", newMechanicsRevision);
+                            update.Parameters.AddWithValue("$abilitiesRevision", newAbilitiesRevision);
+                            update.Parameters.AddWithValue("$characterRevision", newCharacterRevision);
+                            update.Parameters.AddWithValue("$updatedAt", now.ToString());
+                            update.Parameters.AddWithValue("$lastCommandId", commandId.ToString());
+                            update.Parameters.AddWithValue("$characterId", characterId.ToString());
+                            update.ExecuteNonQuery();
+                        }
+
+                        CharacterSectionRevisions newRevisions = WithRevisions(current.Revisions, characterRevision: newCharacterRevision, mechanicsRevision: newMechanicsRevision, characterAbilitiesRevision: newAbilitiesRevision);
+                        var record = new CharacterRecord(characterId, campaign.CampaignId, current.CharacterKind, current.LifecycleStatus, current.ApprovalState, current.DisplayName, current.PortraitReference, current.Ownership, newRevisions, current.RulesetVersion, current.AnatomyProfileRef, current.TemplateId, current.TemplateVersionAtCopyTime, current.SeedCopy, current.SubmittedAt, newPool, current.Attributes, current.Skills, newAbilities, current.CreatedAt, now);
+
+                        var payload = new JObject
+                        {
+                            ["characterId"] = characterId.ToString(),
+                            ["characterAbilityId"] = newAbilityId.ToString(),
+                            ["abilityDefinitionId"] = abilityDefinitionId.ToString(),
+                            ["sourceKind"] = SourceKind.ProgressionPurchase.ToString(),
+                            ["cost"] = cost,
+                            ["purchaseId"] = purchaseId.ToString(),
+                            ["actorUserId"] = actorUserId.ToString(),
+                            ["newAvailable"] = newPool.Available,
+                            ["displayNameSnapshot"] = current.DisplayName,
+                            ["newMechanicsRevision"] = newMechanicsRevision,
+                            ["newCharacterAbilitiesRevision"] = newAbilitiesRevision,
+                            ["newCharacterRevision"] = newCharacterRevision,
+                        };
+
+                        return Result<PipelineWrite<CharacterRecord>>.Success(new PipelineWrite<CharacterRecord>(
+                            record, "odyssey.persistence.character_ability_acquired", payload.ToString(Newtonsoft.Json.Formatting.None), characterId.ToString(),
+                            aggregateType: "character", aggregateId: characterId.ToString(), aggregateRevision: newCharacterRevision));
+                    });
+            }
+            catch (Exception ex) when (ex is IOException || ex is UnauthorizedAccessException || ex is SqliteException)
+            {
+                return Result<CharacterRecord>.Failure(PersistenceFailures.CharacterIoFailed(correlationId));
+            }
+        }
+
+        public Result<CharacterRecord> RemoveAbility(CampaignHandle campaign, CharacterId characterId, CharacterAbilityId characterAbilityId, UserId actorUserId, bool actorIsMainGm, long expectedCharacterAbilitiesRevision, CommandId commandId, CorrelationId correlationId)
+        {
+            if (!characterAbilityId.IsValid) throw new ArgumentException("CharacterAbilityId is required.", nameof(characterAbilityId));
+            if (!actorUserId.IsValid) throw new ArgumentException("ActorUserId is required.", nameof(actorUserId));
+
+            if (!actorIsMainGm)
+            {
+                return Result<CharacterRecord>.Failure(PersistenceFailures.CharacterAbilityGrantDenied(correlationId));
+            }
+
+            return MutateAbilities(campaign, characterId, expectedCharacterAbilitiesRevision, commandId, correlationId, (current, connection, transaction) =>
+            {
+                CharacterAbility? existing = null;
+                foreach (CharacterAbility candidate in current.Abilities)
+                {
+                    if (candidate.CharacterAbilityId.Equals(characterAbilityId)) { existing = candidate; break; }
+                }
+
+                if (existing == null)
+                {
+                    return Result<AbilitiesMutation>.Failure(PersistenceFailures.CharacterAbilityNotFound(correlationId));
+                }
+
+                // Product section 16: "способность предмета или эффекта
+                // исчезает при прекращении источника и не становится
+                // постоянной покупкой" -- only Item/ActiveEffect are legal
+                // to remove this way; a permanent purchased/granted ability
+                // survives this ordinary command.
+                if (existing.SourceKind != SourceKind.Item && existing.SourceKind != SourceKind.ActiveEffect)
+                {
+                    return Result<AbilitiesMutation>.Failure(PersistenceFailures.CharacterAbilityRemovalNotAllowed(correlationId));
+                }
+
+                var newAbilities = new List<CharacterAbility>(current.Abilities.Count - 1);
+                foreach (CharacterAbility candidate in current.Abilities)
+                {
+                    if (!candidate.CharacterAbilityId.Equals(characterAbilityId))
+                    {
+                        newAbilities.Add(candidate);
+                    }
+                }
+
+                var payload = new JObject
+                {
+                    ["characterAbilityId"] = characterAbilityId.ToString(),
+                    ["abilityDefinitionId"] = existing.AbilityDefinitionId.ToString(),
+                    ["sourceKind"] = existing.SourceKind.ToString(),
+                    ["actorUserId"] = actorUserId.ToString(),
+                };
+
+                return Result<AbilitiesMutation>.Success(new AbilitiesMutation(newAbilities, "odyssey.persistence.character_ability_removed", payload));
+            });
+        }
+
+        /// <summary>
+        /// ODY-S04-108 section 1.1: the first real, incrementing
+        /// <c>CharacterAbilities</c>-section helper -- mirrors
+        /// <see cref="MutateMechanics"/>'s exact gate/load/callback/commit
+        /// shape for a single section, the same way <c>MutateOwnership</c>
+        /// already does for <c>Ownership</c>. Unlike ODY-S04-105/106's own
+        /// choice to route <c>AttributeValuesRevision</c>/
+        /// <c>CharacterSkillsRevision</c> through <c>MechanicsRevision</c>
+        /// instead (ADR-024 section 4.2's justification for pool ledger
+        /// data), no such justification exists for abilities -- this helper
+        /// genuinely increments <c>CharacterAbilitiesRevision</c> on every
+        /// call.
+        /// </summary>
+        private Result<CharacterRecord> MutateAbilities(
+            CampaignHandle campaign,
+            CharacterId characterId,
+            long expectedCharacterAbilitiesRevision,
+            CommandId commandId,
+            CorrelationId correlationId,
+            Func<CharacterRecord, SqliteConnection, SqliteTransaction, Result<AbilitiesMutation>> mutate)
+        {
+            if (campaign == null) throw new ArgumentNullException(nameof(campaign));
+            if (!characterId.IsValid) throw new ArgumentException("CharacterId is required.", nameof(characterId));
+            if (expectedCharacterAbilitiesRevision < 1) throw new ArgumentOutOfRangeException(nameof(expectedCharacterAbilitiesRevision));
+            if (!commandId.IsValid) throw new ArgumentException("CommandId is required.", nameof(commandId));
+
+            try
+            {
+                using SqliteConnection connection = OpenConnection(campaign.RootPath);
+                EnsureCharacterTables(connection);
+
+                return _pipeline.Execute(
+                    connection,
+                    campaign.CampaignId,
+                    commandId,
+                    correlationId,
+                    tryReplay: transaction => ReplayCharacter(connection, transaction, campaign.CampaignId, "CharacterId = $characterId AND LastCommandId = $commandId", commandId, correlationId, characterId),
+                    apply: transaction =>
+                    {
+                        CharacterRecord? current = SelectForUpdate(connection, transaction, characterId);
+                        if (current == null)
+                        {
+                            return Result<PipelineWrite<CharacterRecord>>.Failure(PersistenceFailures.CharacterNotFound(correlationId));
+                        }
+
+                        if (current.Revisions.CharacterAbilitiesRevision != expectedCharacterAbilitiesRevision)
+                        {
+                            return Result<PipelineWrite<CharacterRecord>>.Failure(PersistenceFailures.CharacterRevisionConflict(correlationId));
+                        }
+
+                        Result<AbilitiesMutation> mutationResult = mutate(current, connection, transaction);
+                        if (mutationResult.IsFailure)
+                        {
+                            return Result<PipelineWrite<CharacterRecord>>.Failure(mutationResult.Error);
+                        }
+
+                        AbilitiesMutation mutation = mutationResult.Value;
+                        UtcInstant now = _clock.GetUtcNow();
+                        long newAbilitiesRevision = current.Revisions.CharacterAbilitiesRevision + 1;
+                        long newCharacterRevision = current.Revisions.CharacterRevision + 1;
+
+                        using (var update = connection.CreateCommand())
+                        {
+                            update.Transaction = transaction;
+                            update.CommandText = "UPDATE Character SET AbilitiesJson = $abilitiesJson, CharacterAbilitiesRevision = $abilitiesRevision, CharacterRevision = $characterRevision, UpdatedAt = $updatedAt, LastCommandId = $lastCommandId WHERE CharacterId = $characterId;";
+                            update.Parameters.AddWithValue("$abilitiesJson", SerializeAbilities(mutation.NewAbilities));
+                            update.Parameters.AddWithValue("$abilitiesRevision", newAbilitiesRevision);
+                            update.Parameters.AddWithValue("$characterRevision", newCharacterRevision);
+                            update.Parameters.AddWithValue("$updatedAt", now.ToString());
+                            update.Parameters.AddWithValue("$lastCommandId", commandId.ToString());
+                            update.Parameters.AddWithValue("$characterId", characterId.ToString());
+                            update.ExecuteNonQuery();
+                        }
+
+                        CharacterSectionRevisions newRevisions = WithRevisions(current.Revisions, characterRevision: newCharacterRevision, characterAbilitiesRevision: newAbilitiesRevision);
+                        var record = new CharacterRecord(characterId, campaign.CampaignId, current.CharacterKind, current.LifecycleStatus, current.ApprovalState, current.DisplayName, current.PortraitReference, current.Ownership, newRevisions, current.RulesetVersion, current.AnatomyProfileRef, current.TemplateId, current.TemplateVersionAtCopyTime, current.SeedCopy, current.SubmittedAt, current.DevelopmentPool, current.Attributes, current.Skills, mutation.NewAbilities, current.CreatedAt, now);
+
+                        mutation.PayloadExtra["characterId"] = characterId.ToString();
+                        mutation.PayloadExtra["displayNameSnapshot"] = current.DisplayName;
+                        mutation.PayloadExtra["newCharacterAbilitiesRevision"] = newAbilitiesRevision;
+                        mutation.PayloadExtra["newCharacterRevision"] = newCharacterRevision;
+
+                        return Result<PipelineWrite<CharacterRecord>>.Success(new PipelineWrite<CharacterRecord>(
+                            record, mutation.EventType, mutation.PayloadExtra.ToString(Newtonsoft.Json.Formatting.None), characterId.ToString(),
+                            aggregateType: "character", aggregateId: characterId.ToString(), aggregateRevision: newCharacterRevision));
+                    });
+            }
+            catch (Exception ex) when (ex is IOException || ex is UnauthorizedAccessException || ex is SqliteException)
+            {
+                return Result<CharacterRecord>.Failure(PersistenceFailures.CharacterIoFailed(correlationId));
+            }
+        }
+
+        /// <summary>ODY-S04-108: the pure business-logic result <see cref="MutateAbilities"/>'s caller-supplied callback returns -- mirrors <see cref="MechanicsMutation"/>'s exact shape for the single <c>CharacterAbilities</c> section.</summary>
+        private sealed class AbilitiesMutation
+        {
+            public AbilitiesMutation(IReadOnlyList<CharacterAbility> newAbilities, string eventType, JObject payloadExtra)
+            {
+                NewAbilities = newAbilities;
+                EventType = eventType;
+                PayloadExtra = payloadExtra;
+            }
+
+            public IReadOnlyList<CharacterAbility> NewAbilities { get; }
+            public string EventType { get; }
+            public JObject PayloadExtra { get; }
         }
 
         private Result<AdvancementRecommendationRecord> FindAdvancementRecommendationByCommandId(CampaignHandle campaign, CommandId commandId, CorrelationId correlationId)
@@ -2143,7 +2564,7 @@ namespace Odyssey.Persistence.Sqlite
                         }
 
                         CharacterSectionRevisions newRevisions = WithRevisions(current.Revisions, characterRevision: newCharacterRevision, mechanicsRevision: newMechanicsRevision);
-                        var record = new CharacterRecord(characterId, campaign.CampaignId, current.CharacterKind, current.LifecycleStatus, current.ApprovalState, current.DisplayName, current.PortraitReference, current.Ownership, newRevisions, current.RulesetVersion, current.AnatomyProfileRef, current.TemplateId, current.TemplateVersionAtCopyTime, current.SeedCopy, current.SubmittedAt, mutation.NewPool, mutation.NewAttributes, mutation.NewSkills, current.CreatedAt, now);
+                        var record = new CharacterRecord(characterId, campaign.CampaignId, current.CharacterKind, current.LifecycleStatus, current.ApprovalState, current.DisplayName, current.PortraitReference, current.Ownership, newRevisions, current.RulesetVersion, current.AnatomyProfileRef, current.TemplateId, current.TemplateVersionAtCopyTime, current.SeedCopy, current.SubmittedAt, mutation.NewPool, mutation.NewAttributes, mutation.NewSkills, current.Abilities, current.CreatedAt, now);
 
                         mutation.PayloadExtra["characterId"] = characterId.ToString();
                         mutation.PayloadExtra["displayNameSnapshot"] = current.DisplayName;
@@ -2305,7 +2726,7 @@ namespace Odyssey.Persistence.Sqlite
                         }
 
                         CharacterSectionRevisions newRevisions = WithRevisions(current.Revisions, characterRevision: newCharacterRevision, identityRevision: newIdentityRevision);
-                        var record = new CharacterRecord(characterId, campaign.CampaignId, current.CharacterKind, current.LifecycleStatus, current.ApprovalState, newDisplayName, current.PortraitReference, current.Ownership, newRevisions, current.RulesetVersion, current.AnatomyProfileRef, current.TemplateId, current.TemplateVersionAtCopyTime, current.SeedCopy, current.SubmittedAt, current.DevelopmentPool, current.Attributes, current.Skills, current.CreatedAt, now);
+                        var record = new CharacterRecord(characterId, campaign.CampaignId, current.CharacterKind, current.LifecycleStatus, current.ApprovalState, newDisplayName, current.PortraitReference, current.Ownership, newRevisions, current.RulesetVersion, current.AnatomyProfileRef, current.TemplateId, current.TemplateVersionAtCopyTime, current.SeedCopy, current.SubmittedAt, current.DevelopmentPool, current.Attributes, current.Skills, current.Abilities, current.CreatedAt, now);
 
                         var payload = new JObject
                         {
@@ -2378,7 +2799,7 @@ namespace Odyssey.Persistence.Sqlite
                         }
 
                         CharacterSectionRevisions newRevisions = WithRevisions(current.Revisions, characterRevision: newCharacterRevision, presentationRevision: newPresentationRevision);
-                        var record = new CharacterRecord(characterId, campaign.CampaignId, current.CharacterKind, current.LifecycleStatus, current.ApprovalState, current.DisplayName, portraitReference, current.Ownership, newRevisions, current.RulesetVersion, current.AnatomyProfileRef, current.TemplateId, current.TemplateVersionAtCopyTime, current.SeedCopy, current.SubmittedAt, current.DevelopmentPool, current.Attributes, current.Skills, current.CreatedAt, now);
+                        var record = new CharacterRecord(characterId, campaign.CampaignId, current.CharacterKind, current.LifecycleStatus, current.ApprovalState, current.DisplayName, portraitReference, current.Ownership, newRevisions, current.RulesetVersion, current.AnatomyProfileRef, current.TemplateId, current.TemplateVersionAtCopyTime, current.SeedCopy, current.SubmittedAt, current.DevelopmentPool, current.Attributes, current.Skills, current.Abilities, current.CreatedAt, now);
 
                         var payload = new JObject
                         {
@@ -2471,7 +2892,7 @@ namespace Odyssey.Persistence.Sqlite
                         }
 
                         CharacterSectionRevisions newRevisions = WithRevisions(current.Revisions, characterRevision: newCharacterRevision, ownershipRevision: newOwnershipRevision);
-                        var record = new CharacterRecord(characterId, campaign.CampaignId, current.CharacterKind, current.LifecycleStatus, current.ApprovalState, current.DisplayName, current.PortraitReference, newOwnership, newRevisions, current.RulesetVersion, current.AnatomyProfileRef, current.TemplateId, current.TemplateVersionAtCopyTime, current.SeedCopy, current.SubmittedAt, current.DevelopmentPool, current.Attributes, current.Skills, current.CreatedAt, now);
+                        var record = new CharacterRecord(characterId, campaign.CampaignId, current.CharacterKind, current.LifecycleStatus, current.ApprovalState, current.DisplayName, current.PortraitReference, newOwnership, newRevisions, current.RulesetVersion, current.AnatomyProfileRef, current.TemplateId, current.TemplateVersionAtCopyTime, current.SeedCopy, current.SubmittedAt, current.DevelopmentPool, current.Attributes, current.Skills, current.Abilities, current.CreatedAt, now);
 
                         var payload = new JObject
                         {
@@ -2680,7 +3101,7 @@ namespace Odyssey.Persistence.Sqlite
                         }
 
                         CharacterSectionRevisions newRevisions = WithRevisions(current.Revisions, characterRevision: newCharacterRevision, ownershipRevision: newOwnershipRevision);
-                        var record = new CharacterRecord(characterId, campaign.CampaignId, current.CharacterKind, current.LifecycleStatus, current.ApprovalState, current.DisplayName, current.PortraitReference, newOwnership, newRevisions, current.RulesetVersion, current.AnatomyProfileRef, current.TemplateId, current.TemplateVersionAtCopyTime, current.SeedCopy, current.SubmittedAt, current.DevelopmentPool, current.Attributes, current.Skills, current.CreatedAt, now);
+                        var record = new CharacterRecord(characterId, campaign.CampaignId, current.CharacterKind, current.LifecycleStatus, current.ApprovalState, current.DisplayName, current.PortraitReference, newOwnership, newRevisions, current.RulesetVersion, current.AnatomyProfileRef, current.TemplateId, current.TemplateVersionAtCopyTime, current.SeedCopy, current.SubmittedAt, current.DevelopmentPool, current.Attributes, current.Skills, current.Abilities, current.CreatedAt, now);
 
                         payloadExtra["characterId"] = characterId.ToString();
                         payloadExtra["displayNameSnapshot"] = current.DisplayName;
@@ -2805,7 +3226,7 @@ namespace Odyssey.Persistence.Sqlite
             "AttributeValuesRevision, CharacterSkillsRevision, CharacterAbilitiesRevision, CharacterResourcesRevision, " +
             "CharacterAnatomyRevision, OwnershipRevision, LifecycleRevision, RuntimeStateRevision, " +
             "RulesetVersion, AnatomyProfileRef, TemplateId, TemplateVersionAtCopyTime, SeedCopyJson, SubmittedAt, " +
-            "PoolEarned, PoolSpent, PoolReserved, AttributesJson, SkillsJson, CreatedAt, UpdatedAt";
+            "PoolEarned, PoolSpent, PoolReserved, AttributesJson, SkillsJson, AbilitiesJson, CreatedAt, UpdatedAt";
 
         /// <summary>
         /// ODY-S04-101/102: shared column-order contract for every SELECT
@@ -2852,10 +3273,11 @@ namespace Odyssey.Persistence.Sqlite
             var developmentPool = new DevelopmentPool(reader.GetInt64(30), reader.GetInt64(31), reader.GetInt64(32));
             IReadOnlyList<AttributeValue> attributes = DeserializeAttributes(reader.GetString(33));
             IReadOnlyList<CharacterSkill> skills = DeserializeSkills(reader.GetString(34));
-            UtcInstant createdAt = UtcInstant.Parse(reader.GetString(35));
-            UtcInstant updatedAt = UtcInstant.Parse(reader.GetString(36));
+            IReadOnlyList<CharacterAbility> abilities = DeserializeAbilities(reader.GetString(35));
+            UtcInstant createdAt = UtcInstant.Parse(reader.GetString(36));
+            UtcInstant updatedAt = UtcInstant.Parse(reader.GetString(37));
 
-            return new CharacterRecord(characterId, campaignId, characterKind, lifecycleStatus, approvalState, displayName, portraitReference, ownership, revisions, rulesetVersion, anatomyProfileRef, templateId, templateVersionAtCopyTime, seedCopy, submittedAt, developmentPool, attributes, skills, createdAt, updatedAt);
+            return new CharacterRecord(characterId, campaignId, characterKind, lifecycleStatus, approvalState, displayName, portraitReference, ownership, revisions, rulesetVersion, anatomyProfileRef, templateId, templateVersionAtCopyTime, seedCopy, submittedAt, developmentPool, attributes, skills, abilities, createdAt, updatedAt);
         }
 
         private static void AddRevisionParameters(SqliteCommand command, CharacterSectionRevisions revisions)
@@ -2890,7 +3312,8 @@ namespace Odyssey.Persistence.Sqlite
             long? presentationRevision = null,
             long? ownershipRevision = null,
             long? lifecycleRevision = null,
-            long? mechanicsRevision = null) => new CharacterSectionRevisions(
+            long? mechanicsRevision = null,
+            long? characterAbilitiesRevision = null) => new CharacterSectionRevisions(
                 characterRevision ?? source.CharacterRevision,
                 identityRevision ?? source.IdentityRevision,
                 presentationRevision ?? source.PresentationRevision,
@@ -2898,7 +3321,7 @@ namespace Odyssey.Persistence.Sqlite
                 mechanicsRevision ?? source.MechanicsRevision,
                 source.AttributeValuesRevision,
                 source.CharacterSkillsRevision,
-                source.CharacterAbilitiesRevision,
+                characterAbilitiesRevision ?? source.CharacterAbilitiesRevision,
                 source.CharacterResourcesRevision,
                 source.CharacterAnatomyRevision,
                 ownershipRevision ?? source.OwnershipRevision,
@@ -2970,6 +3393,55 @@ namespace Odyssey.Persistence.Sqlite
                 long spentDevelopmentPoints = (long)token["spentDevelopmentPoints"]!;
                 long revision = (long)token["revision"]!;
                 list.Add(new AttributeValue(attributeDefinitionId, baseValue, permanentAdjustment, spentDevelopmentPoints, revision));
+            }
+
+            return list;
+        }
+
+        private static string SerializeAbilities(IReadOnlyList<CharacterAbility> abilities)
+        {
+            var array = new JArray();
+            foreach (CharacterAbility ability in abilities)
+            {
+                array.Add(new JObject
+                {
+                    ["characterAbilityId"] = ability.CharacterAbilityId.ToString(),
+                    ["abilityDefinitionId"] = ability.AbilityDefinitionId.ToString(),
+                    ["sourceKind"] = ability.SourceKind.ToString(),
+                    ["sourceRef"] = ability.SourceRef,
+                    ["acquiredAt"] = ability.AcquiredAt.ToString(),
+                    ["rankMode"] = ability.RankMode.ToString(),
+                    ["numericRank"] = ability.NumericRank,
+                    ["namedRankKey"] = ability.NamedRankKey,
+                    ["isEnabled"] = ability.IsEnabled,
+                    ["configuration"] = ability.Configuration,
+                    ["usesState"] = ability.UsesState,
+                    ["revision"] = ability.Revision,
+                });
+            }
+
+            return array.ToString(Newtonsoft.Json.Formatting.None);
+        }
+
+        private static IReadOnlyList<CharacterAbility> DeserializeAbilities(string json)
+        {
+            var array = (JArray)ParseJsonPreservingStrings(json);
+            var list = new List<CharacterAbility>(array.Count);
+            foreach (JToken token in array)
+            {
+                CharacterAbilityId characterAbilityId = CharacterAbilityId.Parse((string)token["characterAbilityId"]!);
+                AbilityDefinitionId abilityDefinitionId = AbilityDefinitionId.Parse((string)token["abilityDefinitionId"]!);
+                var sourceKind = (SourceKind)Enum.Parse(typeof(SourceKind), (string)token["sourceKind"]!);
+                string? sourceRef = (string?)token["sourceRef"];
+                UtcInstant acquiredAt = UtcInstant.Parse((string)token["acquiredAt"]!);
+                var rankMode = (RankMode)Enum.Parse(typeof(RankMode), (string)token["rankMode"]!);
+                long? numericRank = (long?)token["numericRank"];
+                string? namedRankKey = (string?)token["namedRankKey"];
+                bool isEnabled = (bool)token["isEnabled"]!;
+                string configuration = (string)token["configuration"]!;
+                string? usesState = (string?)token["usesState"];
+                long revision = (long)token["revision"]!;
+                list.Add(new CharacterAbility(characterAbilityId, abilityDefinitionId, sourceKind, sourceRef, acquiredAt, rankMode, numericRank, namedRankKey, isEnabled, configuration, usesState, revision));
             }
 
             return list;
@@ -3109,6 +3581,7 @@ CREATE TABLE IF NOT EXISTS Character (
     PoolReserved INTEGER NOT NULL DEFAULT 0,
     AttributesJson TEXT NOT NULL DEFAULT '[]',
     SkillsJson TEXT NOT NULL DEFAULT '[]',
+    AbilitiesJson TEXT NOT NULL DEFAULT '[]',
     CreatedAt TEXT NOT NULL,
     UpdatedAt TEXT NOT NULL,
     LastCommandId TEXT NOT NULL

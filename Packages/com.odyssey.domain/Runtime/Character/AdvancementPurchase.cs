@@ -16,7 +16,20 @@ namespace Odyssey.Domain.Character
     public enum AdvancementOperationKind
     {
         AttributeIncrease = 1,
-        SkillLevelPurchase = 2
+        SkillLevelPurchase = 2,
+
+        /// <summary>
+        /// ODY-S04-108: ADR-024 section 5.1's <c>AcquireAbility</c> purchase
+        /// pipeline for <c>SourceKind=ProgressionPurchase</c> also creates an
+        /// <c>AdvancementPurchase</c>. This value is deliberately NOT
+        /// accepted by <c>RevertAdvancementPurchase</c>/
+        /// <c>ApplyCharacterRespec</c>/<c>ComputeRespecPlan</c> (both
+        /// explicitly reject it with <c>CharacterAdvancementOperationKindNotSupported</c>
+        /// rather than mis-parsing <see cref="AdvancementPurchase.TargetDefinitionId"/>
+        /// as a <c>SkillDefinitionId</c>) -- reverting/respeccing an ability
+        /// acquisition is explicitly out of scope for ODY-S04-107/108.
+        /// </summary>
+        AbilityAcquisition = 3
     }
 
     /// <summary>ODY-S04-107: product section 13.2's <c>AdvancementPurchase.Status</c>.</summary>

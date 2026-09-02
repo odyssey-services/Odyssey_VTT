@@ -346,6 +346,68 @@ namespace Odyssey.Application.Persistence
         /// stored result and does not re-apply the batch.
         /// </summary>
         Result<CharacterRecord> ApplyCharacterRespec(CampaignHandle campaign, CharacterId characterId, IReadOnlyList<CharacterRespecTarget> targets, string reasonCode, UserId actorUserId, bool actorIsMainGm, long expectedMechanicsRevision, CommandId commandId, CorrelationId correlationId);
+
+        /// <summary>
+        /// ODY-S04-108: product section 16, ADR-024 section 5.1/9 -- one
+        /// command for all six <see cref="SourceKind"/> values (product's
+        /// own enum, reused verbatim).
+        ///
+        /// <see cref="SourceKind.ProgressionPurchase"/>: MainGM or an
+        /// assigned user of this Character (the same
+        /// <c>CharacterOwnershipAssignment.IsAssignedCharacter</c>
+        /// convention <c>PurchaseAttributeIncrease</c>/<c>PurchaseSkillLevel</c>
+        /// already use). Spends <c>DevelopmentPool</c> (cost from
+        /// <see cref="Odyssey.Rules.Character.AbilityCostRules"/>, this
+        /// task's own explicitly-flagged test fixture), creates an
+        /// <c>AdvancementPurchase</c> (<c>OperationKind=AbilityAcquisition</c>,
+        /// <c>FromValue=0</c>, <c>ToValue=1</c>) per ADR-024 section 5.1 step
+        /// 4, and creates the <c>CharacterAbility</c> -- a genuine
+        /// cross-section transaction touching both <c>Mechanics</c> and
+        /// <c>CharacterAbilities</c> in one commit (ADR-022 section 5 rule
+        /// 2: a command depending on several sections lists all required
+        /// section revisions), so <paramref name="expectedMechanicsRevision"/>
+        /// is REQUIRED for this <see cref="SourceKind"/> (validated by the
+        /// implementation, not this signature alone).
+        ///
+        /// <see cref="SourceKind.GMGrant"/>: MainGM-only, touches only the
+        /// <c>CharacterAbilities</c> section --
+        /// <paramref name="expectedMechanicsRevision"/> is ignored (must be
+        /// left <c>null</c>).
+        ///
+        /// <see cref="SourceKind.CharacterTemplate"/>/<see cref="SourceKind.Item"/>/
+        /// <see cref="SourceKind.ActiveEffect"/>/<see cref="SourceKind.RulesetAdvancement"/>:
+        /// structurally accepted (a future template-copy/Item/ActiveEffect
+        /// system will call this command itself with these values) but no
+        /// automatic acquisition through them is implemented by this task --
+        /// see the SQLite implementation's own doc comment for the full
+        /// permission decision recorded for these four values.
+        ///
+        /// Every path is gated by <paramref name="expectedCharacterAbilitiesRevision"/>
+        /// (the section-wide <c>CharacterAbilitiesRevision</c> counter --
+        /// ODY-S04-108 section 1.1's own fix: this is the first command to
+        /// actually increment it, unlike <c>AttributeValuesRevision</c>/
+        /// <c>CharacterSkillsRevision</c>, which ODY-S04-105/106 deliberately
+        /// route through <c>MechanicsRevision</c> instead, per ADR-024
+        /// section 4.2's own justification for pool ledger data -- a
+        /// justification that does not extend to abilities).
+        /// </summary>
+        Result<CharacterRecord> AcquireAbility(CampaignHandle campaign, CharacterId characterId, AbilityDefinitionId abilityDefinitionId, SourceKind sourceKind, string? sourceRef, RankMode rankMode, long? numericRank, string? namedRankKey, string configuration, UserId actorUserId, bool actorIsMainGm, long? expectedMechanicsRevision, long expectedCharacterAbilitiesRevision, CommandId commandId, CorrelationId correlationId);
+
+        /// <summary>
+        /// ODY-S04-108: product section 16 -- "способность предмета или
+        /// эффекта исчезает при прекращении источника и не становится
+        /// постоянной покупкой." Legal only for
+        /// <see cref="SourceKind.Item"/>/<see cref="SourceKind.ActiveEffect"/>;
+        /// rejected with <c>CharacterAbilityRemovalNotAllowed</c> for
+        /// <see cref="SourceKind.ProgressionPurchase"/>/<see cref="SourceKind.GMGrant"/>/
+        /// <see cref="SourceKind.CharacterTemplate"/>/<see cref="SourceKind.RulesetAdvancement"/>
+        /// -- a permanent purchased/granted ability is never removed by this
+        /// ordinary command (reverting an <c>AbilityAcquisition</c>
+        /// <c>AdvancementPurchase</c> is explicitly out of scope, section
+        /// 1.3). MainGM-only. Touches only the <c>CharacterAbilities</c>
+        /// section, gated by <paramref name="expectedCharacterAbilitiesRevision"/>.
+        /// </summary>
+        Result<CharacterRecord> RemoveAbility(CampaignHandle campaign, CharacterId characterId, CharacterAbilityId characterAbilityId, UserId actorUserId, bool actorIsMainGm, long expectedCharacterAbilitiesRevision, CommandId commandId, CorrelationId correlationId);
     }
 
     /// <summary>ODY-S04-107: one addressed attribute-or-skill target for a respec, and the value the caller wants it to end up at after the batch (0 means "fully undo, do not repurchase").</summary>
@@ -665,6 +727,7 @@ namespace Odyssey.Application.Persistence
             DevelopmentPool developmentPool,
             IReadOnlyList<AttributeValue> attributes,
             IReadOnlyList<CharacterSkill> skills,
+            IReadOnlyList<CharacterAbility> abilities,
             UtcInstant createdAt,
             UtcInstant updatedAt)
         {
@@ -694,6 +757,7 @@ namespace Odyssey.Application.Persistence
             DevelopmentPool = developmentPool ?? throw new ArgumentNullException(nameof(developmentPool));
             Attributes = attributes ?? throw new ArgumentNullException(nameof(attributes));
             Skills = skills ?? throw new ArgumentNullException(nameof(skills));
+            Abilities = abilities ?? throw new ArgumentNullException(nameof(abilities));
             CreatedAt = createdAt;
             UpdatedAt = updatedAt;
         }
@@ -742,6 +806,9 @@ namespace Odyssey.Application.Persistence
 
         /// <summary>ODY-S04-106: product section 14's <c>CharacterSkill</c> rows purchased so far -- empty until the first purchase/resolution ("отсутствующий навык представлен отсутствием CharacterSkill"). Each entry's own <see cref="CharacterSkill.Revision"/> is the ADR-024 section 4.2 entry-level gate for further purchases against that same skill.</summary>
         public IReadOnlyList<CharacterSkill> Skills { get; }
+
+        /// <summary>ODY-S04-108: product section 16's <c>CharacterAbility</c> rows acquired so far -- empty until the first <c>AcquireAbility</c>. Each entry's own <see cref="CharacterAbility.Revision"/> is the ADR-022 section 6 entry-level gate for the <c>CharacterAbility:&lt;CharacterAbilityId&gt;</c> lock key; the section-wide <see cref="CharacterSectionRevisions.CharacterAbilitiesRevision"/> is the gate for <c>AcquireAbility</c>/<c>RemoveAbility</c> themselves.</summary>
+        public IReadOnlyList<CharacterAbility> Abilities { get; }
         public UtcInstant CreatedAt { get; }
         public UtcInstant UpdatedAt { get; }
     }
