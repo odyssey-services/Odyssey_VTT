@@ -599,6 +599,42 @@ namespace Odyssey.Application.Persistence
             RetryDirective.DoNotRetry,
             correlationId);
 
+        /// <summary>ODY-S04-111: ADR-025 section 6.1 -- <c>TransitionCharacterToDead</c> rejection when <c>LifecycleDeathIssuerKind.GMOverride</c> is claimed by an actor who is not MainGM (`CAP-INV-008`: a plain owner/controller can never reach `Dead`).</summary>
+        public static Error CharacterDeadTransitionDenied(CorrelationId correlationId) => Error.Create(
+            ErrorCodes.PersistenceCharacterDeadTransitionDenied,
+            ErrorCategory.Authorization,
+            SafeReasonCode.PermissionDenied,
+            UserMessageKey.Parse("errors.persistence.character_dead_transition_denied"),
+            RetryDirective.DoNotRetry,
+            correlationId);
+
+        /// <summary>ODY-S04-111: product section 23.2 -- <c>RestoreDeadCharacter</c> is MainGM-only, rejection for a non-MainGM actor.</summary>
+        public static Error CharacterRestoreDenied(CorrelationId correlationId) => Error.Create(
+            ErrorCodes.PersistenceCharacterRestoreDenied,
+            ErrorCategory.Authorization,
+            SafeReasonCode.PermissionDenied,
+            UserMessageKey.Parse("errors.persistence.character_restore_denied"),
+            RetryDirective.DoNotRetry,
+            correlationId);
+
+        /// <summary>ODY-S04-111: product section 23.2 -- <c>RestoreDeadCharacter</c> requires a non-empty <c>ReasonCode</c>.</summary>
+        public static Error CharacterRestoreReasonRequired(CorrelationId correlationId) => Error.Create(
+            ErrorCodes.PersistenceCharacterRestoreReasonRequired,
+            ErrorCategory.Validation,
+            SafeReasonCode.InvalidRequest,
+            UserMessageKey.Parse("errors.persistence.character_restore_reason_required"),
+            RetryDirective.DoNotRetry,
+            correlationId);
+
+        /// <summary>ODY-S04-111: ADR-025 section 6.1 -- <c>RestoreDeadCharacter</c> is legal only from <c>LifecycleStatus=Dead</c>.</summary>
+        public static Error CharacterRestoreNotDead(CorrelationId correlationId) => Error.Create(
+            ErrorCodes.PersistenceCharacterRestoreNotDead,
+            ErrorCategory.Conflict,
+            SafeReasonCode.StateChanged,
+            UserMessageKey.Parse("errors.persistence.character_restore_not_dead"),
+            RetryDirective.DoNotRetry,
+            correlationId);
+
         /// <summary>ODY-S04-106: <c>ResolveAdvancementRecommendation</c> references a <c>CriticalSuccessEvidenceId</c> that does not exist -- an integrity condition, not a normal user-facing rejection path (the recommendation's own evidence list is validated to reference real rows at request time).</summary>
         public static Error CharacterCriticalEvidenceNotFound(CorrelationId correlationId) => Error.Create(
             ErrorCodes.PersistenceCharacterCriticalEvidenceNotFound,

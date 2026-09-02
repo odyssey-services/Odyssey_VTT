@@ -75,6 +75,10 @@ namespace Odyssey.Application.Results
         public static readonly ErrorCode PersistenceCharacterDeletionDenied = ErrorCode.Parse("persistence.character.deletion_denied");
         public static readonly ErrorCode PersistenceCharacterDeletionReasonRequired = ErrorCode.Parse("persistence.character.deletion_reason_required");
         public static readonly ErrorCode PersistenceCharacterDeletionHasDependent = ErrorCode.Parse("persistence.character.deletion_has_dependent");
+        public static readonly ErrorCode PersistenceCharacterDeadTransitionDenied = ErrorCode.Parse("persistence.character.dead_transition_denied");
+        public static readonly ErrorCode PersistenceCharacterRestoreDenied = ErrorCode.Parse("persistence.character.restore_denied");
+        public static readonly ErrorCode PersistenceCharacterRestoreReasonRequired = ErrorCode.Parse("persistence.character.restore_reason_required");
+        public static readonly ErrorCode PersistenceCharacterRestoreNotDead = ErrorCode.Parse("persistence.character.restore_not_dead");
         public static readonly ErrorCode PersistenceCharacterCriticalEvidenceNotFound = ErrorCode.Parse("persistence.character.critical_evidence_not_found");
         public static readonly ErrorCode NetworkingTransportConnectFailed = ErrorCode.Parse("networking.transport.connect_failed");
         public static readonly ErrorCode NetworkingTransportConnectTimedOut = ErrorCode.Parse("networking.transport.connect_timed_out");

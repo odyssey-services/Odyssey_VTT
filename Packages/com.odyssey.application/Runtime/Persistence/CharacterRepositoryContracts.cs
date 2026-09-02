@@ -557,6 +557,147 @@ namespace Odyssey.Application.Persistence
         /// is no live <see cref="CharacterRecord"/> left to return.
         /// </summary>
         Result DeleteCharacterPermanently(CampaignHandle campaign, CharacterId characterId, string reasonCode, UserId actorUserId, bool actorIsMainGm, long expectedLifecycleRevision, CommandId commandId, CorrelationId correlationId);
+
+        /// <summary>
+        /// ODY-S04-111: ADR-025 section 6.1 -- the ONLY command that may
+        /// transition <see cref="CharacterLifecycleStatus"/> to
+        /// <see cref="Character.CharacterLifecycleStatus.Dead"/>. Legality
+        /// of the source status is checked generically via the
+        /// already-existing <see cref="CharacterLifecycleTransitions.IsValidTransition"/>
+        /// table -- never a duplicated ad hoc check. WHO may invoke it is
+        /// gated by <paramref name="issuerKind"/> (section 1.1 of this
+        /// task's own ТЗ): <see cref="LifecycleDeathIssuerKind.GMOverride"/>
+        /// requires <paramref name="actorIsMainGm"/>; <see cref="LifecycleDeathIssuerKind.HostSystemFatalDamageCompletion"/>
+        /// is accepted as a structurally legal entry point for a future
+        /// Rules Engine workflow (not implemented here) and does not check
+        /// <paramref name="actorIsMainGm"/> at all. There is no third,
+        /// plain-owner path -- `CAP-INV-008`. Touches and declares only the
+        /// `Lifecycle` section (ADR-025 section 6.2): `DevelopmentPool`/
+        /// `Reserved`/pending `AdvancementRecommendation` rows are left
+        /// exactly as they were.
+        /// </summary>
+        Result<CharacterRecord> TransitionCharacterToDead(CampaignHandle campaign, CharacterId characterId, LifecycleDeathIssuerKind issuerKind, UserId actorUserId, bool actorIsMainGm, long expectedLifecycleRevision, CommandId commandId, CorrelationId correlationId);
+
+        /// <summary>
+        /// ODY-S04-111: ADR-025 section 6.3, product section 23.2. Legal
+        /// only from <see cref="Character.CharacterLifecycleStatus.Dead"/>
+        /// (checked explicitly, in addition to
+        /// <see cref="CharacterLifecycleTransitions.IsValidTransition"/>'s
+        /// own generic edge check, since that table alone cannot express
+        /// "only when this specific command is the one making the
+        /// transition"). MainGM-only, <see cref="RestoreDeadCharacterRequest.ReasonCode"/>
+        /// required. Declares exactly the sections the GM's own explicit
+        /// choices touch (`Lifecycle` always; `CharacterAnatomy`/
+        /// `CharacterResources` only when <see cref="RestoreDeadCharacterRequest.NewBodyParts"/>/
+        /// <see cref="RestoreDeadCharacterRequest.NewResourceCurrentValues"/>
+        /// are supplied) -- ADR-022 section 5 rule 2's existing
+        /// multi-section-revision rule, not a whole-Character lock.
+        /// Produces exactly one FORWARD `CharacterRestored` event (section
+        /// 1.3 of this task's own ТЗ) -- never an `ADR-012` section 6
+        /// compensating event referencing the original death event
+        /// (`CAP-INV-008`: this is not "Undo"). Never touches `RuntimeState`
+        /// or Board/Scene position (section 1.2 -- product section 23.2's
+        /// "положения/токена" belongs to a separate Board/Scene aggregate
+        /// from an earlier slice, coordinated by the calling code with its
+        /// own Board commands after this call returns, not by this method).
+        /// </summary>
+        Result<CharacterRecord> RestoreDeadCharacter(RestoreDeadCharacterRequest request, CommandId commandId, CorrelationId correlationId);
+    }
+
+    /// <summary>
+    /// ODY-S04-111: ADR-025 section 6.3/ADR-022 section 5 rule 2's inputs to
+    /// <see cref="ICharacterRepository.RestoreDeadCharacter"/>. A `null`
+    /// <see cref="NewBodyParts"/> means "do not touch `CharacterAnatomy`" --
+    /// when non-null, it REPLACES the whole `BodyParts` list (mirroring
+    /// <see cref="ICharacterRepository.ReplaceAnatomyProfile"/>'s own
+    /// whole-list-replacement shape, not a diff/patch), and
+    /// <see cref="ExpectedCharacterAnatomyRevision"/> becomes required.
+    /// Likewise, a `null`/empty <see cref="NewResourceCurrentValues"/> means
+    /// "do not touch `CharacterResources`"; when non-empty, each entry sets
+    /// exactly one resource's `CurrentValue` (validated against its own
+    /// `[MinimumValue, EffectiveMaximum]` bound by <see cref="CharacterResource"/>'s
+    /// own constructor), and <see cref="ExpectedCharacterResourcesRevision"/>
+    /// becomes required.
+    /// </summary>
+    public sealed class RestoreDeadCharacterRequest
+    {
+        public RestoreDeadCharacterRequest(
+            CampaignHandle campaign,
+            CharacterId characterId,
+            CharacterLifecycleStatus newLifecycleStatus,
+            string reasonCode,
+            IReadOnlyList<BodyPart>? newBodyParts,
+            IReadOnlyList<PermanentModification>? newPermanentModifications,
+            IReadOnlyList<CharacterRestoreResourceValue>? newResourceCurrentValues,
+            UserId actorUserId,
+            bool actorIsMainGm,
+            long expectedLifecycleRevision,
+            long? expectedCharacterAnatomyRevision,
+            long? expectedCharacterResourcesRevision)
+        {
+            if (campaign == null) throw new ArgumentNullException(nameof(campaign));
+            if (!characterId.IsValid) throw new ArgumentException("CharacterId is required.", nameof(characterId));
+            if (!Enum.IsDefined(typeof(CharacterLifecycleStatus), newLifecycleStatus)) throw new ArgumentOutOfRangeException(nameof(newLifecycleStatus));
+            // ReasonCode's emptiness is NOT checked here (unlike every other
+            // required-string constructor argument in this file) -- ODY-S04-111's
+            // own ТЗ requires "RestoreDeadCharacter без reasonCode -- отклоняется"
+            // to surface as a graceful Result<CharacterRecord>.Failure from
+            // RestoreDeadCharacter itself, not as a thrown exception the caller
+            // cannot construct a request to even attempt. reasonCode may be
+            // null/empty here; it is validated inside RestoreDeadCharacter.
+            if (!actorUserId.IsValid) throw new ArgumentException("ActorUserId is required.", nameof(actorUserId));
+            if (expectedLifecycleRevision < 1) throw new ArgumentOutOfRangeException(nameof(expectedLifecycleRevision));
+            if (newBodyParts != null && (!expectedCharacterAnatomyRevision.HasValue || expectedCharacterAnatomyRevision.Value < 1))
+            {
+                throw new ArgumentException("ExpectedCharacterAnatomyRevision is required when NewBodyParts is supplied.", nameof(expectedCharacterAnatomyRevision));
+            }
+
+            if (newResourceCurrentValues != null && newResourceCurrentValues.Count > 0 && (!expectedCharacterResourcesRevision.HasValue || expectedCharacterResourcesRevision.Value < 1))
+            {
+                throw new ArgumentException("ExpectedCharacterResourcesRevision is required when NewResourceCurrentValues is supplied.", nameof(expectedCharacterResourcesRevision));
+            }
+
+            Campaign = campaign;
+            CharacterId = characterId;
+            NewLifecycleStatus = newLifecycleStatus;
+            ReasonCode = reasonCode;
+            NewBodyParts = newBodyParts;
+            NewPermanentModifications = newPermanentModifications;
+            NewResourceCurrentValues = newResourceCurrentValues;
+            ActorUserId = actorUserId;
+            ActorIsMainGm = actorIsMainGm;
+            ExpectedLifecycleRevision = expectedLifecycleRevision;
+            ExpectedCharacterAnatomyRevision = expectedCharacterAnatomyRevision;
+            ExpectedCharacterResourcesRevision = expectedCharacterResourcesRevision;
+        }
+
+        public CampaignHandle Campaign { get; }
+        public CharacterId CharacterId { get; }
+        public CharacterLifecycleStatus NewLifecycleStatus { get; }
+        public string ReasonCode { get; }
+        public IReadOnlyList<BodyPart>? NewBodyParts { get; }
+        public IReadOnlyList<PermanentModification>? NewPermanentModifications { get; }
+        public IReadOnlyList<CharacterRestoreResourceValue>? NewResourceCurrentValues { get; }
+        public UserId ActorUserId { get; }
+        public bool ActorIsMainGm { get; }
+        public long ExpectedLifecycleRevision { get; }
+        public long? ExpectedCharacterAnatomyRevision { get; }
+        public long? ExpectedCharacterResourcesRevision { get; }
+    }
+
+    /// <summary>ODY-S04-111: one resource's GM-chosen new `CurrentValue` as part of <see cref="RestoreDeadCharacterRequest"/>.</summary>
+    public sealed class CharacterRestoreResourceValue
+    {
+        public CharacterRestoreResourceValue(CharacterResourceId characterResourceId, long newCurrentValue)
+        {
+            if (!characterResourceId.IsValid) throw new ArgumentException("CharacterResourceId is required.", nameof(characterResourceId));
+
+            CharacterResourceId = characterResourceId;
+            NewCurrentValue = newCurrentValue;
+        }
+
+        public CharacterResourceId CharacterResourceId { get; }
+        public long NewCurrentValue { get; }
     }
 
     /// <summary>
