@@ -47,6 +47,8 @@ namespace Odyssey.Persistence.Sqlite
     {
         private readonly IWallClock _clock;
         private readonly SqliteSavingPipeline _pipeline;
+        private readonly IBackupRepository _backupRepository;
+        private readonly IReadOnlyList<ICharacterDeletionDependencyChecker> _deletionDependencyCheckers;
 
         private static readonly string[] HistoryEventTypes =
         {
@@ -63,12 +65,31 @@ namespace Odyssey.Persistence.Sqlite
             "odyssey.persistence.character_approved",
             "odyssey.persistence.character_development_points_granted",
             "odyssey.persistence.character_attribute_increased",
+            "odyssey.persistence.character_archived",
+            "odyssey.persistence.character_deleted",
         };
 
-        public SqliteCharacterRepository(IWallClock clock)
+        /// <summary>
+        /// ODY-S04-110 section 1.1/1.2: <paramref name="deletionDependencyCheckers"/>
+        /// defaults to an empty list -- no Board/Item/GameLog cross-reference
+        /// to CharacterId exists anywhere in this codebase yet (confirmed by
+        /// search), so there is genuinely nothing to check today; a future
+        /// task passes its own real <see cref="ICharacterDeletionDependencyChecker"/>
+        /// implementations here without changing <c>DeleteCharacterPermanently</c>'s
+        /// own shape. <paramref name="backupRepository"/> defaults to a
+        /// plain <see cref="SqliteBackupRepository"/> constructed from the
+        /// same clock -- mirrors <see cref="_pipeline"/>'s own
+        /// self-construction convention, so every pre-existing caller of
+        /// this single-argument constructor is unaffected; a caller that
+        /// needs to observe/substitute the backup step (e.g. a test) can
+        /// still pass one explicitly.
+        /// </summary>
+        public SqliteCharacterRepository(IWallClock clock, IBackupRepository? backupRepository = null, IReadOnlyList<ICharacterDeletionDependencyChecker>? deletionDependencyCheckers = null)
         {
             _clock = clock ?? throw new ArgumentNullException(nameof(clock));
             _pipeline = new SqliteSavingPipeline(clock);
+            _backupRepository = backupRepository ?? new SqliteBackupRepository(clock);
+            _deletionDependencyCheckers = deletionDependencyCheckers ?? Array.Empty<ICharacterDeletionDependencyChecker>();
         }
 
         public Result<CharacterRecord> CreateCharacter(CreateCharacterRequest request, CommandId commandId, CorrelationId correlationId)
@@ -538,6 +559,306 @@ namespace Odyssey.Persistence.Sqlite
             {
                 return Result<CharacterRecord>.Failure(PersistenceFailures.CharacterIoFailed(correlationId));
             }
+        }
+
+        public Result<CharacterRecord> ArchiveCharacter(CampaignHandle campaign, CharacterId characterId, UserId actorUserId, bool actorIsMainGm, long expectedLifecycleRevision, CommandId commandId, CorrelationId correlationId)
+        {
+            if (campaign == null) throw new ArgumentNullException(nameof(campaign));
+            if (!characterId.IsValid) throw new ArgumentException("CharacterId is required.", nameof(characterId));
+            if (!actorUserId.IsValid) throw new ArgumentException("ActorUserId is required.", nameof(actorUserId));
+            if (expectedLifecycleRevision < 1) throw new ArgumentOutOfRangeException(nameof(expectedLifecycleRevision));
+            if (!commandId.IsValid) throw new ArgumentException("CommandId is required.", nameof(commandId));
+
+            try
+            {
+                using SqliteConnection connection = OpenConnection(campaign.RootPath);
+                EnsureCharacterTables(connection);
+
+                return _pipeline.Execute(
+                    connection,
+                    campaign.CampaignId,
+                    commandId,
+                    correlationId,
+                    tryReplay: transaction => ReplayCharacter(connection, transaction, campaign.CampaignId, "CharacterId = $characterId AND LastCommandId = $commandId", commandId, correlationId, characterId),
+                    apply: transaction =>
+                    {
+                        CharacterRecord? current = SelectForUpdate(connection, transaction, characterId);
+                        if (current == null)
+                        {
+                            return Result<PipelineWrite<CharacterRecord>>.Failure(PersistenceFailures.CharacterNotFound(correlationId));
+                        }
+
+                        if (current.Revisions.LifecycleRevision != expectedLifecycleRevision)
+                        {
+                            return Result<PipelineWrite<CharacterRecord>>.Failure(PersistenceFailures.CharacterRevisionConflict(correlationId));
+                        }
+
+                        // ADR-025 section 5.1: MainGM OR an assigned user of
+                        // this Character -- deliberately NOT MainGM-only
+                        // (see this method's own interface doc comment for
+                        // the full justification). Checked after loading
+                        // current state (needs Ownership to evaluate
+                        // IsAssignedCharacter), unlike the MainGM-only gates
+                        // elsewhere in this file that are checked before
+                        // touching the database at all.
+                        bool permitted = actorIsMainGm || CharacterOwnershipAssignment.IsAssignedCharacter(current.Ownership, actorUserId, _clock.GetUtcNow());
+                        if (!permitted)
+                        {
+                            return Result<PipelineWrite<CharacterRecord>>.Failure(PersistenceFailures.CharacterArchiveDenied(correlationId));
+                        }
+
+                        // The sole state-legality gate: the generic
+                        // ADR-022/ODY-S04-101 transition table (already
+                        // covers every "-> Archived" edge product section
+                        // 7.1 names, including Archived -> Archived being
+                        // illegal), not a duplicated ad hoc check.
+                        if (!CharacterLifecycleTransitions.IsValidTransition(current.LifecycleStatus, CharacterLifecycleStatus.Archived))
+                        {
+                            return Result<PipelineWrite<CharacterRecord>>.Failure(PersistenceFailures.CharacterLifecycleTransitionInvalid(correlationId));
+                        }
+
+                        UtcInstant now = _clock.GetUtcNow();
+                        long newLifecycleRevision = current.Revisions.LifecycleRevision + 1;
+                        long newCharacterRevision = current.Revisions.CharacterRevision + 1;
+                        CharacterLifecycleStatus lifecycleStatusBefore = current.LifecycleStatus;
+
+                        using (var update = connection.CreateCommand())
+                        {
+                            update.Transaction = transaction;
+                            update.CommandText = "UPDATE Character SET LifecycleStatus = $lifecycleStatus, LifecycleRevision = $lifecycleRevision, CharacterRevision = $characterRevision, UpdatedAt = $updatedAt, LastCommandId = $lastCommandId WHERE CharacterId = $characterId;";
+                            update.Parameters.AddWithValue("$lifecycleStatus", CharacterLifecycleStatus.Archived.ToString());
+                            update.Parameters.AddWithValue("$lifecycleRevision", newLifecycleRevision);
+                            update.Parameters.AddWithValue("$characterRevision", newCharacterRevision);
+                            update.Parameters.AddWithValue("$updatedAt", now.ToString());
+                            update.Parameters.AddWithValue("$lastCommandId", commandId.ToString());
+                            update.Parameters.AddWithValue("$characterId", characterId.ToString());
+                            update.ExecuteNonQuery();
+                        }
+
+                        CharacterSectionRevisions newRevisions = WithRevisions(current.Revisions, characterRevision: newCharacterRevision, lifecycleRevision: newLifecycleRevision);
+                        var record = new CharacterRecord(characterId, campaign.CampaignId, current.CharacterKind, CharacterLifecycleStatus.Archived, current.ApprovalState, current.DisplayName, current.PortraitReference, current.Ownership, newRevisions, current.RulesetVersion, current.AnatomyProfileRef, current.TemplateId, current.TemplateVersionAtCopyTime, current.SeedCopy, current.SubmittedAt, current.DevelopmentPool, current.Attributes, current.Skills, current.Abilities, current.Resources, current.Anatomy, current.CreatedAt, now);
+
+                        var payload = new JObject
+                        {
+                            ["characterId"] = characterId.ToString(),
+                            ["displayNameSnapshot"] = current.DisplayName,
+                            ["portraitReferenceSnapshot"] = current.PortraitReference,
+                            ["rulesetVersion"] = current.RulesetVersion,
+                            ["lifecycleStatusBefore"] = lifecycleStatusBefore.ToString(),
+                            ["lifecycleStatusAfter"] = CharacterLifecycleStatus.Archived.ToString(),
+                            ["actorUserId"] = actorUserId.ToString(),
+                            ["newLifecycleRevision"] = newLifecycleRevision,
+                            ["newCharacterRevision"] = newCharacterRevision,
+                        };
+
+                        return Result<PipelineWrite<CharacterRecord>>.Success(new PipelineWrite<CharacterRecord>(
+                            record, "odyssey.persistence.character_archived", payload.ToString(Newtonsoft.Json.Formatting.None), characterId.ToString(),
+                            aggregateType: "character", aggregateId: characterId.ToString(), aggregateRevision: newCharacterRevision));
+                    });
+            }
+            catch (Exception ex) when (ex is IOException || ex is UnauthorizedAccessException || ex is SqliteException)
+            {
+                return Result<CharacterRecord>.Failure(PersistenceFailures.CharacterIoFailed(correlationId));
+            }
+        }
+
+        /// <summary>
+        /// ODY-S04-110: ADR-025 section 5.2. Order of operations: (1) cheap
+        /// validation and the MainGM/ReasonCode gates, before touching the
+        /// database at all; (2) a replay short-circuit -- if this exact
+        /// `CommandId` was already applied (the live row is gone by then,
+        /// so the ordinary pre-check below would otherwise misreport
+        /// `CharacterNotFound` for a legitimate duplicate delivery), skip
+        /// straight to the pipeline, whose own `AppliedCommands` lookup
+        /// replays the stored result; (3) otherwise, a non-authoritative
+        /// pre-check (existence, `LifecycleRevision`, dependency checkers)
+        /// purely to avoid paying for a full campaign backup ahead of an
+        /// already-doomed request -- this pre-check is NOT the source of
+        /// truth; (4) the backup itself (section 1.2, outside any open
+        /// transaction on this repository's own connection, so it never
+        /// contends with our own write lock); (5) the actual delete
+        /// transaction, which re-validates existence/`LifecycleRevision`/
+        /// dependencies for real (ADR-025 section 5.2's own "regardless of
+        /// what a client-side preview showed" host authority) immediately
+        /// before the irreversible commit.
+        /// </summary>
+        public Result DeleteCharacterPermanently(CampaignHandle campaign, CharacterId characterId, string reasonCode, UserId actorUserId, bool actorIsMainGm, long expectedLifecycleRevision, CommandId commandId, CorrelationId correlationId)
+        {
+            if (campaign == null) throw new ArgumentNullException(nameof(campaign));
+            if (!characterId.IsValid) throw new ArgumentException("CharacterId is required.", nameof(characterId));
+            if (!actorUserId.IsValid) throw new ArgumentException("ActorUserId is required.", nameof(actorUserId));
+            if (expectedLifecycleRevision < 1) throw new ArgumentOutOfRangeException(nameof(expectedLifecycleRevision));
+            if (!commandId.IsValid) throw new ArgumentException("CommandId is required.", nameof(commandId));
+
+            // Product section 22.2: "доступно только MainGM" -- checked
+            // before touching the database at all, matching every other
+            // MainGM-only gate's own convention.
+            if (!actorIsMainGm)
+            {
+                return Result.Failure(PersistenceFailures.CharacterDeletionDenied(correlationId));
+            }
+
+            if (string.IsNullOrWhiteSpace(reasonCode))
+            {
+                return Result.Failure(PersistenceFailures.CharacterDeletionReasonRequired(correlationId));
+            }
+
+            try
+            {
+                using SqliteConnection connection = OpenConnection(campaign.RootPath);
+                EnsureCharacterTables(connection);
+
+                BackupRecord? backupRecord = null;
+
+                if (!IsCommandAlreadyApplied(connection, commandId))
+                {
+                    // Non-authoritative pre-check -- see this method's own
+                    // doc comment. Avoids creating a real campaign backup
+                    // for a request that is already invalid on its face.
+                    Result<CharacterRecord> preCheck = GetCharacter(campaign, characterId, correlationId);
+                    if (preCheck.IsFailure)
+                    {
+                        return Result.Failure(preCheck.Error);
+                    }
+
+                    if (preCheck.Value.Revisions.LifecycleRevision != expectedLifecycleRevision)
+                    {
+                        return Result.Failure(PersistenceFailures.CharacterRevisionConflict(correlationId));
+                    }
+
+                    foreach (ICharacterDeletionDependencyChecker checker in _deletionDependencyCheckers)
+                    {
+                        string? blockingDependency = checker.CheckBlockingDependency(campaign, characterId);
+                        if (blockingDependency != null)
+                        {
+                            return Result.Failure(PersistenceFailures.CharacterDeletionHasDependent(correlationId));
+                        }
+                    }
+
+                    // ADR-025 section 5.2 / product section 22.2 step 4: a
+                    // full campaign backup before the irreversible delete
+                    // commits. Reuses the existing
+                    // IBackupRepository/SqliteBackupRepository
+                    // (ODY-S01-011) -- not a new, Character-specific
+                    // mechanism. Runs on its own connection/transaction,
+                    // before the delete transaction below even opens, so it
+                    // never contends with this repository's own write lock
+                    // on the same database file.
+                    Result<BackupRecord> backup = _backupRepository.CreateBackup(campaign, "pre-delete-character:" + characterId, correlationId);
+                    if (backup.IsFailure)
+                    {
+                        return Result.Failure(backup.Error);
+                    }
+
+                    backupRecord = backup.Value;
+                }
+
+                Result<Unit> pipelineResult = _pipeline.Execute(
+                    connection,
+                    campaign.CampaignId,
+                    commandId,
+                    correlationId,
+                    tryReplay: transaction => ReplayCharacterDeleted(connection, transaction, commandId, correlationId),
+                    apply: transaction =>
+                    {
+                        CharacterRecord? current = SelectForUpdate(connection, transaction, characterId);
+                        if (current == null)
+                        {
+                            return Result<PipelineWrite<Unit>>.Failure(PersistenceFailures.CharacterNotFound(correlationId));
+                        }
+
+                        if (current.Revisions.LifecycleRevision != expectedLifecycleRevision)
+                        {
+                            return Result<PipelineWrite<Unit>>.Failure(PersistenceFailures.CharacterRevisionConflict(correlationId));
+                        }
+
+                        // ADR-025 section 5.2: host-authoritative re-check,
+                        // immediately before commit, regardless of what the
+                        // pre-check above (or any client-side preview)
+                        // already showed.
+                        foreach (ICharacterDeletionDependencyChecker checker in _deletionDependencyCheckers)
+                        {
+                            string? blockingDependency = checker.CheckBlockingDependency(campaign, characterId);
+                            if (blockingDependency != null)
+                            {
+                                return Result<PipelineWrite<Unit>>.Failure(PersistenceFailures.CharacterDeletionHasDependent(correlationId));
+                            }
+                        }
+
+                        // Removes the Character's live current-state row.
+                        // Direct search confirms no other table in this
+                        // codebase stores a live CharacterId cross-reference
+                        // today -- nothing else to delete.
+                        using (var delete = connection.CreateCommand())
+                        {
+                            delete.Transaction = transaction;
+                            delete.CommandText = "DELETE FROM Character WHERE CharacterId = $characterId;";
+                            delete.Parameters.AddWithValue("$characterId", characterId.ToString());
+                            delete.ExecuteNonQuery();
+                        }
+
+                        long newCharacterRevision = current.Revisions.CharacterRevision + 1;
+
+                        // ADR-022 section 7's minimum historical snapshot
+                        // (product section 22.3, verbatim field list) -- no
+                        // full Character-sheet copy.
+                        var payload = new JObject
+                        {
+                            ["characterId"] = characterId.ToString(),
+                            ["displayNameSnapshot"] = current.DisplayName,
+                            ["portraitReferenceSnapshot"] = current.PortraitReference,
+                            ["rulesetVersion"] = current.RulesetVersion,
+                            ["relevantValueSnapshots"] = new JObject
+                            {
+                                ["lifecycleStatusBefore"] = current.LifecycleStatus.ToString(),
+                            },
+                            ["reasonCode"] = reasonCode,
+                            ["actorUserId"] = actorUserId.ToString(),
+                            ["backupId"] = backupRecord!.BackupId.ToString(),
+                        };
+
+                        return Result<PipelineWrite<Unit>>.Success(new PipelineWrite<Unit>(
+                            Unit.Value, "odyssey.persistence.character_deleted", payload.ToString(Newtonsoft.Json.Formatting.None), characterId.ToString(),
+                            aggregateType: "character", aggregateId: characterId.ToString(), aggregateRevision: newCharacterRevision));
+                    });
+
+                return pipelineResult.IsSuccess ? Result.Success() : Result.Failure(pipelineResult.Error);
+            }
+            catch (Exception ex) when (ex is IOException || ex is UnauthorizedAccessException || ex is SqliteException)
+            {
+                return Result.Failure(PersistenceFailures.CharacterIoFailed(correlationId));
+            }
+        }
+
+        /// <summary>ODY-S04-110: <c>DeleteCharacterPermanently</c>'s own replay lookup -- the live `Character` row is gone after a successful delete, so (unlike every other command's `ReplayCharacter`) this checks `DomainEvents` directly for a prior `character_deleted` event carrying this exact `CommandId`.</summary>
+        private static Result<Unit> ReplayCharacterDeleted(SqliteConnection connection, SqliteTransaction transaction, CommandId commandId, CorrelationId correlationId)
+        {
+            using var select = connection.CreateCommand();
+            select.Transaction = transaction;
+            select.CommandText = "SELECT COUNT(*) FROM DomainEvents WHERE CommandId = $commandId AND EventType = 'odyssey.persistence.character_deleted';";
+            select.Parameters.AddWithValue("$commandId", commandId.ToString());
+            long count = Convert.ToInt64(select.ExecuteScalar());
+            return count > 0 ? Result<Unit>.Success(Unit.Value) : Result<Unit>.Failure(PersistenceFailures.CommandReplayFailed(correlationId));
+        }
+
+        /// <summary>
+        /// ODY-S04-110: <c>DeleteCharacterPermanently</c>'s own pre-transaction
+        /// replay check -- after a successful delete the live `Character`
+        /// row is gone, so an ordinary <c>GetCharacter</c>-based pre-check
+        /// would misreport <c>CharacterNotFound</c> for a legitimate
+        /// duplicate delivery of the same <c>CommandId</c> instead of
+        /// letting <see cref="SqliteSavingPipeline.Execute{T}"/>'s own
+        /// `AppliedCommands` lookup replay the stored result. Checked
+        /// before the pre-check/backup so neither runs a second time for a
+        /// duplicate.
+        /// </summary>
+        private static bool IsCommandAlreadyApplied(SqliteConnection connection, CommandId commandId)
+        {
+            using var select = connection.CreateCommand();
+            select.CommandText = "SELECT COUNT(*) FROM AppliedCommands WHERE CommandId = $commandId AND Status = 'Completed';";
+            select.Parameters.AddWithValue("$commandId", commandId.ToString());
+            long count = Convert.ToInt64(select.ExecuteScalar());
+            return count > 0;
         }
 
         public Result<IReadOnlyList<CharacterReviewCommentRecord>> GetCharacterReviewComments(CampaignHandle campaign, CharacterId characterId, CorrelationId correlationId)

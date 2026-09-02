@@ -563,6 +563,42 @@ namespace Odyssey.Application.Persistence
             RetryDirective.DoNotRetry,
             correlationId);
 
+        /// <summary>ODY-S04-110: <c>ArchiveCharacter</c> rejection for an actor who is neither MainGM nor an assigned user of this Character (ADR-025 section 5.1).</summary>
+        public static Error CharacterArchiveDenied(CorrelationId correlationId) => Error.Create(
+            ErrorCodes.PersistenceCharacterArchiveDenied,
+            ErrorCategory.Authorization,
+            SafeReasonCode.PermissionDenied,
+            UserMessageKey.Parse("errors.persistence.character_archive_denied"),
+            RetryDirective.DoNotRetry,
+            correlationId);
+
+        /// <summary>ODY-S04-110: product section 22.2 -- <c>DeleteCharacterPermanently</c> is MainGM-only, rejection for a non-MainGM actor.</summary>
+        public static Error CharacterDeletionDenied(CorrelationId correlationId) => Error.Create(
+            ErrorCodes.PersistenceCharacterDeletionDenied,
+            ErrorCategory.Authorization,
+            SafeReasonCode.PermissionDenied,
+            UserMessageKey.Parse("errors.persistence.character_deletion_denied"),
+            RetryDirective.DoNotRetry,
+            correlationId);
+
+        /// <summary>ODY-S04-110: product section 22.2's "отдельного подтверждения" -- <c>DeleteCharacterPermanently</c> requires a non-empty <c>ReasonCode</c>.</summary>
+        public static Error CharacterDeletionReasonRequired(CorrelationId correlationId) => Error.Create(
+            ErrorCodes.PersistenceCharacterDeletionReasonRequired,
+            ErrorCategory.Validation,
+            SafeReasonCode.InvalidRequest,
+            UserMessageKey.Parse("errors.persistence.character_deletion_reason_required"),
+            RetryDirective.DoNotRetry,
+            correlationId);
+
+        /// <summary>ODY-S04-110: ADR-025 section 5.2 -- <c>DeleteCharacterPermanently</c> rejection when an <see cref="Odyssey.Application.Persistence.ICharacterDeletionDependencyChecker"/> reports a blocking dependency.</summary>
+        public static Error CharacterDeletionHasDependent(CorrelationId correlationId) => Error.Create(
+            ErrorCodes.PersistenceCharacterDeletionHasDependent,
+            ErrorCategory.Conflict,
+            SafeReasonCode.StateChanged,
+            UserMessageKey.Parse("errors.persistence.character_deletion_has_dependent"),
+            RetryDirective.DoNotRetry,
+            correlationId);
+
         /// <summary>ODY-S04-106: <c>ResolveAdvancementRecommendation</c> references a <c>CriticalSuccessEvidenceId</c> that does not exist -- an integrity condition, not a normal user-facing rejection path (the recommendation's own evidence list is validated to reference real rows at request time).</summary>
         public static Error CharacterCriticalEvidenceNotFound(CorrelationId correlationId) => Error.Create(
             ErrorCodes.PersistenceCharacterCriticalEvidenceNotFound,
