@@ -401,6 +401,51 @@ namespace Odyssey.Application.Persistence
             RetryDirective.DoNotRetry,
             correlationId);
 
+        /// <summary>ODY-S04-107: <c>RevertAdvancementPurchase</c>/<c>ApplyCharacterRespec</c> are GM-correction operations -- MainGM-only, mirroring <see cref="CharacterAdvancementResolutionDenied"/>'s exact convention for a sibling GM-gated operation.</summary>
+        public static Error CharacterAdvancementOperationDenied(CorrelationId correlationId) => Error.Create(
+            ErrorCodes.PersistenceCharacterAdvancementOperationDenied,
+            ErrorCategory.Authorization,
+            SafeReasonCode.PermissionDenied,
+            UserMessageKey.Parse("errors.persistence.character_advancement_operation_denied"),
+            RetryDirective.DoNotRetry,
+            correlationId);
+
+        /// <summary>ODY-S04-107: ADR-002 section 21.2's compensation metadata -- <c>RevertAdvancementPurchase</c>/<c>ApplyCharacterRespec</c> both require a non-empty <c>ReasonCode</c>.</summary>
+        public static Error CharacterAdvancementReasonRequired(CorrelationId correlationId) => Error.Create(
+            ErrorCodes.PersistenceCharacterAdvancementReasonRequired,
+            ErrorCategory.Validation,
+            SafeReasonCode.InvalidRequest,
+            UserMessageKey.Parse("errors.persistence.character_advancement_reason_required"),
+            RetryDirective.DoNotRetry,
+            correlationId);
+
+        /// <summary>ODY-S04-107: <c>RevertAdvancementPurchase</c> lookup failure for an unknown <c>AdvancementPurchaseId</c>, mirroring <see cref="CharacterAdvancementRecommendationNotFound"/>'s exact convention for a sibling entity.</summary>
+        public static Error CharacterAdvancementPurchaseNotFound(CorrelationId correlationId) => Error.Create(
+            ErrorCodes.PersistenceCharacterAdvancementPurchaseNotFound,
+            ErrorCategory.NotFound,
+            SafeReasonCode.TargetUnavailable,
+            UserMessageKey.Parse("errors.persistence.character_advancement_purchase_not_found"),
+            RetryDirective.DoNotRetry,
+            correlationId);
+
+        /// <summary>ODY-S04-107: ADR-024 section 6.2 -- <c>RevertAdvancementPurchase</c> rejection when the purchase's own <c>Status</c> is not <c>Applied</c> (already reverted, or superseded by a respec).</summary>
+        public static Error CharacterAdvancementPurchaseNotApplied(CorrelationId correlationId) => Error.Create(
+            ErrorCodes.PersistenceCharacterAdvancementPurchaseNotApplied,
+            ErrorCategory.Conflict,
+            SafeReasonCode.StateChanged,
+            UserMessageKey.Parse("errors.persistence.character_advancement_purchase_not_applied"),
+            RetryDirective.DoNotRetry,
+            correlationId);
+
+        /// <summary>ODY-S04-107: ADR-024 section 6.2's minimal, Rules-Engine-free dependency check -- <c>RevertAdvancementPurchase</c> rejection when a later purchase has since raised the addressed entry's value beyond this purchase's own <c>ToValue</c>.</summary>
+        public static Error CharacterAdvancementPurchaseHasDependent(CorrelationId correlationId) => Error.Create(
+            ErrorCodes.PersistenceCharacterAdvancementPurchaseHasDependent,
+            ErrorCategory.Conflict,
+            SafeReasonCode.StateChanged,
+            UserMessageKey.Parse("errors.persistence.character_advancement_purchase_has_dependent"),
+            RetryDirective.DoNotRetry,
+            correlationId);
+
         /// <summary>ODY-S04-106: <c>ResolveAdvancementRecommendation</c> references a <c>CriticalSuccessEvidenceId</c> that does not exist -- an integrity condition, not a normal user-facing rejection path (the recommendation's own evidence list is validated to reference real rows at request time).</summary>
         public static Error CharacterCriticalEvidenceNotFound(CorrelationId correlationId) => Error.Create(
             ErrorCodes.PersistenceCharacterCriticalEvidenceNotFound,

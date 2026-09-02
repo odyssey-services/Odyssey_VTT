@@ -82,7 +82,7 @@ namespace Odyssey.Persistence.Sqlite
 
             PipelineWrite<T> write = outcome.Value;
             UtcInstant now = _clock.GetUtcNow();
-            long eventSequence = AppendDomainEvent(connection, transaction, campaignId, commandId, write.EventType, write.EventPayloadJson, now);
+            long eventSequence = AppendDomainEvent(connection, transaction, campaignId, commandId, write.EventType, write.EventPayloadJson, now, write.OriginalEventId, write.CompensationGroupId, write.IsCompensating);
 
             // ODY-S03-007: a caller whose own row must persist ADR-012 section
             // 4.1's EventSequence as a real column value (e.g. GameLogEntries.
@@ -125,14 +125,32 @@ namespace Odyssey.Persistence.Sqlite
             return true;
         }
 
-        private static long AppendDomainEvent(SqliteConnection connection, SqliteTransaction transaction, CampaignId campaignId, CommandId commandId, string eventType, string payloadJson, UtcInstant now)
+        /// <summary>
+        /// ODY-S04-107: <c>internal</c> (not <c>private</c>) so
+        /// <c>SqliteCharacterRepository.ApplyCharacterRespec</c> can append
+        /// several <c>DomainEvents</c> rows inside one transaction --
+        /// <see cref="Execute{T}"/>'s own design commits exactly one event
+        /// per call, which a compensating/forward batch needs to exceed;
+        /// only the batch's own final grouping event goes through the
+        /// normal <see cref="Execute{T}"/> path, and the rest are appended
+        /// directly via this same method, so every event -- pipeline-issued
+        /// or not -- is written by the identical code, never a duplicated
+        /// INSERT. <paramref name="originalEventId"/>/<paramref name="compensationGroupId"/>/
+        /// <paramref name="isCompensating"/> are ADR-012 section 6's
+        /// compensating-event metadata (05_Persistence section 12.1's
+        /// <c>DomainEvents</c> columns) -- optional, default to "not
+        /// compensating," so every pre-existing caller of
+        /// <see cref="Execute{T}"/> (Scene/Token/GameLog/Character's own
+        /// ordinary commands) is unaffected.
+        /// </summary>
+        internal static long AppendDomainEvent(SqliteConnection connection, SqliteTransaction transaction, CampaignId campaignId, CommandId commandId, string eventType, string payloadJson, UtcInstant now, long? originalEventId = null, string? compensationGroupId = null, bool isCompensating = false)
         {
             string payloadHash = ComputeSha256Hex(payloadJson);
             using var insert = connection.CreateCommand();
             insert.Transaction = transaction;
             insert.CommandText =
-                "INSERT INTO DomainEvents (CampaignId, EventType, CommandId, PayloadJson, PayloadHash, CreatedAtHost) " +
-                "VALUES ($campaignId, $eventType, $commandId, $payloadJson, $payloadHash, $createdAt); " +
+                "INSERT INTO DomainEvents (CampaignId, EventType, CommandId, PayloadJson, PayloadHash, CreatedAtHost, OriginalEventId, CompensationGroupId, IsCompensating) " +
+                "VALUES ($campaignId, $eventType, $commandId, $payloadJson, $payloadHash, $createdAt, $originalEventId, $compensationGroupId, $isCompensating); " +
                 "SELECT last_insert_rowid();";
             insert.Parameters.AddWithValue("$campaignId", campaignId.ToString());
             insert.Parameters.AddWithValue("$eventType", eventType);
@@ -140,6 +158,9 @@ namespace Odyssey.Persistence.Sqlite
             insert.Parameters.AddWithValue("$payloadJson", payloadJson);
             insert.Parameters.AddWithValue("$payloadHash", payloadHash);
             insert.Parameters.AddWithValue("$createdAt", now.ToString());
+            insert.Parameters.AddWithValue("$originalEventId", (object?)originalEventId ?? DBNull.Value);
+            insert.Parameters.AddWithValue("$compensationGroupId", (object?)compensationGroupId ?? DBNull.Value);
+            insert.Parameters.AddWithValue("$isCompensating", isCompensating ? 1 : 0);
             object? sequence = insert.ExecuteScalar();
             return Convert.ToInt64(sequence, CultureInfo.InvariantCulture);
         }
@@ -173,7 +194,7 @@ namespace Odyssey.Persistence.Sqlite
             command.ExecuteNonQuery();
         }
 
-        private static string ComputeSha256Hex(string payloadJson)
+        internal static string ComputeSha256Hex(string payloadJson)
         {
             using var sha = SHA256.Create();
             byte[] hashBytes = sha.ComputeHash(Encoding.UTF8.GetBytes(payloadJson));
@@ -189,7 +210,7 @@ namespace Odyssey.Persistence.Sqlite
 
     internal sealed class PipelineWrite<T>
     {
-        internal PipelineWrite(T result, string eventType, string eventPayloadJson, string resultSummary, string? aggregateType = null, string? aggregateId = null, long aggregateRevision = 0, Func<long, T>? withEventSequence = null, Action<SqliteTransaction, long>? onEventSequenceAssigned = null)
+        internal PipelineWrite(T result, string eventType, string eventPayloadJson, string resultSummary, string? aggregateType = null, string? aggregateId = null, long aggregateRevision = 0, Func<long, T>? withEventSequence = null, Action<SqliteTransaction, long>? onEventSequenceAssigned = null, long? originalEventId = null, string? compensationGroupId = null, bool isCompensating = false)
         {
             Result = result;
             EventType = eventType ?? throw new ArgumentNullException(nameof(eventType));
@@ -200,6 +221,9 @@ namespace Odyssey.Persistence.Sqlite
             AggregateRevision = aggregateRevision;
             WithEventSequence = withEventSequence;
             OnEventSequenceAssigned = onEventSequenceAssigned;
+            OriginalEventId = originalEventId;
+            CompensationGroupId = compensationGroupId;
+            IsCompensating = isCompensating;
         }
 
         internal T Result { get; }
@@ -215,5 +239,10 @@ namespace Odyssey.Persistence.Sqlite
 
         /// <summary>ODY-S03-007: optional pre-commit, in-transaction callback receiving the just-assigned EventSequence -- lets a caller write it as a real column value before the transaction commits. See the call site in <see cref="Execute{T}"/>.</summary>
         internal Action<SqliteTransaction, long>? OnEventSequenceAssigned { get; }
+
+        /// <summary>ODY-S04-107: ADR-012 section 6's compensating-event metadata -- optional, default "not compensating," so every pre-existing caller is unaffected.</summary>
+        internal long? OriginalEventId { get; }
+        internal string? CompensationGroupId { get; }
+        internal bool IsCompensating { get; }
     }
 }

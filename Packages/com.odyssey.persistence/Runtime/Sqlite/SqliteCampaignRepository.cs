@@ -305,7 +305,10 @@ CREATE TABLE IF NOT EXISTS DomainEvents (
     CommandId TEXT NOT NULL,
     PayloadJson TEXT NOT NULL,
     PayloadHash TEXT NOT NULL,
-    CreatedAtHost TEXT NOT NULL
+    CreatedAtHost TEXT NOT NULL,
+    OriginalEventId INTEGER,
+    CompensationGroupId TEXT,
+    IsCompensating INTEGER NOT NULL DEFAULT 0
 );
 CREATE TABLE IF NOT EXISTS AggregateRevisions (
     AggregateType TEXT NOT NULL,

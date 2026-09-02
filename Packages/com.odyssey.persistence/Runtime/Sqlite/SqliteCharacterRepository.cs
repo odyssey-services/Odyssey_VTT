@@ -691,6 +691,15 @@ namespace Odyssey.Persistence.Sqlite
                 var ledgerEntry = new DevelopmentTransactionRecord(
                     DevelopmentTransactionId.NewId(now), characterId, DevelopmentTransactionKind.Spend, cost, attributeDefinitionId.ToString(), "Attribute increase purchase", actorUserId, campaign.Manifest.RulesetVersion, now, correlationId);
 
+                // ODY-S04-107 (pkt 0 gap fix): ADR-024 section 3.3/5.1 step 4
+                // -- every successful purchase co-commits an AdvancementPurchase
+                // record. Business logic above is unchanged; this only adds
+                // the record, per the task's own "не переоткрывай их бизнес-
+                // логику покупки, только добавь запись" instruction.
+                AdvancementPurchaseId purchaseId = AdvancementPurchaseId.NewId(now);
+                var purchase = new AdvancementPurchase(purchaseId, characterId, AdvancementOperationKind.AttributeIncrease, attributeDefinitionId.ToString(), fromValue, toValue, cost, "{}", campaign.Manifest.RulesetVersion, actorUserId, now, AdvancementPurchaseStatus.Applied);
+                InsertAdvancementPurchase(connection, transaction, campaign.CampaignId, purchase);
+
                 var payload = new JObject
                 {
                     ["attributeDefinitionId"] = attributeDefinitionId.ToString(),
@@ -700,6 +709,7 @@ namespace Odyssey.Persistence.Sqlite
                     ["newEffectiveValue"] = newAttribute.EffectiveValue,
                     ["actorUserId"] = actorUserId.ToString(),
                     ["newAvailable"] = newPool.Available,
+                    ["purchaseId"] = purchaseId.ToString(),
                 };
 
                 return Result<MechanicsMutation>.Success(new MechanicsMutation(
@@ -817,6 +827,13 @@ namespace Odyssey.Persistence.Sqlite
                 var ledgerEntry = new DevelopmentTransactionRecord(
                     DevelopmentTransactionId.NewId(now), characterId, DevelopmentTransactionKind.Spend, cost, skillDefinitionId.ToString(), "Skill level purchase", actorUserId, campaign.Manifest.RulesetVersion, now, correlationId);
 
+                // ODY-S04-107 (pkt 0 gap fix): see PurchaseAttributeIncrease's
+                // own comment -- identical retrofit, business logic above
+                // unchanged.
+                AdvancementPurchaseId purchaseId = AdvancementPurchaseId.NewId(now);
+                var purchase = new AdvancementPurchase(purchaseId, characterId, AdvancementOperationKind.SkillLevelPurchase, skillDefinitionId.ToString(), fromLevel, toLevel, cost, "{}", campaign.Manifest.RulesetVersion, actorUserId, now, AdvancementPurchaseStatus.Applied);
+                InsertAdvancementPurchase(connection, transaction, campaign.CampaignId, purchase);
+
                 var payload = new JObject
                 {
                     ["skillDefinitionId"] = skillDefinitionId.ToString(),
@@ -826,6 +843,7 @@ namespace Odyssey.Persistence.Sqlite
                     ["newEffectiveLevel"] = newSkill.EffectiveLevel,
                     ["actorUserId"] = actorUserId.ToString(),
                     ["newAvailable"] = newPool.Available,
+                    ["purchaseId"] = purchaseId.ToString(),
                 };
 
                 return Result<MechanicsMutation>.Success(new MechanicsMutation(
@@ -1132,6 +1150,22 @@ namespace Odyssey.Persistence.Sqlite
                 var approveLedgerEntry = new DevelopmentTransactionRecord(
                     DevelopmentTransactionId.NewId(now), characterId, ledgerKind, recommendation.ReservedAmount, recommendation.SkillDefinitionId.ToString(), "Advancement recommendation approved", actorUserId, campaign.Manifest.RulesetVersion, now, correlationId);
 
+                // ODY-S04-107 (pkt 0 gap fix): ADR-024 section 3.3/5.1 step 4
+                // -- the approve branch of ResolveAdvancementRecommendation is
+                // itself a purchase (product section 14.3), so it too
+                // co-commits an AdvancementPurchase. Cost is the amount
+                // actually spent from the pool -- 0 when
+                // spendReservedPoints=false (ADR-024 section 6.1 branch 3:
+                // fully funded by consumed evidence, no development points
+                // spent), matching AdvancementPurchase's own relaxed
+                // Cost >= 0 validation. The dismiss branch above never
+                // reaches this code, so it never creates a purchase record.
+                long approvedFromLevel = existingSkill?.Level ?? 0;
+                long approvedCost = spendReservedPoints ? recommendation.ReservedAmount : 0;
+                AdvancementPurchaseId purchaseId = AdvancementPurchaseId.NewId(now);
+                var purchase = new AdvancementPurchase(purchaseId, characterId, AdvancementOperationKind.SkillLevelPurchase, recommendation.SkillDefinitionId.ToString(), approvedFromLevel, recommendation.TargetLevel, approvedCost, "{}", campaign.Manifest.RulesetVersion, actorUserId, now, AdvancementPurchaseStatus.Applied);
+                InsertAdvancementPurchase(connection, transaction, campaign.CampaignId, purchase);
+
                 var approvePayload = new JObject
                 {
                     ["recommendationId"] = recommendationId.ToString(),
@@ -1140,6 +1174,7 @@ namespace Odyssey.Persistence.Sqlite
                     ["spentReservedPoints"] = spendReservedPoints,
                     ["newLevel"] = recommendation.TargetLevel,
                     ["actorUserId"] = actorUserId.ToString(),
+                    ["purchaseId"] = purchaseId.ToString(),
                 };
 
                 return Result<MechanicsMutation>.Success(new MechanicsMutation(
@@ -1173,6 +1208,539 @@ namespace Odyssey.Persistence.Sqlite
             catch (Exception ex) when (ex is IOException || ex is UnauthorizedAccessException || ex is SqliteException)
             {
                 return Result<AdvancementRecommendationRecord>.Failure(PersistenceFailures.CharacterIoFailed(correlationId));
+            }
+        }
+
+        public Result<IReadOnlyList<AdvancementPurchase>> GetAdvancementPurchases(CampaignHandle campaign, CharacterId characterId, CorrelationId correlationId)
+        {
+            if (campaign == null) throw new ArgumentNullException(nameof(campaign));
+            if (!characterId.IsValid) throw new ArgumentException("CharacterId is required.", nameof(characterId));
+
+            try
+            {
+                using SqliteConnection connection = OpenConnection(campaign.RootPath);
+                EnsureCharacterTables(connection);
+                return Result<IReadOnlyList<AdvancementPurchase>>.Success(SelectAdvancementPurchasesForCharacter(connection, null, characterId));
+            }
+            catch (Exception ex) when (ex is IOException || ex is UnauthorizedAccessException || ex is SqliteException)
+            {
+                return Result<IReadOnlyList<AdvancementPurchase>>.Failure(PersistenceFailures.CharacterIoFailed(correlationId));
+            }
+        }
+
+        /// <summary>
+        /// ODY-S04-107: ADR-024 section 6.2's compensating command. See this
+        /// interface method's own doc comment in
+        /// <see cref="ICharacterRepository.RevertAdvancementPurchase"/> for
+        /// the full contract; this is the SQLite implementation.
+        ///
+        /// Dependency-check boundary (ADR-024 section 6.2 explicitly defers
+        /// the exact dependency graph to a future Rules Engine/ruleset --
+        /// "not an architectural concern"): this method only checks that the
+        /// addressed AttributeValue/CharacterSkill entry's CURRENT value
+        /// still equals THIS purchase's own ToValue. If a later purchase (an
+        /// ordinary one, a recommendation approval, or an earlier respec)
+        /// has since raised the value further, the entry's current value no
+        /// longer matches, and the revert is rejected as
+        /// CharacterAdvancementPurchaseHasDependent. This is the smallest
+        /// mechanically-necessary check achievable without a real
+        /// requirements/prerequisite graph -- it does not attempt to model
+        /// cross-entry dependencies (e.g. one skill unlocking another),
+        /// because no such graph exists anywhere in this codebase yet.
+        /// </summary>
+        public Result<CharacterRecord> RevertAdvancementPurchase(CampaignHandle campaign, CharacterId characterId, AdvancementPurchaseId purchaseId, string reasonCode, UserId actorUserId, bool actorIsMainGm, long expectedMechanicsRevision, CommandId commandId, CorrelationId correlationId)
+        {
+            if (!purchaseId.IsValid) throw new ArgumentException("PurchaseId is required.", nameof(purchaseId));
+            if (!actorUserId.IsValid) throw new ArgumentException("ActorUserId is required.", nameof(actorUserId));
+
+            if (string.IsNullOrWhiteSpace(reasonCode))
+            {
+                return Result<CharacterRecord>.Failure(PersistenceFailures.CharacterAdvancementReasonRequired(correlationId));
+            }
+
+            // ADR-024 section 6.2: reverting a spend is a GM correction
+            // action -- MainGM-only, checked before touching the database at
+            // all, matching every other GM-gated command's own convention.
+            if (!actorIsMainGm)
+            {
+                return Result<CharacterRecord>.Failure(PersistenceFailures.CharacterAdvancementOperationDenied(correlationId));
+            }
+
+            return MutateMechanics(campaign, characterId, expectedMechanicsRevision, commandId, correlationId, (current, connection, transaction) =>
+            {
+                AdvancementPurchase? purchase = SelectAdvancementPurchaseForUpdate(connection, transaction, characterId, purchaseId);
+                if (purchase == null)
+                {
+                    return Result<MechanicsMutation>.Failure(PersistenceFailures.CharacterAdvancementPurchaseNotFound(correlationId));
+                }
+
+                if (purchase.Status != AdvancementPurchaseStatus.Applied)
+                {
+                    return Result<MechanicsMutation>.Failure(PersistenceFailures.CharacterAdvancementPurchaseNotApplied(correlationId));
+                }
+
+                UtcInstant now = _clock.GetUtcNow();
+                IReadOnlyList<AttributeValue> newAttributes = current.Attributes;
+                IReadOnlyList<CharacterSkill> newSkills = current.Skills;
+
+                if (purchase.OperationKind == AdvancementOperationKind.AttributeIncrease)
+                {
+                    AttributeDefinitionId targetId = AttributeDefinitionId.Parse(purchase.TargetDefinitionId);
+                    AttributeValue? existing = null;
+                    foreach (AttributeValue candidate in current.Attributes)
+                    {
+                        if (candidate.AttributeDefinitionId.Equals(targetId)) { existing = candidate; break; }
+                    }
+
+                    if (existing == null || existing.BaseValue != purchase.ToValue)
+                    {
+                        return Result<MechanicsMutation>.Failure(PersistenceFailures.CharacterAdvancementPurchaseHasDependent(correlationId));
+                    }
+
+                    var reverted = new AttributeValue(targetId, purchase.FromValue, existing.PermanentAdjustment, existing.SpentDevelopmentPoints - purchase.Cost, existing.Revision + 1);
+                    var replacedAttributes = new List<AttributeValue>(current.Attributes.Count);
+                    foreach (AttributeValue candidate in current.Attributes)
+                    {
+                        replacedAttributes.Add(candidate.AttributeDefinitionId.Equals(targetId) ? reverted : candidate);
+                    }
+
+                    newAttributes = replacedAttributes;
+                }
+                else
+                {
+                    SkillDefinitionId targetId = SkillDefinitionId.Parse(purchase.TargetDefinitionId);
+                    CharacterSkill? existing = null;
+                    foreach (CharacterSkill candidate in current.Skills)
+                    {
+                        if (candidate.SkillDefinitionId.Equals(targetId)) { existing = candidate; break; }
+                    }
+
+                    if (existing == null || existing.Level != purchase.ToValue)
+                    {
+                        return Result<MechanicsMutation>.Failure(PersistenceFailures.CharacterAdvancementPurchaseHasDependent(correlationId));
+                    }
+
+                    var reverted = new CharacterSkill(targetId, purchase.FromValue, existing.PermanentAdjustment, existing.SpentDevelopmentPoints - purchase.Cost, existing.Revision + 1);
+                    var replacedSkills = new List<CharacterSkill>(current.Skills.Count);
+                    foreach (CharacterSkill candidate in current.Skills)
+                    {
+                        replacedSkills.Add(candidate.SkillDefinitionId.Equals(targetId) ? reverted : candidate);
+                    }
+
+                    newSkills = replacedSkills;
+                }
+
+                // ADR-024 section 6.2: Available increases by Cost, Spent
+                // decreases by Cost, Earned unchanged. A Cost=0 purchase
+                // (fully evidence-funded, ADR-024 section 6.1 branch 3) still
+                // reverts the value/status but genuinely moves no points.
+                var newPool = new DevelopmentPool(current.DevelopmentPool.Earned, current.DevelopmentPool.Spent - purchase.Cost, current.DevelopmentPool.Reserved);
+
+                UpdateAdvancementPurchaseStatus(connection, transaction, purchaseId, AdvancementPurchaseStatus.Reverted);
+
+                long? originalEventId = FindOriginatingEventSequence(connection, transaction, campaign.CampaignId, purchaseId);
+
+                var ledgerEntries = new List<DevelopmentTransactionRecord>();
+                if (purchase.Cost > 0)
+                {
+                    ledgerEntries.Add(new DevelopmentTransactionRecord(
+                        DevelopmentTransactionId.NewId(now), characterId, DevelopmentTransactionKind.Refund, purchase.Cost, purchase.TargetDefinitionId, "Advancement purchase reverted: " + reasonCode, actorUserId, campaign.Manifest.RulesetVersion, now, correlationId));
+                }
+
+                var payload = new JObject
+                {
+                    ["purchaseId"] = purchaseId.ToString(),
+                    ["operationKind"] = purchase.OperationKind.ToString(),
+                    ["targetDefinitionId"] = purchase.TargetDefinitionId,
+                    ["fromValue"] = purchase.ToValue,
+                    ["toValue"] = purchase.FromValue,
+                    ["cost"] = purchase.Cost,
+                    ["reasonCode"] = reasonCode,
+                    ["actorUserId"] = actorUserId.ToString(),
+                    ["newAvailable"] = newPool.Available,
+                };
+
+                return Result<MechanicsMutation>.Success(new MechanicsMutation(
+                    newPool, newAttributes, newSkills, "odyssey.persistence.character_advancement_purchase_reverted", payload, ledgerEntries,
+                    originalEventId: originalEventId, compensationGroupId: null, isCompensating: true));
+            });
+        }
+
+        /// <summary>
+        /// ODY-S04-107: shared plan computation used identically by
+        /// <see cref="PreviewCharacterRespec"/> and, inside its own
+        /// transaction, <see cref="ApplyCharacterRespec"/> -- so Apply's
+        /// server-side recomputation can never drift from what Preview would
+        /// have shown for the same inputs (CAP-INV-004). Reads the
+        /// authoritative CURRENT value directly from
+        /// <paramref name="current"/>'s own Attributes/Skills (never derived
+        /// from the AdvancementPurchase history), and returns every
+        /// currently-Applied purchase for each addressed target as a Return
+        /// entry, plus one Spend entry per target whose DesiredValue exceeds
+        /// zero.
+        /// </summary>
+        private static CharacterRespecPreview ComputeRespecPlan(CharacterRecord current, IReadOnlyList<AdvancementPurchase> allPurchases, IReadOnlyList<CharacterRespecTarget> targets)
+        {
+            var entries = new List<CharacterRespecPlanEntry>();
+            long totalReturned = 0;
+            long totalSpent = 0;
+
+            foreach (CharacterRespecTarget target in targets)
+            {
+                long currentValue;
+                if (target.OperationKind == AdvancementOperationKind.AttributeIncrease)
+                {
+                    AttributeDefinitionId targetId = AttributeDefinitionId.Parse(target.TargetDefinitionId);
+                    AttributeValue? existing = null;
+                    foreach (AttributeValue candidate in current.Attributes)
+                    {
+                        if (candidate.AttributeDefinitionId.Equals(targetId)) { existing = candidate; break; }
+                    }
+
+                    currentValue = existing?.BaseValue ?? 0;
+                }
+                else
+                {
+                    SkillDefinitionId targetId = SkillDefinitionId.Parse(target.TargetDefinitionId);
+                    CharacterSkill? existing = null;
+                    foreach (CharacterSkill candidate in current.Skills)
+                    {
+                        if (candidate.SkillDefinitionId.Equals(targetId)) { existing = candidate; break; }
+                    }
+
+                    currentValue = existing?.Level ?? 0;
+                }
+
+                if (currentValue == target.DesiredValue) continue;
+
+                foreach (AdvancementPurchase purchase in allPurchases)
+                {
+                    if (purchase.Status != AdvancementPurchaseStatus.Applied) continue;
+                    if (purchase.OperationKind != target.OperationKind) continue;
+                    if (!string.Equals(purchase.TargetDefinitionId, target.TargetDefinitionId, StringComparison.Ordinal)) continue;
+
+                    entries.Add(new CharacterRespecPlanEntry(CharacterRespecPlanAction.Return, target.OperationKind, target.TargetDefinitionId, purchase.Cost, purchase.PurchaseId));
+                    totalReturned += purchase.Cost;
+                }
+
+                if (target.DesiredValue > 0)
+                {
+                    long cost = target.OperationKind == AdvancementOperationKind.AttributeIncrease
+                        ? RulesAttributeCostRules.CostForIncrease(0, target.DesiredValue)
+                        : RulesSkillCostRules.CostForIncrease(0, target.DesiredValue);
+                    entries.Add(new CharacterRespecPlanEntry(CharacterRespecPlanAction.Spend, target.OperationKind, target.TargetDefinitionId, cost, null));
+                    totalSpent += cost;
+                }
+            }
+
+            return new CharacterRespecPreview(entries, totalReturned, totalSpent);
+        }
+
+        /// <summary>
+        /// ODY-S04-107: ADR-002 section 4.2 read-only Query -- no
+        /// <c>_pipeline</c> involvement at all, no events, no state change
+        /// (verified directly by tests: MechanicsRevision/pool balance
+        /// identical before and after this call).
+        /// </summary>
+        public Result<CharacterRespecPreview> PreviewCharacterRespec(CampaignHandle campaign, CharacterId characterId, IReadOnlyList<CharacterRespecTarget> targets, CorrelationId correlationId)
+        {
+            if (campaign == null) throw new ArgumentNullException(nameof(campaign));
+            if (!characterId.IsValid) throw new ArgumentException("CharacterId is required.", nameof(characterId));
+            if (targets == null || targets.Count == 0) throw new ArgumentException("At least one target is required.", nameof(targets));
+
+            try
+            {
+                using SqliteConnection connection = OpenConnection(campaign.RootPath);
+                EnsureCharacterTables(connection);
+
+                using var select = connection.CreateCommand();
+                select.CommandText = SelectColumns + " FROM Character WHERE CharacterId = $characterId LIMIT 1;";
+                select.Parameters.AddWithValue("$characterId", characterId.ToString());
+                CharacterRecord? current;
+                using (SqliteDataReader reader = select.ExecuteReader())
+                {
+                    current = reader.Read() ? ReadCharacterRecord(reader) : null;
+                }
+
+                if (current == null)
+                {
+                    return Result<CharacterRespecPreview>.Failure(PersistenceFailures.CharacterNotFound(correlationId));
+                }
+
+                IReadOnlyList<AdvancementPurchase> allPurchases = SelectAdvancementPurchasesForCharacter(connection, null, characterId);
+                return Result<CharacterRespecPreview>.Success(ComputeRespecPlan(current, allPurchases, targets));
+            }
+            catch (Exception ex) when (ex is IOException || ex is UnauthorizedAccessException || ex is SqliteException)
+            {
+                return Result<CharacterRespecPreview>.Failure(PersistenceFailures.CharacterIoFailed(correlationId));
+            }
+        }
+
+        /// <summary>
+        /// ODY-S04-107: ADR-024 section 7.2, product section 13.5 steps 4-8
+        /// -- one compensating+forward batch in a single transaction. Unlike
+        /// every other Mechanics-section command, this does not go through
+        /// <see cref="MutateMechanics"/> (its callback contract commits
+        /// exactly one DomainEvents row per call, which a multi-purchase
+        /// respec batch must exceed): every non-final batch event is
+        /// appended directly via <see cref="SqliteSavingPipeline.AppendDomainEvent"/>
+        /// (made <c>internal</c> specifically for this caller), and only the
+        /// batch's own trailing <c>CharacterRespecCompleted</c> event goes
+        /// through the normal single-event <see cref="SqliteSavingPipeline.Execute{T}"/>
+        /// path -- so every event, batch or not, is still written by the
+        /// identical <c>AppendDomainEvent</c> code, never a duplicated
+        /// INSERT. All events in the batch share one <c>CompensationGroupId</c>
+        /// (this call's own <see cref="CommandId"/>, already unique and
+        /// already the natural idempotency key) and remain individually
+        /// visible in <c>GetCharacterHistory</c> -- never collapsed
+        /// (CAP-INV-005).
+        ///
+        /// Recomputes <see cref="ComputeRespecPlan"/> fresh, inside this same
+        /// transaction, from a freshly-read <see cref="AdvancementPurchase"/>
+        /// list and the freshly-locked <see cref="CharacterRecord"/> --
+        /// there is no client-supplied preview parameter on this method at
+        /// all, so nothing to trust or distrust (CAP-INV-004).
+        ///
+        /// Product section 13.5 step 5's "snapshot before operation" is
+        /// realized as the before/after configuration summary embedded
+        /// directly in the trailing <c>CharacterRespecCompleted</c> event's
+        /// own payload -- not a call to <c>SqliteBackupRepository</c>'s
+        /// full-file campaign backup mechanism. ADR-024 section 7.2 (the
+        /// ADR directly authoritative for this command) frames the
+        /// respec "snapshot" as event-payload data, and ADR-022 section 7
+        /// separately prohibits a full-Character-sheet-copy event -- a full
+        /// database file backup is a different, heavier mechanism this task
+        /// does not invoke.
+        /// </summary>
+        public Result<CharacterRecord> ApplyCharacterRespec(CampaignHandle campaign, CharacterId characterId, IReadOnlyList<CharacterRespecTarget> targets, string reasonCode, UserId actorUserId, bool actorIsMainGm, long expectedMechanicsRevision, CommandId commandId, CorrelationId correlationId)
+        {
+            if (campaign == null) throw new ArgumentNullException(nameof(campaign));
+            if (!characterId.IsValid) throw new ArgumentException("CharacterId is required.", nameof(characterId));
+            if (targets == null || targets.Count == 0) throw new ArgumentException("At least one target is required.", nameof(targets));
+            if (!actorUserId.IsValid) throw new ArgumentException("ActorUserId is required.", nameof(actorUserId));
+            if (!commandId.IsValid) throw new ArgumentException("CommandId is required.", nameof(commandId));
+            if (expectedMechanicsRevision < 1) throw new ArgumentOutOfRangeException(nameof(expectedMechanicsRevision));
+
+            if (string.IsNullOrWhiteSpace(reasonCode))
+            {
+                return Result<CharacterRecord>.Failure(PersistenceFailures.CharacterAdvancementReasonRequired(correlationId));
+            }
+
+            // Product section 13.5: performed by MainGM.
+            if (!actorIsMainGm)
+            {
+                return Result<CharacterRecord>.Failure(PersistenceFailures.CharacterAdvancementOperationDenied(correlationId));
+            }
+
+            try
+            {
+                using SqliteConnection connection = OpenConnection(campaign.RootPath);
+                EnsureCharacterTables(connection);
+
+                return _pipeline.Execute(
+                    connection,
+                    campaign.CampaignId,
+                    commandId,
+                    correlationId,
+                    tryReplay: transaction => ReplayCharacter(connection, transaction, campaign.CampaignId, "CharacterId = $characterId AND LastCommandId = $commandId", commandId, correlationId, characterId),
+                    apply: transaction =>
+                    {
+                        CharacterRecord? current = SelectForUpdate(connection, transaction, characterId);
+                        if (current == null)
+                        {
+                            return Result<PipelineWrite<CharacterRecord>>.Failure(PersistenceFailures.CharacterNotFound(correlationId));
+                        }
+
+                        if (current.Revisions.MechanicsRevision != expectedMechanicsRevision)
+                        {
+                            return Result<PipelineWrite<CharacterRecord>>.Failure(PersistenceFailures.CharacterRevisionConflict(correlationId));
+                        }
+
+                        // CAP-INV-004: fresh read inside the transaction --
+                        // never trusts a client-supplied preview.
+                        IReadOnlyList<AdvancementPurchase> allPurchases = SelectAdvancementPurchasesForCharacter(connection, transaction, characterId);
+                        CharacterRespecPreview plan = ComputeRespecPlan(current, allPurchases, targets);
+
+                        string compensationGroupId = commandId.ToString();
+                        UtcInstant now = _clock.GetUtcNow();
+                        var producedEventSequences = new List<long>();
+                        var beforeSnapshot = new JObject();
+                        var afterSnapshot = new JObject();
+
+                        var attributesByDefinition = new Dictionary<string, AttributeValue>(StringComparer.Ordinal);
+                        foreach (AttributeValue attribute in current.Attributes) attributesByDefinition[attribute.AttributeDefinitionId.ToString()] = attribute;
+                        var skillsByDefinition = new Dictionary<string, CharacterSkill>(StringComparer.Ordinal);
+                        foreach (CharacterSkill skill in current.Skills) skillsByDefinition[skill.SkillDefinitionId.ToString()] = skill;
+
+                        var purchasesByPurchaseId = new Dictionary<string, AdvancementPurchase>(StringComparer.Ordinal);
+                        foreach (AdvancementPurchase purchase in allPurchases) purchasesByPurchaseId[purchase.PurchaseId.ToString()] = purchase;
+
+                        long poolSpentDelta = 0;
+                        var ledgerEntries = new List<DevelopmentTransactionRecord>();
+
+                        foreach (CharacterRespecPlanEntry entry in plan.Entries)
+                        {
+                            if (entry.Action == CharacterRespecPlanAction.Return)
+                            {
+                                AdvancementPurchase reverted = purchasesByPurchaseId[entry.SourcePurchaseId!.Value.ToString()];
+                                beforeSnapshot[reverted.TargetDefinitionId] = reverted.ToValue;
+
+                                long? originalEventId = FindOriginatingEventSequence(connection, transaction, campaign.CampaignId, reverted.PurchaseId);
+                                var revertedPayload = new JObject
+                                {
+                                    ["characterId"] = characterId.ToString(),
+                                    ["purchaseId"] = reverted.PurchaseId.ToString(),
+                                    ["operationKind"] = reverted.OperationKind.ToString(),
+                                    ["targetDefinitionId"] = reverted.TargetDefinitionId,
+                                    ["fromValue"] = reverted.ToValue,
+                                    ["toValue"] = reverted.FromValue,
+                                    ["cost"] = reverted.Cost,
+                                    ["reasonCode"] = reasonCode,
+                                    ["actorUserId"] = actorUserId.ToString(),
+                                    ["compensationGroupId"] = compensationGroupId,
+                                };
+
+                                long eventSequence = SqliteSavingPipeline.AppendDomainEvent(connection, transaction, campaign.CampaignId, commandId, "odyssey.persistence.character_advancement_purchase_reverted", revertedPayload.ToString(Newtonsoft.Json.Formatting.None), now, originalEventId, compensationGroupId, isCompensating: true);
+                                producedEventSequences.Add(eventSequence);
+
+                                UpdateAdvancementPurchaseStatus(connection, transaction, reverted.PurchaseId, AdvancementPurchaseStatus.SupersededByRespec);
+                                if (reverted.Cost > 0)
+                                {
+                                    ledgerEntries.Add(new DevelopmentTransactionRecord(
+                                        DevelopmentTransactionId.NewId(now), characterId, DevelopmentTransactionKind.RespecReturn, reverted.Cost, reverted.TargetDefinitionId, "Respec: purchase superseded (" + reasonCode + ")", actorUserId, campaign.Manifest.RulesetVersion, now, correlationId));
+                                }
+
+                                poolSpentDelta -= reverted.Cost;
+
+                                if (reverted.OperationKind == AdvancementOperationKind.AttributeIncrease)
+                                {
+                                    attributesByDefinition.Remove(reverted.TargetDefinitionId);
+                                }
+                                else
+                                {
+                                    skillsByDefinition.Remove(reverted.TargetDefinitionId);
+                                }
+                            }
+                            else
+                            {
+                                AdvancementPurchaseId newPurchaseId = AdvancementPurchaseId.NewId(now);
+
+                                var forwardPayload = new JObject
+                                {
+                                    ["characterId"] = characterId.ToString(),
+                                    ["purchaseId"] = newPurchaseId.ToString(),
+                                    ["fromValue"] = 0,
+                                    ["cost"] = entry.Amount,
+                                    ["actorUserId"] = actorUserId.ToString(),
+                                    ["compensationGroupId"] = compensationGroupId,
+                                };
+
+                                string eventType;
+                                if (entry.OperationKind == AdvancementOperationKind.AttributeIncrease)
+                                {
+                                    AttributeDefinitionId attributeDefinitionId = AttributeDefinitionId.Parse(entry.TargetDefinitionId);
+                                    long desiredValue = 0;
+                                    foreach (CharacterRespecTarget target in targets)
+                                    {
+                                        if (target.OperationKind == entry.OperationKind && string.Equals(target.TargetDefinitionId, entry.TargetDefinitionId, StringComparison.Ordinal)) { desiredValue = target.DesiredValue; break; }
+                                    }
+
+                                    var newAttribute = new AttributeValue(attributeDefinitionId, desiredValue, 0, entry.Amount, 1);
+                                    attributesByDefinition[entry.TargetDefinitionId] = newAttribute;
+                                    afterSnapshot[entry.TargetDefinitionId] = desiredValue;
+                                    forwardPayload["attributeDefinitionId"] = entry.TargetDefinitionId;
+                                    forwardPayload["toValue"] = desiredValue;
+                                    eventType = "odyssey.persistence.character_attribute_increased";
+
+                                    InsertAdvancementPurchase(connection, transaction, campaign.CampaignId, new AdvancementPurchase(newPurchaseId, characterId, AdvancementOperationKind.AttributeIncrease, entry.TargetDefinitionId, 0, desiredValue, entry.Amount, "{}", campaign.Manifest.RulesetVersion, actorUserId, now, AdvancementPurchaseStatus.Applied));
+                                }
+                                else
+                                {
+                                    SkillDefinitionId skillDefinitionId = SkillDefinitionId.Parse(entry.TargetDefinitionId);
+                                    long desiredValue = 0;
+                                    foreach (CharacterRespecTarget target in targets)
+                                    {
+                                        if (target.OperationKind == entry.OperationKind && string.Equals(target.TargetDefinitionId, entry.TargetDefinitionId, StringComparison.Ordinal)) { desiredValue = target.DesiredValue; break; }
+                                    }
+
+                                    var newSkill = new CharacterSkill(skillDefinitionId, desiredValue, 0, entry.Amount, 1);
+                                    skillsByDefinition[entry.TargetDefinitionId] = newSkill;
+                                    afterSnapshot[entry.TargetDefinitionId] = desiredValue;
+                                    forwardPayload["skillDefinitionId"] = entry.TargetDefinitionId;
+                                    forwardPayload["toLevel"] = desiredValue;
+                                    eventType = "odyssey.persistence.character_skill_level_purchased";
+
+                                    InsertAdvancementPurchase(connection, transaction, campaign.CampaignId, new AdvancementPurchase(newPurchaseId, characterId, AdvancementOperationKind.SkillLevelPurchase, entry.TargetDefinitionId, 0, desiredValue, entry.Amount, "{}", campaign.Manifest.RulesetVersion, actorUserId, now, AdvancementPurchaseStatus.Applied));
+                                }
+
+                                forwardPayload["purchaseId"] = newPurchaseId.ToString();
+                                long eventSequence = SqliteSavingPipeline.AppendDomainEvent(connection, transaction, campaign.CampaignId, commandId, eventType, forwardPayload.ToString(Newtonsoft.Json.Formatting.None), now, null, compensationGroupId, isCompensating: false);
+                                producedEventSequences.Add(eventSequence);
+
+                                ledgerEntries.Add(new DevelopmentTransactionRecord(
+                                    DevelopmentTransactionId.NewId(now), characterId, DevelopmentTransactionKind.RespecSpend, entry.Amount, entry.TargetDefinitionId, "Respec: repurchased (" + reasonCode + ")", actorUserId, campaign.Manifest.RulesetVersion, now, correlationId));
+
+                                poolSpentDelta += entry.Amount;
+                            }
+                        }
+
+                        var newPool = new DevelopmentPool(current.DevelopmentPool.Earned, current.DevelopmentPool.Spent + poolSpentDelta, current.DevelopmentPool.Reserved);
+                        IReadOnlyList<AttributeValue> newAttributes = new List<AttributeValue>(attributesByDefinition.Values);
+                        IReadOnlyList<CharacterSkill> newSkills = new List<CharacterSkill>(skillsByDefinition.Values);
+
+                        long newMechanicsRevision = current.Revisions.MechanicsRevision + 1;
+                        long newCharacterRevision = current.Revisions.CharacterRevision + 1;
+
+                        using (var update = connection.CreateCommand())
+                        {
+                            update.Transaction = transaction;
+                            update.CommandText = "UPDATE Character SET PoolEarned = $poolEarned, PoolSpent = $poolSpent, PoolReserved = $poolReserved, AttributesJson = $attributesJson, SkillsJson = $skillsJson, MechanicsRevision = $mechanicsRevision, CharacterRevision = $characterRevision, UpdatedAt = $updatedAt, LastCommandId = $lastCommandId WHERE CharacterId = $characterId;";
+                            update.Parameters.AddWithValue("$poolEarned", newPool.Earned);
+                            update.Parameters.AddWithValue("$poolSpent", newPool.Spent);
+                            update.Parameters.AddWithValue("$poolReserved", newPool.Reserved);
+                            update.Parameters.AddWithValue("$attributesJson", SerializeAttributes(newAttributes));
+                            update.Parameters.AddWithValue("$skillsJson", SerializeSkills(newSkills));
+                            update.Parameters.AddWithValue("$mechanicsRevision", newMechanicsRevision);
+                            update.Parameters.AddWithValue("$characterRevision", newCharacterRevision);
+                            update.Parameters.AddWithValue("$updatedAt", now.ToString());
+                            update.Parameters.AddWithValue("$lastCommandId", commandId.ToString());
+                            update.Parameters.AddWithValue("$characterId", characterId.ToString());
+                            update.ExecuteNonQuery();
+                        }
+
+                        foreach (DevelopmentTransactionRecord ledgerEntry in ledgerEntries)
+                        {
+                            InsertDevelopmentTransaction(connection, transaction, campaign.CampaignId, ledgerEntry);
+                        }
+
+                        CharacterSectionRevisions newRevisions = WithRevisions(current.Revisions, characterRevision: newCharacterRevision, mechanicsRevision: newMechanicsRevision);
+                        var record = new CharacterRecord(characterId, campaign.CampaignId, current.CharacterKind, current.LifecycleStatus, current.ApprovalState, current.DisplayName, current.PortraitReference, current.Ownership, newRevisions, current.RulesetVersion, current.AnatomyProfileRef, current.TemplateId, current.TemplateVersionAtCopyTime, current.SeedCopy, current.SubmittedAt, newPool, newAttributes, newSkills, current.CreatedAt, now);
+
+                        var completedPayload = new JObject
+                        {
+                            ["characterId"] = characterId.ToString(),
+                            ["reasonCode"] = reasonCode,
+                            ["actorUserId"] = actorUserId.ToString(),
+                            ["compensationGroupId"] = compensationGroupId,
+                            ["producedEventSequences"] = new JArray(producedEventSequences),
+                            ["beforeSnapshot"] = beforeSnapshot,
+                            ["afterSnapshot"] = afterSnapshot,
+                            ["totalReturned"] = plan.TotalReturned,
+                            ["totalSpent"] = plan.TotalSpent,
+                            ["displayNameSnapshot"] = current.DisplayName,
+                            ["newMechanicsRevision"] = newMechanicsRevision,
+                            ["newCharacterRevision"] = newCharacterRevision,
+                        };
+
+                        return Result<PipelineWrite<CharacterRecord>>.Success(new PipelineWrite<CharacterRecord>(
+                            record, "odyssey.persistence.character_respec_completed", completedPayload.ToString(Newtonsoft.Json.Formatting.None), characterId.ToString(),
+                            aggregateType: "character", aggregateId: characterId.ToString(), aggregateRevision: newCharacterRevision,
+                            compensationGroupId: compensationGroupId, isCompensating: false));
+                    });
+            }
+            catch (Exception ex) when (ex is IOException || ex is UnauthorizedAccessException || ex is SqliteException)
+            {
+                return Result<CharacterRecord>.Failure(PersistenceFailures.CharacterIoFailed(correlationId));
             }
         }
 
@@ -1254,6 +1822,130 @@ namespace Odyssey.Persistence.Sqlite
             update.Parameters.AddWithValue("$commandId", commandId.ToString());
             update.Parameters.AddWithValue("$recommendationId", recommendationId.ToString());
             update.ExecuteNonQuery();
+        }
+
+        /// <summary>ODY-S04-107 (pkt 0 gap fix): co-commits one <c>AdvancementPurchase</c> row in the same transaction as the causing purchase -- mirrors <see cref="InsertAdvancementRecommendation"/>'s exact shape for a sibling side table.</summary>
+        private static void InsertAdvancementPurchase(SqliteConnection connection, SqliteTransaction transaction, CampaignId campaignId, AdvancementPurchase purchase)
+        {
+            using var insert = connection.CreateCommand();
+            insert.Transaction = transaction;
+            insert.CommandText = "INSERT INTO AdvancementPurchase (PurchaseId, CampaignId, CharacterId, OperationKind, TargetDefinitionId, FromValue, ToValue, Cost, RequirementsSnapshot, RulesetVersion, ActorUserId, CreatedAt, Status) VALUES ($purchaseId, $campaignId, $characterId, $operationKind, $targetDefinitionId, $fromValue, $toValue, $cost, $requirementsSnapshot, $rulesetVersion, $actorUserId, $createdAt, $status);";
+            insert.Parameters.AddWithValue("$purchaseId", purchase.PurchaseId.ToString());
+            insert.Parameters.AddWithValue("$campaignId", campaignId.ToString());
+            insert.Parameters.AddWithValue("$characterId", purchase.CharacterId.ToString());
+            insert.Parameters.AddWithValue("$operationKind", purchase.OperationKind.ToString());
+            insert.Parameters.AddWithValue("$targetDefinitionId", purchase.TargetDefinitionId);
+            insert.Parameters.AddWithValue("$fromValue", purchase.FromValue);
+            insert.Parameters.AddWithValue("$toValue", purchase.ToValue);
+            insert.Parameters.AddWithValue("$cost", purchase.Cost);
+            insert.Parameters.AddWithValue("$requirementsSnapshot", purchase.RequirementsSnapshot);
+            insert.Parameters.AddWithValue("$rulesetVersion", purchase.RulesetVersion);
+            insert.Parameters.AddWithValue("$actorUserId", purchase.ActorUserId.ToString());
+            insert.Parameters.AddWithValue("$createdAt", purchase.CreatedAt.ToString());
+            insert.Parameters.AddWithValue("$status", purchase.Status.ToString());
+            insert.ExecuteNonQuery();
+        }
+
+        private static void UpdateAdvancementPurchaseStatus(SqliteConnection connection, SqliteTransaction transaction, AdvancementPurchaseId purchaseId, AdvancementPurchaseStatus newStatus)
+        {
+            using var update = connection.CreateCommand();
+            update.Transaction = transaction;
+            update.CommandText = "UPDATE AdvancementPurchase SET Status = $status WHERE PurchaseId = $purchaseId;";
+            update.Parameters.AddWithValue("$status", newStatus.ToString());
+            update.Parameters.AddWithValue("$purchaseId", purchaseId.ToString());
+            update.ExecuteNonQuery();
+        }
+
+        private const string AdvancementPurchaseColumns =
+            "SELECT PurchaseId, CharacterId, OperationKind, TargetDefinitionId, FromValue, ToValue, Cost, RequirementsSnapshot, RulesetVersion, ActorUserId, CreatedAt, Status FROM AdvancementPurchase";
+
+        private static AdvancementPurchase ReadAdvancementPurchase(SqliteDataReader reader)
+        {
+            AdvancementPurchaseId purchaseId = AdvancementPurchaseId.Parse(reader.GetString(0));
+            CharacterId characterId = CharacterId.Parse(reader.GetString(1));
+            var operationKind = (AdvancementOperationKind)Enum.Parse(typeof(AdvancementOperationKind), reader.GetString(2));
+            string targetDefinitionId = reader.GetString(3);
+            long fromValue = reader.GetInt64(4);
+            long toValue = reader.GetInt64(5);
+            long cost = reader.GetInt64(6);
+            string requirementsSnapshot = reader.GetString(7);
+            string rulesetVersion = reader.GetString(8);
+            UserId actorUserId = UserId.Parse(reader.GetString(9));
+            UtcInstant createdAt = UtcInstant.Parse(reader.GetString(10));
+            var status = (AdvancementPurchaseStatus)Enum.Parse(typeof(AdvancementPurchaseStatus), reader.GetString(11));
+            return new AdvancementPurchase(purchaseId, characterId, operationKind, targetDefinitionId, fromValue, toValue, cost, requirementsSnapshot, rulesetVersion, actorUserId, createdAt, status);
+        }
+
+        private static AdvancementPurchase? SelectAdvancementPurchaseForUpdate(SqliteConnection connection, SqliteTransaction transaction, CharacterId characterId, AdvancementPurchaseId purchaseId)
+        {
+            using var select = connection.CreateCommand();
+            select.Transaction = transaction;
+            select.CommandText = AdvancementPurchaseColumns + " WHERE CharacterId = $characterId AND PurchaseId = $purchaseId LIMIT 1;";
+            select.Parameters.AddWithValue("$characterId", characterId.ToString());
+            select.Parameters.AddWithValue("$purchaseId", purchaseId.ToString());
+            using SqliteDataReader reader = select.ExecuteReader();
+            return reader.Read() ? ReadAdvancementPurchase(reader) : null;
+        }
+
+        /// <summary>ODY-S04-107: every <c>AdvancementPurchase</c> row for one Character, ordered oldest-first -- used both by <see cref="ICharacterRepository.GetAdvancementPurchases"/> and, inside a transaction, by <c>ComputeRespecPlan</c>'s own fresh server-side read.</summary>
+        private static IReadOnlyList<AdvancementPurchase> SelectAdvancementPurchasesForCharacter(SqliteConnection connection, SqliteTransaction? transaction, CharacterId characterId)
+        {
+            using var select = connection.CreateCommand();
+            if (transaction != null) select.Transaction = transaction;
+            select.CommandText = AdvancementPurchaseColumns + " WHERE CharacterId = $characterId ORDER BY CreatedAt, PurchaseId;";
+            select.Parameters.AddWithValue("$characterId", characterId.ToString());
+            var list = new List<AdvancementPurchase>();
+            using SqliteDataReader reader = select.ExecuteReader();
+            while (reader.Read())
+            {
+                list.Add(ReadAdvancementPurchase(reader));
+            }
+
+            return list;
+        }
+
+        /// <summary>
+        /// ODY-S04-107: locates the <c>EventSequence</c> of the original
+        /// forward event (<c>character_attribute_increased</c>/
+        /// <c>character_skill_level_purchased</c>) that produced a given
+        /// <c>AdvancementPurchase</c>, for <c>RevertAdvancementPurchase</c>'s
+        /// own <c>OriginalEventId</c> (ADR-012 section 6). Mirrors
+        /// <c>GetCharacterHistory</c>'s own "no dedicated AggregateId column,
+        /// filter DomainEvents by EventType + payload content" convention --
+        /// PurchaseId is embedded in every purchase-producing event's own
+        /// payload specifically so this lookup is possible without a new
+        /// schema column. The narrowing <c>PayloadJson LIKE</c> clause is a
+        /// coarse pre-filter only (no JSON1 extension is used anywhere in
+        /// this codebase); the exact match is re-verified in C# below,
+        /// because a canonical PurchaseId (<c>advpur_</c> + 32 hex chars) can
+        /// never legitimately collide as a substring of another purchase's
+        /// own id.
+        /// </summary>
+        private static long? FindOriginatingEventSequence(SqliteConnection connection, SqliteTransaction transaction, CampaignId campaignId, AdvancementPurchaseId purchaseId)
+        {
+            using var select = connection.CreateCommand();
+            select.Transaction = transaction;
+            select.CommandText =
+                "SELECT EventSequence, PayloadJson FROM DomainEvents " +
+                "WHERE CampaignId = $campaignId AND (EventType = $attrType OR EventType = $skillType) AND PayloadJson LIKE $needle " +
+                "ORDER BY EventSequence;";
+            select.Parameters.AddWithValue("$campaignId", campaignId.ToString());
+            select.Parameters.AddWithValue("$attrType", "odyssey.persistence.character_attribute_increased");
+            select.Parameters.AddWithValue("$skillType", "odyssey.persistence.character_skill_level_purchased");
+            select.Parameters.AddWithValue("$needle", "%\"purchaseId\":\"" + purchaseId + "\"%");
+            using SqliteDataReader reader = select.ExecuteReader();
+            while (reader.Read())
+            {
+                long eventSequence = reader.GetInt64(0);
+                string payloadJson = reader.GetString(1);
+                var payload = (JObject)ParseJsonPreservingStrings(payloadJson);
+                if (payload.TryGetValue("purchaseId", out JToken? value) && string.Equals((string?)value, purchaseId.ToString(), StringComparison.Ordinal))
+                {
+                    return eventSequence;
+                }
+            }
+
+            return null;
         }
 
         private static string SerializeEvidenceIds(IReadOnlyList<CriticalSuccessEvidenceId> evidenceIds)
@@ -1460,7 +2152,8 @@ namespace Odyssey.Persistence.Sqlite
 
                         return Result<PipelineWrite<CharacterRecord>>.Success(new PipelineWrite<CharacterRecord>(
                             record, mutation.EventType, mutation.PayloadExtra.ToString(Newtonsoft.Json.Formatting.None), characterId.ToString(),
-                            aggregateType: "character", aggregateId: characterId.ToString(), aggregateRevision: newCharacterRevision));
+                            aggregateType: "character", aggregateId: characterId.ToString(), aggregateRevision: newCharacterRevision,
+                            originalEventId: mutation.OriginalEventId, compensationGroupId: mutation.CompensationGroupId, isCompensating: mutation.IsCompensating));
                     });
             }
             catch (Exception ex) when (ex is IOException || ex is UnauthorizedAccessException || ex is SqliteException)
@@ -1482,7 +2175,7 @@ namespace Odyssey.Persistence.Sqlite
         /// </summary>
         private sealed class MechanicsMutation
         {
-            public MechanicsMutation(DevelopmentPool newPool, IReadOnlyList<AttributeValue> newAttributes, IReadOnlyList<CharacterSkill> newSkills, string eventType, JObject payloadExtra, IReadOnlyList<DevelopmentTransactionRecord> ledgerEntries)
+            public MechanicsMutation(DevelopmentPool newPool, IReadOnlyList<AttributeValue> newAttributes, IReadOnlyList<CharacterSkill> newSkills, string eventType, JObject payloadExtra, IReadOnlyList<DevelopmentTransactionRecord> ledgerEntries, long? originalEventId = null, string? compensationGroupId = null, bool isCompensating = false)
             {
                 NewPool = newPool;
                 NewAttributes = newAttributes;
@@ -1490,6 +2183,9 @@ namespace Odyssey.Persistence.Sqlite
                 EventType = eventType;
                 PayloadExtra = payloadExtra;
                 LedgerEntries = ledgerEntries;
+                OriginalEventId = originalEventId;
+                CompensationGroupId = compensationGroupId;
+                IsCompensating = isCompensating;
             }
 
             public DevelopmentPool NewPool { get; }
@@ -1498,6 +2194,11 @@ namespace Odyssey.Persistence.Sqlite
             public string EventType { get; }
             public JObject PayloadExtra { get; }
             public IReadOnlyList<DevelopmentTransactionRecord> LedgerEntries { get; }
+
+            /// <summary>ODY-S04-107: ADR-012 section 6's compensating-event metadata -- optional, default "not compensating," so every pre-existing caller is unaffected. See <see cref="SqliteSavingPipeline.PipelineWrite{T}"/>'s own doc comment for the full rationale.</summary>
+            public long? OriginalEventId { get; }
+            public string? CompensationGroupId { get; }
+            public bool IsCompensating { get; }
         }
 
         private static Result<CharacterReviewCommentRecord> ReplayComment(SqliteConnection connection, SqliteTransaction transaction, CommandId commandId, CorrelationId correlationId)
@@ -2464,6 +3165,25 @@ CREATE TABLE IF NOT EXISTS AdvancementRecommendation (
     CommandId TEXT NOT NULL
 );";
             recommendationTable.ExecuteNonQuery();
+
+            using var advancementPurchaseTable = connection.CreateCommand();
+            advancementPurchaseTable.CommandText = @"
+CREATE TABLE IF NOT EXISTS AdvancementPurchase (
+    PurchaseId TEXT PRIMARY KEY,
+    CampaignId TEXT NOT NULL,
+    CharacterId TEXT NOT NULL,
+    OperationKind TEXT NOT NULL,
+    TargetDefinitionId TEXT NOT NULL,
+    FromValue INTEGER NOT NULL,
+    ToValue INTEGER NOT NULL,
+    Cost INTEGER NOT NULL,
+    RequirementsSnapshot TEXT NOT NULL,
+    RulesetVersion TEXT NOT NULL,
+    ActorUserId TEXT NOT NULL,
+    CreatedAt TEXT NOT NULL,
+    Status TEXT NOT NULL
+);";
+            advancementPurchaseTable.ExecuteNonQuery();
 
             using var reviewCommentTable = connection.CreateCommand();
             reviewCommentTable.CommandText = @"
