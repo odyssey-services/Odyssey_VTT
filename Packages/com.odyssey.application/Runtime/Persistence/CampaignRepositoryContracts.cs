@@ -365,6 +365,51 @@ namespace Odyssey.Application.Persistence
             RetryDirective.DoNotRetry,
             correlationId);
 
+        /// <summary>ODY-S04-106: product section 14.3 -- <c>PurchaseSkillLevel</c> rejection when the target level requires the recommendation/reservation pipeline instead (level 5+, ADR-024 section 6.1).</summary>
+        public static Error CharacterSkillLevelRequiresRecommendation(CorrelationId correlationId) => Error.Create(
+            ErrorCodes.PersistenceCharacterSkillLevelRequiresRecommendation,
+            ErrorCategory.Validation,
+            SafeReasonCode.InvalidRequest,
+            UserMessageKey.Parse("errors.persistence.character_skill_level_requires_recommendation"),
+            RetryDirective.DoNotRetry,
+            correlationId);
+
+        /// <summary>ODY-S04-106: <c>ResolveAdvancementRecommendation</c>/<c>GetAdvancementRecommendation</c> lookup failure for an unknown <c>AdvancementRecommendationId</c>, mirroring <see cref="CharacterNotFound"/>'s exact convention for a sibling entity.</summary>
+        public static Error CharacterAdvancementRecommendationNotFound(CorrelationId correlationId) => Error.Create(
+            ErrorCodes.PersistenceCharacterAdvancementRecommendationNotFound,
+            ErrorCategory.NotFound,
+            SafeReasonCode.TargetUnavailable,
+            UserMessageKey.Parse("errors.persistence.character_advancement_recommendation_not_found"),
+            RetryDirective.DoNotRetry,
+            correlationId);
+
+        /// <summary>ODY-S04-106: ADR-024 section 6.1 -- <c>ResolveAdvancementRecommendation</c> rejection when the recommendation is not <c>Pending</c> (already resolved once).</summary>
+        public static Error CharacterAdvancementRecommendationNotPending(CorrelationId correlationId) => Error.Create(
+            ErrorCodes.PersistenceCharacterAdvancementRecommendationNotPending,
+            ErrorCategory.Conflict,
+            SafeReasonCode.StateChanged,
+            UserMessageKey.Parse("errors.persistence.character_advancement_recommendation_not_pending"),
+            RetryDirective.DoNotRetry,
+            correlationId);
+
+        /// <summary>ODY-S04-106: product section 14.3 -- <c>ResolveAdvancementRecommendation</c> is MainGM-only ("GM reviews... GM approves or dismisses"); rejection for a non-MainGM actor.</summary>
+        public static Error CharacterAdvancementResolutionDenied(CorrelationId correlationId) => Error.Create(
+            ErrorCodes.PersistenceCharacterAdvancementResolutionDenied,
+            ErrorCategory.Authorization,
+            SafeReasonCode.PermissionDenied,
+            UserMessageKey.Parse("errors.persistence.character_advancement_resolution_denied"),
+            RetryDirective.DoNotRetry,
+            correlationId);
+
+        /// <summary>ODY-S04-106: <c>ResolveAdvancementRecommendation</c> references a <c>CriticalSuccessEvidenceId</c> that does not exist -- an integrity condition, not a normal user-facing rejection path (the recommendation's own evidence list is validated to reference real rows at request time).</summary>
+        public static Error CharacterCriticalEvidenceNotFound(CorrelationId correlationId) => Error.Create(
+            ErrorCodes.PersistenceCharacterCriticalEvidenceNotFound,
+            ErrorCategory.Integrity,
+            SafeReasonCode.DataCorrupted,
+            UserMessageKey.Parse("errors.persistence.character_critical_evidence_not_found"),
+            RetryDirective.ManualRecoveryRequired,
+            correlationId);
+
         // Used only by the codec's Read path (CampaignManifest.cs), which does not
         // receive a caller CorrelationId; matches the existing SerializationFailures
         // placeholder-correlation convention for codec-level structural failures.

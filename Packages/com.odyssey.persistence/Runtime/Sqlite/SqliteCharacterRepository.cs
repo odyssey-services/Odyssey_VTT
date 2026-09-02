@@ -11,6 +11,7 @@ using Odyssey.Domain.Character;
 using Odyssey.Domain.Identity;
 using Odyssey.Domain.Time;
 using RulesAttributeCostRules = Odyssey.Rules.Character.AttributeCostRules;
+using RulesSkillCostRules = Odyssey.Rules.Character.SkillCostRules;
 
 namespace Odyssey.Persistence.Sqlite
 {
@@ -104,7 +105,7 @@ namespace Odyssey.Persistence.Sqlite
                                 "AttributeValuesRevision, CharacterSkillsRevision, CharacterAbilitiesRevision, CharacterResourcesRevision, " +
                                 "CharacterAnatomyRevision, OwnershipRevision, LifecycleRevision, RuntimeStateRevision, " +
                                 "RulesetVersion, AnatomyProfileRef, TemplateId, TemplateVersionAtCopyTime, SeedCopyJson, SubmittedAt, " +
-                                "PoolEarned, PoolSpent, PoolReserved, AttributesJson, " +
+                                "PoolEarned, PoolSpent, PoolReserved, AttributesJson, SkillsJson, " +
                                 "CreatedAt, UpdatedAt, LastCommandId) VALUES (" +
                                 "$characterId, $campaignId, $characterKind, $lifecycleStatus, $approvalState, $displayName, NULL, " +
                                 "NULL, $coOwners, $permanentControllers, $temporaryGrants, " +
@@ -112,7 +113,7 @@ namespace Odyssey.Persistence.Sqlite
                                 "$attributeValuesRevision, $characterSkillsRevision, $characterAbilitiesRevision, $characterResourcesRevision, " +
                                 "$characterAnatomyRevision, $ownershipRevision, $lifecycleRevision, $runtimeStateRevision, " +
                                 "'', NULL, NULL, NULL, '[]', NULL, " +
-                                "0, 0, 0, '[]', " +
+                                "0, 0, 0, '[]', '[]', " +
                                 "$createdAt, $updatedAt, $lastCommandId);";
                             insert.Parameters.AddWithValue("$characterId", characterId.ToString());
                             insert.Parameters.AddWithValue("$campaignId", campaign.CampaignId.ToString());
@@ -134,7 +135,7 @@ namespace Odyssey.Persistence.Sqlite
                         // pinning, no template, no initial owner. See
                         // BindDraftToCampaign for the ADR-023-compliant real
                         // creation path this task adds alongside it.
-                        var record = new CharacterRecord(characterId, campaign.CampaignId, request.CharacterKind, lifecycleStatus, approvalState, request.DisplayName, null, ownership, revisions, string.Empty, null, null, null, Array.Empty<CopiedCharacterSeedItem>(), null, DevelopmentPool.Empty(), Array.Empty<AttributeValue>(), now, now);
+                        var record = new CharacterRecord(characterId, campaign.CampaignId, request.CharacterKind, lifecycleStatus, approvalState, request.DisplayName, null, ownership, revisions, string.Empty, null, null, null, Array.Empty<CopiedCharacterSeedItem>(), null, DevelopmentPool.Empty(), Array.Empty<AttributeValue>(), Array.Empty<CharacterSkill>(), now, now);
 
                         var payload = new JObject
                         {
@@ -217,7 +218,7 @@ namespace Odyssey.Persistence.Sqlite
                                 "AttributeValuesRevision, CharacterSkillsRevision, CharacterAbilitiesRevision, CharacterResourcesRevision, " +
                                 "CharacterAnatomyRevision, OwnershipRevision, LifecycleRevision, RuntimeStateRevision, " +
                                 "RulesetVersion, AnatomyProfileRef, TemplateId, TemplateVersionAtCopyTime, SeedCopyJson, SubmittedAt, " +
-                                "PoolEarned, PoolSpent, PoolReserved, AttributesJson, " +
+                                "PoolEarned, PoolSpent, PoolReserved, AttributesJson, SkillsJson, " +
                                 "CreatedAt, UpdatedAt, LastCommandId) VALUES (" +
                                 "$characterId, $campaignId, $characterKind, $lifecycleStatus, $approvalState, $displayName, NULL, " +
                                 "$primaryOwnerUserId, $coOwners, $permanentControllers, $temporaryGrants, " +
@@ -225,7 +226,7 @@ namespace Odyssey.Persistence.Sqlite
                                 "$attributeValuesRevision, $characterSkillsRevision, $characterAbilitiesRevision, $characterResourcesRevision, " +
                                 "$characterAnatomyRevision, $ownershipRevision, $lifecycleRevision, $runtimeStateRevision, " +
                                 "$rulesetVersion, $anatomyProfileRef, $templateId, $templateVersion, $seedCopyJson, NULL, " +
-                                "0, 0, 0, '[]', " +
+                                "0, 0, 0, '[]', '[]', " +
                                 "$createdAt, $updatedAt, $lastCommandId);";
                             insert.Parameters.AddWithValue("$characterId", characterId.ToString());
                             insert.Parameters.AddWithValue("$campaignId", campaign.CampaignId.ToString());
@@ -249,7 +250,7 @@ namespace Odyssey.Persistence.Sqlite
                             insert.ExecuteNonQuery();
                         }
 
-                        var record = new CharacterRecord(characterId, campaign.CampaignId, request.CharacterKind, lifecycleStatus, approvalState, request.DisplayName, null, ownership, revisions, pinnedRulesetVersion, request.AnatomyProfileRef, request.Seed.TemplateId, request.Seed.TemplateVersionAtCopyTime, request.Seed.Items, null, DevelopmentPool.Empty(), Array.Empty<AttributeValue>(), now, now);
+                        var record = new CharacterRecord(characterId, campaign.CampaignId, request.CharacterKind, lifecycleStatus, approvalState, request.DisplayName, null, ownership, revisions, pinnedRulesetVersion, request.AnatomyProfileRef, request.Seed.TemplateId, request.Seed.TemplateVersionAtCopyTime, request.Seed.Items, null, DevelopmentPool.Empty(), Array.Empty<AttributeValue>(), Array.Empty<CharacterSkill>(), now, now);
 
                         var payload = new JObject
                         {
@@ -337,7 +338,7 @@ namespace Odyssey.Persistence.Sqlite
                         }
 
                         CharacterSectionRevisions newRevisions = WithRevisions(current.Revisions, characterRevision: newCharacterRevision, lifecycleRevision: newLifecycleRevision);
-                        var record = new CharacterRecord(characterId, campaign.CampaignId, current.CharacterKind, current.LifecycleStatus, current.ApprovalState, current.DisplayName, current.PortraitReference, current.Ownership, newRevisions, current.RulesetVersion, current.AnatomyProfileRef, current.TemplateId, current.TemplateVersionAtCopyTime, current.SeedCopy, now, current.DevelopmentPool, current.Attributes, current.CreatedAt, now);
+                        var record = new CharacterRecord(characterId, campaign.CampaignId, current.CharacterKind, current.LifecycleStatus, current.ApprovalState, current.DisplayName, current.PortraitReference, current.Ownership, newRevisions, current.RulesetVersion, current.AnatomyProfileRef, current.TemplateId, current.TemplateVersionAtCopyTime, current.SeedCopy, now, current.DevelopmentPool, current.Attributes, current.Skills, current.CreatedAt, now);
 
                         var payload = new JObject
                         {
@@ -511,7 +512,7 @@ namespace Odyssey.Persistence.Sqlite
                         }
 
                         CharacterSectionRevisions newRevisions = WithRevisions(current.Revisions, characterRevision: newCharacterRevision, lifecycleRevision: newLifecycleRevision);
-                        var record = new CharacterRecord(characterId, campaign.CampaignId, current.CharacterKind, newLifecycleStatus, newApprovalState, current.DisplayName, current.PortraitReference, current.Ownership, newRevisions, current.RulesetVersion, current.AnatomyProfileRef, current.TemplateId, current.TemplateVersionAtCopyTime, current.SeedCopy, current.SubmittedAt, current.DevelopmentPool, current.Attributes, current.CreatedAt, now);
+                        var record = new CharacterRecord(characterId, campaign.CampaignId, current.CharacterKind, newLifecycleStatus, newApprovalState, current.DisplayName, current.PortraitReference, current.Ownership, newRevisions, current.RulesetVersion, current.AnatomyProfileRef, current.TemplateId, current.TemplateVersionAtCopyTime, current.SeedCopy, current.SubmittedAt, current.DevelopmentPool, current.Attributes, current.Skills, current.CreatedAt, now);
 
                         var payload = new JObject
                         {
@@ -587,7 +588,7 @@ namespace Odyssey.Persistence.Sqlite
                 return Result<CharacterRecord>.Failure(PersistenceFailures.CharacterDevelopmentGrantDenied(correlationId));
             }
 
-            return MutateMechanics(campaign, characterId, expectedMechanicsRevision, commandId, correlationId, current =>
+            return MutateMechanics(campaign, characterId, expectedMechanicsRevision, commandId, correlationId, (current, connection, transaction) =>
             {
                 var newPool = new DevelopmentPool(current.DevelopmentPool.Earned + amount, current.DevelopmentPool.Spent, current.DevelopmentPool.Reserved);
                 UtcInstant now = _clock.GetUtcNow();
@@ -603,7 +604,7 @@ namespace Odyssey.Persistence.Sqlite
                 };
 
                 return Result<MechanicsMutation>.Success(new MechanicsMutation(
-                    newPool, current.Attributes, "odyssey.persistence.character_development_points_granted", payload, new[] { ledgerEntry }));
+                    newPool, current.Attributes, current.Skills, "odyssey.persistence.character_development_points_granted", payload, new[] { ledgerEntry }));
             });
         }
 
@@ -614,7 +615,7 @@ namespace Odyssey.Persistence.Sqlite
             if (!actorUserId.IsValid) throw new ArgumentException("ActorUserId is required.", nameof(actorUserId));
             if (expectedAttributeRevision < 0) throw new ArgumentOutOfRangeException(nameof(expectedAttributeRevision));
 
-            return MutateMechanics(campaign, characterId, expectedMechanicsRevision, commandId, correlationId, current =>
+            return MutateMechanics(campaign, characterId, expectedMechanicsRevision, commandId, correlationId, (current, connection, transaction) =>
             {
                 // Product section 13.1: "у пользователя есть право развивать
                 // персонажа" -- MainGM or an assigned user of this Character,
@@ -702,7 +703,7 @@ namespace Odyssey.Persistence.Sqlite
                 };
 
                 return Result<MechanicsMutation>.Success(new MechanicsMutation(
-                    newPool, newAttributes, "odyssey.persistence.character_attribute_increased", payload, new[] { ledgerEntry }));
+                    newPool, newAttributes, current.Skills, "odyssey.persistence.character_attribute_increased", payload, new[] { ledgerEntry }));
             });
         }
 
@@ -734,6 +735,605 @@ namespace Odyssey.Persistence.Sqlite
             {
                 return Result<IReadOnlyList<DevelopmentTransactionRecord>>.Failure(PersistenceFailures.CharacterIoFailed(correlationId));
             }
+        }
+
+        public Result<CharacterRecord> PurchaseSkillLevel(CampaignHandle campaign, CharacterId characterId, SkillDefinitionId skillDefinitionId, long toLevel, UserId actorUserId, bool actorIsMainGm, long expectedMechanicsRevision, long expectedSkillRevision, CommandId commandId, CorrelationId correlationId)
+        {
+            if (!skillDefinitionId.IsValid) throw new ArgumentException("SkillDefinitionId is required.", nameof(skillDefinitionId));
+            if (toLevel < 0) throw new ArgumentOutOfRangeException(nameof(toLevel));
+            if (!actorUserId.IsValid) throw new ArgumentException("ActorUserId is required.", nameof(actorUserId));
+            if (expectedSkillRevision < 0) throw new ArgumentOutOfRangeException(nameof(expectedSkillRevision));
+
+            return MutateMechanics(campaign, characterId, expectedMechanicsRevision, commandId, correlationId, (current, connection, transaction) =>
+            {
+                UtcInstant now = _clock.GetUtcNow();
+
+                // Product section 13.1's permission framing, reused unchanged for skills.
+                bool permitted = actorIsMainGm || CharacterOwnershipAssignment.IsAssignedCharacter(current.Ownership, actorUserId, now);
+                if (!permitted)
+                {
+                    return Result<MechanicsMutation>.Failure(PersistenceFailures.CharacterDevelopmentPurchaseDenied(correlationId));
+                }
+
+                // Product sections 14.2/14.3: level 5+ is the recommendation/
+                // reservation pipeline's own job, never this ordinary
+                // immediate-purchase command's.
+                if (RulesSkillCostRules.RequiresRecommendation(toLevel))
+                {
+                    return Result<MechanicsMutation>.Failure(PersistenceFailures.CharacterSkillLevelRequiresRecommendation(correlationId));
+                }
+
+                CharacterSkill? existing = null;
+                foreach (CharacterSkill candidate in current.Skills)
+                {
+                    if (candidate.SkillDefinitionId.Equals(skillDefinitionId)) { existing = candidate; break; }
+                }
+
+                long fromLevel = existing?.Level ?? 0;
+                long currentSkillRevision = existing?.Revision ?? 0;
+
+                // ADR-024 section 4.2's entry-level gate for CharacterSkill,
+                // independent of MechanicsRevision -- 0 for a skill never
+                // purchased before ("отсутствующий навык представлен
+                // отсутствием CharacterSkill", product section 14).
+                if (currentSkillRevision != expectedSkillRevision)
+                {
+                    return Result<MechanicsMutation>.Failure(PersistenceFailures.CharacterRevisionConflict(correlationId));
+                }
+
+                if (toLevel <= fromLevel)
+                {
+                    throw new ArgumentOutOfRangeException(nameof(toLevel), "ToLevel must exceed the skill's current Level for an increase.");
+                }
+
+                long cost = RulesSkillCostRules.CostForIncrease(fromLevel, toLevel);
+                if (cost > current.DevelopmentPool.Available)
+                {
+                    return Result<MechanicsMutation>.Failure(PersistenceFailures.CharacterDevelopmentInsufficientBalance(correlationId));
+                }
+
+                var newPool = new DevelopmentPool(current.DevelopmentPool.Earned, current.DevelopmentPool.Spent + cost, current.DevelopmentPool.Reserved);
+                long newSpentDevelopmentPoints = (existing?.SpentDevelopmentPoints ?? 0) + cost;
+                long newSkillRevision = currentSkillRevision + 1;
+                var newSkill = new CharacterSkill(skillDefinitionId, toLevel, existing?.PermanentAdjustment ?? 0, newSpentDevelopmentPoints, newSkillRevision);
+
+                var newSkills = new List<CharacterSkill>(current.Skills.Count + 1);
+                bool replaced = false;
+                foreach (CharacterSkill candidate in current.Skills)
+                {
+                    if (candidate.SkillDefinitionId.Equals(skillDefinitionId))
+                    {
+                        newSkills.Add(newSkill);
+                        replaced = true;
+                    }
+                    else
+                    {
+                        newSkills.Add(candidate);
+                    }
+                }
+
+                if (!replaced) newSkills.Add(newSkill);
+
+                var ledgerEntry = new DevelopmentTransactionRecord(
+                    DevelopmentTransactionId.NewId(now), characterId, DevelopmentTransactionKind.Spend, cost, skillDefinitionId.ToString(), "Skill level purchase", actorUserId, campaign.Manifest.RulesetVersion, now, correlationId);
+
+                var payload = new JObject
+                {
+                    ["skillDefinitionId"] = skillDefinitionId.ToString(),
+                    ["fromLevel"] = fromLevel,
+                    ["toLevel"] = toLevel,
+                    ["cost"] = cost,
+                    ["newEffectiveLevel"] = newSkill.EffectiveLevel,
+                    ["actorUserId"] = actorUserId.ToString(),
+                    ["newAvailable"] = newPool.Available,
+                };
+
+                return Result<MechanicsMutation>.Success(new MechanicsMutation(
+                    newPool, current.Attributes, newSkills, "odyssey.persistence.character_skill_level_purchased", payload, new[] { ledgerEntry }));
+            });
+        }
+
+        public Result<CriticalSuccessEvidenceRecord> RecordCriticalSuccessEvidence(CampaignHandle campaign, CharacterId characterId, SkillDefinitionId skillDefinitionId, string? sourceDiceRollId, string? sourceActionId, CommandId commandId, CorrelationId correlationId)
+        {
+            if (campaign == null) throw new ArgumentNullException(nameof(campaign));
+            if (!characterId.IsValid) throw new ArgumentException("CharacterId is required.", nameof(characterId));
+            if (!skillDefinitionId.IsValid) throw new ArgumentException("SkillDefinitionId is required.", nameof(skillDefinitionId));
+            if (!commandId.IsValid) throw new ArgumentException("CommandId is required.", nameof(commandId));
+
+            try
+            {
+                using SqliteConnection connection = OpenConnection(campaign.RootPath);
+                EnsureCharacterTables(connection);
+
+                return _pipeline.Execute(
+                    connection,
+                    campaign.CampaignId,
+                    commandId,
+                    correlationId,
+                    tryReplay: transaction => ReplayEvidence(connection, transaction, commandId, correlationId),
+                    apply: transaction =>
+                    {
+                        CharacterRecord? current = SelectForUpdate(connection, transaction, characterId);
+                        if (current == null)
+                        {
+                            return Result<PipelineWrite<CriticalSuccessEvidenceRecord>>.Failure(PersistenceFailures.CharacterNotFound(correlationId));
+                        }
+
+                        UtcInstant now = _clock.GetUtcNow();
+                        CriticalSuccessEvidenceId evidenceId = CriticalSuccessEvidenceId.NewId(now);
+                        var record = new CriticalSuccessEvidenceRecord(evidenceId, characterId, skillDefinitionId, sourceDiceRollId, sourceActionId, now, campaign.Manifest.RulesetVersion, null, 1);
+
+                        using (var insert = connection.CreateCommand())
+                        {
+                            insert.Transaction = transaction;
+                            insert.CommandText = "INSERT INTO CriticalSuccessEvidence (EvidenceId, CampaignId, CharacterId, SkillDefinitionId, SourceDiceRollId, SourceActionId, OccurredAt, RulesetVersion, UsedByAdvancementId, Revision, CommandId) VALUES ($evidenceId, $campaignId, $characterId, $skillDefinitionId, $sourceDiceRollId, $sourceActionId, $occurredAt, $rulesetVersion, NULL, 1, $commandId);";
+                            insert.Parameters.AddWithValue("$evidenceId", evidenceId.ToString());
+                            insert.Parameters.AddWithValue("$campaignId", campaign.CampaignId.ToString());
+                            insert.Parameters.AddWithValue("$characterId", characterId.ToString());
+                            insert.Parameters.AddWithValue("$skillDefinitionId", skillDefinitionId.ToString());
+                            insert.Parameters.AddWithValue("$sourceDiceRollId", (object?)sourceDiceRollId ?? DBNull.Value);
+                            insert.Parameters.AddWithValue("$sourceActionId", (object?)sourceActionId ?? DBNull.Value);
+                            insert.Parameters.AddWithValue("$occurredAt", now.ToString());
+                            insert.Parameters.AddWithValue("$rulesetVersion", campaign.Manifest.RulesetVersion);
+                            insert.Parameters.AddWithValue("$commandId", commandId.ToString());
+                            insert.ExecuteNonQuery();
+                        }
+
+                        var payload = new JObject
+                        {
+                            ["evidenceId"] = evidenceId.ToString(),
+                            ["characterId"] = characterId.ToString(),
+                            ["skillDefinitionId"] = skillDefinitionId.ToString(),
+                        };
+
+                        // No aggregateType/aggregateRevision -- evidence is
+                        // its own immutable append, never touching Character's
+                        // own CharacterRevision/Mechanics section.
+                        return Result<PipelineWrite<CriticalSuccessEvidenceRecord>>.Success(new PipelineWrite<CriticalSuccessEvidenceRecord>(
+                            record, "odyssey.persistence.character_critical_success_evidence_recorded", payload.ToString(Newtonsoft.Json.Formatting.None), evidenceId.ToString()));
+                    });
+            }
+            catch (Exception ex) when (ex is IOException || ex is UnauthorizedAccessException || ex is SqliteException)
+            {
+                return Result<CriticalSuccessEvidenceRecord>.Failure(PersistenceFailures.CharacterIoFailed(correlationId));
+            }
+        }
+
+        public Result<IReadOnlyList<CriticalSuccessEvidenceRecord>> GetCriticalSuccessEvidence(CampaignHandle campaign, CharacterId characterId, CorrelationId correlationId)
+        {
+            if (campaign == null) throw new ArgumentNullException(nameof(campaign));
+            if (!characterId.IsValid) throw new ArgumentException("CharacterId is required.", nameof(characterId));
+
+            try
+            {
+                using SqliteConnection connection = OpenConnection(campaign.RootPath);
+                EnsureCharacterTables(connection);
+
+                var entries = new List<CriticalSuccessEvidenceRecord>();
+                using (var select = connection.CreateCommand())
+                {
+                    select.CommandText = "SELECT EvidenceId, CharacterId, SkillDefinitionId, SourceDiceRollId, SourceActionId, OccurredAt, RulesetVersion, UsedByAdvancementId, Revision FROM CriticalSuccessEvidence WHERE CharacterId = $characterId ORDER BY OccurredAt, EvidenceId;";
+                    select.Parameters.AddWithValue("$characterId", characterId.ToString());
+                    using SqliteDataReader reader = select.ExecuteReader();
+                    while (reader.Read())
+                    {
+                        entries.Add(ReadCriticalSuccessEvidenceRecord(reader));
+                    }
+                }
+
+                return Result<IReadOnlyList<CriticalSuccessEvidenceRecord>>.Success(entries);
+            }
+            catch (Exception ex) when (ex is IOException || ex is UnauthorizedAccessException || ex is SqliteException)
+            {
+                return Result<IReadOnlyList<CriticalSuccessEvidenceRecord>>.Failure(PersistenceFailures.CharacterIoFailed(correlationId));
+            }
+        }
+
+        public Result<AdvancementRecommendationRecord> RequestSkillAdvancedRecommendation(CampaignHandle campaign, CharacterId characterId, SkillDefinitionId skillDefinitionId, long targetLevel, IReadOnlyList<CriticalSuccessEvidenceId> evidenceIds, UserId actorUserId, bool actorIsMainGm, long expectedMechanicsRevision, CommandId commandId, CorrelationId correlationId)
+        {
+            if (!skillDefinitionId.IsValid) throw new ArgumentException("SkillDefinitionId is required.", nameof(skillDefinitionId));
+            if (targetLevel < 1) throw new ArgumentOutOfRangeException(nameof(targetLevel));
+            if (evidenceIds == null) throw new ArgumentNullException(nameof(evidenceIds));
+            if (!actorUserId.IsValid) throw new ArgumentException("ActorUserId is required.", nameof(actorUserId));
+
+            AdvancementRecommendationRecord? createdRecord = null;
+
+            Result<CharacterRecord> mutated = MutateMechanics(campaign, characterId, expectedMechanicsRevision, commandId, correlationId, (current, connection, transaction) =>
+            {
+                UtcInstant now = _clock.GetUtcNow();
+                bool permitted = actorIsMainGm || CharacterOwnershipAssignment.IsAssignedCharacter(current.Ownership, actorUserId, now);
+                if (!permitted)
+                {
+                    return Result<MechanicsMutation>.Failure(PersistenceFailures.CharacterDevelopmentPurchaseDenied(correlationId));
+                }
+
+                CharacterSkill? existing = null;
+                foreach (CharacterSkill candidate in current.Skills)
+                {
+                    if (candidate.SkillDefinitionId.Equals(skillDefinitionId)) { existing = candidate; break; }
+                }
+
+                long fromLevel = existing?.Level ?? 0;
+                if (targetLevel <= fromLevel)
+                {
+                    throw new ArgumentOutOfRangeException(nameof(targetLevel), "TargetLevel must exceed the skill's current Level.");
+                }
+
+                long reservedAmount = RulesSkillCostRules.CostForIncrease(fromLevel, targetLevel);
+                if (reservedAmount > current.DevelopmentPool.Available)
+                {
+                    return Result<MechanicsMutation>.Failure(PersistenceFailures.CharacterDevelopmentInsufficientBalance(correlationId));
+                }
+
+                // ADR-024 section 6.1 step 1: Reserved increases, Available
+                // decreases by the same amount -- Spent is untouched.
+                var newPool = new DevelopmentPool(current.DevelopmentPool.Earned, current.DevelopmentPool.Spent, current.DevelopmentPool.Reserved + reservedAmount);
+
+                AdvancementRecommendationId recommendationId = AdvancementRecommendationId.NewId(now);
+                createdRecord = new AdvancementRecommendationRecord(recommendationId, characterId, skillDefinitionId, targetLevel, reservedAmount, evidenceIds, AdvancementRecommendationStatus.Pending, 1, now);
+                InsertAdvancementRecommendation(connection, transaction, campaign.CampaignId, createdRecord, commandId);
+
+                var ledgerEntry = new DevelopmentTransactionRecord(
+                    DevelopmentTransactionId.NewId(now), characterId, DevelopmentTransactionKind.Reserve, reservedAmount, skillDefinitionId.ToString(), "Skill advancement recommendation reserved", actorUserId, campaign.Manifest.RulesetVersion, now, correlationId);
+
+                var payload = new JObject
+                {
+                    ["recommendationId"] = recommendationId.ToString(),
+                    ["skillDefinitionId"] = skillDefinitionId.ToString(),
+                    ["targetLevel"] = targetLevel,
+                    ["reservedAmount"] = reservedAmount,
+                    ["actorUserId"] = actorUserId.ToString(),
+                };
+
+                return Result<MechanicsMutation>.Success(new MechanicsMutation(
+                    newPool, current.Attributes, current.Skills, "odyssey.persistence.character_skill_advancement_recommendation_created", payload, new[] { ledgerEntry }));
+            });
+
+            if (mutated.IsFailure)
+            {
+                return Result<AdvancementRecommendationRecord>.Failure(mutated.Error);
+            }
+
+            if (createdRecord != null)
+            {
+                return Result<AdvancementRecommendationRecord>.Success(createdRecord);
+            }
+
+            // Duplicate CommandId: our own callback never ran (MutateMechanics
+            // replayed instead), so look up the already-created recommendation
+            // by CommandId directly -- ADR-024 section 6.1's own "a duplicate
+            // of this same CommandId returns the same Pending result and does
+            // not create a second reservation."
+            Result<AdvancementRecommendationRecord> replay = FindAdvancementRecommendationByCommandId(campaign, commandId, correlationId);
+            return replay;
+        }
+
+        public Result<CharacterRecord> ResolveAdvancementRecommendation(CampaignHandle campaign, CharacterId characterId, AdvancementRecommendationId recommendationId, bool approve, bool spendReservedPoints, UserId actorUserId, bool actorIsMainGm, long expectedMechanicsRevision, long expectedRecommendationRevision, CommandId commandId, CorrelationId correlationId)
+        {
+            if (!recommendationId.IsValid) throw new ArgumentException("RecommendationId is required.", nameof(recommendationId));
+            if (!actorUserId.IsValid) throw new ArgumentException("ActorUserId is required.", nameof(actorUserId));
+            if (expectedRecommendationRevision < 1) throw new ArgumentOutOfRangeException(nameof(expectedRecommendationRevision));
+
+            // Product section 14.3: "GM reviews... GM approves or dismisses" --
+            // MainGM-only, checked before touching the database at all.
+            if (!actorIsMainGm)
+            {
+                return Result<CharacterRecord>.Failure(PersistenceFailures.CharacterAdvancementResolutionDenied(correlationId));
+            }
+
+            return MutateMechanics(campaign, characterId, expectedMechanicsRevision, commandId, correlationId, (current, connection, transaction) =>
+            {
+                AdvancementRecommendationRecord? recommendation = SelectAdvancementRecommendationForUpdate(connection, transaction, characterId, recommendationId);
+                if (recommendation == null)
+                {
+                    return Result<MechanicsMutation>.Failure(PersistenceFailures.CharacterAdvancementRecommendationNotFound(correlationId));
+                }
+
+                if (recommendation.Revision != expectedRecommendationRevision)
+                {
+                    return Result<MechanicsMutation>.Failure(PersistenceFailures.CharacterRevisionConflict(correlationId));
+                }
+
+                if (recommendation.Status != AdvancementRecommendationStatus.Pending)
+                {
+                    return Result<MechanicsMutation>.Failure(PersistenceFailures.CharacterAdvancementRecommendationNotPending(correlationId));
+                }
+
+                UtcInstant now = _clock.GetUtcNow();
+                long newRecommendationRevision = recommendation.Revision + 1;
+
+                if (!approve)
+                {
+                    // ADR-024 section 6.1 branch 1 (Dismissed): the reserved
+                    // amount returns to Available; no skill change, evidence
+                    // stays unconsumed.
+                    var releasedPool = new DevelopmentPool(current.DevelopmentPool.Earned, current.DevelopmentPool.Spent, current.DevelopmentPool.Reserved - recommendation.ReservedAmount);
+                    UpdateAdvancementRecommendationStatus(connection, transaction, recommendationId, AdvancementRecommendationStatus.Dismissed, newRecommendationRevision, commandId);
+
+                    var releaseLedgerEntry = new DevelopmentTransactionRecord(
+                        DevelopmentTransactionId.NewId(now), characterId, DevelopmentTransactionKind.ReleaseReservation, recommendation.ReservedAmount, recommendation.SkillDefinitionId.ToString(), "Advancement recommendation dismissed", actorUserId, campaign.Manifest.RulesetVersion, now, correlationId);
+
+                    var dismissPayload = new JObject
+                    {
+                        ["recommendationId"] = recommendationId.ToString(),
+                        ["skillDefinitionId"] = recommendation.SkillDefinitionId.ToString(),
+                        ["outcome"] = "Dismissed",
+                        ["actorUserId"] = actorUserId.ToString(),
+                    };
+
+                    return Result<MechanicsMutation>.Success(new MechanicsMutation(
+                        releasedPool, current.Attributes, current.Skills, "odyssey.persistence.character_advancement_recommendation_resolved", dismissPayload, new[] { releaseLedgerEntry }));
+                }
+
+                // Approved (either branch): the skill level always applies
+                // and referenced evidence is always consumed -- only the
+                // pool movement (Spend vs. ReleaseReservation) differs,
+                // per ADR-024 section 6.1 branches 2/3.
+                CharacterSkill? existingSkill = null;
+                foreach (CharacterSkill candidate in current.Skills)
+                {
+                    if (candidate.SkillDefinitionId.Equals(recommendation.SkillDefinitionId)) { existingSkill = candidate; break; }
+                }
+
+                long newSkillRevision = (existingSkill?.Revision ?? 0) + 1;
+                long newSpentDevelopmentPoints = (existingSkill?.SpentDevelopmentPoints ?? 0) + (spendReservedPoints ? recommendation.ReservedAmount : 0);
+                var newSkill = new CharacterSkill(recommendation.SkillDefinitionId, recommendation.TargetLevel, existingSkill?.PermanentAdjustment ?? 0, newSpentDevelopmentPoints, newSkillRevision);
+
+                var newSkills = new List<CharacterSkill>(current.Skills.Count + 1);
+                bool replaced = false;
+                foreach (CharacterSkill candidate in current.Skills)
+                {
+                    if (candidate.SkillDefinitionId.Equals(recommendation.SkillDefinitionId))
+                    {
+                        newSkills.Add(newSkill);
+                        replaced = true;
+                    }
+                    else
+                    {
+                        newSkills.Add(candidate);
+                    }
+                }
+
+                if (!replaced) newSkills.Add(newSkill);
+
+                DevelopmentPool newPool = spendReservedPoints
+                    ? new DevelopmentPool(current.DevelopmentPool.Earned, current.DevelopmentPool.Spent + recommendation.ReservedAmount, current.DevelopmentPool.Reserved - recommendation.ReservedAmount)
+                    : new DevelopmentPool(current.DevelopmentPool.Earned, current.DevelopmentPool.Spent, current.DevelopmentPool.Reserved - recommendation.ReservedAmount);
+                DevelopmentTransactionKind ledgerKind = spendReservedPoints ? DevelopmentTransactionKind.Spend : DevelopmentTransactionKind.ReleaseReservation;
+
+                // ADR-024 section 7.1: validate every referenced evidence row
+                // is still unused before consuming any of them -- all-or-
+                // nothing, no partial consumption if one was already spent by
+                // a concurrently-committed resolution.
+                var evidenceRows = new List<CriticalSuccessEvidenceRecord>(recommendation.EvidenceIds.Count);
+                foreach (CriticalSuccessEvidenceId evidenceId in recommendation.EvidenceIds)
+                {
+                    CriticalSuccessEvidenceRecord? evidence = SelectEvidenceForUpdate(connection, transaction, evidenceId);
+                    if (evidence == null)
+                    {
+                        return Result<MechanicsMutation>.Failure(PersistenceFailures.CharacterCriticalEvidenceNotFound(correlationId));
+                    }
+
+                    if (evidence.UsedByAdvancementId.HasValue)
+                    {
+                        return Result<MechanicsMutation>.Failure(PersistenceFailures.CharacterRevisionConflict(correlationId));
+                    }
+
+                    evidenceRows.Add(evidence);
+                }
+
+                foreach (CriticalSuccessEvidenceRecord evidence in evidenceRows)
+                {
+                    MarkEvidenceUsed(connection, transaction, evidence.EvidenceId, recommendationId, evidence.Revision);
+                }
+
+                UpdateAdvancementRecommendationStatus(connection, transaction, recommendationId, AdvancementRecommendationStatus.Approved, newRecommendationRevision, commandId);
+
+                var approveLedgerEntry = new DevelopmentTransactionRecord(
+                    DevelopmentTransactionId.NewId(now), characterId, ledgerKind, recommendation.ReservedAmount, recommendation.SkillDefinitionId.ToString(), "Advancement recommendation approved", actorUserId, campaign.Manifest.RulesetVersion, now, correlationId);
+
+                var approvePayload = new JObject
+                {
+                    ["recommendationId"] = recommendationId.ToString(),
+                    ["skillDefinitionId"] = recommendation.SkillDefinitionId.ToString(),
+                    ["outcome"] = "Approved",
+                    ["spentReservedPoints"] = spendReservedPoints,
+                    ["newLevel"] = recommendation.TargetLevel,
+                    ["actorUserId"] = actorUserId.ToString(),
+                };
+
+                return Result<MechanicsMutation>.Success(new MechanicsMutation(
+                    newPool, current.Attributes, newSkills, "odyssey.persistence.character_skill_level_purchased", approvePayload, new[] { approveLedgerEntry }));
+            });
+        }
+
+        public Result<AdvancementRecommendationRecord> GetAdvancementRecommendation(CampaignHandle campaign, CharacterId characterId, AdvancementRecommendationId recommendationId, CorrelationId correlationId)
+        {
+            if (campaign == null) throw new ArgumentNullException(nameof(campaign));
+            if (!characterId.IsValid) throw new ArgumentException("CharacterId is required.", nameof(characterId));
+            if (!recommendationId.IsValid) throw new ArgumentException("RecommendationId is required.", nameof(recommendationId));
+
+            try
+            {
+                using SqliteConnection connection = OpenConnection(campaign.RootPath);
+                EnsureCharacterTables(connection);
+
+                using var select = connection.CreateCommand();
+                select.CommandText = "SELECT RecommendationId, CharacterId, SkillDefinitionId, TargetLevel, ReservedAmount, EvidenceIdsJson, Status, Revision, CreatedAt FROM AdvancementRecommendation WHERE CharacterId = $characterId AND RecommendationId = $recommendationId LIMIT 1;";
+                select.Parameters.AddWithValue("$characterId", characterId.ToString());
+                select.Parameters.AddWithValue("$recommendationId", recommendationId.ToString());
+                using SqliteDataReader reader = select.ExecuteReader();
+                if (!reader.Read())
+                {
+                    return Result<AdvancementRecommendationRecord>.Failure(PersistenceFailures.CharacterAdvancementRecommendationNotFound(correlationId));
+                }
+
+                return Result<AdvancementRecommendationRecord>.Success(ReadAdvancementRecommendationRecord(reader));
+            }
+            catch (Exception ex) when (ex is IOException || ex is UnauthorizedAccessException || ex is SqliteException)
+            {
+                return Result<AdvancementRecommendationRecord>.Failure(PersistenceFailures.CharacterIoFailed(correlationId));
+            }
+        }
+
+        private Result<AdvancementRecommendationRecord> FindAdvancementRecommendationByCommandId(CampaignHandle campaign, CommandId commandId, CorrelationId correlationId)
+        {
+            try
+            {
+                using SqliteConnection connection = OpenConnection(campaign.RootPath);
+                EnsureCharacterTables(connection);
+
+                using var select = connection.CreateCommand();
+                select.CommandText = "SELECT RecommendationId, CharacterId, SkillDefinitionId, TargetLevel, ReservedAmount, EvidenceIdsJson, Status, Revision, CreatedAt FROM AdvancementRecommendation WHERE CommandId = $commandId LIMIT 1;";
+                select.Parameters.AddWithValue("$commandId", commandId.ToString());
+                using SqliteDataReader reader = select.ExecuteReader();
+                if (!reader.Read())
+                {
+                    return Result<AdvancementRecommendationRecord>.Failure(PersistenceFailures.CommandReplayFailed(correlationId));
+                }
+
+                return Result<AdvancementRecommendationRecord>.Success(ReadAdvancementRecommendationRecord(reader));
+            }
+            catch (Exception ex) when (ex is IOException || ex is UnauthorizedAccessException || ex is SqliteException)
+            {
+                return Result<AdvancementRecommendationRecord>.Failure(PersistenceFailures.CharacterIoFailed(correlationId));
+            }
+        }
+
+        private static AdvancementRecommendationRecord? SelectAdvancementRecommendationForUpdate(SqliteConnection connection, SqliteTransaction transaction, CharacterId characterId, AdvancementRecommendationId recommendationId)
+        {
+            using var select = connection.CreateCommand();
+            select.Transaction = transaction;
+            select.CommandText = "SELECT RecommendationId, CharacterId, SkillDefinitionId, TargetLevel, ReservedAmount, EvidenceIdsJson, Status, Revision, CreatedAt FROM AdvancementRecommendation WHERE CharacterId = $characterId AND RecommendationId = $recommendationId LIMIT 1;";
+            select.Parameters.AddWithValue("$characterId", characterId.ToString());
+            select.Parameters.AddWithValue("$recommendationId", recommendationId.ToString());
+            using SqliteDataReader reader = select.ExecuteReader();
+            return reader.Read() ? ReadAdvancementRecommendationRecord(reader) : null;
+        }
+
+        private static AdvancementRecommendationRecord ReadAdvancementRecommendationRecord(SqliteDataReader reader)
+        {
+            AdvancementRecommendationId recommendationId = AdvancementRecommendationId.Parse(reader.GetString(0));
+            CharacterId characterId = CharacterId.Parse(reader.GetString(1));
+            SkillDefinitionId skillDefinitionId = SkillDefinitionId.Parse(reader.GetString(2));
+            long targetLevel = reader.GetInt64(3);
+            long reservedAmount = reader.GetInt64(4);
+            IReadOnlyList<CriticalSuccessEvidenceId> evidenceIds = DeserializeEvidenceIds(reader.GetString(5));
+            var status = (AdvancementRecommendationStatus)Enum.Parse(typeof(AdvancementRecommendationStatus), reader.GetString(6));
+            long revision = reader.GetInt64(7);
+            UtcInstant createdAt = UtcInstant.Parse(reader.GetString(8));
+            return new AdvancementRecommendationRecord(recommendationId, characterId, skillDefinitionId, targetLevel, reservedAmount, evidenceIds, status, revision, createdAt);
+        }
+
+        private static void InsertAdvancementRecommendation(SqliteConnection connection, SqliteTransaction transaction, CampaignId campaignId, AdvancementRecommendationRecord record, CommandId commandId)
+        {
+            using var insert = connection.CreateCommand();
+            insert.Transaction = transaction;
+            insert.CommandText = "INSERT INTO AdvancementRecommendation (RecommendationId, CampaignId, CharacterId, SkillDefinitionId, TargetLevel, ReservedAmount, EvidenceIdsJson, Status, Revision, CreatedAt, CommandId) VALUES ($recommendationId, $campaignId, $characterId, $skillDefinitionId, $targetLevel, $reservedAmount, $evidenceIdsJson, $status, $revision, $createdAt, $commandId);";
+            insert.Parameters.AddWithValue("$recommendationId", record.RecommendationId.ToString());
+            insert.Parameters.AddWithValue("$campaignId", campaignId.ToString());
+            insert.Parameters.AddWithValue("$characterId", record.CharacterId.ToString());
+            insert.Parameters.AddWithValue("$skillDefinitionId", record.SkillDefinitionId.ToString());
+            insert.Parameters.AddWithValue("$targetLevel", record.TargetLevel);
+            insert.Parameters.AddWithValue("$reservedAmount", record.ReservedAmount);
+            insert.Parameters.AddWithValue("$evidenceIdsJson", SerializeEvidenceIds(record.EvidenceIds));
+            insert.Parameters.AddWithValue("$status", record.Status.ToString());
+            insert.Parameters.AddWithValue("$revision", record.Revision);
+            insert.Parameters.AddWithValue("$createdAt", record.CreatedAt.ToString());
+            insert.Parameters.AddWithValue("$commandId", commandId.ToString());
+            insert.ExecuteNonQuery();
+        }
+
+        private static void UpdateAdvancementRecommendationStatus(SqliteConnection connection, SqliteTransaction transaction, AdvancementRecommendationId recommendationId, AdvancementRecommendationStatus newStatus, long newRevision, CommandId commandId)
+        {
+            using var update = connection.CreateCommand();
+            update.Transaction = transaction;
+            update.CommandText = "UPDATE AdvancementRecommendation SET Status = $status, Revision = $revision, CommandId = $commandId WHERE RecommendationId = $recommendationId;";
+            update.Parameters.AddWithValue("$status", newStatus.ToString());
+            update.Parameters.AddWithValue("$revision", newRevision);
+            update.Parameters.AddWithValue("$commandId", commandId.ToString());
+            update.Parameters.AddWithValue("$recommendationId", recommendationId.ToString());
+            update.ExecuteNonQuery();
+        }
+
+        private static string SerializeEvidenceIds(IReadOnlyList<CriticalSuccessEvidenceId> evidenceIds)
+        {
+            var array = new JArray();
+            foreach (CriticalSuccessEvidenceId evidenceId in evidenceIds)
+            {
+                array.Add(evidenceId.ToString());
+            }
+
+            return array.ToString(Newtonsoft.Json.Formatting.None);
+        }
+
+        private static IReadOnlyList<CriticalSuccessEvidenceId> DeserializeEvidenceIds(string json)
+        {
+            var array = (JArray)ParseJsonPreservingStrings(json);
+            var list = new List<CriticalSuccessEvidenceId>(array.Count);
+            foreach (JToken item in array)
+            {
+                list.Add(CriticalSuccessEvidenceId.Parse((string)item!));
+            }
+
+            return list;
+        }
+
+        private static CriticalSuccessEvidenceRecord? SelectEvidenceForUpdate(SqliteConnection connection, SqliteTransaction transaction, CriticalSuccessEvidenceId evidenceId)
+        {
+            using var select = connection.CreateCommand();
+            select.Transaction = transaction;
+            select.CommandText = "SELECT EvidenceId, CharacterId, SkillDefinitionId, SourceDiceRollId, SourceActionId, OccurredAt, RulesetVersion, UsedByAdvancementId, Revision FROM CriticalSuccessEvidence WHERE EvidenceId = $evidenceId LIMIT 1;";
+            select.Parameters.AddWithValue("$evidenceId", evidenceId.ToString());
+            using SqliteDataReader reader = select.ExecuteReader();
+            return reader.Read() ? ReadCriticalSuccessEvidenceRecord(reader) : null;
+        }
+
+        private static void MarkEvidenceUsed(SqliteConnection connection, SqliteTransaction transaction, CriticalSuccessEvidenceId evidenceId, AdvancementRecommendationId advancementId, long expectedRevision)
+        {
+            using var update = connection.CreateCommand();
+            update.Transaction = transaction;
+            // ADR-024 section 7.1: guarded by the evidence row's own revision
+            // -- the WHERE clause's own Revision check is this method's real
+            // protection against a race the caller's earlier read might have
+            // missed; RowsAffected == 0 would mean it was already consumed
+            // between this transaction's own read and write, which cannot
+            // happen here since SQLite serializes writers and both the read
+            // and this write share the same transaction.
+            update.CommandText = "UPDATE CriticalSuccessEvidence SET UsedByAdvancementId = $advancementId, Revision = Revision + 1 WHERE EvidenceId = $evidenceId AND Revision = $expectedRevision;";
+            update.Parameters.AddWithValue("$advancementId", advancementId.ToString());
+            update.Parameters.AddWithValue("$evidenceId", evidenceId.ToString());
+            update.Parameters.AddWithValue("$expectedRevision", expectedRevision);
+            update.ExecuteNonQuery();
+        }
+
+        private static CriticalSuccessEvidenceRecord ReadCriticalSuccessEvidenceRecord(SqliteDataReader reader)
+        {
+            CriticalSuccessEvidenceId evidenceId = CriticalSuccessEvidenceId.Parse(reader.GetString(0));
+            CharacterId characterId = CharacterId.Parse(reader.GetString(1));
+            SkillDefinitionId skillDefinitionId = SkillDefinitionId.Parse(reader.GetString(2));
+            string? sourceDiceRollId = reader.IsDBNull(3) ? null : reader.GetString(3);
+            string? sourceActionId = reader.IsDBNull(4) ? null : reader.GetString(4);
+            UtcInstant occurredAt = UtcInstant.Parse(reader.GetString(5));
+            string rulesetVersion = reader.GetString(6);
+            AdvancementRecommendationId? usedByAdvancementId = reader.IsDBNull(7) ? (AdvancementRecommendationId?)null : AdvancementRecommendationId.Parse(reader.GetString(7));
+            long revision = reader.GetInt64(8);
+            return new CriticalSuccessEvidenceRecord(evidenceId, characterId, skillDefinitionId, sourceDiceRollId, sourceActionId, occurredAt, rulesetVersion, usedByAdvancementId, revision);
+        }
+
+        private static Result<CriticalSuccessEvidenceRecord> ReplayEvidence(SqliteConnection connection, SqliteTransaction transaction, CommandId commandId, CorrelationId correlationId)
+        {
+            using var select = connection.CreateCommand();
+            select.Transaction = transaction;
+            select.CommandText = "SELECT EvidenceId, CharacterId, SkillDefinitionId, SourceDiceRollId, SourceActionId, OccurredAt, RulesetVersion, UsedByAdvancementId, Revision FROM CriticalSuccessEvidence WHERE CommandId = $commandId LIMIT 1;";
+            select.Parameters.AddWithValue("$commandId", commandId.ToString());
+            using SqliteDataReader reader = select.ExecuteReader();
+            if (!reader.Read())
+            {
+                return Result<CriticalSuccessEvidenceRecord>.Failure(PersistenceFailures.CommandReplayFailed(correlationId));
+            }
+
+            return Result<CriticalSuccessEvidenceRecord>.Success(ReadCriticalSuccessEvidenceRecord(reader));
         }
 
         private static DevelopmentTransactionRecord ReadDevelopmentTransactionRecord(SqliteDataReader reader)
@@ -786,7 +1386,7 @@ namespace Odyssey.Persistence.Sqlite
             long expectedMechanicsRevision,
             CommandId commandId,
             CorrelationId correlationId,
-            Func<CharacterRecord, Result<MechanicsMutation>> mutate)
+            Func<CharacterRecord, SqliteConnection, SqliteTransaction, Result<MechanicsMutation>> mutate)
         {
             if (campaign == null) throw new ArgumentNullException(nameof(campaign));
             if (!characterId.IsValid) throw new ArgumentException("CharacterId is required.", nameof(characterId));
@@ -817,7 +1417,7 @@ namespace Odyssey.Persistence.Sqlite
                             return Result<PipelineWrite<CharacterRecord>>.Failure(PersistenceFailures.CharacterRevisionConflict(correlationId));
                         }
 
-                        Result<MechanicsMutation> mutationResult = mutate(current);
+                        Result<MechanicsMutation> mutationResult = mutate(current, connection, transaction);
                         if (mutationResult.IsFailure)
                         {
                             return Result<PipelineWrite<CharacterRecord>>.Failure(mutationResult.Error);
@@ -831,11 +1431,12 @@ namespace Odyssey.Persistence.Sqlite
                         using (var update = connection.CreateCommand())
                         {
                             update.Transaction = transaction;
-                            update.CommandText = "UPDATE Character SET PoolEarned = $poolEarned, PoolSpent = $poolSpent, PoolReserved = $poolReserved, AttributesJson = $attributesJson, MechanicsRevision = $mechanicsRevision, CharacterRevision = $characterRevision, UpdatedAt = $updatedAt, LastCommandId = $lastCommandId WHERE CharacterId = $characterId;";
+                            update.CommandText = "UPDATE Character SET PoolEarned = $poolEarned, PoolSpent = $poolSpent, PoolReserved = $poolReserved, AttributesJson = $attributesJson, SkillsJson = $skillsJson, MechanicsRevision = $mechanicsRevision, CharacterRevision = $characterRevision, UpdatedAt = $updatedAt, LastCommandId = $lastCommandId WHERE CharacterId = $characterId;";
                             update.Parameters.AddWithValue("$poolEarned", mutation.NewPool.Earned);
                             update.Parameters.AddWithValue("$poolSpent", mutation.NewPool.Spent);
                             update.Parameters.AddWithValue("$poolReserved", mutation.NewPool.Reserved);
                             update.Parameters.AddWithValue("$attributesJson", SerializeAttributes(mutation.NewAttributes));
+                            update.Parameters.AddWithValue("$skillsJson", SerializeSkills(mutation.NewSkills));
                             update.Parameters.AddWithValue("$mechanicsRevision", newMechanicsRevision);
                             update.Parameters.AddWithValue("$characterRevision", newCharacterRevision);
                             update.Parameters.AddWithValue("$updatedAt", now.ToString());
@@ -850,7 +1451,7 @@ namespace Odyssey.Persistence.Sqlite
                         }
 
                         CharacterSectionRevisions newRevisions = WithRevisions(current.Revisions, characterRevision: newCharacterRevision, mechanicsRevision: newMechanicsRevision);
-                        var record = new CharacterRecord(characterId, campaign.CampaignId, current.CharacterKind, current.LifecycleStatus, current.ApprovalState, current.DisplayName, current.PortraitReference, current.Ownership, newRevisions, current.RulesetVersion, current.AnatomyProfileRef, current.TemplateId, current.TemplateVersionAtCopyTime, current.SeedCopy, current.SubmittedAt, mutation.NewPool, mutation.NewAttributes, current.CreatedAt, now);
+                        var record = new CharacterRecord(characterId, campaign.CampaignId, current.CharacterKind, current.LifecycleStatus, current.ApprovalState, current.DisplayName, current.PortraitReference, current.Ownership, newRevisions, current.RulesetVersion, current.AnatomyProfileRef, current.TemplateId, current.TemplateVersionAtCopyTime, current.SeedCopy, current.SubmittedAt, mutation.NewPool, mutation.NewAttributes, mutation.NewSkills, current.CreatedAt, now);
 
                         mutation.PayloadExtra["characterId"] = characterId.ToString();
                         mutation.PayloadExtra["displayNameSnapshot"] = current.DisplayName;
@@ -868,13 +1469,24 @@ namespace Odyssey.Persistence.Sqlite
             }
         }
 
-        /// <summary>ODY-S04-105: the pure business-logic result <see cref="MutateMechanics"/>'s caller-supplied callback returns -- the new pool/attribute state, the event to emit, and the ledger row(s) to co-commit.</summary>
+        /// <summary>
+        /// ODY-S04-105/106: the pure business-logic result
+        /// <see cref="MutateMechanics"/>'s caller-supplied callback returns --
+        /// the new pool/attribute/skill state, the event to emit, and the
+        /// ledger row(s) to co-commit. ODY-S04-106's callback additionally
+        /// receives the live <see cref="SqliteConnection"/>/<see cref="SqliteTransaction"/>
+        /// so it can read/write sibling tables (<c>AdvancementRecommendation</c>,
+        /// <c>CriticalSuccessEvidence</c>) inside the exact same transaction,
+        /// rather than this class growing a special-cased side-effect slot
+        /// for that one caller.
+        /// </summary>
         private sealed class MechanicsMutation
         {
-            public MechanicsMutation(DevelopmentPool newPool, IReadOnlyList<AttributeValue> newAttributes, string eventType, JObject payloadExtra, IReadOnlyList<DevelopmentTransactionRecord> ledgerEntries)
+            public MechanicsMutation(DevelopmentPool newPool, IReadOnlyList<AttributeValue> newAttributes, IReadOnlyList<CharacterSkill> newSkills, string eventType, JObject payloadExtra, IReadOnlyList<DevelopmentTransactionRecord> ledgerEntries)
             {
                 NewPool = newPool;
                 NewAttributes = newAttributes;
+                NewSkills = newSkills;
                 EventType = eventType;
                 PayloadExtra = payloadExtra;
                 LedgerEntries = ledgerEntries;
@@ -882,6 +1494,7 @@ namespace Odyssey.Persistence.Sqlite
 
             public DevelopmentPool NewPool { get; }
             public IReadOnlyList<AttributeValue> NewAttributes { get; }
+            public IReadOnlyList<CharacterSkill> NewSkills { get; }
             public string EventType { get; }
             public JObject PayloadExtra { get; }
             public IReadOnlyList<DevelopmentTransactionRecord> LedgerEntries { get; }
@@ -991,7 +1604,7 @@ namespace Odyssey.Persistence.Sqlite
                         }
 
                         CharacterSectionRevisions newRevisions = WithRevisions(current.Revisions, characterRevision: newCharacterRevision, identityRevision: newIdentityRevision);
-                        var record = new CharacterRecord(characterId, campaign.CampaignId, current.CharacterKind, current.LifecycleStatus, current.ApprovalState, newDisplayName, current.PortraitReference, current.Ownership, newRevisions, current.RulesetVersion, current.AnatomyProfileRef, current.TemplateId, current.TemplateVersionAtCopyTime, current.SeedCopy, current.SubmittedAt, current.DevelopmentPool, current.Attributes, current.CreatedAt, now);
+                        var record = new CharacterRecord(characterId, campaign.CampaignId, current.CharacterKind, current.LifecycleStatus, current.ApprovalState, newDisplayName, current.PortraitReference, current.Ownership, newRevisions, current.RulesetVersion, current.AnatomyProfileRef, current.TemplateId, current.TemplateVersionAtCopyTime, current.SeedCopy, current.SubmittedAt, current.DevelopmentPool, current.Attributes, current.Skills, current.CreatedAt, now);
 
                         var payload = new JObject
                         {
@@ -1064,7 +1677,7 @@ namespace Odyssey.Persistence.Sqlite
                         }
 
                         CharacterSectionRevisions newRevisions = WithRevisions(current.Revisions, characterRevision: newCharacterRevision, presentationRevision: newPresentationRevision);
-                        var record = new CharacterRecord(characterId, campaign.CampaignId, current.CharacterKind, current.LifecycleStatus, current.ApprovalState, current.DisplayName, portraitReference, current.Ownership, newRevisions, current.RulesetVersion, current.AnatomyProfileRef, current.TemplateId, current.TemplateVersionAtCopyTime, current.SeedCopy, current.SubmittedAt, current.DevelopmentPool, current.Attributes, current.CreatedAt, now);
+                        var record = new CharacterRecord(characterId, campaign.CampaignId, current.CharacterKind, current.LifecycleStatus, current.ApprovalState, current.DisplayName, portraitReference, current.Ownership, newRevisions, current.RulesetVersion, current.AnatomyProfileRef, current.TemplateId, current.TemplateVersionAtCopyTime, current.SeedCopy, current.SubmittedAt, current.DevelopmentPool, current.Attributes, current.Skills, current.CreatedAt, now);
 
                         var payload = new JObject
                         {
@@ -1157,7 +1770,7 @@ namespace Odyssey.Persistence.Sqlite
                         }
 
                         CharacterSectionRevisions newRevisions = WithRevisions(current.Revisions, characterRevision: newCharacterRevision, ownershipRevision: newOwnershipRevision);
-                        var record = new CharacterRecord(characterId, campaign.CampaignId, current.CharacterKind, current.LifecycleStatus, current.ApprovalState, current.DisplayName, current.PortraitReference, newOwnership, newRevisions, current.RulesetVersion, current.AnatomyProfileRef, current.TemplateId, current.TemplateVersionAtCopyTime, current.SeedCopy, current.SubmittedAt, current.DevelopmentPool, current.Attributes, current.CreatedAt, now);
+                        var record = new CharacterRecord(characterId, campaign.CampaignId, current.CharacterKind, current.LifecycleStatus, current.ApprovalState, current.DisplayName, current.PortraitReference, newOwnership, newRevisions, current.RulesetVersion, current.AnatomyProfileRef, current.TemplateId, current.TemplateVersionAtCopyTime, current.SeedCopy, current.SubmittedAt, current.DevelopmentPool, current.Attributes, current.Skills, current.CreatedAt, now);
 
                         var payload = new JObject
                         {
@@ -1366,7 +1979,7 @@ namespace Odyssey.Persistence.Sqlite
                         }
 
                         CharacterSectionRevisions newRevisions = WithRevisions(current.Revisions, characterRevision: newCharacterRevision, ownershipRevision: newOwnershipRevision);
-                        var record = new CharacterRecord(characterId, campaign.CampaignId, current.CharacterKind, current.LifecycleStatus, current.ApprovalState, current.DisplayName, current.PortraitReference, newOwnership, newRevisions, current.RulesetVersion, current.AnatomyProfileRef, current.TemplateId, current.TemplateVersionAtCopyTime, current.SeedCopy, current.SubmittedAt, current.DevelopmentPool, current.Attributes, current.CreatedAt, now);
+                        var record = new CharacterRecord(characterId, campaign.CampaignId, current.CharacterKind, current.LifecycleStatus, current.ApprovalState, current.DisplayName, current.PortraitReference, newOwnership, newRevisions, current.RulesetVersion, current.AnatomyProfileRef, current.TemplateId, current.TemplateVersionAtCopyTime, current.SeedCopy, current.SubmittedAt, current.DevelopmentPool, current.Attributes, current.Skills, current.CreatedAt, now);
 
                         payloadExtra["characterId"] = characterId.ToString();
                         payloadExtra["displayNameSnapshot"] = current.DisplayName;
@@ -1491,7 +2104,7 @@ namespace Odyssey.Persistence.Sqlite
             "AttributeValuesRevision, CharacterSkillsRevision, CharacterAbilitiesRevision, CharacterResourcesRevision, " +
             "CharacterAnatomyRevision, OwnershipRevision, LifecycleRevision, RuntimeStateRevision, " +
             "RulesetVersion, AnatomyProfileRef, TemplateId, TemplateVersionAtCopyTime, SeedCopyJson, SubmittedAt, " +
-            "PoolEarned, PoolSpent, PoolReserved, AttributesJson, CreatedAt, UpdatedAt";
+            "PoolEarned, PoolSpent, PoolReserved, AttributesJson, SkillsJson, CreatedAt, UpdatedAt";
 
         /// <summary>
         /// ODY-S04-101/102: shared column-order contract for every SELECT
@@ -1537,10 +2150,11 @@ namespace Odyssey.Persistence.Sqlite
             UtcInstant? submittedAt = reader.IsDBNull(29) ? (UtcInstant?)null : UtcInstant.Parse(reader.GetString(29));
             var developmentPool = new DevelopmentPool(reader.GetInt64(30), reader.GetInt64(31), reader.GetInt64(32));
             IReadOnlyList<AttributeValue> attributes = DeserializeAttributes(reader.GetString(33));
-            UtcInstant createdAt = UtcInstant.Parse(reader.GetString(34));
-            UtcInstant updatedAt = UtcInstant.Parse(reader.GetString(35));
+            IReadOnlyList<CharacterSkill> skills = DeserializeSkills(reader.GetString(34));
+            UtcInstant createdAt = UtcInstant.Parse(reader.GetString(35));
+            UtcInstant updatedAt = UtcInstant.Parse(reader.GetString(36));
 
-            return new CharacterRecord(characterId, campaignId, characterKind, lifecycleStatus, approvalState, displayName, portraitReference, ownership, revisions, rulesetVersion, anatomyProfileRef, templateId, templateVersionAtCopyTime, seedCopy, submittedAt, developmentPool, attributes, createdAt, updatedAt);
+            return new CharacterRecord(characterId, campaignId, characterKind, lifecycleStatus, approvalState, displayName, portraitReference, ownership, revisions, rulesetVersion, anatomyProfileRef, templateId, templateVersionAtCopyTime, seedCopy, submittedAt, developmentPool, attributes, skills, createdAt, updatedAt);
         }
 
         private static void AddRevisionParameters(SqliteCommand command, CharacterSectionRevisions revisions)
@@ -1589,6 +2203,41 @@ namespace Odyssey.Persistence.Sqlite
                 ownershipRevision ?? source.OwnershipRevision,
                 lifecycleRevision ?? source.LifecycleRevision,
                 source.RuntimeStateRevision);
+
+        private static string SerializeSkills(IReadOnlyList<CharacterSkill> skills)
+        {
+            var array = new JArray();
+            foreach (CharacterSkill skill in skills)
+            {
+                array.Add(new JObject
+                {
+                    ["skillDefinitionId"] = skill.SkillDefinitionId.ToString(),
+                    ["level"] = skill.Level,
+                    ["permanentAdjustment"] = skill.PermanentAdjustment,
+                    ["spentDevelopmentPoints"] = skill.SpentDevelopmentPoints,
+                    ["revision"] = skill.Revision,
+                });
+            }
+
+            return array.ToString(Newtonsoft.Json.Formatting.None);
+        }
+
+        private static IReadOnlyList<CharacterSkill> DeserializeSkills(string json)
+        {
+            var array = (JArray)ParseJsonPreservingStrings(json);
+            var list = new List<CharacterSkill>(array.Count);
+            foreach (JToken token in array)
+            {
+                SkillDefinitionId skillDefinitionId = SkillDefinitionId.Parse((string)token["skillDefinitionId"]!);
+                long level = (long)token["level"]!;
+                long permanentAdjustment = (long)token["permanentAdjustment"]!;
+                long spentDevelopmentPoints = (long)token["spentDevelopmentPoints"]!;
+                long revision = (long)token["revision"]!;
+                list.Add(new CharacterSkill(skillDefinitionId, level, permanentAdjustment, spentDevelopmentPoints, revision));
+            }
+
+            return list;
+        }
 
         private static string SerializeAttributes(IReadOnlyList<AttributeValue> attributes)
         {
@@ -1758,6 +2407,7 @@ CREATE TABLE IF NOT EXISTS Character (
     PoolSpent INTEGER NOT NULL DEFAULT 0,
     PoolReserved INTEGER NOT NULL DEFAULT 0,
     AttributesJson TEXT NOT NULL DEFAULT '[]',
+    SkillsJson TEXT NOT NULL DEFAULT '[]',
     CreatedAt TEXT NOT NULL,
     UpdatedAt TEXT NOT NULL,
     LastCommandId TEXT NOT NULL
@@ -1780,6 +2430,40 @@ CREATE TABLE IF NOT EXISTS DevelopmentTransaction (
     CorrelationId TEXT NOT NULL
 );";
             developmentTransactionTable.ExecuteNonQuery();
+
+            using var criticalEvidenceTable = connection.CreateCommand();
+            criticalEvidenceTable.CommandText = @"
+CREATE TABLE IF NOT EXISTS CriticalSuccessEvidence (
+    EvidenceId TEXT PRIMARY KEY,
+    CampaignId TEXT NOT NULL,
+    CharacterId TEXT NOT NULL,
+    SkillDefinitionId TEXT NOT NULL,
+    SourceDiceRollId TEXT,
+    SourceActionId TEXT,
+    OccurredAt TEXT NOT NULL,
+    RulesetVersion TEXT NOT NULL,
+    UsedByAdvancementId TEXT,
+    Revision INTEGER NOT NULL,
+    CommandId TEXT NOT NULL
+);";
+            criticalEvidenceTable.ExecuteNonQuery();
+
+            using var recommendationTable = connection.CreateCommand();
+            recommendationTable.CommandText = @"
+CREATE TABLE IF NOT EXISTS AdvancementRecommendation (
+    RecommendationId TEXT PRIMARY KEY,
+    CampaignId TEXT NOT NULL,
+    CharacterId TEXT NOT NULL,
+    SkillDefinitionId TEXT NOT NULL,
+    TargetLevel INTEGER NOT NULL,
+    ReservedAmount INTEGER NOT NULL,
+    EvidenceIdsJson TEXT NOT NULL DEFAULT '[]',
+    Status TEXT NOT NULL,
+    Revision INTEGER NOT NULL,
+    CreatedAt TEXT NOT NULL,
+    CommandId TEXT NOT NULL
+);";
+            recommendationTable.ExecuteNonQuery();
 
             using var reviewCommentTable = connection.CreateCommand();
             reviewCommentTable.CommandText = @"

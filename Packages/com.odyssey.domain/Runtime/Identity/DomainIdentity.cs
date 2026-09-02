@@ -251,6 +251,56 @@ namespace Odyssey.Domain.Identity
     }
 
     /// <summary>
+    /// ODY-S04-106: identifies one <c>CriticalSuccessEvidence</c> row
+    /// (ADR-024 section 3.5, product section 14.4). Immutable once created --
+    /// history is never stripped, only <c>UsedByAdvancementId</c> is set
+    /// exactly once (ADR-024 section 7.1).
+    /// </summary>
+    public readonly struct CriticalSuccessEvidenceId : IEquatable<CriticalSuccessEvidenceId>
+    {
+        private const string Prefix = "evid_";
+        private const int HexLength = 32;
+        private readonly string _value;
+
+        private CriticalSuccessEvidenceId(string value) => _value = value;
+        public bool IsValid => _value != null;
+        public static CriticalSuccessEvidenceId NewId(Odyssey.Domain.Time.UtcInstant now) => new CriticalSuccessEvidenceId(Prefix + Uuid7.NewHex32(now));
+        public static bool TryParse(string? value, out CriticalSuccessEvidenceId id) => CanonicalId.TryParse(value, Prefix, HexLength, out id, static v => new CriticalSuccessEvidenceId(v));
+        public static CriticalSuccessEvidenceId Parse(string value) => TryParse(value, out CriticalSuccessEvidenceId id) ? id : throw new FormatException("CriticalSuccessEvidenceId is not canonical.");
+        public override string ToString() => _value ?? string.Empty;
+        public bool Equals(CriticalSuccessEvidenceId other) => string.Equals(_value, other._value, StringComparison.Ordinal);
+        public override bool Equals(object? obj) => obj is CriticalSuccessEvidenceId other && Equals(other);
+        public override int GetHashCode() => _value == null ? 0 : StringComparer.Ordinal.GetHashCode(_value);
+        public static bool operator ==(CriticalSuccessEvidenceId left, CriticalSuccessEvidenceId right) => left.Equals(right);
+        public static bool operator !=(CriticalSuccessEvidenceId left, CriticalSuccessEvidenceId right) => !left.Equals(right);
+    }
+
+    /// <summary>
+    /// ODY-S04-106: identifies one <c>AdvancementRecommendation</c> -- the
+    /// durable pending record for a skill-5+ advancement (ADR-024 section
+    /// 3.4, product section 14.3), analogous to ADR-002 section 20's generic
+    /// <c>PendingInteraction</c> but using this domain's own named events.
+    /// </summary>
+    public readonly struct AdvancementRecommendationId : IEquatable<AdvancementRecommendationId>
+    {
+        private const string Prefix = "advrec_";
+        private const int HexLength = 32;
+        private readonly string _value;
+
+        private AdvancementRecommendationId(string value) => _value = value;
+        public bool IsValid => _value != null;
+        public static AdvancementRecommendationId NewId(Odyssey.Domain.Time.UtcInstant now) => new AdvancementRecommendationId(Prefix + Uuid7.NewHex32(now));
+        public static bool TryParse(string? value, out AdvancementRecommendationId id) => CanonicalId.TryParse(value, Prefix, HexLength, out id, static v => new AdvancementRecommendationId(v));
+        public static AdvancementRecommendationId Parse(string value) => TryParse(value, out AdvancementRecommendationId id) ? id : throw new FormatException("AdvancementRecommendationId is not canonical.");
+        public override string ToString() => _value ?? string.Empty;
+        public bool Equals(AdvancementRecommendationId other) => string.Equals(_value, other._value, StringComparison.Ordinal);
+        public override bool Equals(object? obj) => obj is AdvancementRecommendationId other && Equals(other);
+        public override int GetHashCode() => _value == null ? 0 : StringComparer.Ordinal.GetHashCode(_value);
+        public static bool operator ==(AdvancementRecommendationId left, AdvancementRecommendationId right) => left.Equals(right);
+        public static bool operator !=(AdvancementRecommendationId left, AdvancementRecommendationId right) => !left.Equals(right);
+    }
+
+    /// <summary>
     /// ODY-S01-008 minimal domain model. Full Scene aggregate fields (BoardId,
     /// LayerDefinitions, FogSettings, PermissionOverrides, etc. per
     /// 03_Domain_Model section 10.1) are not implemented by this identifier or the

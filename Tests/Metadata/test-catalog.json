@@ -2415,6 +2415,78 @@
                           "runner":  "dotnet test",
                           "path":  "DotNet/Tests/Odyssey.Tests.Persistence/CharacterDevelopmentPoolAttributePurchaseTests.cs",
                           "check":  "A stale expectedAttributeRevision (the entry-level gate, independent of MechanicsRevision) rejects a second purchase against the same attribute with CharacterRevisionConflict"
+                      },
+                      {
+                          "testCaseId":  "TC-CHAR-050",
+                          "taskId":  "ODY-S04-106",
+                          "authority":  "product section 14; ODY-S04-106",
+                          "runner":  "dotnet test",
+                          "path":  "DotNet/Tests/Odyssey.Tests.Persistence/CharacterSkillPurchaseCriticalEvidenceTests.cs",
+                          "check":  "PurchaseSkillLevel for a skill the Character does not yet possess creates a CharacterSkill starting from level 1 (no row exists for an unpossessed skill beforehand)"
+                      },
+                      {
+                          "testCaseId":  "TC-CHAR-051",
+                          "taskId":  "ODY-S04-106",
+                          "authority":  "ADR-024 section 5.1; product section 14.2; ODY-S04-106",
+                          "runner":  "dotnet test",
+                          "path":  "DotNet/Tests/Odyssey.Tests.Persistence/CharacterSkillPurchaseCriticalEvidenceTests.cs",
+                          "check":  "PurchaseSkillLevel with sufficient balance succeeds; balance decreases by the fixture cost"
+                      },
+                      {
+                          "testCaseId":  "TC-CHAR-052",
+                          "taskId":  "ODY-S04-106",
+                          "authority":  "ADR-024 section 5.1 step 2; ODY-S04-106",
+                          "runner":  "dotnet test",
+                          "path":  "DotNet/Tests/Odyssey.Tests.Persistence/CharacterSkillPurchaseCriticalEvidenceTests.cs",
+                          "check":  "PurchaseSkillLevel with insufficient balance is rejected with CharacterDevelopmentInsufficientBalance; no CharacterSkill row is created and DevelopmentPool.Spent stays 0"
+                      },
+                      {
+                          "testCaseId":  "TC-CHAR-053",
+                          "taskId":  "ODY-S04-106",
+                          "authority":  "product section 14.3; ADR-024 section 6.1 step 1; ODY-S04-106",
+                          "runner":  "dotnet test",
+                          "path":  "DotNet/Tests/Odyssey.Tests.Persistence/CharacterSkillPurchaseCriticalEvidenceTests.cs",
+                          "check":  "PurchaseSkillLevel above the ordinary-purchase ceiling (level 5+) is rejected with CharacterSkillLevelRequiresRecommendation; RequestSkillAdvancedRecommendation reserves exactly the fixture cost -- Available decreases, Reserved increases, Spent stays 0"
+                      },
+                      {
+                          "testCaseId":  "TC-CHAR-054",
+                          "taskId":  "ODY-S04-106",
+                          "authority":  "ADR-024 section 6.1 step 2 branch 2; ADR-024 section 7.1; ODY-S04-106",
+                          "runner":  "dotnet test",
+                          "path":  "DotNet/Tests/Odyssey.Tests.Persistence/CharacterSkillPurchaseCriticalEvidenceTests.cs",
+                          "check":  "ResolveAdvancementRecommendation (approved, spend) converts Reserved directly to Spent in one transaction, applies the target skill level, sets CriticalSuccessEvidence.UsedByAdvancementId, and marks the recommendation Approved"
+                      },
+                      {
+                          "testCaseId":  "TC-CHAR-055",
+                          "taskId":  "ODY-S04-106",
+                          "authority":  "ADR-024 section 6.1 step 2 branch 1; ODY-S04-106",
+                          "runner":  "dotnet test",
+                          "path":  "DotNet/Tests/Odyssey.Tests.Persistence/CharacterSkillPurchaseCriticalEvidenceTests.cs",
+                          "check":  "ResolveAdvancementRecommendation (dismissed) releases the reservation back to Available, does not apply the skill level, and leaves the referenced evidence unused"
+                      },
+                      {
+                          "testCaseId":  "TC-CHAR-056",
+                          "taskId":  "ODY-S04-106",
+                          "authority":  "ADR-024 section 7.1; CAP-INV-009; ODY-S04-106",
+                          "runner":  "dotnet test",
+                          "path":  "DotNet/Tests/Odyssey.Tests.Persistence/CharacterSkillPurchaseCriticalEvidenceTests.cs",
+                          "check":  "An already-consumed CriticalSuccessEvidence cannot be consumed by a second recommendation -- rejected with CharacterRevisionConflict, and the evidence's own UsedByAdvancementId is directly verified to still point at the first, original consumer, not overwritten"
+                      },
+                      {
+                          "testCaseId":  "TC-CHAR-057",
+                          "taskId":  "ODY-S04-106",
+                          "authority":  "ADR-002; ADR-024 section 5/6.1; ODY-S04-106",
+                          "runner":  "dotnet test",
+                          "path":  "DotNet/Tests/Odyssey.Tests.Persistence/CharacterSkillPurchaseCriticalEvidenceTests.cs",
+                          "check":  "A duplicate CommandId for PurchaseSkillLevel/RequestSkillAdvancedRecommendation/ResolveAdvancementRecommendation does not duplicate the effect -- the real Available/Reserved/Spent values after replay are asserted directly for all three commands"
+                      },
+                      {
+                          "testCaseId":  "TC-CHAR-058",
+                          "taskId":  "ODY-S04-106",
+                          "authority":  "ADR-022 section 5; ODY-S04-106",
+                          "runner":  "dotnet test",
+                          "path":  "DotNet/Tests/Odyssey.Tests.Persistence/CharacterSkillPurchaseCriticalEvidenceTests.cs",
+                          "check":  "A Mechanics-section edit (skill purchase) and an Identity-section edit commit concurrently without a false conflict"
                       }
                   ]
 }

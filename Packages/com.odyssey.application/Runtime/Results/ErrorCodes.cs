@@ -49,6 +49,11 @@ namespace Odyssey.Application.Results
         public static readonly ErrorCode PersistenceCharacterDevelopmentPurchaseDenied = ErrorCode.Parse("persistence.character.development_purchase_denied");
         public static readonly ErrorCode PersistenceCharacterDevelopmentInsufficientBalance = ErrorCode.Parse("persistence.character.development_insufficient_balance");
         public static readonly ErrorCode PersistenceCharacterAttributeCapExceeded = ErrorCode.Parse("persistence.character.attribute_cap_exceeded");
+        public static readonly ErrorCode PersistenceCharacterSkillLevelRequiresRecommendation = ErrorCode.Parse("persistence.character.skill_level_requires_recommendation");
+        public static readonly ErrorCode PersistenceCharacterAdvancementRecommendationNotFound = ErrorCode.Parse("persistence.character.advancement_recommendation_not_found");
+        public static readonly ErrorCode PersistenceCharacterAdvancementRecommendationNotPending = ErrorCode.Parse("persistence.character.advancement_recommendation_not_pending");
+        public static readonly ErrorCode PersistenceCharacterAdvancementResolutionDenied = ErrorCode.Parse("persistence.character.advancement_resolution_denied");
+        public static readonly ErrorCode PersistenceCharacterCriticalEvidenceNotFound = ErrorCode.Parse("persistence.character.critical_evidence_not_found");
         public static readonly ErrorCode NetworkingTransportConnectFailed = ErrorCode.Parse("networking.transport.connect_failed");
         public static readonly ErrorCode NetworkingTransportConnectTimedOut = ErrorCode.Parse("networking.transport.connect_timed_out");
         public static readonly ErrorCode NetworkingProtocolVersionUnsupported = ErrorCode.Parse("networking.protocol.version_unsupported");
