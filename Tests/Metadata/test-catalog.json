@@ -2487,6 +2487,110 @@
                           "runner":  "dotnet test",
                           "path":  "DotNet/Tests/Odyssey.Tests.Persistence/CharacterSkillPurchaseCriticalEvidenceTests.cs",
                           "check":  "A Mechanics-section edit (skill purchase) and an Identity-section edit commit concurrently without a false conflict"
+                      },
+                      {
+                          "testCaseId":  "TC-CHAR-059",
+                          "taskId":  "ODY-S04-107",
+                          "authority":  "ADR-024 section 3.3/5.1 step 4; ODY-S04-107",
+                          "runner":  "dotnet test",
+                          "path":  "DotNet/Tests/Odyssey.Tests.Persistence/CharacterAdvancementRevertRespecTests.cs",
+                          "check":  "PurchaseAttributeIncrease co-commits an AdvancementPurchase (FromValue/ToValue/Cost/Status=Applied) in the same transaction"
+                      },
+                      {
+                          "testCaseId":  "TC-CHAR-060",
+                          "taskId":  "ODY-S04-107",
+                          "authority":  "ADR-024 section 3.3/5.1 step 4; ODY-S04-107",
+                          "runner":  "dotnet test",
+                          "path":  "DotNet/Tests/Odyssey.Tests.Persistence/CharacterAdvancementRevertRespecTests.cs",
+                          "check":  "PurchaseSkillLevel co-commits an AdvancementPurchase (FromValue/ToValue/Cost/Status=Applied) in the same transaction"
+                      },
+                      {
+                          "testCaseId":  "TC-CHAR-061",
+                          "taskId":  "ODY-S04-107",
+                          "authority":  "ADR-024 section 3.3/5.1 step 4/6.1 branch 2; ODY-S04-107",
+                          "runner":  "dotnet test",
+                          "path":  "DotNet/Tests/Odyssey.Tests.Persistence/CharacterAdvancementRevertRespecTests.cs",
+                          "check":  "ResolveAdvancementRecommendation approve-with-spend co-commits an AdvancementPurchase with Cost equal to the reservation's ReservedAmount"
+                      },
+                      {
+                          "testCaseId":  "TC-CHAR-062",
+                          "taskId":  "ODY-S04-107",
+                          "authority":  "ADR-024 section 3.3/5.1 step 4/6.1 branch 3; ODY-S04-107",
+                          "runner":  "dotnet test",
+                          "path":  "DotNet/Tests/Odyssey.Tests.Persistence/CharacterAdvancementRevertRespecTests.cs",
+                          "check":  "ResolveAdvancementRecommendation approve-without-spend co-commits an AdvancementPurchase with Cost=0 (fully evidence-funded)"
+                      },
+                      {
+                          "testCaseId":  "TC-CHAR-063",
+                          "taskId":  "ODY-S04-107",
+                          "authority":  "ADR-024 section 6.1 branch 1; ODY-S04-107",
+                          "runner":  "dotnet test",
+                          "path":  "DotNet/Tests/Odyssey.Tests.Persistence/CharacterAdvancementRevertRespecTests.cs",
+                          "check":  "ResolveAdvancementRecommendation's dismiss branch creates no AdvancementPurchase"
+                      },
+                      {
+                          "testCaseId":  "TC-CHAR-064",
+                          "taskId":  "ODY-S04-107",
+                          "authority":  "ADR-024 section 6.2; ADR-012 section 6; ODY-S04-107",
+                          "runner":  "dotnet test",
+                          "path":  "DotNet/Tests/Odyssey.Tests.Persistence/CharacterAdvancementRevertRespecTests.cs",
+                          "check":  "RevertAdvancementPurchase on an independent purchase returns the value to FromValue, refunds Cost to Available, decreases Spent, leaves the original DomainEvents row unmodified, sets AdvancementPurchase.Status=Reverted, and the compensating event references the original via OriginalEventId"
+                      },
+                      {
+                          "testCaseId":  "TC-CHAR-065",
+                          "taskId":  "ODY-S04-107",
+                          "authority":  "ADR-024 section 6.2; ODY-S04-107",
+                          "runner":  "dotnet test",
+                          "path":  "DotNet/Tests/Odyssey.Tests.Persistence/CharacterAdvancementRevertRespecTests.cs",
+                          "check":  "RevertAdvancementPurchase on a purchase with a dependent later purchase (the entry's current value no longer equals this purchase's ToValue) is rejected with CharacterAdvancementPurchaseHasDependent and produces no state change"
+                      },
+                      {
+                          "testCaseId":  "TC-CHAR-066",
+                          "taskId":  "ODY-S04-107",
+                          "authority":  "ADR-002 section 21.2; ODY-S04-107",
+                          "runner":  "dotnet test",
+                          "path":  "DotNet/Tests/Odyssey.Tests.Persistence/CharacterAdvancementRevertRespecTests.cs",
+                          "check":  "RevertAdvancementPurchase without a ReasonCode is rejected with CharacterAdvancementReasonRequired"
+                      },
+                      {
+                          "testCaseId":  "TC-CHAR-067",
+                          "taskId":  "ODY-S04-107",
+                          "authority":  "ADR-012 section 7; ODY-S04-107",
+                          "runner":  "dotnet test",
+                          "path":  "DotNet/Tests/Odyssey.Tests.Persistence/CharacterAdvancementRevertRespecTests.cs",
+                          "check":  "A duplicate CommandId for RevertAdvancementPurchase does not revert twice -- the real Available/Spent balance after replay is asserted directly"
+                      },
+                      {
+                          "testCaseId":  "TC-CHAR-068",
+                          "taskId":  "ODY-S04-107",
+                          "authority":  "ADR-002 section 4.2; ADR-024 section 7.2; ODY-S04-107",
+                          "runner":  "dotnet test",
+                          "path":  "DotNet/Tests/Odyssey.Tests.Persistence/CharacterAdvancementRevertRespecTests.cs",
+                          "check":  "PreviewCharacterRespec creates no DomainEvents rows and leaves MechanicsRevision/pool balance unchanged, verified directly before and after the call"
+                      },
+                      {
+                          "testCaseId":  "TC-CHAR-069",
+                          "taskId":  "ODY-S04-107",
+                          "authority":  "ADR-024 section 7.2; CAP-INV-005; ODY-S04-107",
+                          "runner":  "dotnet test",
+                          "path":  "DotNet/Tests/Odyssey.Tests.Persistence/CharacterAdvancementRevertRespecTests.cs",
+                          "check":  "ApplyCharacterRespec undoes and repurchases several targets in one batch -- each individual RespecReturn/reverted-purchase/forward event is visible separately in DomainEvents sharing one CompensationGroupId, plus exactly one trailing CharacterRespecCompleted event referencing the whole list"
+                      },
+                      {
+                          "testCaseId":  "TC-CHAR-070",
+                          "taskId":  "ODY-S04-107",
+                          "authority":  "CAP-INV-004; ODY-S04-107",
+                          "runner":  "dotnet test",
+                          "path":  "DotNet/Tests/Odyssey.Tests.Persistence/CharacterAdvancementRevertRespecTests.cs",
+                          "check":  "ApplyCharacterRespec recomputes the plan server-side from scratch inside its own transaction -- a preview taken before a further purchase is never consulted; the result reflects the CURRENT state, not the stale preview"
+                      },
+                      {
+                          "testCaseId":  "TC-CHAR-071",
+                          "taskId":  "ODY-S04-107",
+                          "authority":  "ADR-012 section 7; ODY-S04-107",
+                          "runner":  "dotnet test",
+                          "path":  "DotNet/Tests/Odyssey.Tests.Persistence/CharacterAdvancementRevertRespecTests.cs",
+                          "check":  "A duplicate CommandId for ApplyCharacterRespec does not duplicate the batch -- exactly one CharacterRespecCompleted event exists after replay"
                       }
                   ]
 }

@@ -53,6 +53,11 @@ namespace Odyssey.Application.Results
         public static readonly ErrorCode PersistenceCharacterAdvancementRecommendationNotFound = ErrorCode.Parse("persistence.character.advancement_recommendation_not_found");
         public static readonly ErrorCode PersistenceCharacterAdvancementRecommendationNotPending = ErrorCode.Parse("persistence.character.advancement_recommendation_not_pending");
         public static readonly ErrorCode PersistenceCharacterAdvancementResolutionDenied = ErrorCode.Parse("persistence.character.advancement_resolution_denied");
+        public static readonly ErrorCode PersistenceCharacterAdvancementOperationDenied = ErrorCode.Parse("persistence.character.advancement_operation_denied");
+        public static readonly ErrorCode PersistenceCharacterAdvancementReasonRequired = ErrorCode.Parse("persistence.character.advancement_reason_required");
+        public static readonly ErrorCode PersistenceCharacterAdvancementPurchaseNotFound = ErrorCode.Parse("persistence.character.advancement_purchase_not_found");
+        public static readonly ErrorCode PersistenceCharacterAdvancementPurchaseNotApplied = ErrorCode.Parse("persistence.character.advancement_purchase_not_applied");
+        public static readonly ErrorCode PersistenceCharacterAdvancementPurchaseHasDependent = ErrorCode.Parse("persistence.character.advancement_purchase_has_dependent");
         public static readonly ErrorCode PersistenceCharacterCriticalEvidenceNotFound = ErrorCode.Parse("persistence.character.critical_evidence_not_found");
         public static readonly ErrorCode NetworkingTransportConnectFailed = ErrorCode.Parse("networking.transport.connect_failed");
         public static readonly ErrorCode NetworkingTransportConnectTimedOut = ErrorCode.Parse("networking.transport.connect_timed_out");

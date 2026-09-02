@@ -276,6 +276,147 @@ namespace Odyssey.Application.Persistence
 
         /// <summary>ODY-S04-106: reads one <c>AdvancementRecommendation</c> by id.</summary>
         Result<AdvancementRecommendationRecord> GetAdvancementRecommendation(CampaignHandle campaign, CharacterId characterId, AdvancementRecommendationId recommendationId, CorrelationId correlationId);
+
+        /// <summary>ODY-S04-107 (pkt 0): reads every <c>AdvancementPurchase</c> row for one Character, ordered by <see cref="AdvancementPurchase.CreatedAt"/> -- matching <see cref="GetDevelopmentLedger"/>'s own "Persistence stores everything" convention.</summary>
+        Result<IReadOnlyList<AdvancementPurchase>> GetAdvancementPurchases(CampaignHandle campaign, CharacterId characterId, CorrelationId correlationId);
+
+        /// <summary>
+        /// ODY-S04-107: ADR-024 section 6.2 -- a compensating command
+        /// (ADR-012 section 6) that undoes one <see cref="AdvancementPurchaseStatus.Applied"/>
+        /// <c>AdvancementPurchase</c>. MainGM-only (<paramref name="actorIsMainGm"/>,
+        /// the same caller-supplied-boolean convention every other GM-gated
+        /// command already uses) -- reverting a spend is a GM correction
+        /// action, not a player self-service one. <paramref name="reasonCode"/>
+        /// is required (ADR-002 section 21.2's compensation metadata).
+        /// Rejects with <c>CharacterAdvancementPurchaseHasDependent</c> when the
+        /// addressed <c>AttributeValue</c>/<c>CharacterSkill</c> entry's
+        /// current value no longer equals this purchase's own
+        /// <see cref="AdvancementPurchase.ToValue"/> -- i.e. a later purchase
+        /// has since raised it further. This is the explicitly minimal,
+        /// Rules-Engine-free dependency check ADR-024 section 6.2 itself
+        /// defers to future ruleset content ("the exact dependency graph is
+        /// a Rules Engine/ruleset concern, not an architectural one") -- see
+        /// this method's implementation doc comment for the full boundary.
+        /// Reuses <c>MutateMechanics</c>: one compensating event
+        /// (<c>IsCompensating=true</c>, <c>OriginalEventId</c> pointing at the
+        /// original <c>AttributeIncreased</c>/<c>SkillLevelPurchased</c> event)
+        /// plus a co-committed <c>DevelopmentTransaction</c> (<c>Kind=Refund</c>)
+        /// in one transaction; sets <c>AdvancementPurchase.Status=Reverted</c>.
+        /// </summary>
+        Result<CharacterRecord> RevertAdvancementPurchase(CampaignHandle campaign, CharacterId characterId, AdvancementPurchaseId purchaseId, string reasonCode, UserId actorUserId, bool actorIsMainGm, long expectedMechanicsRevision, CommandId commandId, CorrelationId correlationId);
+
+        /// <summary>
+        /// ODY-S04-107: ADR-024 section 7.2, product section 13.5 steps 1-3 --
+        /// a read-only Query (ADR-002 section 4.2): no events, no state
+        /// change (verified directly by tests: <c>MechanicsRevision</c>/pool
+        /// balance identical before and after the call). Computes what would
+        /// be returned (every currently-<c>Applied</c> purchase for each
+        /// addressed target) and what would be newly purchased (one fresh
+        /// purchase per target whose <see cref="CharacterRespecTarget.DesiredValue"/>
+        /// exceeds zero), for client preview only -- <see cref="ApplyCharacterRespec"/>
+        /// never trusts this result back (CAP-INV-004); it recomputes the
+        /// identical plan itself, from scratch, inside its own transaction.
+        /// </summary>
+        Result<CharacterRespecPreview> PreviewCharacterRespec(CampaignHandle campaign, CharacterId characterId, IReadOnlyList<CharacterRespecTarget> targets, CorrelationId correlationId);
+
+        /// <summary>
+        /// ODY-S04-107: ADR-024 section 7.2, product section 13.5 steps 4-8 --
+        /// one compensating+forward batch, MainGM-only, <paramref name="reasonCode"/>
+        /// required. Recomputes the plan server-side from scratch inside its
+        /// own transaction (CAP-INV-004: never trusts a client-supplied
+        /// preview snapshot -- there is no such parameter on this method at
+        /// all). For each undone purchase: a compensating event
+        /// (<c>IsCompensating=true</c>) plus <c>DevelopmentTransaction.Kind=RespecReturn</c>,
+        /// <c>AdvancementPurchase.Status=SupersededByRespec</c>. For each new
+        /// purchase: an ordinary forward event plus
+        /// <c>DevelopmentTransaction.Kind=RespecSpend</c> and a new
+        /// <c>AdvancementPurchase</c> (<c>Status=Applied</c>). Every one of
+        /// those batch events shares the same <c>CompensationGroupId</c>
+        /// (this call's own <see cref="CommandId"/>) and is individually
+        /// visible in <see cref="GetCharacterHistory"/> -- never collapsed
+        /// into one opaque event (CAP-INV-005). Exactly one trailing
+        /// <c>CharacterRespecCompleted</c> event closes the batch, carrying
+        /// the full ordered list of produced event sequences and a
+        /// before/after configuration snapshot (product section 13.5 step 5's
+        /// "snapshot," realized as this event's own payload -- see the
+        /// implementation doc comment for why no
+        /// <c>SqliteBackupRepository</c> file-backup call is involved).
+        /// <see cref="CommandId"/>/<c>AppliedCommands</c> remain the sole
+        /// idempotency mechanism -- a duplicate <c>commandId</c> replays the
+        /// stored result and does not re-apply the batch.
+        /// </summary>
+        Result<CharacterRecord> ApplyCharacterRespec(CampaignHandle campaign, CharacterId characterId, IReadOnlyList<CharacterRespecTarget> targets, string reasonCode, UserId actorUserId, bool actorIsMainGm, long expectedMechanicsRevision, CommandId commandId, CorrelationId correlationId);
+    }
+
+    /// <summary>ODY-S04-107: one addressed attribute-or-skill target for a respec, and the value the caller wants it to end up at after the batch (0 means "fully undo, do not repurchase").</summary>
+    public sealed class CharacterRespecTarget
+    {
+        public CharacterRespecTarget(AdvancementOperationKind operationKind, string targetDefinitionId, long desiredValue)
+        {
+            if (!Enum.IsDefined(typeof(AdvancementOperationKind), operationKind)) throw new ArgumentOutOfRangeException(nameof(operationKind));
+            if (string.IsNullOrWhiteSpace(targetDefinitionId)) throw new ArgumentException("TargetDefinitionId is required.", nameof(targetDefinitionId));
+            if (desiredValue < 0) throw new ArgumentOutOfRangeException(nameof(desiredValue));
+
+            OperationKind = operationKind;
+            TargetDefinitionId = targetDefinitionId;
+            DesiredValue = desiredValue;
+        }
+
+        public AdvancementOperationKind OperationKind { get; }
+        public string TargetDefinitionId { get; }
+        public long DesiredValue { get; }
+    }
+
+    /// <summary>ODY-S04-107: which side of a respec plan entry this is.</summary>
+    public enum CharacterRespecPlanAction
+    {
+        Return = 1,
+        Spend = 2
+    }
+
+    /// <summary>ODY-S04-107: one line of a computed respec plan -- either returning a specific existing purchase's cost, or spending on a fresh purchase up to a target's desired value.</summary>
+    public sealed class CharacterRespecPlanEntry
+    {
+        public CharacterRespecPlanEntry(CharacterRespecPlanAction action, AdvancementOperationKind operationKind, string targetDefinitionId, long amount, AdvancementPurchaseId? sourcePurchaseId)
+        {
+            if (!Enum.IsDefined(typeof(CharacterRespecPlanAction), action)) throw new ArgumentOutOfRangeException(nameof(action));
+            if (!Enum.IsDefined(typeof(AdvancementOperationKind), operationKind)) throw new ArgumentOutOfRangeException(nameof(operationKind));
+            if (string.IsNullOrWhiteSpace(targetDefinitionId)) throw new ArgumentException("TargetDefinitionId is required.", nameof(targetDefinitionId));
+            if (amount < 0) throw new ArgumentOutOfRangeException(nameof(amount));
+
+            Action = action;
+            OperationKind = operationKind;
+            TargetDefinitionId = targetDefinitionId;
+            Amount = amount;
+            SourcePurchaseId = sourcePurchaseId;
+        }
+
+        public CharacterRespecPlanAction Action { get; }
+        public AdvancementOperationKind OperationKind { get; }
+        public string TargetDefinitionId { get; }
+        public long Amount { get; }
+
+        /// <summary>Set only for <see cref="CharacterRespecPlanAction.Return"/> entries -- the specific <c>AdvancementPurchase</c> being undone.</summary>
+        public AdvancementPurchaseId? SourcePurchaseId { get; }
+    }
+
+    /// <summary>ODY-S04-107: <see cref="ICharacterRepository.PreviewCharacterRespec"/>'s computed result -- the same shape <see cref="ICharacterRepository.ApplyCharacterRespec"/> recomputes for itself server-side.</summary>
+    public sealed class CharacterRespecPreview
+    {
+        public CharacterRespecPreview(IReadOnlyList<CharacterRespecPlanEntry> entries, long totalReturned, long totalSpent)
+        {
+            Entries = entries ?? throw new ArgumentNullException(nameof(entries));
+            if (totalReturned < 0) throw new ArgumentOutOfRangeException(nameof(totalReturned));
+            if (totalSpent < 0) throw new ArgumentOutOfRangeException(nameof(totalSpent));
+
+            TotalReturned = totalReturned;
+            TotalSpent = totalSpent;
+        }
+
+        public IReadOnlyList<CharacterRespecPlanEntry> Entries { get; }
+        public long TotalReturned { get; }
+        public long TotalSpent { get; }
+        public long NetAvailableChange => TotalReturned - TotalSpent;
     }
 
     /// <summary>ODY-S04-106: ADR-024 section 3.5/7.1's <c>CriticalSuccessEvidence</c> read-model row.</summary>

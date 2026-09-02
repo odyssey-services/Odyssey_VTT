@@ -301,6 +301,33 @@ namespace Odyssey.Domain.Identity
     }
 
     /// <summary>
+    /// ODY-S04-107: identifies one <c>AdvancementPurchase</c> record (ADR-024
+    /// section 3.3, product section 13.2). Unlike <c>AttributeDefinitionId</c>/
+    /// <c>SkillDefinitionId</c> (stable catalog keys), this is a genuine
+    /// per-purchase instance identifier -- the canonical
+    /// <c>Prefix + Uuid7.NewHex32</c> shape every aggregate-scoped instance
+    /// id in this codebase already uses.
+    /// </summary>
+    public readonly struct AdvancementPurchaseId : IEquatable<AdvancementPurchaseId>
+    {
+        private const string Prefix = "advpur_";
+        private const int HexLength = 32;
+        private readonly string _value;
+
+        private AdvancementPurchaseId(string value) => _value = value;
+        public bool IsValid => _value != null;
+        public static AdvancementPurchaseId NewId(Odyssey.Domain.Time.UtcInstant now) => new AdvancementPurchaseId(Prefix + Uuid7.NewHex32(now));
+        public static bool TryParse(string? value, out AdvancementPurchaseId id) => CanonicalId.TryParse(value, Prefix, HexLength, out id, static v => new AdvancementPurchaseId(v));
+        public static AdvancementPurchaseId Parse(string value) => TryParse(value, out AdvancementPurchaseId id) ? id : throw new FormatException("AdvancementPurchaseId is not canonical.");
+        public override string ToString() => _value ?? string.Empty;
+        public bool Equals(AdvancementPurchaseId other) => string.Equals(_value, other._value, StringComparison.Ordinal);
+        public override bool Equals(object? obj) => obj is AdvancementPurchaseId other && Equals(other);
+        public override int GetHashCode() => _value == null ? 0 : StringComparer.Ordinal.GetHashCode(_value);
+        public static bool operator ==(AdvancementPurchaseId left, AdvancementPurchaseId right) => left.Equals(right);
+        public static bool operator !=(AdvancementPurchaseId left, AdvancementPurchaseId right) => !left.Equals(right);
+    }
+
+    /// <summary>
     /// ODY-S01-008 minimal domain model. Full Scene aggregate fields (BoardId,
     /// LayerDefinitions, FogSettings, PermissionOverrides, etc. per
     /// 03_Domain_Model section 10.1) are not implemented by this identifier or the
