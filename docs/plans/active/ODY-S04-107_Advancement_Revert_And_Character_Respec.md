@@ -3,7 +3,7 @@
 **Status:** Active
 **Owner:** Codex (agent)
 **Branch:** `feat/ody-s04-107-advancement-revert-respec`
-**Pull request:** <to be filled after `gh pr create`>
+**Pull request:** [#91](https://github.com/odyssey-services/Odyssey_VTT/pull/91)
 **Last updated:** 2026-09-02 UTC
 
 ## 1. Purpose and user-visible outcome
@@ -115,4 +115,4 @@ None.
 
 ## 12. Outcome and follow-up
 
-Draft PR: <to be filled after `gh pr create`>. CI pending. `ODY-S04-110`–`113` (Ruleset migration) is expected to reuse this task's own compensating-batch pattern (`AppendDomainEvent` called directly for a multi-event batch, grouped by `CompensationGroupId`).
+Draft PR: [#91](https://github.com/odyssey-services/Odyssey_VTT/pull/91). CI pending. `ODY-S04-110`–`113` (Ruleset migration) is expected to reuse this task's own compensating-batch pattern (`AppendDomainEvent` called directly for a multi-event batch, grouped by `CompensationGroupId`).

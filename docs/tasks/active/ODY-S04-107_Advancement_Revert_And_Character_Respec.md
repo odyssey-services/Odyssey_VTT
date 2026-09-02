@@ -5,7 +5,7 @@
 **Owner:** Codex (agent)
 **Requested by:** Product owner
 **Branch:** `feat/ody-s04-107-advancement-revert-respec`
-**Pull request:** <to be filled after `gh pr create`>
+**Pull request:** [#91](https://github.com/odyssey-services/Odyssey_VTT/pull/91)
 **ExecPlan:** `docs/plans/active/ODY-S04-107_Advancement_Revert_And_Character_Respec.md`
 **Created:** 2026-09-02
 **Last updated:** 2026-09-02 UTC
