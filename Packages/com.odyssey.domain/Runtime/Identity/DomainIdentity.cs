@@ -355,6 +355,58 @@ namespace Odyssey.Domain.Identity
     }
 
     /// <summary>
+    /// ODY-S04-109: identifies one <c>CharacterResource</c> instance (product
+    /// section 17, ADR-022 section 6's <c>CharacterResource:&lt;CharacterResourceId&gt;</c>
+    /// lock key). Unlike <see cref="Odyssey.Domain.Character.ResourceDefinitionId"/>
+    /// (a stable catalog key), this is a genuine per-instance identifier --
+    /// the canonical <c>Prefix + Uuid7.NewHex32</c> shape every
+    /// aggregate-scoped instance id in this codebase already uses.
+    /// </summary>
+    public readonly struct CharacterResourceId : IEquatable<CharacterResourceId>
+    {
+        private const string Prefix = "charres_";
+        private const int HexLength = 32;
+        private readonly string _value;
+
+        private CharacterResourceId(string value) => _value = value;
+        public bool IsValid => _value != null;
+        public static CharacterResourceId NewId(Odyssey.Domain.Time.UtcInstant now) => new CharacterResourceId(Prefix + Uuid7.NewHex32(now));
+        public static bool TryParse(string? value, out CharacterResourceId id) => CanonicalId.TryParse(value, Prefix, HexLength, out id, static v => new CharacterResourceId(v));
+        public static CharacterResourceId Parse(string value) => TryParse(value, out CharacterResourceId id) ? id : throw new FormatException("CharacterResourceId is not canonical.");
+        public override string ToString() => _value ?? string.Empty;
+        public bool Equals(CharacterResourceId other) => string.Equals(_value, other._value, StringComparison.Ordinal);
+        public override bool Equals(object? obj) => obj is CharacterResourceId other && Equals(other);
+        public override int GetHashCode() => _value == null ? 0 : StringComparer.Ordinal.GetHashCode(_value);
+        public static bool operator ==(CharacterResourceId left, CharacterResourceId right) => left.Equals(right);
+        public static bool operator !=(CharacterResourceId left, CharacterResourceId right) => !left.Equals(right);
+    }
+
+    /// <summary>
+    /// ODY-S04-109: identifies one <c>PermanentModification</c> row within a
+    /// Character's own <c>CharacterAnatomy</c> snapshot (product section 18).
+    /// A genuine per-application instance identifier -- the canonical
+    /// <c>Prefix + Uuid7.NewHex32</c> shape.
+    /// </summary>
+    public readonly struct PermanentModificationId : IEquatable<PermanentModificationId>
+    {
+        private const string Prefix = "permmod_";
+        private const int HexLength = 32;
+        private readonly string _value;
+
+        private PermanentModificationId(string value) => _value = value;
+        public bool IsValid => _value != null;
+        public static PermanentModificationId NewId(Odyssey.Domain.Time.UtcInstant now) => new PermanentModificationId(Prefix + Uuid7.NewHex32(now));
+        public static bool TryParse(string? value, out PermanentModificationId id) => CanonicalId.TryParse(value, Prefix, HexLength, out id, static v => new PermanentModificationId(v));
+        public static PermanentModificationId Parse(string value) => TryParse(value, out PermanentModificationId id) ? id : throw new FormatException("PermanentModificationId is not canonical.");
+        public override string ToString() => _value ?? string.Empty;
+        public bool Equals(PermanentModificationId other) => string.Equals(_value, other._value, StringComparison.Ordinal);
+        public override bool Equals(object? obj) => obj is PermanentModificationId other && Equals(other);
+        public override int GetHashCode() => _value == null ? 0 : StringComparer.Ordinal.GetHashCode(_value);
+        public static bool operator ==(PermanentModificationId left, PermanentModificationId right) => left.Equals(right);
+        public static bool operator !=(PermanentModificationId left, PermanentModificationId right) => !left.Equals(right);
+    }
+
+    /// <summary>
     /// ODY-S01-008 minimal domain model. Full Scene aggregate fields (BoardId,
     /// LayerDefinitions, FogSettings, PermissionOverrides, etc. per
     /// 03_Domain_Model section 10.1) are not implemented by this identifier or the

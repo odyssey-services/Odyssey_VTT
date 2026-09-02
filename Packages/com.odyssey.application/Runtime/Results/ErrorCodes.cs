@@ -62,6 +62,15 @@ namespace Odyssey.Application.Results
         public static readonly ErrorCode PersistenceCharacterAbilityGrantDenied = ErrorCode.Parse("persistence.character.ability_grant_denied");
         public static readonly ErrorCode PersistenceCharacterAbilityNotFound = ErrorCode.Parse("persistence.character.ability_not_found");
         public static readonly ErrorCode PersistenceCharacterAbilityRemovalNotAllowed = ErrorCode.Parse("persistence.character.ability_removal_not_allowed");
+        public static readonly ErrorCode PersistenceCharacterResourceOperationDenied = ErrorCode.Parse("persistence.character.resource_operation_denied");
+        public static readonly ErrorCode PersistenceCharacterResourceNotFound = ErrorCode.Parse("persistence.character.resource_not_found");
+        public static readonly ErrorCode PersistenceCharacterResourceValueOutOfRange = ErrorCode.Parse("persistence.character.resource_value_out_of_range");
+        public static readonly ErrorCode PersistenceCharacterAnatomyOperationDenied = ErrorCode.Parse("persistence.character.anatomy_operation_denied");
+        public static readonly ErrorCode PersistenceCharacterAnatomyNotInitialized = ErrorCode.Parse("persistence.character.anatomy_not_initialized");
+        public static readonly ErrorCode PersistenceCharacterAnatomyAlreadyInitialized = ErrorCode.Parse("persistence.character.anatomy_already_initialized");
+        public static readonly ErrorCode PersistenceCharacterBodyPartNotFound = ErrorCode.Parse("persistence.character.body_part_not_found");
+        public static readonly ErrorCode PersistenceCharacterBodyPartHasDependent = ErrorCode.Parse("persistence.character.body_part_has_dependent");
+        public static readonly ErrorCode PersistenceCharacterBodyPartAlreadyExists = ErrorCode.Parse("persistence.character.body_part_already_exists");
         public static readonly ErrorCode PersistenceCharacterCriticalEvidenceNotFound = ErrorCode.Parse("persistence.character.critical_evidence_not_found");
         public static readonly ErrorCode NetworkingTransportConnectFailed = ErrorCode.Parse("networking.transport.connect_failed");
         public static readonly ErrorCode NetworkingTransportConnectTimedOut = ErrorCode.Parse("networking.transport.connect_timed_out");

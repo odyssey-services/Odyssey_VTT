@@ -408,6 +408,100 @@ namespace Odyssey.Application.Persistence
         /// section, gated by <paramref name="expectedCharacterAbilitiesRevision"/>.
         /// </summary>
         Result<CharacterRecord> RemoveAbility(CampaignHandle campaign, CharacterId characterId, CharacterAbilityId characterAbilityId, UserId actorUserId, bool actorIsMainGm, long expectedCharacterAbilitiesRevision, CommandId commandId, CorrelationId correlationId);
+
+        /// <summary>
+        /// ODY-S04-109: product section 17. MainGM-only. Initializes a new
+        /// <c>CharacterResource</c> from <see cref="Odyssey.Rules.Character.ResourceInitializationRules"/>'s
+        /// own explicitly-flagged test fixture (no <c>ResourceDefinition</c>
+        /// catalog exists yet). Touches only the <c>CharacterResources</c>
+        /// section, gated by <paramref name="expectedCharacterResourcesRevision"/>
+        /// (section-wide -- see <see cref="CharacterRecord.Resources"/>'s own
+        /// doc comment for why no entry-level gate is checked).
+        /// </summary>
+        Result<CharacterRecord> InitializeCharacterResource(CampaignHandle campaign, CharacterId characterId, ResourceDefinitionId resourceDefinitionId, UserId actorUserId, bool actorIsMainGm, long expectedCharacterResourcesRevision, CommandId commandId, CorrelationId correlationId);
+
+        /// <summary>
+        /// ODY-S04-109: product section 17.2/requirement 46 -- the ONE
+        /// explicit, authoritative command that ever changes
+        /// <see cref="CharacterResource.CurrentValue"/>, used identically
+        /// for damage and for recovery (a positive or negative delta from
+        /// the resource's own current value, per the caller-decided
+        /// magnitude) -- there is no separate automatic recovery mechanism
+        /// of any kind (no timer, no scene/session-change subscription),
+        /// regardless of the resource's own <see cref="RecoveryRule"/>
+        /// (requirement 47: <c>RecoveryRule.None</c> and every other value
+        /// behave identically here -- only a future task wiring a real
+        /// trigger to call this same command would differ). Rejected with
+        /// <c>CharacterResourceValueOutOfRange</c> if the requested value
+        /// falls outside <c>[MinimumValue, EffectiveMaximum]</c>. MainGM-only.
+        /// </summary>
+        Result<CharacterRecord> SetResourceCurrentValue(CampaignHandle campaign, CharacterId characterId, CharacterResourceId characterResourceId, long newCurrentValue, UserId actorUserId, bool actorIsMainGm, long expectedCharacterResourcesRevision, CommandId commandId, CorrelationId correlationId);
+
+        /// <summary>
+        /// ODY-S04-109: product section 17.1/requirements 44-45. Changes
+        /// <see cref="CharacterResource.BaseMaximum"/>/<see cref="CharacterResource.PermanentMaximumAdjustment"/>.
+        /// If the new <c>EffectiveMaximum</c> is below the resource's
+        /// current <c>CurrentValue</c>, <c>CurrentValue</c> is clamped down
+        /// to the new <c>EffectiveMaximum</c> in the same commit
+        /// (requirement 44) -- enforced structurally by
+        /// <see cref="CharacterResource"/>'s own constructor, not a
+        /// separate check this command could forget. A later increase of
+        /// the maximum never restores the previously-lost value on its own
+        /// (requirement 45) -- this command only ever sets the new maximum,
+        /// it never touches <c>CurrentValue</c> upward. MainGM-only.
+        /// </summary>
+        Result<CharacterRecord> SetResourceMaximum(CampaignHandle campaign, CharacterId characterId, CharacterResourceId characterResourceId, long newBaseMaximum, long newPermanentMaximumAdjustment, UserId actorUserId, bool actorIsMainGm, long expectedCharacterResourcesRevision, CommandId commandId, CorrelationId correlationId);
+
+        /// <summary>
+        /// ODY-S04-109 (section 1.2): product section 18. MainGM-only.
+        /// Initializes the SINGLE <c>CharacterAnatomy</c> snapshot from
+        /// <see cref="Odyssey.Rules.Character.AnatomyInitializationRules"/>'s
+        /// own explicitly-flagged test fixture (no <c>AnatomyProfileDefinition</c>
+        /// catalog exists yet), pinning <c>AnatomyProfileVersion</c> at this
+        /// moment (requirement 49 -- never re-read from the fixture
+        /// afterward). Rejected with <c>CharacterAnatomyAlreadyInitialized</c>
+        /// if one already exists. Gated by the single, un-parameterized
+        /// <c>CharacterAnatomy</c> lock key (<paramref name="expectedCharacterAnatomyRevision"/>).
+        /// </summary>
+        Result<CharacterRecord> InitializeCharacterAnatomy(CampaignHandle campaign, CharacterId characterId, AnatomyProfileDefinitionId anatomyProfileDefinitionId, UserId actorUserId, bool actorIsMainGm, long expectedCharacterAnatomyRevision, CommandId commandId, CorrelationId correlationId);
+
+        /// <summary>ODY-S04-109: product section 18 -- "добавить... часть тела." MainGM-only. Appends one <see cref="AnatomyMigrationEntry"/>. Rejected with <c>CharacterAnatomyNotInitialized</c> if no anatomy exists yet.</summary>
+        Result<CharacterRecord> AddBodyPart(CampaignHandle campaign, CharacterId characterId, BodyPartId bodyPartId, string name, long damageLimit, BodyPartId? attachedToBodyPartId, string properties, UserId actorUserId, bool actorIsMainGm, long expectedCharacterAnatomyRevision, CommandId commandId, CorrelationId correlationId);
+
+        /// <summary>
+        /// ODY-S04-109 (section 1.3): product section 18/requirements 50-51
+        /// -- "удалить... часть тела" with a dependency preview. No Item
+        /// system exists anywhere in this codebase (confirmed by search) --
+        /// product's own item-dependency check (requirement 51) is
+        /// therefore a stub: "no item dependencies exist because no item
+        /// system exists," pending a future Item-system task. What IS
+        /// checked, for real, is the one dependency this Character's own
+        /// <c>CharacterAnatomy</c> snapshot can actually express: any other
+        /// <see cref="BodyPart.AttachedToBodyPartId"/> or
+        /// <see cref="PermanentModification.AttachedToBodyPartId"/>
+        /// referencing the part being removed. Rejected with
+        /// <c>CharacterBodyPartHasDependent</c> if any such reference
+        /// exists; no partial removal. MainGM-only.
+        /// </summary>
+        Result<CharacterRecord> RemoveBodyPart(CampaignHandle campaign, CharacterId characterId, BodyPartId bodyPartId, UserId actorUserId, bool actorIsMainGm, long expectedCharacterAnatomyRevision, CommandId commandId, CorrelationId correlationId);
+
+        /// <summary>ODY-S04-109: product section 18 -- "изменить пределы повреждений части тела" / "изменить свойства части," folded into one command (both target the same <see cref="BodyPart"/> row; two near-identical single-field setters would duplicate the same lookup/replace logic). Pass <c>null</c> for either parameter to leave that field unchanged. MainGM-only.</summary>
+        Result<CharacterRecord> UpdateBodyPart(CampaignHandle campaign, CharacterId characterId, BodyPartId bodyPartId, long? newDamageLimit, string? newProperties, UserId actorUserId, bool actorIsMainGm, long expectedCharacterAnatomyRevision, CommandId commandId, CorrelationId correlationId);
+
+        /// <summary>
+        /// ODY-S04-109: product section 18 -- "заменить профиль." Replaces
+        /// the entire <c>CharacterAnatomy</c> snapshot's
+        /// <c>AnatomyProfileDefinitionId</c>/<c>AnatomyProfileVersion</c>/
+        /// <c>BodyParts</c> in one commit, preserving <c>PermanentModifications</c>/
+        /// <c>MigrationHistory</c>. Explicitly distinct from
+        /// <c>ODY-S04-113</c>'s future Ruleset migration (a different,
+        /// campaign-wide mechanism) -- this is a per-Character, GM-issued
+        /// profile swap. MainGM-only.
+        /// </summary>
+        Result<CharacterRecord> ReplaceAnatomyProfile(CampaignHandle campaign, CharacterId characterId, AnatomyProfileDefinitionId newAnatomyProfileDefinitionId, string newAnatomyProfileVersion, IReadOnlyList<BodyPart> newBodyParts, UserId actorUserId, bool actorIsMainGm, long expectedCharacterAnatomyRevision, CommandId commandId, CorrelationId correlationId);
+
+        /// <summary>ODY-S04-109: product section 18 -- "применить протез, мутацию или постоянную модификацию," one generic command for all three (product itself groups them with no separate schema per kind -- see <see cref="PermanentModification"/>'s own doc comment). MainGM-only.</summary>
+        Result<CharacterRecord> ApplyPermanentModification(CampaignHandle campaign, CharacterId characterId, BodyPartId attachedToBodyPartId, string kind, string description, UserId actorUserId, bool actorIsMainGm, long expectedCharacterAnatomyRevision, CommandId commandId, CorrelationId correlationId);
     }
 
     /// <summary>ODY-S04-107: one addressed attribute-or-skill target for a respec, and the value the caller wants it to end up at after the batch (0 means "fully undo, do not repurchase").</summary>
@@ -728,6 +822,8 @@ namespace Odyssey.Application.Persistence
             IReadOnlyList<AttributeValue> attributes,
             IReadOnlyList<CharacterSkill> skills,
             IReadOnlyList<CharacterAbility> abilities,
+            IReadOnlyList<CharacterResource> resources,
+            CharacterAnatomy? anatomy,
             UtcInstant createdAt,
             UtcInstant updatedAt)
         {
@@ -758,6 +854,8 @@ namespace Odyssey.Application.Persistence
             Attributes = attributes ?? throw new ArgumentNullException(nameof(attributes));
             Skills = skills ?? throw new ArgumentNullException(nameof(skills));
             Abilities = abilities ?? throw new ArgumentNullException(nameof(abilities));
+            Resources = resources ?? throw new ArgumentNullException(nameof(resources));
+            Anatomy = anatomy;
             CreatedAt = createdAt;
             UpdatedAt = updatedAt;
         }
@@ -809,6 +907,12 @@ namespace Odyssey.Application.Persistence
 
         /// <summary>ODY-S04-108: product section 16's <c>CharacterAbility</c> rows acquired so far -- empty until the first <c>AcquireAbility</c>. Each entry's own <see cref="CharacterAbility.Revision"/> is the ADR-022 section 6 entry-level gate for the <c>CharacterAbility:&lt;CharacterAbilityId&gt;</c> lock key; the section-wide <see cref="CharacterSectionRevisions.CharacterAbilitiesRevision"/> is the gate for <c>AcquireAbility</c>/<c>RemoveAbility</c> themselves.</summary>
         public IReadOnlyList<CharacterAbility> Abilities { get; }
+
+        /// <summary>ODY-S04-109: product section 17's <c>CharacterResource</c> rows initialized so far -- empty until the first <c>InitializeCharacterResource</c>. Each entry's own <see cref="CharacterResource.Revision"/> is carried but not externally gated by callers (this task's own decision -- see the ExecPlan); the section-wide <see cref="CharacterSectionRevisions.CharacterResourcesRevision"/> is the sole gate, mirroring <see cref="Abilities"/>'s own single-section-gate shape (ODY-S04-108).</summary>
+        public IReadOnlyList<CharacterResource> Resources { get; }
+
+        /// <summary>ODY-S04-109: product section 18's <c>CharacterAnatomy</c> -- a SINGLE snapshot, null until <c>InitializeCharacterAnatomy</c>. Unlike <see cref="Resources"/>/<see cref="Abilities"/>/<see cref="Skills"/>, this is not a collection -- the whole snapshot changes together under <see cref="CharacterSectionRevisions.CharacterAnatomyRevision"/> alone (ADR-022 section 6's un-parameterized <c>CharacterAnatomy</c> lock key).</summary>
+        public CharacterAnatomy? Anatomy { get; }
         public UtcInstant CreatedAt { get; }
         public UtcInstant UpdatedAt { get; }
     }
