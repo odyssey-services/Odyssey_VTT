@@ -67,6 +67,8 @@ namespace Odyssey.Persistence.Sqlite
             "odyssey.persistence.character_attribute_increased",
             "odyssey.persistence.character_archived",
             "odyssey.persistence.character_deleted",
+            "odyssey.persistence.character_died",
+            "odyssey.persistence.character_restored",
         };
 
         /// <summary>
@@ -859,6 +861,319 @@ namespace Odyssey.Persistence.Sqlite
             select.Parameters.AddWithValue("$commandId", commandId.ToString());
             long count = Convert.ToInt64(select.ExecuteScalar());
             return count > 0;
+        }
+
+        public Result<CharacterRecord> TransitionCharacterToDead(CampaignHandle campaign, CharacterId characterId, LifecycleDeathIssuerKind issuerKind, UserId actorUserId, bool actorIsMainGm, long expectedLifecycleRevision, CommandId commandId, CorrelationId correlationId)
+        {
+            if (campaign == null) throw new ArgumentNullException(nameof(campaign));
+            if (!characterId.IsValid) throw new ArgumentException("CharacterId is required.", nameof(characterId));
+            if (!Enum.IsDefined(typeof(LifecycleDeathIssuerKind), issuerKind)) throw new ArgumentOutOfRangeException(nameof(issuerKind));
+            if (!actorUserId.IsValid) throw new ArgumentException("ActorUserId is required.", nameof(actorUserId));
+            if (expectedLifecycleRevision < 1) throw new ArgumentOutOfRangeException(nameof(expectedLifecycleRevision));
+            if (!commandId.IsValid) throw new ArgumentException("CommandId is required.", nameof(commandId));
+
+            // ADR-025 section 6.1 / section 1.1 of this task's own ТЗ: the
+            // ONLY two legal paths. GMOverride requires MainGM, checked
+            // before touching the database at all, matching every other
+            // MainGM-only gate's own convention. HostSystemFatalDamageCompletion
+            // is a structurally legal entry point for a future Rules Engine
+            // workflow (ADR-002 section 6.4's IssuerKind=HostSystem) -- not
+            // a user-issued command, so no actorIsMainGm check applies to
+            // it. There is no third path a plain owner/controller can take
+            // (CAP-INV-008).
+            if (issuerKind == LifecycleDeathIssuerKind.GMOverride && !actorIsMainGm)
+            {
+                return Result<CharacterRecord>.Failure(PersistenceFailures.CharacterDeadTransitionDenied(correlationId));
+            }
+
+            try
+            {
+                using SqliteConnection connection = OpenConnection(campaign.RootPath);
+                EnsureCharacterTables(connection);
+
+                return _pipeline.Execute(
+                    connection,
+                    campaign.CampaignId,
+                    commandId,
+                    correlationId,
+                    tryReplay: transaction => ReplayCharacter(connection, transaction, campaign.CampaignId, "CharacterId = $characterId AND LastCommandId = $commandId", commandId, correlationId, characterId),
+                    apply: transaction =>
+                    {
+                        CharacterRecord? current = SelectForUpdate(connection, transaction, characterId);
+                        if (current == null)
+                        {
+                            return Result<PipelineWrite<CharacterRecord>>.Failure(PersistenceFailures.CharacterNotFound(correlationId));
+                        }
+
+                        if (current.Revisions.LifecycleRevision != expectedLifecycleRevision)
+                        {
+                            return Result<PipelineWrite<CharacterRecord>>.Failure(PersistenceFailures.CharacterRevisionConflict(correlationId));
+                        }
+
+                        // The sole state-legality gate: the generic
+                        // ADR-022/ODY-S04-101 transition table -- product
+                        // section 7.1's own "which statuses may lead to
+                        // Dead" is already fully encoded there, not
+                        // duplicated here.
+                        if (!CharacterLifecycleTransitions.IsValidTransition(current.LifecycleStatus, CharacterLifecycleStatus.Dead))
+                        {
+                            return Result<PipelineWrite<CharacterRecord>>.Failure(PersistenceFailures.CharacterLifecycleTransitionInvalid(correlationId));
+                        }
+
+                        UtcInstant now = _clock.GetUtcNow();
+                        long newLifecycleRevision = current.Revisions.LifecycleRevision + 1;
+                        long newCharacterRevision = current.Revisions.CharacterRevision + 1;
+                        CharacterLifecycleStatus lifecycleStatusBefore = current.LifecycleStatus;
+
+                        // ADR-025 section 6.2 / section 1.4 of this task's
+                        // own ТЗ: this UPDATE touches only LifecycleStatus/
+                        // LifecycleRevision/CharacterRevision -- PoolEarned/
+                        // PoolSpent/PoolReserved/MechanicsRevision and every
+                        // other section's own columns are deliberately
+                        // absent from this statement, so they are left
+                        // exactly as they were, by construction.
+                        using (var update = connection.CreateCommand())
+                        {
+                            update.Transaction = transaction;
+                            update.CommandText = "UPDATE Character SET LifecycleStatus = $lifecycleStatus, LifecycleRevision = $lifecycleRevision, CharacterRevision = $characterRevision, UpdatedAt = $updatedAt, LastCommandId = $lastCommandId WHERE CharacterId = $characterId;";
+                            update.Parameters.AddWithValue("$lifecycleStatus", CharacterLifecycleStatus.Dead.ToString());
+                            update.Parameters.AddWithValue("$lifecycleRevision", newLifecycleRevision);
+                            update.Parameters.AddWithValue("$characterRevision", newCharacterRevision);
+                            update.Parameters.AddWithValue("$updatedAt", now.ToString());
+                            update.Parameters.AddWithValue("$lastCommandId", commandId.ToString());
+                            update.Parameters.AddWithValue("$characterId", characterId.ToString());
+                            update.ExecuteNonQuery();
+                        }
+
+                        CharacterSectionRevisions newRevisions = WithRevisions(current.Revisions, characterRevision: newCharacterRevision, lifecycleRevision: newLifecycleRevision);
+                        var record = new CharacterRecord(characterId, campaign.CampaignId, current.CharacterKind, CharacterLifecycleStatus.Dead, current.ApprovalState, current.DisplayName, current.PortraitReference, current.Ownership, newRevisions, current.RulesetVersion, current.AnatomyProfileRef, current.TemplateId, current.TemplateVersionAtCopyTime, current.SeedCopy, current.SubmittedAt, current.DevelopmentPool, current.Attributes, current.Skills, current.Abilities, current.Resources, current.Anatomy, current.CreatedAt, now);
+
+                        var payload = new JObject
+                        {
+                            ["characterId"] = characterId.ToString(),
+                            ["displayNameSnapshot"] = current.DisplayName,
+                            ["portraitReferenceSnapshot"] = current.PortraitReference,
+                            ["rulesetVersion"] = current.RulesetVersion,
+                            ["lifecycleStatusBefore"] = lifecycleStatusBefore.ToString(),
+                            ["lifecycleStatusAfter"] = CharacterLifecycleStatus.Dead.ToString(),
+                            ["issuerKind"] = issuerKind.ToString(),
+                            ["actorUserId"] = actorUserId.ToString(),
+                            ["newLifecycleRevision"] = newLifecycleRevision,
+                            ["newCharacterRevision"] = newCharacterRevision,
+                        };
+
+                        return Result<PipelineWrite<CharacterRecord>>.Success(new PipelineWrite<CharacterRecord>(
+                            record, "odyssey.persistence.character_died", payload.ToString(Newtonsoft.Json.Formatting.None), characterId.ToString(),
+                            aggregateType: "character", aggregateId: characterId.ToString(), aggregateRevision: newCharacterRevision));
+                    });
+            }
+            catch (Exception ex) when (ex is IOException || ex is UnauthorizedAccessException || ex is SqliteException)
+            {
+                return Result<CharacterRecord>.Failure(PersistenceFailures.CharacterIoFailed(correlationId));
+            }
+        }
+
+        /// <summary>
+        /// ODY-S04-111: ADR-025 section 6.3. Genuinely cross-section like
+        /// <c>ApplyCharacterRespec</c>/<c>AcquireAbilityViaProgressionPurchase</c>
+        /// before it -- its own dedicated method rather than forcing a
+        /// third/fourth generalization onto any single-section helper,
+        /// since up to three sections (`Lifecycle` always,
+        /// `CharacterAnatomy`/`CharacterResources` only when the GM's own
+        /// request actually supplies them) are checked and, where supplied,
+        /// updated together in one transaction.
+        /// </summary>
+        public Result<CharacterRecord> RestoreDeadCharacter(RestoreDeadCharacterRequest request, CommandId commandId, CorrelationId correlationId)
+        {
+            if (request == null) throw new ArgumentNullException(nameof(request));
+            if (!commandId.IsValid) throw new ArgumentException("CommandId is required.", nameof(commandId));
+
+            CampaignHandle campaign = request.Campaign;
+            CharacterId characterId = request.CharacterId;
+
+            // ADR-025 section 6.3: "обязательной причиной" -- validated here
+            // (not thrown from the request's own constructor) so an empty
+            // reasonCode surfaces as a graceful Result.Failure, matching this
+            // codebase's own convention for every other "ReasonCode required"
+            // rejection (DeleteCharacterPermanently, RevertAdvancementPurchase,
+            // ApplyCharacterRespec).
+            if (string.IsNullOrWhiteSpace(request.ReasonCode))
+            {
+                return Result<CharacterRecord>.Failure(PersistenceFailures.CharacterRestoreReasonRequired(correlationId));
+            }
+
+            // Product section 23.2: "MainGM может вернуть персонажа" --
+            // checked before touching the database at all.
+            if (!request.ActorIsMainGm)
+            {
+                return Result<CharacterRecord>.Failure(PersistenceFailures.CharacterRestoreDenied(correlationId));
+            }
+
+            try
+            {
+                using SqliteConnection connection = OpenConnection(campaign.RootPath);
+                EnsureCharacterTables(connection);
+
+                return _pipeline.Execute(
+                    connection,
+                    campaign.CampaignId,
+                    commandId,
+                    correlationId,
+                    tryReplay: transaction => ReplayCharacter(connection, transaction, campaign.CampaignId, "CharacterId = $characterId AND LastCommandId = $commandId", commandId, correlationId, characterId),
+                    apply: transaction =>
+                    {
+                        CharacterRecord? current = SelectForUpdate(connection, transaction, characterId);
+                        if (current == null)
+                        {
+                            return Result<PipelineWrite<CharacterRecord>>.Failure(PersistenceFailures.CharacterNotFound(correlationId));
+                        }
+
+                        if (current.Revisions.LifecycleRevision != request.ExpectedLifecycleRevision)
+                        {
+                            return Result<PipelineWrite<CharacterRecord>>.Failure(PersistenceFailures.CharacterRevisionConflict(correlationId));
+                        }
+
+                        // ADR-025 section 6.1: legal ONLY from Dead -- a
+                        // business rule specific to this command, checked
+                        // explicitly in addition to (not instead of) the
+                        // generic transition table below, since that table
+                        // alone cannot express "only this command may use
+                        // this particular source status."
+                        if (current.LifecycleStatus != CharacterLifecycleStatus.Dead)
+                        {
+                            return Result<PipelineWrite<CharacterRecord>>.Failure(PersistenceFailures.CharacterRestoreNotDead(correlationId));
+                        }
+
+                        if (!CharacterLifecycleTransitions.IsValidTransition(current.LifecycleStatus, request.NewLifecycleStatus))
+                        {
+                            return Result<PipelineWrite<CharacterRecord>>.Failure(PersistenceFailures.CharacterLifecycleTransitionInvalid(correlationId));
+                        }
+
+                        if (request.NewBodyParts != null)
+                        {
+                            if (current.Anatomy == null)
+                            {
+                                return Result<PipelineWrite<CharacterRecord>>.Failure(PersistenceFailures.CharacterAnatomyNotInitialized(correlationId));
+                            }
+
+                            if (current.Revisions.CharacterAnatomyRevision != request.ExpectedCharacterAnatomyRevision!.Value)
+                            {
+                                return Result<PipelineWrite<CharacterRecord>>.Failure(PersistenceFailures.CharacterRevisionConflict(correlationId));
+                            }
+                        }
+
+                        bool touchesResources = request.NewResourceCurrentValues != null && request.NewResourceCurrentValues.Count > 0;
+                        if (touchesResources && current.Revisions.CharacterResourcesRevision != request.ExpectedCharacterResourcesRevision!.Value)
+                        {
+                            return Result<PipelineWrite<CharacterRecord>>.Failure(PersistenceFailures.CharacterRevisionConflict(correlationId));
+                        }
+
+                        IReadOnlyList<CharacterResource> newResources = current.Resources;
+                        if (touchesResources)
+                        {
+                            var updatedResources = new List<CharacterResource>(current.Resources);
+                            foreach (CharacterRestoreResourceValue change in request.NewResourceCurrentValues!)
+                            {
+                                int index = updatedResources.FindIndex(r => r.CharacterResourceId.Equals(change.CharacterResourceId));
+                                if (index < 0)
+                                {
+                                    return Result<PipelineWrite<CharacterRecord>>.Failure(PersistenceFailures.CharacterResourceNotFound(correlationId));
+                                }
+
+                                CharacterResource existingResource = updatedResources[index];
+                                updatedResources[index] = new CharacterResource(existingResource.CharacterResourceId, existingResource.ResourceDefinitionId, change.NewCurrentValue, existingResource.BaseMaximum, existingResource.PermanentMaximumAdjustment, existingResource.MinimumValue, existingResource.RecoveryRule, existingResource.Revision + 1);
+                            }
+
+                            newResources = updatedResources;
+                        }
+
+                        UtcInstant now = _clock.GetUtcNow();
+
+                        // Note: CharacterAnatomy.Revision (the domain object's
+                        // own embedded field, serialized into AnatomyJson) is
+                        // tracked independently of the Character table's own
+                        // CharacterAnatomyRevision column -- the two are NOT
+                        // guaranteed equal (InitializeCharacterAnatomy's own
+                        // fixture always seeds CharacterAnatomy.Revision at 1
+                        // regardless of the column's own value at that time).
+                        // This method advances each on its own terms, exactly
+                        // mirroring AddBodyPart/ReplaceAnatomyProfile's own
+                        // existing convention.
+                        Odyssey.Domain.Character.CharacterAnatomy? newAnatomy = current.Anatomy;
+                        long? newAnatomyRevisionColumn = null;
+                        if (request.NewBodyParts != null)
+                        {
+                            newAnatomyRevisionColumn = current.Revisions.CharacterAnatomyRevision + 1;
+                            var newMigrationHistory = new List<AnatomyMigrationEntry>(current.Anatomy!.MigrationHistory.Count + 1);
+                            newMigrationHistory.AddRange(current.Anatomy.MigrationHistory);
+                            newMigrationHistory.Add(new AnatomyMigrationEntry("RestoredAfterDeath", "CharacterAnatomy updated as part of RestoreDeadCharacter", now));
+                            newAnatomy = new Odyssey.Domain.Character.CharacterAnatomy(current.Anatomy.AnatomyProfileDefinitionId, current.Anatomy.AnatomyProfileVersion, request.NewBodyParts, request.NewPermanentModifications ?? current.Anatomy.PermanentModifications, newMigrationHistory, current.Anatomy.Revision + 1);
+                        }
+
+                        long newLifecycleRevision = current.Revisions.LifecycleRevision + 1;
+                        long newCharacterRevision = current.Revisions.CharacterRevision + 1;
+                        long newResourcesRevision = touchesResources ? current.Revisions.CharacterResourcesRevision + 1 : current.Revisions.CharacterResourcesRevision;
+                        long effectiveNewAnatomyRevision = newAnatomyRevisionColumn ?? current.Revisions.CharacterAnatomyRevision;
+
+                        // Section 1.2 of this task's own ТЗ: RuntimeState is
+                        // deliberately absent from this UPDATE (and from
+                        // every other column list in this file) -- neither
+                        // ADR-022 nor product defines its content, and
+                        // product section 23.2's "положения/токена"
+                        // belongs to a separate Board/Scene aggregate,
+                        // coordinated by the caller with its own Board
+                        // commands after this call returns.
+                        using (var update = connection.CreateCommand())
+                        {
+                            update.Transaction = transaction;
+                            update.CommandText = "UPDATE Character SET LifecycleStatus = $lifecycleStatus, LifecycleRevision = $lifecycleRevision, AnatomyJson = $anatomyJson, CharacterAnatomyRevision = $anatomyRevision, ResourcesJson = $resourcesJson, CharacterResourcesRevision = $resourcesRevision, CharacterRevision = $characterRevision, UpdatedAt = $updatedAt, LastCommandId = $lastCommandId WHERE CharacterId = $characterId;";
+                            update.Parameters.AddWithValue("$lifecycleStatus", request.NewLifecycleStatus.ToString());
+                            update.Parameters.AddWithValue("$lifecycleRevision", newLifecycleRevision);
+                            update.Parameters.AddWithValue("$anatomyJson", newAnatomy != null ? SerializeAnatomy(newAnatomy) : (object)DBNull.Value);
+                            update.Parameters.AddWithValue("$anatomyRevision", effectiveNewAnatomyRevision);
+                            update.Parameters.AddWithValue("$resourcesJson", SerializeResources(newResources));
+                            update.Parameters.AddWithValue("$resourcesRevision", newResourcesRevision);
+                            update.Parameters.AddWithValue("$characterRevision", newCharacterRevision);
+                            update.Parameters.AddWithValue("$updatedAt", now.ToString());
+                            update.Parameters.AddWithValue("$lastCommandId", commandId.ToString());
+                            update.Parameters.AddWithValue("$characterId", characterId.ToString());
+                            update.ExecuteNonQuery();
+                        }
+
+                        CharacterSectionRevisions newRevisions = WithRevisions(current.Revisions, characterRevision: newCharacterRevision, lifecycleRevision: newLifecycleRevision, characterAnatomyRevision: newAnatomyRevisionColumn, characterResourcesRevision: touchesResources ? newResourcesRevision : (long?)null);
+                        var record = new CharacterRecord(characterId, campaign.CampaignId, current.CharacterKind, request.NewLifecycleStatus, current.ApprovalState, current.DisplayName, current.PortraitReference, current.Ownership, newRevisions, current.RulesetVersion, current.AnatomyProfileRef, current.TemplateId, current.TemplateVersionAtCopyTime, current.SeedCopy, current.SubmittedAt, current.DevelopmentPool, current.Attributes, current.Skills, current.Abilities, newResources, newAnatomy, current.CreatedAt, now);
+
+                        // Section 1.3 of this task's own ТЗ: an ordinary
+                        // FORWARD event -- no originalEventId/compensationGroupId/
+                        // isCompensating are passed to PipelineWrite below
+                        // (all default to null/false), so this is never
+                        // mistaken for an ADR-012 section 6 compensating
+                        // event referencing the death event.
+                        var payload = new JObject
+                        {
+                            ["characterId"] = characterId.ToString(),
+                            ["displayNameSnapshot"] = current.DisplayName,
+                            ["portraitReferenceSnapshot"] = current.PortraitReference,
+                            ["rulesetVersion"] = current.RulesetVersion,
+                            ["lifecycleStatusBefore"] = CharacterLifecycleStatus.Dead.ToString(),
+                            ["lifecycleStatusAfter"] = request.NewLifecycleStatus.ToString(),
+                            ["reasonCode"] = request.ReasonCode,
+                            ["actorUserId"] = request.ActorUserId.ToString(),
+                            ["touchedCharacterAnatomy"] = request.NewBodyParts != null,
+                            ["touchedCharacterResources"] = touchesResources,
+                            ["newLifecycleRevision"] = newLifecycleRevision,
+                            ["newCharacterRevision"] = newCharacterRevision,
+                        };
+
+                        return Result<PipelineWrite<CharacterRecord>>.Success(new PipelineWrite<CharacterRecord>(
+                            record, "odyssey.persistence.character_restored", payload.ToString(Newtonsoft.Json.Formatting.None), characterId.ToString(),
+                            aggregateType: "character", aggregateId: characterId.ToString(), aggregateRevision: newCharacterRevision));
+                    });
+            }
+            catch (Exception ex) when (ex is IOException || ex is UnauthorizedAccessException || ex is SqliteException)
+            {
+                return Result<CharacterRecord>.Failure(PersistenceFailures.CharacterIoFailed(correlationId));
+            }
         }
 
         public Result<IReadOnlyList<CharacterReviewCommentRecord>> GetCharacterReviewComments(CampaignHandle campaign, CharacterId characterId, CorrelationId correlationId)

@@ -35,6 +35,26 @@ namespace Odyssey.Domain.Character
     }
 
     /// <summary>
+    /// ODY-S04-111: ADR-025 section 6.1's structural discriminator for
+    /// "who issued this transition into <see cref="CharacterLifecycleStatus.Dead"/>" --
+    /// this codebase has no general <c>IssuerKind</c>/`HostSystem` actor
+    /// mechanism anywhere yet (confirmed by search), and no real Rules
+    /// Engine <c>FatalDamagePending</c> workflow exists to become a genuine
+    /// <c>HostSystem</c> caller. This enum makes the two legal paths
+    /// structurally exclusive at the call site -- there is no third value a
+    /// plain owner/controller could pass to reach <c>Dead</c>
+    /// (`CAP-INV-008`).
+    /// </summary>
+    public enum LifecycleDeathIssuerKind
+    {
+        /// <summary>ADR-002 section 6.4's `IssuerKind=HostSystem` -- accepted as a structurally legal entry point for a future Rules Engine `FatalDamagePending` workflow (not implemented by this task); no user permission check applies on this path, since it does not represent a user-issued command at all.</summary>
+        HostSystemFatalDamageCompletion = 1,
+
+        /// <summary>`IssuerKind=User`, `ActorUserId`=MainGM -- an explicit GM override. MainGM-only, checked like every other MainGM-gated command in this codebase.</summary>
+        GMOverride = 2
+    }
+
+    /// <summary>
     /// ODY-S04-101: 10_Characters_And_Progression section 7.2's MVP
     /// ApprovalState. Submitted/ChangesRequested/Rejected are not stable
     /// values (ADR-023 section 7.4, already decided, not reopened here) --

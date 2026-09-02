@@ -3047,6 +3047,126 @@
                           "runner":  "dotnet test",
                           "path":  "DotNet/Tests/Odyssey.Tests.Persistence/CharacterArchivePhysicalDeleteTests.cs",
                           "check":  "A test ICharacterDeletionDependencyChecker that always reports a blocking dependency actually prevents DeleteCharacterPermanently -- proves the extension point is not merely an unused parameter"
+                      },
+                      {
+                          "testCaseId":  "TC-CHAR-129",
+                          "taskId":  "ODY-S04-111",
+                          "authority":  "ADR-025 section 6.1",
+                          "runner":  "dotnet test",
+                          "path":  "DotNet/Tests/Odyssey.Tests.Persistence/CharacterDeadRestoredTests.cs",
+                          "check":  "TransitionCharacterToDead via the GMOverride path by MainGM succeeds and sets LifecycleStatus to Dead"
+                      },
+                      {
+                          "testCaseId":  "TC-CHAR-130",
+                          "taskId":  "ODY-S04-111",
+                          "authority":  "ADR-025 section 6.1; CAP-INV-008",
+                          "runner":  "dotnet test",
+                          "path":  "DotNet/Tests/Odyssey.Tests.Persistence/CharacterDeadRestoredTests.cs",
+                          "check":  "TransitionCharacterToDead via the GMOverride path by a non-MainGM actor is rejected with no state change"
+                      },
+                      {
+                          "testCaseId":  "TC-CHAR-131",
+                          "taskId":  "ODY-S04-111",
+                          "authority":  "ADR-025 section 6.1; ADR-002 section 6.4",
+                          "runner":  "dotnet test",
+                          "path":  "DotNet/Tests/Odyssey.Tests.Persistence/CharacterDeadRestoredTests.cs",
+                          "check":  "TransitionCharacterToDead via the HostSystemFatalDamageCompletion structural entry point succeeds without an actorIsMainGm check"
+                      },
+                      {
+                          "testCaseId":  "TC-CHAR-132",
+                          "taskId":  "ODY-S04-111",
+                          "authority":  "CharacterLifecycleTransitions.IsValidTransition; product section 7.1",
+                          "runner":  "dotnet test",
+                          "path":  "DotNet/Tests/Odyssey.Tests.Persistence/CharacterDeadRestoredTests.cs",
+                          "check":  "TransitionCharacterToDead from an illegal source state (Draft) is rejected via the existing generic transition table"
+                      },
+                      {
+                          "testCaseId":  "TC-CHAR-133",
+                          "taskId":  "ODY-S04-111",
+                          "authority":  "ADR-025 section 6.2; this task's own section 1.4",
+                          "runner":  "dotnet test",
+                          "path":  "DotNet/Tests/Odyssey.Tests.Persistence/CharacterDeadRestoredTests.cs",
+                          "check":  "TransitionCharacterToDead does not touch DevelopmentPool.Earned/Reserved or MechanicsRevision -- direct before/after comparison"
+                      },
+                      {
+                          "testCaseId":  "TC-CHAR-134",
+                          "taskId":  "ODY-S04-111",
+                          "authority":  "ADR-012 section 7",
+                          "runner":  "dotnet test",
+                          "path":  "DotNet/Tests/Odyssey.Tests.Persistence/CharacterDeadRestoredTests.cs",
+                          "check":  "A duplicate CommandId for TransitionCharacterToDead does not duplicate the effect -- LifecycleRevision advances only once"
+                      },
+                      {
+                          "testCaseId":  "TC-CHAR-135",
+                          "taskId":  "ODY-S04-111",
+                          "authority":  "ADR-025 section 6.3; product section 23.2",
+                          "runner":  "dotnet test",
+                          "path":  "DotNet/Tests/Odyssey.Tests.Persistence/CharacterDeadRestoredTests.cs",
+                          "check":  "RestoreDeadCharacter from Dead succeeds and changes LifecycleStatus to the GM's chosen value"
+                      },
+                      {
+                          "testCaseId":  "TC-CHAR-136",
+                          "taskId":  "ODY-S04-111",
+                          "authority":  "ADR-025 section 6.1",
+                          "runner":  "dotnet test",
+                          "path":  "DotNet/Tests/Odyssey.Tests.Persistence/CharacterDeadRestoredTests.cs",
+                          "check":  "RestoreDeadCharacter from a non-Dead state is rejected"
+                      },
+                      {
+                          "testCaseId":  "TC-CHAR-137",
+                          "taskId":  "ODY-S04-111",
+                          "authority":  "ADR-025 section 6.3",
+                          "runner":  "dotnet test",
+                          "path":  "DotNet/Tests/Odyssey.Tests.Persistence/CharacterDeadRestoredTests.cs",
+                          "check":  "RestoreDeadCharacter without a reasonCode is rejected"
+                      },
+                      {
+                          "testCaseId":  "TC-CHAR-138",
+                          "taskId":  "ODY-S04-111",
+                          "authority":  "product section 23.2",
+                          "runner":  "dotnet test",
+                          "path":  "DotNet/Tests/Odyssey.Tests.Persistence/CharacterDeadRestoredTests.cs",
+                          "check":  "RestoreDeadCharacter by a non-MainGM actor is rejected with no state change"
+                      },
+                      {
+                          "testCaseId":  "TC-CHAR-139",
+                          "taskId":  "ODY-S04-111",
+                          "authority":  "ADR-025 section 6.3; ADR-022 section 5 rule 2",
+                          "runner":  "dotnet test",
+                          "path":  "DotNet/Tests/Odyssey.Tests.Persistence/CharacterDeadRestoredTests.cs",
+                          "check":  "RestoreDeadCharacter with explicit CharacterAnatomy/CharacterResource changes updates the new values directly, and increases only those sections' own revisions"
+                      },
+                      {
+                          "testCaseId":  "TC-CHAR-140",
+                          "taskId":  "ODY-S04-111",
+                          "authority":  "ADR-022 section 5 rule 2",
+                          "runner":  "dotnet test",
+                          "path":  "DotNet/Tests/Odyssey.Tests.Persistence/CharacterDeadRestoredTests.cs",
+                          "check":  "RestoreDeadCharacter without touching CharacterAnatomy/CharacterResource leaves those sections' revisions unchanged"
+                      },
+                      {
+                          "testCaseId":  "TC-CHAR-141",
+                          "taskId":  "ODY-S04-111",
+                          "authority":  "ADR-025 section 6.3; ADR-012 section 6; this task's own section 1.3",
+                          "runner":  "dotnet test",
+                          "path":  "DotNet/Tests/Odyssey.Tests.Persistence/CharacterDeadRestoredTests.cs",
+                          "check":  "The CharacterRestored DomainEvents row has IsCompensating=0 and OriginalEventId=NULL -- confirming it is an ordinary forward event, not a compensating event referencing CharacterDied"
+                      },
+                      {
+                          "testCaseId":  "TC-CHAR-142",
+                          "taskId":  "ODY-S04-111",
+                          "authority":  "ADR-012 section 7",
+                          "runner":  "dotnet test",
+                          "path":  "DotNet/Tests/Odyssey.Tests.Persistence/CharacterDeadRestoredTests.cs",
+                          "check":  "A duplicate CommandId for RestoreDeadCharacter does not duplicate the effect -- exactly one CharacterRestored event exists after replay"
+                      },
+                      {
+                          "testCaseId":  "TC-CHAR-143",
+                          "taskId":  "ODY-S04-111",
+                          "authority":  "ADR-022 section 5; this task's own section 1.4",
+                          "runner":  "dotnet test",
+                          "path":  "DotNet/Tests/Odyssey.Tests.Persistence/CharacterDeadRestoredTests.cs",
+                          "check":  "An independent Mechanics-section command (GrantDevelopmentPoints) commits successfully after an earlier, unrelated Lifecycle-section Dead transition -- no false conflict"
                       }
                   ]
 }
