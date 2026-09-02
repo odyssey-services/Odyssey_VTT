@@ -3,7 +3,7 @@
 **Status:** Active
 **Owner:** Codex (agent)
 **Branch:** `feat/ody-s04-106-skill-purchases-critical-evidence`
-**Pull request:** <to be filled after `gh pr create`>
+**Pull request:** [#90](https://github.com/odyssey-services/Odyssey_VTT/pull/90)
 **Last updated:** 2026-09-01 UTC
 
 ## 1. Purpose and user-visible outcome
@@ -62,9 +62,9 @@ No Unity/UI code, no `ADR-022`/`024` content change, no concrete skill-cost cata
 - [x] `.\scripts\verify-format.ps1`.
 - [x] `docs/errors/ERROR_CODES.md` + `Tests/Metadata/test-catalog.json` entries (`TC-CHAR-050`–`058`).
 - [x] This task contract/ExecPlan, created before the final validation pass.
-- [ ] `.\scripts\check-repository-policy.ps1` final green run.
-- [ ] `SLICE-04_IMPLEMENTATION_BACKLOG.md` status update.
-- [ ] Commit, push, and open Draft PR.
+- [x] `.\scripts\check-repository-policy.ps1` final green run.
+- [x] `SLICE-04_IMPLEMENTATION_BACKLOG.md` status update.
+- [x] Commit, push, and open Draft PR — [#90](https://github.com/odyssey-services/Odyssey_VTT/pull/90).
 - [ ] Record CI status.
 
 ## 6. Progress log

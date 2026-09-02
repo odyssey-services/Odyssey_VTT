@@ -5,7 +5,7 @@
 **Owner:** Codex (agent)
 **Requested by:** Product owner
 **Branch:** `feat/ody-s04-106-skill-purchases-critical-evidence`
-**Pull request:** <to be filled after `gh pr create`>
+**Pull request:** [#90](https://github.com/odyssey-services/Odyssey_VTT/pull/90)
 **ExecPlan:** `docs/plans/active/ODY-S04-106_Skill_Purchases_Critical_Evidence_Recommendation.md`
 **Created:** 2026-09-01
 **Last updated:** 2026-09-01 UTC
