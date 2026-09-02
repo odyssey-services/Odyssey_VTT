@@ -13,6 +13,8 @@ using Odyssey.Domain.Time;
 using RulesAttributeCostRules = Odyssey.Rules.Character.AttributeCostRules;
 using RulesSkillCostRules = Odyssey.Rules.Character.SkillCostRules;
 using RulesAbilityCostRules = Odyssey.Rules.Character.AbilityCostRules;
+using RulesResourceInitializationRules = Odyssey.Rules.Character.ResourceInitializationRules;
+using RulesAnatomyInitializationRules = Odyssey.Rules.Character.AnatomyInitializationRules;
 
 namespace Odyssey.Persistence.Sqlite
 {
@@ -106,7 +108,7 @@ namespace Odyssey.Persistence.Sqlite
                                 "AttributeValuesRevision, CharacterSkillsRevision, CharacterAbilitiesRevision, CharacterResourcesRevision, " +
                                 "CharacterAnatomyRevision, OwnershipRevision, LifecycleRevision, RuntimeStateRevision, " +
                                 "RulesetVersion, AnatomyProfileRef, TemplateId, TemplateVersionAtCopyTime, SeedCopyJson, SubmittedAt, " +
-                                "PoolEarned, PoolSpent, PoolReserved, AttributesJson, SkillsJson, AbilitiesJson, " +
+                                "PoolEarned, PoolSpent, PoolReserved, AttributesJson, SkillsJson, AbilitiesJson, ResourcesJson, AnatomyJson, " +
                                 "CreatedAt, UpdatedAt, LastCommandId) VALUES (" +
                                 "$characterId, $campaignId, $characterKind, $lifecycleStatus, $approvalState, $displayName, NULL, " +
                                 "NULL, $coOwners, $permanentControllers, $temporaryGrants, " +
@@ -114,7 +116,7 @@ namespace Odyssey.Persistence.Sqlite
                                 "$attributeValuesRevision, $characterSkillsRevision, $characterAbilitiesRevision, $characterResourcesRevision, " +
                                 "$characterAnatomyRevision, $ownershipRevision, $lifecycleRevision, $runtimeStateRevision, " +
                                 "'', NULL, NULL, NULL, '[]', NULL, " +
-                                "0, 0, 0, '[]', '[]', '[]', " +
+                                "0, 0, 0, '[]', '[]', '[]', '[]', NULL, " +
                                 "$createdAt, $updatedAt, $lastCommandId);";
                             insert.Parameters.AddWithValue("$characterId", characterId.ToString());
                             insert.Parameters.AddWithValue("$campaignId", campaign.CampaignId.ToString());
@@ -136,7 +138,7 @@ namespace Odyssey.Persistence.Sqlite
                         // pinning, no template, no initial owner. See
                         // BindDraftToCampaign for the ADR-023-compliant real
                         // creation path this task adds alongside it.
-                        var record = new CharacterRecord(characterId, campaign.CampaignId, request.CharacterKind, lifecycleStatus, approvalState, request.DisplayName, null, ownership, revisions, string.Empty, null, null, null, Array.Empty<CopiedCharacterSeedItem>(), null, DevelopmentPool.Empty(), Array.Empty<AttributeValue>(), Array.Empty<CharacterSkill>(), Array.Empty<CharacterAbility>(), now, now);
+                        var record = new CharacterRecord(characterId, campaign.CampaignId, request.CharacterKind, lifecycleStatus, approvalState, request.DisplayName, null, ownership, revisions, string.Empty, null, null, null, Array.Empty<CopiedCharacterSeedItem>(), null, DevelopmentPool.Empty(), Array.Empty<AttributeValue>(), Array.Empty<CharacterSkill>(), Array.Empty<CharacterAbility>(), Array.Empty<CharacterResource>(), null, now, now);
 
                         var payload = new JObject
                         {
@@ -219,7 +221,7 @@ namespace Odyssey.Persistence.Sqlite
                                 "AttributeValuesRevision, CharacterSkillsRevision, CharacterAbilitiesRevision, CharacterResourcesRevision, " +
                                 "CharacterAnatomyRevision, OwnershipRevision, LifecycleRevision, RuntimeStateRevision, " +
                                 "RulesetVersion, AnatomyProfileRef, TemplateId, TemplateVersionAtCopyTime, SeedCopyJson, SubmittedAt, " +
-                                "PoolEarned, PoolSpent, PoolReserved, AttributesJson, SkillsJson, AbilitiesJson, " +
+                                "PoolEarned, PoolSpent, PoolReserved, AttributesJson, SkillsJson, AbilitiesJson, ResourcesJson, AnatomyJson, " +
                                 "CreatedAt, UpdatedAt, LastCommandId) VALUES (" +
                                 "$characterId, $campaignId, $characterKind, $lifecycleStatus, $approvalState, $displayName, NULL, " +
                                 "$primaryOwnerUserId, $coOwners, $permanentControllers, $temporaryGrants, " +
@@ -227,7 +229,7 @@ namespace Odyssey.Persistence.Sqlite
                                 "$attributeValuesRevision, $characterSkillsRevision, $characterAbilitiesRevision, $characterResourcesRevision, " +
                                 "$characterAnatomyRevision, $ownershipRevision, $lifecycleRevision, $runtimeStateRevision, " +
                                 "$rulesetVersion, $anatomyProfileRef, $templateId, $templateVersion, $seedCopyJson, NULL, " +
-                                "0, 0, 0, '[]', '[]', '[]', " +
+                                "0, 0, 0, '[]', '[]', '[]', '[]', NULL, " +
                                 "$createdAt, $updatedAt, $lastCommandId);";
                             insert.Parameters.AddWithValue("$characterId", characterId.ToString());
                             insert.Parameters.AddWithValue("$campaignId", campaign.CampaignId.ToString());
@@ -251,7 +253,7 @@ namespace Odyssey.Persistence.Sqlite
                             insert.ExecuteNonQuery();
                         }
 
-                        var record = new CharacterRecord(characterId, campaign.CampaignId, request.CharacterKind, lifecycleStatus, approvalState, request.DisplayName, null, ownership, revisions, pinnedRulesetVersion, request.AnatomyProfileRef, request.Seed.TemplateId, request.Seed.TemplateVersionAtCopyTime, request.Seed.Items, null, DevelopmentPool.Empty(), Array.Empty<AttributeValue>(), Array.Empty<CharacterSkill>(), Array.Empty<CharacterAbility>(), now, now);
+                        var record = new CharacterRecord(characterId, campaign.CampaignId, request.CharacterKind, lifecycleStatus, approvalState, request.DisplayName, null, ownership, revisions, pinnedRulesetVersion, request.AnatomyProfileRef, request.Seed.TemplateId, request.Seed.TemplateVersionAtCopyTime, request.Seed.Items, null, DevelopmentPool.Empty(), Array.Empty<AttributeValue>(), Array.Empty<CharacterSkill>(), Array.Empty<CharacterAbility>(), Array.Empty<CharacterResource>(), null, now, now);
 
                         var payload = new JObject
                         {
@@ -339,7 +341,7 @@ namespace Odyssey.Persistence.Sqlite
                         }
 
                         CharacterSectionRevisions newRevisions = WithRevisions(current.Revisions, characterRevision: newCharacterRevision, lifecycleRevision: newLifecycleRevision);
-                        var record = new CharacterRecord(characterId, campaign.CampaignId, current.CharacterKind, current.LifecycleStatus, current.ApprovalState, current.DisplayName, current.PortraitReference, current.Ownership, newRevisions, current.RulesetVersion, current.AnatomyProfileRef, current.TemplateId, current.TemplateVersionAtCopyTime, current.SeedCopy, now, current.DevelopmentPool, current.Attributes, current.Skills, current.Abilities, current.CreatedAt, now);
+                        var record = new CharacterRecord(characterId, campaign.CampaignId, current.CharacterKind, current.LifecycleStatus, current.ApprovalState, current.DisplayName, current.PortraitReference, current.Ownership, newRevisions, current.RulesetVersion, current.AnatomyProfileRef, current.TemplateId, current.TemplateVersionAtCopyTime, current.SeedCopy, now, current.DevelopmentPool, current.Attributes, current.Skills, current.Abilities, current.Resources, current.Anatomy, current.CreatedAt, now);
 
                         var payload = new JObject
                         {
@@ -513,7 +515,7 @@ namespace Odyssey.Persistence.Sqlite
                         }
 
                         CharacterSectionRevisions newRevisions = WithRevisions(current.Revisions, characterRevision: newCharacterRevision, lifecycleRevision: newLifecycleRevision);
-                        var record = new CharacterRecord(characterId, campaign.CampaignId, current.CharacterKind, newLifecycleStatus, newApprovalState, current.DisplayName, current.PortraitReference, current.Ownership, newRevisions, current.RulesetVersion, current.AnatomyProfileRef, current.TemplateId, current.TemplateVersionAtCopyTime, current.SeedCopy, current.SubmittedAt, current.DevelopmentPool, current.Attributes, current.Skills, current.Abilities, current.CreatedAt, now);
+                        var record = new CharacterRecord(characterId, campaign.CampaignId, current.CharacterKind, newLifecycleStatus, newApprovalState, current.DisplayName, current.PortraitReference, current.Ownership, newRevisions, current.RulesetVersion, current.AnatomyProfileRef, current.TemplateId, current.TemplateVersionAtCopyTime, current.SeedCopy, current.SubmittedAt, current.DevelopmentPool, current.Attributes, current.Skills, current.Abilities, current.Resources, current.Anatomy, current.CreatedAt, now);
 
                         var payload = new JObject
                         {
@@ -1756,7 +1758,7 @@ namespace Odyssey.Persistence.Sqlite
                         }
 
                         CharacterSectionRevisions newRevisions = WithRevisions(current.Revisions, characterRevision: newCharacterRevision, mechanicsRevision: newMechanicsRevision);
-                        var record = new CharacterRecord(characterId, campaign.CampaignId, current.CharacterKind, current.LifecycleStatus, current.ApprovalState, current.DisplayName, current.PortraitReference, current.Ownership, newRevisions, current.RulesetVersion, current.AnatomyProfileRef, current.TemplateId, current.TemplateVersionAtCopyTime, current.SeedCopy, current.SubmittedAt, newPool, newAttributes, newSkills, current.Abilities, current.CreatedAt, now);
+                        var record = new CharacterRecord(characterId, campaign.CampaignId, current.CharacterKind, current.LifecycleStatus, current.ApprovalState, current.DisplayName, current.PortraitReference, current.Ownership, newRevisions, current.RulesetVersion, current.AnatomyProfileRef, current.TemplateId, current.TemplateVersionAtCopyTime, current.SeedCopy, current.SubmittedAt, newPool, newAttributes, newSkills, current.Abilities, current.Resources, current.Anatomy, current.CreatedAt, now);
 
                         var completedPayload = new JObject
                         {
@@ -1974,7 +1976,7 @@ namespace Odyssey.Persistence.Sqlite
                         }
 
                         CharacterSectionRevisions newRevisions = WithRevisions(current.Revisions, characterRevision: newCharacterRevision, mechanicsRevision: newMechanicsRevision, characterAbilitiesRevision: newAbilitiesRevision);
-                        var record = new CharacterRecord(characterId, campaign.CampaignId, current.CharacterKind, current.LifecycleStatus, current.ApprovalState, current.DisplayName, current.PortraitReference, current.Ownership, newRevisions, current.RulesetVersion, current.AnatomyProfileRef, current.TemplateId, current.TemplateVersionAtCopyTime, current.SeedCopy, current.SubmittedAt, newPool, current.Attributes, current.Skills, newAbilities, current.CreatedAt, now);
+                        var record = new CharacterRecord(characterId, campaign.CampaignId, current.CharacterKind, current.LifecycleStatus, current.ApprovalState, current.DisplayName, current.PortraitReference, current.Ownership, newRevisions, current.RulesetVersion, current.AnatomyProfileRef, current.TemplateId, current.TemplateVersionAtCopyTime, current.SeedCopy, current.SubmittedAt, newPool, current.Attributes, current.Skills, newAbilities, current.Resources, current.Anatomy, current.CreatedAt, now);
 
                         var payload = new JObject
                         {
@@ -2132,7 +2134,7 @@ namespace Odyssey.Persistence.Sqlite
                         }
 
                         CharacterSectionRevisions newRevisions = WithRevisions(current.Revisions, characterRevision: newCharacterRevision, characterAbilitiesRevision: newAbilitiesRevision);
-                        var record = new CharacterRecord(characterId, campaign.CampaignId, current.CharacterKind, current.LifecycleStatus, current.ApprovalState, current.DisplayName, current.PortraitReference, current.Ownership, newRevisions, current.RulesetVersion, current.AnatomyProfileRef, current.TemplateId, current.TemplateVersionAtCopyTime, current.SeedCopy, current.SubmittedAt, current.DevelopmentPool, current.Attributes, current.Skills, mutation.NewAbilities, current.CreatedAt, now);
+                        var record = new CharacterRecord(characterId, campaign.CampaignId, current.CharacterKind, current.LifecycleStatus, current.ApprovalState, current.DisplayName, current.PortraitReference, current.Ownership, newRevisions, current.RulesetVersion, current.AnatomyProfileRef, current.TemplateId, current.TemplateVersionAtCopyTime, current.SeedCopy, current.SubmittedAt, current.DevelopmentPool, current.Attributes, current.Skills, mutation.NewAbilities, current.Resources, current.Anatomy, current.CreatedAt, now);
 
                         mutation.PayloadExtra["characterId"] = characterId.ToString();
                         mutation.PayloadExtra["displayNameSnapshot"] = current.DisplayName;
@@ -2161,6 +2163,663 @@ namespace Odyssey.Persistence.Sqlite
             }
 
             public IReadOnlyList<CharacterAbility> NewAbilities { get; }
+            public string EventType { get; }
+            public JObject PayloadExtra { get; }
+        }
+
+        // ==================== ODY-S04-109: CharacterResource ====================
+
+        public Result<CharacterRecord> InitializeCharacterResource(CampaignHandle campaign, CharacterId characterId, ResourceDefinitionId resourceDefinitionId, UserId actorUserId, bool actorIsMainGm, long expectedCharacterResourcesRevision, CommandId commandId, CorrelationId correlationId)
+        {
+            if (!resourceDefinitionId.IsValid) throw new ArgumentException("ResourceDefinitionId is required.", nameof(resourceDefinitionId));
+            if (!actorUserId.IsValid) throw new ArgumentException("ActorUserId is required.", nameof(actorUserId));
+
+            if (!actorIsMainGm)
+            {
+                return Result<CharacterRecord>.Failure(PersistenceFailures.CharacterResourceOperationDenied(correlationId));
+            }
+
+            return MutateResources(campaign, characterId, expectedCharacterResourcesRevision, commandId, correlationId, (current, connection, transaction) =>
+            {
+                UtcInstant now = _clock.GetUtcNow();
+                CharacterResourceId newResourceId = CharacterResourceId.NewId(now);
+
+                // RulesResourceInitializationRules: TEST FIXTURE ONLY -- see that class's own doc comment. No ResourceDefinition catalog exists yet.
+                var newResource = new CharacterResource(newResourceId, resourceDefinitionId, RulesResourceInitializationRules.DefaultBaseMaximum, RulesResourceInitializationRules.DefaultBaseMaximum, 0, RulesResourceInitializationRules.DefaultMinimumValue, RulesResourceInitializationRules.DefaultRecoveryRule, 1);
+
+                var newResources = new List<CharacterResource>(current.Resources.Count + 1);
+                newResources.AddRange(current.Resources);
+                newResources.Add(newResource);
+
+                var payload = new JObject
+                {
+                    ["characterResourceId"] = newResourceId.ToString(),
+                    ["resourceDefinitionId"] = resourceDefinitionId.ToString(),
+                    ["baseMaximum"] = newResource.BaseMaximum,
+                    ["actorUserId"] = actorUserId.ToString(),
+                };
+
+                return Result<ResourcesMutation>.Success(new ResourcesMutation(newResources, "odyssey.persistence.character_resource_initialized", payload));
+            });
+        }
+
+        public Result<CharacterRecord> SetResourceCurrentValue(CampaignHandle campaign, CharacterId characterId, CharacterResourceId characterResourceId, long newCurrentValue, UserId actorUserId, bool actorIsMainGm, long expectedCharacterResourcesRevision, CommandId commandId, CorrelationId correlationId)
+        {
+            if (!characterResourceId.IsValid) throw new ArgumentException("CharacterResourceId is required.", nameof(characterResourceId));
+            if (!actorUserId.IsValid) throw new ArgumentException("ActorUserId is required.", nameof(actorUserId));
+
+            if (!actorIsMainGm)
+            {
+                return Result<CharacterRecord>.Failure(PersistenceFailures.CharacterResourceOperationDenied(correlationId));
+            }
+
+            return MutateResources(campaign, characterId, expectedCharacterResourcesRevision, commandId, correlationId, (current, connection, transaction) =>
+            {
+                CharacterResource? existing = null;
+                foreach (CharacterResource candidate in current.Resources)
+                {
+                    if (candidate.CharacterResourceId.Equals(characterResourceId)) { existing = candidate; break; }
+                }
+
+                if (existing == null)
+                {
+                    return Result<ResourcesMutation>.Failure(PersistenceFailures.CharacterResourceNotFound(correlationId));
+                }
+
+                if (newCurrentValue < existing.MinimumValue || newCurrentValue > existing.EffectiveMaximum)
+                {
+                    return Result<ResourcesMutation>.Failure(PersistenceFailures.CharacterResourceValueOutOfRange(correlationId));
+                }
+
+                long fromValue = existing.CurrentValue;
+                var updated = new CharacterResource(existing.CharacterResourceId, existing.ResourceDefinitionId, newCurrentValue, existing.BaseMaximum, existing.PermanentMaximumAdjustment, existing.MinimumValue, existing.RecoveryRule, existing.Revision + 1);
+
+                var newResources = new List<CharacterResource>(current.Resources.Count);
+                foreach (CharacterResource candidate in current.Resources)
+                {
+                    newResources.Add(candidate.CharacterResourceId.Equals(characterResourceId) ? updated : candidate);
+                }
+
+                var payload = new JObject
+                {
+                    ["characterResourceId"] = characterResourceId.ToString(),
+                    ["fromValue"] = fromValue,
+                    ["toValue"] = newCurrentValue,
+                    ["actorUserId"] = actorUserId.ToString(),
+                };
+
+                return Result<ResourcesMutation>.Success(new ResourcesMutation(newResources, "odyssey.persistence.character_resource_changed", payload));
+            });
+        }
+
+        public Result<CharacterRecord> SetResourceMaximum(CampaignHandle campaign, CharacterId characterId, CharacterResourceId characterResourceId, long newBaseMaximum, long newPermanentMaximumAdjustment, UserId actorUserId, bool actorIsMainGm, long expectedCharacterResourcesRevision, CommandId commandId, CorrelationId correlationId)
+        {
+            if (!characterResourceId.IsValid) throw new ArgumentException("CharacterResourceId is required.", nameof(characterResourceId));
+            if (!actorUserId.IsValid) throw new ArgumentException("ActorUserId is required.", nameof(actorUserId));
+
+            if (!actorIsMainGm)
+            {
+                return Result<CharacterRecord>.Failure(PersistenceFailures.CharacterResourceOperationDenied(correlationId));
+            }
+
+            return MutateResources(campaign, characterId, expectedCharacterResourcesRevision, commandId, correlationId, (current, connection, transaction) =>
+            {
+                CharacterResource? existing = null;
+                foreach (CharacterResource candidate in current.Resources)
+                {
+                    if (candidate.CharacterResourceId.Equals(characterResourceId)) { existing = candidate; break; }
+                }
+
+                if (existing == null)
+                {
+                    return Result<ResourcesMutation>.Failure(PersistenceFailures.CharacterResourceNotFound(correlationId));
+                }
+
+                // Product section 17.1 / requirement 44: if the new
+                // EffectiveMaximum is below CurrentValue, CurrentValue is
+                // clamped down in the same commit. Requirement 45: a later
+                // increase never restores the clamped value on its own --
+                // this command only ever sets the new maximum, never bumps
+                // CurrentValue upward itself.
+                long newEffectiveMaximum = newBaseMaximum + newPermanentMaximumAdjustment;
+                long clampedCurrentValue = Math.Min(existing.CurrentValue, newEffectiveMaximum);
+                clampedCurrentValue = Math.Max(clampedCurrentValue, existing.MinimumValue);
+
+                var updated = new CharacterResource(existing.CharacterResourceId, existing.ResourceDefinitionId, clampedCurrentValue, newBaseMaximum, newPermanentMaximumAdjustment, existing.MinimumValue, existing.RecoveryRule, existing.Revision + 1);
+
+                var newResources = new List<CharacterResource>(current.Resources.Count);
+                foreach (CharacterResource candidate in current.Resources)
+                {
+                    newResources.Add(candidate.CharacterResourceId.Equals(characterResourceId) ? updated : candidate);
+                }
+
+                var payload = new JObject
+                {
+                    ["characterResourceId"] = characterResourceId.ToString(),
+                    ["fromCurrentValue"] = existing.CurrentValue,
+                    ["toCurrentValue"] = clampedCurrentValue,
+                    ["fromEffectiveMaximum"] = existing.EffectiveMaximum,
+                    ["toEffectiveMaximum"] = newEffectiveMaximum,
+                    ["actorUserId"] = actorUserId.ToString(),
+                };
+
+                return Result<ResourcesMutation>.Success(new ResourcesMutation(newResources, "odyssey.persistence.character_resource_changed", payload));
+            });
+        }
+
+        /// <summary>ODY-S04-109 section 1.1: mirrors <see cref="MutateAbilities"/>'s exact single-section gate/load/callback/commit shape, but for the <c>CharacterResources</c> section -- genuinely increments <c>CharacterResourcesRevision</c> (reserved by ADR-022 section 5, never previously written).</summary>
+        private Result<CharacterRecord> MutateResources(
+            CampaignHandle campaign,
+            CharacterId characterId,
+            long expectedCharacterResourcesRevision,
+            CommandId commandId,
+            CorrelationId correlationId,
+            Func<CharacterRecord, SqliteConnection, SqliteTransaction, Result<ResourcesMutation>> mutate)
+        {
+            if (campaign == null) throw new ArgumentNullException(nameof(campaign));
+            if (!characterId.IsValid) throw new ArgumentException("CharacterId is required.", nameof(characterId));
+            if (expectedCharacterResourcesRevision < 1) throw new ArgumentOutOfRangeException(nameof(expectedCharacterResourcesRevision));
+            if (!commandId.IsValid) throw new ArgumentException("CommandId is required.", nameof(commandId));
+
+            try
+            {
+                using SqliteConnection connection = OpenConnection(campaign.RootPath);
+                EnsureCharacterTables(connection);
+
+                return _pipeline.Execute(
+                    connection,
+                    campaign.CampaignId,
+                    commandId,
+                    correlationId,
+                    tryReplay: transaction => ReplayCharacter(connection, transaction, campaign.CampaignId, "CharacterId = $characterId AND LastCommandId = $commandId", commandId, correlationId, characterId),
+                    apply: transaction =>
+                    {
+                        CharacterRecord? current = SelectForUpdate(connection, transaction, characterId);
+                        if (current == null)
+                        {
+                            return Result<PipelineWrite<CharacterRecord>>.Failure(PersistenceFailures.CharacterNotFound(correlationId));
+                        }
+
+                        if (current.Revisions.CharacterResourcesRevision != expectedCharacterResourcesRevision)
+                        {
+                            return Result<PipelineWrite<CharacterRecord>>.Failure(PersistenceFailures.CharacterRevisionConflict(correlationId));
+                        }
+
+                        Result<ResourcesMutation> mutationResult = mutate(current, connection, transaction);
+                        if (mutationResult.IsFailure)
+                        {
+                            return Result<PipelineWrite<CharacterRecord>>.Failure(mutationResult.Error);
+                        }
+
+                        ResourcesMutation mutation = mutationResult.Value;
+                        UtcInstant now = _clock.GetUtcNow();
+                        long newResourcesRevision = current.Revisions.CharacterResourcesRevision + 1;
+                        long newCharacterRevision = current.Revisions.CharacterRevision + 1;
+
+                        using (var update = connection.CreateCommand())
+                        {
+                            update.Transaction = transaction;
+                            update.CommandText = "UPDATE Character SET ResourcesJson = $resourcesJson, CharacterResourcesRevision = $resourcesRevision, CharacterRevision = $characterRevision, UpdatedAt = $updatedAt, LastCommandId = $lastCommandId WHERE CharacterId = $characterId;";
+                            update.Parameters.AddWithValue("$resourcesJson", SerializeResources(mutation.NewResources));
+                            update.Parameters.AddWithValue("$resourcesRevision", newResourcesRevision);
+                            update.Parameters.AddWithValue("$characterRevision", newCharacterRevision);
+                            update.Parameters.AddWithValue("$updatedAt", now.ToString());
+                            update.Parameters.AddWithValue("$lastCommandId", commandId.ToString());
+                            update.Parameters.AddWithValue("$characterId", characterId.ToString());
+                            update.ExecuteNonQuery();
+                        }
+
+                        CharacterSectionRevisions newRevisions = WithRevisions(current.Revisions, characterRevision: newCharacterRevision, characterResourcesRevision: newResourcesRevision);
+                        var record = new CharacterRecord(characterId, campaign.CampaignId, current.CharacterKind, current.LifecycleStatus, current.ApprovalState, current.DisplayName, current.PortraitReference, current.Ownership, newRevisions, current.RulesetVersion, current.AnatomyProfileRef, current.TemplateId, current.TemplateVersionAtCopyTime, current.SeedCopy, current.SubmittedAt, current.DevelopmentPool, current.Attributes, current.Skills, current.Abilities, mutation.NewResources, current.Anatomy, current.CreatedAt, now);
+
+                        mutation.PayloadExtra["characterId"] = characterId.ToString();
+                        mutation.PayloadExtra["displayNameSnapshot"] = current.DisplayName;
+                        mutation.PayloadExtra["newCharacterResourcesRevision"] = newResourcesRevision;
+                        mutation.PayloadExtra["newCharacterRevision"] = newCharacterRevision;
+
+                        return Result<PipelineWrite<CharacterRecord>>.Success(new PipelineWrite<CharacterRecord>(
+                            record, mutation.EventType, mutation.PayloadExtra.ToString(Newtonsoft.Json.Formatting.None), characterId.ToString(),
+                            aggregateType: "character", aggregateId: characterId.ToString(), aggregateRevision: newCharacterRevision));
+                    });
+            }
+            catch (Exception ex) when (ex is IOException || ex is UnauthorizedAccessException || ex is SqliteException)
+            {
+                return Result<CharacterRecord>.Failure(PersistenceFailures.CharacterIoFailed(correlationId));
+            }
+        }
+
+        /// <summary>ODY-S04-109: the pure business-logic result <see cref="MutateResources"/>'s caller-supplied callback returns -- mirrors <see cref="AbilitiesMutation"/>'s exact shape for the single <c>CharacterResources</c> section.</summary>
+        private sealed class ResourcesMutation
+        {
+            public ResourcesMutation(IReadOnlyList<CharacterResource> newResources, string eventType, JObject payloadExtra)
+            {
+                NewResources = newResources;
+                EventType = eventType;
+                PayloadExtra = payloadExtra;
+            }
+
+            public IReadOnlyList<CharacterResource> NewResources { get; }
+            public string EventType { get; }
+            public JObject PayloadExtra { get; }
+        }
+
+        // ==================== ODY-S04-109: CharacterAnatomy ====================
+
+        public Result<CharacterRecord> InitializeCharacterAnatomy(CampaignHandle campaign, CharacterId characterId, AnatomyProfileDefinitionId anatomyProfileDefinitionId, UserId actorUserId, bool actorIsMainGm, long expectedCharacterAnatomyRevision, CommandId commandId, CorrelationId correlationId)
+        {
+            if (!anatomyProfileDefinitionId.IsValid) throw new ArgumentException("AnatomyProfileDefinitionId is required.", nameof(anatomyProfileDefinitionId));
+            if (!actorUserId.IsValid) throw new ArgumentException("ActorUserId is required.", nameof(actorUserId));
+
+            return MutateAnatomy(campaign, characterId, actorIsMainGm, expectedCharacterAnatomyRevision, commandId, correlationId, (current, connection, transaction) =>
+            {
+                if (current.Anatomy != null)
+                {
+                    return Result<AnatomyMutation>.Failure(PersistenceFailures.CharacterAnatomyAlreadyInitialized(correlationId));
+                }
+
+                UtcInstant now = _clock.GetUtcNow();
+
+                // RulesAnatomyInitializationRules: TEST FIXTURE ONLY -- see that class's own doc comment. No AnatomyProfileDefinition catalog exists yet.
+                var newAnatomy = new Odyssey.Domain.Character.CharacterAnatomy(
+                    anatomyProfileDefinitionId,
+                    RulesAnatomyInitializationRules.DefaultAnatomyProfileVersion,
+                    RulesAnatomyInitializationRules.DefaultHumanoidBodyParts(),
+                    Array.Empty<PermanentModification>(),
+                    new[] { new AnatomyMigrationEntry("Initialized", "CharacterAnatomy initialized from fixture " + anatomyProfileDefinitionId, now) },
+                    1);
+
+                var payload = new JObject
+                {
+                    ["anatomyProfileDefinitionId"] = anatomyProfileDefinitionId.ToString(),
+                    ["anatomyProfileVersion"] = newAnatomy.AnatomyProfileVersion,
+                    ["actorUserId"] = actorUserId.ToString(),
+                };
+
+                return Result<AnatomyMutation>.Success(new AnatomyMutation(newAnatomy, "odyssey.persistence.character_anatomy_initialized", payload));
+            });
+        }
+
+        public Result<CharacterRecord> AddBodyPart(CampaignHandle campaign, CharacterId characterId, BodyPartId bodyPartId, string name, long damageLimit, BodyPartId? attachedToBodyPartId, string properties, UserId actorUserId, bool actorIsMainGm, long expectedCharacterAnatomyRevision, CommandId commandId, CorrelationId correlationId)
+        {
+            if (!bodyPartId.IsValid) throw new ArgumentException("BodyPartId is required.", nameof(bodyPartId));
+            if (!actorUserId.IsValid) throw new ArgumentException("ActorUserId is required.", nameof(actorUserId));
+
+            return MutateAnatomy(campaign, characterId, actorIsMainGm, expectedCharacterAnatomyRevision, commandId, correlationId, (current, connection, transaction) =>
+            {
+                if (current.Anatomy == null)
+                {
+                    return Result<AnatomyMutation>.Failure(PersistenceFailures.CharacterAnatomyNotInitialized(correlationId));
+                }
+
+                foreach (BodyPart candidate in current.Anatomy.BodyParts)
+                {
+                    if (candidate.BodyPartId.Equals(bodyPartId))
+                    {
+                        return Result<AnatomyMutation>.Failure(PersistenceFailures.CharacterBodyPartAlreadyExists(correlationId));
+                    }
+                }
+
+                // Product section 18: "добавить часть тела" undergoes a
+                // dependency preview per this task's own section 1.3 -- for
+                // ADDING a part, the only real, internally-checkable
+                // dependency is that its own AttachedToBodyPartId (if any)
+                // must reference an existing part.
+                if (attachedToBodyPartId.HasValue)
+                {
+                    bool parentExists = false;
+                    foreach (BodyPart candidate in current.Anatomy.BodyParts)
+                    {
+                        if (candidate.BodyPartId.Equals(attachedToBodyPartId.Value)) { parentExists = true; break; }
+                    }
+
+                    if (!parentExists)
+                    {
+                        return Result<AnatomyMutation>.Failure(PersistenceFailures.CharacterBodyPartNotFound(correlationId));
+                    }
+                }
+
+                UtcInstant now = _clock.GetUtcNow();
+                var newBodyPart = new BodyPart(bodyPartId, name, damageLimit, attachedToBodyPartId, properties);
+                var newBodyParts = new List<BodyPart>(current.Anatomy.BodyParts.Count + 1);
+                newBodyParts.AddRange(current.Anatomy.BodyParts);
+                newBodyParts.Add(newBodyPart);
+
+                var newMigrationHistory = new List<AnatomyMigrationEntry>(current.Anatomy.MigrationHistory.Count + 1);
+                newMigrationHistory.AddRange(current.Anatomy.MigrationHistory);
+                newMigrationHistory.Add(new AnatomyMigrationEntry("BodyPartAdded", "Added body part " + bodyPartId, now));
+
+                var newAnatomy = new Odyssey.Domain.Character.CharacterAnatomy(current.Anatomy.AnatomyProfileDefinitionId, current.Anatomy.AnatomyProfileVersion, newBodyParts, current.Anatomy.PermanentModifications, newMigrationHistory, current.Anatomy.Revision + 1);
+
+                var payload = new JObject
+                {
+                    ["bodyPartId"] = bodyPartId.ToString(),
+                    ["name"] = name,
+                    ["attachedToBodyPartId"] = attachedToBodyPartId?.ToString(),
+                    ["actorUserId"] = actorUserId.ToString(),
+                };
+
+                return Result<AnatomyMutation>.Success(new AnatomyMutation(newAnatomy, "odyssey.persistence.character_anatomy_changed", payload));
+            });
+        }
+
+        /// <summary>
+        /// ODY-S04-109 section 1.3: dependency preview boundary. Product
+        /// section 18/requirement 51's own item-dependency check is a stub
+        /// -- NO Item/Inventory system exists anywhere in this codebase
+        /// (confirmed by search), so there is nothing to check there; this
+        /// is documented, not silently skipped. What IS checked, for real,
+        /// is the one dependency this Character's own <c>CharacterAnatomy</c>
+        /// snapshot can express: any other <see cref="BodyPart.AttachedToBodyPartId"/>
+        /// or <see cref="PermanentModification.AttachedToBodyPartId"/>
+        /// referencing the part being removed.
+        /// </summary>
+        public Result<CharacterRecord> RemoveBodyPart(CampaignHandle campaign, CharacterId characterId, BodyPartId bodyPartId, UserId actorUserId, bool actorIsMainGm, long expectedCharacterAnatomyRevision, CommandId commandId, CorrelationId correlationId)
+        {
+            if (!bodyPartId.IsValid) throw new ArgumentException("BodyPartId is required.", nameof(bodyPartId));
+            if (!actorUserId.IsValid) throw new ArgumentException("ActorUserId is required.", nameof(actorUserId));
+
+            return MutateAnatomy(campaign, characterId, actorIsMainGm, expectedCharacterAnatomyRevision, commandId, correlationId, (current, connection, transaction) =>
+            {
+                if (current.Anatomy == null)
+                {
+                    return Result<AnatomyMutation>.Failure(PersistenceFailures.CharacterAnatomyNotInitialized(correlationId));
+                }
+
+                bool exists = false;
+                foreach (BodyPart candidate in current.Anatomy.BodyParts)
+                {
+                    if (candidate.BodyPartId.Equals(bodyPartId)) { exists = true; break; }
+                }
+
+                if (!exists)
+                {
+                    return Result<AnatomyMutation>.Failure(PersistenceFailures.CharacterBodyPartNotFound(correlationId));
+                }
+
+                // Item-system dependency (product requirement 51): NOT
+                // checked -- no Item/Inventory system exists yet (this
+                // task's own section 1.3 stub, documented not silent).
+                // Internal dependency (this task's own real, checkable
+                // substitute): does any other body part attach to this one,
+                // or any permanent modification attach to this one?
+                foreach (BodyPart candidate in current.Anatomy.BodyParts)
+                {
+                    if (candidate.AttachedToBodyPartId.HasValue && candidate.AttachedToBodyPartId.Value.Equals(bodyPartId))
+                    {
+                        return Result<AnatomyMutation>.Failure(PersistenceFailures.CharacterBodyPartHasDependent(correlationId));
+                    }
+                }
+
+                foreach (PermanentModification modification in current.Anatomy.PermanentModifications)
+                {
+                    if (modification.AttachedToBodyPartId.Equals(bodyPartId))
+                    {
+                        return Result<AnatomyMutation>.Failure(PersistenceFailures.CharacterBodyPartHasDependent(correlationId));
+                    }
+                }
+
+                UtcInstant now = _clock.GetUtcNow();
+                var newBodyParts = new List<BodyPart>(current.Anatomy.BodyParts.Count - 1);
+                foreach (BodyPart candidate in current.Anatomy.BodyParts)
+                {
+                    if (!candidate.BodyPartId.Equals(bodyPartId)) newBodyParts.Add(candidate);
+                }
+
+                var newMigrationHistory = new List<AnatomyMigrationEntry>(current.Anatomy.MigrationHistory.Count + 1);
+                newMigrationHistory.AddRange(current.Anatomy.MigrationHistory);
+                newMigrationHistory.Add(new AnatomyMigrationEntry("BodyPartRemoved", "Removed body part " + bodyPartId, now));
+
+                var newAnatomy = new Odyssey.Domain.Character.CharacterAnatomy(current.Anatomy.AnatomyProfileDefinitionId, current.Anatomy.AnatomyProfileVersion, newBodyParts, current.Anatomy.PermanentModifications, newMigrationHistory, current.Anatomy.Revision + 1);
+
+                var payload = new JObject
+                {
+                    ["bodyPartId"] = bodyPartId.ToString(),
+                    ["actorUserId"] = actorUserId.ToString(),
+                };
+
+                return Result<AnatomyMutation>.Success(new AnatomyMutation(newAnatomy, "odyssey.persistence.character_anatomy_changed", payload));
+            });
+        }
+
+        public Result<CharacterRecord> UpdateBodyPart(CampaignHandle campaign, CharacterId characterId, BodyPartId bodyPartId, long? newDamageLimit, string? newProperties, UserId actorUserId, bool actorIsMainGm, long expectedCharacterAnatomyRevision, CommandId commandId, CorrelationId correlationId)
+        {
+            if (!bodyPartId.IsValid) throw new ArgumentException("BodyPartId is required.", nameof(bodyPartId));
+            if (!actorUserId.IsValid) throw new ArgumentException("ActorUserId is required.", nameof(actorUserId));
+
+            return MutateAnatomy(campaign, characterId, actorIsMainGm, expectedCharacterAnatomyRevision, commandId, correlationId, (current, connection, transaction) =>
+            {
+                if (current.Anatomy == null)
+                {
+                    return Result<AnatomyMutation>.Failure(PersistenceFailures.CharacterAnatomyNotInitialized(correlationId));
+                }
+
+                BodyPart? existing = null;
+                foreach (BodyPart candidate in current.Anatomy.BodyParts)
+                {
+                    if (candidate.BodyPartId.Equals(bodyPartId)) { existing = candidate; break; }
+                }
+
+                if (existing == null)
+                {
+                    return Result<AnatomyMutation>.Failure(PersistenceFailures.CharacterBodyPartNotFound(correlationId));
+                }
+
+                UtcInstant now = _clock.GetUtcNow();
+                var updated = new BodyPart(existing.BodyPartId, existing.Name, newDamageLimit ?? existing.DamageLimit, existing.AttachedToBodyPartId, newProperties ?? existing.Properties);
+
+                var newBodyParts = new List<BodyPart>(current.Anatomy.BodyParts.Count);
+                foreach (BodyPart candidate in current.Anatomy.BodyParts)
+                {
+                    newBodyParts.Add(candidate.BodyPartId.Equals(bodyPartId) ? updated : candidate);
+                }
+
+                var newMigrationHistory = new List<AnatomyMigrationEntry>(current.Anatomy.MigrationHistory.Count + 1);
+                newMigrationHistory.AddRange(current.Anatomy.MigrationHistory);
+                newMigrationHistory.Add(new AnatomyMigrationEntry("BodyPartUpdated", "Updated body part " + bodyPartId, now));
+
+                var newAnatomy = new Odyssey.Domain.Character.CharacterAnatomy(current.Anatomy.AnatomyProfileDefinitionId, current.Anatomy.AnatomyProfileVersion, newBodyParts, current.Anatomy.PermanentModifications, newMigrationHistory, current.Anatomy.Revision + 1);
+
+                var payload = new JObject
+                {
+                    ["bodyPartId"] = bodyPartId.ToString(),
+                    ["newDamageLimit"] = newDamageLimit,
+                    ["actorUserId"] = actorUserId.ToString(),
+                };
+
+                return Result<AnatomyMutation>.Success(new AnatomyMutation(newAnatomy, "odyssey.persistence.character_anatomy_changed", payload));
+            });
+        }
+
+        public Result<CharacterRecord> ReplaceAnatomyProfile(CampaignHandle campaign, CharacterId characterId, AnatomyProfileDefinitionId newAnatomyProfileDefinitionId, string newAnatomyProfileVersion, IReadOnlyList<BodyPart> newBodyParts, UserId actorUserId, bool actorIsMainGm, long expectedCharacterAnatomyRevision, CommandId commandId, CorrelationId correlationId)
+        {
+            if (!newAnatomyProfileDefinitionId.IsValid) throw new ArgumentException("AnatomyProfileDefinitionId is required.", nameof(newAnatomyProfileDefinitionId));
+            if (string.IsNullOrWhiteSpace(newAnatomyProfileVersion)) throw new ArgumentException("AnatomyProfileVersion is required.", nameof(newAnatomyProfileVersion));
+            if (newBodyParts == null) throw new ArgumentNullException(nameof(newBodyParts));
+            if (!actorUserId.IsValid) throw new ArgumentException("ActorUserId is required.", nameof(actorUserId));
+
+            return MutateAnatomy(campaign, characterId, actorIsMainGm, expectedCharacterAnatomyRevision, commandId, correlationId, (current, connection, transaction) =>
+            {
+                if (current.Anatomy == null)
+                {
+                    return Result<AnatomyMutation>.Failure(PersistenceFailures.CharacterAnatomyNotInitialized(correlationId));
+                }
+
+                UtcInstant now = _clock.GetUtcNow();
+                var newMigrationHistory = new List<AnatomyMigrationEntry>(current.Anatomy.MigrationHistory.Count + 1);
+                newMigrationHistory.AddRange(current.Anatomy.MigrationHistory);
+                newMigrationHistory.Add(new AnatomyMigrationEntry("ProfileReplaced", "Replaced profile " + current.Anatomy.AnatomyProfileDefinitionId + " with " + newAnatomyProfileDefinitionId, now));
+
+                // PermanentModifications/MigrationHistory are preserved --
+                // only the profile/body-part shape is replaced.
+                var newAnatomy = new Odyssey.Domain.Character.CharacterAnatomy(newAnatomyProfileDefinitionId, newAnatomyProfileVersion, newBodyParts, current.Anatomy.PermanentModifications, newMigrationHistory, current.Anatomy.Revision + 1);
+
+                var payload = new JObject
+                {
+                    ["fromAnatomyProfileDefinitionId"] = current.Anatomy.AnatomyProfileDefinitionId.ToString(),
+                    ["toAnatomyProfileDefinitionId"] = newAnatomyProfileDefinitionId.ToString(),
+                    ["toAnatomyProfileVersion"] = newAnatomyProfileVersion,
+                    ["actorUserId"] = actorUserId.ToString(),
+                };
+
+                return Result<AnatomyMutation>.Success(new AnatomyMutation(newAnatomy, "odyssey.persistence.character_anatomy_changed", payload));
+            });
+        }
+
+        public Result<CharacterRecord> ApplyPermanentModification(CampaignHandle campaign, CharacterId characterId, BodyPartId attachedToBodyPartId, string kind, string description, UserId actorUserId, bool actorIsMainGm, long expectedCharacterAnatomyRevision, CommandId commandId, CorrelationId correlationId)
+        {
+            if (!attachedToBodyPartId.IsValid) throw new ArgumentException("AttachedToBodyPartId is required.", nameof(attachedToBodyPartId));
+            if (!actorUserId.IsValid) throw new ArgumentException("ActorUserId is required.", nameof(actorUserId));
+
+            return MutateAnatomy(campaign, characterId, actorIsMainGm, expectedCharacterAnatomyRevision, commandId, correlationId, (current, connection, transaction) =>
+            {
+                if (current.Anatomy == null)
+                {
+                    return Result<AnatomyMutation>.Failure(PersistenceFailures.CharacterAnatomyNotInitialized(correlationId));
+                }
+
+                // Product section 18: "применить протез... после dependency
+                // preview" -- the real, checkable dependency here is that
+                // the target body part must exist.
+                bool targetExists = false;
+                foreach (BodyPart candidate in current.Anatomy.BodyParts)
+                {
+                    if (candidate.BodyPartId.Equals(attachedToBodyPartId)) { targetExists = true; break; }
+                }
+
+                if (!targetExists)
+                {
+                    return Result<AnatomyMutation>.Failure(PersistenceFailures.CharacterBodyPartNotFound(correlationId));
+                }
+
+                UtcInstant now = _clock.GetUtcNow();
+                var newModification = new PermanentModification(PermanentModificationId.NewId(now), attachedToBodyPartId, kind, description, now);
+                var newModifications = new List<PermanentModification>(current.Anatomy.PermanentModifications.Count + 1);
+                newModifications.AddRange(current.Anatomy.PermanentModifications);
+                newModifications.Add(newModification);
+
+                var newMigrationHistory = new List<AnatomyMigrationEntry>(current.Anatomy.MigrationHistory.Count + 1);
+                newMigrationHistory.AddRange(current.Anatomy.MigrationHistory);
+                newMigrationHistory.Add(new AnatomyMigrationEntry("PermanentModificationApplied", kind + " applied to " + attachedToBodyPartId, now));
+
+                var newAnatomy = new Odyssey.Domain.Character.CharacterAnatomy(current.Anatomy.AnatomyProfileDefinitionId, current.Anatomy.AnatomyProfileVersion, current.Anatomy.BodyParts, newModifications, newMigrationHistory, current.Anatomy.Revision + 1);
+
+                var payload = new JObject
+                {
+                    ["permanentModificationId"] = newModification.PermanentModificationId.ToString(),
+                    ["attachedToBodyPartId"] = attachedToBodyPartId.ToString(),
+                    ["kind"] = kind,
+                    ["actorUserId"] = actorUserId.ToString(),
+                };
+
+                return Result<AnatomyMutation>.Success(new AnatomyMutation(newAnatomy, "odyssey.persistence.character_anatomy_changed", payload));
+            });
+        }
+
+        /// <summary>
+        /// ODY-S04-109 section 1.2: unlike <see cref="MutateAbilities"/>/<see cref="MutateResources"/>
+        /// (multi-entry collections), <c>CharacterAnatomy</c> is a SINGLE
+        /// snapshot object -- this helper mirrors <see cref="MutateOwnership"/>'s
+        /// own shape instead (single-object section, MainGM check hoisted
+        /// before the transaction, one un-parameterized section revision).
+        /// </summary>
+        private Result<CharacterRecord> MutateAnatomy(
+            CampaignHandle campaign,
+            CharacterId characterId,
+            bool actorIsMainGm,
+            long expectedCharacterAnatomyRevision,
+            CommandId commandId,
+            CorrelationId correlationId,
+            Func<CharacterRecord, SqliteConnection, SqliteTransaction, Result<AnatomyMutation>> mutate)
+        {
+            if (campaign == null) throw new ArgumentNullException(nameof(campaign));
+            if (!characterId.IsValid) throw new ArgumentException("CharacterId is required.", nameof(characterId));
+            if (expectedCharacterAnatomyRevision < 1) throw new ArgumentOutOfRangeException(nameof(expectedCharacterAnatomyRevision));
+            if (!commandId.IsValid) throw new ArgumentException("CommandId is required.", nameof(commandId));
+
+            // Product section 18: "GM может..." -- every anatomy command is MainGM-only, checked before touching the database at all.
+            if (!actorIsMainGm)
+            {
+                return Result<CharacterRecord>.Failure(PersistenceFailures.CharacterAnatomyOperationDenied(correlationId));
+            }
+
+            try
+            {
+                using SqliteConnection connection = OpenConnection(campaign.RootPath);
+                EnsureCharacterTables(connection);
+
+                return _pipeline.Execute(
+                    connection,
+                    campaign.CampaignId,
+                    commandId,
+                    correlationId,
+                    tryReplay: transaction => ReplayCharacter(connection, transaction, campaign.CampaignId, "CharacterId = $characterId AND LastCommandId = $commandId", commandId, correlationId, characterId),
+                    apply: transaction =>
+                    {
+                        CharacterRecord? current = SelectForUpdate(connection, transaction, characterId);
+                        if (current == null)
+                        {
+                            return Result<PipelineWrite<CharacterRecord>>.Failure(PersistenceFailures.CharacterNotFound(correlationId));
+                        }
+
+                        if (current.Revisions.CharacterAnatomyRevision != expectedCharacterAnatomyRevision)
+                        {
+                            return Result<PipelineWrite<CharacterRecord>>.Failure(PersistenceFailures.CharacterRevisionConflict(correlationId));
+                        }
+
+                        Result<AnatomyMutation> mutationResult = mutate(current, connection, transaction);
+                        if (mutationResult.IsFailure)
+                        {
+                            return Result<PipelineWrite<CharacterRecord>>.Failure(mutationResult.Error);
+                        }
+
+                        AnatomyMutation mutation = mutationResult.Value;
+                        UtcInstant now = _clock.GetUtcNow();
+                        long newAnatomyRevision = current.Revisions.CharacterAnatomyRevision + 1;
+                        long newCharacterRevision = current.Revisions.CharacterRevision + 1;
+
+                        using (var update = connection.CreateCommand())
+                        {
+                            update.Transaction = transaction;
+                            update.CommandText = "UPDATE Character SET AnatomyJson = $anatomyJson, CharacterAnatomyRevision = $anatomyRevision, CharacterRevision = $characterRevision, UpdatedAt = $updatedAt, LastCommandId = $lastCommandId WHERE CharacterId = $characterId;";
+                            update.Parameters.AddWithValue("$anatomyJson", SerializeAnatomy(mutation.NewAnatomy));
+                            update.Parameters.AddWithValue("$anatomyRevision", newAnatomyRevision);
+                            update.Parameters.AddWithValue("$characterRevision", newCharacterRevision);
+                            update.Parameters.AddWithValue("$updatedAt", now.ToString());
+                            update.Parameters.AddWithValue("$lastCommandId", commandId.ToString());
+                            update.Parameters.AddWithValue("$characterId", characterId.ToString());
+                            update.ExecuteNonQuery();
+                        }
+
+                        CharacterSectionRevisions newRevisions = WithRevisions(current.Revisions, characterRevision: newCharacterRevision, characterAnatomyRevision: newAnatomyRevision);
+                        var record = new CharacterRecord(characterId, campaign.CampaignId, current.CharacterKind, current.LifecycleStatus, current.ApprovalState, current.DisplayName, current.PortraitReference, current.Ownership, newRevisions, current.RulesetVersion, current.AnatomyProfileRef, current.TemplateId, current.TemplateVersionAtCopyTime, current.SeedCopy, current.SubmittedAt, current.DevelopmentPool, current.Attributes, current.Skills, current.Abilities, current.Resources, mutation.NewAnatomy, current.CreatedAt, now);
+
+                        mutation.PayloadExtra["characterId"] = characterId.ToString();
+                        mutation.PayloadExtra["displayNameSnapshot"] = current.DisplayName;
+                        mutation.PayloadExtra["newCharacterAnatomyRevision"] = newAnatomyRevision;
+                        mutation.PayloadExtra["newCharacterRevision"] = newCharacterRevision;
+
+                        return Result<PipelineWrite<CharacterRecord>>.Success(new PipelineWrite<CharacterRecord>(
+                            record, mutation.EventType, mutation.PayloadExtra.ToString(Newtonsoft.Json.Formatting.None), characterId.ToString(),
+                            aggregateType: "character", aggregateId: characterId.ToString(), aggregateRevision: newCharacterRevision));
+                    });
+            }
+            catch (Exception ex) when (ex is IOException || ex is UnauthorizedAccessException || ex is SqliteException)
+            {
+                return Result<CharacterRecord>.Failure(PersistenceFailures.CharacterIoFailed(correlationId));
+            }
+        }
+
+        /// <summary>ODY-S04-109: the pure business-logic result <see cref="MutateAnatomy"/>'s caller-supplied callback returns.</summary>
+        private sealed class AnatomyMutation
+        {
+            public AnatomyMutation(Odyssey.Domain.Character.CharacterAnatomy newAnatomy, string eventType, JObject payloadExtra)
+            {
+                NewAnatomy = newAnatomy;
+                EventType = eventType;
+                PayloadExtra = payloadExtra;
+            }
+
+            public Odyssey.Domain.Character.CharacterAnatomy NewAnatomy { get; }
             public string EventType { get; }
             public JObject PayloadExtra { get; }
         }
@@ -2564,7 +3223,7 @@ namespace Odyssey.Persistence.Sqlite
                         }
 
                         CharacterSectionRevisions newRevisions = WithRevisions(current.Revisions, characterRevision: newCharacterRevision, mechanicsRevision: newMechanicsRevision);
-                        var record = new CharacterRecord(characterId, campaign.CampaignId, current.CharacterKind, current.LifecycleStatus, current.ApprovalState, current.DisplayName, current.PortraitReference, current.Ownership, newRevisions, current.RulesetVersion, current.AnatomyProfileRef, current.TemplateId, current.TemplateVersionAtCopyTime, current.SeedCopy, current.SubmittedAt, mutation.NewPool, mutation.NewAttributes, mutation.NewSkills, current.Abilities, current.CreatedAt, now);
+                        var record = new CharacterRecord(characterId, campaign.CampaignId, current.CharacterKind, current.LifecycleStatus, current.ApprovalState, current.DisplayName, current.PortraitReference, current.Ownership, newRevisions, current.RulesetVersion, current.AnatomyProfileRef, current.TemplateId, current.TemplateVersionAtCopyTime, current.SeedCopy, current.SubmittedAt, mutation.NewPool, mutation.NewAttributes, mutation.NewSkills, current.Abilities, current.Resources, current.Anatomy, current.CreatedAt, now);
 
                         mutation.PayloadExtra["characterId"] = characterId.ToString();
                         mutation.PayloadExtra["displayNameSnapshot"] = current.DisplayName;
@@ -2726,7 +3385,7 @@ namespace Odyssey.Persistence.Sqlite
                         }
 
                         CharacterSectionRevisions newRevisions = WithRevisions(current.Revisions, characterRevision: newCharacterRevision, identityRevision: newIdentityRevision);
-                        var record = new CharacterRecord(characterId, campaign.CampaignId, current.CharacterKind, current.LifecycleStatus, current.ApprovalState, newDisplayName, current.PortraitReference, current.Ownership, newRevisions, current.RulesetVersion, current.AnatomyProfileRef, current.TemplateId, current.TemplateVersionAtCopyTime, current.SeedCopy, current.SubmittedAt, current.DevelopmentPool, current.Attributes, current.Skills, current.Abilities, current.CreatedAt, now);
+                        var record = new CharacterRecord(characterId, campaign.CampaignId, current.CharacterKind, current.LifecycleStatus, current.ApprovalState, newDisplayName, current.PortraitReference, current.Ownership, newRevisions, current.RulesetVersion, current.AnatomyProfileRef, current.TemplateId, current.TemplateVersionAtCopyTime, current.SeedCopy, current.SubmittedAt, current.DevelopmentPool, current.Attributes, current.Skills, current.Abilities, current.Resources, current.Anatomy, current.CreatedAt, now);
 
                         var payload = new JObject
                         {
@@ -2799,7 +3458,7 @@ namespace Odyssey.Persistence.Sqlite
                         }
 
                         CharacterSectionRevisions newRevisions = WithRevisions(current.Revisions, characterRevision: newCharacterRevision, presentationRevision: newPresentationRevision);
-                        var record = new CharacterRecord(characterId, campaign.CampaignId, current.CharacterKind, current.LifecycleStatus, current.ApprovalState, current.DisplayName, portraitReference, current.Ownership, newRevisions, current.RulesetVersion, current.AnatomyProfileRef, current.TemplateId, current.TemplateVersionAtCopyTime, current.SeedCopy, current.SubmittedAt, current.DevelopmentPool, current.Attributes, current.Skills, current.Abilities, current.CreatedAt, now);
+                        var record = new CharacterRecord(characterId, campaign.CampaignId, current.CharacterKind, current.LifecycleStatus, current.ApprovalState, current.DisplayName, portraitReference, current.Ownership, newRevisions, current.RulesetVersion, current.AnatomyProfileRef, current.TemplateId, current.TemplateVersionAtCopyTime, current.SeedCopy, current.SubmittedAt, current.DevelopmentPool, current.Attributes, current.Skills, current.Abilities, current.Resources, current.Anatomy, current.CreatedAt, now);
 
                         var payload = new JObject
                         {
@@ -2892,7 +3551,7 @@ namespace Odyssey.Persistence.Sqlite
                         }
 
                         CharacterSectionRevisions newRevisions = WithRevisions(current.Revisions, characterRevision: newCharacterRevision, ownershipRevision: newOwnershipRevision);
-                        var record = new CharacterRecord(characterId, campaign.CampaignId, current.CharacterKind, current.LifecycleStatus, current.ApprovalState, current.DisplayName, current.PortraitReference, newOwnership, newRevisions, current.RulesetVersion, current.AnatomyProfileRef, current.TemplateId, current.TemplateVersionAtCopyTime, current.SeedCopy, current.SubmittedAt, current.DevelopmentPool, current.Attributes, current.Skills, current.Abilities, current.CreatedAt, now);
+                        var record = new CharacterRecord(characterId, campaign.CampaignId, current.CharacterKind, current.LifecycleStatus, current.ApprovalState, current.DisplayName, current.PortraitReference, newOwnership, newRevisions, current.RulesetVersion, current.AnatomyProfileRef, current.TemplateId, current.TemplateVersionAtCopyTime, current.SeedCopy, current.SubmittedAt, current.DevelopmentPool, current.Attributes, current.Skills, current.Abilities, current.Resources, current.Anatomy, current.CreatedAt, now);
 
                         var payload = new JObject
                         {
@@ -3101,7 +3760,7 @@ namespace Odyssey.Persistence.Sqlite
                         }
 
                         CharacterSectionRevisions newRevisions = WithRevisions(current.Revisions, characterRevision: newCharacterRevision, ownershipRevision: newOwnershipRevision);
-                        var record = new CharacterRecord(characterId, campaign.CampaignId, current.CharacterKind, current.LifecycleStatus, current.ApprovalState, current.DisplayName, current.PortraitReference, newOwnership, newRevisions, current.RulesetVersion, current.AnatomyProfileRef, current.TemplateId, current.TemplateVersionAtCopyTime, current.SeedCopy, current.SubmittedAt, current.DevelopmentPool, current.Attributes, current.Skills, current.Abilities, current.CreatedAt, now);
+                        var record = new CharacterRecord(characterId, campaign.CampaignId, current.CharacterKind, current.LifecycleStatus, current.ApprovalState, current.DisplayName, current.PortraitReference, newOwnership, newRevisions, current.RulesetVersion, current.AnatomyProfileRef, current.TemplateId, current.TemplateVersionAtCopyTime, current.SeedCopy, current.SubmittedAt, current.DevelopmentPool, current.Attributes, current.Skills, current.Abilities, current.Resources, current.Anatomy, current.CreatedAt, now);
 
                         payloadExtra["characterId"] = characterId.ToString();
                         payloadExtra["displayNameSnapshot"] = current.DisplayName;
@@ -3226,7 +3885,7 @@ namespace Odyssey.Persistence.Sqlite
             "AttributeValuesRevision, CharacterSkillsRevision, CharacterAbilitiesRevision, CharacterResourcesRevision, " +
             "CharacterAnatomyRevision, OwnershipRevision, LifecycleRevision, RuntimeStateRevision, " +
             "RulesetVersion, AnatomyProfileRef, TemplateId, TemplateVersionAtCopyTime, SeedCopyJson, SubmittedAt, " +
-            "PoolEarned, PoolSpent, PoolReserved, AttributesJson, SkillsJson, AbilitiesJson, CreatedAt, UpdatedAt";
+            "PoolEarned, PoolSpent, PoolReserved, AttributesJson, SkillsJson, AbilitiesJson, ResourcesJson, AnatomyJson, CreatedAt, UpdatedAt";
 
         /// <summary>
         /// ODY-S04-101/102: shared column-order contract for every SELECT
@@ -3274,10 +3933,12 @@ namespace Odyssey.Persistence.Sqlite
             IReadOnlyList<AttributeValue> attributes = DeserializeAttributes(reader.GetString(33));
             IReadOnlyList<CharacterSkill> skills = DeserializeSkills(reader.GetString(34));
             IReadOnlyList<CharacterAbility> abilities = DeserializeAbilities(reader.GetString(35));
-            UtcInstant createdAt = UtcInstant.Parse(reader.GetString(36));
-            UtcInstant updatedAt = UtcInstant.Parse(reader.GetString(37));
+            IReadOnlyList<CharacterResource> resources = DeserializeResources(reader.GetString(36));
+            CharacterAnatomy? anatomy = reader.IsDBNull(37) ? null : DeserializeAnatomy(reader.GetString(37));
+            UtcInstant createdAt = UtcInstant.Parse(reader.GetString(38));
+            UtcInstant updatedAt = UtcInstant.Parse(reader.GetString(39));
 
-            return new CharacterRecord(characterId, campaignId, characterKind, lifecycleStatus, approvalState, displayName, portraitReference, ownership, revisions, rulesetVersion, anatomyProfileRef, templateId, templateVersionAtCopyTime, seedCopy, submittedAt, developmentPool, attributes, skills, abilities, createdAt, updatedAt);
+            return new CharacterRecord(characterId, campaignId, characterKind, lifecycleStatus, approvalState, displayName, portraitReference, ownership, revisions, rulesetVersion, anatomyProfileRef, templateId, templateVersionAtCopyTime, seedCopy, submittedAt, developmentPool, attributes, skills, abilities, resources, anatomy, createdAt, updatedAt);
         }
 
         private static void AddRevisionParameters(SqliteCommand command, CharacterSectionRevisions revisions)
@@ -3313,7 +3974,9 @@ namespace Odyssey.Persistence.Sqlite
             long? ownershipRevision = null,
             long? lifecycleRevision = null,
             long? mechanicsRevision = null,
-            long? characterAbilitiesRevision = null) => new CharacterSectionRevisions(
+            long? characterAbilitiesRevision = null,
+            long? characterResourcesRevision = null,
+            long? characterAnatomyRevision = null) => new CharacterSectionRevisions(
                 characterRevision ?? source.CharacterRevision,
                 identityRevision ?? source.IdentityRevision,
                 presentationRevision ?? source.PresentationRevision,
@@ -3322,8 +3985,8 @@ namespace Odyssey.Persistence.Sqlite
                 source.AttributeValuesRevision,
                 source.CharacterSkillsRevision,
                 characterAbilitiesRevision ?? source.CharacterAbilitiesRevision,
-                source.CharacterResourcesRevision,
-                source.CharacterAnatomyRevision,
+                characterResourcesRevision ?? source.CharacterResourcesRevision,
+                characterAnatomyRevision ?? source.CharacterAnatomyRevision,
                 ownershipRevision ?? source.OwnershipRevision,
                 lifecycleRevision ?? source.LifecycleRevision,
                 source.RuntimeStateRevision);
@@ -3445,6 +4108,142 @@ namespace Odyssey.Persistence.Sqlite
             }
 
             return list;
+        }
+
+        private static string SerializeResources(IReadOnlyList<CharacterResource> resources)
+        {
+            var array = new JArray();
+            foreach (CharacterResource resource in resources)
+            {
+                array.Add(new JObject
+                {
+                    ["characterResourceId"] = resource.CharacterResourceId.ToString(),
+                    ["resourceDefinitionId"] = resource.ResourceDefinitionId.ToString(),
+                    ["currentValue"] = resource.CurrentValue,
+                    ["baseMaximum"] = resource.BaseMaximum,
+                    ["permanentMaximumAdjustment"] = resource.PermanentMaximumAdjustment,
+                    ["minimumValue"] = resource.MinimumValue,
+                    ["recoveryRule"] = resource.RecoveryRule.ToString(),
+                    ["revision"] = resource.Revision,
+                });
+            }
+
+            return array.ToString(Newtonsoft.Json.Formatting.None);
+        }
+
+        private static IReadOnlyList<CharacterResource> DeserializeResources(string json)
+        {
+            var array = (JArray)ParseJsonPreservingStrings(json);
+            var list = new List<CharacterResource>(array.Count);
+            foreach (JToken token in array)
+            {
+                CharacterResourceId characterResourceId = CharacterResourceId.Parse((string)token["characterResourceId"]!);
+                ResourceDefinitionId resourceDefinitionId = ResourceDefinitionId.Parse((string)token["resourceDefinitionId"]!);
+                long currentValue = (long)token["currentValue"]!;
+                long baseMaximum = (long)token["baseMaximum"]!;
+                long permanentMaximumAdjustment = (long)token["permanentMaximumAdjustment"]!;
+                long minimumValue = (long)token["minimumValue"]!;
+                var recoveryRule = (RecoveryRule)Enum.Parse(typeof(RecoveryRule), (string)token["recoveryRule"]!);
+                long revision = (long)token["revision"]!;
+                list.Add(new CharacterResource(characterResourceId, resourceDefinitionId, currentValue, baseMaximum, permanentMaximumAdjustment, minimumValue, recoveryRule, revision));
+            }
+
+            return list;
+        }
+
+        private static string SerializeAnatomy(CharacterAnatomy anatomy)
+        {
+            var bodyParts = new JArray();
+            foreach (BodyPart part in anatomy.BodyParts)
+            {
+                bodyParts.Add(new JObject
+                {
+                    ["bodyPartId"] = part.BodyPartId.ToString(),
+                    ["name"] = part.Name,
+                    ["damageLimit"] = part.DamageLimit,
+                    ["attachedToBodyPartId"] = part.AttachedToBodyPartId?.ToString(),
+                    ["properties"] = part.Properties,
+                });
+            }
+
+            var modifications = new JArray();
+            foreach (PermanentModification modification in anatomy.PermanentModifications)
+            {
+                modifications.Add(new JObject
+                {
+                    ["permanentModificationId"] = modification.PermanentModificationId.ToString(),
+                    ["attachedToBodyPartId"] = modification.AttachedToBodyPartId.ToString(),
+                    ["kind"] = modification.Kind,
+                    ["description"] = modification.Description,
+                    ["appliedAt"] = modification.AppliedAt.ToString(),
+                });
+            }
+
+            var migrationHistory = new JArray();
+            foreach (AnatomyMigrationEntry entry in anatomy.MigrationHistory)
+            {
+                migrationHistory.Add(new JObject
+                {
+                    ["actionKind"] = entry.ActionKind,
+                    ["description"] = entry.Description,
+                    ["occurredAt"] = entry.OccurredAt.ToString(),
+                });
+            }
+
+            var root = new JObject
+            {
+                ["anatomyProfileDefinitionId"] = anatomy.AnatomyProfileDefinitionId.ToString(),
+                ["anatomyProfileVersion"] = anatomy.AnatomyProfileVersion,
+                ["bodyParts"] = bodyParts,
+                ["permanentModifications"] = modifications,
+                ["migrationHistory"] = migrationHistory,
+                ["revision"] = anatomy.Revision,
+            };
+
+            return root.ToString(Newtonsoft.Json.Formatting.None);
+        }
+
+        private static CharacterAnatomy DeserializeAnatomy(string json)
+        {
+            var root = (JObject)ParseJsonPreservingStrings(json);
+
+            var bodyParts = new List<BodyPart>();
+            foreach (JToken token in (JArray)root["bodyParts"]!)
+            {
+                BodyPartId bodyPartId = BodyPartId.Parse((string)token["bodyPartId"]!);
+                string name = (string)token["name"]!;
+                long damageLimit = (long)token["damageLimit"]!;
+                string? attachedToRaw = (string?)token["attachedToBodyPartId"];
+                BodyPartId? attachedToBodyPartId = attachedToRaw == null ? (BodyPartId?)null : BodyPartId.Parse(attachedToRaw);
+                string properties = (string)token["properties"]!;
+                bodyParts.Add(new BodyPart(bodyPartId, name, damageLimit, attachedToBodyPartId, properties));
+            }
+
+            var modifications = new List<PermanentModification>();
+            foreach (JToken token in (JArray)root["permanentModifications"]!)
+            {
+                PermanentModificationId permanentModificationId = PermanentModificationId.Parse((string)token["permanentModificationId"]!);
+                BodyPartId attachedToBodyPartId = BodyPartId.Parse((string)token["attachedToBodyPartId"]!);
+                string kind = (string)token["kind"]!;
+                string description = (string)token["description"]!;
+                UtcInstant appliedAt = UtcInstant.Parse((string)token["appliedAt"]!);
+                modifications.Add(new PermanentModification(permanentModificationId, attachedToBodyPartId, kind, description, appliedAt));
+            }
+
+            var migrationHistory = new List<AnatomyMigrationEntry>();
+            foreach (JToken token in (JArray)root["migrationHistory"]!)
+            {
+                string actionKind = (string)token["actionKind"]!;
+                string description = (string)token["description"]!;
+                UtcInstant occurredAt = UtcInstant.Parse((string)token["occurredAt"]!);
+                migrationHistory.Add(new AnatomyMigrationEntry(actionKind, description, occurredAt));
+            }
+
+            AnatomyProfileDefinitionId anatomyProfileDefinitionId = AnatomyProfileDefinitionId.Parse((string)root["anatomyProfileDefinitionId"]!);
+            string anatomyProfileVersion = (string)root["anatomyProfileVersion"]!;
+            long revision = (long)root["revision"]!;
+
+            return new CharacterAnatomy(anatomyProfileDefinitionId, anatomyProfileVersion, bodyParts, modifications, migrationHistory, revision);
         }
 
         private static string SerializeUserIds(IReadOnlyList<UserId> userIds)
@@ -3582,6 +4381,8 @@ CREATE TABLE IF NOT EXISTS Character (
     AttributesJson TEXT NOT NULL DEFAULT '[]',
     SkillsJson TEXT NOT NULL DEFAULT '[]',
     AbilitiesJson TEXT NOT NULL DEFAULT '[]',
+    ResourcesJson TEXT NOT NULL DEFAULT '[]',
+    AnatomyJson TEXT,
     CreatedAt TEXT NOT NULL,
     UpdatedAt TEXT NOT NULL,
     LastCommandId TEXT NOT NULL

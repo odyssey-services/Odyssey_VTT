@@ -2759,6 +2759,182 @@
                           "runner":  "dotnet test",
                           "path":  "DotNet/Tests/Odyssey.Tests.Persistence/CharacterAbilityInstancesTests.cs",
                           "check":  "A concurrent AcquireAbility(GMGrant) (CharacterAbilities section) and PurchaseAttributeIncrease (Mechanics section) both commit successfully without a false conflict"
+                      },
+                      {
+                          "testCaseId":  "TC-CHAR-093",
+                          "taskId":  "ODY-S04-109",
+                          "authority":  "ADR-022 section 5; ODY-S04-109 section 1.1",
+                          "runner":  "dotnet test",
+                          "path":  "DotNet/Tests/Odyssey.Tests.Persistence/CharacterResourceAnatomyTests.cs",
+                          "check":  "InitializeCharacterResource succeeds and genuinely increments CharacterResourcesRevision"
+                      },
+                      {
+                          "testCaseId":  "TC-CHAR-094",
+                          "taskId":  "ODY-S04-109",
+                          "authority":  "product section 17; ODY-S04-109",
+                          "runner":  "dotnet test",
+                          "path":  "DotNet/Tests/Odyssey.Tests.Persistence/CharacterResourceAnatomyTests.cs",
+                          "check":  "InitializeCharacterResource by a non-MainGM actor is rejected with CharacterResourceOperationDenied"
+                      },
+                      {
+                          "testCaseId":  "TC-CHAR-095",
+                          "taskId":  "ODY-S04-109",
+                          "authority":  "product section 17.1; ODY-S04-109",
+                          "runner":  "dotnet test",
+                          "path":  "DotNet/Tests/Odyssey.Tests.Persistence/CharacterResourceAnatomyTests.cs",
+                          "check":  "SetResourceCurrentValue outside [MinimumValue, EffectiveMaximum] is rejected with CharacterResourceValueOutOfRange, no state change"
+                      },
+                      {
+                          "testCaseId":  "TC-CHAR-096",
+                          "taskId":  "ODY-S04-109",
+                          "authority":  "product section 17.2/requirements 46-47; ODY-S04-109",
+                          "runner":  "dotnet test",
+                          "path":  "DotNet/Tests/Odyssey.Tests.Persistence/CharacterResourceAnatomyTests.cs",
+                          "check":  "CurrentValue does not change except via the explicit SetResourceCurrentValue command"
+                      },
+                      {
+                          "testCaseId":  "TC-CHAR-097",
+                          "taskId":  "ODY-S04-109",
+                          "authority":  "product section 17.1/requirement 44; ODY-S04-109",
+                          "runner":  "dotnet test",
+                          "path":  "DotNet/Tests/Odyssey.Tests.Persistence/CharacterResourceAnatomyTests.cs",
+                          "check":  "SetResourceMaximum decreasing EffectiveMaximum below CurrentValue clamps CurrentValue immediately to the new EffectiveMaximum"
+                      },
+                      {
+                          "testCaseId":  "TC-CHAR-098",
+                          "taskId":  "ODY-S04-109",
+                          "authority":  "product section 17.1/requirement 45; ODY-S04-109",
+                          "runner":  "dotnet test",
+                          "path":  "DotNet/Tests/Odyssey.Tests.Persistence/CharacterResourceAnatomyTests.cs",
+                          "check":  "A later SetResourceMaximum increase does not auto-restore a previously-clamped CurrentValue"
+                      },
+                      {
+                          "testCaseId":  "TC-CHAR-099",
+                          "taskId":  "ODY-S04-109",
+                          "authority":  "ODY-S04-109",
+                          "runner":  "dotnet test",
+                          "path":  "DotNet/Tests/Odyssey.Tests.Persistence/CharacterResourceAnatomyTests.cs",
+                          "check":  "SetResourceCurrentValue on an unknown CharacterResourceId is rejected with CharacterResourceNotFound"
+                      },
+                      {
+                          "testCaseId":  "TC-CHAR-100",
+                          "taskId":  "ODY-S04-109",
+                          "authority":  "ADR-012 section 7; ODY-S04-109",
+                          "runner":  "dotnet test",
+                          "path":  "DotNet/Tests/Odyssey.Tests.Persistence/CharacterResourceAnatomyTests.cs",
+                          "check":  "A duplicate CommandId for InitializeCharacterResource does not initialize a second resource"
+                      },
+                      {
+                          "testCaseId":  "TC-CHAR-101",
+                          "taskId":  "ODY-S04-109",
+                          "authority":  "ADR-022 section 5/6 section 1.2; ODY-S04-109",
+                          "runner":  "dotnet test",
+                          "path":  "DotNet/Tests/Odyssey.Tests.Persistence/CharacterResourceAnatomyTests.cs",
+                          "check":  "InitializeCharacterAnatomy succeeds and genuinely increments the single CharacterAnatomyRevision"
+                      },
+                      {
+                          "testCaseId":  "TC-CHAR-102",
+                          "taskId":  "ODY-S04-109",
+                          "authority":  "ODY-S04-109",
+                          "runner":  "dotnet test",
+                          "path":  "DotNet/Tests/Odyssey.Tests.Persistence/CharacterResourceAnatomyTests.cs",
+                          "check":  "InitializeCharacterAnatomy called a second time is rejected with CharacterAnatomyAlreadyInitialized"
+                      },
+                      {
+                          "testCaseId":  "TC-CHAR-103",
+                          "taskId":  "ODY-S04-109",
+                          "authority":  "product section 18/requirements 48-49; ODY-S04-109",
+                          "runner":  "dotnet test",
+                          "path":  "DotNet/Tests/Odyssey.Tests.Persistence/CharacterResourceAnatomyTests.cs",
+                          "check":  "CharacterAnatomy is an independent snapshot -- AnatomyProfileVersion is pinned at initialization time, mirroring ODY-S04-103's own template-independence test pattern"
+                      },
+                      {
+                          "testCaseId":  "TC-CHAR-104",
+                          "taskId":  "ODY-S04-109",
+                          "authority":  "product section 18; ODY-S04-109",
+                          "runner":  "dotnet test",
+                          "path":  "DotNet/Tests/Odyssey.Tests.Persistence/CharacterResourceAnatomyTests.cs",
+                          "check":  "AddBodyPart requires an initialized CharacterAnatomy (CharacterAnatomyNotInitialized) and is MainGM-only (CharacterAnatomyOperationDenied)"
+                      },
+                      {
+                          "testCaseId":  "TC-CHAR-105",
+                          "taskId":  "ODY-S04-109",
+                          "authority":  "ODY-S04-109",
+                          "runner":  "dotnet test",
+                          "path":  "DotNet/Tests/Odyssey.Tests.Persistence/CharacterResourceAnatomyTests.cs",
+                          "check":  "AddBodyPart with an already-existing BodyPartId is rejected with CharacterBodyPartAlreadyExists"
+                      },
+                      {
+                          "testCaseId":  "TC-CHAR-106",
+                          "taskId":  "ODY-S04-109",
+                          "authority":  "ODY-S04-109",
+                          "runner":  "dotnet test",
+                          "path":  "DotNet/Tests/Odyssey.Tests.Persistence/CharacterResourceAnatomyTests.cs",
+                          "check":  "RemoveBodyPart on an unknown BodyPartId is rejected with CharacterBodyPartNotFound"
+                      },
+                      {
+                          "testCaseId":  "TC-CHAR-107",
+                          "taskId":  "ODY-S04-109",
+                          "authority":  "ODY-S04-109 section 1.3; product requirement 51",
+                          "runner":  "dotnet test",
+                          "path":  "DotNet/Tests/Odyssey.Tests.Persistence/CharacterResourceAnatomyTests.cs",
+                          "check":  "RemoveBodyPart on a body part another body part is attached to is rejected with CharacterBodyPartHasDependent, no state change"
+                      },
+                      {
+                          "testCaseId":  "TC-CHAR-108",
+                          "taskId":  "ODY-S04-109",
+                          "authority":  "product section 18; ODY-S04-109",
+                          "runner":  "dotnet test",
+                          "path":  "DotNet/Tests/Odyssey.Tests.Persistence/CharacterResourceAnatomyTests.cs",
+                          "check":  "RemoveBodyPart on an independent body part (no dependents) succeeds"
+                      },
+                      {
+                          "testCaseId":  "TC-CHAR-109",
+                          "taskId":  "ODY-S04-109",
+                          "authority":  "ODY-S04-109 section 1.3; product requirement 51",
+                          "runner":  "dotnet test",
+                          "path":  "DotNet/Tests/Odyssey.Tests.Persistence/CharacterResourceAnatomyTests.cs",
+                          "check":  "RemoveBodyPart on a body part with an attached PermanentModification is rejected with CharacterBodyPartHasDependent"
+                      },
+                      {
+                          "testCaseId":  "TC-CHAR-110",
+                          "taskId":  "ODY-S04-109",
+                          "authority":  "product section 18; ODY-S04-109",
+                          "runner":  "dotnet test",
+                          "path":  "DotNet/Tests/Odyssey.Tests.Persistence/CharacterResourceAnatomyTests.cs",
+                          "check":  "UpdateBodyPart changes DamageLimit and Properties on the addressed body part"
+                      },
+                      {
+                          "testCaseId":  "TC-CHAR-111",
+                          "taskId":  "ODY-S04-109",
+                          "authority":  "product section 18; ODY-S04-109",
+                          "runner":  "dotnet test",
+                          "path":  "DotNet/Tests/Odyssey.Tests.Persistence/CharacterResourceAnatomyTests.cs",
+                          "check":  "ReplaceAnatomyProfile replaces AnatomyProfileDefinitionId/Version/BodyParts while preserving PermanentModifications and MigrationHistory"
+                      },
+                      {
+                          "testCaseId":  "TC-CHAR-112",
+                          "taskId":  "ODY-S04-109",
+                          "authority":  "product section 18 (\"журналируются\"); ODY-S04-109",
+                          "runner":  "dotnet test",
+                          "path":  "DotNet/Tests/Odyssey.Tests.Persistence/CharacterResourceAnatomyTests.cs",
+                          "check":  "MigrationHistory accumulates exactly one entry per anatomy-mutating command (Initialize/Add/Remove/ApplyPermanentModification)"
+                      },
+                      {
+                          "testCaseId":  "TC-CHAR-113",
+                          "taskId":  "ODY-S04-109",
+                          "authority":  "ADR-012 section 7; ODY-S04-109",
+                          "runner":  "dotnet test",
+                          "path":  "DotNet/Tests/Odyssey.Tests.Persistence/CharacterResourceAnatomyTests.cs",
+                          "check":  "A duplicate CommandId for InitializeCharacterAnatomy does not initialize/journal a second time"
+                      },
+                      {
+                          "testCaseId":  "TC-CHAR-114",
+                          "taskId":  "ODY-S04-109",
+                          "authority":  "ADR-022 section 5; ODY-S04-109",
+                          "runner":  "dotnet test",
+                          "path":  "DotNet/Tests/Odyssey.Tests.Persistence/CharacterResourceAnatomyTests.cs",
+                          "check":  "A concurrent InitializeCharacterResource (CharacterResources section) and InitializeCharacterAnatomy (CharacterAnatomy section) both commit successfully without a false conflict"
                       }
                   ]
 }

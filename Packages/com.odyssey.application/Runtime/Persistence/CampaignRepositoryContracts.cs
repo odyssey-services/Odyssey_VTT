@@ -482,6 +482,87 @@ namespace Odyssey.Application.Persistence
             RetryDirective.DoNotRetry,
             correlationId);
 
+        /// <summary>ODY-S04-109: product section 17 -- every <c>CharacterResource</c> command is MainGM-only, mirroring <see cref="CharacterAbilityGrantDenied"/>'s exact convention for a sibling section.</summary>
+        public static Error CharacterResourceOperationDenied(CorrelationId correlationId) => Error.Create(
+            ErrorCodes.PersistenceCharacterResourceOperationDenied,
+            ErrorCategory.Authorization,
+            SafeReasonCode.PermissionDenied,
+            UserMessageKey.Parse("errors.persistence.character_resource_operation_denied"),
+            RetryDirective.DoNotRetry,
+            correlationId);
+
+        /// <summary>ODY-S04-109: <c>SetResourceCurrentValue</c>/<c>SetResourceMaximum</c> lookup failure for an unknown <c>CharacterResourceId</c>.</summary>
+        public static Error CharacterResourceNotFound(CorrelationId correlationId) => Error.Create(
+            ErrorCodes.PersistenceCharacterResourceNotFound,
+            ErrorCategory.NotFound,
+            SafeReasonCode.TargetUnavailable,
+            UserMessageKey.Parse("errors.persistence.character_resource_not_found"),
+            RetryDirective.DoNotRetry,
+            correlationId);
+
+        /// <summary>ODY-S04-109: product section 17.1 -- <c>SetResourceCurrentValue</c> rejection when the requested value falls outside <c>[MinimumValue, EffectiveMaximum]</c>.</summary>
+        public static Error CharacterResourceValueOutOfRange(CorrelationId correlationId) => Error.Create(
+            ErrorCodes.PersistenceCharacterResourceValueOutOfRange,
+            ErrorCategory.Validation,
+            SafeReasonCode.InvalidRequest,
+            UserMessageKey.Parse("errors.persistence.character_resource_value_out_of_range"),
+            RetryDirective.DoNotRetry,
+            correlationId);
+
+        /// <summary>ODY-S04-109: product section 18 -- every <c>CharacterAnatomy</c> command is MainGM-only ("GM может...").</summary>
+        public static Error CharacterAnatomyOperationDenied(CorrelationId correlationId) => Error.Create(
+            ErrorCodes.PersistenceCharacterAnatomyOperationDenied,
+            ErrorCategory.Authorization,
+            SafeReasonCode.PermissionDenied,
+            UserMessageKey.Parse("errors.persistence.character_anatomy_operation_denied"),
+            RetryDirective.DoNotRetry,
+            correlationId);
+
+        /// <summary>ODY-S04-109: every anatomy command except <c>InitializeCharacterAnatomy</c> requires an existing <c>CharacterAnatomy</c> snapshot.</summary>
+        public static Error CharacterAnatomyNotInitialized(CorrelationId correlationId) => Error.Create(
+            ErrorCodes.PersistenceCharacterAnatomyNotInitialized,
+            ErrorCategory.Conflict,
+            SafeReasonCode.StateChanged,
+            UserMessageKey.Parse("errors.persistence.character_anatomy_not_initialized"),
+            RetryDirective.DoNotRetry,
+            correlationId);
+
+        /// <summary>ODY-S04-109: <c>InitializeCharacterAnatomy</c> rejection when a <c>CharacterAnatomy</c> snapshot already exists for this Character.</summary>
+        public static Error CharacterAnatomyAlreadyInitialized(CorrelationId correlationId) => Error.Create(
+            ErrorCodes.PersistenceCharacterAnatomyAlreadyInitialized,
+            ErrorCategory.Conflict,
+            SafeReasonCode.StateChanged,
+            UserMessageKey.Parse("errors.persistence.character_anatomy_already_initialized"),
+            RetryDirective.DoNotRetry,
+            correlationId);
+
+        /// <summary>ODY-S04-109: <c>RemoveBodyPart</c>/<c>UpdateBodyPart</c>/<c>ApplyPermanentModification</c> lookup failure for an unknown <c>BodyPartId</c>.</summary>
+        public static Error CharacterBodyPartNotFound(CorrelationId correlationId) => Error.Create(
+            ErrorCodes.PersistenceCharacterBodyPartNotFound,
+            ErrorCategory.NotFound,
+            SafeReasonCode.TargetUnavailable,
+            UserMessageKey.Parse("errors.persistence.character_body_part_not_found"),
+            RetryDirective.DoNotRetry,
+            correlationId);
+
+        /// <summary>ODY-S04-109 (section 1.3): product section 18/requirement 51 -- <c>RemoveBodyPart</c> rejection when another body part or permanent modification within the same <c>CharacterAnatomy</c> still references the part being removed. Item-system dependencies are not checked -- no Item system exists yet (see this method's own call site doc comment).</summary>
+        public static Error CharacterBodyPartHasDependent(CorrelationId correlationId) => Error.Create(
+            ErrorCodes.PersistenceCharacterBodyPartHasDependent,
+            ErrorCategory.Conflict,
+            SafeReasonCode.StateChanged,
+            UserMessageKey.Parse("errors.persistence.character_body_part_has_dependent"),
+            RetryDirective.DoNotRetry,
+            correlationId);
+
+        /// <summary>ODY-S04-109: <c>AddBodyPart</c> rejection when a body part with the same <c>BodyPartId</c> already exists in this Character's <c>CharacterAnatomy</c>.</summary>
+        public static Error CharacterBodyPartAlreadyExists(CorrelationId correlationId) => Error.Create(
+            ErrorCodes.PersistenceCharacterBodyPartAlreadyExists,
+            ErrorCategory.Conflict,
+            SafeReasonCode.StateChanged,
+            UserMessageKey.Parse("errors.persistence.character_body_part_already_exists"),
+            RetryDirective.DoNotRetry,
+            correlationId);
+
         /// <summary>ODY-S04-106: <c>ResolveAdvancementRecommendation</c> references a <c>CriticalSuccessEvidenceId</c> that does not exist -- an integrity condition, not a normal user-facing rejection path (the recommendation's own evidence list is validated to reference real rows at request time).</summary>
         public static Error CharacterCriticalEvidenceNotFound(CorrelationId correlationId) => Error.Create(
             ErrorCodes.PersistenceCharacterCriticalEvidenceNotFound,
