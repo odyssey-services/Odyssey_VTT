@@ -188,6 +188,164 @@ namespace Odyssey.Application.Persistence
 
         /// <summary>ODY-S04-105: reads the full development ledger for one Character, ordered by <see cref="DevelopmentTransactionRecord.CreatedAt"/> -- matching <see cref="IGameLogRepository.ListGameLog"/>'s own "Persistence stores everything" convention. Rebuildable from <c>DomainEvents</c> if ever lost (ADR-024 section 4.3); this method reads the co-committed ledger table directly, the same way <see cref="GetCharacter"/> reads current state directly rather than rebuilding it from events on every call.</summary>
         Result<IReadOnlyList<DevelopmentTransactionRecord>> GetDevelopmentLedger(CampaignHandle campaign, CharacterId characterId, CorrelationId correlationId);
+
+        /// <summary>
+        /// ODY-S04-106: product section 14.2 -- an ordinary immediate
+        /// purchase, exactly mirroring <see cref="PurchaseAttributeIncrease"/>'s
+        /// own shape for a <c>CharacterSkill</c> entry instead of an
+        /// <c>AttributeValue</c>. Rejected with <c>CharacterSkillLevelRequiresRecommendation</c>
+        /// if <paramref name="toLevel"/> exceeds <see cref="Odyssey.Rules.Character.SkillCostRules.MaxOrdinaryPurchaseLevel"/>
+        /// (product section 14.3's "levels 5+" boundary) -- that path is
+        /// <see cref="RequestSkillAdvancedRecommendation"/>'s own job, never
+        /// this command's. Cost comes from <see cref="Odyssey.Rules.Character.SkillCostRules"/>,
+        /// this task's own explicitly-flagged test fixture.
+        /// </summary>
+        Result<CharacterRecord> PurchaseSkillLevel(CampaignHandle campaign, CharacterId characterId, SkillDefinitionId skillDefinitionId, long toLevel, UserId actorUserId, bool actorIsMainGm, long expectedMechanicsRevision, long expectedSkillRevision, CommandId commandId, CorrelationId correlationId);
+
+        /// <summary>
+        /// ODY-S04-106: ADR-024 section 3.5/7.1, product section 14.4 --
+        /// records one immutable <c>CriticalSuccessEvidence</c> fact. The
+        /// actual trigger (a critical success during a skill check) is a
+        /// Rules Engine/dice-integration concern this task does not
+        /// implement; this method is the durable recording primitive a
+        /// future dice-integration task, or this task's own tests, use to
+        /// produce real evidence rows for <see cref="RequestSkillAdvancedRecommendation"/>
+        /// to reference. No permission gate -- recording an observed game
+        /// fact is not a discretionary decision the way granting points or
+        /// approving a recommendation is.
+        /// </summary>
+        Result<CriticalSuccessEvidenceRecord> RecordCriticalSuccessEvidence(CampaignHandle campaign, CharacterId characterId, SkillDefinitionId skillDefinitionId, string? sourceDiceRollId, string? sourceActionId, CommandId commandId, CorrelationId correlationId);
+
+        /// <summary>ODY-S04-106: reads every recorded evidence row for one Character -- matching <see cref="IGameLogRepository.ListGameLog"/>'s own "Persistence stores everything" convention.</summary>
+        Result<IReadOnlyList<CriticalSuccessEvidenceRecord>> GetCriticalSuccessEvidence(CampaignHandle campaign, CharacterId characterId, CorrelationId correlationId);
+
+        /// <summary>
+        /// ODY-S04-106: ADR-024 section 6.1 step 1 -- validates
+        /// <see cref="DevelopmentPool.Available"/> against the amount the
+        /// recommendation may eventually cost (<see cref="Odyssey.Rules.Character.SkillCostRules"/>'s
+        /// own fixture cost for the addressed skill's target level), then,
+        /// in one transaction, moves that amount from <c>Available</c> into
+        /// <c>Reserved</c> (<c>DevelopmentTransaction.Kind=Reserve</c>) and
+        /// creates the durable <c>AdvancementRecommendation</c> pending
+        /// record (ADR-002 section 20's pending-workflow-equivalent pair,
+        /// this domain's own named events per ADR-024 section 3.4). This
+        /// task's own representation of ADR-002 section 20.1's "result is
+        /// Pending": a successful <see cref="Result{T}"/> carrying the
+        /// created, <see cref="AdvancementRecommendationStatus.Pending"/>
+        /// record -- not <c>Odyssey.Application.Commands.CommandResult</c>'s
+        /// own <c>Pending</c> status, since no existing Character command
+        /// routes through that not-yet-wired-in command-dispatch layer
+        /// (<c>SqliteSavingPipeline</c>'s own doc comment gives the same
+        /// reasoning for why it does not either). A duplicate
+        /// <paramref name="commandId"/> returns the same stored record and
+        /// does not create a second reservation. Referenced
+        /// <paramref name="evidenceIds"/> are recorded on the
+        /// recommendation as candidates only -- they are not consumed
+        /// (<c>UsedByAdvancementId</c> untouched) until
+        /// <see cref="ResolveAdvancementRecommendation"/> actually approves
+        /// with spend (ADR-024 section 7.1).
+        /// </summary>
+        Result<AdvancementRecommendationRecord> RequestSkillAdvancedRecommendation(CampaignHandle campaign, CharacterId characterId, SkillDefinitionId skillDefinitionId, long targetLevel, IReadOnlyList<CriticalSuccessEvidenceId> evidenceIds, UserId actorUserId, bool actorIsMainGm, long expectedMechanicsRevision, CommandId commandId, CorrelationId correlationId);
+
+        /// <summary>
+        /// ODY-S04-106: ADR-024 section 6.1 step 2, MainGM-only (product
+        /// section 14.3: "GM reviews... GM approves or dismisses"). Exactly
+        /// one of: <paramref name="approve"/><c>=false</c> (Dismissed --
+        /// releases the reservation, no skill change, evidence stays
+        /// unconsumed); <paramref name="approve"/><c>=true</c> with
+        /// <paramref name="spendReservedPoints"/><c>=true</c> (the reserved
+        /// amount converts directly <c>Reserved</c>-&gt;<c>Spent</c> in a
+        /// single transaction, never a release-then-reserve-then-spend
+        /// sequence, ADR-024 section 6.1); or <paramref name="approve"/><c>=true</c>
+        /// with <paramref name="spendReservedPoints"/><c>=false</c> (the
+        /// reservation is released but the skill level still applies,
+        /// referencing only the consumed evidence). This ADR deliberately
+        /// does not decide numerically which branch a real
+        /// <c>SkillAdvancementRule</c> would pick (ADR-024 section 6.1's own
+        /// "not decided numerically by this ADR") -- <paramref name="spendReservedPoints"/>
+        /// is this task's own explicit input standing in for that
+        /// not-yet-implemented Rules Engine decision, so this method commits
+        /// exactly the two ADR-named outcomes correctly rather than guessing
+        /// which one a real rule would choose. Either approved branch
+        /// atomically sets <c>UsedByAdvancementId</c> on every referenced
+        /// evidence row -- rejected with a revision conflict, no partial
+        /// state change, if any referenced evidence was already consumed by
+        /// a concurrently-committed resolution (ADR-024 section 7.1).
+        /// </summary>
+        Result<CharacterRecord> ResolveAdvancementRecommendation(CampaignHandle campaign, CharacterId characterId, AdvancementRecommendationId recommendationId, bool approve, bool spendReservedPoints, UserId actorUserId, bool actorIsMainGm, long expectedMechanicsRevision, long expectedRecommendationRevision, CommandId commandId, CorrelationId correlationId);
+
+        /// <summary>ODY-S04-106: reads one <c>AdvancementRecommendation</c> by id.</summary>
+        Result<AdvancementRecommendationRecord> GetAdvancementRecommendation(CampaignHandle campaign, CharacterId characterId, AdvancementRecommendationId recommendationId, CorrelationId correlationId);
+    }
+
+    /// <summary>ODY-S04-106: ADR-024 section 3.5/7.1's <c>CriticalSuccessEvidence</c> read-model row.</summary>
+    public sealed class CriticalSuccessEvidenceRecord
+    {
+        public CriticalSuccessEvidenceRecord(CriticalSuccessEvidenceId evidenceId, CharacterId characterId, SkillDefinitionId skillDefinitionId, string? sourceDiceRollId, string? sourceActionId, UtcInstant occurredAt, string rulesetVersion, AdvancementRecommendationId? usedByAdvancementId, long revision)
+        {
+            if (!evidenceId.IsValid) throw new ArgumentException("EvidenceId is required.", nameof(evidenceId));
+            if (!characterId.IsValid) throw new ArgumentException("CharacterId is required.", nameof(characterId));
+            if (!skillDefinitionId.IsValid) throw new ArgumentException("SkillDefinitionId is required.", nameof(skillDefinitionId));
+            if (string.IsNullOrWhiteSpace(rulesetVersion)) throw new ArgumentException("RulesetVersion is required.", nameof(rulesetVersion));
+            if (revision < 1) throw new ArgumentOutOfRangeException(nameof(revision));
+
+            EvidenceId = evidenceId;
+            CharacterId = characterId;
+            SkillDefinitionId = skillDefinitionId;
+            SourceDiceRollId = sourceDiceRollId;
+            SourceActionId = sourceActionId;
+            OccurredAt = occurredAt;
+            RulesetVersion = rulesetVersion;
+            UsedByAdvancementId = usedByAdvancementId;
+            Revision = revision;
+        }
+
+        public CriticalSuccessEvidenceId EvidenceId { get; }
+        public CharacterId CharacterId { get; }
+        public SkillDefinitionId SkillDefinitionId { get; }
+        public string? SourceDiceRollId { get; }
+        public string? SourceActionId { get; }
+        public UtcInstant OccurredAt { get; }
+        public string RulesetVersion { get; }
+
+        /// <summary>ADR-024 section 7.1: set exactly once, guarded by <see cref="Revision"/> -- never a separate spent-evidence registry.</summary>
+        public AdvancementRecommendationId? UsedByAdvancementId { get; }
+        public long Revision { get; }
+    }
+
+    /// <summary>ODY-S04-106: ADR-024 section 3.4's <c>AdvancementRecommendation</c> durable pending record.</summary>
+    public sealed class AdvancementRecommendationRecord
+    {
+        public AdvancementRecommendationRecord(AdvancementRecommendationId recommendationId, CharacterId characterId, SkillDefinitionId skillDefinitionId, long targetLevel, long reservedAmount, IReadOnlyList<CriticalSuccessEvidenceId> evidenceIds, AdvancementRecommendationStatus status, long revision, UtcInstant createdAt)
+        {
+            if (!recommendationId.IsValid) throw new ArgumentException("RecommendationId is required.", nameof(recommendationId));
+            if (!characterId.IsValid) throw new ArgumentException("CharacterId is required.", nameof(characterId));
+            if (!skillDefinitionId.IsValid) throw new ArgumentException("SkillDefinitionId is required.", nameof(skillDefinitionId));
+            if (targetLevel < 1) throw new ArgumentOutOfRangeException(nameof(targetLevel));
+            if (reservedAmount < 0) throw new ArgumentOutOfRangeException(nameof(reservedAmount));
+            if (!Enum.IsDefined(typeof(AdvancementRecommendationStatus), status)) throw new ArgumentOutOfRangeException(nameof(status));
+            if (revision < 1) throw new ArgumentOutOfRangeException(nameof(revision));
+
+            RecommendationId = recommendationId;
+            CharacterId = characterId;
+            SkillDefinitionId = skillDefinitionId;
+            TargetLevel = targetLevel;
+            ReservedAmount = reservedAmount;
+            EvidenceIds = evidenceIds ?? throw new ArgumentNullException(nameof(evidenceIds));
+            Status = status;
+            Revision = revision;
+            CreatedAt = createdAt;
+        }
+
+        public AdvancementRecommendationId RecommendationId { get; }
+        public CharacterId CharacterId { get; }
+        public SkillDefinitionId SkillDefinitionId { get; }
+        public long TargetLevel { get; }
+        public long ReservedAmount { get; }
+        public IReadOnlyList<CriticalSuccessEvidenceId> EvidenceIds { get; }
+        public AdvancementRecommendationStatus Status { get; }
+        public long Revision { get; }
+        public UtcInstant CreatedAt { get; }
     }
 
     /// <summary>ODY-S04-105: ADR-024 section 3.2's <c>DevelopmentTransaction</c> read-model row -- see <see cref="Character.DevelopmentTransaction"/>'s own doc comment for why it carries no independent authority.</summary>
@@ -365,6 +523,7 @@ namespace Odyssey.Application.Persistence
             UtcInstant? submittedAt,
             DevelopmentPool developmentPool,
             IReadOnlyList<AttributeValue> attributes,
+            IReadOnlyList<CharacterSkill> skills,
             UtcInstant createdAt,
             UtcInstant updatedAt)
         {
@@ -393,6 +552,7 @@ namespace Odyssey.Application.Persistence
             SubmittedAt = submittedAt;
             DevelopmentPool = developmentPool ?? throw new ArgumentNullException(nameof(developmentPool));
             Attributes = attributes ?? throw new ArgumentNullException(nameof(attributes));
+            Skills = skills ?? throw new ArgumentNullException(nameof(skills));
             CreatedAt = createdAt;
             UpdatedAt = updatedAt;
         }
@@ -438,6 +598,9 @@ namespace Odyssey.Application.Persistence
 
         /// <summary>ODY-S04-105: product section 11's <c>AttributeValue</c> rows purchased so far -- empty until the first <c>PurchaseAttributeIncrease</c>. Each entry's own <see cref="AttributeValue.Revision"/> is the ADR-024 section 4.2 entry-level gate for further purchases against that same attribute.</summary>
         public IReadOnlyList<AttributeValue> Attributes { get; }
+
+        /// <summary>ODY-S04-106: product section 14's <c>CharacterSkill</c> rows purchased so far -- empty until the first purchase/resolution ("отсутствующий навык представлен отсутствием CharacterSkill"). Each entry's own <see cref="CharacterSkill.Revision"/> is the ADR-024 section 4.2 entry-level gate for further purchases against that same skill.</summary>
+        public IReadOnlyList<CharacterSkill> Skills { get; }
         public UtcInstant CreatedAt { get; }
         public UtcInstant UpdatedAt { get; }
     }
