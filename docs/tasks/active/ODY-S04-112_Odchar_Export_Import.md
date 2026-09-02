@@ -1,14 +1,14 @@
 # ODY-S04-112 — `.odchar` Export & Import
 
-**Status:** Ready
+**Status:** In Review
 **Roadmap stage / slice:** SLICE-04
-**Owner:** Unassigned
+**Owner:** Codex (agent)
 **Requested by:** Product owner
-**Branch:** Not created
-**Pull request:** Not opened
-**ExecPlan:** `docs/plans/active/ODY-S04-112_Odchar_Export_Import.md` (to be created by the implementing agent at task start, per `PLANS.md` §1.2)
+**Branch:** `feat/ody-s04-112-odchar-export-import`
+**Pull request:** [#96](https://github.com/odyssey-services/Odyssey_VTT/pull/96)
+**ExecPlan:** `docs/plans/active/ODY-S04-112_Odchar_Export_Import.md`
 **Created:** 2026-09-02
-**Last updated:** 2026-09-02 UTC
+**Last updated:** 2026-09-03 UTC
 
 ## 1. Goal
 
@@ -267,23 +267,76 @@ If a bundle container format needs compression, prefer the .NET BCL's `System.IO
 
 ## 16. Definition of Done
 
-- [ ] Goal is achieved without unapproved scope expansion.
-- [ ] All acceptance criteria are satisfied.
-- [ ] Required automated tests pass.
-- [ ] Required manual checks are completed (none required).
-- [ ] Required commands and their real results are recorded.
-- [ ] Architecture and dependency rules remain valid.
-- [ ] Security, privacy, redaction, and audience rules are verified where applicable.
-- [ ] Compatibility, migration, rollback, and versioning obligations are complete where applicable.
-- [ ] No unapproved dependency, tool, GitHub Action, or license was introduced.
-- [ ] Documentation is updated only where materially required.
-- [ ] Codex/developer performed a self-review against this task and `AGENTS.md`.
+- [x] Goal is achieved without unapproved scope expansion.
+- [x] All acceptance criteria are satisfied.
+- [x] Required automated tests pass.
+- [x] Required manual checks are completed (none required).
+- [x] Required commands and their real results are recorded.
+- [x] Architecture and dependency rules remain valid.
+- [x] Security, privacy, redaction, and audience rules are verified where applicable.
+- [x] Compatibility, migration, rollback, and versioning obligations are complete where applicable.
+- [x] No unapproved dependency, tool, GitHub Action, or license was introduced.
+- [x] Documentation is updated only where materially required.
+- [x] Codex/developer performed a self-review against this task and `AGENTS.md`.
 - [ ] Pull request explains changes, evidence, limitations, and follow-up work.
 - [ ] Product owner or authorized reviewer completes the required review; Codex does not merge into `main`.
 
 ## 17. Completion evidence
 
-To be filled by the implementing agent — not applicable at task creation time.
+### Changed files / areas
+
+See section 5's "In scope" file list, plus two new Application-layer files (`CharacterExportContracts.cs`, `RedactCharacterForExport.cs`) implied by that same section's own text but not itemized in the "Allowed paths" code block — see this task's own ExecPlan §4 Decisions for the precedent this follows.
+
+### Validation results
+
+| Command / check | Result | Evidence / notes |
+|---|---|---|
+| `dotnet build Odyssey.Core.sln` | Passed | 0 warnings, 0 errors. |
+| `dotnet test Odyssey.Core.sln` | Passed | Full suite: Contracts 1, Domain 56, Networking 67, Unit 105, Architecture 2, Persistence 229 (220 pre-existing + 9 new) — 460 total, 0 failures, 0 regressions. |
+| `.\scripts\verify-format.ps1` | Passed | `FORMAT-001 PASS repository text formatting checks passed`. |
+| `.\scripts\check-repository-policy.ps1` | Passed | `Repository policy check passed.` |
+
+### Acceptance result
+
+| Criterion | Status | Evidence |
+|---|---|---|
+| AC-1 | Passed | Every earlier test file unmodified, all still pass. |
+| AC-2 | Passed | `TC-CHAR-144`. |
+| AC-3 | Passed | `TC-CHAR-145`. |
+| AC-4 | Passed | `TC-CHAR-147`. |
+| AC-5 | Passed | `TC-CHAR-150`. |
+| AC-6 | Passed | `TC-CHAR-148`. |
+| AC-7 | Passed | `git status --porcelain` confirms no `ADR-022`/`023`/`025`/`SLICE-04_BACKLOG.md`/`Assets/**` file touched (`ADR-026` itself is new, added by the product owner as this task's own governing ADR, not modified); no GM-only/secret field invented. |
+| AC-8 | Passed | See Validation results above. |
+| AC-9 | Passed | `SLICE-04_IMPLEMENTATION_BACKLOG.md` row 12 status/PR link updated. |
+| AC-10 | Passed | Draft PR link and CI status recorded once opened (see final report). |
+
+### Build and artifact evidence
+
+- Build identity: Not applicable.
+- Artifact path / name: None.
+- Checksums: None.
+- Test or quality report: `dotnet test` console output (see Validation results).
+
+### Known limitations
+
+- `HistoryEventTypes`/`GetCharacterHistory` render `odyssey.persistence.character_import_state_applied` alongside `odyssey.persistence.character_draft_bound` for the imported Character's own history, exactly like every other multi-step creation flow in this codebase — no separate limitation there.
+- `ImportCharacter` does not carry `DevelopmentPool.Reserved` or any pending `AdvancementRecommendation` across, by design (ExecPlan Decisions) — a future task that wants to preserve in-flight recommendations across import would need its own explicit mechanism.
+- No `portrait/`/`referenced-assets/` bundle content exists yet — the `.odchar` bundle in this task is `manifest.json`+`character.json` only, matching `ADR-026`'s own "optional" framing for the other two entries.
+
+### Follow-up tasks
+
+- `ODY-S04-113` — Character Ruleset Migration.
+- A future task introducing a real GM-only/secret Character field would be the first real occasion to extend `RedactCharacterForExport`'s own named extension point.
+- A future task wanting `.odchar` `FormatVersion` 2+/bundle compression would need its own superseding-ADR-level decision, per `ADR-026` §4's own bump rule.
+
+### Self-review summary
+
+- Scope review: limited to allowed files plus the two new Application-layer files implied by the task's own §5 "In scope" text; no `ADR-022`/`023`/`025`/`SLICE-04_BACKLOG.md` change; no Unity/UI code; no GM-only/secret field invented; `BindDraftToCampaign`/`CharacterCreationSeed` (`ODY-S04-103`) left byte-for-byte unmodified.
+- Architecture review: `RedactCharacterForExport` is a pure, connection-free Application function with one named extension point; `ImportCharacter` reuses `BindDraftToCampaign` unmodified and adds its own dedicated cross-section `ApplyImportedCharacterState` step, following `RestoreDeadCharacter`/`ApplyCharacterRespec`'s own precedent; the Ruleset-compatibility check reuses the exact same underlying pure function `BindDraftToCampaign` itself calls, without touching that method.
+- Test review: every acceptance criterion has a real, non-stubbed test against genuine temp-directory SQLite campaigns (two, for the cross-campaign export/import scenarios) — no mocked repository, no bypassed transaction pipeline; three real defects (two architectural gaps, one replay bug) were found and fixed during this task, not glossed over — see ExecPlan §5.
+- Security/privacy review: `character.json` never contains `CharacterOwnership`/`CharacterId`/`CampaignId`, verified directly against the serialized text in two separate tests; `ExportedByRole` resolution reuses existing ownership-relationship data, no new permission mechanism introduced.
+- Documentation/version review: task contract, ExecPlan, error registry, test catalog, and backlog status all updated; no ADR content changed (`ADR-026` itself was authored by the product owner before this task started, per its own §13).
 
 ## 18. Blockers, decisions, and change control
 
@@ -293,7 +346,13 @@ To be filled by the implementing agent — not applicable at task creation time.
 
 ### Decisions made during execution
 
-- None yet — to be filled by the implementing agent (for example: repository-port vs. plain-service shape for `ExportCharacter`/`ImportCharacter`; directory-vs-zip bundle mechanics; exact new test IDs).
+- 2026-09-02 — Decision: `ExportCharacter`/`ImportCharacter` fold directly into `ICharacterRepository` (no new mini-interface) — Authority/approval: matches every prior `SLICE-04` task's own convention.
+- 2026-09-02 — Decision: bundle file I/O lives in `SqliteCharacterRepository.cs`, not a new layer — Authority/approval: `SqliteBackupRepository`'s own precedent; `ADR-026` §7's own module-boundary text.
+- 2026-09-02 — Decision: a plain directory bundle, no compression — Authority/approval: `ADR-026` §3.1/§6/§11 explicitly defer this to the implementation.
+- 2026-09-03 — Decision: `ImportCharacter`'s Ruleset-compatibility check calls `CharacterTemplateCompatibility.IsCompatible` directly, never touching `BindDraftToCampaign`/`CharacterCreationSeed`'s own code — Authority/approval: this task's own ExecPlan §5 (the second architectural gap found); keeps `ODY-S04-103` genuinely unmodified per `ADR-026` §8 rule 6.
+- 2026-09-03 — Decision: mechanics/anatomy/resource reconstruction is a second, dedicated cross-section step (`ApplyImportedCharacterState`) after `BindDraftToCampaign` — Authority/approval: this task's own ExecPlan §5 (the first architectural gap found); matches `RestoreDeadCharacter`/`ApplyCharacterRespec`'s own precedent.
+- 2026-09-03 — Decision: fixed a real replay bug found by this task's own first duplicate-`CommandId` test run (`BindDraftToCampaign`'s own live-row replay lookup broken by `ApplyImportedCharacterState`'s later `LastCommandId` overwrite) — Authority/approval: this task's own test-driven discovery; fixed by resolving a replayed `bindCommandId` from the `character_draft_bound` `DomainEvents` row's own `CommandId` column instead, touching only `ImportCharacter`'s own code.
+- 2026-09-03 — Decision: `DevelopmentPool.Reserved` is never exported/imported (always `0` on import) — Authority/approval: `Reserved` has no meaning without its corresponding, non-exported pending `AdvancementRecommendationRecord` rows.
 
 ### Approved task changes
 

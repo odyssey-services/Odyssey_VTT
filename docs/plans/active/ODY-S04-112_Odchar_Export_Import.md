@@ -3,7 +3,7 @@
 **Status:** Active
 **Owner:** Codex (agent)
 **Branch:** `feat/ody-s04-112-odchar-export-import`
-**Pull request:** TBD
+**Pull request:** [#96](https://github.com/odyssey-services/Odyssey_VTT/pull/96)
 **Last updated:** 2026-09-02 UTC
 
 ## 1. Purpose and user-visible outcome
@@ -124,4 +124,4 @@ None — both gaps found during this task's own investigation were resolved dire
 
 ## 13. Outcome and follow-up
 
-To be filled once the PR is opened and CI status is known.
+Draft PR: [#96](https://github.com/odyssey-services/Odyssey_VTT/pull/96). CI pending. `ODY-S04-113` (Character Ruleset Migration) is the next task in the backlog; a future task introducing a real GM-only/secret Character field would be the first real occasion to extend `RedactCharacterForExport`'s own named extension point.
