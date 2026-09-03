@@ -5,7 +5,7 @@
 **Owner:** Unassigned
 **Requested by:** Product owner
 **Branch:** `feat/ody-s04-115-slice-04-acceptance-closure-gate`
-**Pull request:** To be opened
+**Pull request:** [#99](https://github.com/odyssey-services/Odyssey_VTT/pull/99) (Draft)
 **ExecPlan:** Not required — see section 14 (Brief plan)
 **Created:** 2026-09-03
 **Last updated:** 2026-09-03 UTC
