@@ -115,5 +115,10 @@ namespace Odyssey.Application.Results
         public static readonly ErrorCode DiceModifierNotFound = ErrorCode.Parse("dice.modifier.not_found");
         public static readonly ErrorCode DiceModifierDecisionReasonRequired = ErrorCode.Parse("dice.modifier.decision_reason_required");
         public static readonly ErrorCode DiceModifierDecisionDenied = ErrorCode.Parse("dice.modifier.decision_denied");
+
+        public static readonly ErrorCode PersistenceContentDefinitionNotFound = ErrorCode.Parse("persistence.content_definition.not_found");
+        public static readonly ErrorCode PersistenceContentDefinitionIoFailed = ErrorCode.Parse("persistence.content_definition.io_failed");
+        public static readonly ErrorCode PersistenceContentDefinitionRevisionConflict = ErrorCode.Parse("persistence.content_definition.revision_conflict");
+        public static readonly ErrorCode PersistenceContentDefinitionNotDraft = ErrorCode.Parse("persistence.content_definition.not_draft");
     }
 }
