@@ -3,7 +3,7 @@
 **Status:** Active
 **Owner:** Codex (agent)
 **Branch:** `feat/ody-s05-105-base-definition-types`
-**Pull request:** To be opened
+**Pull request:** https://github.com/odyssey-services/Odyssey_VTT/pull/107
 **Last updated:** 2026-09-04 UTC
 
 ## 1. Purpose and user-visible outcome
@@ -62,13 +62,13 @@ No Unity/UI code, no publish/archive/delete/validation/runtime behavior, no `ADR
 
 ### M4 — Validation and review readiness
 
-- [ ] `dotnet build DotNet\Odyssey.Core.sln` (full solution).
-- [ ] `dotnet test DotNet\Odyssey.Core.sln` (full suite).
-- [ ] `.\scripts\verify-format.ps1`.
-- [ ] `.\scripts\check-repository-policy.ps1`.
-- [ ] `.\scripts\verify-test-structure.ps1`.
-- [ ] `SLICE-05_IMPLEMENTATION_BACKLOG.md` row 5 status update with PR link.
-- [ ] Commit, push, and open Draft PR.
+- [x] `dotnet build DotNet\Odyssey.Core.sln` (full solution).
+- [x] `dotnet test DotNet\Odyssey.Core.sln` (full suite).
+- [x] `.\scripts\verify-format.ps1`.
+- [x] `.\scripts\check-repository-policy.ps1`.
+- [x] `.\scripts\verify-test-structure.ps1`.
+- [x] `SLICE-05_IMPLEMENTATION_BACKLOG.md` row 5 status update with PR link.
+- [x] Commit, push, and open Draft PR (PR #107).
 - [ ] Record CI status.
 
 ## 6. Progress log
@@ -81,6 +81,7 @@ No Unity/UI code, no publish/archive/delete/validation/runtime behavior, no `ADR
 - 2026-09-04 — Implemented `TypedDefinitionCodecTests.cs` (17 test methods) in `DotNet/Tests/Odyssey.Tests.Unit/Content/`, confirming via `grep` on `Odyssey.Tests.Unit.csproj` that it already references `Odyssey.Application`, avoiding any project-file change. Filtered `dotnet test` run: 17/17 passed on first try.
 - 2026-09-04 — Added `docs/errors/ERROR_CODES.md` rows and `Tests/Metadata/test-catalog.json` entries `TC-CATALOG-024`–`037`, referencing this task contract by `taskId` before running `verify-test-structure.ps1` — proactively applying the "task contract must exist before test-catalog can reference its `taskId`" lesson already learned from `ODY-S04-113a`/`115a`/`ODY-S05-101`/`102`.
 - 2026-09-04 — Wrote this task's own contract and ExecPlan.
+- 2026-09-04 — Full-suite `dotnet test` (543/543 passed), `verify-format.ps1`, `check-repository-policy.ps1`, `verify-test-structure.ps1` all passed on first run. Staged only this task's own 9 files (a stray, untracked `Claude outputs/` directory left over from an earlier unrelated cleanup task was confirmed present but deliberately not touched or committed). Committed, pushed `feat/ody-s05-105-base-definition-types`, opened Draft PR #107. Updated this contract/plan/backlog with the real PR link.
 
 ## 7. Decisions
 
@@ -98,7 +99,10 @@ No Unity/UI code, no publish/archive/delete/validation/runtime behavior, no `ADR
 
 - `dotnet build DotNet\Odyssey.Core.sln`: 0 warnings, 0 errors.
 - Filtered `dotnet test` run (`TypedDefinitionCodecTests`): 17/17 passed.
-- Full-suite `dotnet test`, `verify-format.ps1`, `check-repository-policy.ps1`, `verify-test-structure.ps1`: pending, to be run and recorded before PR is opened.
+- Full-suite `dotnet test DotNet\Odyssey.Core.sln`: 543/543 passed, no regression.
+- `.\scripts\verify-format.ps1`: `FORMAT-001 PASS`.
+- `.\scripts\check-repository-policy.ps1`: `Repository policy check passed`.
+- `.\scripts\verify-test-structure.ps1`: `TC-ARCH-001 PASS valid ADR-001 graph passes`.
 
 ## 10. Recovery and rollback
 
@@ -110,4 +114,4 @@ None. No architectural question was found that `ADR-027`/`11_Content_Block_Syste
 
 ## 12. Outcome and follow-up
 
-Draft PR: to be opened. Enables `ODY-S05-104` (Catalog Validation MVP) to validate against real typed shapes instead of ad-hoc JSON parsing.
+Draft PR: https://github.com/odyssey-services/Odyssey_VTT/pull/107. CI pending. Enables `ODY-S05-104` (Catalog Validation MVP) to validate against real typed shapes instead of ad-hoc JSON parsing.

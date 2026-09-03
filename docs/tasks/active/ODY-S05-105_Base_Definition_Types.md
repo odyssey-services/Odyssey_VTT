@@ -5,7 +5,7 @@
 **Owner:** Codex (agent)
 **Requested by:** Product owner
 **Branch:** `feat/ody-s05-105-base-definition-types`
-**Pull request:** To be opened
+**Pull request:** https://github.com/odyssey-services/Odyssey_VTT/pull/107
 **ExecPlan:** `docs/plans/active/ODY-S05-105_Base_Definition_Types.md`
 **Created:** 2026-09-04
 **Last updated:** 2026-09-04 UTC
@@ -309,10 +309,10 @@ dotnet test DotNet\Odyssey.Core.sln
 | Command / check | Result | Evidence / notes |
 |---|---|---|
 | `dotnet build DotNet\Odyssey.Core.sln` | Pass | 0 warnings, 0 errors |
-| `dotnet test DotNet\Odyssey.Core.sln` | Pending full-suite run | New `TypedDefinitionCodecTests` filtered run: 17/17 passed |
-| `.\scripts\verify-format.ps1` | Pending | — |
-| `.\scripts\check-repository-policy.ps1` | Pending | — |
-| `.\scripts\verify-test-structure.ps1` | Pending | — |
+| `dotnet test DotNet\Odyssey.Core.sln` | Pass | Full suite green (543/543), including 17 new `TypedDefinitionCodecTests` cases, no regression |
+| `.\scripts\verify-format.ps1` | Pass | `FORMAT-001 PASS repository text formatting checks passed` |
+| `.\scripts\check-repository-policy.ps1` | Pass | `REPO-POLICY-001`–`005` PASS; `Repository policy check passed` |
+| `.\scripts\verify-test-structure.ps1` | Pass | `TC-ARCH-001 PASS valid ADR-001 graph passes`; exit code 0 |
 
 ### Acceptance result
 
@@ -334,7 +334,7 @@ dotnet test DotNet\Odyssey.Core.sln
 | AC-14 | Pass | `git status --porcelain` confirms no `ADR-001`–`027` file touched. |
 | AC-15 | Pass | Fourteen `TC-CATALOG-024`–`037` entries added. |
 | AC-16 | Pass | This task contract and ExecPlan exist. |
-| AC-17 | Pending | `SLICE-05_IMPLEMENTATION_BACKLOG.md` row 5 to be updated with PR link once opened. |
+| AC-17 | Pass | `SLICE-05_IMPLEMENTATION_BACKLOG.md` row 5 updated with PR [#107](https://github.com/odyssey-services/Odyssey_VTT/pull/107). |
 
 ### Build and artifact evidence
 
