@@ -3343,6 +3343,14 @@
                           "runner":  "dotnet test",
                           "path":  "DotNet/Tests/Odyssey.Tests.Persistence/CharacterRulesetMigrationTests.cs",
                           "check":  "RevertCharacterRulesetMigration rejects a migrationCommandId belonging to a different Character's own character_ruleset_migrated event (PersistenceCharacterRulesetMigrationNotFound, indistinguishable from \"no such migration\"), leaving both Characters' RulesetVersion/CharacterRevision untouched; the targeted Character's own legitimate revert using its own CommandId still succeeds unaffected"
+                      },
+                      {
+                          "testCaseId":  "TC-CHAR-166",
+                          "taskId":  "ODY-S04-114",
+                          "authority":  "Roadmap section 13.8 (all 11 steps)/13.9",
+                          "runner":  "dotnet test",
+                          "path":  "DotNet/Tests/Odyssey.Tests.Persistence/Integration/CharacterVerticalSliceIntegrationTests.cs",
+                          "check":  "The full roadmap section 13.8 eleven-step 'Персонаж и развитие' scenario runs end-to-end, in literal order, over already-merged ODY-S04-101..113 public APIs and real SQLite: local Draft creation; campaign-template selection at bind time with an independence-from-later-template-edit check; host Ruleset-compatibility validation (negative and positive) and submit; MainGM approval transitioning both ApprovalState and LifecycleStatus; MainGM-only development-point grant; an immediate owner attribute purchase with duplicate-CommandId no-double-spend; critical-success evidence recording; a skill 5+ recommendation reserve-then-resolve cycle that consumes its evidence and rejects reuse by a second recommendation; a reconnect (brand-new repository instance against the same campaign.db) reconstructing both GetCharacterHistory's own tracked event sequence and GetCharacter's full authoritative state; and a .odchar export/import round trip landing as a fresh-CharacterId Draft preserving the round-tripped mechanics state. No new production code exists to support this test."
                       }
                   ]
 }
