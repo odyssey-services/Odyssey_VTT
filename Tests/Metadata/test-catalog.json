@@ -3338,8 +3338,8 @@
                       },
                       {
                           "testCaseId":  "TC-CHAR-165",
-                          "taskId":  "ODY-S04-113a",
-                          "authority":  "ADR-012 section 6; this task's own gap-fix",
+                          "taskId":  "ODY-S04-113",
+                          "authority":  "ADR-012 section 6; ODY-S04-113a gap-fix",
                           "runner":  "dotnet test",
                           "path":  "DotNet/Tests/Odyssey.Tests.Persistence/CharacterRulesetMigrationTests.cs",
                           "check":  "RevertCharacterRulesetMigration rejects a migrationCommandId belonging to a different Character's own character_ruleset_migrated event (PersistenceCharacterRulesetMigrationNotFound, indistinguishable from \"no such migration\"), leaving both Characters' RulesetVersion/CharacterRevision untouched; the targeted Character's own legitimate revert using its own CommandId still succeeds unaffected"
