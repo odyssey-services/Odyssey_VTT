@@ -3239,6 +3239,110 @@
                           "runner":  "dotnet test",
                           "path":  "DotNet/Tests/Odyssey.Tests.Persistence/CharacterExportImportTests.cs",
                           "check":  "A duplicate CommandId pair for ImportCharacter's own two internal steps (bind, apply-state) does not create a second imported Character -- including correct replay when the bind step's own live-row LastCommandId has already been overwritten by the later apply-state step"
+                      },
+                      {
+                          "testCaseId":  "TC-CHAR-153",
+                          "taskId":  "ODY-S04-113",
+                          "authority":  "ADR-025 section 7.2",
+                          "runner":  "dotnet test",
+                          "path":  "DotNet/Tests/Odyssey.Tests.Persistence/CharacterRulesetMigrationTests.cs",
+                          "check":  "PreviewCharacterRulesetMigration never mutates state or writes a CharacterRulesetMigrated event, and returns an identity DefinitionMapping for a fully-recognized attribute"
+                      },
+                      {
+                          "testCaseId":  "TC-CHAR-154",
+                          "taskId":  "ODY-S04-113",
+                          "authority":  "ADR-025 section 7.2; this task's own ExecPlan section 4",
+                          "runner":  "dotnet test",
+                          "path":  "DotNet/Tests/Odyssey.Tests.Persistence/CharacterRulesetMigrationTests.cs",
+                          "check":  "A definition the target Ruleset's own catalog does not recognize surfaces in UnresolvedDecisions, never silently dropped or guessed at"
+                      },
+                      {
+                          "testCaseId":  "TC-CHAR-155",
+                          "taskId":  "ODY-S04-113",
+                          "authority":  "ADR-025 section 7.3",
+                          "runner":  "dotnet test",
+                          "path":  "DotNet/Tests/Odyssey.Tests.Persistence/CharacterRulesetMigrationTests.cs",
+                          "check":  "ApplyCharacterRulesetMigration with a fully-resolved plan succeeds and pins RulesetVersion to the plan's own TargetRulesetVersion"
+                      },
+                      {
+                          "testCaseId":  "TC-CHAR-156",
+                          "taskId":  "ODY-S04-113",
+                          "authority":  "ADR-025 section 7.2",
+                          "runner":  "dotnet test",
+                          "path":  "DotNet/Tests/Odyssey.Tests.Persistence/CharacterRulesetMigrationTests.cs",
+                          "check":  "ApplyCharacterRulesetMigration with an open UnresolvedDecision is rejected"
+                      },
+                      {
+                          "testCaseId":  "TC-CHAR-157",
+                          "taskId":  "ODY-S04-113",
+                          "authority":  "product section 25/26",
+                          "runner":  "dotnet test",
+                          "path":  "DotNet/Tests/Odyssey.Tests.Persistence/CharacterRulesetMigrationTests.cs",
+                          "check":  "ApplyCharacterRulesetMigration by a non-MainGM actor is rejected with no state change"
+                      },
+                      {
+                          "testCaseId":  "TC-CHAR-158",
+                          "taskId":  "ODY-S04-113",
+                          "authority":  "CAP-INV-004",
+                          "runner":  "dotnet test",
+                          "path":  "DotNet/Tests/Odyssey.Tests.Persistence/CharacterRulesetMigrationTests.cs",
+                          "check":  "ApplyCharacterRulesetMigration rejects a stale plan (Character mutated since preview) via a PreviewHash mismatch, with no partial state change"
+                      },
+                      {
+                          "testCaseId":  "TC-CHAR-159",
+                          "taskId":  "ODY-S04-113",
+                          "authority":  "ADR-012 section 5",
+                          "runner":  "dotnet test",
+                          "path":  "DotNet/Tests/Odyssey.Tests.Persistence/CharacterRulesetMigrationTests.cs",
+                          "check":  "A duplicate CommandId for ApplyCharacterRulesetMigration does not duplicate the effect -- CharacterRevision advances only once"
+                      },
+                      {
+                          "testCaseId":  "TC-CHAR-160",
+                          "taskId":  "ODY-S04-113",
+                          "authority":  "ADR-024 section 7.2/7.4; ADR-012 section 6",
+                          "runner":  "dotnet test",
+                          "path":  "DotNet/Tests/Odyssey.Tests.Persistence/CharacterRulesetMigrationTests.cs",
+                          "check":  "Reverting an already-committed migration restores the prior RulesetVersion via one compensating event referencing the original CharacterRulesetMigrated event, individually visible in history (CAP-INV-005)"
+                      },
+                      {
+                          "testCaseId":  "TC-CHAR-161",
+                          "taskId":  "ODY-S04-113",
+                          "authority":  "this task's own double-revert guard",
+                          "runner":  "dotnet test",
+                          "path":  "DotNet/Tests/Odyssey.Tests.Persistence/CharacterRulesetMigrationTests.cs",
+                          "check":  "Reverting the same migration a second time is rejected"
+                      },
+                      {
+                          "testCaseId":  "TC-CHAR-162",
+                          "taskId":  "ODY-S04-113",
+                          "authority":  "ADR-024 section 6.2 convention",
+                          "runner":  "dotnet test",
+                          "path":  "DotNet/Tests/Odyssey.Tests.Persistence/CharacterRulesetMigrationTests.cs",
+                          "check":  "RevertCharacterRulesetMigration without a ReasonCode is rejected"
+                      },
+                      {
+                          "testCaseId":  "TC-CHAR-163",
+                          "taskId":  "ODY-S04-113",
+                          "authority":  "this task's own ExecPlan section 4",
+                          "runner":  "dotnet test",
+                          "path":  "DotNet/Tests/Odyssey.Tests.Persistence/CharacterRulesetMigrationTests.cs",
+                          "check":  "RevertCharacterRulesetMigration against an unknown migration CommandId is rejected"
+                      },
+                      {
+                          "testCaseId":  "TC-CHAR-164",
+                          "taskId":  "ODY-S04-113",
+                          "authority":  "ADR-013 section 9",
+                          "runner":  "dotnet test",
+                          "path":  "DotNet/Tests/Odyssey.Tests.Persistence/CharacterRulesetMigrationTests.cs",
+                          "check":  "A successful Character Ruleset migration never touches the campaign's own pinned RulesetVersion/DatabaseSchemaVersion -- confirms Character Ruleset migration is never routed through ADR-013's schema migration runner"
+                      },
+                      {
+                          "testCaseId":  "TC-CHAR-165",
+                          "taskId":  "ODY-S04-113",
+                          "authority":  "ADR-012 section 6; ODY-S04-113a gap-fix",
+                          "runner":  "dotnet test",
+                          "path":  "DotNet/Tests/Odyssey.Tests.Persistence/CharacterRulesetMigrationTests.cs",
+                          "check":  "RevertCharacterRulesetMigration rejects a migrationCommandId belonging to a different Character's own character_ruleset_migrated event (PersistenceCharacterRulesetMigrationNotFound, indistinguishable from \"no such migration\"), leaving both Characters' RulesetVersion/CharacterRevision untouched; the targeted Character's own legitimate revert using its own CommandId still succeeds unaffected"
                       }
                   ]
 }

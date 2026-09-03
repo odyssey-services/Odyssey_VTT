@@ -653,6 +653,60 @@ namespace Odyssey.Application.Persistence
             RetryDirective.DoNotRetry,
             correlationId);
 
+        /// <summary>ODY-S04-113: product section 25's own process step 1 ("GM выбирает новую версию Ruleset") -- MainGM-only, checked before touching the database at all.</summary>
+        public static Error CharacterRulesetMigrationDenied(CorrelationId correlationId) => Error.Create(
+            ErrorCodes.PersistenceCharacterRulesetMigrationDenied,
+            ErrorCategory.Authorization,
+            SafeReasonCode.PermissionDenied,
+            UserMessageKey.Parse("errors.persistence.character_ruleset_migration_denied"),
+            RetryDirective.DoNotRetry,
+            correlationId);
+
+        /// <summary>ODY-S04-113: ADR-025 section 7.2 -- <c>ApplyCharacterRulesetMigration</c> rejection while the plan still has an open <c>UnresolvedDecision</c>; the GM must resolve it first.</summary>
+        public static Error CharacterRulesetMigrationHasUnresolvedDecisions(CorrelationId correlationId) => Error.Create(
+            ErrorCodes.PersistenceCharacterRulesetMigrationHasUnresolvedDecisions,
+            ErrorCategory.Validation,
+            SafeReasonCode.InvalidRequest,
+            UserMessageKey.Parse("errors.persistence.character_ruleset_migration_has_unresolved_decisions"),
+            RetryDirective.DoNotRetry,
+            correlationId);
+
+        /// <summary>ODY-S04-113: CAP-INV-004 -- <c>ApplyCharacterRulesetMigration</c> rejection when a freshly-recomputed PreviewHash does not match the caller-supplied plan's own hash (the Character was mutated since preview, or the plan was tampered with).</summary>
+        public static Error CharacterRulesetMigrationStalePlan(CorrelationId correlationId) => Error.Create(
+            ErrorCodes.PersistenceCharacterRulesetMigrationStalePlan,
+            ErrorCategory.Conflict,
+            SafeReasonCode.StateChanged,
+            UserMessageKey.Parse("errors.persistence.character_ruleset_migration_stale_plan"),
+            RetryDirective.DoNotRetry,
+            correlationId);
+
+        /// <summary>ODY-S04-113: <c>RevertCharacterRulesetMigration</c> rejection when no `odyssey.persistence.character_ruleset_migrated` DomainEvents row matches the given CommandId.</summary>
+        public static Error CharacterRulesetMigrationNotFound(CorrelationId correlationId) => Error.Create(
+            ErrorCodes.PersistenceCharacterRulesetMigrationNotFound,
+            ErrorCategory.NotFound,
+            SafeReasonCode.TargetUnavailable,
+            UserMessageKey.Parse("errors.persistence.character_ruleset_migration_not_found"),
+            RetryDirective.DoNotRetry,
+            correlationId);
+
+        /// <summary>ODY-S04-113: <c>RevertCharacterRulesetMigration</c> rejection when a compensating revert event already references the target migration's own EventSequence.</summary>
+        public static Error CharacterRulesetMigrationAlreadyReverted(CorrelationId correlationId) => Error.Create(
+            ErrorCodes.PersistenceCharacterRulesetMigrationAlreadyReverted,
+            ErrorCategory.Conflict,
+            SafeReasonCode.StateChanged,
+            UserMessageKey.Parse("errors.persistence.character_ruleset_migration_already_reverted"),
+            RetryDirective.DoNotRetry,
+            correlationId);
+
+        /// <summary>ODY-S04-113: <c>RevertCharacterRulesetMigration</c> rejection when no <c>ReasonCode</c> is supplied, mirroring <see cref="CharacterAdvancementReasonRequired"/>'s own convention.</summary>
+        public static Error CharacterRulesetMigrationRevertReasonRequired(CorrelationId correlationId) => Error.Create(
+            ErrorCodes.PersistenceCharacterRulesetMigrationRevertReasonRequired,
+            ErrorCategory.Validation,
+            SafeReasonCode.InvalidRequest,
+            UserMessageKey.Parse("errors.persistence.character_ruleset_migration_revert_reason_required"),
+            RetryDirective.DoNotRetry,
+            correlationId);
+
         // Used only by the codec's Read path (CampaignManifest.cs), which does not
         // receive a caller CorrelationId; matches the existing SerializationFailures
         // placeholder-correlation convention for codec-level structural failures.

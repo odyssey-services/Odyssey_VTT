@@ -81,6 +81,12 @@ namespace Odyssey.Application.Results
         public static readonly ErrorCode PersistenceCharacterRestoreNotDead = ErrorCode.Parse("persistence.character.restore_not_dead");
         public static readonly ErrorCode PersistenceCharacterCriticalEvidenceNotFound = ErrorCode.Parse("persistence.character.critical_evidence_not_found");
         public static readonly ErrorCode PersistenceCharacterExportBundleMalformed = ErrorCode.Parse("persistence.character.export_bundle_malformed");
+        public static readonly ErrorCode PersistenceCharacterRulesetMigrationDenied = ErrorCode.Parse("persistence.character.ruleset_migration_denied");
+        public static readonly ErrorCode PersistenceCharacterRulesetMigrationHasUnresolvedDecisions = ErrorCode.Parse("persistence.character.ruleset_migration_has_unresolved_decisions");
+        public static readonly ErrorCode PersistenceCharacterRulesetMigrationStalePlan = ErrorCode.Parse("persistence.character.ruleset_migration_stale_plan");
+        public static readonly ErrorCode PersistenceCharacterRulesetMigrationNotFound = ErrorCode.Parse("persistence.character.ruleset_migration_not_found");
+        public static readonly ErrorCode PersistenceCharacterRulesetMigrationAlreadyReverted = ErrorCode.Parse("persistence.character.ruleset_migration_already_reverted");
+        public static readonly ErrorCode PersistenceCharacterRulesetMigrationRevertReasonRequired = ErrorCode.Parse("persistence.character.ruleset_migration_revert_reason_required");
         public static readonly ErrorCode NetworkingTransportConnectFailed = ErrorCode.Parse("networking.transport.connect_failed");
         public static readonly ErrorCode NetworkingTransportConnectTimedOut = ErrorCode.Parse("networking.transport.connect_timed_out");
         public static readonly ErrorCode NetworkingProtocolVersionUnsupported = ErrorCode.Parse("networking.protocol.version_unsupported");
