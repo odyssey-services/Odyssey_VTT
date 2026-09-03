@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using NUnit.Framework;
@@ -420,6 +421,36 @@ namespace Odyssey.Tests.Persistence
             Result<CharacterRecord> reRead = _characterRepository.GetCharacter(_campaign, character.CharacterId, TestCorrelationId);
             Assert.That(reRead.Value.Resources, Has.Count.EqualTo(1));
             Assert.That(reRead.Value.Anatomy, Is.Not.Null);
+        }
+
+        // TC-CHAR-170 (ODY-S04-115a): GetCharacterHistory must succeed (no
+        // IntegrityCheckFailed) and surface character_resource_initialized/
+        // character_resource_changed/character_anatomy_initialized/
+        // character_anatomy_changed, once these ODY-S04-109 event types are
+        // added to SqliteCharacterRepository.HistoryEventTypes.
+        [Test]
+        public void GetCharacterHistory_AfterResourceAndAnatomyChanges_Succeeds_SurfacesAllFourEventTypes()
+        {
+            CharacterRecord character = CreateCharacter();
+            Result<CharacterRecord> resourceInitialized = _characterRepository.InitializeCharacterResource(_campaign, character.CharacterId, Health, NewUserId(), actorIsMainGm: true, character.Revisions.CharacterResourcesRevision, NewCommandId(), TestCorrelationId);
+            Assert.That(resourceInitialized.IsSuccess, Is.True);
+            CharacterResource resource = resourceInitialized.Value.Resources[0];
+            Result<CharacterRecord> resourceChanged = _characterRepository.SetResourceCurrentValue(_campaign, character.CharacterId, resource.CharacterResourceId, resource.MinimumValue, NewUserId(), actorIsMainGm: true, resourceInitialized.Value.Revisions.CharacterResourcesRevision, NewCommandId(), TestCorrelationId);
+            Assert.That(resourceChanged.IsSuccess, Is.True);
+
+            Result<CharacterRecord> anatomyInitialized = _characterRepository.InitializeCharacterAnatomy(_campaign, character.CharacterId, Humanoid, NewUserId(), actorIsMainGm: true, resourceChanged.Value.Revisions.CharacterAnatomyRevision, NewCommandId(), TestCorrelationId);
+            Assert.That(anatomyInitialized.IsSuccess, Is.True);
+            Result<CharacterRecord> anatomyChanged = _characterRepository.UpdateBodyPart(_campaign, character.CharacterId, BodyPartId.Parse("Head"), 99, "{\"armored\":true}", NewUserId(), actorIsMainGm: true, anatomyInitialized.Value.Revisions.CharacterAnatomyRevision, NewCommandId(), TestCorrelationId);
+            Assert.That(anatomyChanged.IsSuccess, Is.True);
+
+            Result<IReadOnlyList<CharacterHistoryEntry>> history = _characterRepository.GetCharacterHistory(_campaign, character.CharacterId, TestCorrelationId);
+
+            Assert.That(history.IsSuccess, Is.True, "GetCharacterHistory must not fail with IntegrityCheckFailed for any of these four event types");
+            Assert.That(history.Value.Select(e => e.EventType), Does.Contain("odyssey.persistence.character_resource_initialized"));
+            Assert.That(history.Value.Select(e => e.EventType), Does.Contain("odyssey.persistence.character_resource_changed"));
+            Assert.That(history.Value.Select(e => e.EventType), Does.Contain("odyssey.persistence.character_anatomy_initialized"));
+            Assert.That(history.Value.Select(e => e.EventType), Does.Contain("odyssey.persistence.character_anatomy_changed"));
+            Assert.That(history.Value, Has.All.Property(nameof(CharacterHistoryEntry.DisplayNameSnapshot)).Not.Null);
         }
     }
 }

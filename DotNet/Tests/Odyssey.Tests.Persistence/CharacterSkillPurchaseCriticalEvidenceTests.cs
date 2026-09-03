@@ -353,5 +353,58 @@ namespace Odyssey.Tests.Persistence
             Assert.That(reRead.Value.DisplayName, Is.EqualTo("Renamed Skill Character"));
             Assert.That(reRead.Value.Skills.Single().Level, Is.EqualTo(1));
         }
+
+        // TC-CHAR-167 (ODY-S04-115a): GetCharacterHistory succeeds (no
+        // IntegrityCheckFailed) and surfaces character_skill_level_purchased/
+        // character_critical_success_evidence_recorded/
+        // character_skill_advancement_recommendation_created with a non-null
+        // DisplayNameSnapshot, once these ODY-S04-106 event types are added
+        // to SqliteCharacterRepository.HistoryEventTypes.
+        [Test]
+        public void GetCharacterHistory_AfterSkillPurchaseCriticalEvidenceAndApprovedRecommendation_Succeeds_SurfacesAllThreeEventTypes()
+        {
+            CharacterRecord character = CreateCharacter();
+            CharacterRecord granted = GrantPoints(character, 20);
+            Result<CriticalSuccessEvidenceRecord> evidence = _characterRepository.RecordCriticalSuccessEvidence(_campaign, character.CharacterId, Stealth, "roll_1", null, NewCommandId(), TestCorrelationId);
+            Assert.That(evidence.IsSuccess, Is.True);
+            Result<AdvancementRecommendationRecord> requested = _characterRepository.RequestSkillAdvancedRecommendation(_campaign, character.CharacterId, Stealth, targetLevel: 5, new[] { evidence.Value.EvidenceId }, NewUserId(), actorIsMainGm: true, granted.Revisions.MechanicsRevision, NewCommandId(), TestCorrelationId);
+            Assert.That(requested.IsSuccess, Is.True);
+            Result<CharacterRecord> afterRequest = _characterRepository.GetCharacter(_campaign, character.CharacterId, TestCorrelationId);
+            Result<CharacterRecord> resolved = _characterRepository.ResolveAdvancementRecommendation(_campaign, character.CharacterId, requested.Value.RecommendationId, approve: true, spendReservedPoints: true, NewUserId(), actorIsMainGm: true, afterRequest.Value.Revisions.MechanicsRevision, requested.Value.Revision, NewCommandId(), TestCorrelationId);
+            Assert.That(resolved.IsSuccess, Is.True);
+
+            Result<IReadOnlyList<CharacterHistoryEntry>> history = _characterRepository.GetCharacterHistory(_campaign, character.CharacterId, TestCorrelationId);
+
+            Assert.That(history.IsSuccess, Is.True, "GetCharacterHistory must not fail with IntegrityCheckFailed for any of these three event types");
+            Assert.That(history.Value.Select(e => e.EventType), Does.Contain("odyssey.persistence.character_critical_success_evidence_recorded"));
+            Assert.That(history.Value.Select(e => e.EventType), Does.Contain("odyssey.persistence.character_skill_advancement_recommendation_created"));
+            Assert.That(history.Value.Select(e => e.EventType), Does.Contain("odyssey.persistence.character_skill_level_purchased"));
+            Assert.That(history.Value, Has.All.Property(nameof(CharacterHistoryEntry.DisplayNameSnapshot)).Not.Null);
+        }
+
+        // TC-CHAR-172 (ODY-S04-115a): the dismiss (release, no spend) branch
+        // of ResolveAdvancementRecommendation emits
+        // character_advancement_recommendation_resolved -- confirms this
+        // event type is also safely tracked, distinct from the approve/spend
+        // branch's own character_skill_level_purchased (TC-CHAR-167).
+        [Test]
+        public void GetCharacterHistory_AfterDismissedRecommendation_Succeeds_SurfacesRecommendationResolvedEvent()
+        {
+            CharacterRecord character = CreateCharacter();
+            CharacterRecord granted = GrantPoints(character, 20);
+            Result<CriticalSuccessEvidenceRecord> evidence = _characterRepository.RecordCriticalSuccessEvidence(_campaign, character.CharacterId, Stealth, "roll_1", null, NewCommandId(), TestCorrelationId);
+            Assert.That(evidence.IsSuccess, Is.True);
+            Result<AdvancementRecommendationRecord> requested = _characterRepository.RequestSkillAdvancedRecommendation(_campaign, character.CharacterId, Stealth, targetLevel: 5, new[] { evidence.Value.EvidenceId }, NewUserId(), actorIsMainGm: true, granted.Revisions.MechanicsRevision, NewCommandId(), TestCorrelationId);
+            Assert.That(requested.IsSuccess, Is.True);
+            Result<CharacterRecord> afterRequest = _characterRepository.GetCharacter(_campaign, character.CharacterId, TestCorrelationId);
+            Result<CharacterRecord> dismissed = _characterRepository.ResolveAdvancementRecommendation(_campaign, character.CharacterId, requested.Value.RecommendationId, approve: false, spendReservedPoints: false, NewUserId(), actorIsMainGm: true, afterRequest.Value.Revisions.MechanicsRevision, requested.Value.Revision, NewCommandId(), TestCorrelationId);
+            Assert.That(dismissed.IsSuccess, Is.True);
+
+            Result<IReadOnlyList<CharacterHistoryEntry>> history = _characterRepository.GetCharacterHistory(_campaign, character.CharacterId, TestCorrelationId);
+
+            Assert.That(history.IsSuccess, Is.True, "GetCharacterHistory must not fail with IntegrityCheckFailed for the dismiss branch's own event type");
+            Assert.That(history.Value.Select(e => e.EventType), Does.Contain("odyssey.persistence.character_advancement_recommendation_resolved"));
+            Assert.That(history.Value, Has.All.Property(nameof(CharacterHistoryEntry.DisplayNameSnapshot)).Not.Null);
+        }
     }
 }

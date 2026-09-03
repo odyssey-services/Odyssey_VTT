@@ -3351,6 +3351,54 @@
                           "runner":  "dotnet test",
                           "path":  "DotNet/Tests/Odyssey.Tests.Persistence/Integration/CharacterVerticalSliceIntegrationTests.cs",
                           "check":  "The full roadmap section 13.8 eleven-step 'Персонаж и развитие' scenario runs end-to-end, in literal order, over already-merged ODY-S04-101..113 public APIs and real SQLite: local Draft creation; campaign-template selection at bind time with an independence-from-later-template-edit check; host Ruleset-compatibility validation (negative and positive) and submit; MainGM approval transitioning both ApprovalState and LifecycleStatus; MainGM-only development-point grant; an immediate owner attribute purchase with duplicate-CommandId no-double-spend; critical-success evidence recording; a skill 5+ recommendation reserve-then-resolve cycle that consumes its evidence and rejects reuse by a second recommendation; a reconnect (brand-new repository instance against the same campaign.db) reconstructing both GetCharacterHistory's own tracked event sequence and GetCharacter's full authoritative state; and a .odchar export/import round trip landing as a fresh-CharacterId Draft preserving the round-tripped mechanics state. No new production code exists to support this test."
+                      },
+                      {
+                          "testCaseId":  "TC-CHAR-167",
+                          "taskId":  "ODY-S04-106",
+                          "authority":  "ADR-022 section 3.6; ODY-S04-115a gap-fix",
+                          "runner":  "dotnet test",
+                          "path":  "DotNet/Tests/Odyssey.Tests.Persistence/CharacterSkillPurchaseCriticalEvidenceTests.cs",
+                          "check":  "GetCharacterHistory succeeds (no IntegrityCheckFailed) and surfaces character_critical_success_evidence_recorded/character_skill_advancement_recommendation_created/character_skill_level_purchased with a non-null DisplayNameSnapshot, once these ODY-S04-106 event types are added to SqliteCharacterRepository.HistoryEventTypes"
+                      },
+                      {
+                          "testCaseId":  "TC-CHAR-168",
+                          "taskId":  "ODY-S04-107",
+                          "authority":  "ADR-022 section 3.6; ADR-012 section 4.2; ODY-S04-115a gap-fix",
+                          "runner":  "dotnet test",
+                          "path":  "DotNet/Tests/Odyssey.Tests.Persistence/CharacterAdvancementRevertRespecTests.cs",
+                          "check":  "GetCharacterHistory succeeds (no IntegrityCheckFailed) after an ApplyCharacterRespec batch whose plan both reverts an earlier purchase and re-purchases an attribute -- the exact case where ApplyCharacterRespec's own revertedPayload/forwardPayload previously omitted displayNameSnapshot, including on the already-whitelisted character_attribute_increased event type the forward branch reuses"
+                      },
+                      {
+                          "testCaseId":  "TC-CHAR-169",
+                          "taskId":  "ODY-S04-108",
+                          "authority":  "ADR-022 section 3.6; ODY-S04-115a gap-fix",
+                          "runner":  "dotnet test",
+                          "path":  "DotNet/Tests/Odyssey.Tests.Persistence/CharacterAbilityInstancesTests.cs",
+                          "check":  "GetCharacterHistory succeeds (no IntegrityCheckFailed) and surfaces character_ability_acquired/character_ability_removed with a non-null DisplayNameSnapshot, once these ODY-S04-108 event types are added to SqliteCharacterRepository.HistoryEventTypes"
+                      },
+                      {
+                          "testCaseId":  "TC-CHAR-170",
+                          "taskId":  "ODY-S04-109",
+                          "authority":  "ADR-022 section 3.6; ODY-S04-115a gap-fix",
+                          "runner":  "dotnet test",
+                          "path":  "DotNet/Tests/Odyssey.Tests.Persistence/CharacterResourceAnatomyTests.cs",
+                          "check":  "GetCharacterHistory succeeds (no IntegrityCheckFailed) and surfaces character_resource_initialized/character_resource_changed/character_anatomy_initialized/character_anatomy_changed with a non-null DisplayNameSnapshot, once these ODY-S04-109 event types are added to SqliteCharacterRepository.HistoryEventTypes"
+                      },
+                      {
+                          "testCaseId":  "TC-CHAR-171",
+                          "taskId":  "ODY-S04-104",
+                          "authority":  "ADR-022 section 3.6; ODY-S04-115a gap-fix",
+                          "runner":  "dotnet test",
+                          "path":  "DotNet/Tests/Odyssey.Tests.Persistence/CharacterDraftSubmitReviewApproveTests.cs",
+                          "check":  "GetCharacterHistory succeeds (no IntegrityCheckFailed) and surfaces character_review_comment_added with a non-null DisplayNameSnapshot, once AddCharacterReviewComment's own payload carries displayNameSnapshot and the event type is added to SqliteCharacterRepository.HistoryEventTypes"
+                      },
+                      {
+                          "testCaseId":  "TC-CHAR-172",
+                          "taskId":  "ODY-S04-106",
+                          "authority":  "ADR-022 section 3.6; ODY-S04-115a gap-fix",
+                          "runner":  "dotnet test",
+                          "path":  "DotNet/Tests/Odyssey.Tests.Persistence/CharacterSkillPurchaseCriticalEvidenceTests.cs",
+                          "check":  "GetCharacterHistory succeeds (no IntegrityCheckFailed) and surfaces character_advancement_recommendation_resolved (the dismiss/release branch of ResolveAdvancementRecommendation) with a non-null DisplayNameSnapshot, distinct from the approve/spend branch's own character_skill_level_purchased (TC-CHAR-167)"
                       }
                   ]
 }

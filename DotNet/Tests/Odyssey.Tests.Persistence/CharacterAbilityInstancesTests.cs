@@ -406,5 +406,27 @@ namespace Odyssey.Tests.Persistence
             Assert.That(reRead.Value.Abilities, Has.Count.EqualTo(1));
             Assert.That(reRead.Value.Attributes, Has.Count.EqualTo(1));
         }
+
+        // TC-CHAR-169 (ODY-S04-115a): GetCharacterHistory must succeed (no
+        // IntegrityCheckFailed) and surface character_ability_acquired/
+        // character_ability_removed, once these ODY-S04-108 event types are
+        // added to SqliteCharacterRepository.HistoryEventTypes.
+        [Test]
+        public void GetCharacterHistory_AfterAbilityAcquiredAndRemoved_Succeeds_SurfacesBothEventTypes()
+        {
+            CharacterRecord character = CreateCharacter();
+            Result<CharacterRecord> acquiredItem = _characterRepository.AcquireAbility(_campaign, character.CharacterId, Fireball, SourceKind.Item, "item_0001", RankMode.None, null, null, FixtureConfiguration, NewUserId(), actorIsMainGm: true, null, character.Revisions.CharacterAbilitiesRevision, NewCommandId(), TestCorrelationId);
+            Assert.That(acquiredItem.IsSuccess, Is.True);
+            CharacterAbilityId itemAbilityId = acquiredItem.Value.Abilities.Single().CharacterAbilityId;
+            Result<CharacterRecord> removed = _characterRepository.RemoveAbility(_campaign, character.CharacterId, itemAbilityId, NewUserId(), actorIsMainGm: true, acquiredItem.Value.Revisions.CharacterAbilitiesRevision, NewCommandId(), TestCorrelationId);
+            Assert.That(removed.IsSuccess, Is.True);
+
+            Result<IReadOnlyList<CharacterHistoryEntry>> history = _characterRepository.GetCharacterHistory(_campaign, character.CharacterId, TestCorrelationId);
+
+            Assert.That(history.IsSuccess, Is.True, "GetCharacterHistory must not fail with IntegrityCheckFailed for either ability event type");
+            Assert.That(history.Value.Select(e => e.EventType), Does.Contain("odyssey.persistence.character_ability_acquired"));
+            Assert.That(history.Value.Select(e => e.EventType), Does.Contain("odyssey.persistence.character_ability_removed"));
+            Assert.That(history.Value, Has.All.Property(nameof(CharacterHistoryEntry.DisplayNameSnapshot)).Not.Null);
+        }
     }
 }

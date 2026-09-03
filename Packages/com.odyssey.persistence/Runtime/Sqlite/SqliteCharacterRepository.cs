@@ -73,6 +73,28 @@ namespace Odyssey.Persistence.Sqlite
             "odyssey.persistence.character_import_state_applied",
             "odyssey.persistence.character_ruleset_migrated",
             "odyssey.persistence.character_ruleset_migration_reverted",
+            // ODY-S04-115a: ODY-S04-106-109's own event types, previously
+            // silently dropped by GetCharacterHistory. Each was confirmed
+            // safe to add only after a direct Read of its own exact write
+            // call site showed its final persisted payload always carries
+            // both characterId and displayNameSnapshot (GetCharacterHistory
+            // fails the entire read with IntegrityCheckFailed the moment it
+            // encounters any tracked event missing displayNameSnapshot) --
+            // two of the twelve below required a payload fix first
+            // (character_critical_success_evidence_recorded,
+            // character_review_comment_added), landed in this same task.
+            "odyssey.persistence.character_skill_level_purchased",
+            "odyssey.persistence.character_skill_advancement_recommendation_created",
+            "odyssey.persistence.character_advancement_recommendation_resolved",
+            "odyssey.persistence.character_respec_completed",
+            "odyssey.persistence.character_ability_acquired",
+            "odyssey.persistence.character_ability_removed",
+            "odyssey.persistence.character_anatomy_changed",
+            "odyssey.persistence.character_anatomy_initialized",
+            "odyssey.persistence.character_resource_changed",
+            "odyssey.persistence.character_resource_initialized",
+            "odyssey.persistence.character_critical_success_evidence_recorded",
+            "odyssey.persistence.character_review_comment_added",
         };
 
         /// <summary>
@@ -447,6 +469,7 @@ namespace Odyssey.Persistence.Sqlite
                             ["characterId"] = characterId.ToString(),
                             ["authorUserId"] = authorUserId.ToString(),
                             ["text"] = text,
+                            ["displayNameSnapshot"] = current.DisplayName,
                         };
 
                         // No aggregateType/aggregateRevision -- this command
@@ -2431,6 +2454,7 @@ namespace Odyssey.Persistence.Sqlite
                             ["evidenceId"] = evidenceId.ToString(),
                             ["characterId"] = characterId.ToString(),
                             ["skillDefinitionId"] = skillDefinitionId.ToString(),
+                            ["displayNameSnapshot"] = current.DisplayName,
                         };
 
                         // No aggregateType/aggregateRevision -- evidence is
@@ -3168,6 +3192,7 @@ namespace Odyssey.Persistence.Sqlite
                                     ["reasonCode"] = reasonCode,
                                     ["actorUserId"] = actorUserId.ToString(),
                                     ["compensationGroupId"] = compensationGroupId,
+                                    ["displayNameSnapshot"] = current.DisplayName,
                                 };
 
                                 long eventSequence = SqliteSavingPipeline.AppendDomainEvent(connection, transaction, campaign.CampaignId, commandId, "odyssey.persistence.character_advancement_purchase_reverted", revertedPayload.ToString(Newtonsoft.Json.Formatting.None), now, originalEventId, compensationGroupId, isCompensating: true);
@@ -3203,6 +3228,7 @@ namespace Odyssey.Persistence.Sqlite
                                     ["cost"] = entry.Amount,
                                     ["actorUserId"] = actorUserId.ToString(),
                                     ["compensationGroupId"] = compensationGroupId,
+                                    ["displayNameSnapshot"] = current.DisplayName,
                                 };
 
                                 string eventType;
