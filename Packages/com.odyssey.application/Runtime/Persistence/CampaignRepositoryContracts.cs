@@ -743,6 +743,15 @@ namespace Odyssey.Application.Persistence
             RetryDirective.DoNotRetry,
             correlationId);
 
+        /// <summary>ODY-S05-102: `CreateNextDraftVersionFromPublished` rejection when the source `ContentDefinitionId` is not currently `Published` -- there is no Draft/Archived source to branch a next version from; only an already-Published definition has an immutable baseline worth copying.</summary>
+        public static Error ContentDefinitionNotPublished(CorrelationId correlationId) => Error.Create(
+            ErrorCodes.PersistenceContentDefinitionNotPublished,
+            ErrorCategory.Conflict,
+            SafeReasonCode.ActionNotAllowed,
+            UserMessageKey.Parse("errors.persistence.content_definition_not_published"),
+            RetryDirective.DoNotRetry,
+            correlationId);
+
         // Used only by the codec's Read path (CampaignManifest.cs), which does not
         // receive a caller CorrelationId; matches the existing SerializationFailures
         // placeholder-correlation convention for codec-level structural failures.

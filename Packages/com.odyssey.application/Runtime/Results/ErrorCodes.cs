@@ -120,5 +120,7 @@ namespace Odyssey.Application.Results
         public static readonly ErrorCode PersistenceContentDefinitionIoFailed = ErrorCode.Parse("persistence.content_definition.io_failed");
         public static readonly ErrorCode PersistenceContentDefinitionRevisionConflict = ErrorCode.Parse("persistence.content_definition.revision_conflict");
         public static readonly ErrorCode PersistenceContentDefinitionNotDraft = ErrorCode.Parse("persistence.content_definition.not_draft");
+        public static readonly ErrorCode PersistenceContentDefinitionNotPublished = ErrorCode.Parse("persistence.content_definition.not_published");
+        public static readonly ErrorCode ContentCatalogAuthoringDenied = ErrorCode.Parse("content_catalog.authoring.denied");
     }
 }
