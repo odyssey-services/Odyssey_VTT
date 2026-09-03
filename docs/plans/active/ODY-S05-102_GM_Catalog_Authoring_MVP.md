@@ -3,7 +3,7 @@
 **Status:** Active
 **Owner:** Codex (agent)
 **Branch:** `feat/ody-s05-102-gm-catalog-authoring-mvp`
-**Pull request:** <to be filled after `gh pr create`>
+**Pull request:** https://github.com/odyssey-services/Odyssey_VTT/pull/106
 **Last updated:** 2026-09-03 UTC
 
 ## 1. Purpose and user-visible outcome
@@ -103,4 +103,4 @@ None. No architectural question was found that `ADR-027`/`ODY-S05-101` do not al
 
 ## 12. Outcome and follow-up
 
-Draft PR: <to be filled after `gh pr create`>. CI pending. Enables `ODY-S05-106`'s own future test-catalog fixtures to use a real authoring path instead of direct repository calls.
+Draft PR: https://github.com/odyssey-services/Odyssey_VTT/pull/106. CI pending. Enables `ODY-S05-106`'s own future test-catalog fixtures to use a real authoring path instead of direct repository calls.

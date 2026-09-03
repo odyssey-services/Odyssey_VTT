@@ -5,7 +5,7 @@
 **Owner:** Codex (agent)
 **Requested by:** Product owner
 **Branch:** `feat/ody-s05-102-gm-catalog-authoring-mvp`
-**Pull request:** To be opened
+**Pull request:** https://github.com/odyssey-services/Odyssey_VTT/pull/106
 **ExecPlan:** `docs/plans/active/ODY-S05-102_GM_Catalog_Authoring_MVP.md`
 **Created:** 2026-09-03
 **Last updated:** 2026-09-03 UTC
