@@ -632,6 +632,42 @@ namespace Odyssey.Application.Persistence
         /// writes, each with its own `AppliedCommands` idempotency row.
         /// </summary>
         Result<CharacterRecord> ImportCharacter(ImportCharacterRequest request, CommandId bindCommandId, CommandId applyStateCommandId, CorrelationId correlationId);
+
+        /// <summary>
+        /// ODY-S04-113: ADR-025 section 7.2. A read-only ADR-002 section 4.2
+        /// Query -- no `CommandId`, no event, no mutation. Builds a
+        /// `RulesetMigrationRules.BuildPlan` result from the live
+        /// `CharacterRecord`'s own current Attributes/Skills/Abilities/
+        /// Resources and the caller-supplied <paramref name="targetCatalog"/>.
+        /// </summary>
+        Result<Odyssey.Rules.Character.CharacterRulesetMigrationPlan> PreviewCharacterRulesetMigration(CampaignHandle campaign, CharacterId characterId, string targetRulesetId, string targetRulesetVersion, Odyssey.Rules.Character.RulesetDefinitionCatalog targetCatalog, CorrelationId correlationId);
+
+        /// <summary>
+        /// ODY-S04-113: ADR-025 section 7.3, CAP-INV-004. Re-derives the plan
+        /// fresh from live state using the SAME <paramref name="targetCatalog"/>
+        /// and compares the freshly-computed PreviewHash against
+        /// <paramref name="plan"/>'s own -- a mismatch (stale or tampered
+        /// plan) is rejected before any write. Rejects if
+        /// `UnresolvedDecisions` is non-empty. Commits in one transaction:
+        /// `RulesetVersion` set to the plan's own `TargetRulesetVersion`,
+        /// `CharacterRevision` bumped, one forward `CharacterRulesetMigrated`
+        /// event. Since this task's own `ValueChanges` is always empty, no
+        /// Mechanics/Ability/Resource column is ever touched here.
+        /// </summary>
+        Result<CharacterRecord> ApplyCharacterRulesetMigration(CampaignHandle campaign, CharacterId characterId, Odyssey.Rules.Character.CharacterRulesetMigrationPlan plan, Odyssey.Rules.Character.RulesetDefinitionCatalog targetCatalog, UserId actorUserId, bool actorIsMainGm, CommandId commandId, CorrelationId correlationId);
+
+        /// <summary>
+        /// ODY-S04-113: ADR-024 section 7.2/7.4's exact compensating-batch
+        /// pattern (`ApplyCharacterRespec`'s own shape), reused for reverting
+        /// an already-committed `CharacterRulesetMigrated` event, found
+        /// directly by its own <paramref name="migrationCommandId"/> (the
+        /// caller's own stable handle, mirroring `RevertAdvancementPurchase`'s
+        /// `AdvancementPurchaseId` handle) -- no new ledger table is
+        /// introduced. MainGM-only; requires a non-empty
+        /// <paramref name="reasonCode"/>; rejects a second revert of the same
+        /// migration.
+        /// </summary>
+        Result<CharacterRecord> RevertCharacterRulesetMigration(CampaignHandle campaign, CharacterId characterId, CommandId migrationCommandId, string reasonCode, UserId actorUserId, bool actorIsMainGm, long expectedCharacterRevision, CommandId commandId, CorrelationId correlationId);
     }
 
     /// <summary>

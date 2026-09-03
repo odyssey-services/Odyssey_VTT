@@ -10,6 +10,7 @@ using Odyssey.Application.Time;
 using Odyssey.Domain.Character;
 using Odyssey.Domain.Identity;
 using Odyssey.Domain.Time;
+using Odyssey.Rules.Character;
 using RulesAttributeCostRules = Odyssey.Rules.Character.AttributeCostRules;
 using RulesSkillCostRules = Odyssey.Rules.Character.SkillCostRules;
 using RulesAbilityCostRules = Odyssey.Rules.Character.AbilityCostRules;
@@ -70,6 +71,8 @@ namespace Odyssey.Persistence.Sqlite
             "odyssey.persistence.character_died",
             "odyssey.persistence.character_restored",
             "odyssey.persistence.character_import_state_applied",
+            "odyssey.persistence.character_ruleset_migrated",
+            "odyssey.persistence.character_ruleset_migration_reverted",
         };
 
         /// <summary>
@@ -1347,6 +1350,298 @@ namespace Odyssey.Persistence.Sqlite
             var payload = (JObject)ParseJsonPreservingStrings((string)result);
             string? characterIdRaw = (string?)payload["characterId"];
             return characterIdRaw == null ? (CharacterId?)null : CharacterId.Parse(characterIdRaw);
+        }
+
+        /// <summary>
+        /// ODY-S04-113: ADR-025 section 7.2. Read-only ADR-002 section 4.2
+        /// Query -- no CommandId, no event, no mutation.
+        /// </summary>
+        public Result<CharacterRulesetMigrationPlan> PreviewCharacterRulesetMigration(CampaignHandle campaign, CharacterId characterId, string targetRulesetId, string targetRulesetVersion, RulesetDefinitionCatalog targetCatalog, CorrelationId correlationId)
+        {
+            if (campaign == null) throw new ArgumentNullException(nameof(campaign));
+            if (!characterId.IsValid) throw new ArgumentException("CharacterId is required.", nameof(characterId));
+            if (string.IsNullOrWhiteSpace(targetRulesetId)) throw new ArgumentException("TargetRulesetId is required.", nameof(targetRulesetId));
+            if (string.IsNullOrWhiteSpace(targetRulesetVersion)) throw new ArgumentException("TargetRulesetVersion is required.", nameof(targetRulesetVersion));
+            if (targetCatalog == null) throw new ArgumentNullException(nameof(targetCatalog));
+
+            try
+            {
+                using SqliteConnection connection = OpenConnection(campaign.RootPath);
+                EnsureCharacterTables(connection);
+
+                using var select = connection.CreateCommand();
+                select.CommandText = SelectColumns + " FROM Character WHERE CharacterId = $characterId LIMIT 1;";
+                select.Parameters.AddWithValue("$characterId", characterId.ToString());
+                CharacterRecord? current;
+                using (SqliteDataReader reader = select.ExecuteReader())
+                {
+                    current = reader.Read() ? ReadCharacterRecord(reader) : null;
+                }
+
+                if (current == null)
+                {
+                    return Result<CharacterRulesetMigrationPlan>.Failure(PersistenceFailures.CharacterNotFound(correlationId));
+                }
+
+                CharacterRulesetMigrationPlan plan = RulesetMigrationRules.BuildPlan(
+                    characterId, campaign.Manifest.RulesetId, current.RulesetVersion, targetRulesetId, targetRulesetVersion,
+                    current.Attributes, current.Skills, current.Abilities, current.Resources, targetCatalog,
+                    current.Revisions.MechanicsRevision, current.Revisions.CharacterAbilitiesRevision, current.Revisions.CharacterResourcesRevision);
+
+                return Result<CharacterRulesetMigrationPlan>.Success(plan);
+            }
+            catch (Exception ex) when (ex is IOException || ex is UnauthorizedAccessException || ex is SqliteException)
+            {
+                return Result<CharacterRulesetMigrationPlan>.Failure(PersistenceFailures.CharacterIoFailed(correlationId));
+            }
+        }
+
+        /// <summary>
+        /// ODY-S04-113: ADR-025 section 7.3, CAP-INV-004. Re-derives the plan
+        /// fresh from live state inside the transaction and compares its own
+        /// freshly-computed PreviewHash against <paramref name="plan"/>'s own
+        /// -- a mismatch is rejected before any write.
+        /// </summary>
+        public Result<CharacterRecord> ApplyCharacterRulesetMigration(CampaignHandle campaign, CharacterId characterId, CharacterRulesetMigrationPlan plan, RulesetDefinitionCatalog targetCatalog, UserId actorUserId, bool actorIsMainGm, CommandId commandId, CorrelationId correlationId)
+        {
+            if (campaign == null) throw new ArgumentNullException(nameof(campaign));
+            if (!characterId.IsValid) throw new ArgumentException("CharacterId is required.", nameof(characterId));
+            if (plan == null) throw new ArgumentNullException(nameof(plan));
+            if (targetCatalog == null) throw new ArgumentNullException(nameof(targetCatalog));
+            if (!actorUserId.IsValid) throw new ArgumentException("ActorUserId is required.", nameof(actorUserId));
+            if (!commandId.IsValid) throw new ArgumentException("CommandId is required.", nameof(commandId));
+
+            // Product section 25's own process step 1: "GM выбирает новую версию Ruleset" -- MainGM-only, checked before touching the database at all.
+            if (!actorIsMainGm)
+            {
+                return Result<CharacterRecord>.Failure(PersistenceFailures.CharacterRulesetMigrationDenied(correlationId));
+            }
+
+            if (plan.HasUnresolvedDecisions)
+            {
+                return Result<CharacterRecord>.Failure(PersistenceFailures.CharacterRulesetMigrationHasUnresolvedDecisions(correlationId));
+            }
+
+            try
+            {
+                using SqliteConnection connection = OpenConnection(campaign.RootPath);
+                EnsureCharacterTables(connection);
+
+                return _pipeline.Execute(
+                    connection,
+                    campaign.CampaignId,
+                    commandId,
+                    correlationId,
+                    tryReplay: transaction => ReplayCharacter(connection, transaction, campaign.CampaignId, "CharacterId = $characterId AND LastCommandId = $commandId", commandId, correlationId, characterId),
+                    apply: transaction =>
+                    {
+                        CharacterRecord? current = SelectForUpdate(connection, transaction, characterId);
+                        if (current == null)
+                        {
+                            return Result<PipelineWrite<CharacterRecord>>.Failure(PersistenceFailures.CharacterNotFound(correlationId));
+                        }
+
+                        // CAP-INV-004: never trust the client-supplied plan --
+                        // recompute fresh from the just-locked live state
+                        // using the same target catalog, and compare hashes.
+                        CharacterRulesetMigrationPlan freshPlan = RulesetMigrationRules.BuildPlan(
+                            characterId, campaign.Manifest.RulesetId, current.RulesetVersion, plan.TargetRulesetId, plan.TargetRulesetVersion,
+                            current.Attributes, current.Skills, current.Abilities, current.Resources, targetCatalog,
+                            current.Revisions.MechanicsRevision, current.Revisions.CharacterAbilitiesRevision, current.Revisions.CharacterResourcesRevision);
+
+                        if (!string.Equals(freshPlan.PreviewHash, plan.PreviewHash, StringComparison.Ordinal))
+                        {
+                            return Result<PipelineWrite<CharacterRecord>>.Failure(PersistenceFailures.CharacterRulesetMigrationStalePlan(correlationId));
+                        }
+
+                        if (freshPlan.HasUnresolvedDecisions)
+                        {
+                            return Result<PipelineWrite<CharacterRecord>>.Failure(PersistenceFailures.CharacterRulesetMigrationHasUnresolvedDecisions(correlationId));
+                        }
+
+                        UtcInstant now = _clock.GetUtcNow();
+                        long newCharacterRevision = current.Revisions.CharacterRevision + 1;
+
+                        // This task's own ValueChanges is always empty (no
+                        // cross-Ruleset value-transformation algorithm is
+                        // decided or invented -- ExecPlan section 4/5), so
+                        // only RulesetVersion/CharacterRevision are ever
+                        // touched here -- an honest reflection of that
+                        // deliberately narrow scope, not an omission.
+                        using (var update = connection.CreateCommand())
+                        {
+                            update.Transaction = transaction;
+                            update.CommandText = "UPDATE Character SET RulesetVersion = $rulesetVersion, CharacterRevision = $characterRevision, UpdatedAt = $updatedAt, LastCommandId = $lastCommandId WHERE CharacterId = $characterId;";
+                            update.Parameters.AddWithValue("$rulesetVersion", plan.TargetRulesetVersion);
+                            update.Parameters.AddWithValue("$characterRevision", newCharacterRevision);
+                            update.Parameters.AddWithValue("$updatedAt", now.ToString());
+                            update.Parameters.AddWithValue("$lastCommandId", commandId.ToString());
+                            update.Parameters.AddWithValue("$characterId", characterId.ToString());
+                            update.ExecuteNonQuery();
+                        }
+
+                        CharacterSectionRevisions newRevisions = WithRevisions(current.Revisions, characterRevision: newCharacterRevision);
+                        var record = new CharacterRecord(characterId, campaign.CampaignId, current.CharacterKind, current.LifecycleStatus, current.ApprovalState, current.DisplayName, current.PortraitReference, current.Ownership, newRevisions, plan.TargetRulesetVersion, current.AnatomyProfileRef, current.TemplateId, current.TemplateVersionAtCopyTime, current.SeedCopy, current.SubmittedAt, current.DevelopmentPool, current.Attributes, current.Skills, current.Abilities, current.Resources, current.Anatomy, current.CreatedAt, now);
+
+                        var eventPayload = new JObject
+                        {
+                            ["characterId"] = characterId.ToString(),
+                            ["displayNameSnapshot"] = current.DisplayName,
+                            ["sourceRulesetVersion"] = current.RulesetVersion,
+                            ["targetRulesetVersion"] = plan.TargetRulesetVersion,
+                            ["actorUserId"] = actorUserId.ToString(),
+                            ["definitionMappingCount"] = freshPlan.DefinitionMappings.Count,
+                            ["newCharacterRevision"] = newCharacterRevision,
+                        };
+
+                        // Forward event -- never compensating (this is not a
+                        // revert; ADR-025 section 7 names CharacterRulesetMigrated
+                        // as an ordinary forward event).
+                        return Result<PipelineWrite<CharacterRecord>>.Success(new PipelineWrite<CharacterRecord>(
+                            record, "odyssey.persistence.character_ruleset_migrated", eventPayload.ToString(Newtonsoft.Json.Formatting.None), characterId.ToString(),
+                            aggregateType: "character", aggregateId: characterId.ToString(), aggregateRevision: newCharacterRevision));
+                    });
+            }
+            catch (Exception ex) when (ex is IOException || ex is UnauthorizedAccessException || ex is SqliteException)
+            {
+                return Result<CharacterRecord>.Failure(PersistenceFailures.CharacterIoFailed(correlationId));
+            }
+        }
+
+        /// <summary>
+        /// ODY-S04-113: ADR-024 section 7.2/7.4's exact compensating-batch
+        /// pattern, reused for reverting an already-committed
+        /// CharacterRulesetMigrated event. Since this task's own ValueChanges
+        /// is always empty, the batch this method actually produces is
+        /// exactly one compensating event restoring RulesetVersion -- the
+        /// same shape ApplyCharacterRespec/RevertAdvancementPurchase already
+        /// established, sized to what this task's own scope actually needs.
+        /// </summary>
+        public Result<CharacterRecord> RevertCharacterRulesetMigration(CampaignHandle campaign, CharacterId characterId, CommandId migrationCommandId, string reasonCode, UserId actorUserId, bool actorIsMainGm, long expectedCharacterRevision, CommandId commandId, CorrelationId correlationId)
+        {
+            if (campaign == null) throw new ArgumentNullException(nameof(campaign));
+            if (!characterId.IsValid) throw new ArgumentException("CharacterId is required.", nameof(characterId));
+            if (!migrationCommandId.IsValid) throw new ArgumentException("MigrationCommandId is required.", nameof(migrationCommandId));
+            if (!actorUserId.IsValid) throw new ArgumentException("ActorUserId is required.", nameof(actorUserId));
+            if (!commandId.IsValid) throw new ArgumentException("CommandId is required.", nameof(commandId));
+
+            if (string.IsNullOrWhiteSpace(reasonCode))
+            {
+                return Result<CharacterRecord>.Failure(PersistenceFailures.CharacterRulesetMigrationRevertReasonRequired(correlationId));
+            }
+
+            // ADR-024 section 6.2's own convention: reverting a committed
+            // Mechanics-affecting operation is a GM correction action --
+            // MainGM-only.
+            if (!actorIsMainGm)
+            {
+                return Result<CharacterRecord>.Failure(PersistenceFailures.CharacterRulesetMigrationDenied(correlationId));
+            }
+
+            try
+            {
+                using SqliteConnection connection = OpenConnection(campaign.RootPath);
+                EnsureCharacterTables(connection);
+
+                return _pipeline.Execute(
+                    connection,
+                    campaign.CampaignId,
+                    commandId,
+                    correlationId,
+                    tryReplay: transaction => ReplayCharacter(connection, transaction, campaign.CampaignId, "CharacterId = $characterId AND LastCommandId = $commandId", commandId, correlationId, characterId),
+                    apply: transaction =>
+                    {
+                        CharacterRecord? current = SelectForUpdate(connection, transaction, characterId);
+                        if (current == null)
+                        {
+                            return Result<PipelineWrite<CharacterRecord>>.Failure(PersistenceFailures.CharacterNotFound(correlationId));
+                        }
+
+                        if (current.Revisions.CharacterRevision != expectedCharacterRevision)
+                        {
+                            return Result<PipelineWrite<CharacterRecord>>.Failure(PersistenceFailures.CharacterRevisionConflict(correlationId));
+                        }
+
+                        (long eventSequence, string sourceRulesetVersion)? migration = FindRulesetMigrationByCommandId(connection, transaction, migrationCommandId);
+                        if (migration == null)
+                        {
+                            return Result<PipelineWrite<CharacterRecord>>.Failure(PersistenceFailures.CharacterRulesetMigrationNotFound(correlationId));
+                        }
+
+                        if (IsRulesetMigrationAlreadyReverted(connection, transaction, migration.Value.eventSequence))
+                        {
+                            return Result<PipelineWrite<CharacterRecord>>.Failure(PersistenceFailures.CharacterRulesetMigrationAlreadyReverted(correlationId));
+                        }
+
+                        UtcInstant now = _clock.GetUtcNow();
+                        long newCharacterRevision = current.Revisions.CharacterRevision + 1;
+                        string compensationGroupId = commandId.ToString();
+
+                        using (var update = connection.CreateCommand())
+                        {
+                            update.Transaction = transaction;
+                            update.CommandText = "UPDATE Character SET RulesetVersion = $rulesetVersion, CharacterRevision = $characterRevision, UpdatedAt = $updatedAt, LastCommandId = $lastCommandId WHERE CharacterId = $characterId;";
+                            update.Parameters.AddWithValue("$rulesetVersion", migration.Value.sourceRulesetVersion);
+                            update.Parameters.AddWithValue("$characterRevision", newCharacterRevision);
+                            update.Parameters.AddWithValue("$updatedAt", now.ToString());
+                            update.Parameters.AddWithValue("$lastCommandId", commandId.ToString());
+                            update.Parameters.AddWithValue("$characterId", characterId.ToString());
+                            update.ExecuteNonQuery();
+                        }
+
+                        CharacterSectionRevisions newRevisions = WithRevisions(current.Revisions, characterRevision: newCharacterRevision);
+                        var record = new CharacterRecord(characterId, campaign.CampaignId, current.CharacterKind, current.LifecycleStatus, current.ApprovalState, current.DisplayName, current.PortraitReference, current.Ownership, newRevisions, migration.Value.sourceRulesetVersion, current.AnatomyProfileRef, current.TemplateId, current.TemplateVersionAtCopyTime, current.SeedCopy, current.SubmittedAt, current.DevelopmentPool, current.Attributes, current.Skills, current.Abilities, current.Resources, current.Anatomy, current.CreatedAt, now);
+
+                        var payload = new JObject
+                        {
+                            ["characterId"] = characterId.ToString(),
+                            ["displayNameSnapshot"] = current.DisplayName,
+                            ["revertedRulesetVersion"] = current.RulesetVersion,
+                            ["restoredRulesetVersion"] = migration.Value.sourceRulesetVersion,
+                            ["reasonCode"] = reasonCode,
+                            ["actorUserId"] = actorUserId.ToString(),
+                            ["compensationGroupId"] = compensationGroupId,
+                            ["newCharacterRevision"] = newCharacterRevision,
+                        };
+
+                        return Result<PipelineWrite<CharacterRecord>>.Success(new PipelineWrite<CharacterRecord>(
+                            record, "odyssey.persistence.character_ruleset_migration_reverted", payload.ToString(Newtonsoft.Json.Formatting.None), characterId.ToString(),
+                            aggregateType: "character", aggregateId: characterId.ToString(), aggregateRevision: newCharacterRevision,
+                            originalEventId: migration.Value.eventSequence, compensationGroupId: compensationGroupId, isCompensating: true));
+                    });
+            }
+            catch (Exception ex) when (ex is IOException || ex is UnauthorizedAccessException || ex is SqliteException)
+            {
+                return Result<CharacterRecord>.Failure(PersistenceFailures.CharacterIoFailed(correlationId));
+            }
+        }
+
+        private static (long eventSequence, string sourceRulesetVersion)? FindRulesetMigrationByCommandId(SqliteConnection connection, SqliteTransaction transaction, CommandId commandId)
+        {
+            using var select = connection.CreateCommand();
+            select.Transaction = transaction;
+            select.CommandText = "SELECT EventSequence, PayloadJson FROM DomainEvents WHERE CommandId = $commandId AND EventType = 'odyssey.persistence.character_ruleset_migrated' LIMIT 1;";
+            select.Parameters.AddWithValue("$commandId", commandId.ToString());
+            using SqliteDataReader reader = select.ExecuteReader();
+            if (!reader.Read())
+            {
+                return null;
+            }
+
+            long eventSequence = reader.GetInt64(0);
+            var payload = (JObject)ParseJsonPreservingStrings(reader.GetString(1));
+            string sourceRulesetVersion = (string)payload["sourceRulesetVersion"]!;
+            return (eventSequence, sourceRulesetVersion);
+        }
+
+        private static bool IsRulesetMigrationAlreadyReverted(SqliteConnection connection, SqliteTransaction transaction, long originalEventSequence)
+        {
+            using var select = connection.CreateCommand();
+            select.Transaction = transaction;
+            select.CommandText = "SELECT COUNT(*) FROM DomainEvents WHERE OriginalEventId = $originalEventId AND EventType = 'odyssey.persistence.character_ruleset_migration_reverted';";
+            select.Parameters.AddWithValue("$originalEventId", originalEventSequence);
+            long count = Convert.ToInt64(select.ExecuteScalar());
+            return count > 0;
         }
 
         /// <summary>
