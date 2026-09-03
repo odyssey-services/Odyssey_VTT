@@ -4,7 +4,7 @@
 **Owner:** Codex (agent)
 **Branch:** `feat/ody-s05-101-content-catalog-foundation`
 **Pull request:** https://github.com/odyssey-services/Odyssey_VTT/pull/105
-**Last updated:** 2026-09-03 UTC
+**Last updated:** 2026-09-03 (idempotency-fix amendment) UTC
 
 ## 1. Purpose and user-visible outcome
 
@@ -33,7 +33,7 @@ Assumptions: none.
 
 - Domain: `ContentDefinitionId` (minted), `ContentDefinitionStatus`/`ContentDefinitionOrigin`/`ContentDefinitionType` enums, `ContentDefinitionRef` (exact `DefinitionId + Version`, `ToString`/`Parse` round-trip, no "latest" concept).
 - Application: `IContentCatalogRepository` (`CreateDraftContentDefinition`/`UpdateDraftContentDefinition`/`GetContentDefinition`/`ListContentDefinitions`), `CreateDraftContentDefinitionRequest`/`ContentDefinitionRecord`, four `PersistenceFailures`/`ErrorCodes` entries (`ContentDefinitionNotFound`/`IoFailed`/`RevisionConflict`/`NotDraft`).
-- Persistence: `SqliteContentCatalogRepository` — one `ContentDefinition` table (no `CampaignId` column, physically per-campaign, logically Ruleset-scoped), `LastCommandId` idempotency, `UpdateDraftContentDefinition` refusing any non-Draft row (`ADR-027` §4.1 Published-immutability, enforced at the foundation level).
+- Persistence: `SqliteContentCatalogRepository` — one `ContentDefinition` table (no `CampaignId` column, physically per-campaign, logically Ruleset-scoped), a durable `ContentDefinitionCommandLedger` table (`CommandId` primary key → `ContentDefinitionId`, written in the same transaction as every create/update) as the sole idempotency source of truth, `UpdateDraftContentDefinition` refusing any non-Draft row (`ADR-027` §4.1 Published-immutability, enforced at the foundation level).
 - Tests: `ContentDefinitionRefTests` (pure Domain: round-trip, equality, malformed-input rejection) and `SqliteContentCatalogRepositoryTests` (real SQLite: create/read/list, revision increment/conflict/idempotency, Published/Archived immutability via direct SQL seeding, exact-reference round-trip, and direct schema/table-list proof that no runtime item/inventory/equipment/effect state exists).
 - Registry: four new `ErrorCode`s registered in both `ErrorCodes.cs` and `ERROR_CODES.md`, referencing nine new `TC-CATALOG-001`–`009` entries added to `test-catalog.json`.
 - Backlog: `SLICE-05_IMPLEMENTATION_BACKLOG.md` row 1 (`ODY-S05-101`) marked with PR link/evidence.
@@ -52,7 +52,7 @@ No Unity/UI code, no authoring/publish/archive/delete/validation/typed-property 
 ### M2 — Tests and registry
 
 - [x] `ContentDefinitionRefTests` (Domain, 12 cases).
-- [x] `SqliteContentCatalogRepositoryTests` (Persistence, real SQLite, 17 cases).
+- [x] `SqliteContentCatalogRepositoryTests` (Persistence, real SQLite, 20 cases -- 17 original + 3 added by the idempotency-fix amendment).
 - [x] `docs/errors/ERROR_CODES.md` + `Tests/Metadata/test-catalog.json` entries.
 - [x] `dotnet build`/`dotnet test` full suite green, no regression.
 
@@ -87,11 +87,12 @@ No Unity/UI code, no authoring/publish/archive/delete/validation/typed-property 
 - `DomainIdentity.cs` already established two genuinely different ID-type conventions for what looks superficially like the same concept ("DefinitionId") — the minted-aggregate-identity pattern and the lightweight fixture-string-key pattern. Confirming which one applied here required reading `SkillDefinitionId`'s own doc comment directly, not assuming from the name alone.
 - No architectural question was found during implementation that `ADR-027`/`11_Content_Block_System` do not already answer — no ADR was touched or extended.
 - `verify-test-structure.ps1`'s task-contract lookup requires the contract file to exist before any test-catalog entry can reference that `taskId` — the same lesson `ODY-S04-113a` and `ODY-S04-115a` already taught this session, applied proactively here rather than discovered via a CI failure.
+- **Amendment, post-initial-review:** product-owner review found the `LastCommandId`-column idempotency design was defective — a single mutable column on the `ContentDefinition` row is overwritten by every later create/update on that row, so replaying an *older* command's `CommandId` after a *newer* one has touched the same row stops being recognized as a replay. Fixed by introducing a durable `ContentDefinitionCommandLedger` table (`CommandId` primary key → `ContentDefinitionId`), written in the same transaction as the create/update it accompanies; `LastCommandId` removed entirely from the `ContentDefinition` table. Three new tests (`TC-CATALOG-010`–`012`). Re-ran the full validation suite, all pass, no regression (512/512). PR #105 stays Draft pending re-review.
 
 ## 9. Validation and acceptance evidence
 
 - `dotnet build DotNet\Odyssey.Core.sln`: 0 warnings, 0 errors.
-- `dotnet test DotNet\Odyssey.Core.sln`: full suite passed, including 12 new Domain `ContentDefinitionRefTests` cases and 17 new Persistence `SqliteContentCatalogRepositoryTests` cases, no regression in any other test project.
+- `dotnet test DotNet\Odyssey.Core.sln`: full suite passed (512/512), including 12 new Domain `ContentDefinitionRefTests` cases and 20 new Persistence `SqliteContentCatalogRepositoryTests` cases (17 original + 3 idempotency-fix amendment), no regression in any other test project.
 - `.\scripts\verify-format.ps1`: passed with `FORMAT-001 PASS repository text formatting checks passed`.
 - `.\scripts\check-repository-policy.ps1`: passed with `Repository policy check passed` (after adding the `ERROR_CODES.md`/test-catalog entries the first run's failure required).
 - `.\scripts\verify-test-structure.ps1`: passed with `TC-ARCH-001 PASS valid ADR-001 graph passes` (after adding this task's own contract file the first run's failure required).

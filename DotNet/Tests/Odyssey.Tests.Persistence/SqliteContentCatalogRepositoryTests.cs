@@ -139,6 +139,91 @@ namespace Odyssey.Tests.Persistence
             Assert.That(all.Value.Count(d => d.ContentDefinitionId.Equals(first.Value.ContentDefinitionId)), Is.EqualTo(1));
         }
 
+        // ---- Idempotency ledger: replaying an OLDER command after a NEWER one has
+        // touched the same row must still be recognized as a replay, not silently
+        // stop being one just because a later command overwrote whatever a single
+        // mutable LastCommandId column would have held. ------------------------
+
+        [Test]
+        public void ReplayingCreateCommandId_AfterALaterUpdate_DoesNotCreateASecondDefinition()
+        {
+            CommandId createCommandId = NewCommandId();
+            CreateDraftContentDefinitionRequest request = NewDraftRequest();
+
+            Result<ContentDefinitionRecord> created = _catalogRepository.CreateDraftContentDefinition(request, createCommandId, TestCorrelationId);
+            Assert.That(created.IsSuccess, Is.True);
+
+            // A later, unrelated update changes the row -- if idempotency were
+            // still keyed off a single mutable LastCommandId column, this
+            // would silently overwrite the create's own idempotency record.
+            Result<ContentDefinitionRecord> updated = _catalogRepository.UpdateDraftContentDefinition(_campaign, created.Value.ContentDefinitionId, "Renamed After Create", null, "{}", created.Value.Revision, NewCommandId(), TestCorrelationId);
+            Assert.That(updated.IsSuccess, Is.True);
+
+            // Replaying the ORIGINAL create CommandId must still be
+            // recognized as a replay of that same command -- not create a
+            // second, genuinely duplicate ContentDefinition row.
+            Result<ContentDefinitionRecord> replayedCreate = _catalogRepository.CreateDraftContentDefinition(request, createCommandId, TestCorrelationId);
+
+            Assert.That(replayedCreate.IsSuccess, Is.True);
+            Assert.That(replayedCreate.Value.ContentDefinitionId, Is.EqualTo(created.Value.ContentDefinitionId));
+
+            Result<IReadOnlyList<ContentDefinitionRecord>> all = _catalogRepository.ListContentDefinitions(_campaign, null, TestCorrelationId);
+            Assert.That(all.Value.Count, Is.EqualTo(1), "the create CommandId must still be recognized as an already-applied replay after a later update touched the same row -- not mint a second, genuinely duplicate definition");
+        }
+
+        [Test]
+        public void ReplayingUpdateCommandId_AfterALaterUpdate_DoesNotReapplyOrFailWithStaleRevisionConflict()
+        {
+            Result<ContentDefinitionRecord> created = _catalogRepository.CreateDraftContentDefinition(NewDraftRequest(), NewCommandId(), TestCorrelationId);
+            Assert.That(created.IsSuccess, Is.True);
+
+            CommandId firstUpdateCommandId = NewCommandId();
+            Result<ContentDefinitionRecord> firstUpdate = _catalogRepository.UpdateDraftContentDefinition(_campaign, created.Value.ContentDefinitionId, "First Rename", null, "{}", created.Value.Revision, firstUpdateCommandId, TestCorrelationId);
+            Assert.That(firstUpdate.IsSuccess, Is.True);
+            Assert.That(firstUpdate.Value.Revision, Is.EqualTo(created.Value.Revision + 1));
+
+            // A second, later update changes the row again -- if idempotency
+            // were still keyed off a single mutable LastCommandId column,
+            // this would silently overwrite the first update's own
+            // idempotency record.
+            Result<ContentDefinitionRecord> secondUpdate = _catalogRepository.UpdateDraftContentDefinition(_campaign, created.Value.ContentDefinitionId, "Second Rename", null, "{}", firstUpdate.Value.Revision, NewCommandId(), TestCorrelationId);
+            Assert.That(secondUpdate.IsSuccess, Is.True);
+            Assert.That(secondUpdate.Value.Revision, Is.EqualTo(firstUpdate.Value.Revision + 1));
+
+            // Replaying the FIRST update's own CommandId, now stale relative
+            // to the row's current Revision, must still be recognized as a
+            // replay of that already-applied command -- it must neither
+            // re-apply "First Rename" over "Second Rename", nor fail with
+            // PersistenceContentDefinitionRevisionConflict (it is not a
+            // fresh, wrongly-sequenced caller -- it is the same command
+            // that already succeeded once).
+            Result<ContentDefinitionRecord> replayedFirstUpdate = _catalogRepository.UpdateDraftContentDefinition(_campaign, created.Value.ContentDefinitionId, "First Rename", null, "{}", created.Value.Revision, firstUpdateCommandId, TestCorrelationId);
+
+            Assert.That(replayedFirstUpdate.IsSuccess, Is.True, "a replay of an older, already-applied update CommandId must not fail with a stale-revision conflict");
+            Assert.That(replayedFirstUpdate.Value.Name, Is.EqualTo("Second Rename"), "a replay must return the definition's own current state, not re-apply the older mutation over a newer one");
+            Assert.That(replayedFirstUpdate.Value.Revision, Is.EqualTo(secondUpdate.Value.Revision), "replaying an older update must not mutate Revision again");
+        }
+
+        [Test]
+        public void CommandLedger_HasUniqueCommandIdConstraint()
+        {
+            using var connection = new SqliteConnection("Data Source=" + Path.Combine(_campaignDir, "campaign.db"));
+            connection.Open();
+            Result<ContentDefinitionRecord> created = _catalogRepository.CreateDraftContentDefinition(NewDraftRequest(), NewCommandId(), TestCorrelationId);
+            Assert.That(created.IsSuccess, Is.True);
+
+            using var pragma = connection.CreateCommand();
+            pragma.CommandText = "PRAGMA table_info(ContentDefinitionCommandLedger);";
+            using SqliteDataReader reader = pragma.ExecuteReader();
+            bool commandIdIsPrimaryKey = false;
+            while (reader.Read())
+            {
+                if (reader.GetString(1) == "CommandId" && reader.GetInt64(5) == 1) commandIdIsPrimaryKey = true;
+            }
+
+            Assert.That(commandIdIsPrimaryKey, Is.True, "ContentDefinitionCommandLedger.CommandId must be the table's own primary key, guaranteeing uniqueness at the database level");
+        }
+
         // ---- List -------------------------------------------------------------
 
         [Test]

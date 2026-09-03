@@ -19,12 +19,28 @@ namespace Odyssey.Persistence.Sqlite
     /// <see cref="SqliteCharacterTemplateRepository"/>'s exact structural
     /// precedent for a single-table aggregate with no `DomainEvents`
     /// participation: per-call short-lived <see cref="SqliteConnection"/>,
-    /// `EnsureContentDefinitionTables` (`CREATE TABLE IF NOT EXISTS`), a
-    /// manual `LastCommandId` idempotency column (no append-only journal --
-    /// `11_Content_Block_System`/`ADR-027` do not require catalog
-    /// definitions to participate in `DomainEvents`/history the way
-    /// `Character` does), and a shared `SelectColumns`/`ReadContentDefinitionRecord`
-    /// convention.
+    /// `EnsureContentDefinitionTables` (`CREATE TABLE IF NOT EXISTS`), and a
+    /// shared `SelectColumns`/`ReadContentDefinitionRecord` convention (no
+    /// append-only journal -- `11_Content_Block_System`/`ADR-027` do not
+    /// require catalog definitions to participate in `DomainEvents`/history
+    /// the way `Character` does).
+    ///
+    /// Idempotency: a durable <c>ContentDefinitionCommandLedger</c> table
+    /// (<c>CommandId</c> primary key -&gt; <c>ContentDefinitionId</c>),
+    /// written in the same transaction as every create/update, is the sole
+    /// source of replay truth -- deliberately NOT a `LastCommandId` column
+    /// on the `ContentDefinition` row itself. A single mutable
+    /// `LastCommandId` column would be overwritten by every later
+    /// create/update on the same row, so replaying an *older* command after
+    /// a *newer* one already changed that column would stop being
+    /// recognized as a replay: `CreateDraftContentDefinition` would mint a
+    /// genuine duplicate row, and `UpdateDraftContentDefinition` would
+    /// either double-apply an already-applied mutation or fail with a false
+    /// stale-revision conflict. The ledger's own `CommandId` primary key
+    /// means every command this repository has ever successfully applied
+    /// stays independently replayable, in any order, for the row's entire
+    /// lifetime -- not just against whichever command happened to write
+    /// last.
     ///
     /// This table is physically stored inside the same `campaign.db` file
     /// every other campaign-scoped repository already uses (there is no
@@ -87,11 +103,11 @@ namespace Odyssey.Persistence.Sqlite
                         "ContentDefinitionId, Origin, DefinitionType, Name, Description, Status, Version, Revision, " +
                         "RulesetCompatibilityJson, TagsJson, PropertiesJson, DependencyRefsJson, " +
                         "CreatedByUserId, PublishedByUserId, PublishedAt, ArchivedAt, ArchiveReason, " +
-                        "CreatedAt, UpdatedAt, LastCommandId) VALUES (" +
+                        "CreatedAt, UpdatedAt) VALUES (" +
                         "$id, $origin, $definitionType, $name, $description, $status, $version, $revision, " +
                         "$rulesetCompatibilityJson, $tagsJson, $propertiesJson, $dependencyRefsJson, " +
                         "$createdByUserId, NULL, NULL, NULL, NULL, " +
-                        "$createdAt, $updatedAt, $lastCommandId);";
+                        "$createdAt, $updatedAt);";
                     insert.Parameters.AddWithValue("$id", definitionId.ToString());
                     insert.Parameters.AddWithValue("$origin", origin.ToString());
                     insert.Parameters.AddWithValue("$definitionType", request.DefinitionType.ToString());
@@ -107,9 +123,10 @@ namespace Odyssey.Persistence.Sqlite
                     insert.Parameters.AddWithValue("$createdByUserId", request.CreatedByUserId.ToString());
                     insert.Parameters.AddWithValue("$createdAt", now.ToString());
                     insert.Parameters.AddWithValue("$updatedAt", now.ToString());
-                    insert.Parameters.AddWithValue("$lastCommandId", commandId.ToString());
                     insert.ExecuteNonQuery();
                 }
+
+                InsertCommandLedgerEntry(connection, transaction, commandId, definitionId, now);
 
                 transaction.Commit();
 
@@ -176,16 +193,17 @@ namespace Odyssey.Persistence.Sqlite
                 using (var update = connection.CreateCommand())
                 {
                     update.Transaction = transaction;
-                    update.CommandText = "UPDATE ContentDefinition SET Name = $name, Description = $description, PropertiesJson = $propertiesJson, Revision = $revision, UpdatedAt = $updatedAt, LastCommandId = $lastCommandId WHERE ContentDefinitionId = $id;";
+                    update.CommandText = "UPDATE ContentDefinition SET Name = $name, Description = $description, PropertiesJson = $propertiesJson, Revision = $revision, UpdatedAt = $updatedAt WHERE ContentDefinitionId = $id;";
                     update.Parameters.AddWithValue("$name", name);
                     update.Parameters.AddWithValue("$description", (object?)description ?? DBNull.Value);
                     update.Parameters.AddWithValue("$propertiesJson", propertiesJson);
                     update.Parameters.AddWithValue("$revision", newRevision);
                     update.Parameters.AddWithValue("$updatedAt", now.ToString());
-                    update.Parameters.AddWithValue("$lastCommandId", commandId.ToString());
                     update.Parameters.AddWithValue("$id", definitionId.ToString());
                     update.ExecuteNonQuery();
                 }
+
+                InsertCommandLedgerEntry(connection, transaction, commandId, definitionId, now);
 
                 transaction.Commit();
 
@@ -264,14 +282,52 @@ namespace Odyssey.Persistence.Sqlite
             }
         }
 
+        /// <summary>
+        /// ODY-S05-101 amendment: looks up the durable
+        /// `ContentDefinitionCommandLedger` (`CommandId` -&gt;
+        /// `ContentDefinitionId`), not a mutable `LastCommandId` column on
+        /// the `ContentDefinition` row -- a column would be overwritten by
+        /// every later create/update on the same row, silently breaking
+        /// replay of an older command once a newer one has touched that
+        /// row. The ledger's own `CommandId` primary key means every
+        /// command this repository has ever successfully applied stays
+        /// independently replayable for the row's entire lifetime. Used
+        /// identically by both <see cref="CreateDraftContentDefinition"/>
+        /// and <see cref="UpdateDraftContentDefinition"/> -- a replay
+        /// always returns the definition's own *current* state, never
+        /// re-running the original mutation.
+        /// </summary>
         private static ContentDefinitionRecord? TryFindByCommandId(SqliteConnection connection, SqliteTransaction transaction, CommandId commandId)
         {
             using var select = connection.CreateCommand();
             select.Transaction = transaction;
-            select.CommandText = SelectColumns + " FROM ContentDefinition WHERE LastCommandId = $commandId LIMIT 1;";
+            select.CommandText = "SELECT ContentDefinitionId FROM ContentDefinitionCommandLedger WHERE CommandId = $commandId LIMIT 1;";
             select.Parameters.AddWithValue("$commandId", commandId.ToString());
-            using SqliteDataReader reader = select.ExecuteReader();
-            return reader.Read() ? ReadContentDefinitionRecord(reader) : null;
+            object? result = select.ExecuteScalar();
+            if (result == null || result is DBNull) return null;
+
+            ContentDefinitionId definitionId = ContentDefinitionId.Parse((string)result);
+            return SelectForUpdate(connection, transaction, definitionId);
+        }
+
+        /// <summary>
+        /// ODY-S05-101 amendment: records this <paramref name="commandId"/>
+        /// as durably applied against <paramref name="definitionId"/>, in
+        /// the same transaction as the create/update it accompanies.
+        /// `CommandId` is the ledger's own primary key, so a genuine
+        /// attempt to reuse the same `CommandId` for a materially different
+        /// mutation (a bug, not a legitimate replay) fails loudly at the
+        /// database level rather than silently overwriting a prior mapping.
+        /// </summary>
+        private static void InsertCommandLedgerEntry(SqliteConnection connection, SqliteTransaction transaction, CommandId commandId, ContentDefinitionId definitionId, UtcInstant now)
+        {
+            using var insert = connection.CreateCommand();
+            insert.Transaction = transaction;
+            insert.CommandText = "INSERT INTO ContentDefinitionCommandLedger (CommandId, ContentDefinitionId, CreatedAt) VALUES ($commandId, $definitionId, $createdAt);";
+            insert.Parameters.AddWithValue("$commandId", commandId.ToString());
+            insert.Parameters.AddWithValue("$definitionId", definitionId.ToString());
+            insert.Parameters.AddWithValue("$createdAt", now.ToString());
+            insert.ExecuteNonQuery();
         }
 
         private static ContentDefinitionRecord? SelectForUpdate(SqliteConnection connection, SqliteTransaction transaction, ContentDefinitionId definitionId)
@@ -388,8 +444,12 @@ CREATE TABLE IF NOT EXISTS ContentDefinition (
     ArchivedAt TEXT,
     ArchiveReason TEXT,
     CreatedAt TEXT NOT NULL,
-    UpdatedAt TEXT NOT NULL,
-    LastCommandId TEXT NOT NULL
+    UpdatedAt TEXT NOT NULL
+);
+CREATE TABLE IF NOT EXISTS ContentDefinitionCommandLedger (
+    CommandId TEXT PRIMARY KEY,
+    ContentDefinitionId TEXT NOT NULL,
+    CreatedAt TEXT NOT NULL
 );";
             command.ExecuteNonQuery();
         }

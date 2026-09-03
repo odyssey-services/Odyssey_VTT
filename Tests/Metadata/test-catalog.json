@@ -3471,6 +3471,30 @@
                           "runner":  "dotnet test",
                           "path":  "DotNet/Tests/Odyssey.Tests.Domain/Content/ContentDefinitionRefTests.cs",
                           "check":  "ContentDefinitionId/ContentDefinitionRef round-trip through ToString/Parse; ContentDefinitionRef rejects version 0 and an invalid DefinitionId at construction; two references to the same DefinitionId with different Version values are not equal; TryParse rejects malformed input"
+                      },
+                      {
+                          "testCaseId":  "TC-CATALOG-010",
+                          "taskId":  "ODY-S05-101",
+                          "authority":  "ADR-002 section 6 (command idempotency)",
+                          "runner":  "dotnet test",
+                          "path":  "DotNet/Tests/Odyssey.Tests.Persistence/SqliteContentCatalogRepositoryTests.cs",
+                          "check":  "Amendment (idempotency fix): replaying a create CommandId after a later, unrelated update has already touched the same row does not create a second ContentDefinition -- the durable ContentDefinitionCommandLedger, not a mutable LastCommandId column overwritten by the later update, is the sole source of replay truth"
+                      },
+                      {
+                          "testCaseId":  "TC-CATALOG-011",
+                          "taskId":  "ODY-S05-101",
+                          "authority":  "ADR-002 section 6 (command idempotency); 11_Content_Block_System section 6.2 (Revision)",
+                          "runner":  "dotnet test",
+                          "path":  "DotNet/Tests/Odyssey.Tests.Persistence/SqliteContentCatalogRepositoryTests.cs",
+                          "check":  "Amendment (idempotency fix): replaying an older update's own CommandId, now stale relative to the row's current Revision because a later update has already applied, returns the definition's own current state (not the older mutation re-applied) and does not fail with PersistenceContentDefinitionRevisionConflict"
+                      },
+                      {
+                          "testCaseId":  "TC-CATALOG-012",
+                          "taskId":  "ODY-S05-101",
+                          "authority":  "ADR-002 section 6 (command idempotency)",
+                          "runner":  "dotnet test",
+                          "path":  "DotNet/Tests/Odyssey.Tests.Persistence/SqliteContentCatalogRepositoryTests.cs",
+                          "check":  "Amendment (idempotency fix): ContentDefinitionCommandLedger.CommandId is the table's own real SQLite primary key, guaranteeing CommandId uniqueness at the database level, confirmed by direct PRAGMA table_info inspection"
                       }
                   ]
 }

@@ -8,7 +8,7 @@
 **Pull request:** https://github.com/odyssey-services/Odyssey_VTT/pull/105
 **ExecPlan:** `docs/plans/active/ODY-S05-101_Content_Catalog_Foundation.md`
 **Created:** 2026-09-03
-**Last updated:** 2026-09-03 UTC
+**Last updated:** 2026-09-03 (idempotency-fix amendment) UTC
 
 ## 1. Goal
 
@@ -39,7 +39,7 @@ Implement the minimal Content Catalog foundation `SLICE-05_IMPLEMENTATION_BACKLO
 
 - Requirement IDs: `ODY-S05-101`, `ADR-027` section 4/4.1.
 - Existing test IDs: None reused.
-- New test IDs introduced: `TC-CATALOG-001`–`009`.
+- New test IDs introduced: `TC-CATALOG-001`–`012`.
 
 ### Task-safe private context
 
@@ -65,11 +65,11 @@ Implement the minimal Content Catalog foundation `SLICE-05_IMPLEMENTATION_BACKLO
 
 - `Packages/com.odyssey.domain/Runtime/Content/ContentCatalog.cs` (new): `ContentDefinitionId` (minted identity), `ContentDefinitionStatus` (Draft/Published/Archived), `ContentDefinitionOrigin` (RulesetPackage/Campaign — only `RulesetPackage` ever produced), `ContentDefinitionType` (mechanical + structural vocabulary from `11_Content_Block_System` sections 5.1/5.2, identity/discriminator only, no typed properties), `ContentDefinitionRef` (exact `DefinitionId + Version` reference, round-trippable, no "latest" concept).
 - `Packages/com.odyssey.application/Runtime/Persistence/ContentCatalogRepositoryContracts.cs` (new): `IContentCatalogRepository` (`CreateDraftContentDefinition`/`UpdateDraftContentDefinition`/`GetContentDefinition`/`ListContentDefinitions`), `CreateDraftContentDefinitionRequest`, `ContentDefinitionRecord`.
-- `Packages/com.odyssey.persistence/Runtime/Sqlite/SqliteContentCatalogRepository.cs` (new): SQLite implementation, one `ContentDefinition` table, `LastCommandId` idempotency, no `DomainEvents` participation.
+- `Packages/com.odyssey.persistence/Runtime/Sqlite/SqliteContentCatalogRepository.cs` (new): SQLite implementation, one `ContentDefinition` table, a durable `ContentDefinitionCommandLedger` table (`CommandId` primary key → `ContentDefinitionId`) as the sole idempotency source of truth — **not** a mutable `LastCommandId` column on the `ContentDefinition` row itself, since a single such column would be overwritten by every later create/update on the same row and silently stop recognizing an older command's replay once a newer one has touched that row (found and fixed as an amendment during review — see section 18). No `DomainEvents` participation.
 - `Packages/com.odyssey.application/Runtime/Persistence/CampaignRepositoryContracts.cs`: four new `PersistenceFailures` entries (`ContentDefinitionNotFound`/`ContentDefinitionIoFailed`/`ContentDefinitionRevisionConflict`/`ContentDefinitionNotDraft`).
 - `Packages/com.odyssey.application/Runtime/Results/ErrorCodes.cs`: four new `ErrorCode` entries.
 - `docs/errors/ERROR_CODES.md`: four new registry rows.
-- `Tests/Metadata/test-catalog.json`: nine new `TC-CATALOG-001`–`009` entries.
+- `Tests/Metadata/test-catalog.json`: twelve new `TC-CATALOG-001`–`012` entries.
 - `DotNet/Tests/Odyssey.Tests.Domain/Content/ContentDefinitionRefTests.cs` (new).
 - `DotNet/Tests/Odyssey.Tests.Persistence/SqliteContentCatalogRepositoryTests.cs` (new).
 - `docs/tasks/SLICE-05_IMPLEMENTATION_BACKLOG.md`: row 1 (`ODY-S05-101`) status update with PR link/evidence.
@@ -173,7 +173,7 @@ Unity assets/UI
 ## 8. Deliverables
 
 - Production code: `ContentCatalog.cs` (Domain), `ContentCatalogRepositoryContracts.cs` (Application), `SqliteContentCatalogRepository.cs` (Persistence), four `PersistenceFailures`/`ErrorCodes` entries.
-- Tests: `ContentDefinitionRefTests.cs` (12 cases), `SqliteContentCatalogRepositoryTests.cs` (17 cases) — `TC-CATALOG-001`–`009`.
+- Tests: `ContentDefinitionRefTests.cs` (12 cases), `SqliteContentCatalogRepositoryTests.cs` (20 cases) — `TC-CATALOG-001`–`012`.
 - Scripts / CI: None.
 - Configuration: None.
 - Documentation: `docs/errors/ERROR_CODES.md`, `Tests/Metadata/test-catalog.json`, `docs/tasks/SLICE-05_IMPLEMENTATION_BACKLOG.md` (row 1 status), this task contract, its ExecPlan.
@@ -310,18 +310,19 @@ dotnet test DotNet\Odyssey.Core.sln
 - `Packages/com.odyssey.application/Runtime/Results/ErrorCodes.cs` — four new `ErrorCode` entries.
 - `Packages/com.odyssey.persistence/Runtime/Sqlite/SqliteContentCatalogRepository.cs` — new.
 - `DotNet/Tests/Odyssey.Tests.Domain/Content/ContentDefinitionRefTests.cs` — new, 12 tests.
-- `DotNet/Tests/Odyssey.Tests.Persistence/SqliteContentCatalogRepositoryTests.cs` — new, 17 tests.
+- `DotNet/Tests/Odyssey.Tests.Persistence/SqliteContentCatalogRepositoryTests.cs` — new, 20 tests (17 original + 3 added by the idempotency-fix amendment).
 - `docs/errors/ERROR_CODES.md` — four new rows.
-- `Tests/Metadata/test-catalog.json` — nine new `TC-CATALOG-001`–`009` entries.
+- `Tests/Metadata/test-catalog.json` — twelve new `TC-CATALOG-001`–`012` entries.
 - `docs/tasks/SLICE-05_IMPLEMENTATION_BACKLOG.md` — row 1 status update.
 - This task contract and its ExecPlan.
+- **Amendment (idempotency fix, post-initial-review):** `SqliteContentCatalogRepository.cs` — replaced the mutable `LastCommandId` column on the `ContentDefinition` row with a durable `ContentDefinitionCommandLedger` table (`CommandId` primary key → `ContentDefinitionId`), written in the same transaction as every create/update. See section 18's own decision record.
 
 ### Validation results
 
 | Command / check | Result | Evidence / notes |
 |---|---|---|
 | `dotnet build DotNet\Odyssey.Core.sln` | Pass | 0 warnings, 0 errors |
-| `dotnet test DotNet\Odyssey.Core.sln` | Pass | Full suite green including 12 new Domain + 17 new Persistence tests, no regression |
+| `dotnet test DotNet\Odyssey.Core.sln` | Pass | Full suite green (512/512) including 12 new Domain + 20 new Persistence tests, no regression |
 | `.\scripts\verify-format.ps1` | Pass | `FORMAT-001 PASS repository text formatting checks passed` |
 | `.\scripts\check-repository-policy.ps1` | Pass | `REPO-POLICY-001`–`005` PASS; `Repository policy check passed` |
 | `.\scripts\verify-test-structure.ps1` | Pass | `TC-ARCH-001 PASS valid ADR-001 graph passes`; exit code 0 |
@@ -342,6 +343,7 @@ dotnet test DotNet\Odyssey.Core.sln
 | AC-10 | Pass | `TC-CATALOG-008` plus `git diff --name-status` review (validation-results section). |
 | AC-11 | Pass | `SLICE-05_IMPLEMENTATION_BACKLOG.md` row 1 updated. |
 | AC-12 | Pass | `git status --porcelain` confirms no `ADR-001`–`027` file touched. |
+| AC-14 (amendment) | Pass | Idempotency is durable per-command via `ContentDefinitionCommandLedger`, not a mutable per-row `LastCommandId` column — `TC-CATALOG-010`/`011` prove an older command's replay is still recognized after a later command has touched the same row (both for create and for update, including no false stale-revision conflict); `TC-CATALOG-012` proves `CommandId` uniqueness is enforced at the database level via the ledger's own primary key. |
 | AC-13 | Pass | Validation-results table above. |
 
 ### Build and artifact evidence
@@ -366,7 +368,7 @@ dotnet test DotNet\Odyssey.Core.sln
 
 - Scope review: diff limited to the twelve files in section 5's Allowed paths; no `Inventory`/`ItemInstance`/`ItemStack`/Equipment/`ActiveEffect` file, no `ADR-001`–`027` file, no Unity file touched.
 - Architecture review: `Odyssey.Domain`/`Odyssey.Application`/`Odyssey.Persistence` boundaries followed exactly (`ADR-001`); `SqliteCharacterTemplateRepository`'s own structural precedent reused rather than inventing a new pattern.
-- Test review: 29 new tests (12 Domain + 17 Persistence), full suite re-run green, no regression.
+- Test review: 32 new tests (12 Domain + 20 Persistence), full suite re-run green, no regression.
 - Security/privacy review: no new trust boundary, no redaction surface, no permission-gated command in this foundation-only scope.
 - Documentation/version review: `ERROR_CODES.md`/test-catalog updated and cross-checked by `check-repository-policy.ps1`/`verify-test-structure.ps1`; no ADR or app/schema/protocol version changed.
 
@@ -382,7 +384,8 @@ dotnet test DotNet\Odyssey.Core.sln
 - 2026-09-03 — Decision: `ContentDefinition` does not participate in `DomainEvents`/the append-only journal — follows `CharacterTemplate`'s own established precedent for a non-event-sourced sibling aggregate, since no ADR or product document requires catalog definitions to have event-sourced history. Authority: `SqliteCharacterTemplateRepository`'s own explicit doc-comment reasoning, re-confirmed against `ADR-027`/`11_Content_Block_System` finding no contrary requirement.
 - 2026-09-03 — Decision: the `ContentDefinition` table is stored inside each campaign's own `campaign.db`, with no `CampaignId` column — logically Ruleset-scoped (no code path distinguishes one campaign's catalog from another's structurally) but physically per-campaign, since no global/cross-campaign Ruleset-store mechanism exists anywhere in this codebase yet. Recorded explicitly as a known limitation (section 17) rather than silently assumed; a future, separately-scoped decision would be needed for true cross-campaign sharing. Authority: this task's own explicit `grep`-verified finding that no such mechanism exists, applied honestly rather than papered over (mirrors `ADR-013`/`ADR-026`'s own "no X exists today" honesty pattern already established in this codebase).
 - 2026-09-03 — Decision: `UpdateDraftContentDefinition` is included as a bare, permission-free repository primitive (not a real authoring command) specifically to prove the Revision/optimistic-concurrency mechanism and Published-immutability guard at the foundation level, per this task's own explicit acceptance criteria 3/7. It takes no actor/permission parameter at all — `ODY-S05-102` will wrap real MainGM-gated business commands around it (or replace it) as needed. Authority: this task's own ТЗ §"In scope" instruction ("Tests proving: ... revision persists and changes only through this task's own minimal foundation operations, if any update operation is needed").
+- 2026-09-03 — **Amendment, post-initial-review — decision: replaced `LastCommandId` idempotency with a durable `ContentDefinitionCommandLedger` table.** Product-owner review found a real idempotency defect: `LastCommandId` was a single mutable column on the `ContentDefinition` row itself, overwritten by every later create/update on that row. Once a newer command had written to a row, replaying an *older* command's own `CommandId` stopped being recognized as a replay — `CreateDraftContentDefinition` would mint a genuine duplicate row for a resent create, and `UpdateDraftContentDefinition` would either re-apply an already-applied mutation or fail with a false `PersistenceContentDefinitionRevisionConflict`. Fixed by introducing `ContentDefinitionCommandLedger` (`CommandId` primary key → `ContentDefinitionId`), written in the same transaction as the create/update it accompanies; `TryFindByCommandId` now looks up this ledger first, for both operations, and returns the definition's own *current* state on a hit rather than ever re-running the original mutation. `LastCommandId` was removed entirely from the `ContentDefinition` table — no dual source of idempotency truth remains. Three new tests (`TC-CATALOG-010`–`012`) prove: a create-CommandId replay after a later update still resolves to the same single row; an update-CommandId replay after a later update returns the current (not the older) state with no stale-revision conflict; and the ledger's own `CommandId` column is the table's real SQLite primary key. Scope was not widened — no inventory/item/equipment/effect/runtime schema, no `ADR-027` architecture-section edit, no authoring-permission logic was added; this stays a pure persistence-correctness fix inside the same Foundation boundary. Authority: product-owner review finding, ТЗ "amendment к PR #105 / ODY-S05-101".
 
 ### Approved task changes
 
-- None yet.
+- 2026-09-03 — Amendment approved: replace `LastCommandId`-column idempotency with a durable `ContentDefinitionCommandLedger` table, per product-owner review. Scope, allowed paths, and acceptance criteria unchanged except for the addition of the idempotency-fix acceptance criterion (AC-14) and the corresponding three new tests (`TC-CATALOG-010`–`012`).
