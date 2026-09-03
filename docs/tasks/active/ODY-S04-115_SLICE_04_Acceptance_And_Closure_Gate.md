@@ -1,14 +1,14 @@
 # ODY-S04-115 — SLICE-04 Acceptance and Closure Gate
 
-**Status:** In Review
+**Status:** Done — product owner explicitly accepted SLICE-04 closure on 2026-09-03.
 **Roadmap stage / slice:** SLICE-04 (vertical slice implementation)
-**Owner:** Unassigned
+**Owner:** Codex (agent)
 **Requested by:** Product owner
 **Branch:** `feat/ody-s04-115-slice-04-acceptance-closure-gate`
-**Pull request:** [#99](https://github.com/odyssey-services/Odyssey_VTT/pull/99) (Draft)
+**Pull request:** Merged — [#99](https://github.com/odyssey-services/Odyssey_VTT/pull/99)
 **ExecPlan:** Not required — see section 14 (Brief plan)
 **Created:** 2026-09-03
-**Last updated:** 2026-09-03 UTC
+**Last updated:** 2026-09-03 (owner acceptance recorded) UTC
 
 ## 1. Goal
 
@@ -243,7 +243,7 @@ dotnet test DotNet/Odyssey.Core.sln
 - [x] Documentation is updated only where materially required.
 - [x] Codex/developer performed a self-review against this task and `AGENTS.md`.
 - [ ] Pull request explains changes, evidence, limitations, and follow-up work.
-- [ ] Product owner or authorized reviewer completes the required review; Codex does not merge into `main`. Formal `SLICE-04` acceptance is a separate, explicit product-owner action, to be given in conversation and recorded by a follow-up point-fix commit.
+- [x] Product owner or authorized reviewer completes the required review; Codex does not merge into `main`. Formal `SLICE-04` acceptance was given by the product owner in conversation ("Провел", 2026-09-03) after PR #99 was reviewed and merged.
 
 ## 17. Completion evidence
 
@@ -287,7 +287,7 @@ Full detail, per-criterion citations, and isolated re-runs of the specific tests
 
 ### Owner acceptance
 
-**Pending.** A separate, explicit product-owner action, to be recorded by a small point-fix commit after the product owner confirms acceptance in conversation, per the `ODY-S03-009`/`ODY-S02-015`/`ODY-S01-014` precedent.
+**Confirmed.** Product owner reviewed PR #99, merged it into `main` (commit `a204cc2`), and explicitly confirmed acceptance in conversation ("Провел") on 2026-09-03. `SLICE-04` and roadmap Milestone `M5`/`GATE-C — Character Playable` are closed.
 
 ### Known limitations
 
