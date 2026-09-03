@@ -168,6 +168,7 @@ docs/adr/ADR-001* through docs/adr/ADR-026*
 14. ADR states existing ActiveEffects never mass-migrate to new EffectDefinitions.
 15. ADR includes permissions baseline and non-goals requested by the task.
 16. Required validation commands pass or are recorded honestly.
+17. ADR explicitly fixes ContentDefinition archive/delete lifecycle for ItemDefinition, Weapon/Armor/Ammo typed definitions, AbilityDefinition, and EffectDefinition, reusing `11_Content_Block_System` lifecycle rules without implementing code/schema.
 
 ## 10. Tests and validation
 
@@ -289,6 +290,7 @@ None. This is a documentation-only ADR task; replacement evidence is repository 
 | AC-5 | Passed | ADR-027 section 9 names both SLICE-04 stubs. |
 | AC-6-15 | Passed | ADR-027 sections 4-13 cover the requested boundaries. |
 | AC-16 | Passed | Required validation commands passed locally. |
+| AC-17 | Passed | ADR-027 section 4.1 fixes ContentDefinition archive/delete lifecycle and states no code/schema is implemented. |
 
 ### Build and artifact evidence
 

@@ -75,6 +75,7 @@ No code, schema, or commands are implemented.
 - 2026-09-03 UTC - Validation passed: `.\scripts\verify-format.ps1` and `.\scripts\check-repository-policy.ps1`.
 - 2026-09-03 UTC - Scope review confirmed only ADR/task/plan/backlog docs are intended for commit; unrelated untracked `Claude outputs/` remains excluded.
 - 2026-09-03 UTC - Created Draft PR #103: https://github.com/odyssey-services/Odyssey_VTT/pull/103.
+- 2026-09-03 UTC - Amended ADR-027 before owner approval with explicit ContentDefinition archive/delete lifecycle rules reusing `11_Content_Block_System`.
 
 ## 7. Decisions
 

@@ -19,16 +19,17 @@ Odyssey VTT fixes the `SLICE-05` boundary between versioned content definitions 
 
 1. **Content Catalog vs runtime instances:** Content Catalog stores versioned `ContentDefinition` records only. `ItemDefinition`, typed item definitions (`WeaponDefinition`, `ArmorDefinition`, `AmmoDefinition`), `AbilityDefinition`, and `EffectDefinition` are catalog definitions. Runtime `Inventory`, `ItemInstance`, `ItemStack`, equipment state, `CharacterAbility`, and `ActiveEffect` are authoritative runtime state, not content definitions.
 2. **SLICE-05 catalog scope:** the catalog scope for this slice includes `ItemDefinition` plus Weapon/Armor/Ammo typed item definitions, `AbilityDefinition`, `EffectDefinition`, and references to `Resource`/`BodyPart` structural definitions where item mechanics require them. Concrete balanced MVP catalog entries are explicitly out of scope.
-3. **Item snapshots:** every `ItemInstance` stores a full mechanics snapshot copied from the exact published ItemDefinition version used to create or migrate it. Publishing a new ItemDefinition version never changes existing instances or stacks by itself.
-4. **Stacks:** `ItemStack` may use one shared mechanics snapshot only when every unit in the stack is mechanically identical: same definition/version snapshot, same stackable runtime state, and no per-unit durability, charge, ammo, effect, equipment, hidden modifier, or other state that can affect mechanics independently. Otherwise the items are represented as distinct `ItemInstance` records or split stacks.
-5. **Inventory aggregate boundary:** Inventory is a separate campaign aggregate root, not a section inside `Character`. Character keeps only derived/read references needed for Character projection; Inventory owns item/stack containment, transfer, equipment location, and inventory revision.
-6. **Equipment:** equipment is inventory-owned location state referencing equipment slots and/or body parts on the owning Character. One item or stack is in exactly one place: contained, equipped, scene-dropped, consumed/destroyed, or otherwise in one explicit lifecycle/location state. Equipping requires ownership/location validity and cannot duplicate the item into Character state.
-7. **Item-sourced abilities/effects:** equipping or using an item may create or remove `CharacterAbility` rows with existing `SourceKind=Item` and source item reference. Applying an item effect creates a future `ActiveEffect` aggregate whose source is the item/equipment/action and whose mechanics snapshot is copied at application time. Character, Inventory, and ItemInstance store references/projections only; they do not own authoritative ActiveEffect state.
-8. **SLICE-04 stubs:** this ADR explicitly unblocks the documented item/inventory dependency check stub in `RemoveBodyPart` and the inventory/item dependency checker extension point for `DeleteCharacterPermanently`.
-9. **ItemDefinition migration:** migration from one ItemDefinition version to another is MainGM-only, preview/confirm based, backup-backed, revision-guarded, and blocked on incompatibilities until the definition or migration rules are fixed. Successful migration updates matching `ItemInstance` and mechanically identical `ItemStack` snapshots atomically while preserving runtime state. After successful migration there is no rollback command; correction is a later definition version plus another confirmed migration.
-10. **ActiveEffect snapshot difference:** existing `ActiveEffect` aggregates never mass-migrate to a new `EffectDefinition`. They retain the mechanics snapshot captured at application until expiry, removal, compensation, or replacement. This intentionally differs from ItemDefinition migration.
-11. **Permissions baseline:** MainGM-only for ItemDefinition publish and mass migration. AssistantGM may publish only where existing Content permissions explicitly allow; AssistantGM may not run ItemDefinition mass migration in this ADR. Ordinary players cannot mutate authoritative inventory offline or submit trusted final item/equipment/damage state.
-12. This ADR does **not** implement product code, schema, DTOs, Unity UI, real item/equipment commands, full attack pipeline, full Content Editor UI, marketplace, arbitrary scripts, or concrete balanced catalog entries.
+3. **ContentDefinition archive/delete lifecycle:** unused Draft definitions may be physically deleted. Published or referenced definitions are archived, not physically deleted. Archived definitions remain loadable for existing `ItemInstance`, `ItemStack`, `ActiveEffect`, history, previews, and migrations. Physical deletion is allowed only when no catalog dependency and no runtime reference exists, reusing `11_Content_Block_System` lifecycle rules.
+4. **Item snapshots:** every `ItemInstance` stores a full mechanics snapshot copied from the exact published ItemDefinition version used to create or migrate it. Publishing a new ItemDefinition version never changes existing instances or stacks by itself.
+5. **Stacks:** `ItemStack` may use one shared mechanics snapshot only when every unit in the stack is mechanically identical: same definition/version snapshot, same stackable runtime state, and no per-unit durability, charge, ammo, effect, equipment, hidden modifier, or other state that can affect mechanics independently. Otherwise the items are represented as distinct `ItemInstance` records or split stacks.
+6. **Inventory aggregate boundary:** Inventory is a separate campaign aggregate root, not a section inside `Character`. Character keeps only derived/read references needed for Character projection; Inventory owns item/stack containment, transfer, equipment location, and inventory revision.
+7. **Equipment:** equipment is inventory-owned location state referencing equipment slots and/or body parts on the owning Character. One item or stack is in exactly one place: contained, equipped, scene-dropped, consumed/destroyed, or otherwise in one explicit lifecycle/location state. Equipping requires ownership/location validity and cannot duplicate the item into Character state.
+8. **Item-sourced abilities/effects:** equipping or using an item may create or remove `CharacterAbility` rows with existing `SourceKind=Item` and source item reference. Applying an item effect creates a future `ActiveEffect` aggregate whose source is the item/equipment/action and whose mechanics snapshot is copied at application time. Character, Inventory, and ItemInstance store references/projections only; they do not own authoritative ActiveEffect state.
+9. **SLICE-04 stubs:** this ADR explicitly unblocks the documented item/inventory dependency check stub in `RemoveBodyPart` and the inventory/item dependency checker extension point for `DeleteCharacterPermanently`.
+10. **ItemDefinition migration:** migration from one ItemDefinition version to another is MainGM-only, preview/confirm based, backup-backed, revision-guarded, and blocked on incompatibilities until the definition or migration rules are fixed. Successful migration updates matching `ItemInstance` and mechanically identical `ItemStack` snapshots atomically while preserving runtime state. After successful migration there is no rollback command; correction is a later definition version plus another confirmed migration.
+11. **ActiveEffect snapshot difference:** existing `ActiveEffect` aggregates never mass-migrate to a new `EffectDefinition`. They retain the mechanics snapshot captured at application until expiry, removal, compensation, or replacement. This intentionally differs from ItemDefinition migration.
+12. **Permissions baseline:** MainGM-only for ItemDefinition publish and mass migration. AssistantGM may publish only where existing Content permissions explicitly allow; AssistantGM may not run ItemDefinition mass migration in this ADR. Ordinary players cannot mutate authoritative inventory offline or submit trusted final item/equipment/damage state.
+13. This ADR does **not** implement product code, schema, DTOs, Unity UI, real item/equipment commands, full attack pipeline, full Content Editor UI, marketplace, arbitrary scripts, or concrete balanced catalog entries.
 
 This ADR is the normative authority for the `SLICE-05` content-catalog/item/equipment boundary once accepted. While this document is `Proposed`, implementation tasks must not treat it as accepted authority unless the product owner explicitly approves it or scopes a task to revise it.
 
@@ -103,6 +104,19 @@ Rules:
 5. ContentDependency records track definition-to-definition dependencies; runtime dependency checks additionally inspect ItemInstances, ItemStacks, Inventory, equipment, and ActiveEffects.
 
 This keeps `ADR-003`'s explicit-contract rule intact: catalog DTOs and runtime DTOs are separate, versioned contracts. Domain aggregates are not serialized directly.
+
+## 4.1 ContentDefinition archive and physical deletion lifecycle
+
+**Decision:** definition archive/delete behavior reuses `11_Content_Block_System` section 6 lifecycle rules. This ADR applies those rules explicitly to the SLICE-05 catalog definitions: `ItemDefinition`, `WeaponDefinition`, `ArmorDefinition`, `AmmoDefinition`, `AbilityDefinition`, and `EffectDefinition`.
+
+Rules:
+
+1. An unused Draft definition may be physically deleted.
+2. A Published definition, or any definition referenced by another catalog definition, runtime entity, event history, preview, report, or migration artifact, is archived rather than physically deleted.
+3. Archived definitions remain loadable for existing `ItemInstance` snapshots, shared `ItemStack` snapshots, `ActiveEffect` snapshots, history rendering, dependency previews, ItemDefinition migration preview/confirm, and compatibility/migration tools.
+4. Physical deletion of a definition is allowed only when both checks pass: no catalog dependency exists, and no runtime reference exists.
+5. Runtime references include at minimum `ItemInstance`, `ItemStack`, Inventory/equipment state, `CharacterAbility SourceKind=Item`, `ActiveEffect`, history/projection payloads that need the definition for rendering, saved previews, and migration reports.
+6. Archive/delete lifecycle rules in this section do not implement code, schema, migrations, commands, or UI; they are prerequisite architecture only.
 
 ---
 
@@ -343,16 +357,17 @@ Codex must:
 
 1. Keep Content Catalog definitions separate from runtime instances.
 2. Model Inventory as a separate aggregate root for SLICE-05.
-3. Keep one item or stack in exactly one place.
-4. Store full mechanics snapshots on `ItemInstance`; never make existing item mechanics depend on the latest ItemDefinition.
-5. Allow shared `ItemStack` snapshots only for mechanically identical stackable items.
-6. Use equipment as Inventory-owned location state referencing slots/body parts; do not duplicate equipped item authority into Character.
-7. Use existing `CharacterAbility SourceKind=Item` for item-granted abilities.
-8. Use future `ActiveEffect` aggregate roots for item-applied effects and never mass-migrate existing ActiveEffects to a new EffectDefinition.
-9. Close `RemoveBodyPart` and `DeleteCharacterPermanently` item/inventory dependency stubs through real dependency checkers when item/inventory implementation begins.
-10. Implement ItemDefinition migration only through MainGM preview/confirm with backup, revision guards, blocked incompatibilities, atomic snapshot update, and no post-success rollback command.
-11. Keep ordinary players from mutating authoritative inventory offline or submitting trusted final item/equipment/damage state.
-12. Avoid product code, schema, command implementation, attack pipeline, Content Editor UI, marketplace, arbitrary scripts, concrete catalog balancing, or Unity UI under this ADR task.
+3. Reuse Content Block System lifecycle rules: physically delete only unused Draft definitions; archive Published, referenced, or runtime-used definitions; keep archived definitions loadable for existing runtime state, history, previews, and migrations.
+4. Keep one item or stack in exactly one place.
+5. Store full mechanics snapshots on `ItemInstance`; never make existing item mechanics depend on the latest ItemDefinition.
+6. Allow shared `ItemStack` snapshots only for mechanically identical stackable items.
+7. Use equipment as Inventory-owned location state referencing slots/body parts; do not duplicate equipped item authority into Character.
+8. Use existing `CharacterAbility SourceKind=Item` for item-granted abilities.
+9. Use future `ActiveEffect` aggregate roots for item-applied effects and never mass-migrate existing ActiveEffects to a new EffectDefinition.
+10. Close `RemoveBodyPart` and `DeleteCharacterPermanently` item/inventory dependency stubs through real dependency checkers when item/inventory implementation begins.
+11. Implement ItemDefinition migration only through MainGM preview/confirm with backup, revision guards, blocked incompatibilities, atomic snapshot update, and no post-success rollback command.
+12. Keep ordinary players from mutating authoritative inventory offline or submitting trusted final item/equipment/damage state.
+13. Avoid product code, schema, command implementation, attack pipeline, Content Editor UI, marketplace, arbitrary scripts, concrete catalog balancing, or Unity UI under this ADR task.
 
 ---
 
@@ -361,16 +376,17 @@ Codex must:
 Implementation tasks using this ADR must prove, with tests where applicable:
 
 1. Publishing a new ItemDefinition version does not change existing `ItemInstance` or `ItemStack` snapshots.
-2. Confirmed ItemDefinition migration updates all matching item/stack snapshots atomically and preserves runtime state.
-3. A mechanically divergent unit cannot remain in a shared `ItemStack`.
-4. An item cannot be simultaneously equipped, contained, dropped, consumed, or destroyed.
-5. Equipping armor/gear references valid body parts and blocks `RemoveBodyPart` until resolved.
-6. `DeleteCharacterPermanently` rejects while inventory/equipment/item/effect dependencies remain.
-7. Item-granted abilities appear through `CharacterAbility SourceKind=Item` and disappear/suppress correctly when the item source is no longer valid, without removing permanent abilities.
-8. Item-applied effects create `ActiveEffect` snapshots and existing ActiveEffects do not change after publishing a new EffectDefinition.
-9. Non-MainGM mass migration attempts are rejected with no state change.
-10. Offline/player-supplied inventory or final damage state is never trusted as authoritative.
-11. Core item/inventory/equipment logic compiles without Unity dependencies in the pure .NET path.
+2. An unused Draft definition can be physically deleted, while Published, catalog-referenced, or runtime-referenced definitions are archived and remain loadable for existing runtime state/history/previews/migrations.
+3. Confirmed ItemDefinition migration updates all matching item/stack snapshots atomically and preserves runtime state.
+4. A mechanically divergent unit cannot remain in a shared `ItemStack`.
+5. An item cannot be simultaneously equipped, contained, dropped, consumed, or destroyed.
+6. Equipping armor/gear references valid body parts and blocks `RemoveBodyPart` until resolved.
+7. `DeleteCharacterPermanently` rejects while inventory/equipment/item/effect dependencies remain.
+8. Item-granted abilities appear through `CharacterAbility SourceKind=Item` and disappear/suppress correctly when the item source is no longer valid, without removing permanent abilities.
+9. Item-applied effects create `ActiveEffect` snapshots and existing ActiveEffects do not change after publishing a new EffectDefinition.
+10. Non-MainGM mass migration attempts are rejected with no state change.
+11. Offline/player-supplied inventory or final damage state is never trusted as authoritative.
+12. Core item/inventory/equipment logic compiles without Unity dependencies in the pure .NET path.
 
 ---
 
@@ -421,7 +437,7 @@ Deferred but not open here:
 
 ADR реализует и уточняет:
 
-- `Documentation/11_Content_Block_System_Odyssey_VTT_v0.1.md` sections 5, 6, 21, 22, 34, and 35: mechanical definitions, structural definitions, published version immutability, EffectDefinition/ApplyEffectBlock, effect duration including `WhileItemEquipped`, Content permissions, and Content commands.
+- `Documentation/11_Content_Block_System_Odyssey_VTT_v0.1.md` sections 5, 6, 21, 22, 34, and 35: mechanical definitions, structural definitions, Draft/Published/Archived lifecycle, deletion/archive rules, published version immutability, EffectDefinition/ApplyEffectBlock, effect duration including `WhileItemEquipped`, Content permissions, and Content commands.
 - `Documentation/17_Roadmap_Odyssey_VTT_v0.11.md` section 14: Inventory, `ItemStack`, `ItemInstance`, equipment, ammo/weapon/armor state, definitions/snapshots, ActiveEffect snapshot, no implicit active-effect rewrite, full attack prerequisite; and section 16.9 for ItemDefinition migration workflow.
 - `Documentation/03_Domain_Model_Odyssey_VTT_v0.25.md` sections 16-18: ContentDefinition, Inventory, ItemStack, ItemInstance, ItemDefinition migration preview/confirm, weapon/armor state, InventoryTransaction, ActiveEffect, and ActiveEffect snapshot/migration difference.
 - `docs/tasks/SLICE-05_BACKLOG.md`, creating the first prerequisite ADR slot for `SLICE-05`.
@@ -457,6 +473,7 @@ This ADR is `Proposed`. It must not be marked `Accepted` until explicit product-
 If accepted:
 
 - `SLICE-05` implementation tasks must treat Content Catalog as definition-only and runtime item/equipment/effect state as separate authoritative campaign state;
+- unused Draft definitions may be physically deleted, while Published, catalog-referenced, or runtime-referenced definitions must be archived and remain loadable for existing runtime state, history, previews, and migrations;
 - Inventory must be implemented as a separate aggregate root;
 - ItemInstance/ItemStack snapshot and migration rules from sections 6 and 10 become mandatory;
 - ActiveEffect snapshot non-migration from section 11 becomes mandatory;
