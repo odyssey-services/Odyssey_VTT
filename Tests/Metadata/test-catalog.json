@@ -3335,6 +3335,14 @@
                           "runner":  "dotnet test",
                           "path":  "DotNet/Tests/Odyssey.Tests.Persistence/CharacterRulesetMigrationTests.cs",
                           "check":  "A successful Character Ruleset migration never touches the campaign's own pinned RulesetVersion/DatabaseSchemaVersion -- confirms Character Ruleset migration is never routed through ADR-013's schema migration runner"
+                      },
+                      {
+                          "testCaseId":  "TC-CHAR-165",
+                          "taskId":  "ODY-S04-113a",
+                          "authority":  "ADR-012 section 6; this task's own gap-fix",
+                          "runner":  "dotnet test",
+                          "path":  "DotNet/Tests/Odyssey.Tests.Persistence/CharacterRulesetMigrationTests.cs",
+                          "check":  "RevertCharacterRulesetMigration rejects a migrationCommandId belonging to a different Character's own character_ruleset_migrated event (PersistenceCharacterRulesetMigrationNotFound, indistinguishable from \"no such migration\"), leaving both Characters' RulesetVersion/CharacterRevision untouched; the targeted Character's own legitimate revert using its own CommandId still succeeds unaffected"
                       }
                   ]
 }

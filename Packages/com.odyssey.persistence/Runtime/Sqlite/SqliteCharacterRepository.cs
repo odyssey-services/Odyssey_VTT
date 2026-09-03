@@ -1562,7 +1562,7 @@ namespace Odyssey.Persistence.Sqlite
                             return Result<PipelineWrite<CharacterRecord>>.Failure(PersistenceFailures.CharacterRevisionConflict(correlationId));
                         }
 
-                        (long eventSequence, string sourceRulesetVersion)? migration = FindRulesetMigrationByCommandId(connection, transaction, migrationCommandId);
+                        (long eventSequence, string sourceRulesetVersion)? migration = FindRulesetMigrationByCommandId(connection, transaction, migrationCommandId, characterId);
                         if (migration == null)
                         {
                             return Result<PipelineWrite<CharacterRecord>>.Failure(PersistenceFailures.CharacterRulesetMigrationNotFound(correlationId));
@@ -1616,7 +1616,19 @@ namespace Odyssey.Persistence.Sqlite
             }
         }
 
-        private static (long eventSequence, string sourceRulesetVersion)? FindRulesetMigrationByCommandId(SqliteConnection connection, SqliteTransaction transaction, CommandId commandId)
+        /// <summary>
+        /// ODY-S04-113a: <c>DomainEvents</c> has no dedicated <c>AggregateId</c>
+        /// column (`ADR-012` section 5's shared, aggregate-agnostic table
+        /// shape) -- a <c>CommandId</c> match alone does not prove the found
+        /// event belongs to <paramref name="characterId"/>. Mirrors
+        /// <c>GetCharacterHistory</c>'s own established pattern of comparing
+        /// the payload's own <c>characterId</c> field directly. A mismatch
+        /// returns <c>null</c> -- the exact same result as "no such
+        /// CommandId at all" -- so <c>RevertCharacterRulesetMigration</c>
+        /// cannot be used to probe whether a given <c>CommandId</c> belongs
+        /// to a different Character.
+        /// </summary>
+        private static (long eventSequence, string sourceRulesetVersion)? FindRulesetMigrationByCommandId(SqliteConnection connection, SqliteTransaction transaction, CommandId commandId, CharacterId characterId)
         {
             using var select = connection.CreateCommand();
             select.Transaction = transaction;
@@ -1630,6 +1642,12 @@ namespace Odyssey.Persistence.Sqlite
 
             long eventSequence = reader.GetInt64(0);
             var payload = (JObject)ParseJsonPreservingStrings(reader.GetString(1));
+            string? payloadCharacterId = (string?)payload["characterId"];
+            if (!string.Equals(payloadCharacterId, characterId.ToString(), StringComparison.Ordinal))
+            {
+                return null;
+            }
+
             string sourceRulesetVersion = (string)payload["sourceRulesetVersion"]!;
             return (eventSequence, sourceRulesetVersion);
         }

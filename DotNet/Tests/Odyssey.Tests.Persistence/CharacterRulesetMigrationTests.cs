@@ -279,6 +279,47 @@ namespace Odyssey.Tests.Persistence
         }
 
         [Test]
+        public void Revert_WithAnotherCharactersMigrationCommandId_IsRejected_NoStateChangeToEither()
+        {
+            // ODY-S04-113a: DomainEvents carries no dedicated AggregateId
+            // column -- a CommandId match alone does not prove the found
+            // character_ruleset_migrated event belongs to the Character
+            // being reverted. Character A must not be able to revert using
+            // Character B's own migration CommandId.
+            RulesetDefinitionCatalog catalog = FullyCompatibleCatalog();
+
+            CharacterRecord characterA = CreateCharacterWithAttribute();
+            Result<CharacterRulesetMigrationPlan> previewA = _characterRepository.PreviewCharacterRulesetMigration(_campaign, characterA.CharacterId, "ruleset.core", "1.1.0", catalog, TestCorrelationId);
+            Result<CharacterRecord> appliedA = _characterRepository.ApplyCharacterRulesetMigration(_campaign, characterA.CharacterId, previewA.Value, catalog, NewUserId(), actorIsMainGm: true, NewCommandId(), TestCorrelationId);
+            Assert.That(appliedA.IsSuccess, Is.True);
+
+            CharacterRecord characterB = CreateCharacterWithAttribute();
+            Result<CharacterRulesetMigrationPlan> previewB = _characterRepository.PreviewCharacterRulesetMigration(_campaign, characterB.CharacterId, "ruleset.core", "1.1.0", catalog, TestCorrelationId);
+            CommandId migrationCommandIdB = NewCommandId();
+            Result<CharacterRecord> appliedB = _characterRepository.ApplyCharacterRulesetMigration(_campaign, characterB.CharacterId, previewB.Value, catalog, NewUserId(), actorIsMainGm: true, migrationCommandIdB, TestCorrelationId);
+            Assert.That(appliedB.IsSuccess, Is.True);
+
+            // Character A attempts to revert using Character B's own migration CommandId.
+            Result<CharacterRecord> crossRevert = _characterRepository.RevertCharacterRulesetMigration(_campaign, characterA.CharacterId, migrationCommandIdB, "wrong migration id", NewUserId(), actorIsMainGm: true, appliedA.Value.Revisions.CharacterRevision, NewCommandId(), TestCorrelationId);
+
+            Assert.That(crossRevert.IsFailure, Is.True);
+            Assert.That(crossRevert.Error.Code, Is.EqualTo(ErrorCodes.PersistenceCharacterRulesetMigrationNotFound), "a cross-Character migrationCommandId must be indistinguishable from \"no such migration\" -- never a more specific error that would leak another Character's command history");
+
+            Result<CharacterRecord> reReadA = _characterRepository.GetCharacter(_campaign, characterA.CharacterId, TestCorrelationId);
+            Assert.That(reReadA.Value.RulesetVersion, Is.EqualTo(appliedA.Value.RulesetVersion), "Character A's own RulesetVersion must be untouched by the rejected cross-Character revert attempt");
+            Assert.That(reReadA.Value.Revisions.CharacterRevision, Is.EqualTo(appliedA.Value.Revisions.CharacterRevision));
+
+            Result<CharacterRecord> reReadB = _characterRepository.GetCharacter(_campaign, characterB.CharacterId, TestCorrelationId);
+            Assert.That(reReadB.Value.RulesetVersion, Is.EqualTo(appliedB.Value.RulesetVersion), "Character B's own RulesetVersion must be untouched -- it was never the target of this call");
+            Assert.That(reReadB.Value.Revisions.CharacterRevision, Is.EqualTo(appliedB.Value.Revisions.CharacterRevision));
+
+            // Character B's own real revert, using its own migration CommandId, must still succeed unaffected (no regression from the new check).
+            Result<CharacterRecord> revertB = _characterRepository.RevertCharacterRulesetMigration(_campaign, characterB.CharacterId, migrationCommandIdB, "legitimate revert", NewUserId(), actorIsMainGm: true, reReadB.Value.Revisions.CharacterRevision, NewCommandId(), TestCorrelationId);
+            Assert.That(revertB.IsSuccess, Is.True);
+            Assert.That(revertB.Value.RulesetVersion, Is.EqualTo(characterB.RulesetVersion));
+        }
+
+        [Test]
         public void RulesetMigration_NeverRoutesThroughSchemaMigrationRunner()
         {
             // ADR-013 section 9 / this task's own required invariant --
