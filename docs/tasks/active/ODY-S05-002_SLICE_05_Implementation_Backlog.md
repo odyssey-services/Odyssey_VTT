@@ -5,7 +5,7 @@
 **Owner:** Codex (agent)
 **Requested by:** Product owner
 **Branch:** `feat/ody-s05-002-slice-05-implementation-backlog`
-**Pull request:** To be opened
+**Pull request:** https://github.com/odyssey-services/Odyssey_VTT/pull/104
 **ExecPlan:** Not required (Brief plan)
 **Created:** 2026-09-03
 **Last updated:** 2026-09-03 UTC
