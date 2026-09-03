@@ -707,6 +707,42 @@ namespace Odyssey.Application.Persistence
             RetryDirective.DoNotRetry,
             correlationId);
 
+        /// <summary>ODY-S05-101: `ContentDefinition` lookup failure, mirroring <see cref="CharacterTemplateNotFound"/>'s exact convention for a sibling aggregate.</summary>
+        public static Error ContentDefinitionNotFound(CorrelationId correlationId) => Error.Create(
+            ErrorCodes.PersistenceContentDefinitionNotFound,
+            ErrorCategory.NotFound,
+            SafeReasonCode.TargetUnavailable,
+            UserMessageKey.Parse("errors.persistence.content_definition_not_found"),
+            RetryDirective.DoNotRetry,
+            correlationId);
+
+        /// <summary>ODY-S05-101: `ContentDefinition` file or SQLite I/O failure, mirroring <see cref="CharacterTemplateIoFailed"/>'s exact convention.</summary>
+        public static Error ContentDefinitionIoFailed(CorrelationId correlationId) => Error.Create(
+            ErrorCodes.PersistenceContentDefinitionIoFailed,
+            ErrorCategory.PermanentInfrastructure,
+            SafeReasonCode.UnexpectedError,
+            UserMessageKey.Parse("errors.persistence.content_definition_io_failed"),
+            RetryDirective.ManualRecoveryRequired,
+            correlationId);
+
+        /// <summary>ODY-S05-101: `11_Content_Block_System` section 6.2's `Revision` optimistic-concurrency guard for `UpdateDraftContentDefinition`, mirroring <see cref="CharacterTemplateRevisionConflict"/>'s exact convention.</summary>
+        public static Error ContentDefinitionRevisionConflict(CorrelationId correlationId) => Error.Create(
+            ErrorCodes.PersistenceContentDefinitionRevisionConflict,
+            ErrorCategory.Conflict,
+            SafeReasonCode.StateChanged,
+            UserMessageKey.Parse("errors.persistence.content_definition_revision_conflict"),
+            RetryDirective.DoNotRetry,
+            correlationId);
+
+        /// <summary>ODY-S05-101: `ADR-027` section 4.1's Published-immutability rule, enforced at the foundation level -- `UpdateDraftContentDefinition` refuses to touch a definition whose `Status` is not `Draft`. The real publish/archive transition commands are `ODY-S05-103`'s own job; this only guards the foundation's own bare update primitive.</summary>
+        public static Error ContentDefinitionNotDraft(CorrelationId correlationId) => Error.Create(
+            ErrorCodes.PersistenceContentDefinitionNotDraft,
+            ErrorCategory.Conflict,
+            SafeReasonCode.ActionNotAllowed,
+            UserMessageKey.Parse("errors.persistence.content_definition_not_draft"),
+            RetryDirective.DoNotRetry,
+            correlationId);
+
         // Used only by the codec's Read path (CampaignManifest.cs), which does not
         // receive a caller CorrelationId; matches the existing SerializationFailures
         // placeholder-correlation convention for codec-level structural failures.

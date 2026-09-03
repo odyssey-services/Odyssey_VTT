@@ -3399,6 +3399,102 @@
                           "runner":  "dotnet test",
                           "path":  "DotNet/Tests/Odyssey.Tests.Persistence/CharacterSkillPurchaseCriticalEvidenceTests.cs",
                           "check":  "GetCharacterHistory succeeds (no IntegrityCheckFailed) and surfaces character_advancement_recommendation_resolved (the dismiss/release branch of ResolveAdvancementRecommendation) with a non-null DisplayNameSnapshot, distinct from the approve/spend branch's own character_skill_level_purchased (TC-CHAR-167)"
+                      },
+                      {
+                          "testCaseId":  "TC-CATALOG-001",
+                          "taskId":  "ODY-S05-101",
+                          "authority":  "ADR-027 section 4; 11_Content_Block_System section 5.3/6.1",
+                          "runner":  "dotnet test",
+                          "path":  "DotNet/Tests/Odyssey.Tests.Persistence/SqliteContentCatalogRepositoryTests.cs",
+                          "check":  "CreateDraftContentDefinition stores a new ContentDefinition as Status=Draft, Version=0 (never published), Revision=1, Origin=RulesetPackage (base/Ruleset catalog only for this MVP)"
+                      },
+                      {
+                          "testCaseId":  "TC-CATALOG-002",
+                          "taskId":  "ODY-S05-101",
+                          "authority":  "ADR-027 section 4",
+                          "runner":  "dotnet test",
+                          "path":  "DotNet/Tests/Odyssey.Tests.Persistence/SqliteContentCatalogRepositoryTests.cs",
+                          "check":  "GetContentDefinition round-trips an identical record, including against a brand-new SqliteContentCatalogRepository instance re-reading the same on-disk campaign.db; GetContentDefinition on an unknown ContentDefinitionId returns PersistenceContentDefinitionNotFound"
+                      },
+                      {
+                          "testCaseId":  "TC-CATALOG-003",
+                          "taskId":  "ODY-S05-101",
+                          "authority":  "ADR-002 section 6 (command idempotency)",
+                          "runner":  "dotnet test",
+                          "path":  "DotNet/Tests/Odyssey.Tests.Persistence/SqliteContentCatalogRepositoryTests.cs",
+                          "check":  "A duplicate CommandId for CreateDraftContentDefinition does not create a second ContentDefinition row -- exactly one row exists after replay"
+                      },
+                      {
+                          "testCaseId":  "TC-CATALOG-004",
+                          "taskId":  "ODY-S05-101",
+                          "authority":  "ADR-027 section 4",
+                          "runner":  "dotnet test",
+                          "path":  "DotNet/Tests/Odyssey.Tests.Persistence/SqliteContentCatalogRepositoryTests.cs",
+                          "check":  "ListContentDefinitions with no status filter returns every definition; with a status filter it returns only definitions currently at that status"
+                      },
+                      {
+                          "testCaseId":  "TC-CATALOG-005",
+                          "taskId":  "ODY-S05-101",
+                          "authority":  "11_Content_Block_System section 6.2 (Revision optimistic concurrency)",
+                          "runner":  "dotnet test",
+                          "path":  "DotNet/Tests/Odyssey.Tests.Persistence/SqliteContentCatalogRepositoryTests.cs",
+                          "check":  "UpdateDraftContentDefinition succeeds and increments Revision by exactly 1; a stale expectedRevision is rejected with PersistenceContentDefinitionRevisionConflict and no state change; a duplicate CommandId does not increment Revision twice; UpdateDraftContentDefinition on an unknown ContentDefinitionId returns PersistenceContentDefinitionNotFound"
+                      },
+                      {
+                          "testCaseId":  "TC-CATALOG-006",
+                          "taskId":  "ODY-S05-101",
+                          "authority":  "ADR-027 section 4.1 (Published immutability)",
+                          "runner":  "dotnet test",
+                          "path":  "DotNet/Tests/Odyssey.Tests.Persistence/SqliteContentCatalogRepositoryTests.cs",
+                          "check":  "UpdateDraftContentDefinition rejects a Published or Archived definition with PersistenceContentDefinitionNotDraft and no state change, enforcing Published-immutability at the foundation level even though the real publish/archive workflow (ODY-S05-103) does not exist yet"
+                      },
+                      {
+                          "testCaseId":  "TC-CATALOG-007",
+                          "taskId":  "ODY-S05-101",
+                          "authority":  "ADR-027 section 4 rule 2 (exact-version reference shape)",
+                          "runner":  "dotnet test",
+                          "path":  "DotNet/Tests/Odyssey.Tests.Persistence/SqliteContentCatalogRepositoryTests.cs",
+                          "check":  "A ContentDefinitionRef (exact DefinitionId + Version, never a 'latest' pointer) stored in a definition's own DependencyRefs round-trips correctly through storage and a fresh repository instance; RulesetCompatibility/Tags string lists also round-trip"
+                      },
+                      {
+                          "testCaseId":  "TC-CATALOG-008",
+                          "taskId":  "ODY-S05-101",
+                          "authority":  "ADR-027 section 4 (catalog/runtime boundary)",
+                          "runner":  "dotnet test",
+                          "path":  "DotNet/Tests/Odyssey.Tests.Persistence/SqliteContentCatalogRepositoryTests.cs",
+                          "check":  "The real, physical ContentDefinition table schema has no column referencing Inventory/ItemInstance/ItemStack/Equipment/ActiveEffect, and the campaign database as a whole has no table for any of them -- Content Catalog Foundation stores definitions only, never runtime item/equipment/effect state"
+                      },
+                      {
+                          "testCaseId":  "TC-CATALOG-009",
+                          "taskId":  "ODY-S05-101",
+                          "authority":  "ADR-027 section 4 rule 2 (no LatestCompatible runtime behavior)",
+                          "runner":  "dotnet test",
+                          "path":  "DotNet/Tests/Odyssey.Tests.Domain/Content/ContentDefinitionRefTests.cs",
+                          "check":  "ContentDefinitionId/ContentDefinitionRef round-trip through ToString/Parse; ContentDefinitionRef rejects version 0 and an invalid DefinitionId at construction; two references to the same DefinitionId with different Version values are not equal; TryParse rejects malformed input"
+                      },
+                      {
+                          "testCaseId":  "TC-CATALOG-010",
+                          "taskId":  "ODY-S05-101",
+                          "authority":  "ADR-002 section 6 (command idempotency)",
+                          "runner":  "dotnet test",
+                          "path":  "DotNet/Tests/Odyssey.Tests.Persistence/SqliteContentCatalogRepositoryTests.cs",
+                          "check":  "Amendment (idempotency fix): replaying a create CommandId after a later, unrelated update has already touched the same row does not create a second ContentDefinition -- the durable ContentDefinitionCommandLedger, not a mutable LastCommandId column overwritten by the later update, is the sole source of replay truth"
+                      },
+                      {
+                          "testCaseId":  "TC-CATALOG-011",
+                          "taskId":  "ODY-S05-101",
+                          "authority":  "ADR-002 section 6 (command idempotency); 11_Content_Block_System section 6.2 (Revision)",
+                          "runner":  "dotnet test",
+                          "path":  "DotNet/Tests/Odyssey.Tests.Persistence/SqliteContentCatalogRepositoryTests.cs",
+                          "check":  "Amendment (idempotency fix): replaying an older update's own CommandId, now stale relative to the row's current Revision because a later update has already applied, returns the definition's own current state (not the older mutation re-applied) and does not fail with PersistenceContentDefinitionRevisionConflict"
+                      },
+                      {
+                          "testCaseId":  "TC-CATALOG-012",
+                          "taskId":  "ODY-S05-101",
+                          "authority":  "ADR-002 section 6 (command idempotency)",
+                          "runner":  "dotnet test",
+                          "path":  "DotNet/Tests/Odyssey.Tests.Persistence/SqliteContentCatalogRepositoryTests.cs",
+                          "check":  "Amendment (idempotency fix): ContentDefinitionCommandLedger.CommandId is the table's own real SQLite primary key, guaranteeing CommandId uniqueness at the database level, confirmed by direct PRAGMA table_info inspection"
                       }
                   ]
 }
