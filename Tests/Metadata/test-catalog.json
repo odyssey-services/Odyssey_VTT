@@ -3583,6 +3583,118 @@
                           "runner":  "dotnet test",
                           "path":  "DotNet/Tests/Odyssey.Tests.Persistence/Content/ContentCatalogAuthoringServiceTests.cs",
                           "check":  "Direct reflection over every type in the Odyssey.Application.Content namespace confirms none references Inventory/ItemInstance/ItemStack/Equipment/ActiveEffect -- the GM Catalog Authoring MVP introduces no runtime item/equipment/effect implementation"
+                      },
+                      {
+                          "testCaseId":  "TC-CATALOG-024",
+                          "taskId":  "ODY-S05-105",
+                          "authority":  "ADR-027 section 4 (catalog/runtime boundary); ODY-S05-105 AC-1/AC-3",
+                          "runner":  "dotnet test",
+                          "path":  "DotNet/Tests/Odyssey.Tests.Unit/Content/TypedDefinitionCodecTests.cs",
+                          "check":  "ItemDefinition (category, stackability, weight, durability, charges, built-in ability/effect refs) round-trips through TypedDefinitionCodec.EncodeItem/DecodeItem via PropertiesJson with no field loss"
+                      },
+                      {
+                          "testCaseId":  "TC-CATALOG-025",
+                          "taskId":  "ODY-S05-105",
+                          "authority":  "ODY-S05-105 AC-4 (WeaponDefinition minimum field set)",
+                          "runner":  "dotnet test",
+                          "path":  "DotNet/Tests/Odyssey.Tests.Unit/Content/TypedDefinitionCodecTests.cs",
+                          "check":  "WeaponDefinition (damage expression, range, attack mode, action cost, AmmoRequirement.None) round-trips through TypedDefinitionCodec.EncodeWeapon/DecodeWeapon, including its embedded ItemDefinition"
+                      },
+                      {
+                          "testCaseId":  "TC-CATALOG-026",
+                          "taskId":  "ODY-S05-105",
+                          "authority":  "ODY-S05-105 AC-4 (ammo compatibility reference shape)",
+                          "runner":  "dotnet test",
+                          "path":  "DotNet/Tests/Odyssey.Tests.Unit/Content/TypedDefinitionCodecTests.cs",
+                          "check":  "WeaponDefinition with AmmoRequirement.Required round-trips its CompatibleAmmoKeys tag list unchanged"
+                      },
+                      {
+                          "testCaseId":  "TC-CATALOG-027",
+                          "taskId":  "ODY-S05-105",
+                          "authority":  "ODY-S05-105 AC-5 (ArmorDefinition minimum field set)",
+                          "runner":  "dotnet test",
+                          "path":  "DotNet/Tests/Odyssey.Tests.Unit/Content/TypedDefinitionCodecTests.cs",
+                          "check":  "ArmorDefinition (equipment slot key, covered BodyPartId references, protection, embedded ItemDefinition durability) round-trips through TypedDefinitionCodec.EncodeArmor/DecodeArmor"
+                      },
+                      {
+                          "testCaseId":  "TC-CATALOG-028",
+                          "taskId":  "ODY-S05-105",
+                          "authority":  "ODY-S05-105 AC-6 (AmmoDefinition minimum field set)",
+                          "runner":  "dotnet test",
+                          "path":  "DotNet/Tests/Odyssey.Tests.Unit/Content/TypedDefinitionCodecTests.cs",
+                          "check":  "AmmoDefinition (compatibility keys, optional damage contribution, effect contribution ContentDefinitionRefs) round-trips through TypedDefinitionCodec.EncodeAmmo/DecodeAmmo"
+                      },
+                      {
+                          "testCaseId":  "TC-CATALOG-029",
+                          "taskId":  "ODY-S05-105",
+                          "authority":  "ODY-S05-105 AC-7 (AbilityDefinition minimum field set); 11_Content_Block_System section 7 (AbilityEntryPointType)",
+                          "runner":  "dotnet test",
+                          "path":  "DotNet/Tests/Odyssey.Tests.Unit/Content/TypedDefinitionCodecTests.cs",
+                          "check":  "AbilityDefinition (entry point type, trigger, action cost, ResourceDefinitionId-based resource costs, ContentTargetRule, mechanics payload ref) round-trips through TypedDefinitionCodec.EncodeAbility/DecodeAbility"
+                      },
+                      {
+                          "testCaseId":  "TC-CATALOG-030",
+                          "taskId":  "ODY-S05-105",
+                          "authority":  "ODY-S05-105 AC-8 (EffectDefinition minimum field set); 11_Content_Block_System section 21.1/22 (stack policy, duration)",
+                          "runner":  "dotnet test",
+                          "path":  "DotNet/Tests/Odyssey.Tests.Unit/Content/TypedDefinitionCodecTests.cs",
+                          "check":  "EffectDefinition with EffectDurationType.ForRounds (target rule, duration value, RefreshDuration stack policy, mechanics payload ref) round-trips through TypedDefinitionCodec.EncodeEffect/DecodeEffect"
+                      },
+                      {
+                          "testCaseId":  "TC-CATALOG-031",
+                          "taskId":  "ODY-S05-105",
+                          "authority":  "11_Content_Block_System section 22 (Instant duration carries no duration value)",
+                          "runner":  "dotnet test",
+                          "path":  "DotNet/Tests/Odyssey.Tests.Unit/Content/TypedDefinitionCodecTests.cs",
+                          "check":  "EffectDefinition with EffectDurationType.Instant round-trips with a null DurationValue and a null MechanicsPayloadRef preserved as null, not coerced to a default"
+                      },
+                      {
+                          "testCaseId":  "TC-CATALOG-032",
+                          "taskId":  "ODY-S05-105",
+                          "authority":  "ODY-S05-105 minimum test list item 7 (wrong ContentDefinitionType cannot be decoded); ErrorCodes.ContentCatalogTypedDefinitionWrongType",
+                          "runner":  "dotnet test",
+                          "path":  "DotNet/Tests/Odyssey.Tests.Unit/Content/TypedDefinitionCodecTests.cs",
+                          "check":  "TypedDefinitionCodec.DecodeWeapon against ContentDefinitionType.Ability is rejected with ContentCatalogTypedDefinitionWrongType without ever parsing the stored JSON payload"
+                      },
+                      {
+                          "testCaseId":  "TC-CATALOG-033",
+                          "taskId":  "ODY-S05-105",
+                          "authority":  "ODY-S05-105 minimum test list item 7 (wrong ContentDefinitionType cannot be decoded)",
+                          "runner":  "dotnet test",
+                          "path":  "DotNet/Tests/Odyssey.Tests.Unit/Content/TypedDefinitionCodecTests.cs",
+                          "check":  "TypedDefinitionCodec.DecodeAbility against ContentDefinitionType.Effect is rejected with ContentCatalogTypedDefinitionWrongType"
+                      },
+                      {
+                          "testCaseId":  "TC-CATALOG-034",
+                          "taskId":  "ODY-S05-105",
+                          "authority":  "ODY-S05-105 minimum test list item 8 (malformed typed JSON returns safe failure); ErrorCodes.ContentCatalogTypedDefinitionMalformedPayload",
+                          "runner":  "dotnet test",
+                          "path":  "DotNet/Tests/Odyssey.Tests.Unit/Content/TypedDefinitionCodecTests.cs",
+                          "check":  "TypedDefinitionCodec.DecodeItem against invalid JSON, null, an empty object, and an unrecognized enum value each return ContentCatalogTypedDefinitionMalformedPayload, never a raw exception"
+                      },
+                      {
+                          "testCaseId":  "TC-CATALOG-035",
+                          "taskId":  "ODY-S05-105",
+                          "authority":  "ODY-S05-105 minimum test list item 8 (malformed typed JSON returns safe failure)",
+                          "runner":  "dotnet test",
+                          "path":  "DotNet/Tests/Odyssey.Tests.Unit/Content/TypedDefinitionCodecTests.cs",
+                          "check":  "TypedDefinitionCodec.DecodeWeapon against a syntactically valid ItemDefinition-only payload missing every Weapon-specific field returns ContentCatalogTypedDefinitionMalformedPayload"
+                      },
+                      {
+                          "testCaseId":  "TC-CATALOG-036",
+                          "taskId":  "ODY-S05-105",
+                          "authority":  "ADR-027 section 4 rule 2 (no \"latest\" references); ODY-S05-105 minimum test list item 9",
+                          "runner":  "dotnet test",
+                          "path":  "DotNet/Tests/Odyssey.Tests.Unit/Content/TypedDefinitionCodecTests.cs",
+                          "check":  "A ContentDefinitionRef embedded inside a typed definition's PropertiesJson round-trips pinned to its exact original Version, distinguishable from a different version of the same ContentDefinitionId, never resolving to \"latest\""
+                      },
+                      {
+                          "testCaseId":  "TC-CATALOG-037",
+                          "taskId":  "ODY-S05-105",
+                          "authority":  "ADR-027 section 4 (catalog/runtime boundary); ODY-S05-105 minimum test list item 10",
+                          "runner":  "dotnet test",
+                          "path":  "DotNet/Tests/Odyssey.Tests.Unit/Content/TypedDefinitionCodecTests.cs",
+                          "check":  "Direct reflection over every type in the Odyssey.Domain.Content and Odyssey.Application.Content namespaces confirms none references Inventory/ItemInstance/ItemStack/Equipment/ActiveEffect -- ODY-S05-105 introduces no runtime item/inventory/equipment/effect implementation"
                       }
                   ]
 }
