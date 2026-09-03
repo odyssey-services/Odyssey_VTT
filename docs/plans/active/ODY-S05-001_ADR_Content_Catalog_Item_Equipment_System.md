@@ -3,7 +3,7 @@
 **Status:** Completed
 **Owner:** Codex (agent)
 **Branch:** `codex/ody-s05-001-adr-027-content-catalog`
-**Pull request:** Not opened
+**Pull request:** https://github.com/odyssey-services/Odyssey_VTT/pull/103
 **Last updated:** 2026-09-03 UTC
 
 ## 1. Purpose and user-visible outcome
@@ -64,7 +64,7 @@ No code, schema, or commands are implemented.
 - [x] Run `.\scripts\verify-format.ps1`.
 - [x] Run `.\scripts\check-repository-policy.ps1`.
 - [x] Review `git diff --name-status` for docs-only scope.
-- [ ] Commit, push, and open PR if repository credentials allow it.
+- [x] Commit, push, and open PR if repository credentials allow it.
 
 ## 6. Progress log
 
@@ -74,6 +74,7 @@ No code, schema, or commands are implemented.
 - 2026-09-03 UTC - Authored ADR-027, task contract, ExecPlan, `SLICE-05_BACKLOG.md`, and ADR README update.
 - 2026-09-03 UTC - Validation passed: `.\scripts\verify-format.ps1` and `.\scripts\check-repository-policy.ps1`.
 - 2026-09-03 UTC - Scope review confirmed only ADR/task/plan/backlog docs are intended for commit; unrelated untracked `Claude outputs/` remains excluded.
+- 2026-09-03 UTC - Created Draft PR #103: https://github.com/odyssey-services/Odyssey_VTT/pull/103.
 
 ## 7. Decisions
 
@@ -103,4 +104,4 @@ None for this task. Product-owner approval remains required to change `ADR-027` 
 
 ## 12. Outcome and follow-up
 
-Validation passed. PR creation pending.
+Validation passed. Draft PR #103 opened for owner review.

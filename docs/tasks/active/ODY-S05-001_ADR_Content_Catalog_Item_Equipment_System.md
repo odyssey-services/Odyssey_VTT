@@ -5,7 +5,7 @@
 **Owner:** Codex (agent)
 **Requested by:** Product owner
 **Branch:** `codex/ody-s05-001-adr-027-content-catalog`
-**Pull request:** Not opened
+**Pull request:** https://github.com/odyssey-services/Odyssey_VTT/pull/103
 **ExecPlan:** `docs/plans/active/ODY-S05-001_ADR_Content_Catalog_Item_Equipment_System.md`
 **Created:** 2026-09-03
 **Last updated:** 2026-09-03 UTC
@@ -256,7 +256,7 @@ None. This is a documentation-only ADR task; replacement evidence is repository 
 - [x] No unapproved dependency, tool, GitHub Action, or license was introduced.
 - [x] Documentation is updated only where materially required.
 - [x] Codex/developer performed a self-review against this task and `AGENTS.md`.
-- [ ] Pull request explains changes, evidence, limitations, and follow-up work.
+- [x] Pull request explains changes, evidence, limitations, and follow-up work.
 - [ ] Product owner or authorized reviewer completes the required review; Codex does not merge into `main`.
 
 ## 17. Completion evidence
@@ -268,6 +268,7 @@ None. This is a documentation-only ADR task; replacement evidence is repository 
 - `docs/plans/active/ODY-S05-001_ADR_Content_Catalog_Item_Equipment_System.md` - ExecPlan.
 - `docs/tasks/SLICE-05_BACKLOG.md` - prerequisite backlog.
 - `docs/tasks/active/ODY-S05-001_ADR_Content_Catalog_Item_Equipment_System.md` - this task contract.
+- Pull request: https://github.com/odyssey-services/Odyssey_VTT/pull/103.
 
 ### Validation results
 
