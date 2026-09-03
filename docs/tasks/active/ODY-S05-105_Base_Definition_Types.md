@@ -8,7 +8,7 @@
 **Pull request:** https://github.com/odyssey-services/Odyssey_VTT/pull/107
 **ExecPlan:** `docs/plans/active/ODY-S05-105_Base_Definition_Types.md`
 **Created:** 2026-09-04
-**Last updated:** 2026-09-04 UTC
+**Last updated:** 2026-09-04 UTC (amended: `schemaVersion` decode enforcement)
 
 ## 1. Goal
 
@@ -155,7 +155,7 @@ Unity assets/UI
 ## 8. Deliverables
 
 - Production code: `TypedDefinitions.cs` (Domain), `TypedDefinitionCodec.cs` (Application), two `ErrorCodes` entries.
-- Tests: `TypedDefinitionCodecTests.cs` (17 test methods across 14 `TC-CATALOG-024`–`037` IDs, one ID covering four `[TestCase]` variants).
+- Tests: `TypedDefinitionCodecTests.cs` (27 test cases across 18 `TC-CATALOG-024`–`041` IDs, several IDs covering multiple `[TestCase]` variants).
 - Scripts / CI: None.
 - Configuration: None.
 - Documentation: `docs/errors/ERROR_CODES.md`, `Tests/Metadata/test-catalog.json`, `docs/tasks/SLICE-05_IMPLEMENTATION_BACKLOG.md` (rows 2 and 5), this task contract, its ExecPlan.
@@ -202,6 +202,10 @@ Unity assets/UI
 | `TC-CATALOG-035` | .NET / NUnit (Unit) | JSON missing a type-specific required field returns safe failure | Pass |
 | `TC-CATALOG-036` | .NET / NUnit (Unit) | Exact-version `ContentDefinitionRef` inside typed properties round-trips exactly, never "latest" | Pass |
 | `TC-CATALOG-037` | .NET / NUnit (Unit) | Reflection scan: no runtime item/inventory/equipment/effect type in `Odyssey.Domain.Content`/`Odyssey.Application.Content` | Pass |
+| `TC-CATALOG-038` | .NET / NUnit (Unit) | `DecodeItem` rejects a payload with `schemaVersion` removed | Pass |
+| `TC-CATALOG-039` | .NET / NUnit (Unit) | `DecodeItem` rejects `schemaVersion` of `0`, `2`, `"1"` (string), or `null` | Pass |
+| `TC-CATALOG-040` | .NET / NUnit (Unit) | `DecodeAbility` (non-item path) rejects a payload with `schemaVersion` removed | Pass |
+| `TC-CATALOG-041` | .NET / NUnit (Unit) | `DecodeAbility` (non-item path) rejects `schemaVersion` of `0`, `2`, `"1"` (string), or `null` | Pass |
 
 ### Required commands
 
@@ -298,9 +302,9 @@ dotnet test DotNet\Odyssey.Core.sln
 - `Packages/com.odyssey.domain/Runtime/Content/TypedDefinitions.cs` — new.
 - `Packages/com.odyssey.application/Runtime/Content/TypedDefinitionCodec.cs` — new.
 - `Packages/com.odyssey.application/Runtime/Results/ErrorCodes.cs` — two new `ErrorCode` entries.
-- `DotNet/Tests/Odyssey.Tests.Unit/Content/TypedDefinitionCodecTests.cs` — new, 17 test methods.
+- `DotNet/Tests/Odyssey.Tests.Unit/Content/TypedDefinitionCodecTests.cs` — new, 27 test cases (amended: +10 `schemaVersion` enforcement cases).
 - `docs/errors/ERROR_CODES.md` — two new rows.
-- `Tests/Metadata/test-catalog.json` — fourteen new `TC-CATALOG-024`–`037` entries.
+- `Tests/Metadata/test-catalog.json` — eighteen new `TC-CATALOG-024`–`041` entries (amended: +4 IDs, `038`–`041`).
 - `docs/tasks/SLICE-05_IMPLEMENTATION_BACKLOG.md` — row 2 corrected to `Done`, row 5 status update.
 - This task contract and its ExecPlan.
 
@@ -309,7 +313,7 @@ dotnet test DotNet\Odyssey.Core.sln
 | Command / check | Result | Evidence / notes |
 |---|---|---|
 | `dotnet build DotNet\Odyssey.Core.sln` | Pass | 0 warnings, 0 errors |
-| `dotnet test DotNet\Odyssey.Core.sln` | Pass | Full suite green (543/543), including 17 new `TypedDefinitionCodecTests` cases, no regression |
+| `dotnet test DotNet\Odyssey.Core.sln` | Pass | Full suite green (553/553), including 27 `TypedDefinitionCodecTests` cases (amended: +10), no regression |
 | `.\scripts\verify-format.ps1` | Pass | `FORMAT-001 PASS repository text formatting checks passed` |
 | `.\scripts\check-repository-policy.ps1` | Pass | `REPO-POLICY-001`–`005` PASS; `Repository policy check passed` |
 | `.\scripts\verify-test-structure.ps1` | Pass | `TC-ARCH-001 PASS valid ADR-001 graph passes`; exit code 0 |
@@ -342,6 +346,10 @@ dotnet test DotNet\Odyssey.Core.sln
 - Artifact path / name: None.
 - Checksums: None.
 - Test or quality report: This section plus the validation-results table (to be completed after the full validation suite runs).
+
+### Amendment (2026-09-04) — schemaVersion decode enforcement
+
+Product-owner review found that `TypedDefinitionCodec` wrote `schemaVersion: 1` on every encoded payload but never checked it on decode — a payload with no `schemaVersion`, a `null` value, a non-integer value, or an unsupported integer version could still be accepted as valid. Fixed by adding a single shared `RequireSupportedSchemaVersion(JObject root)` helper, called at the top of every `DecodeX` method immediately after `JObject.Parse`, before any type-specific field is read. It throws `FormatException` (already caught by the existing `IsMalformedPayloadException` filter in every decode path) unless `schemaVersion` is present, is a JSON integer, and equals the currently supported value (`1`) — surfacing as the existing `ContentCatalogTypedDefinitionMalformedPayload` failure, per the ТЗ's own explicit allowance not to introduce a separate error code. Four new test methods (`TC-CATALOG-038`–`041`, 10 test cases with `[TestCase]` variants) cover both a missing-`schemaVersion` case and an unsupported-`schemaVersion` case (`0`, `2`, the string `"1"`, `null`), for both an item-based path (`DecodeItem`) and a non-item path (`DecodeAbility`), per the ТЗ's own minimum-coverage requirement.
 
 ### Known limitations
 
@@ -377,4 +385,4 @@ dotnet test DotNet\Odyssey.Core.sln
 
 ### Approved task changes
 
-- None yet.
+- 2026-09-04 — Product-owner-requested amendment to the already-open PR #107: enforce `schemaVersion` on every `TypedDefinitionCodec` decode path (see the Amendment note in section 17). Scope stayed within this task's own Allowed paths (`TypedDefinitionCodec.cs`, `TypedDefinitionCodecTests.cs`, `test-catalog.json`, this contract/plan) — no new file, no new `ErrorCode`.

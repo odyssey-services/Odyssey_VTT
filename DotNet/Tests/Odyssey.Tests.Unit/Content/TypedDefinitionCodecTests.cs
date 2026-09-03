@@ -228,6 +228,72 @@ namespace Odyssey.Tests.Unit.Content
             Assert.That(decoded.Error.Code, Is.EqualTo(ErrorCodes.ContentCatalogTypedDefinitionMalformedPayload));
         }
 
+        // ---- schemaVersion is enforced on every decode path (ODY-S05-105 amendment) ----
+
+        [Test]
+        public void DecodeItem_OnPayloadMissingSchemaVersion_ReturnsSafeFailure()
+        {
+            var item = new ItemDefinition(ItemCategory.Generic, false, null, 1, false, null, false, null, System.Array.Empty<ContentDefinitionRef>(), System.Array.Empty<ContentDefinitionRef>());
+            string json = TypedDefinitionCodec.EncodeItem(item);
+            var withoutSchemaVersion = Newtonsoft.Json.Linq.JObject.Parse(json);
+            withoutSchemaVersion.Remove("schemaVersion");
+
+            Result<ItemDefinition> decoded = TypedDefinitionCodec.DecodeItem(ContentDefinitionType.Item, withoutSchemaVersion.ToString(), TestCorrelationId);
+
+            Assert.That(decoded.IsFailure, Is.True);
+            Assert.That(decoded.Error.Code, Is.EqualTo(ErrorCodes.ContentCatalogTypedDefinitionMalformedPayload));
+        }
+
+        [TestCase("0")]
+        [TestCase("2")]
+        [TestCase("\"1\"")]
+        [TestCase("null")]
+        public void DecodeItem_OnPayloadWithUnsupportedSchemaVersion_ReturnsSafeFailure(string schemaVersionLiteral)
+        {
+            var item = new ItemDefinition(ItemCategory.Generic, false, null, 1, false, null, false, null, System.Array.Empty<ContentDefinitionRef>(), System.Array.Empty<ContentDefinitionRef>());
+            string json = TypedDefinitionCodec.EncodeItem(item);
+            var withBadSchemaVersion = Newtonsoft.Json.Linq.JObject.Parse(json);
+            withBadSchemaVersion["schemaVersion"] = Newtonsoft.Json.Linq.JToken.Parse(schemaVersionLiteral);
+
+            Result<ItemDefinition> decoded = TypedDefinitionCodec.DecodeItem(ContentDefinitionType.Item, withBadSchemaVersion.ToString(), TestCorrelationId);
+
+            Assert.That(decoded.IsFailure, Is.True);
+            Assert.That(decoded.Error.Code, Is.EqualTo(ErrorCodes.ContentCatalogTypedDefinitionMalformedPayload));
+        }
+
+        [Test]
+        public void DecodeAbility_OnPayloadMissingSchemaVersion_ReturnsSafeFailure()
+        {
+            var targetRule = new ContentTargetRule(ContentTargetSource.ActingCharacter, 1, 1, true);
+            var ability = new AbilityDefinition(AbilityEntryPointType.Passive, "Always", 0, System.Array.Empty<AbilityResourceCost>(), targetRule, null);
+            string json = TypedDefinitionCodec.EncodeAbility(ability);
+            var withoutSchemaVersion = Newtonsoft.Json.Linq.JObject.Parse(json);
+            withoutSchemaVersion.Remove("schemaVersion");
+
+            Result<AbilityDefinition> decoded = TypedDefinitionCodec.DecodeAbility(ContentDefinitionType.Ability, withoutSchemaVersion.ToString(), TestCorrelationId);
+
+            Assert.That(decoded.IsFailure, Is.True);
+            Assert.That(decoded.Error.Code, Is.EqualTo(ErrorCodes.ContentCatalogTypedDefinitionMalformedPayload));
+        }
+
+        [TestCase("0")]
+        [TestCase("2")]
+        [TestCase("\"1\"")]
+        [TestCase("null")]
+        public void DecodeAbility_OnPayloadWithUnsupportedSchemaVersion_ReturnsSafeFailure(string schemaVersionLiteral)
+        {
+            var targetRule = new ContentTargetRule(ContentTargetSource.ActingCharacter, 1, 1, true);
+            var ability = new AbilityDefinition(AbilityEntryPointType.Passive, "Always", 0, System.Array.Empty<AbilityResourceCost>(), targetRule, null);
+            string json = TypedDefinitionCodec.EncodeAbility(ability);
+            var withBadSchemaVersion = Newtonsoft.Json.Linq.JObject.Parse(json);
+            withBadSchemaVersion["schemaVersion"] = Newtonsoft.Json.Linq.JToken.Parse(schemaVersionLiteral);
+
+            Result<AbilityDefinition> decoded = TypedDefinitionCodec.DecodeAbility(ContentDefinitionType.Ability, withBadSchemaVersion.ToString(), TestCorrelationId);
+
+            Assert.That(decoded.IsFailure, Is.True);
+            Assert.That(decoded.Error.Code, Is.EqualTo(ErrorCodes.ContentCatalogTypedDefinitionMalformedPayload));
+        }
+
         // ---- Exact-version references remain exact, never "latest" ----------------
 
         [Test]

@@ -3695,6 +3695,38 @@
                           "runner":  "dotnet test",
                           "path":  "DotNet/Tests/Odyssey.Tests.Unit/Content/TypedDefinitionCodecTests.cs",
                           "check":  "Direct reflection over every type in the Odyssey.Domain.Content and Odyssey.Application.Content namespaces confirms none references Inventory/ItemInstance/ItemStack/Equipment/ActiveEffect -- ODY-S05-105 introduces no runtime item/inventory/equipment/effect implementation"
+                      },
+                      {
+                          "testCaseId":  "TC-CATALOG-038",
+                          "taskId":  "ODY-S05-105",
+                          "authority":  "ODY-S05-105 amendment: versioned codec must check schemaVersion on decode",
+                          "runner":  "dotnet test",
+                          "path":  "DotNet/Tests/Odyssey.Tests.Unit/Content/TypedDefinitionCodecTests.cs",
+                          "check":  "TypedDefinitionCodec.DecodeItem against an otherwise-valid payload with its schemaVersion field removed returns ContentCatalogTypedDefinitionMalformedPayload, never a raw exception"
+                      },
+                      {
+                          "testCaseId":  "TC-CATALOG-039",
+                          "taskId":  "ODY-S05-105",
+                          "authority":  "ODY-S05-105 amendment: decode must accept only integer schemaVersion == 1",
+                          "runner":  "dotnet test",
+                          "path":  "DotNet/Tests/Odyssey.Tests.Unit/Content/TypedDefinitionCodecTests.cs",
+                          "check":  "TypedDefinitionCodec.DecodeItem against a payload whose schemaVersion is 0, 2, the string \"1\", or null each return ContentCatalogTypedDefinitionMalformedPayload"
+                      },
+                      {
+                          "testCaseId":  "TC-CATALOG-040",
+                          "taskId":  "ODY-S05-105",
+                          "authority":  "ODY-S05-105 amendment: schemaVersion check must cover a non-item-based decode path",
+                          "runner":  "dotnet test",
+                          "path":  "DotNet/Tests/Odyssey.Tests.Unit/Content/TypedDefinitionCodecTests.cs",
+                          "check":  "TypedDefinitionCodec.DecodeAbility against an otherwise-valid payload with its schemaVersion field removed returns ContentCatalogTypedDefinitionMalformedPayload"
+                      },
+                      {
+                          "testCaseId":  "TC-CATALOG-041",
+                          "taskId":  "ODY-S05-105",
+                          "authority":  "ODY-S05-105 amendment: schemaVersion check must cover a non-item-based decode path",
+                          "runner":  "dotnet test",
+                          "path":  "DotNet/Tests/Odyssey.Tests.Unit/Content/TypedDefinitionCodecTests.cs",
+                          "check":  "TypedDefinitionCodec.DecodeAbility against a payload whose schemaVersion is 0, 2, the string \"1\", or null each return ContentCatalogTypedDefinitionMalformedPayload"
                       }
                   ]
 }

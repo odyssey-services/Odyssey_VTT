@@ -114,4 +114,12 @@ None. No architectural question was found that `ADR-027`/`11_Content_Block_Syste
 
 ## 12. Outcome and follow-up
 
-Draft PR: https://github.com/odyssey-services/Odyssey_VTT/pull/107. CI pending. Enables `ODY-S05-104` (Catalog Validation MVP) to validate against real typed shapes instead of ad-hoc JSON parsing.
+Draft PR: https://github.com/odyssey-services/Odyssey_VTT/pull/107 (amended). Enables `ODY-S05-104` (Catalog Validation MVP) to validate against real typed shapes instead of ad-hoc JSON parsing.
+
+## 13. Amendment (2026-09-04) — schemaVersion decode enforcement
+
+- Defect: `TypedDefinitionCodec` wrote `schemaVersion: 1` on encode but never validated it on decode, so a payload with no/`null`/non-integer/unsupported `schemaVersion` could be accepted as valid.
+- Fix: added `RequireSupportedSchemaVersion(JObject root)`, a single shared helper called at the top of all six `DecodeX` methods right after `JObject.Parse`. It throws `FormatException` (already caught by the existing `IsMalformedPayloadException` filter) unless `schemaVersion` is a JSON integer equal to `1`, surfacing as the existing `ContentCatalogTypedDefinitionMalformedPayload` failure — no new error code.
+- Tests added: `TC-CATALOG-038`/`039` (`DecodeItem`, item-based path) and `TC-CATALOG-040`/`041` (`DecodeAbility`, non-item path) — missing-`schemaVersion` and unsupported-`schemaVersion` (`0`, `2`, `"1"` string, `null`) cases, 10 test cases total.
+- Validation re-run: `dotnet build` (0/0), `dotnet test` full suite (553/553, no regression), `verify-format.ps1`/`check-repository-policy.ps1`/`verify-test-structure.ps1` all pass.
+- PR #107 stays Draft pending re-review.

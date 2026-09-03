@@ -29,7 +29,11 @@ namespace Odyssey.Application.Content
     /// `1` for all six typed shapes) so a future incompatible shape change
     /// has an explicit upcaster hook to check against, per `ADR-003`'s own
     /// forward-compatibility convention -- this task introduces no
-    /// upcaster itself, since only one schema version exists yet.
+    /// upcaster itself, since only one schema version exists yet. Every
+    /// `DecodeX` path enforces this: a missing, `null`, non-integer, or
+    /// unsupported `schemaVersion` is rejected as a malformed payload
+    /// before any type-specific field is read (`RequireSupportedSchemaVersion`,
+    /// ODY-S05-105 amendment).
     ///
     /// Each `DecodeX` method takes the `ContentDefinition`'s own actual
     /// `ContentDefinitionType` and refuses to decode when it does not match
@@ -60,6 +64,7 @@ namespace Odyssey.Application.Content
             try
             {
                 JObject root = JObject.Parse(propertiesJson);
+                RequireSupportedSchemaVersion(root);
                 return Result<ItemDefinition>.Success(ReadItemPayload(root));
             }
             catch (Exception ex) when (IsMalformedPayloadException(ex))
@@ -93,6 +98,7 @@ namespace Odyssey.Application.Content
             try
             {
                 JObject root = JObject.Parse(propertiesJson);
+                RequireSupportedSchemaVersion(root);
                 ItemDefinition item = ReadItemPayload(root);
                 string damageExpression = (string)root["damageExpression"]!;
                 long range = (long)root["range"]!;
@@ -134,6 +140,7 @@ namespace Odyssey.Application.Content
             try
             {
                 JObject root = JObject.Parse(propertiesJson);
+                RequireSupportedSchemaVersion(root);
                 ItemDefinition item = ReadItemPayload(root);
                 string equipmentSlotKey = (string)root["equipmentSlotKey"]!;
                 var bodyPartIds = new List<BodyPartId>();
@@ -171,6 +178,7 @@ namespace Odyssey.Application.Content
             try
             {
                 JObject root = JObject.Parse(propertiesJson);
+                RequireSupportedSchemaVersion(root);
                 ItemDefinition item = ReadItemPayload(root);
                 IReadOnlyList<string> compatibilityKeys = ReadStringArray(root["compatibilityKeys"]);
                 string? damageContribution = root["damageContribution"] == null || root["damageContribution"]!.Type == JTokenType.Null ? null : (string)root["damageContribution"]!;
@@ -223,6 +231,7 @@ namespace Odyssey.Application.Content
             try
             {
                 JObject root = JObject.Parse(propertiesJson);
+                RequireSupportedSchemaVersion(root);
                 var entryPointType = (AbilityEntryPointType)Enum.Parse(typeof(AbilityEntryPointType), (string)root["entryPointType"]!);
                 string trigger = (string)root["trigger"]!;
                 long actionCost = (long)root["actionCost"]!;
@@ -274,6 +283,7 @@ namespace Odyssey.Application.Content
             try
             {
                 JObject root = JObject.Parse(propertiesJson);
+                RequireSupportedSchemaVersion(root);
                 ContentTargetRule targetRule = ReadTargetRule((JObject)root["targetRule"]!);
                 var durationType = (EffectDurationType)Enum.Parse(typeof(EffectDurationType), (string)root["durationType"]!);
                 long? durationValue = root["durationValue"] == null || root["durationValue"]!.Type == JTokenType.Null ? (long?)null : (long)root["durationValue"]!;
@@ -286,6 +296,34 @@ namespace Odyssey.Application.Content
             catch (Exception ex) when (IsMalformedPayloadException(ex))
             {
                 return Result<EffectDefinition>.Failure(TypedDefinitionCodecFailures.MalformedPayload(correlationId));
+            }
+        }
+
+        /// <summary>
+        /// ODY-S05-105 amendment: every decode path must reject a payload
+        /// whose `schemaVersion` is missing, `null`, not an integer, or an
+        /// integer other than the one currently supported (`1`) -- before
+        /// this amendment, `schemaVersion` was written on encode but never
+        /// checked on decode, so an unversioned or future-incompatible
+        /// payload could silently be accepted as valid. Throws
+        /// `FormatException`, already caught by <see cref="IsMalformedPayloadException"/>
+        /// in every caller, so an unsupported schema version surfaces as the
+        /// same safe `ContentCatalogTypedDefinitionMalformedPayload` failure
+        /// as any other malformed payload -- no raw exception, no separate
+        /// error code required.
+        /// </summary>
+        private static void RequireSupportedSchemaVersion(JObject root)
+        {
+            JToken? schemaVersionToken = root["schemaVersion"];
+            if (schemaVersionToken == null || schemaVersionToken.Type != JTokenType.Integer)
+            {
+                throw new FormatException("missing or non-integer schemaVersion");
+            }
+
+            long schemaVersion = (long)schemaVersionToken;
+            if (schemaVersion != SchemaVersion)
+            {
+                throw new FormatException("unsupported schemaVersion");
             }
         }
 
