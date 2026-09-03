@@ -112,6 +112,6 @@ No finding, no drift, and no rehearsal failure occurred during this run.
 
 ## 6. Owner acceptance
 
-**Pending.**
+**Confirmed — 2026-09-03.**
 
-A separate, explicit product-owner action, to be recorded by a small point-fix commit after the product owner confirms acceptance of this report in conversation, per the `ODY-S03-009`/`ODY-S02-015`/`ODY-S01-014` precedent.
+The product owner reviewed this report and PR #99, merged it into `main` (commit `a204cc2`), and explicitly confirmed acceptance in conversation ("Провел"). `SLICE-04 — Characters and Progression` and roadmap Milestone `M5`/`GATE-C — Character Playable` are closed. `ODY-S04-115a` (the `HistoryEventTypes` completeness gap, section 1a) remains open as a separate, non-blocking follow-up.
