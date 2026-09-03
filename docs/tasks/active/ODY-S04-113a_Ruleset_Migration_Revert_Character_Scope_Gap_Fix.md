@@ -1,6 +1,6 @@
 # ODY-S04-113a — Ruleset Migration Revert Character-Scope Gap Fix
 
-**Status:** In Review  
+**Status:** Done  
 **Roadmap stage / slice:** SLICE-04  
 **Owner:** Codex (agent)  
 **Requested by:** Product owner  
@@ -8,7 +8,7 @@
 **Pull request:** [#97](https://github.com/odyssey-services/Odyssey_VTT/pull/97)  
 **ExecPlan:** Not required (Brief plan)  
 **Created:** 2026-09-03  
-**Last updated:** 2026-09-03 UTC
+**Last updated:** 2026-09-03 (merged) UTC
 
 ## 1. Goal
 
@@ -292,6 +292,7 @@ Not applicable. No persisted schema, event payload shape, public contract, or pr
 - 2026-09-03 — Decision: the fix ships as a further commit on PR #97's own still-open, still-Draft branch (`feat/ody-s04-113-character-ruleset-migration`), not a separate stacked branch/PR — Authority/approval: section 14 explicitly left this choice to whichever the repository's branch state at pickup time makes cleaner; the branch was still open and unmerged when this task was picked up, so amending it directly keeps `main` from ever containing the unfixed defect (section 14's own stated goal) with the least ceremony.
 - 2026-09-03 — Decision: the Definition-of-Done read-only check on `ODY-S04-107`'s `RevertAdvancementPurchase`/`ApplyCharacterRespec` lookup logic found **no identical defect**. `SelectAdvancementPurchaseForUpdate` (used by `RevertAdvancementPurchase`) queries its own dedicated `AdvancementPurchase` table with a real `CharacterId` column (`WHERE CharacterId = $characterId AND PurchaseId = $purchaseId`), unlike `RevertCharacterRulesetMigration`'s own `DomainEvents`-payload-based lookup (a deliberate `ODY-S04-113` design choice — "no new ledger table," ExecPlan section 5 — that introduced this specific new class of bug an existing dedicated table naturally avoids). No follow-up task is needed for `ODY-S04-107`'s own code.
 - 2026-09-03 — Decision: only `TC-CHAR-165` was added, covering both Scenario 1 (cross-Character rejection) and Scenario 2 (same-Character regression) in one test, since both assertions share the same two-Character fixture and splitting them would only duplicate setup — `TC-CHAR-166` was reserved but not used, per section 3's own "reserve two; use only what is needed" instruction.
+- 2026-09-03 — Owner reviewed the two landed commits (`a5c3219`, `31be6e4`) directly against the diff, confirmed the fix, test, and CI evidence in Codex's Final Report, and merged PR #97 into `main` (merge commit `e48a541`) — Authority/approval: Product owner ("Мердж провел"). Task moved to Done.
 
 ### Approved task changes
 
