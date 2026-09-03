@@ -30,7 +30,4 @@ Current accepted ADRs:
 - `ADR-024_Development_Economy_And_Progression_Transactions_v1.0.md`
 - `ADR-025_Character_Ownership_Lifecycle_And_Ruleset_Migration_Operations_v1.0.md`
 - `ADR-026_Character_Export_Import_File_Format_And_Redaction_v1.0.md`
-
-Proposed ADRs pending explicit product-owner approval:
-
 - `ADR-027_Content_Catalog_And_Item_Equipment_System_v1.0.md`

@@ -1,11 +1,11 @@
 # Odyssey VTT - SLICE-05 Inventory, Effects, and Full Attack Prerequisites Backlog
 
-**Status:** Prerequisite backlog - IN PROGRESS. `ADR-027` is proposed by `ODY-S05-001` and requires explicit product-owner approval before it can become `Accepted`.
+**Status:** Prerequisite backlog - COMPLETE. `ADR-027` was proposed by `ODY-S05-001` (PR [#103](https://github.com/odyssey-services/Odyssey_VTT/pull/103), merged into `main`) and is now `Accepted` — the product owner explicitly approved moving forward with `ADR-027` on 2026-09-03, recorded by `ODY-S05-002`. `docs/tasks/SLICE-05_IMPLEMENTATION_BACKLOG.md` now exists and is the active backlog for `SLICE-05` implementation work; this document remains a historical record of the prerequisite ADR revision and is not edited further except for this closure note.
 **Slice:** `SLICE-05 - Inventory, Items, Abilities, Effects, and Full Attack (prerequisites)`
 **Parent task:** `docs/tasks/active/ODY-S05-001_ADR_Content_Catalog_Item_Equipment_System.md`
 **ExecPlan:** `docs/plans/active/ODY-S05-001_ADR_Content_Catalog_Item_Equipment_System.md`
 **Created:** 2026-09-03
-**Last updated:** 2026-09-03 UTC
+**Last updated:** 2026-09-03 (prerequisite revision closed; ADR-027 Accepted) UTC
 
 ## 1. Purpose
 
@@ -15,13 +15,13 @@ This backlog converts roadmap `17_Roadmap_Odyssey_VTT_v0.11.md` section 14's `SL
 
 ## 2. Slice exit criteria for this prerequisite revision
 
-This prerequisite backlog revision is complete only when:
+This prerequisite backlog revision is complete now that:
 
-1. `ADR-027 - Content Catalog & Item/Equipment System` is accepted by explicit product-owner approval.
-2. `ADR-027` fixes the Content Catalog/ContentDefinition vs runtime instance boundary for SLICE-05.
-3. `ADR-027` explicitly unblocks the `SLICE-04` documented stubs for `RemoveBodyPart` item dependency checks and `DeleteCharacterPermanently` inventory/item dependency checkers.
+1. `ADR-027 - Content Catalog & Item/Equipment System` is accepted by explicit product-owner approval. **Done** — `Accepted` 2026-09-03, recorded in `ADR-027` section 20 and in `ODY-S05-002`'s own completion evidence.
+2. `ADR-027` fixes the Content Catalog/ContentDefinition vs runtime instance boundary for SLICE-05. **Done** — `ADR-027` section 4.
+3. `ADR-027` explicitly unblocks the `SLICE-04` documented stubs for `RemoveBodyPart` item dependency checks and `DeleteCharacterPermanently` inventory/item dependency checkers. **Done** — `ADR-027` section 9.
 
-These are not the full `SLICE-05` exit criteria from roadmap section 14.8. Full attack implementation remains a future implementation backlog after prerequisite ADR acceptance.
+These were not the full `SLICE-05` exit criteria from roadmap section 14.8. Full attack implementation remains a future implementation-backlog block after the Content Catalog MVP block `docs/tasks/SLICE-05_IMPLEMENTATION_BACKLOG.md` now scaffolds — see that document's own section 2 for the current, narrower exit criteria this first revision actually covers.
 
 ## 3. Scope decisions requiring explicit justification
 
@@ -41,7 +41,8 @@ Roadmap section 14.6 names action intent, preview, range, modifiers, roll, hit, 
 
 | Order | Task ID | Title | Status | Depends on | Planning mode | Primary result |
 |---:|---|---|---|---|---|---|
-| 1 | `ODY-S05-001` | ADR: Content Catalog & Item/Equipment System | In Review | `SLICE-04` closed, `ADR-026` accepted | ExecPlan | Proposed `ADR-027` (`docs/adr/ADR-027_Content_Catalog_And_Item_Equipment_System_v1.0.md`). Fixes Content Catalog/ContentDefinition vs runtime instance boundaries, ItemDefinition/typed item definitions/AbilityDefinition/EffectDefinition SLICE-05 catalog scope, full `ItemInstance` mechanics snapshots, stack snapshot sharing, Inventory as a separate aggregate root, equipment ownership/location invariants, item-sourced abilities/effects integration, SLICE-04 stub closure, ItemDefinition migration preview/confirm, and ActiveEffect snapshot non-migration. |
+| 1 | `ODY-S05-001` | Done (PR [#103](https://github.com/odyssey-services/Odyssey_VTT/pull/103), merged into `main`) | `SLICE-04` closed, `ADR-026` accepted | ExecPlan | Proposed `ADR-027` (`docs/adr/ADR-027_Content_Catalog_And_Item_Equipment_System_v1.0.md`). Fixes Content Catalog/ContentDefinition vs runtime instance boundaries, ItemDefinition/typed item definitions/AbilityDefinition/EffectDefinition SLICE-05 catalog scope, full `ItemInstance` mechanics snapshots, stack snapshot sharing, Inventory as a separate aggregate root, equipment ownership/location invariants, item-sourced abilities/effects integration, SLICE-04 stub closure, ItemDefinition migration preview/confirm, and ActiveEffect snapshot non-migration. |
+| 2 | `ODY-S05-002` | Done | `ADR-027` proposed | Brief plan | Records explicit product-owner approval of `ADR-027` (now `Accepted`), closes this prerequisite backlog's own exit criteria (section 2), and creates `docs/tasks/SLICE-05_IMPLEMENTATION_BACKLOG.md` — the active `SLICE-05` implementation backlog, ordering a Content Catalog MVP task group (`ODY-S05-101`-`106`) before any Inventory/ItemInstance/Equipment runtime task. |
 
 Each later child task must create its own task contract and decide its own Brief-plan-vs-ExecPlan mode when activated. This backlog does not authorize product code, persistence schema, or real item/equipment commands.
 
@@ -61,6 +62,6 @@ This prerequisite backlog excludes:
 ## 6. Backlog change control
 
 - New `SLICE-05` work requires a new `ODY-S05-XXX` task contract.
-- `ADR-027` remains `Proposed` until explicit product-owner approval is recorded.
-- A future `SLICE-05_IMPLEMENTATION_BACKLOG.md` may be created only after prerequisite ADR acceptance, unless the product owner explicitly changes sequencing.
+- `ADR-027` is now `Accepted` (section 2). This document remains historical and is not further edited except for closure notes already recorded above.
+- `docs/tasks/SLICE-05_IMPLEMENTATION_BACKLOG.md` now exists and is the active backlog for all further `SLICE-05` implementation work; new child tasks are reserved and decomposed there, not in this prerequisite backlog.
 - If a later implementation task discovers another architectural gap, it must stop and request a dedicated ADR task rather than deciding it inline.
