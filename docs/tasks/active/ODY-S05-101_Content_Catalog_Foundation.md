@@ -5,7 +5,7 @@
 **Owner:** Codex (agent)
 **Requested by:** Product owner
 **Branch:** `feat/ody-s05-101-content-catalog-foundation`
-**Pull request:** To be opened
+**Pull request:** https://github.com/odyssey-services/Odyssey_VTT/pull/105
 **ExecPlan:** `docs/plans/active/ODY-S05-101_Content_Catalog_Foundation.md`
 **Created:** 2026-09-03
 **Last updated:** 2026-09-03 UTC

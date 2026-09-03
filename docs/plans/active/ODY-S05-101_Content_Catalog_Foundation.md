@@ -3,7 +3,7 @@
 **Status:** Active
 **Owner:** Codex (agent)
 **Branch:** `feat/ody-s05-101-content-catalog-foundation`
-**Pull request:** <to be filled after `gh pr create`>
+**Pull request:** https://github.com/odyssey-services/Odyssey_VTT/pull/105
 **Last updated:** 2026-09-03 UTC
 
 ## 1. Purpose and user-visible outcome
@@ -106,4 +106,4 @@ None. No architectural question was found that `ADR-027`/`11_Content_Block_Syste
 
 ## 12. Outcome and follow-up
 
-Draft PR: <to be filled after `gh pr create`>. CI pending. Unblocks `ODY-S05-102`/`104`/`105`.
+Draft PR: https://github.com/odyssey-services/Odyssey_VTT/pull/105. CI pending. Unblocks `ODY-S05-102`/`104`/`105`.
