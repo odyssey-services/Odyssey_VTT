@@ -4,7 +4,7 @@
 **ADR:** ADR-027
 **Версия:** 1.0
 **Дата:** 2026-09-03
-**Статус:** Proposed
+**Статус:** Accepted
 **Область:** Content Catalog/ContentDefinition vs runtime item/equipment/effect instances, Inventory aggregate boundary, item/equipment ownership and location invariants, item-sourced abilities/effects, ItemDefinition migration preview/confirm, and SLICE-04 item-dependency stub closure for `SLICE-05`
 **Связанные этапы:** Roadmap Stage 6 (`SLICE-05`), backlog `ODY-S05-001`
 **Базовые документы:** `Documentation/11_Content_Block_System_Odyssey_VTT_v0.1.md`; `Documentation/17_Roadmap_Odyssey_VTT_v0.11.md` section 14 and section 16.9; `Documentation/03_Domain_Model_Odyssey_VTT_v0.25.md` sections 16-18; `docs/adr/ADR-001_Module_Boundaries_and_Dependency_Direction_v1.0.md`; `docs/adr/ADR-002_Command_and_Domain_Event_Model_v1.0.md`; `docs/adr/ADR-003_Serialization_Strategy_v1.1.md`; `docs/adr/ADR-007_Versioning_and_Build_Identity_v1.0.md`; `docs/adr/ADR-011_Local_Campaign_Format_v1.1.md`; `docs/adr/ADR-012_Snapshot_And_Append_Only_Journal_v1.0.md`; `docs/adr/ADR-013_Migration_Runner_v1.0.md`; `docs/adr/ADR-019_Permissions_Baseline_v1.0.md`; `docs/adr/ADR-022_Character_Aggregate_Section_Revisions_And_History_Projection_v1.0.md`; `docs/adr/ADR-024_Development_Economy_And_Progression_Transactions_v1.0.md`; `docs/adr/ADR-025_Character_Ownership_Lifecycle_And_Ruleset_Migration_Operations_v1.0.md`; `docs/adr/ADR-026_Character_Export_Import_File_Format_And_Redaction_v1.0.md`; `docs/tasks/SLICE-05_BACKLOG.md`
@@ -31,7 +31,7 @@ Odyssey VTT fixes the `SLICE-05` boundary between versioned content definitions 
 12. **Permissions baseline:** MainGM-only for ItemDefinition publish and mass migration. AssistantGM may publish only where existing Content permissions explicitly allow; AssistantGM may not run ItemDefinition mass migration in this ADR. Ordinary players cannot mutate authoritative inventory offline or submit trusted final item/equipment/damage state.
 13. This ADR does **not** implement product code, schema, DTOs, Unity UI, real item/equipment commands, full attack pipeline, full Content Editor UI, marketplace, arbitrary scripts, or concrete balanced catalog entries.
 
-This ADR is the normative authority for the `SLICE-05` content-catalog/item/equipment boundary once accepted. While this document is `Proposed`, implementation tasks must not treat it as accepted authority unless the product owner explicitly approves it or scopes a task to revise it.
+This ADR is the normative authority for the `SLICE-05` content-catalog/item/equipment boundary. It is `Accepted`; see section 20 for the recorded product-owner approval and its normative consequences for implementation tasks.
 
 ---
 
@@ -468,9 +468,15 @@ DeleteCharacterPermanently inventory/item dependency checker
 
 # 20. Нормативное действие
 
-This ADR is `Proposed`. It must not be marked `Accepted` until explicit product-owner approval is recorded in the task, PR, or an accepted follow-up document.
+**This ADR is `Accepted`.** The product owner explicitly approved moving forward with `ADR-027` on 2026-09-03, recorded by `ODY-S05-002` (`docs/tasks/active/ODY-S05-002_SLICE_05_Implementation_Backlog.md`) — the same task that closed `docs/tasks/SLICE-05_BACKLOG.md`'s prerequisite revision and created `docs/tasks/SLICE-05_IMPLEMENTATION_BACKLOG.md`. The product owner's approval additionally fixed these first-implementation-scope decisions, not previously decided by this ADR and recorded in `SLICE-05_IMPLEMENTATION_BACKLOG.md` rather than by amending this document:
 
-If accepted:
+- Content Catalog MVP is the required technical foundation and must be implemented before any Inventory/`ItemInstance`/Equipment runtime task begins.
+- MainGM must be able to create and edit catalog content in the MVP (GM catalog authoring is in scope, not deferred).
+- The MVP catalog is base/Ruleset-scoped only; campaign-specific custom catalog content or per-campaign overrides are explicitly out of scope for this first revision (this ADR's own "campaign/Ruleset catalog" wording in section 3.1 is not narrowed by this choice — it remains a future option this revision simply does not exercise yet).
+- Archived definitions must be visible to MainGM in a separate Archived list (query/data-level requirement; no UI is implied or authorized by this ADR).
+- Catalog validation before publication must check real usability/applicability of a definition (e.g., a weapon actually has coherent attack properties, an ammo definition is compatible with the weapons that reference it) — not merely that required fields are non-empty.
+
+Now that this ADR is `Accepted`:
 
 - `SLICE-05` implementation tasks must treat Content Catalog as definition-only and runtime item/equipment/effect state as separate authoritative campaign state;
 - unused Draft definitions may be physically deleted, while Published, catalog-referenced, or runtime-referenced definitions must be archived and remain loadable for existing runtime state, history, previews, and migrations;
