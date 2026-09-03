@@ -3495,6 +3495,94 @@
                           "runner":  "dotnet test",
                           "path":  "DotNet/Tests/Odyssey.Tests.Persistence/SqliteContentCatalogRepositoryTests.cs",
                           "check":  "Amendment (idempotency fix): ContentDefinitionCommandLedger.CommandId is the table's own real SQLite primary key, guaranteeing CommandId uniqueness at the database level, confirmed by direct PRAGMA table_info inspection"
+                      },
+                      {
+                          "testCaseId":  "TC-CATALOG-013",
+                          "taskId":  "ODY-S05-102",
+                          "authority":  "ADR-027 section 12 (permissions baseline)",
+                          "runner":  "dotnet test",
+                          "path":  "DotNet/Tests/Odyssey.Tests.Persistence/Content/ContentCatalogAuthoringServiceTests.cs",
+                          "check":  "ContentCatalogAuthoringService.CreateDraftDefinition, called by a MainGM actor, succeeds and persists the expected foundation fields (Status=Draft, Version=0, Revision=1, Origin=RulesetPackage, Name); a replay of the same CommandId is idempotent and does not create a second Draft"
+                      },
+                      {
+                          "testCaseId":  "TC-CATALOG-014",
+                          "taskId":  "ODY-S05-102",
+                          "authority":  "ADR-027 section 12 (MainGM-only catalog authoring)",
+                          "runner":  "dotnet test",
+                          "path":  "DotNet/Tests/Odyssey.Tests.Persistence/Content/ContentCatalogAuthoringServiceTests.cs",
+                          "check":  "ContentCatalogAuthoringService.CreateDraftDefinition, called by a non-MainGM actor, is rejected with ContentCatalogAuthoringDenied and causes no repository state change at all -- the permission check happens before the repository is ever called"
+                      },
+                      {
+                          "testCaseId":  "TC-CATALOG-015",
+                          "taskId":  "ODY-S05-102",
+                          "authority":  "11_Content_Block_System section 6.2 (Revision)",
+                          "runner":  "dotnet test",
+                          "path":  "DotNet/Tests/Odyssey.Tests.Persistence/Content/ContentCatalogAuthoringServiceTests.cs",
+                          "check":  "ContentCatalogAuthoringService.UpdateDraftDefinition, called by a MainGM actor, succeeds and increments Revision by exactly 1; a replay of the same CommandId does not increment Revision a second time"
+                      },
+                      {
+                          "testCaseId":  "TC-CATALOG-016",
+                          "taskId":  "ODY-S05-102",
+                          "authority":  "ADR-002 section 10.2 (optimistic concurrency)",
+                          "runner":  "dotnet test",
+                          "path":  "DotNet/Tests/Odyssey.Tests.Persistence/Content/ContentCatalogAuthoringServiceTests.cs",
+                          "check":  "ContentCatalogAuthoringService.UpdateDraftDefinition with a stale expectedRevision is rejected with PersistenceContentDefinitionRevisionConflict and causes no state change"
+                      },
+                      {
+                          "testCaseId":  "TC-CATALOG-017",
+                          "taskId":  "ODY-S05-102",
+                          "authority":  "ADR-027 section 12 (MainGM-only catalog authoring)",
+                          "runner":  "dotnet test",
+                          "path":  "DotNet/Tests/Odyssey.Tests.Persistence/Content/ContentCatalogAuthoringServiceTests.cs",
+                          "check":  "ContentCatalogAuthoringService.UpdateDraftDefinition, called by a non-MainGM actor, is rejected with ContentCatalogAuthoringDenied and causes no repository state change"
+                      },
+                      {
+                          "testCaseId":  "TC-CATALOG-018",
+                          "taskId":  "ODY-S05-102",
+                          "authority":  "ADR-027 section 4.1 (Published immutability)",
+                          "runner":  "dotnet test",
+                          "path":  "DotNet/Tests/Odyssey.Tests.Persistence/Content/ContentCatalogAuthoringServiceTests.cs",
+                          "check":  "ContentCatalogAuthoringService.UpdateDraftDefinition against a Published (or Archived) definition is rejected with PersistenceContentDefinitionNotDraft, even for a MainGM actor -- authoring cannot edit a non-Draft definition in place"
+                      },
+                      {
+                          "testCaseId":  "TC-CATALOG-019",
+                          "taskId":  "ODY-S05-102",
+                          "authority":  "ADR-027 section 4.1 (Published immutability); 11_Content_Block_System section 6.2 (CreateNextVersion)",
+                          "runner":  "dotnet test",
+                          "path":  "DotNet/Tests/Odyssey.Tests.Persistence/Content/ContentCatalogAuthoringServiceTests.cs",
+                          "check":  "ContentCatalogAuthoringService.CreateNextDraftVersionFromPublished, called by a MainGM actor against a Published source, creates a new Draft (fresh ContentDefinitionId, Status=Draft, Version=0, Revision=1) copying the source's own Name/DefinitionType as its starting point, and leaves the Published source's own Status/Name/Revision completely untouched"
+                      },
+                      {
+                          "testCaseId":  "TC-CATALOG-020",
+                          "taskId":  "ODY-S05-102",
+                          "authority":  "ADR-027 section 12 (MainGM-only catalog authoring)",
+                          "runner":  "dotnet test",
+                          "path":  "DotNet/Tests/Odyssey.Tests.Persistence/Content/ContentCatalogAuthoringServiceTests.cs",
+                          "check":  "ContentCatalogAuthoringService.CreateNextDraftVersionFromPublished, called by a non-MainGM actor, is rejected with ContentCatalogAuthoringDenied and creates no new row"
+                      },
+                      {
+                          "testCaseId":  "TC-CATALOG-021",
+                          "taskId":  "ODY-S05-102",
+                          "authority":  "ADR-027 section 4.1 (only a Published definition has an immutable baseline to branch from)",
+                          "runner":  "dotnet test",
+                          "path":  "DotNet/Tests/Odyssey.Tests.Persistence/Content/ContentCatalogAuthoringServiceTests.cs",
+                          "check":  "SqliteContentCatalogRepository.CreateNextDraftVersionFromPublished against a source definition whose Status is not Published is rejected with PersistenceContentDefinitionNotPublished"
+                      },
+                      {
+                          "testCaseId":  "TC-CATALOG-022",
+                          "taskId":  "ODY-S05-102",
+                          "authority":  "ADR-002 section 6 (command idempotency)",
+                          "runner":  "dotnet test",
+                          "path":  "DotNet/Tests/Odyssey.Tests.Persistence/Content/ContentCatalogAuthoringServiceTests.cs",
+                          "check":  "A replay of the same CommandId for CreateNextDraftVersionFromPublished returns the same already-created Draft, never mints a second copy of the Published source"
+                      },
+                      {
+                          "testCaseId":  "TC-CATALOG-023",
+                          "taskId":  "ODY-S05-102",
+                          "authority":  "ADR-027 section 4 (catalog/runtime boundary)",
+                          "runner":  "dotnet test",
+                          "path":  "DotNet/Tests/Odyssey.Tests.Persistence/Content/ContentCatalogAuthoringServiceTests.cs",
+                          "check":  "Direct reflection over every type in the Odyssey.Application.Content namespace confirms none references Inventory/ItemInstance/ItemStack/Equipment/ActiveEffect -- the GM Catalog Authoring MVP introduces no runtime item/equipment/effect implementation"
                       }
                   ]
 }

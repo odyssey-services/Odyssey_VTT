@@ -283,6 +283,104 @@ namespace Odyssey.Persistence.Sqlite
         }
 
         /// <summary>
+        /// ODY-S05-102: creates a new Draft (fresh <see cref="ContentDefinitionId"/>,
+        /// `Status=Draft`, `Version=0`, `Revision=1`) by copying the exact
+        /// current fields of an already-Published source definition. The
+        /// source row is only ever read, never written -- `ADR-027` section
+        /// 4.1's Published-immutability rule cannot be violated by this
+        /// method by construction. Uses the same `ContentDefinitionCommandLedger`
+        /// idempotency mechanism as <see cref="CreateDraftContentDefinition"/>/
+        /// <see cref="UpdateDraftContentDefinition"/> -- a replay of this
+        /// command returns the already-created Draft, never mints a second
+        /// one.
+        /// </summary>
+        public Result<ContentDefinitionRecord> CreateNextDraftVersionFromPublished(CampaignHandle campaign, ContentDefinitionId publishedDefinitionId, UserId createdByUserId, CommandId commandId, CorrelationId correlationId)
+        {
+            if (campaign == null) throw new ArgumentNullException(nameof(campaign));
+            if (!publishedDefinitionId.IsValid) throw new ArgumentException("PublishedDefinitionId is required.", nameof(publishedDefinitionId));
+            if (!createdByUserId.IsValid) throw new ArgumentException("CreatedByUserId is required.", nameof(createdByUserId));
+            if (!commandId.IsValid) throw new ArgumentException("CommandId is required.", nameof(commandId));
+
+            try
+            {
+                using SqliteConnection connection = OpenConnection(campaign.RootPath);
+                EnsureContentDefinitionTables(connection);
+                using SqliteTransaction transaction = connection.BeginTransaction();
+
+                ContentDefinitionRecord? replay = TryFindByCommandId(connection, transaction, commandId);
+                if (replay != null)
+                {
+                    transaction.Commit();
+                    return Result<ContentDefinitionRecord>.Success(replay);
+                }
+
+                ContentDefinitionRecord? source = SelectForUpdate(connection, transaction, publishedDefinitionId);
+                if (source == null)
+                {
+                    transaction.Commit();
+                    return Result<ContentDefinitionRecord>.Failure(PersistenceFailures.ContentDefinitionNotFound(correlationId));
+                }
+
+                if (source.Status != ContentDefinitionStatus.Published)
+                {
+                    transaction.Commit();
+                    return Result<ContentDefinitionRecord>.Failure(PersistenceFailures.ContentDefinitionNotPublished(correlationId));
+                }
+
+                UtcInstant now = _clock.GetUtcNow();
+                ContentDefinitionId newDefinitionId = ContentDefinitionId.NewId(now);
+                const ContentDefinitionOrigin origin = ContentDefinitionOrigin.RulesetPackage;
+                const ContentDefinitionStatus newStatus = ContentDefinitionStatus.Draft;
+                const long newVersion = 0;
+                const long newRevision = 1;
+
+                using (var insert = connection.CreateCommand())
+                {
+                    insert.Transaction = transaction;
+                    insert.CommandText = "INSERT INTO ContentDefinition (" +
+                        "ContentDefinitionId, Origin, DefinitionType, Name, Description, Status, Version, Revision, " +
+                        "RulesetCompatibilityJson, TagsJson, PropertiesJson, DependencyRefsJson, " +
+                        "CreatedByUserId, PublishedByUserId, PublishedAt, ArchivedAt, ArchiveReason, " +
+                        "CreatedAt, UpdatedAt) VALUES (" +
+                        "$id, $origin, $definitionType, $name, $description, $status, $version, $revision, " +
+                        "$rulesetCompatibilityJson, $tagsJson, $propertiesJson, $dependencyRefsJson, " +
+                        "$createdByUserId, NULL, NULL, NULL, NULL, " +
+                        "$createdAt, $updatedAt);";
+                    insert.Parameters.AddWithValue("$id", newDefinitionId.ToString());
+                    insert.Parameters.AddWithValue("$origin", origin.ToString());
+                    insert.Parameters.AddWithValue("$definitionType", source.DefinitionType.ToString());
+                    insert.Parameters.AddWithValue("$name", source.Name);
+                    insert.Parameters.AddWithValue("$description", (object?)source.Description ?? DBNull.Value);
+                    insert.Parameters.AddWithValue("$status", newStatus.ToString());
+                    insert.Parameters.AddWithValue("$version", newVersion);
+                    insert.Parameters.AddWithValue("$revision", newRevision);
+                    insert.Parameters.AddWithValue("$rulesetCompatibilityJson", SerializeStringList(source.RulesetCompatibility));
+                    insert.Parameters.AddWithValue("$tagsJson", SerializeStringList(source.Tags));
+                    insert.Parameters.AddWithValue("$propertiesJson", source.PropertiesJson);
+                    insert.Parameters.AddWithValue("$dependencyRefsJson", SerializeDependencyRefs(source.DependencyRefs));
+                    insert.Parameters.AddWithValue("$createdByUserId", createdByUserId.ToString());
+                    insert.Parameters.AddWithValue("$createdAt", now.ToString());
+                    insert.Parameters.AddWithValue("$updatedAt", now.ToString());
+                    insert.ExecuteNonQuery();
+                }
+
+                InsertCommandLedgerEntry(connection, transaction, commandId, newDefinitionId, now);
+
+                transaction.Commit();
+
+                var record = new ContentDefinitionRecord(
+                    newDefinitionId, origin, source.DefinitionType, source.Name, source.Description, newStatus,
+                    newVersion, newRevision, source.RulesetCompatibility, source.Tags, source.PropertiesJson,
+                    source.DependencyRefs, createdByUserId, null, null, null, null, now, now);
+                return Result<ContentDefinitionRecord>.Success(record);
+            }
+            catch (Exception ex) when (ex is IOException || ex is UnauthorizedAccessException || ex is SqliteException)
+            {
+                return Result<ContentDefinitionRecord>.Failure(PersistenceFailures.ContentDefinitionIoFailed(correlationId));
+            }
+        }
+
+        /// <summary>
         /// ODY-S05-101 amendment: looks up the durable
         /// `ContentDefinitionCommandLedger` (`CommandId` -&gt;
         /// `ContentDefinitionId`), not a mutable `LastCommandId` column on

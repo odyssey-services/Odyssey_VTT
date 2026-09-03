@@ -58,6 +58,21 @@ namespace Odyssey.Application.Persistence
         /// generic list primitive it and `ODY-S05-102` will both build on.
         /// </summary>
         Result<IReadOnlyList<ContentDefinitionRecord>> ListContentDefinitions(CampaignHandle campaign, ContentDefinitionStatus? statusFilter, CorrelationId correlationId);
+
+        /// <summary>
+        /// ODY-S05-102: creates a brand-new Draft (`Status=Draft`,
+        /// `Version=0`, `Revision=1`, its own new <see cref="ContentDefinitionId"/>)
+        /// copying `DefinitionType`/`Name`/`Description`/`RulesetCompatibility`/
+        /// `Tags`/`PropertiesJson`/`DependencyRefs` from the exact
+        /// <paramref name="publishedDefinitionId"/> source at the moment of
+        /// the call. The Published source is read only -- never updated --
+        /// so this can never violate `ADR-027` section 4.1's
+        /// Published-immutability rule. Fails with
+        /// <c>PersistenceContentDefinitionNotFound</c> if the source does
+        /// not exist, or <c>PersistenceContentDefinitionNotPublished</c> if
+        /// it exists but its own `Status` is not `Published`.
+        /// </summary>
+        Result<ContentDefinitionRecord> CreateNextDraftVersionFromPublished(CampaignHandle campaign, ContentDefinitionId publishedDefinitionId, UserId createdByUserId, CommandId commandId, CorrelationId correlationId);
     }
 
     public sealed class CreateDraftContentDefinitionRequest
