@@ -3,7 +3,7 @@
 **Status:** Active
 **Owner:** Codex (agent)
 **Branch:** `feat/ody-s04-113-character-ruleset-migration`
-**Pull request:** TBD
+**Pull request:** [#97](https://github.com/odyssey-services/Odyssey_VTT/pull/97)
 **Last updated:** 2026-09-03 UTC
 
 ## 1. Purpose and user-visible outcome
@@ -105,4 +105,4 @@ None — every open question the task contract itself flagged (§18) was resolve
 
 ## 12. Outcome and follow-up
 
-To be filled once the PR is opened and CI status is known.
+Draft PR: [#97](https://github.com/odyssey-services/Odyssey_VTT/pull/97). CI pending. `ODY-S04-114` (Vertical Slice Integration) is the next task in the backlog; a future task deciding a real Ruleset-content-catalog/cross-version value-transformation algorithm would be the first real occasion to populate `RulesetMigrationRules`'s own `ValueChanges` field with anything beyond an empty list.

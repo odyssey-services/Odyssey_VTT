@@ -1,12 +1,12 @@
 # ODY-S04-113 — Character Ruleset Migration
 
-**Status:** Ready
+**Status:** In Review
 **Roadmap stage / slice:** SLICE-04
-**Owner:** Unassigned
+**Owner:** Codex (agent)
 **Requested by:** Product owner
-**Branch:** Not created
-**Pull request:** Not opened
-**ExecPlan:** `docs/plans/active/ODY-S04-113_Character_Ruleset_Migration.md` (to be created by the implementing agent at task start, per `PLANS.md` §1.2)
+**Branch:** `feat/ody-s04-113-character-ruleset-migration`
+**Pull request:** [#97](https://github.com/odyssey-services/Odyssey_VTT/pull/97)
+**ExecPlan:** `docs/plans/active/ODY-S04-113_Character_Ruleset_Migration.md`
 **Created:** 2026-09-03
 **Last updated:** 2026-09-03 UTC
 
@@ -266,33 +266,91 @@ dotnet test Odyssey.Core.sln
 
 ## 16. Definition of Done
 
-- [ ] Goal is achieved without unapproved scope expansion.
-- [ ] All acceptance criteria are satisfied.
-- [ ] Required automated tests pass.
-- [ ] Required manual checks are completed (none required).
-- [ ] Required commands and their real results are recorded.
-- [ ] Architecture and dependency rules remain valid.
-- [ ] Security, privacy, redaction, and audience rules are verified where applicable.
-- [ ] Compatibility, migration, rollback, and versioning obligations are complete where applicable.
-- [ ] No unapproved dependency, tool, GitHub Action, or license was introduced.
-- [ ] Documentation is updated only where materially required.
-- [ ] Codex/developer performed a self-review against this task and `AGENTS.md`.
+- [x] Goal is achieved without unapproved scope expansion.
+- [x] All acceptance criteria are satisfied.
+- [x] Required automated tests pass.
+- [x] Required manual checks are completed (none required).
+- [x] Required commands and their real results are recorded.
+- [x] Architecture and dependency rules remain valid.
+- [x] Security, privacy, redaction, and audience rules are verified where applicable.
+- [x] Compatibility, migration, rollback, and versioning obligations are complete where applicable.
+- [x] No unapproved dependency, tool, GitHub Action, or license was introduced.
+- [x] Documentation is updated only where materially required.
+- [x] Codex/developer performed a self-review against this task and `AGENTS.md`.
 - [ ] Pull request explains changes, evidence, limitations, and follow-up work.
 - [ ] Product owner or authorized reviewer completes the required review; Codex does not merge into `main`.
 
 ## 17. Completion evidence
 
-To be filled by the implementing agent — not applicable at task creation time.
+### Changed files / areas
+
+See section 5's "In scope"/"Allowed paths" file list — every file this task touched matches it exactly (confirmed by `git status --porcelain` diff-scope check).
+
+### Validation results
+
+| Command / check | Result | Evidence / notes |
+|---|---|---|
+| `dotnet build Odyssey.Core.sln` | Passed | 0 warnings, 0 errors. |
+| `dotnet test Odyssey.Core.sln` | Passed | Full suite: Contracts 1, Domain 56, Networking 67, Unit 105, Architecture 2, Persistence 241 (229 pre-existing + 12 new) — 472 total, 0 failures, 0 regressions. |
+| `.\scripts\verify-format.ps1` | Passed | `FORMAT-001 PASS repository text formatting checks passed`. |
+| `.\scripts\check-repository-policy.ps1` | Passed | `Repository policy check passed.` |
+
+### Acceptance result
+
+| Criterion | Status | Evidence |
+|---|---|---|
+| AC-1 | Passed | Every earlier test file unmodified, all still pass. |
+| AC-2 | Passed | `TC-CHAR-153`. |
+| AC-3 | Passed | `TC-CHAR-158`. |
+| AC-4 | Passed | `TC-CHAR-159` (duplicate-`CommandId` replay proves the same atomicity guarantee every other command in this codebase already relies on — no bespoke fault-injection harness was introduced, per this task's own ExecPlan section 4). |
+| AC-5 | Passed | `TC-CHAR-154`/`156`. |
+| AC-6 | Passed | `TC-CHAR-160`. |
+| AC-7 | Passed | `TC-CHAR-164` (direct regression test) plus inspection: no `DatabaseSchemaVersion`/`SchemaHistory` reference exists anywhere in this task's own new code. |
+| AC-8 | Passed | `git status --porcelain` confirms no `ADR-012`/`013`/`022`–`026` file touched; no Unity/UI code; `RulesetMigrationRules` never populates a real value transformation (`ValueChanges` stays empty in every case this task's own code produces). |
+| AC-9 | Passed | See Validation results above. |
+| AC-10 | Passed | `SLICE-04_IMPLEMENTATION_BACKLOG.md` row 13 status/PR link updated. |
+| AC-11 | Passed | Draft PR link and CI status recorded once opened (see final report). |
+
+### Build and artifact evidence
+
+- Build identity: Not applicable.
+- Artifact path / name: None.
+- Checksums: None.
+- Test or quality report: `dotnet test` console output (see Validation results).
+
+### Known limitations
+
+- `RulesetMigrationRules` never populates `ValueChanges` — no cross-Ruleset-version value-transformation algorithm exists anywhere in this codebase or is decided by any ADR; a future task with a real decision on this would populate it without changing this task's own DTO shape.
+- Anatomy-section migration is out of scope — see Decisions.
+- A full-campaign backup before migration is not attempted — optional per `ADR-025` §7.5, not required by this task's own acceptance criteria.
+
+### Follow-up tasks
+
+- `ODY-S04-114` — `SLICE-04` Vertical Slice Integration.
+- A future task deciding a real Ruleset-content-catalog/cross-version value-transformation algorithm — first real occasion to populate `RulesetMigrationRules`'s own `ValueChanges` field with anything beyond an empty list.
+
+### Self-review summary
+
+- Scope review: limited to allowed files; no `ADR-012`/`013`/`022`–`026` change; no Unity/UI code; no cross-Ruleset value-transformation algorithm invented.
+- Architecture review: `RulesetMigrationRules` lives in `Odyssey.Rules` per `ADR-025` §9's own module assignment; `ApplyCharacterRulesetMigration` re-derives its own plan fresh from live state every time (`CAP-INV-004`), never trusting a client-supplied plan directly; `RevertCharacterRulesetMigration` reuses `ApplyCharacterRespec`'s own exact compensating-event shape without inventing a third parallel undo mechanism; never routed through `ADR-013`'s schema migration runner.
+- Test review: every acceptance criterion has a real, non-stubbed test against a genuine temp-directory SQLite campaign — no mocked repository, no bypassed transaction pipeline; a real bug (`displayNameSnapshot` missing from both new event payloads) was caught by this task's own first test run and fixed, not glossed over.
+- Security/privacy review: MainGM-only gate reuses existing conventions; error messages redact raw exception/path detail exactly like existing Character failures.
+- Documentation/version review: task contract, ExecPlan, error registry, test catalog, and backlog status all updated; no ADR or app/schema/protocol version changed.
 
 ## 18. Blockers, decisions, and change control
 
 ### Blockers
 
-- None for this task. Note (not a blocker): `PR #96` (`ODY-S04-112`) was still Draft/unmerged as of this task's authoring — recommend merging it first to keep `main` sequential, though this task has no real code dependency on it.
+- None for this task. `PR #96` (`ODY-S04-112`) was merged before this task began branching, confirmed via `git merge-base --is-ancestor`.
 
 ### Decisions made during execution
 
-- None yet — to be filled by the implementing agent (for example: exact `RulesetMigrationRules` shape; whether a full-campaign backup is attempted per section 5's optional item; exact new test IDs).
+- 2026-09-03 — Decision: `RulesetMigrationRules` is a single static pure function (`BuildPlan`) taking already-loaded Character state plus a caller-supplied `RulesetDefinitionCatalog` fixture — Authority/approval: mirrors `AttributeCostRules`'s own "test fixture only, no real catalog exists" convention exactly.
+- 2026-09-03 — Decision: no full-campaign backup is attempted — Authority/approval: `ADR-025` §7.5 explicitly frames this as optional, relevant only to a large/bulk migration; this task's own scope is a single-Character migration proof.
+- 2026-09-03 — Decision: Anatomy-section migration is out of scope — Authority/approval: product's own `ValueChanges`/`DefinitionMappings` examples are consistently Attribute/Skill/Ability/Resource-definition-shaped, never `BodyPartId`-shaped.
+- 2026-09-03 — Decision: the revert handle is the original migration's own `CommandId`, not a new minted ID or ledger table — Authority/approval: `DomainEvents.CommandId` already uniquely identifies the original event, exactly like `ODY-S04-112`'s own `FindCharacterIdByDraftBoundCommandId` precedent.
+- 2026-09-03 — Decision: `ApplyCharacterRulesetMigration`/`RevertCharacterRulesetMigration` are MainGM-only — Authority/approval: product section 25's own process step 1 (the GM chooses the new Ruleset version) and section 26's parallel with `GrantDevelopment`/`Respec` (both explicitly MainGM-only, comparable blast-radius Mechanics-affecting operations).
+- 2026-09-03 — Decision: fixed a real bug found by this task's own first test run (`displayNameSnapshot` missing from both new event payloads, required by `GetCharacterHistory`'s own rebuild) — Authority/approval: this task's own test-driven discovery; fixed by adding the field, matching every other event's own existing convention.
 
 ### Approved task changes
 
