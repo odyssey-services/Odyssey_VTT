@@ -225,6 +225,10 @@ namespace Odyssey.Tests.Persistence.Integration
             Result<IReadOnlyList<CharacterHistoryEntry>> historyAtReconnect = reconnectedCharacterRepository.GetCharacterHistory(campaign, characterId, TestCorrelationId);
             Assert.That(historyAtReconnect.IsSuccess, Is.True, "step 10: history must be readable after reconnect");
 
+            // ODY-S04-115a widened SqliteCharacterRepository.HistoryEventTypes
+            // to also track ODY-S04-106's own event types (skill purchase,
+            // critical evidence, advancement recommendation) -- steps 8/9
+            // now reappear here too, where before this fix they did not.
             string[] expectedEventTypesInOrder =
             {
                 "odyssey.persistence.character_draft_bound",
@@ -232,14 +236,18 @@ namespace Odyssey.Tests.Persistence.Integration
                 "odyssey.persistence.character_approved",
                 "odyssey.persistence.character_development_points_granted",
                 "odyssey.persistence.character_attribute_increased",
+                "odyssey.persistence.character_critical_success_evidence_recorded",
+                "odyssey.persistence.character_skill_advancement_recommendation_created",
+                "odyssey.persistence.character_skill_level_purchased",
+                "odyssey.persistence.character_skill_advancement_recommendation_created",
             };
             string[] actualEventTypesInOrder = historyAtReconnect.Value.Select(e => e.EventType).ToArray();
-            Assert.That(actualEventTypesInOrder, Is.EqualTo(expectedEventTypesInOrder), "step 10: every tracked event from steps 3-7 must reappear, in EventSequence order, after reconnect (only the event types SqliteCharacterRepository.HistoryEventTypes actually tracks -- see this class's own remarks)");
+            Assert.That(actualEventTypesInOrder, Is.EqualTo(expectedEventTypesInOrder), "step 10: every tracked event from steps 3-9 must reappear, in EventSequence order, after reconnect (only the event types SqliteCharacterRepository.HistoryEventTypes actually tracks -- see this class's own remarks)");
 
             Result<CharacterRecord> characterAtReconnect = reconnectedCharacterRepository.GetCharacter(campaign, characterId, TestCorrelationId);
             Assert.That(characterAtReconnect.IsSuccess, Is.True);
             Assert.That(characterAtReconnect.Value.DevelopmentPool.Earned, Is.EqualTo(50), "step 10: the reconnected read must reflect step 6's authoritative grant");
-            Assert.That(characterAtReconnect.Value.Skills.Single(s => s.SkillDefinitionId.Equals(stealth)).Level, Is.EqualTo(5), "step 10: the reconnected read must reflect step 9's authoritative recommendation outcome, even though that event type is outside GetCharacterHistory's own narrower whitelist");
+            Assert.That(characterAtReconnect.Value.Skills.Single(s => s.SkillDefinitionId.Equals(stealth)).Level, Is.EqualTo(5), "step 10: the reconnected read must reflect step 9's authoritative recommendation outcome");
 
             // ---- Step 11: .odchar export/import creates a new Draft. ----
             var exportActorContext = new ExportActorContext(mainGm, actorIsMainGm: true);

@@ -264,5 +264,24 @@ namespace Odyssey.Tests.Persistence
             Assert.That(reRead.IsSuccess, Is.True);
             Assert.That(reRead.Value.LifecycleStatus, Is.EqualTo(CharacterLifecycleStatus.Draft));
         }
+
+        // TC-CHAR-171 (ODY-S04-115a): GetCharacterHistory must succeed (no
+        // IntegrityCheckFailed) and surface character_review_comment_added,
+        // once AddCharacterReviewComment's own payload carries
+        // displayNameSnapshot and the event type is added to
+        // SqliteCharacterRepository.HistoryEventTypes.
+        [Test]
+        public void GetCharacterHistory_AfterReviewCommentAdded_Succeeds_SurfacesReviewCommentEvent()
+        {
+            CharacterRecord character = CreateDraftCharacter();
+            Result<CharacterReviewCommentRecord> comment = _characterRepository.AddCharacterReviewComment(_campaign, character.CharacterId, NewUserId(), "Please add a backstory.", NewCommandId(), TestCorrelationId);
+            Assert.That(comment.IsSuccess, Is.True);
+
+            Result<IReadOnlyList<CharacterHistoryEntry>> history = _characterRepository.GetCharacterHistory(_campaign, character.CharacterId, TestCorrelationId);
+
+            Assert.That(history.IsSuccess, Is.True, "GetCharacterHistory must not fail with IntegrityCheckFailed for character_review_comment_added");
+            Assert.That(history.Value.Select(e => e.EventType), Does.Contain("odyssey.persistence.character_review_comment_added"));
+            Assert.That(history.Value, Has.All.Property(nameof(CharacterHistoryEntry.DisplayNameSnapshot)).Not.Null);
+        }
     }
 }

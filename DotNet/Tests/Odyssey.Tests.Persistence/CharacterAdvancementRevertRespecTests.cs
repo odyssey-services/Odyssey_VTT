@@ -448,5 +448,38 @@ namespace Odyssey.Tests.Persistence
             Result<CharacterRecord> reRead = _characterRepository.GetCharacter(_campaign, character.CharacterId, TestCorrelationId);
             Assert.That(reRead.Value.Attributes.Single(a => a.AttributeDefinitionId.Equals(Strength)).BaseValue, Is.EqualTo(5));
         }
+
+        // TC-CHAR-168 (ODY-S04-115a): GetCharacterHistory must succeed (no
+        // IntegrityCheckFailed) after an ApplyCharacterRespec batch whose
+        // plan both reverts an earlier purchase and re-purchases an
+        // attribute -- this is the exact case where ApplyCharacterRespec's
+        // own revertedPayload/forwardPayload previously omitted
+        // displayNameSnapshot, including on the already-whitelisted
+        // character_attribute_increased event type the forward branch
+        // reuses.
+        [Test]
+        public void GetCharacterHistory_AfterRespecWithRevertAndAttributeRepurchase_Succeeds()
+        {
+            CharacterRecord character = CreateCharacter();
+            CharacterRecord granted = GrantPoints(character, 50);
+            Result<CharacterRecord> attrPurchase = _characterRepository.PurchaseAttributeIncrease(_campaign, character.CharacterId, Strength, toValue: 3, NewUserId(), actorIsMainGm: true, granted.Revisions.MechanicsRevision, expectedAttributeRevision: 0, NewCommandId(), TestCorrelationId);
+            Result<CharacterRecord> skillPurchase = _characterRepository.PurchaseSkillLevel(_campaign, character.CharacterId, Stealth, toLevel: 2, NewUserId(), actorIsMainGm: true, attrPurchase.Value.Revisions.MechanicsRevision, expectedSkillRevision: 0, NewCommandId(), TestCorrelationId);
+            Assert.That(skillPurchase.IsSuccess, Is.True);
+
+            var targets = new[]
+            {
+                new CharacterRespecTarget(AdvancementOperationKind.AttributeIncrease, Strength.ToString(), desiredValue: 5),
+                new CharacterRespecTarget(AdvancementOperationKind.SkillLevelPurchase, Stealth.ToString(), desiredValue: 0),
+            };
+            Result<CharacterRecord> applied = _characterRepository.ApplyCharacterRespec(_campaign, character.CharacterId, targets, GmReason, NewUserId(), actorIsMainGm: true, skillPurchase.Value.Revisions.MechanicsRevision, NewCommandId(), TestCorrelationId);
+            Assert.That(applied.IsSuccess, Is.True);
+
+            Result<IReadOnlyList<CharacterHistoryEntry>> history = _characterRepository.GetCharacterHistory(_campaign, character.CharacterId, TestCorrelationId);
+
+            Assert.That(history.IsSuccess, Is.True, "GetCharacterHistory must not fail with IntegrityCheckFailed for the respec batch's own forward character_attribute_increased/character_skill_level_purchased events");
+            Assert.That(history.Value.Select(e => e.EventType), Does.Contain("odyssey.persistence.character_attribute_increased"));
+            Assert.That(history.Value.Select(e => e.EventType), Does.Contain("odyssey.persistence.character_respec_completed"));
+            Assert.That(history.Value, Has.All.Property(nameof(CharacterHistoryEntry.DisplayNameSnapshot)).Not.Null);
+        }
     }
 }
