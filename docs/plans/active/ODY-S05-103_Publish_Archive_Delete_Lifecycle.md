@@ -3,7 +3,7 @@
 **Status:** Active
 **Owner:** Codex (agent)
 **Branch:** `feat/ody-s05-103-publish-archive-delete-lifecycle`
-**Pull request:** To be opened
+**Pull request:** https://github.com/odyssey-services/Odyssey_VTT/pull/110
 **Last updated:** 2026-09-04 UTC
 
 ## 1. Purpose and user-visible outcome
@@ -65,7 +65,7 @@ No Unity/UI code, no runtime Inventory/ItemInstance/ItemStack/Equipment/ActiveEf
 - [x] `.\scripts\check-repository-policy.ps1`.
 - [x] `.\scripts\verify-test-structure.ps1`.
 - [x] `SLICE-05_IMPLEMENTATION_BACKLOG.md` rows 3/4 status update (row 3 `In Review`; PR link to follow).
-- [ ] Commit, push, and open Draft PR.
+- [x] Commit, push, and open Draft PR (PR #110).
 - [ ] Record CI status.
 
 ## 6. Progress log
@@ -113,4 +113,4 @@ None. No architectural question was found that `ADR-027`/`11_Content_Block_Syste
 
 ## 12. Outcome and follow-up
 
-Draft PR: to be opened. Enables `ODY-S05-106` (Minimal Test Catalog Fixtures) to prove the full Foundation/Authoring/Validation/Publish pipeline end-to-end for the first time.
+Draft PR: https://github.com/odyssey-services/Odyssey_VTT/pull/110. CI pending. Enables `ODY-S05-106` (Minimal Test Catalog Fixtures) to prove the full Foundation/Authoring/Validation/Publish pipeline end-to-end for the first time.

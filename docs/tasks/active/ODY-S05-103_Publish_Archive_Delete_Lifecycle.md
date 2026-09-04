@@ -5,7 +5,7 @@
 **Owner:** Codex (agent)
 **Requested by:** Product owner
 **Branch:** `feat/ody-s05-103-publish-archive-delete-lifecycle`
-**Pull request:** To be opened
+**Pull request:** https://github.com/odyssey-services/Odyssey_VTT/pull/110
 **ExecPlan:** `docs/plans/active/ODY-S05-103_Publish_Archive_Delete_Lifecycle.md`
 **Created:** 2026-09-04
 **Last updated:** 2026-09-04 UTC
@@ -358,7 +358,7 @@ dotnet test DotNet\Odyssey.Core.sln
 | AC-12 | Pass | `git status --porcelain` confirms no `ADR-001`-`027` file touched. |
 | AC-13 | Pass | Twenty `TC-CATALOG-078`-`097` entries added. |
 | AC-14 | Pass | This task contract and ExecPlan exist. |
-| AC-15 | Pass | `SLICE-05_IMPLEMENTATION_BACKLOG.md` rows 3/4 updated; PR link to be backfilled once opened. |
+| AC-15 | Pass | `SLICE-05_IMPLEMENTATION_BACKLOG.md` rows 3/4 updated, row 3 with PR [#110](https://github.com/odyssey-services/Odyssey_VTT/pull/110). |
 
 ### Build and artifact evidence
 
