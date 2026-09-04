@@ -3,7 +3,7 @@
 **Status:** Active
 **Owner:** Codex (agent)
 **Branch:** `feat/ody-s05-106-minimal-test-catalog-fixtures`
-**Pull request:** To be opened
+**Pull request:** https://github.com/odyssey-services/Odyssey_VTT/pull/111
 **Planning mode:** Brief plan (no new public contract, no new persistence shape, no new architecture -- pure integration proof over `ODY-S05-101`-`105`)
 **Last updated:** 2026-09-04 UTC
 
@@ -54,7 +54,7 @@ No production code change, no Unity/UI code, no new persistence table, no new `E
 - [x] `.\scripts\check-repository-policy.ps1`.
 - [x] `.\scripts\verify-test-structure.ps1`.
 - [x] `SLICE-05_IMPLEMENTATION_BACKLOG.md` rows 3/6 status update (row 6 `In Review`; PR link to follow).
-- [ ] Commit, push, and open Draft PR.
+- [x] Commit, push, and open Draft PR (PR #111).
 - [ ] Record CI status.
 
 ## 6. Progress log
@@ -95,4 +95,4 @@ None.
 
 ## 12. Outcome and follow-up
 
-Draft PR: to be opened. Closes the Content Catalog MVP block (`ODY-S05-101`-`106`). Future `SLICE-05` blocks (Inventory, `ItemInstance`/`ItemStack`, Equipment, full attack pipeline) remain reserved, not decomposed, per `SLICE-05_IMPLEMENTATION_BACKLOG.md` section 7.
+Draft PR: https://github.com/odyssey-services/Odyssey_VTT/pull/111. CI pending. Closes the Content Catalog MVP block (`ODY-S05-101`-`106`). Future `SLICE-05` blocks (Inventory, `ItemInstance`/`ItemStack`, Equipment, full attack pipeline) remain reserved, not decomposed, per `SLICE-05_IMPLEMENTATION_BACKLOG.md` section 7.

@@ -5,7 +5,7 @@
 **Owner:** Codex (agent)
 **Requested by:** Product owner
 **Branch:** `feat/ody-s05-106-minimal-test-catalog-fixtures`
-**Pull request:** To be opened
+**Pull request:** https://github.com/odyssey-services/Odyssey_VTT/pull/111
 **Plan:** `docs/plans/active/ODY-S05-106_Minimal_Test_Catalog_Fixtures.md` (Brief plan)
 **Created:** 2026-09-04
 **Last updated:** 2026-09-04 UTC
@@ -314,7 +314,7 @@ dotnet test DotNet\Odyssey.Core.sln
 | AC-10 | Pass | Fixture helper methods (`AuthorDraft`) call only `ContentCatalogAuthoringService.CreateDraftDefinition`. |
 | AC-11 | Pass | Twelve `TC-CATALOG-100`-`111` entries added. |
 | AC-12 | Pass | This task contract and Brief plan exist. |
-| AC-13 | Pass | `SLICE-05_IMPLEMENTATION_BACKLOG.md` rows 3/6 updated; PR link to be backfilled once opened. |
+| AC-13 | Pass | `SLICE-05_IMPLEMENTATION_BACKLOG.md` rows 3/6 updated, row 6 with PR [#111](https://github.com/odyssey-services/Odyssey_VTT/pull/111). |
 
 ### Build and artifact evidence
 
