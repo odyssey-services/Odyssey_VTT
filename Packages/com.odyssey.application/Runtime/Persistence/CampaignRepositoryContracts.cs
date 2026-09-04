@@ -743,12 +743,21 @@ namespace Odyssey.Application.Persistence
             RetryDirective.DoNotRetry,
             correlationId);
 
-        /// <summary>ODY-S05-102: `CreateNextDraftVersionFromPublished` rejection when the source `ContentDefinitionId` is not currently `Published` -- there is no Draft/Archived source to branch a next version from; only an already-Published definition has an immutable baseline worth copying.</summary>
+        /// <summary>ODY-S05-102: `CreateNextDraftVersionFromPublished` rejection when the source `ContentDefinitionId` is not currently `Published` -- there is no Draft/Archived source to branch a next version from; only an already-Published definition has an immutable baseline worth copying. Reused by `ODY-S05-103`'s own `ArchiveDefinition` for the same underlying meaning: the operation requires a `Published` source and the target is not one.</summary>
         public static Error ContentDefinitionNotPublished(CorrelationId correlationId) => Error.Create(
             ErrorCodes.PersistenceContentDefinitionNotPublished,
             ErrorCategory.Conflict,
             SafeReasonCode.ActionNotAllowed,
             UserMessageKey.Parse("errors.persistence.content_definition_not_published"),
+            RetryDirective.DoNotRetry,
+            correlationId);
+
+        /// <summary>ODY-S05-103: `DeleteDraftDefinition` rejection when another catalog definition's own `DependencyRefsJson`/`PropertiesJson` still contains a reference to this `ContentDefinitionId` (`ADR-027` section 4.1 rule 4's "no catalog dependency" physical-delete precondition). Matched by `ContentDefinitionId` alone, ignoring the referencing `ContentDefinitionRef`'s own pinned `Version` -- a `ContentDefinitionRef` requires `Version &gt;= 1` and can therefore never legitimately target a genuine Draft (`Version == 0`) through the public API today; this check is a defensive, forward-compatible safety net for that invariant, not dead code (see this task's own contract section 18).</summary>
+        public static Error ContentDefinitionReferenced(CorrelationId correlationId) => Error.Create(
+            ErrorCodes.PersistenceContentDefinitionReferenced,
+            ErrorCategory.Conflict,
+            SafeReasonCode.ActionNotAllowed,
+            UserMessageKey.Parse("errors.persistence.content_definition_referenced"),
             RetryDirective.DoNotRetry,
             correlationId);
 

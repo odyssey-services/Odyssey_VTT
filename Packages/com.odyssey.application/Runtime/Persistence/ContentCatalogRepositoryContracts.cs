@@ -73,6 +73,65 @@ namespace Odyssey.Application.Persistence
         /// it exists but its own `Status` is not `Published`.
         /// </summary>
         Result<ContentDefinitionRecord> CreateNextDraftVersionFromPublished(CampaignHandle campaign, ContentDefinitionId publishedDefinitionId, UserId createdByUserId, CommandId commandId, CorrelationId correlationId);
+
+        /// <summary>
+        /// ODY-S05-103: publishes a Draft, producing an immutable Published
+        /// version (`ADR-027` section 4.1; `11_Content_Block_System`
+        /// section 6.2/6.3). Fails with <c>PersistenceContentDefinitionNotFound</c>
+        /// if the target does not exist, <c>PersistenceContentDefinitionNotDraft</c>
+        /// if its <see cref="ContentDefinitionRecord.Status"/> is not
+        /// <see cref="ContentDefinitionStatus.Draft"/>, or
+        /// <c>PersistenceContentDefinitionRevisionConflict</c> if
+        /// <paramref name="expectedRevision"/> is stale. Does NOT itself run
+        /// `ODY-S05-104`'s own usability validation -- callers (the
+        /// `ODY-S05-103` Application-layer lifecycle service) are expected
+        /// to gate the call on <c>CatalogValidationService.ValidateDraftForPublish</c>
+        /// returning a valid result first; this repository method only
+        /// enforces the structural lifecycle transition itself.
+        /// </summary>
+        Result<ContentDefinitionRecord> PublishDefinition(CampaignHandle campaign, ContentDefinitionId definitionId, UserId publishedByUserId, long expectedRevision, CommandId commandId, CorrelationId correlationId);
+
+        /// <summary>
+        /// ODY-S05-103: archives a Published definition -- the row is never
+        /// physically removed and remains fully loadable through
+        /// <see cref="GetContentDefinition"/> and <see cref="ListContentDefinitions"/>
+        /// afterward (`ADR-027` section 4.1 rules 2/3). Fails with
+        /// <c>PersistenceContentDefinitionNotFound</c> if the target does
+        /// not exist, or <c>PersistenceContentDefinitionNotPublished</c> if
+        /// its own <see cref="ContentDefinitionRecord.Status"/> is not
+        /// <see cref="ContentDefinitionStatus.Published"/> -- this MVP only
+        /// implements the Published-to-Archived transition; archiving a
+        /// still-Draft-but-referenced definition (the ADR's own second
+        /// archive trigger) does not arise in this codebase yet since
+        /// nothing outside the catalog can reference a Draft (see this
+        /// task's own contract section 18).
+        /// </summary>
+        Result<ContentDefinitionRecord> ArchiveDefinition(CampaignHandle campaign, ContentDefinitionId definitionId, string? archiveReason, CommandId commandId, CorrelationId correlationId);
+
+        /// <summary>
+        /// ODY-S05-103: physically removes an unused Draft row --
+        /// `ADR-027` section 4.1 rule 1's only allowed physical-delete
+        /// case. Fails with <c>PersistenceContentDefinitionNotFound</c> if
+        /// the target does not exist, <c>PersistenceContentDefinitionNotDraft</c>
+        /// if its own <see cref="ContentDefinitionRecord.Status"/> is not
+        /// <see cref="ContentDefinitionStatus.Draft"/>, or
+        /// <c>PersistenceContentDefinitionReferenced</c> if another catalog
+        /// definition's own `DependencyRefsJson`/`PropertiesJson` still
+        /// references this <see cref="ContentDefinitionId"/> (section 4.1
+        /// rule 4's "no catalog dependency" precondition -- checked and
+        /// deleted atomically in the same transaction, so no other command
+        /// can create a new reference between the check and the delete).
+        /// Runtime-reference checks (`ItemInstance`/`ItemStack`/Inventory/
+        /// equipment/`ActiveEffect`, section 4.1 rule 5) are an explicit,
+        /// not-yet-implemented future extension boundary: no such runtime
+        /// state exists anywhere in this codebase yet for this method to
+        /// check against. Returns a bare <see cref="Result"/> (no
+        /// remaining record to return); idempotent via the same
+        /// `ContentDefinitionCommandLedger` a create/update/publish/archive
+        /// command uses, checked by <see cref="CommandId"/> existence alone
+        /// so a replay succeeds even though the row itself is now gone.
+        /// </summary>
+        Result DeleteDraftDefinition(CampaignHandle campaign, ContentDefinitionId definitionId, CommandId commandId, CorrelationId correlationId);
     }
 
     public sealed class CreateDraftContentDefinitionRequest

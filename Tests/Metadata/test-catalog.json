@@ -4015,6 +4015,166 @@
                           "runner":  "dotnet test",
                           "path":  "DotNet/Tests/Odyssey.Tests.Persistence/Content/CatalogValidationServiceTests.cs",
                           "check":  "CatalogValidationService.ValidateDraftForPublish against an AbilityDefinition whose generic DependencyRefs[0] points at an existing, exact-version-matching Effect definition scoped to RulesetCompatibility=[\"other.ruleset@9.9.9\"] returns RulesetIncompatible at field path dependencyRefs[0]"
+                      },
+                      {
+                          "testCaseId":  "TC-CATALOG-078",
+                          "taskId":  "ODY-S05-103",
+                          "authority":  "ODY-S05-103 minimum test list item 1; ADR-027 section 4.1 (publish produces an immutable Published version)",
+                          "runner":  "dotnet test",
+                          "path":  "DotNet/Tests/Odyssey.Tests.Persistence/Content/ContentCatalogLifecycleServiceTests.cs",
+                          "check":  "ContentCatalogLifecycleService.PublishDefinition by a MainGM actor on a valid Draft succeeds, setting Status=Published, Version=1, incrementing Revision, and stamping PublishedByUserId/PublishedAt"
+                      },
+                      {
+                          "testCaseId":  "TC-CATALOG-079",
+                          "taskId":  "ODY-S05-103",
+                          "authority":  "ODY-S05-103 minimum test list item 2; publish must be gated by ODY-S05-104 validation server-side",
+                          "runner":  "dotnet test",
+                          "path":  "DotNet/Tests/Odyssey.Tests.Persistence/Content/ContentCatalogLifecycleServiceTests.cs",
+                          "check":  "ContentCatalogLifecycleService.PublishDefinition on a Draft that CatalogValidationService.ValidateDraftForPublish reports invalid (Weapon requiring ammo with no compatible ammo) fails with ContentCatalogPublishValidationFailed and leaves the row completely unmutated (still Draft, same Revision/Version)"
+                      },
+                      {
+                          "testCaseId":  "TC-CATALOG-080",
+                          "taskId":  "ODY-S05-103",
+                          "authority":  "ODY-S05-103 minimum test list item 3; ADR-027 section 12 (MainGM-only)",
+                          "runner":  "dotnet test",
+                          "path":  "DotNet/Tests/Odyssey.Tests.Persistence/Content/ContentCatalogLifecycleServiceTests.cs",
+                          "check":  "ContentCatalogLifecycleService.PublishDefinition by a non-MainGM actor fails with ContentCatalogAuthoringDenied and causes no state change"
+                      },
+                      {
+                          "testCaseId":  "TC-CATALOG-081",
+                          "taskId":  "ODY-S05-103",
+                          "authority":  "ODY-S05-103 minimum test list item 4; ADR-027 section 4.1 (Published immutability)",
+                          "runner":  "dotnet test",
+                          "path":  "DotNet/Tests/Odyssey.Tests.Persistence/Content/ContentCatalogLifecycleServiceTests.cs",
+                          "check":  "SqliteContentCatalogRepository.UpdateDraftContentDefinition against a definition already published by ODY-S05-103's own PublishDefinition fails with PersistenceContentDefinitionNotDraft"
+                      },
+                      {
+                          "testCaseId":  "TC-CATALOG-082",
+                          "taskId":  "ODY-S05-103",
+                          "authority":  "ODY-S05-103 minimum test list item 5",
+                          "runner":  "dotnet test",
+                          "path":  "DotNet/Tests/Odyssey.Tests.Persistence/Content/ContentCatalogLifecycleServiceTests.cs",
+                          "check":  "ContentCatalogLifecycleService.PublishDefinition against an already-Published definition (a fresh CommandId, not a replay) fails with PersistenceContentDefinitionNotDraft"
+                      },
+                      {
+                          "testCaseId":  "TC-CATALOG-083",
+                          "taskId":  "ODY-S05-103",
+                          "authority":  "ODY-S05-103 minimum test list item 6; command idempotency",
+                          "runner":  "dotnet test",
+                          "path":  "DotNet/Tests/Odyssey.Tests.Persistence/Content/ContentCatalogLifecycleServiceTests.cs",
+                          "check":  "Replaying the same CommandId used for a successful PublishDefinition returns the same Version/Revision, never a second increment"
+                      },
+                      {
+                          "testCaseId":  "TC-CATALOG-084",
+                          "taskId":  "ODY-S05-103",
+                          "authority":  "ODY-S05-103 minimum test list item 7; ADR-027 section 4.1 rule 2",
+                          "runner":  "dotnet test",
+                          "path":  "DotNet/Tests/Odyssey.Tests.Persistence/Content/ContentCatalogLifecycleServiceTests.cs",
+                          "check":  "ContentCatalogLifecycleService.ArchiveDefinition by a MainGM actor on a Published definition succeeds, setting Status=Archived, ArchivedAt, and the supplied ArchiveReason"
+                      },
+                      {
+                          "testCaseId":  "TC-CATALOG-085",
+                          "taskId":  "ODY-S05-103",
+                          "authority":  "ODY-S05-103 minimum test list item 8; ADR-027 section 4.1 rule 3 (Archived remains loadable)",
+                          "runner":  "dotnet test",
+                          "path":  "DotNet/Tests/Odyssey.Tests.Persistence/Content/ContentCatalogLifecycleServiceTests.cs",
+                          "check":  "An Archived definition remains loadable through SqliteContentCatalogRepository.GetContentDefinition"
+                      },
+                      {
+                          "testCaseId":  "TC-CATALOG-086",
+                          "taskId":  "ODY-S05-103",
+                          "authority":  "ODY-S05-103 minimum test list item 9; SLICE-05_IMPLEMENTATION_BACKLOG.md section 3.5 (Archived list is data/query only)",
+                          "runner":  "dotnet test",
+                          "path":  "DotNet/Tests/Odyssey.Tests.Persistence/Content/ContentCatalogLifecycleServiceTests.cs",
+                          "check":  "ContentCatalogLifecycleService.ListArchivedDefinitions returns only Archived definitions, excluding a still-Draft and a still-Published definition in the same campaign"
+                      },
+                      {
+                          "testCaseId":  "TC-CATALOG-087",
+                          "taskId":  "ODY-S05-103",
+                          "authority":  "ODY-S05-103 minimum test list item 10; ADR-027 section 12 (MainGM-only)",
+                          "runner":  "dotnet test",
+                          "path":  "DotNet/Tests/Odyssey.Tests.Persistence/Content/ContentCatalogLifecycleServiceTests.cs",
+                          "check":  "ContentCatalogLifecycleService.ArchiveDefinition by a non-MainGM actor fails with ContentCatalogAuthoringDenied and causes no state change"
+                      },
+                      {
+                          "testCaseId":  "TC-CATALOG-088",
+                          "taskId":  "ODY-S05-103",
+                          "authority":  "ODY-S05-103: this MVP only implements the Published-to-Archived transition",
+                          "runner":  "dotnet test",
+                          "path":  "DotNet/Tests/Odyssey.Tests.Persistence/Content/ContentCatalogLifecycleServiceTests.cs",
+                          "check":  "ContentCatalogLifecycleService.ArchiveDefinition against a still-Draft definition fails with PersistenceContentDefinitionNotPublished"
+                      },
+                      {
+                          "testCaseId":  "TC-CATALOG-089",
+                          "taskId":  "ODY-S05-103",
+                          "authority":  "ODY-S05-103 minimum test list item 11; ADR-027 section 4.1 rule 1",
+                          "runner":  "dotnet test",
+                          "path":  "DotNet/Tests/Odyssey.Tests.Persistence/Content/ContentCatalogLifecycleServiceTests.cs",
+                          "check":  "ContentCatalogLifecycleService.DeleteDraftDefinition on an unused Draft succeeds, and the row is subsequently unreadable via GetContentDefinition (PersistenceContentDefinitionNotFound)"
+                      },
+                      {
+                          "testCaseId":  "TC-CATALOG-090",
+                          "taskId":  "ODY-S05-103",
+                          "authority":  "ODY-S05-103 minimum test list item 12; ADR-027 section 4.1 rule 2 (Published must not be physically deleted)",
+                          "runner":  "dotnet test",
+                          "path":  "DotNet/Tests/Odyssey.Tests.Persistence/Content/ContentCatalogLifecycleServiceTests.cs",
+                          "check":  "ContentCatalogLifecycleService.DeleteDraftDefinition against a Published definition fails with PersistenceContentDefinitionNotDraft and the row remains readable"
+                      },
+                      {
+                          "testCaseId":  "TC-CATALOG-091",
+                          "taskId":  "ODY-S05-103",
+                          "authority":  "ODY-S05-103 minimum test list item 13; ADR-027 section 4.1 rule 2 (Archived must not be physically deleted)",
+                          "runner":  "dotnet test",
+                          "path":  "DotNet/Tests/Odyssey.Tests.Persistence/Content/ContentCatalogLifecycleServiceTests.cs",
+                          "check":  "ContentCatalogLifecycleService.DeleteDraftDefinition against an Archived definition fails with PersistenceContentDefinitionNotDraft"
+                      },
+                      {
+                          "testCaseId":  "TC-CATALOG-092",
+                          "taskId":  "ODY-S05-103",
+                          "authority":  "ODY-S05-103 minimum test list item 14; ADR-027 section 4.1 rule 4 (no catalog dependency)",
+                          "runner":  "dotnet test",
+                          "path":  "DotNet/Tests/Odyssey.Tests.Persistence/Content/ContentCatalogLifecycleServiceTests.cs",
+                          "check":  "ContentCatalogLifecycleService.DeleteDraftDefinition against a Draft referenced by another catalog definition's own DependencyRefsJson (seeded directly, since a real ContentDefinitionRef cannot target a Version=0 Draft through the public API) fails with PersistenceContentDefinitionReferenced and the row remains readable"
+                      },
+                      {
+                          "testCaseId":  "TC-CATALOG-093",
+                          "taskId":  "ODY-S05-103",
+                          "authority":  "ODY-S05-103: the reference scan must not over-match an unrelated definition",
+                          "runner":  "dotnet test",
+                          "path":  "DotNet/Tests/Odyssey.Tests.Persistence/Content/ContentCatalogLifecycleServiceTests.cs",
+                          "check":  "ContentCatalogLifecycleService.DeleteDraftDefinition on a genuinely unused Draft still succeeds even while an unrelated Draft elsewhere in the same campaign is referenced by another definition"
+                      },
+                      {
+                          "testCaseId":  "TC-CATALOG-094",
+                          "taskId":  "ODY-S05-103",
+                          "authority":  "ODY-S05-103: MainGM-only baseline applies to delete as well as publish/archive",
+                          "runner":  "dotnet test",
+                          "path":  "DotNet/Tests/Odyssey.Tests.Persistence/Content/ContentCatalogLifecycleServiceTests.cs",
+                          "check":  "ContentCatalogLifecycleService.DeleteDraftDefinition by a non-MainGM actor fails with ContentCatalogAuthoringDenied and the row remains readable"
+                      },
+                      {
+                          "testCaseId":  "TC-CATALOG-095",
+                          "taskId":  "ODY-S05-103",
+                          "authority":  "ODY-S05-103 minimum test list item 15; command idempotency after physical removal",
+                          "runner":  "dotnet test",
+                          "path":  "DotNet/Tests/Odyssey.Tests.Persistence/Content/ContentCatalogLifecycleServiceTests.cs",
+                          "check":  "Replaying the same CommandId used for a successful DeleteDraftDefinition succeeds even though the row itself no longer exists"
+                      },
+                      {
+                          "testCaseId":  "TC-CATALOG-096",
+                          "taskId":  "ODY-S05-103",
+                          "authority":  "ODY-S05-103 minimum test list item 16",
+                          "runner":  "dotnet test",
+                          "path":  "DotNet/Tests/Odyssey.Tests.Persistence/Content/ContentCatalogLifecycleServiceTests.cs",
+                          "check":  "Direct reflection over every type in the Odyssey.Application.Content namespace confirms none references Inventory/ItemInstance/ItemStack/Equipment/ActiveEffect -- the Publish/Archive/Delete Lifecycle introduces no runtime item/equipment/effect implementation"
+                      },
+                      {
+                          "testCaseId":  "TC-CATALOG-097",
+                          "taskId":  "ODY-S05-103",
+                          "authority":  "ODY-S05-103 minimum test list item 16, schema-level guard",
+                          "runner":  "dotnet test",
+                          "path":  "DotNet/Tests/Odyssey.Tests.Persistence/Content/ContentCatalogLifecycleServiceTests.cs",
+                          "check":  "The campaign.db schema after every lifecycle test in this fixture contains no Inventory/ItemInstance/ItemStack/Equipment/ActiveEffect table -- ODY-S05-103 introduces no new persistence table beyond the existing ContentDefinition/ContentDefinitionCommandLedger tables"
                       }
                   ]
 }

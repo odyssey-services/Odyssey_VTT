@@ -381,6 +381,282 @@ namespace Odyssey.Persistence.Sqlite
         }
 
         /// <summary>
+        /// ODY-S05-103: only a Draft may be published; publishing sets
+        /// `Version` to <c>1</c> -- the first and, for this same
+        /// `ContentDefinitionId` row, only published version this MVP ever
+        /// writes (a "next version" mints an entirely new
+        /// `ContentDefinitionId` via <see cref="CreateNextDraftVersionFromPublished"/>,
+        /// it never bumps this row's own `Version` a second time). Does not
+        /// itself call `ODY-S05-104`'s own `CatalogValidationService` --
+        /// the Application-layer lifecycle service is expected to gate this
+        /// call on a passing `ValidateDraftForPublish` result first; this
+        /// method only enforces the structural Draft-to-Published
+        /// transition and its own optimistic-concurrency guard.
+        /// </summary>
+        public Result<ContentDefinitionRecord> PublishDefinition(CampaignHandle campaign, ContentDefinitionId definitionId, UserId publishedByUserId, long expectedRevision, CommandId commandId, CorrelationId correlationId)
+        {
+            if (campaign == null) throw new ArgumentNullException(nameof(campaign));
+            if (!definitionId.IsValid) throw new ArgumentException("ContentDefinitionId is required.", nameof(definitionId));
+            if (!publishedByUserId.IsValid) throw new ArgumentException("PublishedByUserId is required.", nameof(publishedByUserId));
+            if (expectedRevision < 1) throw new ArgumentOutOfRangeException(nameof(expectedRevision));
+            if (!commandId.IsValid) throw new ArgumentException("CommandId is required.", nameof(commandId));
+
+            try
+            {
+                using SqliteConnection connection = OpenConnection(campaign.RootPath);
+                EnsureContentDefinitionTables(connection);
+                using SqliteTransaction transaction = connection.BeginTransaction();
+
+                ContentDefinitionRecord? replay = TryFindByCommandId(connection, transaction, commandId);
+                if (replay != null)
+                {
+                    transaction.Commit();
+                    return Result<ContentDefinitionRecord>.Success(replay);
+                }
+
+                ContentDefinitionRecord? current = SelectForUpdate(connection, transaction, definitionId);
+                if (current == null)
+                {
+                    transaction.Commit();
+                    return Result<ContentDefinitionRecord>.Failure(PersistenceFailures.ContentDefinitionNotFound(correlationId));
+                }
+
+                if (current.Status != ContentDefinitionStatus.Draft)
+                {
+                    transaction.Commit();
+                    return Result<ContentDefinitionRecord>.Failure(PersistenceFailures.ContentDefinitionNotDraft(correlationId));
+                }
+
+                if (current.Revision != expectedRevision)
+                {
+                    transaction.Commit();
+                    return Result<ContentDefinitionRecord>.Failure(PersistenceFailures.ContentDefinitionRevisionConflict(correlationId));
+                }
+
+                UtcInstant now = _clock.GetUtcNow();
+                const long publishedVersion = 1;
+                long newRevision = current.Revision + 1;
+                const ContentDefinitionStatus newStatus = ContentDefinitionStatus.Published;
+
+                using (var update = connection.CreateCommand())
+                {
+                    update.Transaction = transaction;
+                    update.CommandText = "UPDATE ContentDefinition SET Status = $status, Version = $version, Revision = $revision, PublishedByUserId = $publishedByUserId, PublishedAt = $publishedAt, UpdatedAt = $updatedAt WHERE ContentDefinitionId = $id;";
+                    update.Parameters.AddWithValue("$status", newStatus.ToString());
+                    update.Parameters.AddWithValue("$version", publishedVersion);
+                    update.Parameters.AddWithValue("$revision", newRevision);
+                    update.Parameters.AddWithValue("$publishedByUserId", publishedByUserId.ToString());
+                    update.Parameters.AddWithValue("$publishedAt", now.ToString());
+                    update.Parameters.AddWithValue("$updatedAt", now.ToString());
+                    update.Parameters.AddWithValue("$id", definitionId.ToString());
+                    update.ExecuteNonQuery();
+                }
+
+                InsertCommandLedgerEntry(connection, transaction, commandId, definitionId, now);
+
+                transaction.Commit();
+
+                var record = new ContentDefinitionRecord(
+                    definitionId, current.Origin, current.DefinitionType, current.Name, current.Description, newStatus,
+                    publishedVersion, newRevision, current.RulesetCompatibility, current.Tags, current.PropertiesJson,
+                    current.DependencyRefs, current.CreatedByUserId, publishedByUserId, now, current.ArchivedAt,
+                    current.ArchiveReason, current.CreatedAt, now);
+                return Result<ContentDefinitionRecord>.Success(record);
+            }
+            catch (Exception ex) when (ex is IOException || ex is UnauthorizedAccessException || ex is SqliteException)
+            {
+                return Result<ContentDefinitionRecord>.Failure(PersistenceFailures.ContentDefinitionIoFailed(correlationId));
+            }
+        }
+
+        /// <summary>
+        /// ODY-S05-103: only a Published definition may be archived in
+        /// this MVP (`ADR-027` section 4.1 rule 2's primary case). The row
+        /// is never physically removed -- it remains fully readable through
+        /// <see cref="GetContentDefinition"/>/<see cref="ListContentDefinitions"/>
+        /// afterward (rule 3).
+        /// </summary>
+        public Result<ContentDefinitionRecord> ArchiveDefinition(CampaignHandle campaign, ContentDefinitionId definitionId, string? archiveReason, CommandId commandId, CorrelationId correlationId)
+        {
+            if (campaign == null) throw new ArgumentNullException(nameof(campaign));
+            if (!definitionId.IsValid) throw new ArgumentException("ContentDefinitionId is required.", nameof(definitionId));
+            if (!commandId.IsValid) throw new ArgumentException("CommandId is required.", nameof(commandId));
+
+            try
+            {
+                using SqliteConnection connection = OpenConnection(campaign.RootPath);
+                EnsureContentDefinitionTables(connection);
+                using SqliteTransaction transaction = connection.BeginTransaction();
+
+                ContentDefinitionRecord? replay = TryFindByCommandId(connection, transaction, commandId);
+                if (replay != null)
+                {
+                    transaction.Commit();
+                    return Result<ContentDefinitionRecord>.Success(replay);
+                }
+
+                ContentDefinitionRecord? current = SelectForUpdate(connection, transaction, definitionId);
+                if (current == null)
+                {
+                    transaction.Commit();
+                    return Result<ContentDefinitionRecord>.Failure(PersistenceFailures.ContentDefinitionNotFound(correlationId));
+                }
+
+                if (current.Status != ContentDefinitionStatus.Published)
+                {
+                    transaction.Commit();
+                    return Result<ContentDefinitionRecord>.Failure(PersistenceFailures.ContentDefinitionNotPublished(correlationId));
+                }
+
+                UtcInstant now = _clock.GetUtcNow();
+                const ContentDefinitionStatus newStatus = ContentDefinitionStatus.Archived;
+
+                using (var update = connection.CreateCommand())
+                {
+                    update.Transaction = transaction;
+                    update.CommandText = "UPDATE ContentDefinition SET Status = $status, ArchivedAt = $archivedAt, ArchiveReason = $archiveReason, UpdatedAt = $updatedAt WHERE ContentDefinitionId = $id;";
+                    update.Parameters.AddWithValue("$status", newStatus.ToString());
+                    update.Parameters.AddWithValue("$archivedAt", now.ToString());
+                    update.Parameters.AddWithValue("$archiveReason", (object?)archiveReason ?? DBNull.Value);
+                    update.Parameters.AddWithValue("$updatedAt", now.ToString());
+                    update.Parameters.AddWithValue("$id", definitionId.ToString());
+                    update.ExecuteNonQuery();
+                }
+
+                InsertCommandLedgerEntry(connection, transaction, commandId, definitionId, now);
+
+                transaction.Commit();
+
+                var record = new ContentDefinitionRecord(
+                    definitionId, current.Origin, current.DefinitionType, current.Name, current.Description, newStatus,
+                    current.Version, current.Revision, current.RulesetCompatibility, current.Tags, current.PropertiesJson,
+                    current.DependencyRefs, current.CreatedByUserId, current.PublishedByUserId, current.PublishedAt, now,
+                    archiveReason, current.CreatedAt, now);
+                return Result<ContentDefinitionRecord>.Success(record);
+            }
+            catch (Exception ex) when (ex is IOException || ex is UnauthorizedAccessException || ex is SqliteException)
+            {
+                return Result<ContentDefinitionRecord>.Failure(PersistenceFailures.ContentDefinitionIoFailed(correlationId));
+            }
+        }
+
+        /// <summary>
+        /// ODY-S05-103: physically removes an unused Draft row --
+        /// `ADR-027` section 4.1 rule 1's only allowed physical-delete
+        /// case. The existence/Draft/reference checks and the DELETE
+        /// itself run inside one transaction, so no other command can
+        /// create a new reference to this definition between the check and
+        /// the delete. Idempotency cannot reuse <see cref="TryFindByCommandId"/>
+        /// as-is (it re-selects the target row, which is gone after a
+        /// successful delete) -- <see cref="CommandLedgerContainsCommandId"/>
+        /// checks the ledger's own `CommandId` existence alone, so a replay
+        /// of an already-applied delete command succeeds even though
+        /// nothing is left to select.
+        /// </summary>
+        public Result DeleteDraftDefinition(CampaignHandle campaign, ContentDefinitionId definitionId, CommandId commandId, CorrelationId correlationId)
+        {
+            if (campaign == null) throw new ArgumentNullException(nameof(campaign));
+            if (!definitionId.IsValid) throw new ArgumentException("ContentDefinitionId is required.", nameof(definitionId));
+            if (!commandId.IsValid) throw new ArgumentException("CommandId is required.", nameof(commandId));
+
+            try
+            {
+                using SqliteConnection connection = OpenConnection(campaign.RootPath);
+                EnsureContentDefinitionTables(connection);
+                using SqliteTransaction transaction = connection.BeginTransaction();
+
+                if (CommandLedgerContainsCommandId(connection, transaction, commandId))
+                {
+                    transaction.Commit();
+                    return Result.Success();
+                }
+
+                ContentDefinitionRecord? current = SelectForUpdate(connection, transaction, definitionId);
+                if (current == null)
+                {
+                    transaction.Commit();
+                    return Result.Failure(PersistenceFailures.ContentDefinitionNotFound(correlationId));
+                }
+
+                if (current.Status != ContentDefinitionStatus.Draft)
+                {
+                    transaction.Commit();
+                    return Result.Failure(PersistenceFailures.ContentDefinitionNotDraft(correlationId));
+                }
+
+                if (IsReferencedByAnotherDefinition(connection, transaction, definitionId))
+                {
+                    transaction.Commit();
+                    return Result.Failure(PersistenceFailures.ContentDefinitionReferenced(correlationId));
+                }
+
+                using (var delete = connection.CreateCommand())
+                {
+                    delete.Transaction = transaction;
+                    delete.CommandText = "DELETE FROM ContentDefinition WHERE ContentDefinitionId = $id;";
+                    delete.Parameters.AddWithValue("$id", definitionId.ToString());
+                    delete.ExecuteNonQuery();
+                }
+
+                UtcInstant now = _clock.GetUtcNow();
+                InsertCommandLedgerEntry(connection, transaction, commandId, definitionId, now);
+
+                transaction.Commit();
+                return Result.Success();
+            }
+            catch (Exception ex) when (ex is IOException || ex is UnauthorizedAccessException || ex is SqliteException)
+            {
+                return Result.Failure(PersistenceFailures.ContentDefinitionIoFailed(correlationId));
+            }
+        }
+
+        /// <summary>
+        /// ODY-S05-103: `ADR-027` section 4.1 rule 4's "no catalog
+        /// dependency" physical-delete precondition -- matched by
+        /// <paramref name="definitionId"/> alone (its raw canonical string
+        /// form), ignoring any referencing <see cref="ContentDefinitionRef"/>'s
+        /// own pinned `Version` suffix. A `ContentDefinitionRef` requires
+        /// `Version &gt;= 1` and can therefore never legitimately target a
+        /// genuine Draft (`Version == 0`, always true for anything this
+        /// method is ever called against) through the public API today --
+        /// this scan is a defensive, forward-compatible safety net for that
+        /// invariant, not dead code (see this task's own contract section
+        /// 18). Scans both `DependencyRefsJson` (the generic envelope
+        /// field every `ContentDefinitionType` can carry) and
+        /// `PropertiesJson` (where `ODY-S05-105`'s own typed Item/Weapon/
+        /// Armor/Ammo shapes embed their `ContentDefinitionRef` fields) via
+        /// a plain substring match -- no `TypedDefinitionCodec` dependency
+        /// is needed since the canonical `ContentDefinitionId` string is
+        /// always present verbatim inside any JSON-embedded reference to
+        /// it.
+        /// </summary>
+        private static bool IsReferencedByAnotherDefinition(SqliteConnection connection, SqliteTransaction transaction, ContentDefinitionId definitionId)
+        {
+            using var select = connection.CreateCommand();
+            select.Transaction = transaction;
+            select.CommandText = "SELECT COUNT(*) FROM ContentDefinition WHERE ContentDefinitionId != $id AND (DependencyRefsJson LIKE $pattern OR PropertiesJson LIKE $pattern);";
+            select.Parameters.AddWithValue("$id", definitionId.ToString());
+            select.Parameters.AddWithValue("$pattern", "%" + definitionId + "%");
+            long count = (long)select.ExecuteScalar()!;
+            return count > 0;
+        }
+
+        /// <summary>
+        /// ODY-S05-103: a `CommandId`-existence-only ledger check, distinct
+        /// from <see cref="TryFindByCommandId"/> -- used only by
+        /// <see cref="DeleteDraftDefinition"/>, whose successful outcome
+        /// leaves no row behind to re-select on replay.
+        /// </summary>
+        private static bool CommandLedgerContainsCommandId(SqliteConnection connection, SqliteTransaction transaction, CommandId commandId)
+        {
+            using var select = connection.CreateCommand();
+            select.Transaction = transaction;
+            select.CommandText = "SELECT 1 FROM ContentDefinitionCommandLedger WHERE CommandId = $commandId LIMIT 1;";
+            select.Parameters.AddWithValue("$commandId", commandId.ToString());
+            return select.ExecuteScalar() != null;
+        }
+
+        /// <summary>
         /// ODY-S05-101 amendment: looks up the durable
         /// `ContentDefinitionCommandLedger` (`CommandId` -&gt;
         /// `ContentDefinitionId`), not a mutable `LastCommandId` column on
