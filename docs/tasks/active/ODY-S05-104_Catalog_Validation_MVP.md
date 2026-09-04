@@ -5,7 +5,7 @@
 **Owner:** Codex (agent)
 **Requested by:** Product owner
 **Branch:** `feat/ody-s05-104-catalog-validation-mvp` (original PR #108, merged); follow-up: `fix/ody-s05-104-reference-ruleset-compatibility`
-**Pull request:** https://github.com/odyssey-services/Odyssey_VTT/pull/108 (merged at commit `58d95c8`, only the first amendment); follow-up PR to be opened carries the second amendment (commit `742bae0`, never merged into `main`)
+**Pull request:** https://github.com/odyssey-services/Odyssey_VTT/pull/108 (merged at commit `58d95c8`, only the first amendment); follow-up: https://github.com/odyssey-services/Odyssey_VTT/pull/109 (carries the second amendment, commit `742bae0` cherry-picked as `a364085`)
 **ExecPlan:** `docs/plans/active/ODY-S05-104_Catalog_Validation_MVP.md`
 **Created:** 2026-09-04
 **Last updated:** 2026-09-04 UTC (amended twice: weapon ammo-applicability ruleset check (merged in PR #108); referenced-definition ruleset compatibility (follow-up PR, not yet merged))
