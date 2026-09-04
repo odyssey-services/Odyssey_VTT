@@ -3,7 +3,7 @@
 **Status:** Active
 **Owner:** Codex (agent)
 **Branch:** `feat/ody-s05-104-catalog-validation-mvp`
-**Pull request:** To be opened
+**Pull request:** https://github.com/odyssey-services/Odyssey_VTT/pull/108
 **Last updated:** 2026-09-04 UTC
 
 ## 1. Purpose and user-visible outcome
@@ -61,7 +61,7 @@ No Unity/UI code, no publish/archive/delete/authoring/runtime behavior, no `ADR-
 - [x] `.\scripts\check-repository-policy.ps1`.
 - [x] `.\scripts\verify-test-structure.ps1`.
 - [x] `SLICE-05_IMPLEMENTATION_BACKLOG.md` row 4 status update (`In Review`; PR link to follow).
-- [ ] Commit, push, and open Draft PR.
+- [x] Commit, push, and open Draft PR (PR #108).
 - [ ] Record CI status.
 
 ## 6. Progress log
@@ -106,4 +106,4 @@ None. No architectural question was found that `ADR-027`/`11_Content_Block_Syste
 
 ## 12. Outcome and follow-up
 
-Draft PR: to be opened. Enables `ODY-S05-103` (Publish/Archive/Delete Lifecycle) to gate publish on `ValidateDraftForPublish`, and `ODY-S05-106` to prove the full pipeline end-to-end.
+Draft PR: https://github.com/odyssey-services/Odyssey_VTT/pull/108. CI pending. Enables `ODY-S05-103` (Publish/Archive/Delete Lifecycle) to gate publish on `ValidateDraftForPublish`, and `ODY-S05-106` to prove the full pipeline end-to-end.

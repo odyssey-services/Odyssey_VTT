@@ -5,7 +5,7 @@
 **Owner:** Codex (agent)
 **Requested by:** Product owner
 **Branch:** `feat/ody-s05-104-catalog-validation-mvp`
-**Pull request:** To be opened
+**Pull request:** https://github.com/odyssey-services/Odyssey_VTT/pull/108
 **ExecPlan:** `docs/plans/active/ODY-S05-104_Catalog_Validation_MVP.md`
 **Created:** 2026-09-04
 **Last updated:** 2026-09-04 UTC
@@ -356,7 +356,7 @@ dotnet test DotNet\Odyssey.Core.sln
 | AC-18 | Pass | `git status --porcelain` confirms no `ADR-001`-`027` file touched. |
 | AC-19 | Pass | Thirty `TC-CATALOG-042`-`071` entries added. |
 | AC-20 | Pass | This task contract and ExecPlan exist. |
-| AC-21 | Pending | `SLICE-05_IMPLEMENTATION_BACKLOG.md` row 4 marked `In Review`; PR link to be backfilled once opened. |
+| AC-21 | Pass | `SLICE-05_IMPLEMENTATION_BACKLOG.md` row 4 marked `In Review` with PR [#108](https://github.com/odyssey-services/Odyssey_VTT/pull/108). |
 
 ### Build and artifact evidence
 
