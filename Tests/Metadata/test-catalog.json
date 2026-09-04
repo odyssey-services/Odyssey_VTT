@@ -3727,6 +3727,246 @@
                           "runner":  "dotnet test",
                           "path":  "DotNet/Tests/Odyssey.Tests.Unit/Content/TypedDefinitionCodecTests.cs",
                           "check":  "TypedDefinitionCodec.DecodeAbility against a payload whose schemaVersion is 0, 2, the string \"1\", or null each return ContentCatalogTypedDefinitionMalformedPayload"
+                      },
+                      {
+                          "testCaseId":  "TC-CATALOG-042",
+                          "taskId":  "ODY-S05-104",
+                          "authority":  "ODY-S05-104 AC-1/AC-2/AC-3; ADR-027 section 20 (usability validation)",
+                          "runner":  "dotnet test",
+                          "path":  "DotNet/Tests/Odyssey.Tests.Persistence/Content/CatalogValidationServiceTests.cs",
+                          "check":  "CatalogValidationService.ValidateDraftForPublish against a valid ItemDefinition Draft returns IsValid=true with no issues"
+                      },
+                      {
+                          "testCaseId":  "TC-CATALOG-043",
+                          "taskId":  "ODY-S05-104",
+                          "authority":  "ODY-S05-104 AC-4 (WeaponDefinition validation)",
+                          "runner":  "dotnet test",
+                          "path":  "DotNet/Tests/Odyssey.Tests.Persistence/Content/CatalogValidationServiceTests.cs",
+                          "check":  "CatalogValidationService.ValidateDraftForPublish against a valid WeaponDefinition Draft (AmmoRequirement.None) returns IsValid=true"
+                      },
+                      {
+                          "testCaseId":  "TC-CATALOG-044",
+                          "taskId":  "ODY-S05-104",
+                          "authority":  "ODY-S05-104 AC-6 (ArmorDefinition validation)",
+                          "runner":  "dotnet test",
+                          "path":  "DotNet/Tests/Odyssey.Tests.Persistence/Content/CatalogValidationServiceTests.cs",
+                          "check":  "CatalogValidationService.ValidateDraftForPublish against a valid ArmorDefinition Draft returns IsValid=true"
+                      },
+                      {
+                          "testCaseId":  "TC-CATALOG-045",
+                          "taskId":  "ODY-S05-104",
+                          "authority":  "ODY-S05-104 AC-7 (AmmoDefinition validation)",
+                          "runner":  "dotnet test",
+                          "path":  "DotNet/Tests/Odyssey.Tests.Persistence/Content/CatalogValidationServiceTests.cs",
+                          "check":  "CatalogValidationService.ValidateDraftForPublish against a valid AmmoDefinition Draft returns IsValid=true"
+                      },
+                      {
+                          "testCaseId":  "TC-CATALOG-046",
+                          "taskId":  "ODY-S05-104",
+                          "authority":  "ODY-S05-104 AC-8 (AbilityDefinition validation)",
+                          "runner":  "dotnet test",
+                          "path":  "DotNet/Tests/Odyssey.Tests.Persistence/Content/CatalogValidationServiceTests.cs",
+                          "check":  "CatalogValidationService.ValidateDraftForPublish against a valid AbilityDefinition Draft returns IsValid=true"
+                      },
+                      {
+                          "testCaseId":  "TC-CATALOG-047",
+                          "taskId":  "ODY-S05-104",
+                          "authority":  "ODY-S05-104 AC-9 (EffectDefinition validation)",
+                          "runner":  "dotnet test",
+                          "path":  "DotNet/Tests/Odyssey.Tests.Persistence/Content/CatalogValidationServiceTests.cs",
+                          "check":  "CatalogValidationService.ValidateDraftForPublish against a valid EffectDefinition Draft returns IsValid=true"
+                      },
+                      {
+                          "testCaseId":  "TC-CATALOG-048",
+                          "taskId":  "ODY-S05-104",
+                          "authority":  "ODY-S05-104 minimum test list item 2 (wrong type/malformed JSON)",
+                          "runner":  "dotnet test",
+                          "path":  "DotNet/Tests/Odyssey.Tests.Persistence/Content/CatalogValidationServiceTests.cs",
+                          "check":  "CatalogValidationService.ValidateDraftForPublish against invalid JSON returns a TypedPayloadMalformed issue, not a raw exception"
+                      },
+                      {
+                          "testCaseId":  "TC-CATALOG-049",
+                          "taskId":  "ODY-S05-104",
+                          "authority":  "ODY-S05-104 minimum test list item 3 (weapon missing damage/range/action-cost)",
+                          "runner":  "dotnet test",
+                          "path":  "DotNet/Tests/Odyssey.Tests.Persistence/Content/CatalogValidationServiceTests.cs",
+                          "check":  "CatalogValidationService.ValidateDraftForPublish against a Weapon record whose stored PropertiesJson has an empty damageExpression returns a TypedPayloadMalformed issue"
+                      },
+                      {
+                          "testCaseId":  "TC-CATALOG-050",
+                          "taskId":  "ODY-S05-104",
+                          "authority":  "ODY-S05-104 minimum test list item 3 (weapon missing ammo compatibility)",
+                          "runner":  "dotnet test",
+                          "path":  "DotNet/Tests/Odyssey.Tests.Persistence/Content/CatalogValidationServiceTests.cs",
+                          "check":  "CatalogValidationService.ValidateDraftForPublish against a Weapon with AmmoRequirement.Required and empty CompatibleAmmoKeys returns WeaponAmmoCompatibilityKeysRequired"
+                      },
+                      {
+                          "testCaseId":  "TC-CATALOG-051",
+                          "taskId":  "ODY-S05-104",
+                          "authority":  "ODY-S05-104 minimum test list item 4 (weapon requiring ammo, no compatible AmmoDefinition)",
+                          "runner":  "dotnet test",
+                          "path":  "DotNet/Tests/Odyssey.Tests.Persistence/Content/CatalogValidationServiceTests.cs",
+                          "check":  "CatalogValidationService.ValidateDraftForPublish against a Weapon requiring ammo with no matching AmmoDefinition anywhere in the catalog returns WeaponNoCompatibleAmmoInCatalog"
+                      },
+                      {
+                          "testCaseId":  "TC-CATALOG-052",
+                          "taskId":  "ODY-S05-104",
+                          "authority":  "ODY-S05-104 minimum test list item 4, positive case",
+                          "runner":  "dotnet test",
+                          "path":  "DotNet/Tests/Odyssey.Tests.Persistence/Content/CatalogValidationServiceTests.cs",
+                          "check":  "CatalogValidationService.ValidateDraftForPublish against a Weapon requiring ammo with a matching AmmoDefinition present in the catalog returns IsValid=true"
+                      },
+                      {
+                          "testCaseId":  "TC-CATALOG-053",
+                          "taskId":  "ODY-S05-104",
+                          "authority":  "ODY-S05-104 minimum test list item 5 (armor missing slot/body-part/protection/durability)",
+                          "runner":  "dotnet test",
+                          "path":  "DotNet/Tests/Odyssey.Tests.Persistence/Content/CatalogValidationServiceTests.cs",
+                          "check":  "CatalogValidationService.ValidateDraftForPublish against an Armor record whose stored PropertiesJson is missing required fields returns a TypedPayloadMalformed issue"
+                      },
+                      {
+                          "testCaseId":  "TC-CATALOG-054",
+                          "taskId":  "ODY-S05-104",
+                          "authority":  "ODY-S05-104 minimum test list item 6 (ammo missing compatibility key)",
+                          "runner":  "dotnet test",
+                          "path":  "DotNet/Tests/Odyssey.Tests.Persistence/Content/CatalogValidationServiceTests.cs",
+                          "check":  "CatalogValidationService.ValidateDraftForPublish against an Ammo record whose stored PropertiesJson has an empty compatibilityKeys array returns a TypedPayloadMalformed issue"
+                      },
+                      {
+                          "testCaseId":  "TC-CATALOG-055",
+                          "taskId":  "ODY-S05-104",
+                          "authority":  "ODY-S05-104 minimum test list item 7 (ammo effect contribution ref to missing EffectDefinition)",
+                          "runner":  "dotnet test",
+                          "path":  "DotNet/Tests/Odyssey.Tests.Persistence/Content/CatalogValidationServiceTests.cs",
+                          "check":  "CatalogValidationService.ValidateDraftForPublish against an AmmoDefinition whose EffectContributionRefs points at a non-existent ContentDefinitionId returns ReferenceMissing at field path properties.effectContributionRefs[0]"
+                      },
+                      {
+                          "testCaseId":  "TC-CATALOG-056",
+                          "taskId":  "ODY-S05-104",
+                          "authority":  "ODY-S05-104 common validation item 6/7 (reference target type correctness)",
+                          "runner":  "dotnet test",
+                          "path":  "DotNet/Tests/Odyssey.Tests.Persistence/Content/CatalogValidationServiceTests.cs",
+                          "check":  "CatalogValidationService.ValidateDraftForPublish against an ItemDefinition whose BuiltInAbilityRefs points at an existing, exact-version-matching Effect (not Ability) definition returns ReferenceWrongType"
+                      },
+                      {
+                          "testCaseId":  "TC-CATALOG-057",
+                          "taskId":  "ODY-S05-104",
+                          "authority":  "ODY-S05-104 minimum test list item 8 (ability missing trigger/target/cost/resource ref)",
+                          "runner":  "dotnet test",
+                          "path":  "DotNet/Tests/Odyssey.Tests.Persistence/Content/CatalogValidationServiceTests.cs",
+                          "check":  "CatalogValidationService.ValidateDraftForPublish against an Ability record whose stored PropertiesJson has an empty trigger returns a TypedPayloadMalformed issue"
+                      },
+                      {
+                          "testCaseId":  "TC-CATALOG-058",
+                          "taskId":  "ODY-S05-104",
+                          "authority":  "ODY-S05-104 minimum test list item 9 (effect missing/invalid duration)",
+                          "runner":  "dotnet test",
+                          "path":  "DotNet/Tests/Odyssey.Tests.Persistence/Content/CatalogValidationServiceTests.cs",
+                          "check":  "CatalogValidationService.ValidateDraftForPublish against an Effect record whose stored PropertiesJson has an unrecognized durationType enum value returns a TypedPayloadMalformed issue"
+                      },
+                      {
+                          "testCaseId":  "TC-CATALOG-059",
+                          "taskId":  "ODY-S05-104",
+                          "authority":  "ODY-S05-104 ContentBlock/mechanics payload MVP boundary; minimum test list item 15",
+                          "runner":  "dotnet test",
+                          "path":  "DotNet/Tests/Odyssey.Tests.Persistence/Content/CatalogValidationServiceTests.cs",
+                          "check":  "CatalogValidationService.ValidateDraftForPublish against an EffectDefinition whose MechanicsPayloadRef is whitespace-only returns EffectMechanicsPayloadRefInvalid -- the explicit no-real-ContentBlockGraph-exists-yet MVP boundary, validated structurally"
+                      },
+                      {
+                          "testCaseId":  "TC-CATALOG-060",
+                          "taskId":  "ODY-S05-104",
+                          "authority":  "ODY-S05-104 ContentBlock/mechanics payload MVP boundary, positive case",
+                          "runner":  "dotnet test",
+                          "path":  "DotNet/Tests/Odyssey.Tests.Persistence/Content/CatalogValidationServiceTests.cs",
+                          "check":  "CatalogValidationService.ValidateDraftForPublish against an AbilityDefinition with a non-empty MechanicsPayloadRef returns IsValid=true"
+                      },
+                      {
+                          "testCaseId":  "TC-CATALOG-061",
+                          "taskId":  "ODY-S05-104",
+                          "authority":  "ODY-S05-104 minimum test list item 11 (existing definition, wrong version)",
+                          "runner":  "dotnet test",
+                          "path":  "DotNet/Tests/Odyssey.Tests.Persistence/Content/CatalogValidationServiceTests.cs",
+                          "check":  "CatalogValidationService.ValidateDraftForPublish against an ItemDefinition whose BuiltInEffectRefs pins version 1 of an Effect definition that is actually published at version 2 returns ReferenceVersionMismatch"
+                      },
+                      {
+                          "testCaseId":  "TC-CATALOG-062",
+                          "taskId":  "ODY-S05-104",
+                          "authority":  "ODY-S05-104 minimum test list item 11, positive case",
+                          "runner":  "dotnet test",
+                          "path":  "DotNet/Tests/Odyssey.Tests.Persistence/Content/CatalogValidationServiceTests.cs",
+                          "check":  "CatalogValidationService.ValidateDraftForPublish against an ItemDefinition whose BuiltInEffectRefs pins the Effect definition's own actual current version returns IsValid=true"
+                      },
+                      {
+                          "testCaseId":  "TC-CATALOG-063",
+                          "taskId":  "ODY-S05-104",
+                          "authority":  "ODY-S05-104 common validation item 9 (dependency traversal must avoid infinite loops)",
+                          "runner":  "dotnet test",
+                          "path":  "DotNet/Tests/Odyssey.Tests.Persistence/Content/CatalogValidationServiceTests.cs",
+                          "check":  "CatalogValidationService.ValidateContentDefinition against two definitions that reference each other (Item->Effect via BuiltInEffectRefs, Effect->Item via the generic DependencyRefs envelope field) terminates and returns DependencyCycleDetected, not an infinite loop or stack overflow"
+                      },
+                      {
+                          "testCaseId":  "TC-CATALOG-064",
+                          "taskId":  "ODY-S05-104",
+                          "authority":  "ODY-S05-104 minimum test list item 12 (ruleset incompatibility); AC-13",
+                          "runner":  "dotnet test",
+                          "path":  "DotNet/Tests/Odyssey.Tests.Persistence/Content/CatalogValidationServiceTests.cs",
+                          "check":  "CatalogValidationService.ValidateDraftForPublish against a definition whose RulesetCompatibility does not include the campaign's own active ruleset.core@1.0.0 returns RulesetIncompatible"
+                      },
+                      {
+                          "testCaseId":  "TC-CATALOG-065",
+                          "taskId":  "ODY-S05-104",
+                          "authority":  "ODY-S05-104 minimum test list item 12, positive case",
+                          "runner":  "dotnet test",
+                          "path":  "DotNet/Tests/Odyssey.Tests.Persistence/Content/CatalogValidationServiceTests.cs",
+                          "check":  "CatalogValidationService.ValidateDraftForPublish against a definition whose RulesetCompatibility explicitly includes the campaign's own active ruleset.core@1.0.0 returns IsValid=true"
+                      },
+                      {
+                          "testCaseId":  "TC-CATALOG-066",
+                          "taskId":  "ODY-S05-104",
+                          "authority":  "ODY-S05-104 common validation item 5, empty-list default case",
+                          "runner":  "dotnet test",
+                          "path":  "DotNet/Tests/Odyssey.Tests.Persistence/Content/CatalogValidationServiceTests.cs",
+                          "check":  "CatalogValidationService.ValidateDraftForPublish against a definition with an empty RulesetCompatibility list (no restriction declared) returns IsValid=true regardless of the campaign's own active ruleset"
+                      },
+                      {
+                          "testCaseId":  "TC-CATALOG-067",
+                          "taskId":  "ODY-S05-104",
+                          "authority":  "ODY-S05-104 minimum test list item 13 (non-Draft fails validate-for-publish)",
+                          "runner":  "dotnet test",
+                          "path":  "DotNet/Tests/Odyssey.Tests.Persistence/Content/CatalogValidationServiceTests.cs",
+                          "check":  "CatalogValidationService.ValidateDraftForPublish against a Published definition returns DefinitionNotDraft, while ValidateContentDefinition against the same Published definition does not"
+                      },
+                      {
+                          "testCaseId":  "TC-CATALOG-068",
+                          "taskId":  "ODY-S05-104",
+                          "authority":  "ODY-S05-104 common validation item 1 (definition must exist)",
+                          "runner":  "dotnet test",
+                          "path":  "DotNet/Tests/Odyssey.Tests.Persistence/Content/CatalogValidationServiceTests.cs",
+                          "check":  "CatalogValidationService.ValidateDraftForPublish against a non-existent ContentDefinitionId returns Result.Failure (PersistenceContentDefinitionNotFound), not a CatalogValidationResult with an issue"
+                      },
+                      {
+                          "testCaseId":  "TC-CATALOG-069",
+                          "taskId":  "ODY-S05-104",
+                          "authority":  "ODY-S05-104 minimum test list item 14 (validation does not mutate catalog state)",
+                          "runner":  "dotnet test",
+                          "path":  "DotNet/Tests/Odyssey.Tests.Persistence/Content/CatalogValidationServiceTests.cs",
+                          "check":  "Running CatalogValidationService.ValidateDraftForPublish and ValidateContentDefinition against a definition leaves its Revision/Status/Version/UpdatedAt completely unchanged on re-read"
+                      },
+                      {
+                          "testCaseId":  "TC-CATALOG-070",
+                          "taskId":  "ODY-S05-104",
+                          "authority":  "ODY-S05-104 minimum test list item 16 (no runtime item/inventory/equipment/effect implementation)",
+                          "runner":  "dotnet test",
+                          "path":  "DotNet/Tests/Odyssey.Tests.Persistence/Content/CatalogValidationServiceTests.cs",
+                          "check":  "Direct reflection over every type in the Odyssey.Application.Content namespace confirms none references Inventory/ItemInstance/ItemStack/Equipment/ActiveEffect -- the Catalog Validation MVP introduces no runtime item/equipment/effect implementation"
+                      },
+                      {
+                          "testCaseId":  "TC-CATALOG-071",
+                          "taskId":  "ODY-S05-104",
+                          "authority":  "ODY-S05-104 minimum test list item 16, schema-level guard",
+                          "runner":  "dotnet test",
+                          "path":  "DotNet/Tests/Odyssey.Tests.Persistence/Content/CatalogValidationServiceTests.cs",
+                          "check":  "The campaign.db schema after every validation test in this fixture contains no Inventory/ItemInstance/ItemStack/Equipment/ActiveEffect table -- CatalogValidationService is read-only and introduces no new persistence table"
                       }
                   ]
 }
