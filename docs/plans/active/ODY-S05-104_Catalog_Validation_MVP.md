@@ -106,7 +106,7 @@ None. No architectural question was found that `ADR-027`/`11_Content_Block_Syste
 
 ## 12. Outcome and follow-up
 
-Draft PR: https://github.com/odyssey-services/Odyssey_VTT/pull/108 (amended). Enables `ODY-S05-103` (Publish/Archive/Delete Lifecycle) to gate publish on `ValidateDraftForPublish`, and `ODY-S05-106` to prove the full pipeline end-to-end.
+Draft PR: https://github.com/odyssey-services/Odyssey_VTT/pull/108 (amended twice). Enables `ODY-S05-103` (Publish/Archive/Delete Lifecycle) to gate publish on `ValidateDraftForPublish`, and `ODY-S05-106` to prove the full pipeline end-to-end.
 
 ## 13. Amendment (2026-09-04) — weapon ammo-applicability ruleset check
 
@@ -114,4 +114,11 @@ Draft PR: https://github.com/odyssey-services/Odyssey_VTT/pull/108 (amended). En
 - Fix: factored `ValidateRulesetCompatibility`'s own rule into a shared `IsCompatibleWithActiveRuleset(campaign, rulesetCompatibility)` helper; `CatalogHasCompatibleAmmo` now skips any candidate ammo whose `RulesetCompatibility` does not include (or leave unrestricted) the active `campaign.Manifest.RulesetId@RulesetVersion` before checking its keys.
 - Tests added: `TC-CATALOG-072` (matching ammo explicitly compatible with the active ruleset passes) and `TC-CATALOG-073` (matching-key ammo scoped to `other.ruleset@9.9.9` fails with `WeaponNoCompatibleAmmoInCatalog`).
 - Validation re-run: `dotnet build` (0/0), `dotnet test` full suite (585/585, no regression), `verify-format.ps1`/`check-repository-policy.ps1`/`verify-test-structure.ps1` all pass.
+
+## 14. Amendment (2026-09-04, second) — referenced-definition ruleset compatibility
+
+- Defect: `ValidateReferencesAndCycles` checked existence/exact-version/target-type for every reachable `ContentDefinitionRef`, but never the referenced definition's own `RulesetCompatibility` -- an Item/Ammo/etc. could pass validation while referencing an Ability/Effect/other definition scoped to a different Ruleset than the active campaign.
+- Fix: reused the same `IsCompatibleWithActiveRuleset` helper the first amendment introduced, called on each resolved `child` record right after the version/type checks and before `Visit(child)` recurses further. An incompatible target reuses `CatalogValidationIssueCode.RulesetIncompatible` (no new issue code), with `FieldPath` pinned to the exact reference (`properties.builtInEffectRefs[0]`, `dependencyRefs[0]`, etc.), distinguishing it from `ValidateRulesetCompatibility`'s own generic `"rulesetCompatibility"` path used for the definition being directly validated. Archived targets remain loadable exactly as before.
+- Tests added: `TC-CATALOG-074` (typed ref to an incompatible-ruleset target fails), `TC-CATALOG-075`/`076` (positive controls: unrestricted target; target explicitly compatible with the active ruleset), `TC-CATALOG-077` (the generic `DependencyRefs` field is checked the same way, since Ability/Effect have no typed `ContentDefinitionRef` field of their own).
+- Validation re-run: `dotnet build` (0/0), `dotnet test` full suite (589/589, no regression), `verify-format.ps1`/`check-repository-policy.ps1`/`verify-test-structure.ps1` all pass.
 - PR #108 stays Draft pending re-review.

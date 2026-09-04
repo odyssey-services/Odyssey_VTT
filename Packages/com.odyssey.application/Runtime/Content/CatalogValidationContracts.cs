@@ -482,6 +482,28 @@ namespace Odyssey.Application.Content
                         continue;
                     }
 
+                    // ODY-S05-104 amendment: existence/exact-version/target-
+                    // type correctness alone is not enough -- a referenced
+                    // definition scoped to a different Ruleset than the
+                    // active campaign must not be treated as a usable
+                    // dependency either, the same rule
+                    // ValidateRulesetCompatibility already applies to the
+                    // definition being directly validated. Reuses
+                    // RulesetIncompatible rather than a separate issue code,
+                    // per this amendment's own explicit allowance -- the
+                    // FieldPath still pinpoints the exact reference, not the
+                    // generic "rulesetCompatibility" path
+                    // ValidateRulesetCompatibility itself uses.
+                    if (!IsCompatibleWithActiveRuleset(campaign, child.RulesetCompatibility))
+                    {
+                        issues.Add(new CatalogValidationIssue(
+                            CatalogValidationIssueCode.RulesetIncompatible,
+                            CatalogValidationSeverity.Error,
+                            UserMessageKey.Parse("errors.content_catalog.validation.ruleset_incompatible"),
+                            fieldPath));
+                        continue;
+                    }
+
                     Visit(child);
                 }
 
