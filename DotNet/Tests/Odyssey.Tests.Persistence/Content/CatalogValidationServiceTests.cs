@@ -495,6 +495,79 @@ namespace Odyssey.Tests.Persistence.Content
             Assert.That(result.Value.IsValid, Is.True, string.Join(", ", result.Value.Issues.Select(i => i.IssueCode)));
         }
 
+        // ---- Referenced definition ruleset compatibility (ODY-S05-104 amendment) ----
+
+        [Test]
+        public void ItemBuiltInEffectRef_ToDefinitionFromIncompatibleRuleset_FailsValidation()
+        {
+            // Existing, exact-version-matching, correctly-typed Effect --
+            // but scoped to a different Ruleset than the active campaign.
+            ContentDefinitionRecord effectRecord = CreateDraft(ContentDefinitionType.Effect, EncodeMinimalEffect(), rulesetCompatibility: new[] { "other.ruleset@9.9.9" });
+            MarkPublishedDirectly(effectRecord.ContentDefinitionId, 1);
+
+            var reference = new ContentDefinitionRef(effectRecord.ContentDefinitionId, 1);
+            string itemJson = EncodeMinimalItem(builtInEffectRefs: new[] { reference });
+            ContentDefinitionRecord record = CreateDraft(ContentDefinitionType.Item, itemJson);
+
+            Result<CatalogValidationResult> result = CatalogValidationService.ValidateDraftForPublish(_catalogRepository, RequestFor(record.ContentDefinitionId));
+
+            Assert.That(result.IsSuccess, Is.True);
+            Assert.That(result.Value.IsValid, Is.False);
+            Assert.That(result.Value.Issues.Any(i => i.IssueCode == CatalogValidationIssueCode.RulesetIncompatible && i.FieldPath == "properties.builtInEffectRefs[0]"), Is.True);
+        }
+
+        [Test]
+        public void ItemBuiltInEffectRef_ToDefinitionWithUnrestrictedRuleset_PassesValidation()
+        {
+            ContentDefinitionRecord effectRecord = CreateDraft(ContentDefinitionType.Effect, EncodeMinimalEffect(), rulesetCompatibility: Array.Empty<string>());
+            MarkPublishedDirectly(effectRecord.ContentDefinitionId, 1);
+
+            var reference = new ContentDefinitionRef(effectRecord.ContentDefinitionId, 1);
+            string itemJson = EncodeMinimalItem(builtInEffectRefs: new[] { reference });
+            ContentDefinitionRecord record = CreateDraft(ContentDefinitionType.Item, itemJson);
+
+            Result<CatalogValidationResult> result = CatalogValidationService.ValidateDraftForPublish(_catalogRepository, RequestFor(record.ContentDefinitionId));
+
+            Assert.That(result.IsSuccess, Is.True);
+            Assert.That(result.Value.IsValid, Is.True, string.Join(", ", result.Value.Issues.Select(i => i.IssueCode)));
+        }
+
+        [Test]
+        public void ItemBuiltInEffectRef_ToDefinitionCompatibleWithActiveRuleset_PassesValidation()
+        {
+            ContentDefinitionRecord effectRecord = CreateDraft(ContentDefinitionType.Effect, EncodeMinimalEffect(), rulesetCompatibility: new[] { "ruleset.core@1.0.0" });
+            MarkPublishedDirectly(effectRecord.ContentDefinitionId, 1);
+
+            var reference = new ContentDefinitionRef(effectRecord.ContentDefinitionId, 1);
+            string itemJson = EncodeMinimalItem(builtInEffectRefs: new[] { reference });
+            ContentDefinitionRecord record = CreateDraft(ContentDefinitionType.Item, itemJson);
+
+            Result<CatalogValidationResult> result = CatalogValidationService.ValidateDraftForPublish(_catalogRepository, RequestFor(record.ContentDefinitionId));
+
+            Assert.That(result.IsSuccess, Is.True);
+            Assert.That(result.Value.IsValid, Is.True, string.Join(", ", result.Value.Issues.Select(i => i.IssueCode)));
+        }
+
+        [Test]
+        public void GenericDependencyRef_ToDefinitionFromIncompatibleRuleset_FailsValidation()
+        {
+            // The generic DependencyRefs envelope field must be checked the
+            // same way as a typed reference -- Ability/Effect carry no
+            // typed ContentDefinitionRef field of their own, so this is
+            // their own only way to declare a cross-reference at all.
+            ContentDefinitionRecord effectRecord = CreateDraft(ContentDefinitionType.Effect, EncodeMinimalEffect(), rulesetCompatibility: new[] { "other.ruleset@9.9.9" });
+            MarkPublishedDirectly(effectRecord.ContentDefinitionId, 1);
+
+            var reference = new ContentDefinitionRef(effectRecord.ContentDefinitionId, 1);
+            ContentDefinitionRecord record = CreateDraft(ContentDefinitionType.Ability, EncodeMinimalAbility(), dependencyRefs: new[] { reference });
+
+            Result<CatalogValidationResult> result = CatalogValidationService.ValidateDraftForPublish(_catalogRepository, RequestFor(record.ContentDefinitionId));
+
+            Assert.That(result.IsSuccess, Is.True);
+            Assert.That(result.Value.IsValid, Is.False);
+            Assert.That(result.Value.Issues.Any(i => i.IssueCode == CatalogValidationIssueCode.RulesetIncompatible && i.FieldPath == "dependencyRefs[0]"), Is.True);
+        }
+
         // ---- Dependency cycle detection (common validation item 9) ---------------
 
         [Test]
