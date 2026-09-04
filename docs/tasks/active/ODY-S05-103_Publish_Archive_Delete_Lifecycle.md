@@ -8,7 +8,7 @@
 **Pull request:** https://github.com/odyssey-services/Odyssey_VTT/pull/110
 **ExecPlan:** `docs/plans/active/ODY-S05-103_Publish_Archive_Delete_Lifecycle.md`
 **Created:** 2026-09-04
-**Last updated:** 2026-09-04 UTC (amended twice: DeleteDraftDefinition idempotency fix; shared-ledger CommandId reuse now rejected)
+**Last updated:** 2026-09-04 UTC (amended twice: DeleteDraftDefinition idempotency fix; shared-ledger CommandId reuse now rejected; final pre-merge cleanup: schema-guard test renamed/wording updated for `ContentDefinitionDeleteLedger`)
 
 ## 1. Goal
 
@@ -225,7 +225,7 @@ Unity assets/UI
 | `TC-CATALOG-093` | .NET / NUnit (Persistence) | Delete not over-blocked by an unrelated reference | Pass |
 | `TC-CATALOG-094` | .NET / NUnit (Persistence) | Non-MainGM delete denied, no state change | Pass |
 | `TC-CATALOG-095` | .NET / NUnit (Persistence) | Delete command replay safe after row is gone | Pass |
-| `TC-CATALOG-096`/`097` | .NET / NUnit (Persistence) | No runtime item/inventory/equipment/effect type or table | Pass |
+| `TC-CATALOG-096`/`097` | .NET / NUnit (Persistence) | No runtime item/inventory/equipment/effect type or table; the three allowed catalog lifecycle tables (`ContentDefinition`, `ContentDefinitionCommandLedger`, `ContentDefinitionDeleteLedger`) are confirmed present | Pass |
 | `TC-CATALOG-098` | .NET / NUnit (Persistence) | A CommandId reused from a create/update/publish/archive of the same still-existing Draft fails with CommandIdentityMismatch, leaves the Draft readable | Pass |
 | `TC-CATALOG-099` | .NET / NUnit (Persistence) | A CommandId reused from a different definition's own successful delete fails with CommandIdentityMismatch, deletes neither | Pass |
 

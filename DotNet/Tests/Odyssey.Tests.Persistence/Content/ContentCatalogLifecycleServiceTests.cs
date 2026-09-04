@@ -451,9 +451,9 @@ namespace Odyssey.Tests.Persistence.Content
         }
 
         [Test]
-        public void LifecycleLayer_IntroducesNoNewPersistenceTable()
+        public void LifecycleLayer_IntroducesNoRuntimeItemInventoryEquipmentOrActiveEffectTable()
         {
-            CreateValidDraft(); // ensures ContentDefinition/-CommandLedger tables exist (created lazily on first use)
+            CreateValidDraft(); // ensures ContentDefinition/-CommandLedger/-DeleteLedger tables exist (created lazily on first use)
 
             using var connection = new SqliteConnection("Data Source=" + Path.Combine(_campaignDir, "campaign.db"));
             connection.Open();
@@ -466,11 +466,19 @@ namespace Odyssey.Tests.Persistence.Content
             string[] forbiddenTableNames = { "Inventory", "ItemInstance", "ItemStack", "Equipment", "ActiveEffect" };
             foreach (string forbidden in forbiddenTableNames)
             {
-                Assert.That(tableNames, Has.None.Contain(forbidden), $"no table containing '{forbidden}' may exist -- ODY-S05-103 implements catalog lifecycle only, no new runtime persistence table");
+                Assert.That(tableNames, Has.None.Contain(forbidden), $"no table containing '{forbidden}' may exist -- ODY-S05-103 implements catalog lifecycle only, no new runtime item/inventory/equipment/effect persistence table");
             }
 
+            // The catalog lifecycle's own tables (generic envelope plus its
+            // two idempotency ledgers -- the second added by this task's
+            // own amendment fixing DeleteDraftDefinition's idempotency) are
+            // exactly what is allowed to exist; their presence is asserted
+            // here, not just their absence-of-forbidden-names, so this
+            // guard stays meaningful if a future change accidentally drops
+            // one of them.
             Assert.That(tableNames, Does.Contain("ContentDefinition"));
             Assert.That(tableNames, Does.Contain("ContentDefinitionCommandLedger"));
+            Assert.That(tableNames, Does.Contain("ContentDefinitionDeleteLedger"));
         }
     }
 }

@@ -4174,7 +4174,7 @@
                           "authority":  "ODY-S05-103 minimum test list item 16, schema-level guard",
                           "runner":  "dotnet test",
                           "path":  "DotNet/Tests/Odyssey.Tests.Persistence/Content/ContentCatalogLifecycleServiceTests.cs",
-                          "check":  "The campaign.db schema after every lifecycle test in this fixture contains no Inventory/ItemInstance/ItemStack/Equipment/ActiveEffect table -- ODY-S05-103 introduces no new persistence table beyond the existing ContentDefinition/ContentDefinitionCommandLedger tables"
+                          "check":  "The campaign.db schema after every lifecycle test in this fixture contains no runtime Inventory/ItemInstance/ItemStack/Equipment/ActiveEffect table -- ODY-S05-103 introduces no new runtime item/inventory/equipment/effect persistence table; the allowed catalog lifecycle tables (ContentDefinition, ContentDefinitionCommandLedger, and ContentDefinitionDeleteLedger, the last added by this task's own DeleteDraftDefinition idempotency amendment) are confirmed present"
                       },
                       {
                           "testCaseId":  "TC-CATALOG-098",
