@@ -2,8 +2,8 @@
 
 **Status:** Active
 **Owner:** Codex (agent)
-**Branch:** `feat/ody-s05-104-catalog-validation-mvp`
-**Pull request:** https://github.com/odyssey-services/Odyssey_VTT/pull/108
+**Branch:** `feat/ody-s05-104-catalog-validation-mvp` (original PR #108, merged); follow-up: `fix/ody-s05-104-reference-ruleset-compatibility`
+**Pull request:** https://github.com/odyssey-services/Odyssey_VTT/pull/108 (merged at `58d95c8`, only the first amendment); follow-up PR carries the second amendment (`742bae0`, orphaned by the merge)
 **Last updated:** 2026-09-04 UTC
 
 ## 1. Purpose and user-visible outcome
@@ -121,4 +121,13 @@ Draft PR: https://github.com/odyssey-services/Odyssey_VTT/pull/108 (amended twic
 - Fix: reused the same `IsCompatibleWithActiveRuleset` helper the first amendment introduced, called on each resolved `child` record right after the version/type checks and before `Visit(child)` recurses further. An incompatible target reuses `CatalogValidationIssueCode.RulesetIncompatible` (no new issue code), with `FieldPath` pinned to the exact reference (`properties.builtInEffectRefs[0]`, `dependencyRefs[0]`, etc.), distinguishing it from `ValidateRulesetCompatibility`'s own generic `"rulesetCompatibility"` path used for the definition being directly validated. Archived targets remain loadable exactly as before.
 - Tests added: `TC-CATALOG-074` (typed ref to an incompatible-ruleset target fails), `TC-CATALOG-075`/`076` (positive controls: unrestricted target; target explicitly compatible with the active ruleset), `TC-CATALOG-077` (the generic `DependencyRefs` field is checked the same way, since Ability/Effect have no typed `ContentDefinitionRef` field of their own).
 - Validation re-run: `dotnet build` (0/0), `dotnet test` full suite (589/589, no regression), `verify-format.ps1`/`check-repository-policy.ps1`/`verify-test-structure.ps1` all pass.
-- PR #108 stays Draft pending re-review.
+- Delivery note: PR #108 was merged (at `58d95c8`) before this amendment's own commit `742bae0` was picked up by GitHub's PR/CI machinery, so `742bae0` never reached `main`. Recovered via section 15 below.
+
+## 15. Follow-up (2026-09-04) — recovering the orphaned second amendment as its own PR
+
+- `main` was fast-forwarded to `origin/main` (now including PR #108's merge at `58d95c8`).
+- New branch `fix/ody-s05-104-reference-ruleset-compatibility` created from that up-to-date `main`.
+- `git cherry-pick 742bae0` applied cleanly, no conflicts.
+- `git diff --name-status main...HEAD` confirmed the diff touches exactly this task's own 5 allowed files -- no scope drift from the original amendment commit.
+- Full required validation suite re-run: `dotnet build` (0/0), `dotnet test` full suite (589/589, no regression), `verify-format.ps1`/`check-repository-policy.ps1`/`verify-test-structure.ps1` all pass.
+- New Draft PR opened, explicitly stated as a follow-up to #108 because the amendment commit did not make it into `main` before the merge.

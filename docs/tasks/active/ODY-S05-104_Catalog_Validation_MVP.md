@@ -4,11 +4,11 @@
 **Roadmap stage / slice:** SLICE-05 (Content Catalog MVP block)
 **Owner:** Codex (agent)
 **Requested by:** Product owner
-**Branch:** `feat/ody-s05-104-catalog-validation-mvp`
-**Pull request:** https://github.com/odyssey-services/Odyssey_VTT/pull/108
+**Branch:** `feat/ody-s05-104-catalog-validation-mvp` (original PR #108, merged); follow-up: `fix/ody-s05-104-reference-ruleset-compatibility`
+**Pull request:** https://github.com/odyssey-services/Odyssey_VTT/pull/108 (merged at commit `58d95c8`, only the first amendment); follow-up PR to be opened carries the second amendment (commit `742bae0`, never merged into `main`)
 **ExecPlan:** `docs/plans/active/ODY-S05-104_Catalog_Validation_MVP.md`
 **Created:** 2026-09-04
-**Last updated:** 2026-09-04 UTC (amended twice: weapon ammo-applicability ruleset check; referenced-definition ruleset compatibility)
+**Last updated:** 2026-09-04 UTC (amended twice: weapon ammo-applicability ruleset check (merged in PR #108); referenced-definition ruleset compatibility (follow-up PR, not yet merged))
 
 ## 1. Goal
 
@@ -378,6 +378,8 @@ Product-owner review found that `CatalogHasCompatibleAmmo` treated a candidate `
 
 Product-owner review found that `ValidateReferencesAndCycles` checked a referenced definition's existence, exact version, and target type, but never its own `RulesetCompatibility` against the active campaign -- an Item/Ammo/etc. could pass publish validation while referencing an Ability/Effect/other definition scoped to an incompatible Ruleset. Fixed by inserting an `IsCompatibleWithActiveRuleset(campaign, child.RulesetCompatibility)` check in the traversal, right after the version/type checks and before recursing into the child, reusing the shared helper the first amendment already introduced. An incompatible target adds the existing `CatalogValidationIssueCode.RulesetIncompatible` issue -- no new issue code -- but with `FieldPath` pinned to the exact reference (e.g. `properties.builtInEffectRefs[0]`, `dependencyRefs[0]`), not the generic `"rulesetCompatibility"` path `ValidateRulesetCompatibility` itself uses for the definition being directly validated. Archived targets remain loadable exactly as before (`GetContentDefinition` does not filter by status); this check runs only after existence/version/type all already passed. Four new tests (`TC-CATALOG-074`-`077`) cover a typed-reference negative case, two positive control cases (unrestricted target; target explicitly compatible with the active ruleset), and a negative case through the generic `DependencyRefs` field (the only cross-reference mechanism Ability/Effect have of their own).
 
+**Delivery note:** this amendment's own commit (`742bae0`) was pushed to `feat/ody-s05-104-catalog-validation-mvp` while PR #108 was already being reviewed; the reviewer merged PR #108 at its then-current head (`58d95c8`, only the first amendment) before this second amendment's commit was picked up by GitHub's PR/CI machinery, so `742bae0` never actually reached `main`. Recovered as a follow-up: cherry-picked `742bae0` onto a fresh branch (`fix/ody-s05-104-reference-ruleset-compatibility`) from an up-to-date `main`, verified the diff touches only this task's own 5 allowed files, re-ran the full required validation suite, and opened a new Draft PR explicitly stating it is a follow-up to #108.
+
 ### Known limitations
 
 - `ArmorDefinition.CoveredBodyPartIds`/`AbilityResourceCost.ResourceDefinitionId` are validated only for structural (regex) validity, already guaranteed by their own domain constructors -- no Ruleset-wide anatomy-profile/resource registry exists anywhere in this codebase to check their existence against (`BodyPartId`/`ResourceDefinitionId` are SLICE-04's own fixture-only, per-Character/per-Ruleset keys with no backing catalog table). This is an honestly recorded MVP boundary, not an oversight; closing it is a future, separately-scoped decision if the product owner ever introduces a real Ruleset-wide Resource/BodyPart catalog.
@@ -415,3 +417,4 @@ Product-owner review found that `ValidateReferencesAndCycles` checked a referenc
 
 - 2026-09-04 — Product-owner-requested amendment to the already-open PR #108: check the candidate `AmmoDefinition`'s own `RulesetCompatibility` when determining weapon ammo applicability (see the first Amendment note in section 17). Scope stayed within this task's own Allowed paths (`CatalogValidationContracts.cs`, `CatalogValidationServiceTests.cs`, `test-catalog.json`, this contract/plan) -- no new file, no new `ErrorCode`.
 - 2026-09-04 — Second product-owner-requested amendment to the same PR #108: check every referenced definition's own `RulesetCompatibility` inside `ValidateReferencesAndCycles`, not only existence/version/type (see the second Amendment note in section 17). Same scope constraints as the first amendment -- no new file, no new `ErrorCode` (reused `RulesetIncompatible`, with `FieldPath` pinned to the exact reference).
+- 2026-09-04 — Follow-up: PR #108 was merged before this second amendment's own commit (`742bae0`) reached `main` (see the second Amendment note's own "Delivery note" in section 17). Recovered via a new branch (`fix/ody-s05-104-reference-ruleset-compatibility`) cherry-picking `742bae0` from an up-to-date `main`, with a fresh Draft PR explicitly stated as a follow-up to #108. No product scope change -- identical diff to the orphaned commit.
