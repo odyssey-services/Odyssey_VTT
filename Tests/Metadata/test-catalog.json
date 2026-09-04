@@ -4191,6 +4191,102 @@
                           "runner":  "dotnet test",
                           "path":  "DotNet/Tests/Odyssey.Tests.Persistence/Content/ContentCatalogLifecycleServiceTests.cs",
                           "check":  "SqliteContentCatalogRepository.DeleteDraftDefinition, called with a CommandId already recorded by a successful delete of a different ContentDefinitionId, fails with CommandIdentityMismatch and deletes neither definition"
+                      },
+                      {
+                          "testCaseId":  "TC-CATALOG-100",
+                          "taskId":  "ODY-S05-106",
+                          "authority":  "ODY-S05-106 minimum test list item 1; proves ODY-S05-101-105 work together end-to-end",
+                          "runner":  "dotnet test",
+                          "path":  "DotNet/Tests/Odyssey.Tests.Persistence/Content/MinimalTestCatalogFixtureTests.cs",
+                          "check":  "The full minimal fixture graph (Effect, Ability referencing it via DependencyRefs, Item referencing it via BuiltInEffectRefs, Ammo, Weapon requiring that Ammo, Armor) is authored via ContentCatalogAuthoringService and published via ContentCatalogLifecycleService.PublishDefinition end-to-end, each ending Status=Published/Version=1"
+                      },
+                      {
+                          "testCaseId":  "TC-CATALOG-101",
+                          "taskId":  "ODY-S05-106",
+                          "authority":  "ODY-S05-106 minimum test list item 2",
+                          "runner":  "dotnet test",
+                          "path":  "DotNet/Tests/Odyssey.Tests.Persistence/Content/MinimalTestCatalogFixtureTests.cs",
+                          "check":  "CatalogValidationService.ValidateDraftForPublish on the fixture Weapon (AmmoRequirement.Required) returns IsValid=true once a matching compatible Ammo fixture exists in the catalog"
+                      },
+                      {
+                          "testCaseId":  "TC-CATALOG-102",
+                          "taskId":  "ODY-S05-106",
+                          "authority":  "ODY-S05-106 minimum test list item 3",
+                          "runner":  "dotnet test",
+                          "path":  "DotNet/Tests/Odyssey.Tests.Persistence/Content/MinimalTestCatalogFixtureTests.cs",
+                          "check":  "CatalogValidationService.ValidateDraftForPublish on the fixture Weapon returns WeaponNoCompatibleAmmoInCatalog when no matching Ammo fixture exists yet"
+                      },
+                      {
+                          "testCaseId":  "TC-CATALOG-103",
+                          "taskId":  "ODY-S05-106",
+                          "authority":  "ODY-S05-106 minimum test list item 3, ruleset-incompatible variant",
+                          "runner":  "dotnet test",
+                          "path":  "DotNet/Tests/Odyssey.Tests.Persistence/Content/MinimalTestCatalogFixtureTests.cs",
+                          "check":  "CatalogValidationService.ValidateDraftForPublish on the fixture Weapon returns WeaponNoCompatibleAmmoInCatalog when the only matching-key Ammo fixture is scoped to a different ruleset than the active campaign"
+                      },
+                      {
+                          "testCaseId":  "TC-CATALOG-104",
+                          "taskId":  "ODY-S05-106",
+                          "authority":  "ODY-S05-106 minimum test list item 4",
+                          "runner":  "dotnet test",
+                          "path":  "DotNet/Tests/Odyssey.Tests.Persistence/Content/MinimalTestCatalogFixtureTests.cs",
+                          "check":  "The fixture Item's BuiltInEffectRefs, decoded back through TypedDefinitionCodec.DecodeItem after the referenced Effect fixture is published, still pins the exact published DefinitionId/Version -- never a floating 'latest' reference"
+                      },
+                      {
+                          "testCaseId":  "TC-CATALOG-105",
+                          "taskId":  "ODY-S05-106",
+                          "authority":  "ODY-S05-106 minimum test list item 5",
+                          "runner":  "dotnet test",
+                          "path":  "DotNet/Tests/Odyssey.Tests.Persistence/Content/MinimalTestCatalogFixtureTests.cs",
+                          "check":  "Published fixture Effect and Weapon definitions remain loadable through SqliteContentCatalogRepository.GetContentDefinition"
+                      },
+                      {
+                          "testCaseId":  "TC-CATALOG-106",
+                          "taskId":  "ODY-S05-106",
+                          "authority":  "ODY-S05-106 minimum test list item 6",
+                          "runner":  "dotnet test",
+                          "path":  "DotNet/Tests/Odyssey.Tests.Persistence/Content/MinimalTestCatalogFixtureTests.cs",
+                          "check":  "Archiving a Published fixture Armor definition via ContentCatalogLifecycleService.ArchiveDefinition makes it appear in ListArchivedDefinitions, while a still-Published fixture Effect does not"
+                      },
+                      {
+                          "testCaseId":  "TC-CATALOG-107",
+                          "taskId":  "ODY-S05-106",
+                          "authority":  "ODY-S05-106 minimum test list item 7",
+                          "runner":  "dotnet test",
+                          "path":  "DotNet/Tests/Odyssey.Tests.Persistence/Content/MinimalTestCatalogFixtureTests.cs",
+                          "check":  "An unused Draft fixture Ability can be physically deleted via ContentCatalogLifecycleService.DeleteDraftDefinition, becoming unreadable afterward"
+                      },
+                      {
+                          "testCaseId":  "TC-CATALOG-108",
+                          "taskId":  "ODY-S05-106",
+                          "authority":  "ODY-S05-106 minimum test list item 8",
+                          "runner":  "dotnet test",
+                          "path":  "DotNet/Tests/Odyssey.Tests.Persistence/Content/MinimalTestCatalogFixtureTests.cs",
+                          "check":  "Physical delete of a Published fixture Weapon and an Archived fixture Armor both fail with PersistenceContentDefinitionNotDraft, leaving both readable"
+                      },
+                      {
+                          "testCaseId":  "TC-CATALOG-109",
+                          "taskId":  "ODY-S05-106",
+                          "authority":  "ODY-S05-106 minimum test list item 9",
+                          "runner":  "dotnet test",
+                          "path":  "DotNet/Tests/Odyssey.Tests.Persistence/Content/MinimalTestCatalogFixtureTests.cs",
+                          "check":  "A fixture Item referencing a non-existent Effect ContentDefinitionId fails CatalogValidationService.ValidateDraftForPublish with ReferenceMissing, and ContentCatalogLifecycleService.PublishDefinition also safely fails with ContentCatalogPublishValidationFailed, never actually publishing the broken definition"
+                      },
+                      {
+                          "testCaseId":  "TC-CATALOG-110",
+                          "taskId":  "ODY-S05-106",
+                          "authority":  "ODY-S05-106 minimum test list item 10",
+                          "runner":  "dotnet test",
+                          "path":  "DotNet/Tests/Odyssey.Tests.Persistence/Content/MinimalTestCatalogFixtureTests.cs",
+                          "check":  "Direct reflection over every type in the Odyssey.Application.Content namespace confirms none references Inventory/ItemInstance/ItemStack/Equipment/ActiveEffect -- the Minimal Test Catalog Fixtures task introduces no runtime item/equipment/effect implementation"
+                      },
+                      {
+                          "testCaseId":  "TC-CATALOG-111",
+                          "taskId":  "ODY-S05-106",
+                          "authority":  "ODY-S05-106 minimum test list item 10, schema-level guard",
+                          "runner":  "dotnet test",
+                          "path":  "DotNet/Tests/Odyssey.Tests.Persistence/Content/MinimalTestCatalogFixtureTests.cs",
+                          "check":  "The campaign.db schema after fixture authoring contains no Inventory/ItemInstance/ItemStack/Equipment/ActiveEffect table -- ODY-S05-106 introduces no new persistence table"
                       }
                   ]
 }
