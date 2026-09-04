@@ -3983,6 +3983,38 @@
                           "runner":  "dotnet test",
                           "path":  "DotNet/Tests/Odyssey.Tests.Persistence/Content/CatalogValidationServiceTests.cs",
                           "check":  "CatalogValidationService.ValidateDraftForPublish against a Weapon requiring \"9mm\" ammo, where the only matching-key AmmoDefinition in the catalog declares RulesetCompatibility=[\"other.ruleset@9.9.9\"] (not the active ruleset.core@1.0.0), returns WeaponNoCompatibleAmmoInCatalog"
+                      },
+                      {
+                          "testCaseId":  "TC-CATALOG-074",
+                          "taskId":  "ODY-S05-104",
+                          "authority":  "ODY-S05-104 amendment: referenced definitions must be checked for ruleset compatibility, not only existence/version/type",
+                          "runner":  "dotnet test",
+                          "path":  "DotNet/Tests/Odyssey.Tests.Persistence/Content/CatalogValidationServiceTests.cs",
+                          "check":  "CatalogValidationService.ValidateDraftForPublish against an ItemDefinition whose BuiltInEffectRefs points at an existing, exact-version-matching, correctly-typed Effect definition scoped to RulesetCompatibility=[\"other.ruleset@9.9.9\"] returns RulesetIncompatible at field path properties.builtInEffectRefs[0]"
+                      },
+                      {
+                          "testCaseId":  "TC-CATALOG-075",
+                          "taskId":  "ODY-S05-104",
+                          "authority":  "ODY-S05-104 amendment, positive control case (unrestricted referenced definition)",
+                          "runner":  "dotnet test",
+                          "path":  "DotNet/Tests/Odyssey.Tests.Persistence/Content/CatalogValidationServiceTests.cs",
+                          "check":  "CatalogValidationService.ValidateDraftForPublish against an ItemDefinition whose BuiltInEffectRefs points at an Effect definition with an empty RulesetCompatibility (no restriction declared) returns IsValid=true"
+                      },
+                      {
+                          "testCaseId":  "TC-CATALOG-076",
+                          "taskId":  "ODY-S05-104",
+                          "authority":  "ODY-S05-104 amendment, positive control case (referenced definition explicitly compatible with the active ruleset)",
+                          "runner":  "dotnet test",
+                          "path":  "DotNet/Tests/Odyssey.Tests.Persistence/Content/CatalogValidationServiceTests.cs",
+                          "check":  "CatalogValidationService.ValidateDraftForPublish against an ItemDefinition whose BuiltInEffectRefs points at an Effect definition declaring RulesetCompatibility=[\"ruleset.core@1.0.0\"] (the active campaign ruleset) returns IsValid=true"
+                      },
+                      {
+                          "testCaseId":  "TC-CATALOG-077",
+                          "taskId":  "ODY-S05-104",
+                          "authority":  "ODY-S05-104 amendment: the generic DependencyRefs envelope field must be checked the same way as a typed reference",
+                          "runner":  "dotnet test",
+                          "path":  "DotNet/Tests/Odyssey.Tests.Persistence/Content/CatalogValidationServiceTests.cs",
+                          "check":  "CatalogValidationService.ValidateDraftForPublish against an AbilityDefinition whose generic DependencyRefs[0] points at an existing, exact-version-matching Effect definition scoped to RulesetCompatibility=[\"other.ruleset@9.9.9\"] returns RulesetIncompatible at field path dependencyRefs[0]"
                       }
                   ]
 }
