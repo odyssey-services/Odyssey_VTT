@@ -4179,10 +4179,10 @@
                       {
                           "testCaseId":  "TC-CATALOG-098",
                           "taskId":  "ODY-S05-103",
-                          "authority":  "ODY-S05-103 amendment: DeleteDraftDefinition idempotency must not reuse the shared ContentDefinitionCommandLedger",
+                          "authority":  "ODY-S05-103 second amendment: DeleteDraftDefinition must reject any CommandId already used by a non-delete catalog command",
                           "runner":  "dotnet test",
                           "path":  "DotNet/Tests/Odyssey.Tests.Persistence/Content/ContentCatalogLifecycleServiceTests.cs",
-                          "check":  "SqliteContentCatalogRepository.DeleteDraftDefinition, called with a CommandId already recorded by CreateDraftContentDefinition against the same still-existing Draft, actually deletes the row rather than falsely reporting Success without touching it"
+                          "check":  "SqliteContentCatalogRepository.DeleteDraftDefinition, called with a CommandId already recorded by CreateDraftContentDefinition against the same still-existing Draft, fails with CommandIdentityMismatch and leaves the Draft readable and untouched"
                       },
                       {
                           "testCaseId":  "TC-CATALOG-099",

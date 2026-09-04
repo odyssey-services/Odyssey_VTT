@@ -109,10 +109,10 @@ namespace Odyssey.Application.Persistence
         Result<ContentDefinitionRecord> ArchiveDefinition(CampaignHandle campaign, ContentDefinitionId definitionId, string? archiveReason, CommandId commandId, CorrelationId correlationId);
 
         /// <summary>
-        /// ODY-S05-103: physically removes an unused Draft row --
-        /// `ADR-027` section 4.1 rule 1's only allowed physical-delete
-        /// case. Fails with <c>PersistenceContentDefinitionNotFound</c> if
-        /// the target does not exist, <c>PersistenceContentDefinitionNotDraft</c>
+        /// ODY-S05-103 (amended twice): physically removes an unused Draft
+        /// row -- `ADR-027` section 4.1 rule 1's only allowed
+        /// physical-delete case. Fails with <c>PersistenceContentDefinitionNotFound</c>
+        /// if the target does not exist, <c>PersistenceContentDefinitionNotDraft</c>
         /// if its own <see cref="ContentDefinitionRecord.Status"/> is not
         /// <see cref="ContentDefinitionStatus.Draft"/>, or
         /// <c>PersistenceContentDefinitionReferenced</c> if another catalog
@@ -126,10 +126,22 @@ namespace Odyssey.Application.Persistence
         /// not-yet-implemented future extension boundary: no such runtime
         /// state exists anywhere in this codebase yet for this method to
         /// check against. Returns a bare <see cref="Result"/> (no
-        /// remaining record to return); idempotent via the same
-        /// `ContentDefinitionCommandLedger` a create/update/publish/archive
-        /// command uses, checked by <see cref="CommandId"/> existence alone
-        /// so a replay succeeds even though the row itself is now gone.
+        /// remaining record to return).
+        ///
+        /// Idempotency/identity is checked against two distinct ledgers,
+        /// in order: a dedicated delete-only ledger (a hit whose recorded
+        /// target matches <paramref name="definitionId"/> is a genuine
+        /// replay -- `Success` even though the row is gone; a hit whose
+        /// recorded target differs is a `CommandId` reused across two
+        /// different delete targets, rejected with `CommandIdentityMismatch`),
+        /// then the *shared* `ContentDefinitionCommandLedger` every
+        /// create/update/publish/archive/`CreateNextDraftVersionFromPublished`
+        /// command also writes to (any hit there means this `CommandId`
+        /// was already used for a *non-delete* operation and is therefore
+        /// also rejected with `CommandIdentityMismatch`, never treated as
+        /// a delete replay). Only when the `CommandId` appears in neither
+        /// ledger does this method proceed to its normal checks and the
+        /// physical delete itself.
         /// </summary>
         Result DeleteDraftDefinition(CampaignHandle campaign, ContentDefinitionId definitionId, CommandId commandId, CorrelationId correlationId);
     }

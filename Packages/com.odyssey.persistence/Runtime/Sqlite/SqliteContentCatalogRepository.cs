@@ -541,44 +541,45 @@ namespace Odyssey.Persistence.Sqlite
         }
 
         /// <summary>
-        /// ODY-S05-103 (amended): physically removes an unused Draft row --
-        /// `ADR-027` section 4.1 rule 1's only allowed physical-delete
-        /// case. The existence/Draft/reference checks and the DELETE
-        /// itself run inside one transaction, so no other command can
-        /// create a new reference to this definition between the check and
-        /// the delete.
+        /// ODY-S05-103 (amended twice): physically removes an unused Draft
+        /// row -- `ADR-027` section 4.1 rule 1's only allowed
+        /// physical-delete case. The idempotency/identity checks, the
+        /// existence/Draft/reference checks, and the DELETE itself all run
+        /// inside one transaction, so no other command can create a new
+        /// reference to this definition between the check and the delete.
         ///
-        /// Idempotency uses a dedicated <c>ContentDefinitionDeleteLedger</c>
-        /// table (<c>CommandId</c> primary key -&gt; <c>ContentDefinitionId</c>),
-        /// written only by this method -- deliberately NOT the shared
-        /// <c>ContentDefinitionCommandLedger</c> every create/update/
-        /// publish/archive command also writes to. The original amendment
-        /// this fixes checked only whether <paramref name="commandId"/>
-        /// existed anywhere in that shared ledger, regardless of which
-        /// definition or which operation it was originally recorded for --
-        /// since the shared ledger's `CommandId` values are unique across
-        /// every lifecycle command, reusing a `CommandId` that had already
-        /// been recorded by a create/update/publish/archive call (or by a
-        /// delete of a *different* definition) made this method return
-        /// `Success` without ever deleting the row the caller actually
-        /// asked for. The dedicated delete-only ledger, checked and
-        /// compared against <paramref name="definitionId"/> itself, fixes
-        /// all three required behaviors:
-        /// <list type="bullet">
-        /// <item>a genuine replay of an already-applied delete for the
-        /// *same* definition returns `Success` even though the row is
-        /// gone;</item>
-        /// <item>a `CommandId` previously recorded by a delete of a
-        /// *different* definition is a genuine identity violation, not a
-        /// replay -- rejected with `CommandIdentityMismatch`, the same
-        /// established convention <c>CommandContracts.cs</c> already uses
-        /// for a reused `CommandId` whose target does not match;</item>
-        /// <item>a `CommandId` previously recorded only by a create/
-        /// update/publish/archive of the *same, still-existing* row never
-        /// appears in this delete-only ledger at all, so this method
-        /// correctly proceeds to actually delete it, rather than falsely
-        /// reporting success without touching the row.</item>
+        /// <paramref name="commandId"/> is checked against two distinct
+        /// ledgers, in order:
+        /// <list type="number">
+        /// <item>the dedicated <c>ContentDefinitionDeleteLedger</c>
+        /// (<c>CommandId</c> primary key -&gt; <c>ContentDefinitionId</c>),
+        /// written only by this method. A hit whose recorded id equals
+        /// <paramref name="definitionId"/> is a genuine replay of an
+        /// already-applied delete for the *same* definition -- returns
+        /// `Success` even though the row is gone. A hit whose recorded id
+        /// differs is a `CommandId` reused across two different delete
+        /// targets -- a genuine identity violation, rejected with
+        /// `CommandIdentityMismatch`; nothing is deleted.</item>
+        /// <item>the shared <c>ContentDefinitionCommandLedger</c> every
+        /// create/update/publish/archive/`CreateNextDraftVersionFromPublished`
+        /// command also writes to. Any hit here means this exact
+        /// `CommandId` was already used for a *non-delete* catalog
+        /// operation -- never a legitimate delete replay regardless of
+        /// which `ContentDefinitionId` it targeted -- so it is also
+        /// rejected with `CommandIdentityMismatch`, and nothing is
+        /// deleted.</item>
         /// </list>
+        /// Only when `commandId` appears in *neither* ledger does this
+        /// method proceed to its normal Draft-status/reference checks and
+        /// the physical delete itself, recording the new entry in the
+        /// delete-only ledger on success. This two-ledger check is what
+        /// closes the full idempotency contract: a first amendment
+        /// introduced the delete-only ledger to fix false-success replays
+        /// across different delete targets, but left the shared ledger
+        /// unchecked, so a `CommandId` already used by a non-delete
+        /// operation on this same, still-existing row could still slip
+        /// through and physically delete it. This (second) amendment adds
+        /// the missing shared-ledger check.
         /// </summary>
         public Result DeleteDraftDefinition(CampaignHandle campaign, ContentDefinitionId definitionId, CommandId commandId, CorrelationId correlationId)
         {
@@ -599,6 +600,20 @@ namespace Odyssey.Persistence.Sqlite
                     return previousDeleteTarget.Value.Equals(definitionId)
                         ? Result.Success()
                         : Result.Failure(PersistenceFailures.ContentDefinitionDeleteCommandIdentityMismatch(correlationId));
+                }
+
+                // Second amendment: a CommandId already recorded by the
+                // *shared* ledger (Create/Update/Publish/Archive/
+                // CreateNextDraftVersionFromPublished) was never actually
+                // used for a delete -- reusing it here is always a genuine
+                // CommandId identity violation, never a legitimate delete
+                // replay, regardless of which ContentDefinitionId it was
+                // originally recorded against. Nothing is deleted in this
+                // case.
+                if (SharedCommandLedgerContainsCommandId(connection, transaction, commandId))
+                {
+                    transaction.Commit();
+                    return Result.Failure(PersistenceFailures.ContentDefinitionDeleteCommandIdentityMismatch(correlationId));
                 }
 
                 ContentDefinitionRecord? current = SelectForUpdate(connection, transaction, definitionId);
@@ -706,6 +721,28 @@ namespace Odyssey.Persistence.Sqlite
             insert.Parameters.AddWithValue("$definitionId", definitionId.ToString());
             insert.Parameters.AddWithValue("$deletedAt", now.ToString());
             insert.ExecuteNonQuery();
+        }
+
+        /// <summary>
+        /// ODY-S05-103 (second amendment): a `CommandId`-existence-only
+        /// check against the *shared* `ContentDefinitionCommandLedger` --
+        /// used only by <see cref="DeleteDraftDefinition"/>, to reject a
+        /// `CommandId` already used by a non-delete catalog command
+        /// (create/update/publish/archive/`CreateNextDraftVersionFromPublished`).
+        /// Unlike <see cref="TryFindDeleteLedgerTarget"/>, no
+        /// `ContentDefinitionId` comparison is meaningful here: any hit at
+        /// all means this exact `CommandId` was never actually used for a
+        /// delete, so it can never be a legitimate delete replay
+        /// regardless of which definition the shared ledger recorded it
+        /// against.
+        /// </summary>
+        private static bool SharedCommandLedgerContainsCommandId(SqliteConnection connection, SqliteTransaction transaction, CommandId commandId)
+        {
+            using var select = connection.CreateCommand();
+            select.Transaction = transaction;
+            select.CommandText = "SELECT 1 FROM ContentDefinitionCommandLedger WHERE CommandId = $commandId LIMIT 1;";
+            select.Parameters.AddWithValue("$commandId", commandId.ToString());
+            return select.ExecuteScalar() != null;
         }
 
         /// <summary>

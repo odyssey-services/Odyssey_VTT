@@ -376,15 +376,19 @@ namespace Odyssey.Tests.Persistence.Content
         }
 
         [Test]
-        public void DeleteDraftDefinition_ReusingCommandIdFromAnotherOperation_OnTheSameStillExistingDraft_ActuallyDeletesIt()
+        public void DeleteDraftDefinition_ReusingCommandIdFromANonDeleteOperation_FailsWithIdentityMismatch_AndLeavesDraftReadable()
         {
-            // Amendment regression guard: the original bug checked only
-            // whether CommandId existed anywhere in the *shared*
-            // ContentDefinitionCommandLedger (written by create/update/
-            // publish/archive too) -- so reusing a CommandId already
-            // recorded by, say, the CreateDraftContentDefinition call
-            // itself made DeleteDraftDefinition report Success without
-            // ever deleting the still-existing row.
+            // Second amendment regression guard: a CommandId already
+            // recorded by the *shared* ContentDefinitionCommandLedger
+            // (Create/Update/Publish/Archive/CreateNextDraftVersionFromPublished)
+            // was never actually used for a delete -- reusing it here is
+            // always a genuine CommandId identity violation, never a
+            // legitimate delete replay, even when the target row still
+            // exists as a Draft. The first amendment's own delete-only
+            // ledger alone did not catch this, since a CommandId recorded
+            // only in the shared ledger would simply never appear there,
+            // and the method would incorrectly fall through to a real
+            // delete.
             var request = new CreateDraftContentDefinitionRequest(_campaign, ContentDefinitionType.Item, "Reused CommandId Target", "fixture", NewUserId(), propertiesJson: EncodeValidItem());
             CommandId reusedCommandId = NewCommandId();
             Result<ContentDefinitionRecord> created = _catalogRepository.CreateDraftContentDefinition(request, reusedCommandId, TestCorrelationId);
@@ -392,10 +396,11 @@ namespace Odyssey.Tests.Persistence.Content
 
             Result deleteResult = _catalogRepository.DeleteDraftDefinition(_campaign, created.Value.ContentDefinitionId, reusedCommandId, TestCorrelationId);
 
-            Assert.That(deleteResult.IsSuccess, Is.True, "a CommandId previously used for a different operation on the same still-existing row must still actually delete it, not falsely report success");
+            Assert.That(deleteResult.IsFailure, Is.True, "a CommandId already used for a non-delete operation must never be accepted as a delete -- replay or otherwise");
+            Assert.That(deleteResult.Error.Code, Is.EqualTo(ErrorCodes.CommandIdentityMismatch));
             Result<ContentDefinitionRecord> reread = _catalogRepository.GetContentDefinition(_campaign, created.Value.ContentDefinitionId, TestCorrelationId);
-            Assert.That(reread.IsFailure, Is.True, "the row must actually be gone -- a false-success replay would have left it in place");
-            Assert.That(reread.Error.Code, Is.EqualTo(ErrorCodes.PersistenceContentDefinitionNotFound));
+            Assert.That(reread.IsSuccess, Is.True, "the Draft must remain untouched -- this CommandId was never a legitimate delete command for it");
+            Assert.That(reread.Value.Status, Is.EqualTo(ContentDefinitionStatus.Draft));
         }
 
         [Test]

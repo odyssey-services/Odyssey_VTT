@@ -113,12 +113,19 @@ None. No architectural question was found that `ADR-027`/`11_Content_Block_Syste
 
 ## 12. Outcome and follow-up
 
-Draft PR: https://github.com/odyssey-services/Odyssey_VTT/pull/110 (amended). Enables `ODY-S05-106` (Minimal Test Catalog Fixtures) to prove the full Foundation/Authoring/Validation/Publish pipeline end-to-end for the first time.
+Draft PR: https://github.com/odyssey-services/Odyssey_VTT/pull/110 (amended twice). Enables `ODY-S05-106` (Minimal Test Catalog Fixtures) to prove the full Foundation/Authoring/Validation/Publish pipeline end-to-end for the first time.
 
 ## 13. Amendment (2026-09-04) — DeleteDraftDefinition idempotency fix
 
 - Defect: `DeleteDraftDefinition`'s original idempotency check tested only whether the caller's `CommandId` existed anywhere in the *shared* `ContentDefinitionCommandLedger` -- the same table create/update/publish/archive all write to. Reusing a `CommandId` already recorded by any of those other operations, or by a *different* definition's own prior delete, made the method return `Success` without ever deleting the row actually requested.
-- Fix: a new, dedicated `ContentDefinitionDeleteLedger` table (`CommandId` primary key -> `ContentDefinitionId`, `DeletedAt`), written and checked only by `DeleteDraftDefinition`. A hit compares the recorded `ContentDefinitionId` against the caller's own target: a match is a genuine replay (`Success`); a mismatch is a real identity violation, rejected with the existing `CommandIdentityMismatch` code (no new `ErrorCode`). No hit means the `CommandId` was never used for a delete before, so the method proceeds to actually check/delete the row -- correctly handling reuse from another operation on the same still-existing row.
-- Tests added: `TC-CATALOG-098` (CommandId reused from `CreateDraftContentDefinition` on the same still-existing Draft now actually deletes it) and `TC-CATALOG-099` (CommandId reused from a different definition's own successful delete now fails with `CommandIdentityMismatch`, deletes neither).
+- Fix (first pass, itself incomplete -- see §14): a new, dedicated `ContentDefinitionDeleteLedger` table (`CommandId` primary key -> `ContentDefinitionId`, `DeletedAt`), written and checked only by `DeleteDraftDefinition`. A hit compares the recorded `ContentDefinitionId` against the caller's own target: a match is a genuine replay (`Success`); a mismatch is a real identity violation, rejected with the existing `CommandIdentityMismatch` code (no new `ErrorCode`). No hit meant the method proceeded to actually check/delete the row -- but this alone stopped checking the shared ledger at all (see §14).
+- Tests added: `TC-CATALOG-098`/`099` (later `098` was rewritten -- see §14).
+- Validation re-run: `dotnet build` (0/0), `dotnet test` full suite (611/611, no regression), `verify-format.ps1`/`check-repository-policy.ps1`/`verify-test-structure.ps1` all pass.
+
+## 14. Amendment (2026-09-04, second) — DeleteDraftDefinition must also reject CommandIds already used by non-delete operations
+
+- Defect: the first pass's own delete-only ledger, checked in isolation, no longer consulted the shared `ContentDefinitionCommandLedger` -- so a `CommandId` already used by a non-delete operation (create/update/publish/archive/`CreateNextDraftVersionFromPublished`) on a still-existing row would never appear in the delete-only ledger, and `DeleteDraftDefinition` would incorrectly proceed to *actually delete* that row -- a real, unintended physical delete.
+- Fix: added a second check, right after the delete-only ledger check: any hit in the shared `ContentDefinitionCommandLedger` (bare existence, no target comparison needed -- a hit there was never a delete) is rejected with `CommandIdentityMismatch`, and nothing is deleted. Only when the `CommandId` appears in neither ledger does the method proceed normally.
+- `TC-CATALOG-098` rewritten: reusing a `CreateDraftContentDefinition` `CommandId` against the same still-existing Draft must now fail with `CommandIdentityMismatch` and leave the Draft readable/untouched (previously asserted "actually deletes it," describing the still-incomplete first-pass fix). `TC-CATALOG-099` unchanged. `ContentCatalogRepositoryContracts.cs`'s own stale `DeleteDraftDefinition` doc comment (still describing the single-ledger model) corrected to describe the two-ledger check.
 - Validation re-run: `dotnet build` (0/0), `dotnet test` full suite (611/611, no regression), `verify-format.ps1`/`check-repository-policy.ps1`/`verify-test-structure.ps1` all pass.
 - PR #110 stays Draft pending re-review.
