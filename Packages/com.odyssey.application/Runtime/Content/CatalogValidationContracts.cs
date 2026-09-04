@@ -117,21 +117,9 @@ namespace Odyssey.Application.Content
 
         private static void ValidateRulesetCompatibility(CampaignHandle campaign, ContentDefinitionRecord record, List<CatalogValidationIssue> issues)
         {
-            // Empty RulesetCompatibility means the author declared no
-            // restriction -- compatible with any ruleset, matching
-            // ODY-S05-101/102's own "[]" default for this field.
-            if (record.RulesetCompatibility.Count == 0)
+            if (IsCompatibleWithActiveRuleset(campaign, record.RulesetCompatibility))
             {
                 return;
-            }
-
-            string activeRulesetKey = campaign.Manifest.RulesetId + "@" + campaign.Manifest.RulesetVersion;
-            foreach (string entry in record.RulesetCompatibility)
-            {
-                if (string.Equals(entry, activeRulesetKey, StringComparison.Ordinal))
-                {
-                    return;
-                }
             }
 
             issues.Add(new CatalogValidationIssue(
@@ -139,6 +127,37 @@ namespace Odyssey.Application.Content
                 CatalogValidationSeverity.Error,
                 UserMessageKey.Parse("errors.content_catalog.validation.ruleset_incompatible"),
                 "rulesetCompatibility"));
+        }
+
+        /// <summary>
+        /// Common validation item 5's own compatibility rule, factored out
+        /// so it can be reused wherever a *candidate* definition's own
+        /// Ruleset scope must be checked against the active campaign --
+        /// not only for the definition being directly validated
+        /// (<see cref="ValidateRulesetCompatibility"/>), but also for any
+        /// other catalog definition consulted along the way (e.g.
+        /// <see cref="CatalogHasCompatibleAmmo"/>'s own candidate scan).
+        /// Empty <paramref name="rulesetCompatibility"/> means the author
+        /// declared no restriction -- compatible with any ruleset, matching
+        /// `ODY-S05-101`/`102`'s own `"[]"` default for this field.
+        /// </summary>
+        private static bool IsCompatibleWithActiveRuleset(CampaignHandle campaign, IReadOnlyList<string> rulesetCompatibility)
+        {
+            if (rulesetCompatibility.Count == 0)
+            {
+                return true;
+            }
+
+            string activeRulesetKey = campaign.Manifest.RulesetId + "@" + campaign.Manifest.RulesetVersion;
+            foreach (string entry in rulesetCompatibility)
+            {
+                if (string.Equals(entry, activeRulesetKey, StringComparison.Ordinal))
+                {
+                    return true;
+                }
+            }
+
+            return false;
         }
 
         private static void ValidateItem(ContentDefinitionRecord record, CorrelationId correlationId, List<CatalogValidationIssue> issues)
@@ -196,7 +215,14 @@ namespace Odyssey.Application.Content
         /// key vocabulary already overlaps; publish-readiness of the ammo
         /// itself is that ammo's own separate validation concern) for an
         /// `Ammo`-typed definition whose own `CompatibilityKeys` overlaps
-        /// the weapon's `CompatibleAmmoKeys`.
+        /// the weapon's `CompatibleAmmoKeys` AND whose own `RulesetCompatibility`
+        /// includes the active campaign ruleset (or declares no restriction).
+        /// An ammo definition scoped to a different Ruleset must never
+        /// satisfy a weapon's ammo requirement just because the two happen
+        /// to share a compatibility-key string -- ODY-S05-104's own amendment
+        /// closing this gap (a weapon could otherwise pass publish
+        /// validation on the strength of ammo that is not actually usable
+        /// in the active campaign's own ruleset).
         /// </summary>
         private static bool CatalogHasCompatibleAmmo(IContentCatalogRepository repository, CampaignHandle campaign, IReadOnlyList<string> weaponCompatibleAmmoKeys, CorrelationId correlationId)
         {
@@ -209,6 +235,11 @@ namespace Odyssey.Application.Content
             foreach (ContentDefinitionRecord candidate in listed.Value)
             {
                 if (candidate.DefinitionType != ContentDefinitionType.Ammo)
+                {
+                    continue;
+                }
+
+                if (!IsCompatibleWithActiveRuleset(campaign, candidate.RulesetCompatibility))
                 {
                     continue;
                 }

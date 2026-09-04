@@ -8,7 +8,7 @@
 **Pull request:** https://github.com/odyssey-services/Odyssey_VTT/pull/108
 **ExecPlan:** `docs/plans/active/ODY-S05-104_Catalog_Validation_MVP.md`
 **Created:** 2026-09-04
-**Last updated:** 2026-09-04 UTC
+**Last updated:** 2026-09-04 UTC (amended: weapon ammo-applicability ruleset check)
 
 ## 1. Goal
 
@@ -170,7 +170,7 @@ Unity assets/UI
 ## 8. Deliverables
 
 - Production code: `CatalogValidationContracts.cs` (Application) -- one static service, five supporting types, zero new `ErrorCode`.
-- Tests: `CatalogValidationServiceTests.cs` (30 cases) -- `TC-CATALOG-042`-`071`.
+- Tests: `CatalogValidationServiceTests.cs` (32 cases, amended: +2) -- `TC-CATALOG-042`-`073`.
 - Scripts / CI: None.
 - Configuration: None.
 - Documentation: `Tests/Metadata/test-catalog.json`, `docs/tasks/SLICE-05_IMPLEMENTATION_BACKLOG.md` (rows 4/5), this task contract, its ExecPlan.
@@ -223,6 +223,8 @@ Unity assets/UI
 | `TC-CATALOG-068` | .NET / NUnit (Persistence) | Missing definition returns `Result.Failure`, not an issue | Pass |
 | `TC-CATALOG-069` | .NET / NUnit (Persistence) | Validation does not mutate the catalog row | Pass |
 | `TC-CATALOG-070`/`071` | .NET / NUnit (Persistence) | No runtime item/inventory/equipment/effect type or table introduced | Pass |
+| `TC-CATALOG-072` | .NET / NUnit (Persistence) | Weapon ammo applicability: matching ammo compatible with the active ruleset passes | Pass |
+| `TC-CATALOG-073` | .NET / NUnit (Persistence) | Weapon ammo applicability: matching-key ammo scoped to a different ruleset does not satisfy the requirement | Pass |
 
 ### Required commands
 
@@ -317,8 +319,8 @@ dotnet test DotNet\Odyssey.Core.sln
 ### Changed files / areas
 
 - `Packages/com.odyssey.application/Runtime/Content/CatalogValidationContracts.cs` -- new.
-- `DotNet/Tests/Odyssey.Tests.Persistence/Content/CatalogValidationServiceTests.cs` -- new, 30 tests.
-- `Tests/Metadata/test-catalog.json` -- thirty new `TC-CATALOG-042`-`071` entries.
+- `DotNet/Tests/Odyssey.Tests.Persistence/Content/CatalogValidationServiceTests.cs` -- new, 32 tests (amended: +2).
+- `Tests/Metadata/test-catalog.json` -- thirty-two new `TC-CATALOG-042`-`073` entries (amended: +2 IDs, `072`-`073`).
 - `docs/tasks/SLICE-05_IMPLEMENTATION_BACKLOG.md` -- row 5 corrected to `Done`, row 4 status update.
 - This task contract and its ExecPlan.
 
@@ -327,7 +329,7 @@ dotnet test DotNet\Odyssey.Core.sln
 | Command / check | Result | Evidence / notes |
 |---|---|---|
 | `dotnet build DotNet\Odyssey.Core.sln` | Pass | 0 warnings, 0 errors |
-| `dotnet test DotNet\Odyssey.Core.sln` | Pass | Full suite green (583/583), including 30 new `CatalogValidationServiceTests` cases, no regression |
+| `dotnet test DotNet\Odyssey.Core.sln` | Pass | Full suite green (585/585, amended: +2), including 32 `CatalogValidationServiceTests` cases, no regression |
 | `.\scripts\verify-format.ps1` | Pass | First run failed on one whitespace formatting issue in `CatalogValidationContracts.cs`; fixed via `dotnet format`, second run passed with `FORMAT-001 PASS` |
 | `.\scripts\check-repository-policy.ps1` | Pass | `REPO-POLICY-001`–`005` PASS (no new `ErrorCode`, confirmed no registry impact); `Repository policy check passed` |
 | `.\scripts\verify-test-structure.ps1` | Pass | `TC-ARCH-001 PASS valid ADR-001 graph passes`; exit code 0 |
@@ -340,7 +342,7 @@ dotnet test DotNet\Odyssey.Core.sln
 | AC-2 | Pass | `TC-CATALOG-067`. |
 | AC-3 | Pass | `TC-CATALOG-042`-`047`. |
 | AC-4 | Pass | `TC-CATALOG-048`. |
-| AC-5 | Pass | `TC-CATALOG-049`-`052`. |
+| AC-5 | Pass | `TC-CATALOG-049`-`052`, `072`/`073` (ammo ruleset-applicability amendment). |
 | AC-6 | Pass | `TC-CATALOG-053`. |
 | AC-7 | Pass | `TC-CATALOG-054`/`055`. |
 | AC-8 | Pass | `TC-CATALOG-057`/`060`. |
@@ -354,7 +356,7 @@ dotnet test DotNet\Odyssey.Core.sln
 | AC-16 | Pass | `TC-CATALOG-070`/`071`. |
 | AC-17 | Pass | No Unity/UI path in Allowed paths or diff. |
 | AC-18 | Pass | `git status --porcelain` confirms no `ADR-001`-`027` file touched. |
-| AC-19 | Pass | Thirty `TC-CATALOG-042`-`071` entries added. |
+| AC-19 | Pass | Thirty-two `TC-CATALOG-042`-`073` entries added. |
 | AC-20 | Pass | This task contract and ExecPlan exist. |
 | AC-21 | Pass | `SLICE-05_IMPLEMENTATION_BACKLOG.md` row 4 marked `In Review` with PR [#108](https://github.com/odyssey-services/Odyssey_VTT/pull/108). |
 
@@ -364,6 +366,10 @@ dotnet test DotNet\Odyssey.Core.sln
 - Artifact path / name: None.
 - Checksums: None.
 - Test or quality report: This section plus the validation-results table (to be completed after the full validation suite runs).
+
+### Amendment (2026-09-04) — weapon ammo-applicability ruleset check
+
+Product-owner review found that `CatalogHasCompatibleAmmo` treated a candidate `AmmoDefinition` as satisfying a Weapon's `AmmoRequirement.Required` on a plain `CompatibilityKeys` string match alone, without checking that the candidate ammo's own `RulesetCompatibility` actually included the active campaign ruleset -- a Weapon could pass `ValidateDraftForPublish` on the strength of ammo scoped to an entirely different Ruleset. Fixed by factoring `ValidateRulesetCompatibility`'s own compatibility rule into a shared `IsCompatibleWithActiveRuleset(campaign, rulesetCompatibility)` helper, and having `CatalogHasCompatibleAmmo` skip any candidate whose own `RulesetCompatibility` does not include (or leave unrestricted) the active `campaign.Manifest.RulesetId@RulesetVersion` before checking its compatibility keys. Two new tests (`TC-CATALOG-072`/`073`) cover the positive (ammo explicitly compatible with the active ruleset) and negative (matching key, incompatible ruleset -> `WeaponNoCompatibleAmmoInCatalog`) cases; the existing empty-RulesetCompatibility control case (`TC-CATALOG-052`) continues to pass unchanged.
 
 ### Known limitations
 
@@ -400,4 +406,4 @@ dotnet test DotNet\Odyssey.Core.sln
 
 ### Approved task changes
 
-- None yet.
+- 2026-09-04 — Product-owner-requested amendment to the already-open PR #108: check the candidate `AmmoDefinition`'s own `RulesetCompatibility` when determining weapon ammo applicability (see the Amendment note in section 17). Scope stayed within this task's own Allowed paths (`CatalogValidationContracts.cs`, `CatalogValidationServiceTests.cs`, `test-catalog.json`, this contract/plan) -- no new file, no new `ErrorCode`.

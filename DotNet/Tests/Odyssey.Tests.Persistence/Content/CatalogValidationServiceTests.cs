@@ -283,7 +283,9 @@ namespace Odyssey.Tests.Persistence.Content
         [Test]
         public void WeaponRequiringAmmo_WithMatchingAmmoDefinitionInCatalog_PassesValidation()
         {
-            CreateDraft(ContentDefinitionType.Ammo, EncodeMinimalAmmo(new[] { "9mm" }));
+            // Control case: matching ammo declares no RulesetCompatibility
+            // restriction at all (empty list -- unrestricted).
+            CreateDraft(ContentDefinitionType.Ammo, EncodeMinimalAmmo(new[] { "9mm" }), rulesetCompatibility: Array.Empty<string>());
             string weaponJson = EncodeMinimalWeapon(AmmoRequirement.Required, new[] { "9mm" });
             ContentDefinitionRecord record = CreateDraft(ContentDefinitionType.Weapon, weaponJson);
 
@@ -291,6 +293,39 @@ namespace Odyssey.Tests.Persistence.Content
 
             Assert.That(result.IsSuccess, Is.True);
             Assert.That(result.Value.IsValid, Is.True, string.Join(", ", result.Value.Issues.Select(i => i.IssueCode)));
+        }
+
+        [Test]
+        public void WeaponRequiringAmmo_WithMatchingAmmoDefinitionCompatibleWithActiveRuleset_PassesValidation()
+        {
+            // Control case: matching ammo explicitly declares the active
+            // campaign ruleset as compatible.
+            CreateDraft(ContentDefinitionType.Ammo, EncodeMinimalAmmo(new[] { "9mm" }), rulesetCompatibility: new[] { "ruleset.core@1.0.0" });
+            string weaponJson = EncodeMinimalWeapon(AmmoRequirement.Required, new[] { "9mm" });
+            ContentDefinitionRecord record = CreateDraft(ContentDefinitionType.Weapon, weaponJson);
+
+            Result<CatalogValidationResult> result = CatalogValidationService.ValidateDraftForPublish(_catalogRepository, RequestFor(record.ContentDefinitionId));
+
+            Assert.That(result.IsSuccess, Is.True);
+            Assert.That(result.Value.IsValid, Is.True, string.Join(", ", result.Value.Issues.Select(i => i.IssueCode)));
+        }
+
+        [Test]
+        public void WeaponRequiringAmmo_WithKeyMatchingAmmoFromIncompatibleRuleset_FailsValidation()
+        {
+            // ODY-S05-104 amendment: a compatibility-key match alone is not
+            // enough -- an AmmoDefinition scoped to a different Ruleset must
+            // never satisfy a weapon's ammo requirement in the active
+            // campaign, even though the plain string key happens to match.
+            CreateDraft(ContentDefinitionType.Ammo, EncodeMinimalAmmo(new[] { "9mm" }), rulesetCompatibility: new[] { "other.ruleset@9.9.9" });
+            string weaponJson = EncodeMinimalWeapon(AmmoRequirement.Required, new[] { "9mm" });
+            ContentDefinitionRecord record = CreateDraft(ContentDefinitionType.Weapon, weaponJson);
+
+            Result<CatalogValidationResult> result = CatalogValidationService.ValidateDraftForPublish(_catalogRepository, RequestFor(record.ContentDefinitionId));
+
+            Assert.That(result.IsSuccess, Is.True);
+            Assert.That(result.Value.IsValid, Is.False);
+            Assert.That(result.Value.Issues.Any(i => i.IssueCode == CatalogValidationIssueCode.WeaponNoCompatibleAmmoInCatalog), Is.True);
         }
 
         // ---- 5. Armor usability -----------------------------------------------

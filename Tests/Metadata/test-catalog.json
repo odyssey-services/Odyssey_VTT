@@ -3967,6 +3967,22 @@
                           "runner":  "dotnet test",
                           "path":  "DotNet/Tests/Odyssey.Tests.Persistence/Content/CatalogValidationServiceTests.cs",
                           "check":  "The campaign.db schema after every validation test in this fixture contains no Inventory/ItemInstance/ItemStack/Equipment/ActiveEffect table -- CatalogValidationService is read-only and introduces no new persistence table"
+                      },
+                      {
+                          "testCaseId":  "TC-CATALOG-072",
+                          "taskId":  "ODY-S05-104",
+                          "authority":  "ODY-S05-104 amendment: weapon ammo-applicability must check the candidate AmmoDefinition's own RulesetCompatibility, positive control case",
+                          "runner":  "dotnet test",
+                          "path":  "DotNet/Tests/Odyssey.Tests.Persistence/Content/CatalogValidationServiceTests.cs",
+                          "check":  "CatalogValidationService.ValidateDraftForPublish against a Weapon requiring \"9mm\" ammo, where the matching AmmoDefinition explicitly declares the active campaign ruleset.core@1.0.0 as compatible, returns IsValid=true"
+                      },
+                      {
+                          "testCaseId":  "TC-CATALOG-073",
+                          "taskId":  "ODY-S05-104",
+                          "authority":  "ODY-S05-104 amendment: an AmmoDefinition scoped to a different Ruleset must not satisfy a weapon's ammo requirement on compatibility-key match alone",
+                          "runner":  "dotnet test",
+                          "path":  "DotNet/Tests/Odyssey.Tests.Persistence/Content/CatalogValidationServiceTests.cs",
+                          "check":  "CatalogValidationService.ValidateDraftForPublish against a Weapon requiring \"9mm\" ammo, where the only matching-key AmmoDefinition in the catalog declares RulesetCompatibility=[\"other.ruleset@9.9.9\"] (not the active ruleset.core@1.0.0), returns WeaponNoCompatibleAmmoInCatalog"
                       }
                   ]
 }

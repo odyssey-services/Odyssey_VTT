@@ -106,4 +106,12 @@ None. No architectural question was found that `ADR-027`/`11_Content_Block_Syste
 
 ## 12. Outcome and follow-up
 
-Draft PR: https://github.com/odyssey-services/Odyssey_VTT/pull/108. CI pending. Enables `ODY-S05-103` (Publish/Archive/Delete Lifecycle) to gate publish on `ValidateDraftForPublish`, and `ODY-S05-106` to prove the full pipeline end-to-end.
+Draft PR: https://github.com/odyssey-services/Odyssey_VTT/pull/108 (amended). Enables `ODY-S05-103` (Publish/Archive/Delete Lifecycle) to gate publish on `ValidateDraftForPublish`, and `ODY-S05-106` to prove the full pipeline end-to-end.
+
+## 13. Amendment (2026-09-04) — weapon ammo-applicability ruleset check
+
+- Defect: `CatalogHasCompatibleAmmo` matched a candidate `AmmoDefinition` on `CompatibilityKeys` alone, never checking the candidate's own `RulesetCompatibility` against the active campaign ruleset -- a Weapon could pass publish validation on the strength of ammo scoped to a different Ruleset.
+- Fix: factored `ValidateRulesetCompatibility`'s own rule into a shared `IsCompatibleWithActiveRuleset(campaign, rulesetCompatibility)` helper; `CatalogHasCompatibleAmmo` now skips any candidate ammo whose `RulesetCompatibility` does not include (or leave unrestricted) the active `campaign.Manifest.RulesetId@RulesetVersion` before checking its keys.
+- Tests added: `TC-CATALOG-072` (matching ammo explicitly compatible with the active ruleset passes) and `TC-CATALOG-073` (matching-key ammo scoped to `other.ruleset@9.9.9` fails with `WeaponNoCompatibleAmmoInCatalog`).
+- Validation re-run: `dotnet build` (0/0), `dotnet test` full suite (585/585, no regression), `verify-format.ps1`/`check-repository-policy.ps1`/`verify-test-structure.ps1` all pass.
+- PR #108 stays Draft pending re-review.
