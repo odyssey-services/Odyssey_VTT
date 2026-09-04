@@ -541,17 +541,44 @@ namespace Odyssey.Persistence.Sqlite
         }
 
         /// <summary>
-        /// ODY-S05-103: physically removes an unused Draft row --
+        /// ODY-S05-103 (amended): physically removes an unused Draft row --
         /// `ADR-027` section 4.1 rule 1's only allowed physical-delete
         /// case. The existence/Draft/reference checks and the DELETE
         /// itself run inside one transaction, so no other command can
         /// create a new reference to this definition between the check and
-        /// the delete. Idempotency cannot reuse <see cref="TryFindByCommandId"/>
-        /// as-is (it re-selects the target row, which is gone after a
-        /// successful delete) -- <see cref="CommandLedgerContainsCommandId"/>
-        /// checks the ledger's own `CommandId` existence alone, so a replay
-        /// of an already-applied delete command succeeds even though
-        /// nothing is left to select.
+        /// the delete.
+        ///
+        /// Idempotency uses a dedicated <c>ContentDefinitionDeleteLedger</c>
+        /// table (<c>CommandId</c> primary key -&gt; <c>ContentDefinitionId</c>),
+        /// written only by this method -- deliberately NOT the shared
+        /// <c>ContentDefinitionCommandLedger</c> every create/update/
+        /// publish/archive command also writes to. The original amendment
+        /// this fixes checked only whether <paramref name="commandId"/>
+        /// existed anywhere in that shared ledger, regardless of which
+        /// definition or which operation it was originally recorded for --
+        /// since the shared ledger's `CommandId` values are unique across
+        /// every lifecycle command, reusing a `CommandId` that had already
+        /// been recorded by a create/update/publish/archive call (or by a
+        /// delete of a *different* definition) made this method return
+        /// `Success` without ever deleting the row the caller actually
+        /// asked for. The dedicated delete-only ledger, checked and
+        /// compared against <paramref name="definitionId"/> itself, fixes
+        /// all three required behaviors:
+        /// <list type="bullet">
+        /// <item>a genuine replay of an already-applied delete for the
+        /// *same* definition returns `Success` even though the row is
+        /// gone;</item>
+        /// <item>a `CommandId` previously recorded by a delete of a
+        /// *different* definition is a genuine identity violation, not a
+        /// replay -- rejected with `CommandIdentityMismatch`, the same
+        /// established convention <c>CommandContracts.cs</c> already uses
+        /// for a reused `CommandId` whose target does not match;</item>
+        /// <item>a `CommandId` previously recorded only by a create/
+        /// update/publish/archive of the *same, still-existing* row never
+        /// appears in this delete-only ledger at all, so this method
+        /// correctly proceeds to actually delete it, rather than falsely
+        /// reporting success without touching the row.</item>
+        /// </list>
         /// </summary>
         public Result DeleteDraftDefinition(CampaignHandle campaign, ContentDefinitionId definitionId, CommandId commandId, CorrelationId correlationId)
         {
@@ -565,10 +592,13 @@ namespace Odyssey.Persistence.Sqlite
                 EnsureContentDefinitionTables(connection);
                 using SqliteTransaction transaction = connection.BeginTransaction();
 
-                if (CommandLedgerContainsCommandId(connection, transaction, commandId))
+                ContentDefinitionId? previousDeleteTarget = TryFindDeleteLedgerTarget(connection, transaction, commandId);
+                if (previousDeleteTarget.HasValue)
                 {
                     transaction.Commit();
-                    return Result.Success();
+                    return previousDeleteTarget.Value.Equals(definitionId)
+                        ? Result.Success()
+                        : Result.Failure(PersistenceFailures.ContentDefinitionDeleteCommandIdentityMismatch(correlationId));
                 }
 
                 ContentDefinitionRecord? current = SelectForUpdate(connection, transaction, definitionId);
@@ -599,7 +629,7 @@ namespace Odyssey.Persistence.Sqlite
                 }
 
                 UtcInstant now = _clock.GetUtcNow();
-                InsertCommandLedgerEntry(connection, transaction, commandId, definitionId, now);
+                InsertDeleteLedgerEntry(connection, transaction, commandId, definitionId, now);
 
                 transaction.Commit();
                 return Result.Success();
@@ -642,18 +672,40 @@ namespace Odyssey.Persistence.Sqlite
         }
 
         /// <summary>
-        /// ODY-S05-103: a `CommandId`-existence-only ledger check, distinct
-        /// from <see cref="TryFindByCommandId"/> -- used only by
-        /// <see cref="DeleteDraftDefinition"/>, whose successful outcome
-        /// leaves no row behind to re-select on replay.
+        /// ODY-S05-103 (amended): looks up the dedicated
+        /// `ContentDefinitionDeleteLedger` -- distinct from the shared
+        /// `ContentDefinitionCommandLedger` <see cref="TryFindByCommandId"/>
+        /// checks, and distinct from that method's own re-selection of the
+        /// target row (which no longer exists after a successful delete).
+        /// Returns the <see cref="ContentDefinitionId"/> this exact
+        /// <paramref name="commandId"/> was originally recorded against, or
+        /// `null` if this `CommandId` has never been used for a delete
+        /// before -- <see cref="DeleteDraftDefinition"/> compares the
+        /// returned id against its own caller-supplied target to
+        /// distinguish a genuine replay (same id) from a reused `CommandId`
+        /// that actually belongs to a different definition's own delete
+        /// (a `CommandIdentityMismatch`, not a replay).
         /// </summary>
-        private static bool CommandLedgerContainsCommandId(SqliteConnection connection, SqliteTransaction transaction, CommandId commandId)
+        private static ContentDefinitionId? TryFindDeleteLedgerTarget(SqliteConnection connection, SqliteTransaction transaction, CommandId commandId)
         {
             using var select = connection.CreateCommand();
             select.Transaction = transaction;
-            select.CommandText = "SELECT 1 FROM ContentDefinitionCommandLedger WHERE CommandId = $commandId LIMIT 1;";
+            select.CommandText = "SELECT ContentDefinitionId FROM ContentDefinitionDeleteLedger WHERE CommandId = $commandId LIMIT 1;";
             select.Parameters.AddWithValue("$commandId", commandId.ToString());
-            return select.ExecuteScalar() != null;
+            object? result = select.ExecuteScalar();
+            return result == null || result is DBNull ? (ContentDefinitionId?)null : ContentDefinitionId.Parse((string)result);
+        }
+
+        /// <summary>ODY-S05-103 (amended): records this <paramref name="commandId"/> as having physically deleted <paramref name="definitionId"/>, in the same transaction as the `DELETE` itself, into the delete-only ledger -- never the shared `ContentDefinitionCommandLedger`.</summary>
+        private static void InsertDeleteLedgerEntry(SqliteConnection connection, SqliteTransaction transaction, CommandId commandId, ContentDefinitionId definitionId, UtcInstant now)
+        {
+            using var insert = connection.CreateCommand();
+            insert.Transaction = transaction;
+            insert.CommandText = "INSERT INTO ContentDefinitionDeleteLedger (CommandId, ContentDefinitionId, DeletedAt) VALUES ($commandId, $definitionId, $deletedAt);";
+            insert.Parameters.AddWithValue("$commandId", commandId.ToString());
+            insert.Parameters.AddWithValue("$definitionId", definitionId.ToString());
+            insert.Parameters.AddWithValue("$deletedAt", now.ToString());
+            insert.ExecuteNonQuery();
         }
 
         /// <summary>
@@ -824,6 +876,11 @@ CREATE TABLE IF NOT EXISTS ContentDefinitionCommandLedger (
     CommandId TEXT PRIMARY KEY,
     ContentDefinitionId TEXT NOT NULL,
     CreatedAt TEXT NOT NULL
+);
+CREATE TABLE IF NOT EXISTS ContentDefinitionDeleteLedger (
+    CommandId TEXT PRIMARY KEY,
+    ContentDefinitionId TEXT NOT NULL,
+    DeletedAt TEXT NOT NULL
 );";
             command.ExecuteNonQuery();
         }

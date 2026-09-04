@@ -4175,6 +4175,22 @@
                           "runner":  "dotnet test",
                           "path":  "DotNet/Tests/Odyssey.Tests.Persistence/Content/ContentCatalogLifecycleServiceTests.cs",
                           "check":  "The campaign.db schema after every lifecycle test in this fixture contains no Inventory/ItemInstance/ItemStack/Equipment/ActiveEffect table -- ODY-S05-103 introduces no new persistence table beyond the existing ContentDefinition/ContentDefinitionCommandLedger tables"
+                      },
+                      {
+                          "testCaseId":  "TC-CATALOG-098",
+                          "taskId":  "ODY-S05-103",
+                          "authority":  "ODY-S05-103 amendment: DeleteDraftDefinition idempotency must not reuse the shared ContentDefinitionCommandLedger",
+                          "runner":  "dotnet test",
+                          "path":  "DotNet/Tests/Odyssey.Tests.Persistence/Content/ContentCatalogLifecycleServiceTests.cs",
+                          "check":  "SqliteContentCatalogRepository.DeleteDraftDefinition, called with a CommandId already recorded by CreateDraftContentDefinition against the same still-existing Draft, actually deletes the row rather than falsely reporting Success without touching it"
+                      },
+                      {
+                          "testCaseId":  "TC-CATALOG-099",
+                          "taskId":  "ODY-S05-103",
+                          "authority":  "ODY-S05-103 amendment: a CommandId reused across two different delete targets is a genuine identity violation, not a replay",
+                          "runner":  "dotnet test",
+                          "path":  "DotNet/Tests/Odyssey.Tests.Persistence/Content/ContentCatalogLifecycleServiceTests.cs",
+                          "check":  "SqliteContentCatalogRepository.DeleteDraftDefinition, called with a CommandId already recorded by a successful delete of a different ContentDefinitionId, fails with CommandIdentityMismatch and deletes neither definition"
                       }
                   ]
 }

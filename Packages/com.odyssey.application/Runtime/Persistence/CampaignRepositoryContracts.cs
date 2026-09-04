@@ -761,6 +761,26 @@ namespace Odyssey.Application.Persistence
             RetryDirective.DoNotRetry,
             correlationId);
 
+        /// <summary>
+        /// ODY-S05-103 amendment: `SqliteContentCatalogRepository.DeleteDraftDefinition`'s
+        /// own dedicated delete ledger found the caller's `CommandId`
+        /// already recorded against a *different* `ContentDefinitionId` --
+        /// this is a genuine `CommandId` reuse across two distinct delete
+        /// targets, not a legitimate replay of the same command. Reuses
+        /// the existing <see cref="ErrorCodes.CommandIdentityMismatch"/>
+        /// code, the same one <c>CommandContracts.cs</c>'s own general
+        /// command pipeline already uses for a reused `CommandId` whose
+        /// target does not match its originally recorded one -- no new
+        /// `ErrorCode` is minted for this scenario.
+        /// </summary>
+        public static Error ContentDefinitionDeleteCommandIdentityMismatch(CorrelationId correlationId) => Error.Create(
+            ErrorCodes.CommandIdentityMismatch,
+            ErrorCategory.Security,
+            SafeReasonCode.ActionNotAllowed,
+            UserMessageKey.Parse("errors.application.command_identity_mismatch"),
+            RetryDirective.DoNotRetry,
+            correlationId);
+
         // Used only by the codec's Read path (CampaignManifest.cs), which does not
         // receive a caller CorrelationId; matches the existing SerializationFailures
         // placeholder-correlation convention for codec-level structural failures.

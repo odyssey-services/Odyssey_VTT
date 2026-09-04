@@ -113,4 +113,12 @@ None. No architectural question was found that `ADR-027`/`11_Content_Block_Syste
 
 ## 12. Outcome and follow-up
 
-Draft PR: https://github.com/odyssey-services/Odyssey_VTT/pull/110. CI pending. Enables `ODY-S05-106` (Minimal Test Catalog Fixtures) to prove the full Foundation/Authoring/Validation/Publish pipeline end-to-end for the first time.
+Draft PR: https://github.com/odyssey-services/Odyssey_VTT/pull/110 (amended). Enables `ODY-S05-106` (Minimal Test Catalog Fixtures) to prove the full Foundation/Authoring/Validation/Publish pipeline end-to-end for the first time.
+
+## 13. Amendment (2026-09-04) — DeleteDraftDefinition idempotency fix
+
+- Defect: `DeleteDraftDefinition`'s original idempotency check tested only whether the caller's `CommandId` existed anywhere in the *shared* `ContentDefinitionCommandLedger` -- the same table create/update/publish/archive all write to. Reusing a `CommandId` already recorded by any of those other operations, or by a *different* definition's own prior delete, made the method return `Success` without ever deleting the row actually requested.
+- Fix: a new, dedicated `ContentDefinitionDeleteLedger` table (`CommandId` primary key -> `ContentDefinitionId`, `DeletedAt`), written and checked only by `DeleteDraftDefinition`. A hit compares the recorded `ContentDefinitionId` against the caller's own target: a match is a genuine replay (`Success`); a mismatch is a real identity violation, rejected with the existing `CommandIdentityMismatch` code (no new `ErrorCode`). No hit means the `CommandId` was never used for a delete before, so the method proceeds to actually check/delete the row -- correctly handling reuse from another operation on the same still-existing row.
+- Tests added: `TC-CATALOG-098` (CommandId reused from `CreateDraftContentDefinition` on the same still-existing Draft now actually deletes it) and `TC-CATALOG-099` (CommandId reused from a different definition's own successful delete now fails with `CommandIdentityMismatch`, deletes neither).
+- Validation re-run: `dotnet build` (0/0), `dotnet test` full suite (611/611, no regression), `verify-format.ps1`/`check-repository-policy.ps1`/`verify-test-structure.ps1` all pass.
+- PR #110 stays Draft pending re-review.

@@ -8,7 +8,7 @@
 **Pull request:** https://github.com/odyssey-services/Odyssey_VTT/pull/110
 **ExecPlan:** `docs/plans/active/ODY-S05-103_Publish_Archive_Delete_Lifecycle.md`
 **Created:** 2026-09-04
-**Last updated:** 2026-09-04 UTC
+**Last updated:** 2026-09-04 UTC (amended: DeleteDraftDefinition idempotency fix)
 
 ## 1. Goal
 
@@ -176,7 +176,7 @@ Unity assets/UI
 ## 8. Deliverables
 
 - Production code: `ContentCatalogLifecycleContracts.cs` (Application), `IContentCatalogRepository.PublishDefinition`/`ArchiveDefinition`/`DeleteDraftDefinition` extension + implementation, two `PersistenceFailures`/`ErrorCodes` entries plus one new `ContentCatalogLifecycleFailures` entry.
-- Tests: `ContentCatalogLifecycleServiceTests.cs` (20 cases) -- `TC-CATALOG-078`-`097`.
+- Tests: `ContentCatalogLifecycleServiceTests.cs` (22 cases, amended: +2) -- `TC-CATALOG-078`-`099`.
 - Scripts / CI: None.
 - Configuration: None.
 - Documentation: `docs/errors/ERROR_CODES.md`, `Tests/Metadata/test-catalog.json`, `docs/tasks/SLICE-05_IMPLEMENTATION_BACKLOG.md` (rows 3/4), this task contract, its ExecPlan.
@@ -226,6 +226,8 @@ Unity assets/UI
 | `TC-CATALOG-094` | .NET / NUnit (Persistence) | Non-MainGM delete denied, no state change | Pass |
 | `TC-CATALOG-095` | .NET / NUnit (Persistence) | Delete command replay safe after row is gone | Pass |
 | `TC-CATALOG-096`/`097` | .NET / NUnit (Persistence) | No runtime item/inventory/equipment/effect type or table | Pass |
+| `TC-CATALOG-098` | .NET / NUnit (Persistence) | A CommandId reused from a create/update/publish/archive of the same still-existing Draft actually deletes it | Pass |
+| `TC-CATALOG-099` | .NET / NUnit (Persistence) | A CommandId reused from a different definition's own successful delete fails with CommandIdentityMismatch, deletes neither | Pass |
 
 ### Required commands
 
@@ -323,10 +325,10 @@ dotnet test DotNet\Odyssey.Core.sln
 - `Packages/com.odyssey.application/Runtime/Persistence/CampaignRepositoryContracts.cs` -- one new `PersistenceFailures` entry, one doc-comment update.
 - `Packages/com.odyssey.application/Runtime/Results/ErrorCodes.cs` -- two new `ErrorCode` entries.
 - `Packages/com.odyssey.application/Runtime/Content/ContentCatalogLifecycleContracts.cs` -- new.
-- `Packages/com.odyssey.persistence/Runtime/Sqlite/SqliteContentCatalogRepository.cs` -- three new method implementations plus two private helpers.
-- `DotNet/Tests/Odyssey.Tests.Persistence/Content/ContentCatalogLifecycleServiceTests.cs` -- new, 20 tests.
-- `docs/errors/ERROR_CODES.md` -- two new rows, one doc-note update.
-- `Tests/Metadata/test-catalog.json` -- twenty new `TC-CATALOG-078`-`097` entries.
+- `Packages/com.odyssey.persistence/Runtime/Sqlite/SqliteContentCatalogRepository.cs` -- three new method implementations plus helpers, including the amended `ContentDefinitionDeleteLedger` table and `TryFindDeleteLedgerTarget`/`InsertDeleteLedgerEntry` helpers.
+- `DotNet/Tests/Odyssey.Tests.Persistence/Content/ContentCatalogLifecycleServiceTests.cs` -- new, 22 tests (amended: +2).
+- `docs/errors/ERROR_CODES.md` -- three new rows/doc-notes (two original, one amendment doc-note reusing `application.command.identity_mismatch`).
+- `Tests/Metadata/test-catalog.json` -- twenty-two new `TC-CATALOG-078`-`099` entries (amended: +2 IDs, `098`-`099`).
 - `docs/tasks/SLICE-05_IMPLEMENTATION_BACKLOG.md` -- row 4 corrected to `Done`, row 3 status update.
 - This task contract and its ExecPlan.
 
@@ -335,7 +337,7 @@ dotnet test DotNet\Odyssey.Core.sln
 | Command / check | Result | Evidence / notes |
 |---|---|---|
 | `dotnet build DotNet\Odyssey.Core.sln` | Pass | 0 warnings, 0 errors |
-| `dotnet test DotNet\Odyssey.Core.sln` | Pass | Full suite green (609/609), including 20 new `ContentCatalogLifecycleServiceTests` cases, no regression |
+| `dotnet test DotNet\Odyssey.Core.sln` | Pass | Full suite green (611/611, amended: +2), including 22 `ContentCatalogLifecycleServiceTests` cases, no regression |
 | `.\scripts\verify-format.ps1` | Pass | `FORMAT-001 PASS repository text formatting checks passed` |
 | `.\scripts\check-repository-policy.ps1` | Pass | `REPO-POLICY-001`–`005` PASS; `Repository policy check passed` |
 | `.\scripts\verify-test-structure.ps1` | Pass | `TC-ARCH-001 PASS valid ADR-001 graph passes`; exit code 0 |
@@ -350,7 +352,7 @@ dotnet test DotNet\Odyssey.Core.sln
 | AC-4 | Pass | `TC-CATALOG-084`/`085`. |
 | AC-5 | Pass | `TC-CATALOG-086`. |
 | AC-6 | Pass | `TC-CATALOG-089`-`092`. |
-| AC-7 | Pass | `TC-CATALOG-083`, `TC-CATALOG-095`. |
+| AC-7 | Pass | `TC-CATALOG-083`, `TC-CATALOG-095`, `TC-CATALOG-098`/`099` (amendment: CommandId reuse across other operations/other definitions correctly rejected/handled, not falsely reported as a replay). |
 | AC-8 | Pass | `TC-CATALOG-080`/`087`/`094`. |
 | AC-9 | Pass | `TC-CATALOG-079`. |
 | AC-10 | Pass | `TC-CATALOG-096`/`097`. |
@@ -366,6 +368,14 @@ dotnet test DotNet\Odyssey.Core.sln
 - Artifact path / name: None.
 - Checksums: None.
 - Test or quality report: This section plus the validation-results table (to be completed after the full validation suite runs).
+
+### Amendment (2026-09-04) — DeleteDraftDefinition idempotency fix
+
+Product-owner review found that `DeleteDraftDefinition`'s original idempotency check (`CommandLedgerContainsCommandId`) only tested whether the caller's `CommandId` existed anywhere in the *shared* `ContentDefinitionCommandLedger` -- the same table `CreateDraftContentDefinition`/`UpdateDraftContentDefinition`/`PublishDefinition`/`ArchiveDefinition`/`CreateNextDraftVersionFromPublished` all also write to. Since that table's `CommandId` values are meant to be globally unique per logical command instance, reusing a `CommandId` already recorded by any of those *other* operations -- or by a *different* definition's own prior delete -- made `DeleteDraftDefinition` return `Success` without ever deleting the row the caller actually asked for.
+
+Fixed by introducing a dedicated `ContentDefinitionDeleteLedger` table (`CommandId` primary key -> `ContentDefinitionId`, `DeletedAt`), written and checked only by `DeleteDraftDefinition` itself -- completely independent of the shared ledger. On each call: if the `CommandId` is not yet in this delete-only ledger, the method proceeds to actually check/delete the row (correctly handling the "reused from another operation on the same still-existing row" case, since that `CommandId` was never recorded here before); if it is already present, the recorded `ContentDefinitionId` is compared against the caller's own target -- a match is a genuine replay (`Success`, row already gone), a mismatch is a real `CommandId` reuse across two different delete targets, rejected with the existing `CommandIdentityMismatch` code (the same one `CommandContracts.cs`'s own general command pipeline already uses for this exact class of violation -- no new `ErrorCode` minted).
+
+Two new tests (`TC-CATALOG-098`/`099`) directly reproduce both false-success scenarios the original bug allowed and confirm the fix: reusing a `CreateDraftContentDefinition` `CommandId` to delete that same still-existing Draft now actually deletes it; reusing a `CommandId` from one definition's own successful delete against a *different* definition now fails with `CommandIdentityMismatch` and deletes neither row.
 
 ### Known limitations
 
@@ -398,9 +408,10 @@ dotnet test DotNet\Odyssey.Core.sln
 - 2026-09-04 — Decision: the Application-layer `ContentCatalogLifecycleService.PublishDefinition` only re-runs `CatalogValidationService.ValidateDraftForPublish` when the target's own current `Status` is still `Draft`. Authority: re-running Draft-only validation against an already-Published record would always report `DefinitionNotDraft` and incorrectly reject a legitimate `CommandId` replay of an already-successful publish; skipping validation once the target is no longer Draft lets the repository's own ledger-based idempotency (a genuine replay) or its own `PersistenceContentDefinitionNotDraft` check (a genuinely invalid new attempt against an already-published target) handle both remaining cases correctly. This bug was caught and fixed during this task's own design, not discovered via a failing test.
 - 2026-09-04 — Decision: `ArchiveDefinition` reuses `PersistenceContentDefinitionNotPublished` (originally `ODY-S05-102`'s own `CreateNextDraftVersionFromPublished` rejection) rather than minting a new error code, since both share the exact same underlying meaning: "this operation requires a `Published` source and the target is not one." Authority: this task's own ТЗ explicit "add new `ErrorCode`s only if existing codes are insufficient" instruction.
 - 2026-09-04 — Decision: the physical-delete catalog-dependency scan (`IsReferencedByAnotherDefinition`) lives entirely inside `SqliteContentCatalogRepository` as a plain SQL substring match over `DependencyRefsJson`/`PropertiesJson`, rather than in the Application-layer lifecycle service using `TypedDefinitionCodec`. Authority: this keeps the existence-check-and-delete atomic in one transaction (no TOCTOU race across a service/repository round trip), avoids a new cross-project dependency from the lifecycle service back into typed-decode logic it does not otherwise need, and needs no schema change -- the canonical `ContentDefinitionId` string already appears verbatim inside any JSON-embedded reference to it, so no decode is required to detect a match.
-- 2026-09-04 — Decision: `DeleteDraftDefinition`'s own idempotent-replay check uses a new ledger-existence-only helper (`CommandLedgerContainsCommandId`), not the existing `TryFindByCommandId` (which re-selects the target row and would incorrectly return `null` -- indistinguishable from "never happened" -- for an already-successfully-deleted row). Authority: this task's own ТЗ explicit "if the existing command ledger cannot replay a deleted row, add the smallest safe mechanism needed and document the reason" instruction.
+- 2026-09-04 — Decision: `DeleteDraftDefinition`'s own idempotent-replay check uses a new ledger-existence-only helper, not the existing `TryFindByCommandId` (which re-selects the target row and would incorrectly return `null` -- indistinguishable from "never happened" -- for an already-successfully-deleted row). Authority: this task's own ТЗ explicit "if the existing command ledger cannot replay a deleted row, add the smallest safe mechanism needed and document the reason" instruction. **Superseded/refined by the 2026-09-04 amendment below**: the original implementation of this helper (`CommandLedgerContainsCommandId`) checked existence in the *shared* `ContentDefinitionCommandLedger`, which was itself a genuine bug (see the amendment) -- the ledger-existence-only *approach* was correct, but it needed its own dedicated `ContentDefinitionDeleteLedger` table, not the shared one, to actually distinguish a real delete-replay from an unrelated `CommandId` collision.
 - 2026-09-04 — Decision (explicit, requested by the ТЗ itself): a `ContentDefinitionRef`'s own `Version >= 1` constructor requirement means no reference can ever legitimately target a genuine Draft (`Version == 0`) through the public API today. The physical-delete dependency check is still implemented (matching by `ContentDefinitionId` alone, ignoring version) as a defensive, forward-compatible safety net, and is directly tested via a state constructed with test-only direct SQL (the same established technique prior `SLICE-05` tasks already use for states the public API cannot yet produce) -- not left unimplemented or faked.
+- 2026-09-04 — Decision (amendment): `DeleteDraftDefinition`'s idempotency now uses a dedicated `ContentDefinitionDeleteLedger` table, written and checked only by this one method, comparing the recorded `ContentDefinitionId` against the caller's own target rather than trusting bare `CommandId` existence. A mismatch reuses the existing `CommandIdentityMismatch` error code (`CommandContracts.cs`'s own established convention for this exact class of violation) rather than minting a new one. Authority: product-owner-identified correctness bug in the original shared-ledger check; this task's own ТЗ "keep scope inside ODY-S05-103" and "add new ErrorCodes only if existing insufficient" instructions.
 
 ### Approved task changes
 
-- None yet.
+- 2026-09-04 — Product-owner-requested amendment to the already-open PR #110: fix `DeleteDraftDefinition`'s own idempotency to use a dedicated delete-only ledger instead of the shared `ContentDefinitionCommandLedger`, and correctly reject (rather than silently succeed on) a `CommandId` reused across two different delete targets (see the Amendment note in section 17). Scope stayed within this task's own Allowed paths (`SqliteContentCatalogRepository.cs`, `CampaignRepositoryContracts.cs`, `ContentCatalogLifecycleServiceTests.cs`, `ERROR_CODES.md`, `test-catalog.json`) -- no new project file, no new `ErrorCode` (reused `CommandIdentityMismatch`).

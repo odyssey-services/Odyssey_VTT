@@ -375,6 +375,47 @@ namespace Odyssey.Tests.Persistence.Content
             Assert.That(replay.IsSuccess, Is.True, "a replay of an already-applied delete command must succeed even though the row itself no longer exists");
         }
 
+        [Test]
+        public void DeleteDraftDefinition_ReusingCommandIdFromAnotherOperation_OnTheSameStillExistingDraft_ActuallyDeletesIt()
+        {
+            // Amendment regression guard: the original bug checked only
+            // whether CommandId existed anywhere in the *shared*
+            // ContentDefinitionCommandLedger (written by create/update/
+            // publish/archive too) -- so reusing a CommandId already
+            // recorded by, say, the CreateDraftContentDefinition call
+            // itself made DeleteDraftDefinition report Success without
+            // ever deleting the still-existing row.
+            var request = new CreateDraftContentDefinitionRequest(_campaign, ContentDefinitionType.Item, "Reused CommandId Target", "fixture", NewUserId(), propertiesJson: EncodeValidItem());
+            CommandId reusedCommandId = NewCommandId();
+            Result<ContentDefinitionRecord> created = _catalogRepository.CreateDraftContentDefinition(request, reusedCommandId, TestCorrelationId);
+            Assert.That(created.IsSuccess, Is.True);
+
+            Result deleteResult = _catalogRepository.DeleteDraftDefinition(_campaign, created.Value.ContentDefinitionId, reusedCommandId, TestCorrelationId);
+
+            Assert.That(deleteResult.IsSuccess, Is.True, "a CommandId previously used for a different operation on the same still-existing row must still actually delete it, not falsely report success");
+            Result<ContentDefinitionRecord> reread = _catalogRepository.GetContentDefinition(_campaign, created.Value.ContentDefinitionId, TestCorrelationId);
+            Assert.That(reread.IsFailure, Is.True, "the row must actually be gone -- a false-success replay would have left it in place");
+            Assert.That(reread.Error.Code, Is.EqualTo(ErrorCodes.PersistenceContentDefinitionNotFound));
+        }
+
+        [Test]
+        public void DeleteDraftDefinition_ReusingCommandIdFromAnotherDefinitionsDelete_FailsWithIdentityMismatch_AndDoesNotDeleteEither()
+        {
+            ContentDefinitionRecord alreadyDeletedElsewhere = CreateValidDraft(name: "Already Deleted Elsewhere");
+            CommandId reusedCommandId = NewCommandId();
+            Result firstDelete = _catalogRepository.DeleteDraftDefinition(_campaign, alreadyDeletedElsewhere.ContentDefinitionId, reusedCommandId, TestCorrelationId);
+            Assert.That(firstDelete.IsSuccess, Is.True);
+
+            ContentDefinitionRecord unrelatedTarget = CreateValidDraft(name: "Unrelated Target");
+            Result secondDelete = _catalogRepository.DeleteDraftDefinition(_campaign, unrelatedTarget.ContentDefinitionId, reusedCommandId, TestCorrelationId);
+
+            Assert.That(secondDelete.IsFailure, Is.True);
+            Assert.That(secondDelete.Error.Code, Is.EqualTo(ErrorCodes.CommandIdentityMismatch));
+
+            Result<ContentDefinitionRecord> rereadUnrelated = _catalogRepository.GetContentDefinition(_campaign, unrelatedTarget.ContentDefinitionId, TestCorrelationId);
+            Assert.That(rereadUnrelated.IsSuccess, Is.True, "the unrelated target must not be deleted by a CommandId that actually belongs to a different definition's own delete");
+        }
+
         private void SeedDependencyRefDirectly(ContentDefinitionId referencerId, ContentDefinitionId targetId, long version)
         {
             using var connection = new SqliteConnection("Data Source=" + Path.Combine(_campaignDir, "campaign.db"));
