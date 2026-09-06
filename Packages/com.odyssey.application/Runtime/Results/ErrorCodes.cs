@@ -122,6 +122,10 @@ namespace Odyssey.Application.Results
         public static readonly ErrorCode PersistenceContentDefinitionNotDraft = ErrorCode.Parse("persistence.content_definition.not_draft");
         public static readonly ErrorCode PersistenceContentDefinitionNotPublished = ErrorCode.Parse("persistence.content_definition.not_published");
         public static readonly ErrorCode PersistenceContentDefinitionReferenced = ErrorCode.Parse("persistence.content_definition.referenced");
+        public static readonly ErrorCode PersistenceInventoryNotFound = ErrorCode.Parse("persistence.inventory.not_found");
+        public static readonly ErrorCode PersistenceInventoryIoFailed = ErrorCode.Parse("persistence.inventory.io_failed");
+        public static readonly ErrorCode PersistenceItemInstanceNotFound = ErrorCode.Parse("persistence.item_instance.not_found");
+        public static readonly ErrorCode PersistenceItemStackNotFound = ErrorCode.Parse("persistence.item_stack.not_found");
         public static readonly ErrorCode ContentCatalogAuthoringDenied = ErrorCode.Parse("content_catalog.authoring.denied");
         public static readonly ErrorCode ContentCatalogTypedDefinitionWrongType = ErrorCode.Parse("content_catalog.typed_definition.wrong_type");
         public static readonly ErrorCode ContentCatalogTypedDefinitionMalformedPayload = ErrorCode.Parse("content_catalog.typed_definition.malformed_payload");

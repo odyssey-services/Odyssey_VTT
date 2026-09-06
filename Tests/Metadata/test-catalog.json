@@ -4350,7 +4350,7 @@
                           "authority":  "ODY-S05-201 acceptance criterion 8",
                           "runner":  "dotnet test",
                           "path":  "DotNet/Tests/Odyssey.Tests.Unit/Inventory/InventoryRuntimeRecordTests.cs",
-                          "check":  "Reflection/source guard confirms ODY-S05-201 introduces no Inventory repository implementation, SQLite persistence/schema class, Character-section inventory fields, command service, Equipment behavior, Attack behavior, ActiveEffect implementation, or ItemDefinition migration workflow"
+                          "check":  "Reflection/source guard confirms ODY-S05-201 foundation record files introduce no Character-section inventory fields, command service, Equipment behavior, Attack behavior, ActiveEffect implementation, or ItemDefinition migration workflow"
                       },
                       {
                           "testCaseId":  "TC-INVENTORY-009",
@@ -4359,6 +4359,86 @@
                           "runner":  "dotnet test",
                           "path":  "DotNet/Tests/Odyssey.Tests.Unit/Inventory/InventoryRuntimeRecordTests.cs",
                           "check":  "ItemInstanceRecord rejects a Contained InventoryLocationRef whose TargetRef is another InventoryId, ItemStackRecord rejects an Equipped InventoryLocationRef whose TargetRef is another InventoryId, and same-inventory positive cases still pass"
+                      },
+                      {
+                          "testCaseId":  "TC-INVENTORY-010",
+                          "taskId":  "ODY-S05-202",
+                          "authority":  "ODY-S05-202 minimum test list item 1",
+                          "runner":  "dotnet test",
+                          "path":  "DotNet/Tests/Odyssey.Tests.Persistence/SqliteInventoryRepositoryTests.cs",
+                          "check":  "SqliteInventoryRepository.CreateInventory followed by GetInventory round-trips InventoryId, CampaignId, owner ref, revision, CreatedAt, and UpdatedAt"
+                      },
+                      {
+                          "testCaseId":  "TC-INVENTORY-011",
+                          "taskId":  "ODY-S05-202",
+                          "authority":  "ODY-S05-202 minimum test list item 2",
+                          "runner":  "dotnet test",
+                          "path":  "DotNet/Tests/Odyssey.Tests.Persistence/SqliteInventoryRepositoryTests.cs",
+                          "check":  "SqliteInventoryRepository.CreateItemInstance followed by GetItemInstance round-trips item id, campaign/inventory ids, owner/location refs, source ContentDefinitionRef, mechanics snapshot, runtime state, revision, and timestamps"
+                      },
+                      {
+                          "testCaseId":  "TC-INVENTORY-012",
+                          "taskId":  "ODY-S05-202",
+                          "authority":  "ODY-S05-202 minimum test list item 3",
+                          "runner":  "dotnet test",
+                          "path":  "DotNet/Tests/Odyssey.Tests.Persistence/SqliteInventoryRepositoryTests.cs",
+                          "check":  "SqliteInventoryRepository.CreateItemStack followed by GetItemStack round-trips stack id, campaign/inventory ids, owner/location refs, source ContentDefinitionRef, mechanics snapshot, quantity, stack state, revision, and timestamps"
+                      },
+                      {
+                          "testCaseId":  "TC-INVENTORY-013",
+                          "taskId":  "ODY-S05-202",
+                          "authority":  "ODY-S05-202 minimum test list item 4",
+                          "runner":  "dotnet test",
+                          "path":  "DotNet/Tests/Odyssey.Tests.Persistence/SqliteInventoryRepositoryTests.cs",
+                          "check":  "ListItemInstances returns only ItemInstance rows for the requested CampaignId and InventoryId"
+                      },
+                      {
+                          "testCaseId":  "TC-INVENTORY-014",
+                          "taskId":  "ODY-S05-202",
+                          "authority":  "ODY-S05-202 minimum test list item 5",
+                          "runner":  "dotnet test",
+                          "path":  "DotNet/Tests/Odyssey.Tests.Persistence/SqliteInventoryRepositoryTests.cs",
+                          "check":  "ListItemStacks returns only ItemStack rows for the requested CampaignId and InventoryId"
+                      },
+                      {
+                          "testCaseId":  "TC-INVENTORY-015",
+                          "taskId":  "ODY-S05-202",
+                          "authority":  "ODY-S05-202 minimum test list item 6",
+                          "runner":  "dotnet test",
+                          "path":  "DotNet/Tests/Odyssey.Tests.Persistence/SqliteInventoryRepositoryTests.cs",
+                          "check":  "Replaying CreateInventory with the same CommandId and target returns the current stored record and does not create a duplicate Inventory row"
+                      },
+                      {
+                          "testCaseId":  "TC-INVENTORY-016",
+                          "taskId":  "ODY-S05-202",
+                          "authority":  "ODY-S05-202 minimum test list item 7",
+                          "runner":  "dotnet test",
+                          "path":  "DotNet/Tests/Odyssey.Tests.Persistence/SqliteInventoryRepositoryTests.cs",
+                          "check":  "Reusing the same CommandId for a different Inventory target is rejected with CommandIdentityMismatch and does not create the second target"
+                      },
+                      {
+                          "testCaseId":  "TC-INVENTORY-017",
+                          "taskId":  "ODY-S05-202",
+                          "authority":  "ODY-S05-202 minimum test list item 8",
+                          "runner":  "dotnet test",
+                          "path":  "DotNet/Tests/Odyssey.Tests.Persistence/SqliteInventoryRepositoryTests.cs",
+                          "check":  "Physical SQLite schema contains only the allowed Inventory runtime tables and list indexes added by ODY-S05-202"
+                      },
+                      {
+                          "testCaseId":  "TC-INVENTORY-018",
+                          "taskId":  "ODY-S05-202",
+                          "authority":  "ODY-S05-202 minimum test list item 9",
+                          "runner":  "dotnet test",
+                          "path":  "DotNet/Tests/Odyssey.Tests.Persistence/SqliteInventoryRepositoryTests.cs",
+                          "check":  "Schema and Persistence assembly type guards confirm no Equipment, ActiveEffect, Attack, or ItemDefinitionMigration table/class is introduced"
+                      },
+                      {
+                          "testCaseId":  "TC-INVENTORY-019",
+                          "taskId":  "ODY-S05-202",
+                          "authority":  "ODY-S05-202 minimum test list item 10",
+                          "runner":  "dotnet test",
+                          "path":  "DotNet/Tests/Odyssey.Tests.Persistence/SqliteInventoryRepositoryTests.cs",
+                          "check":  "CreateItemInstance succeeds with a missing catalog definition ref and intentionally invalid typed-definition payload, proving the repository does not inspect catalog status or typed definition validity"
                       }
                   ]
 }
