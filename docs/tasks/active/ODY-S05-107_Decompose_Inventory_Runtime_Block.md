@@ -1,14 +1,14 @@
 # ODY-S05-107 — Decompose Inventory Runtime Block
 
-**Status:** In Progress
+**Status:** In Review
 **Roadmap stage / slice:** SLICE-05 (Inventory runtime planning block)
 **Owner:** Codex (agent)
 **Requested by:** Product owner
 **Branch:** `docs/ody-s05-107-inventory-runtime-backlog`
-**Pull request:** Not opened
+**Pull request:** https://github.com/odyssey-services/Odyssey_VTT/pull/112
 **Plan:** `docs/plans/active/ODY-S05-107_Decompose_Inventory_Runtime_Block.md` (Brief plan)
 **Created:** 2026-09-06
-**Last updated:** 2026-09-06 UTC (validation complete; PR pending)
+**Last updated:** 2026-09-06 UTC
 
 ## 1. Goal
 
@@ -247,7 +247,7 @@ None. This is a docs/planning-only decomposition task and does not add runtime b
 ## 16. Definition of Done
 
 - [x] Goal is achieved without unapproved scope expansion.
-- [x] All acceptance criteria are satisfied except PR-link recording, pending PR creation.
+- [x] All acceptance criteria are satisfied.
 - [x] Required automated tests pass or are correctly marked not applicable.
 - [x] Required manual checks are completed.
 - [x] Required commands and their real results are recorded.
@@ -257,7 +257,7 @@ None. This is a docs/planning-only decomposition task and does not add runtime b
 - [x] No unapproved dependency, tool, GitHub Action, or license was introduced.
 - [x] Documentation is updated only where materially required.
 - [x] Codex/developer performed a self-review against this task and `AGENTS.md`.
-- [ ] Pull request explains changes, evidence, limitations, and follow-up work.
+- [x] Pull request explains changes, evidence, limitations, and follow-up work.
 - [ ] Product owner or authorized reviewer completes the required review; Codex does not merge into `main`.
 
 ## 17. Completion evidence
@@ -287,7 +287,7 @@ None. This is a docs/planning-only decomposition task and does not add runtime b
 | AC-5 | Pass | Diff limited to documentation/planning files; no product code, schema, or test implementation added. |
 | AC-6 | Pass | No files under `docs/adr/**` changed. |
 | AC-7 | Pass | This task contract and brief plan are added. |
-| AC-8 | Pending | PR not opened yet. |
+| AC-8 | Pass | Draft PR [#112](https://github.com/odyssey-services/Odyssey_VTT/pull/112) states the work is planning/decomposition only and lists validation. |
 
 ### Build and artifact evidence
 

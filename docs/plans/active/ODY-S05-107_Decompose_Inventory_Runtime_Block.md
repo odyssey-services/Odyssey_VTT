@@ -1,10 +1,10 @@
 # ODY-S05-107 — Decompose Inventory Runtime Block
 
-**Status:** Active
+**Status:** Completed
 **Owner:** Codex (agent)
 **Branch:** `docs/ody-s05-107-inventory-runtime-backlog`
-**Pull request:** Not opened
-**Last updated:** 2026-09-06 UTC (validation complete; PR pending)
+**Pull request:** https://github.com/odyssey-services/Odyssey_VTT/pull/112
+**Last updated:** 2026-09-06 UTC
 
 ## 1. Purpose and user-visible outcome
 
@@ -55,7 +55,7 @@ Update only planning docs:
 - [x] Run `.\scripts\verify-format.ps1`.
 - [x] Run `.\scripts\check-repository-policy.ps1`.
 - [x] Run `.\scripts\verify-test-structure.ps1`.
-- [ ] Commit, push, and open Draft PR.
+- [x] Commit, push, and open Draft PR.
 
 ## 6. Progress log
 
@@ -63,6 +63,7 @@ Update only planning docs:
 - 2026-09-06 — Read the required backlog, ADR-027, Domain Model/Roadmap sections, Content Catalog task contract summaries, `TASK_TEMPLATE.md`, and `PLANS.md`.
 - 2026-09-06 — Updated `SLICE-05_IMPLEMENTATION_BACKLOG.md`, added this task contract, and added this brief plan.
 - 2026-09-06 — Validation passed: `verify-format.ps1`, `check-repository-policy.ps1`, and `verify-test-structure.ps1`.
+- 2026-09-06 — Opened Draft PR #112: https://github.com/odyssey-services/Odyssey_VTT/pull/112.
 
 ## 7. Decisions
 
@@ -93,4 +94,4 @@ None.
 
 ## 12. Outcome and follow-up
 
-Pending Draft PR. Follow-up implementation tasks reserved: `ODY-S05-201` through `ODY-S05-207`.
+Draft PR: https://github.com/odyssey-services/Odyssey_VTT/pull/112. Follow-up implementation tasks reserved: `ODY-S05-201` through `ODY-S05-207`.
