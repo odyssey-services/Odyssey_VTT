@@ -1,14 +1,14 @@
 # ODY-S05-202 — Inventory Persistence Foundation
 
-**Status:** In Progress
+**Status:** In Review
 **Roadmap stage / slice:** SLICE-05 (Inventory runtime block)
 **Owner:** Codex (agent)
 **Requested by:** Product owner
 **Branch:** `feat/ody-s05-202-inventory-persistence-foundation`
-**Pull request:** Not opened
+**Pull request:** https://github.com/odyssey-services/Odyssey_VTT/pull/114
 **ExecPlan:** `docs/plans/active/ODY-S05-202_Inventory_Persistence_Foundation.md`
 **Created:** 2026-09-06
-**Last updated:** 2026-09-06 17:26 UTC
+**Last updated:** 2026-09-06 17:45 UTC
 
 ## 1. Goal
 
@@ -277,7 +277,7 @@ dotnet test DotNet\Odyssey.Core.sln
 - [x] No unapproved dependency, tool, GitHub Action, or license was introduced.
 - [x] Documentation is updated only where materially required.
 - [x] Codex/developer performed a self-review against this task and `AGENTS.md`.
-- [ ] Pull request explains changes, evidence, limitations, and follow-up work.
+- [x] Pull request explains changes, evidence, limitations, and follow-up work.
 - [ ] Product owner or authorized reviewer completes the required review; Codex does not merge into `main`.
 
 ## 17. Completion evidence
@@ -318,7 +318,7 @@ dotnet test DotNet\Odyssey.Core.sln
 | AC-8 | Passed | `TC-INVENTORY-017`-`018`. |
 | AC-9 | Passed | `TC-INVENTORY-019`; diff review confirms no command/equipment/attack/ActiveEffect/migration implementation. |
 | AC-10 | Passed | `Tests/Metadata/test-catalog.json` includes `TC-INVENTORY-010`-`019`. |
-| AC-11 | Passed | This task contract, ExecPlan, and backlog are updated; PR link pending until Draft PR is opened. |
+| AC-11 | Passed | This task contract, ExecPlan, and backlog are updated with Draft PR [#114](https://github.com/odyssey-services/Odyssey_VTT/pull/114). |
 | AC-12 | Passed | `git diff --name-status`/`git status --short` review found no Unity files or ADR edits, and no command services/equipment/attack/ActiveEffect/migration implementation. |
 
 ### Build and artifact evidence

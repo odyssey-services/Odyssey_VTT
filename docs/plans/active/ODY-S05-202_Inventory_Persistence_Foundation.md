@@ -1,10 +1,10 @@
 # ODY-S05-202 — Inventory Persistence Foundation
 
-**Status:** Active
+**Status:** Completed
 **Owner:** Codex (agent)
 **Branch:** `feat/ody-s05-202-inventory-persistence-foundation`
-**Pull request:** Not opened
-**Last updated:** 2026-09-06 17:26 UTC
+**Pull request:** https://github.com/odyssey-services/Odyssey_VTT/pull/114
+**Last updated:** 2026-09-06 17:45 UTC
 
 ## 1. Purpose and user-visible outcome
 
@@ -60,8 +60,8 @@ No command handler, catalog lookup, typed-definition decode, equipment behavior,
 - [x] Update task contract completion evidence.
 - [x] Run required repository validation scripts.
 - [x] Review diff for scope.
-- [ ] Commit, push, and open Draft PR.
-- [ ] Record PR link and backlog `In Review` status.
+- [x] Commit, push, and open Draft PR.
+- [x] Record PR link and backlog `In Review` status.
 
 ## 6. Progress log
 
@@ -70,6 +70,7 @@ No command handler, catalog lookup, typed-definition decode, equipment behavior,
 - 2026-09-06 17:26 UTC — Created task contract and ExecPlan before production code changes.
 - 2026-09-06 — Added `IInventoryRepository`, `SqliteInventoryRepository`, Inventory persistence error helpers/codes, `TC-INVENTORY-010`-`019`, and test metadata.
 - 2026-09-06 — Validation passed: `dotnet build`, `dotnet test`, `verify-format.ps1`, `check-repository-policy.ps1`, and `verify-test-structure.ps1`.
+- 2026-09-06 17:45 UTC — Opened Draft PR #114 and updated task contract, ExecPlan, and backlog with the PR link.
 
 ## 7. Decisions
 
@@ -102,4 +103,4 @@ None.
 
 ## 12. Outcome and follow-up
 
-Pending Draft PR. `ODY-S05-203` remains the owner of create-from-Published-definition command semantics.
+Draft PR: https://github.com/odyssey-services/Odyssey_VTT/pull/114. `ODY-S05-203` remains the owner of create-from-Published-definition command semantics.
