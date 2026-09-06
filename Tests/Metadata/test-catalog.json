@@ -4287,6 +4287,70 @@
                           "runner":  "dotnet test",
                           "path":  "DotNet/Tests/Odyssey.Tests.Persistence/Content/MinimalTestCatalogFixtureTests.cs",
                           "check":  "The campaign.db schema after fixture authoring contains no Inventory/ItemInstance/ItemStack/Equipment/ActiveEffect table -- ODY-S05-106 introduces no new persistence table"
+                      },
+                      {
+                          "testCaseId":  "TC-INVENTORY-001",
+                          "taskId":  "ODY-S05-201",
+                          "authority":  "ODY-S05-201 acceptance criterion 1",
+                          "runner":  "dotnet test",
+                          "path":  "DotNet/Tests/Odyssey.Tests.Domain/Inventory/InventoryRuntimeFoundationTests.cs",
+                          "check":  "InventoryId, ItemInstanceId, and ItemStackId mint canonical IDs, parse their own string form, and reject wrong prefixes, null, and empty input"
+                      },
+                      {
+                          "testCaseId":  "TC-INVENTORY-002",
+                          "taskId":  "ODY-S05-201",
+                          "authority":  "ODY-S05-201 acceptance criterion 2",
+                          "runner":  "dotnet test",
+                          "path":  "DotNet/Tests/Odyssey.Tests.Domain/Inventory/InventoryRuntimeFoundationTests.cs",
+                          "check":  "InventoryOwnerRef supports valid Character-owned and Scene/location-style inventory refs while rejecting blank or invalid targets"
+                      },
+                      {
+                          "testCaseId":  "TC-INVENTORY-003",
+                          "taskId":  "ODY-S05-201",
+                          "authority":  "ODY-S05-201 acceptance criterion 3",
+                          "runner":  "dotnet test",
+                          "path":  "DotNet/Tests/Odyssey.Tests.Domain/Inventory/InventoryRuntimeFoundationTests.cs",
+                          "check":  "InventoryLocationRef models contained, equipped, scene-dropped, and other explicit location vocabulary, rejects invalid values, and implements no equip behavior"
+                      },
+                      {
+                          "testCaseId":  "TC-INVENTORY-004",
+                          "taskId":  "ODY-S05-201",
+                          "authority":  "ODY-S05-201 acceptance criterion 4",
+                          "runner":  "dotnet test",
+                          "path":  "DotNet/Tests/Odyssey.Tests.Domain/Inventory/InventoryRuntimeFoundationTests.cs",
+                          "check":  "InventoryItemRef can reference either an ItemInstanceId or an ItemStackId and rejects missing or ambiguous refs"
+                      },
+                      {
+                          "testCaseId":  "TC-INVENTORY-005",
+                          "taskId":  "ODY-S05-201",
+                          "authority":  "ODY-S05-201 acceptance criterion 5",
+                          "runner":  "dotnet test",
+                          "path":  "DotNet/Tests/Odyssey.Tests.Domain/Inventory/InventoryRuntimeFoundationTests.cs",
+                          "check":  "ItemMechanicsSnapshot requires a valid exact ContentDefinitionRef, positive DefinitionSnapshotVersion, valid content type, and opaque payload, with no LatestDefinitionRef concept"
+                      },
+                      {
+                          "testCaseId":  "TC-INVENTORY-006",
+                          "taskId":  "ODY-S05-201",
+                          "authority":  "ODY-S05-201 acceptance criterion 6",
+                          "runner":  "dotnet test",
+                          "path":  "DotNet/Tests/Odyssey.Tests.Domain/Inventory/InventoryRuntimeFoundationTests.cs",
+                          "check":  "ItemStackQuantity accepts positive live stack quantities and rejects zero or negative values"
+                      },
+                      {
+                          "testCaseId":  "TC-INVENTORY-007",
+                          "taskId":  "ODY-S05-201",
+                          "authority":  "ODY-S05-201 acceptance criterion 7",
+                          "runner":  "dotnet test",
+                          "path":  "DotNet/Tests/Odyssey.Tests.Unit/Inventory/InventoryRuntimeRecordTests.cs",
+                          "check":  "InventoryRecord, ItemInstanceRecord, and ItemStackRecord validate required IDs, CampaignId, owner/location refs, source ContentDefinitionRef, mechanics snapshot, revision, and timestamps"
+                      },
+                      {
+                          "testCaseId":  "TC-INVENTORY-008",
+                          "taskId":  "ODY-S05-201",
+                          "authority":  "ODY-S05-201 acceptance criterion 8",
+                          "runner":  "dotnet test",
+                          "path":  "DotNet/Tests/Odyssey.Tests.Unit/Inventory/InventoryRuntimeRecordTests.cs",
+                          "check":  "Reflection/source guard confirms ODY-S05-201 introduces no Inventory repository implementation, SQLite persistence/schema class, Character-section inventory fields, command service, Equipment behavior, Attack behavior, ActiveEffect implementation, or ItemDefinition migration workflow"
                       }
                   ]
 }
