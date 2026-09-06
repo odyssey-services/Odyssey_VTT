@@ -1,12 +1,12 @@
 # Odyssey VTT — SLICE-05 Content Catalog, Inventory, Items, Abilities, Effects, and Full Attack Implementation Backlog
 
-**Status:** Implementation revision — OPEN. First block scaffolded: Content Catalog MVP (`ODY-S05-101`–`106`), ordered before any Inventory/`ItemInstance`/Equipment runtime task, per explicit product-owner direction.
+**Status:** Implementation revision — OPEN. Content Catalog MVP (`ODY-S05-101`–`106`) complete; Inventory runtime block (`ODY-S05-201`–`207`) decomposed for the next implementation wave.
 **Slice:** `SLICE-05 — Inventory, Items, Abilities, Effects, and Full Attack (implementation)`
 **Parent task:** `docs/tasks/active/ODY-S05-002_SLICE_05_Implementation_Backlog.md`
 **Predecessor backlog:** `docs/tasks/SLICE-05_BACKLOG.md` (prerequisite ADR revision — `COMPLETE` as of `ODY-S05-002`/`ADR-027`; not rewritten by this document)
 **ExecPlan:** Not required (Brief plan)
 **Created:** 2026-09-03
-**Last updated:** 2026-09-03 UTC
+**Last updated:** 2026-09-06 UTC
 
 ## 1. Purpose
 
@@ -14,14 +14,14 @@ This backlog converts roadmap `17_Roadmap_Odyssey_VTT_v0.11.md` section 14's `SL
 
 This backlog does **not** itself implement anything. It decomposes the slice into ordered child tasks, each of which will be its own separate task contract and pull request, activated one at a time — the same convention `SLICE-01_IMPLEMENTATION_BACKLOG.md` through `SLICE-04_IMPLEMENTATION_BACKLOG.md` used. No child task contract file is created by this document; it only reserves numbers, titles, and boundaries for the block it decomposes.
 
-Unlike prior slices' own first implementation-backlog revision, this document deliberately decomposes only **one** block of `SLICE-05` — the Content Catalog MVP — rather than the whole slice at once. This follows explicit product-owner direction (section 3.1): the catalog is the technical foundation the rest of `SLICE-05` (Inventory, `ItemInstance`/`ItemStack`, Equipment, item-sourced abilities/effects, `ItemDefinition` migration, and the full attack pipeline) needs before those later blocks can safely reference real definitions. Those later blocks are named and reserved, not decomposed, in section 7.
+Unlike prior slices' own first implementation-backlog revision, this document initially decomposed only **one** block of `SLICE-05` — the Content Catalog MVP — rather than the whole slice at once. This followed explicit product-owner direction (section 3.1): the catalog is the technical foundation the rest of `SLICE-05` (Inventory, `ItemInstance`/`ItemStack`, Equipment, item-sourced abilities/effects, `ItemDefinition` migration, and the full attack pipeline) needs before those later blocks can safely reference real definitions. After the Content Catalog MVP closed in PR #111, `ODY-S05-107` added the next Inventory runtime decomposition block in section 7.
 
 Its sources of scope are, exclusively:
 
 - `docs/adr/ADR-027_Content_Catalog_And_Item_Equipment_System_v1.0.md` (`Accepted`) — the Content Catalog/runtime boundary, `ContentDefinition` archive/delete lifecycle, Inventory aggregate root, `ItemInstance`/`ItemStack` snapshot rules, equipment model, item-sourced ability/effect integration, `ItemDefinition` migration, and permissions baseline.
 - The product owner's own explicit MVP-scoping decisions, recorded in `ADR-027` section 20 and restated here: Content Catalog MVP first; MainGM must be able to author content in the MVP; base/Ruleset catalog only, no campaign-specific catalog or overrides yet; Archived content must be visible to MainGM in a separate Archived list; validation must check real usability/applicability, not just required-field presence.
 - `Documentation/11_Content_Block_System_Odyssey_VTT_v0.1.md` sections 5, 6, 21, 22, 34, 35 — mechanical/structural definition vocabulary and Draft/Published/Archived lifecycle rules `ADR-027` section 4.1 already applies to the `SLICE-05` catalog.
-- `Documentation/17_Roadmap_Odyssey_VTT_v0.11.md` section 14 — used only to name (not decompose) the later Inventory/Equipment/attack blocks reserved in section 7.
+- `Documentation/17_Roadmap_Odyssey_VTT_v0.11.md` section 14 — used to scope the Inventory runtime decomposition in section 7 and to keep Equipment/Effects/Attack as later reserved blocks in section 8.
 
 No child task in this backlog reopens any decision `ADR-027` (or any earlier accepted ADR) already made; each builds directly on those contracts as fixed.
 
@@ -36,7 +36,7 @@ This is **not** the full `SLICE-05` exit criteria from roadmap section 14 — on
 5. Base definition types (`ItemDefinition`, `WeaponDefinition`, `ArmorDefinition`, `AmmoDefinition`, `AbilityDefinition`, `EffectDefinition`, plus `Resource`/`BodyPart` references) carry typed properties sufficient for later Inventory/Equipment/Attack tasks to consume without re-deciding catalog shape when those tasks are activated.
 6. A minimal built-in/test catalog fixture set proves weapon, armor, ammo, ability, effect, resource, and body-part references and validation work end-to-end through the full Foundation/Authoring/Validation/Publish pipeline, without full balancing or a final MVP content pack.
 
-Closing the full `SLICE-05` slice (Inventory/Equipment/full-attack) is explicitly **not** part of this revision — see section 7 (reserved future blocks) and section 8 (non-goals).
+Closing the full `SLICE-05` slice (Inventory/Equipment/full-attack) is explicitly **not** part of this revision — see section 7 (Inventory runtime decomposition), section 8 (reserved future blocks), and section 9 (non-goals).
 
 ## 3. Scope decisions requiring explicit justification
 
@@ -44,7 +44,7 @@ Closing the full `SLICE-05` slice (Inventory/Equipment/full-attack) is explicitl
 
 Product owner's explicit direction: "Catalog MVP must be technical foundation first, so GM can later create needed content." `ADR-027` already requires content definitions to exist and be validated before any runtime item/instance can reference or snapshot from them; sequencing catalog-first avoids inventing runtime item/inventory/equipment shapes ahead of the definitions they must snapshot from and avoids re-deciding catalog shape mid-way through a later block.
 
-**Decision:** `ODY-S05-101`–`106` (Content Catalog MVP) are the only concretely-scoped child tasks in this revision. Inventory, `ItemInstance`/`ItemStack` runtime, Equipment runtime, and the full attack pipeline are named and reserved as later backlog blocks, not decomposed here (section 7).
+**Decision:** `ODY-S05-101`–`106` (Content Catalog MVP) were the only concretely-scoped child tasks in the first backlog revision. Once PR #111 merged, `ODY-S05-107` decomposed the next Inventory runtime block into `ODY-S05-201`–`207` (section 7). Equipment runtime, item use/effects, ItemDefinition migration workflow, and the full attack pipeline remain later blocks (section 8).
 
 ### 3.2 Base/Ruleset catalog only; no campaign-specific catalog or overrides in the MVP
 
@@ -66,7 +66,7 @@ Product owner's explicit answer distinguishes "has all required fields" from "is
 
 ### 3.5 The Archived list is a query/data requirement, not a UI task
 
-Product owner's explicit answer: "Archived content must be visible to GM in a separate Archived list." No Unity UI exists yet for any part of `SLICE-05` (non-goal, section 8), matching every prior slice's own UI-deferral convention.
+Product owner's explicit answer: "Archived content must be visible to GM in a separate Archived list." No Unity UI exists yet for any part of `SLICE-05` (non-goal, section 9), matching every prior slice's own UI-deferral convention.
 
 **Decision:** `ODY-S05-103` implements the archived-definitions query/data shape distinguishing Archived from Draft/Published, satisfying the product-owner requirement at the data layer; rendering that list in any UI is out of scope for this revision (`SLICE-10`-era UI work, the same convention `SLICE-01`–`04` already used for their own UI deferrals).
 
@@ -85,11 +85,11 @@ If a later implementation task, once activated, discovers a genuine architectura
 | 3 | `ODY-S05-103` | Done (PR [#110](https://github.com/odyssey-services/Odyssey_VTT/pull/110), merged into `main`) | `ADR-027` §4.1, §9; product-owner MVP answer | Publish/Archive/Delete Lifecycle | 101, 102, 104 | ExecPlan | `ContentCatalogLifecycleService` (Application layer, mirrors `ContentCatalogAuthoringService`'s own precedent): MainGM-only `PublishDefinition` (gated server-side by `104`'s own `CatalogValidationService.ValidateDraftForPublish`, zero mutation on rejection; sets `Status=Published`/`Version=1`/`PublishedByUserId`/`PublishedAt`), `ArchiveDefinition` (Published-only in this MVP; never physically deletes, row stays loadable), `DeleteDraftDefinition` (unused Drafts only; rejects Published/Archived/referenced targets via an atomic catalog-dependency scan; idempotent via a dedicated `ContentDefinitionDeleteLedger`, checked alongside the shared ledger so a `CommandId` reused from any non-delete operation is rejected with `CommandIdentityMismatch`, never a false replay), and `ListArchivedDefinitions` (data/query-only Archived list, no UI). Runtime Inventory/ItemInstance/ItemStack/Equipment/ActiveEffect dependency checks for delete are an explicit, recorded future extension boundary -- no such runtime state exists yet. 22 tests (`TC-CATALOG-078`–`099`), 2 new error codes. |
 | 4 | `ODY-S05-104` | Done (PR [#108](https://github.com/odyssey-services/Odyssey_VTT/pull/108) and follow-up PR [#109](https://github.com/odyssey-services/Odyssey_VTT/pull/109), both merged into `main`) | Product-owner MVP answer; `ADR-027` §4 | Catalog Validation MVP | 101, 105 | ExecPlan | `CatalogValidationService` (`ValidateContentDefinition`/`ValidateDraftForPublish`, Application layer): real usability validation via `ODY-S05-105`'s own `TypedDefinitionCodec` for item/weapon/armor/ammo/ability/effect; missing/wrong-version/wrong-type exact-reference rejection with dependency-cycle detection across the real `ContentDefinitionRef` graph; Ruleset/version compatibility check for the definition being validated *and* (amendment, PR #109) for every resolved referenced definition and candidate ammo the traversal consults, so a definition can no longer pass by referencing/depending on content scoped to an incompatible Ruleset; ContentBlock/mechanics-payload MVP boundary validated structurally (no real `ContentBlockGraph` exists yet). Side-effect-free -- no repository write is ever called. 36 tests (`TC-CATALOG-042`–`077`), 0 new error codes (validation issues are a plain enum, not `ErrorCode`s). Consumed by `103`'s own future publish gate. |
 | 5 | `ODY-S05-105` | Done (PR [#107](https://github.com/odyssey-services/Odyssey_VTT/pull/107), merged into `main`) | `ADR-027` §3.1, §4; `11_Content_Block_System` | Base Definition Types | 101 | ExecPlan | Typed catalog definitions: `ItemDefinition`, `WeaponDefinition`, `ArmorDefinition`, `AmmoDefinition`, `AbilityDefinition`, `EffectDefinition`, plus `Resource` and `BodyPart` structural references, with typed properties sufficient for later Inventory/Equipment/Attack tasks to consume (attack properties, protection/durability, ammo compatibility, ability trigger/cost/target, effect duration/stacking) without re-deciding catalog shape when those future tasks are activated. No concrete balanced content. Explicit versioned `TypedDefinitionCodec` maps each typed shape to/from the existing `PropertiesJson` envelope; 14 new tests (`TC-CATALOG-024`–`037`), 2 new error codes. |
-| 6 | `ODY-S05-106` | In Review (PR [#111](https://github.com/odyssey-services/Odyssey_VTT/pull/111)) | Product-owner MVP answer | Minimal Test Catalog Fixtures | 102, 103, 104, 105 | Brief plan | A small built-in/test catalog (not a final content pack) proving weapon, armor, ammo, ability, effect, and cross-definition references (typed `BuiltInEffectRefs` and generic `DependencyRefs`) actually work end-to-end through the full Authoring/Validation/Publish/Archive/Delete pipeline -- authored via `ContentCatalogAuthoringService`, encoded via `TypedDefinitionCodec`, gated by `CatalogValidationService`, published/archived/deleted via `ContentCatalogLifecycleService`. Composes existing pieces only -- no new production code, no new lifecycle/validation semantics, no new error codes. 12 new tests (`TC-CATALOG-100`–`111`). No balancing, no marketplace, no `.odcontent` import/export. Closes the Content Catalog MVP block. |
+| 6 | `ODY-S05-106` | Done (PR [#111](https://github.com/odyssey-services/Odyssey_VTT/pull/111), merged into `main`) | Product-owner MVP answer | Minimal Test Catalog Fixtures | 102, 103, 104, 105 | Brief plan | A small built-in/test catalog (not a final content pack) proving weapon, armor, ammo, ability, effect, and cross-definition references (typed `BuiltInEffectRefs` and generic `DependencyRefs`) actually work end-to-end through the full Authoring/Validation/Publish/Archive/Delete pipeline -- authored via `ContentCatalogAuthoringService`, encoded via `TypedDefinitionCodec`, gated by `CatalogValidationService`, published/archived/deleted via `ContentCatalogLifecycleService`. Composes existing pieces only -- no new production code, no new lifecycle/validation semantics, no new error codes. 12 new tests (`TC-CATALOG-100`–`111`). No balancing, no marketplace, no `.odcontent` import/export. Closes the Content Catalog MVP block. |
 
 "Planning mode" for tasks 1–5 reflects the expectation that each changes a future public contract, persistence schema, or authoritative catalog-lifecycle semantics — matching every prior slice's own precedent for its first-block tasks; each child task still makes and justifies its own Brief-plan-vs-ExecPlan decision per `PLANS.md` §1 when its own contract is authored. Task 6 is expected to be Brief plan (a fixture/proof task introducing no new architecture), mirroring `ODY-S04-114`/`ODY-S03-008`'s own precedent for integration-proof tasks.
 
-No `ODY-S05-1XX` task contract file exists yet. Each is created and activated as its own separate task, one at a time, when picked up — not by this scaffold.
+Task contract files for completed `ODY-S05-101`-`106` and planning task `ODY-S05-107` already exist. Future `ODY-S05-201`-`207` task contract files are not created by this decomposition; each must be created and activated separately when picked up.
 
 ## 6. Task boundaries
 
@@ -130,35 +130,70 @@ Implements the typed catalog definitions (`ItemDefinition`, `WeaponDefinition`, 
 
 Implements a small built-in/test catalog exercising `101`–`105` together end-to-end — the same "integration proof, not a new feature" role `ODY-S01-013`/`ODY-S02-013`/`ODY-S03-008`/`ODY-S04-114` played for their own slices. No new production code beyond what a proof needs; no balancing, no final content pack.
 
-## 7. Reserved future blocks (not decomposed in this revision)
+## 7. Ordered backlog (Inventory runtime block)
 
-Per section 3.1's explicit sequencing decision, the following `SLICE-05` blocks are named and reserved but deliberately **not** decomposed into task IDs by this revision. Each becomes its own backlog revision-block once the Content Catalog MVP block (`ODY-S05-101`–`106`) is accepted and closed, unless the product owner explicitly changes sequencing:
+`ODY-S05-107` decomposes the next block after Content Catalog MVP closure. This block implements Inventory runtime foundations only: the separate Inventory aggregate root, runtime item/stack state, persistence, basic creation/move/stack commands, and runtime dependency checks needed before Equipment, item use/effects, ItemDefinition migration, and attack pipeline work can safely begin.
 
-- **Inventory runtime** — the separate aggregate root `ADR-027` section 5 requires; containment/transfer/location-index state.
-- **`ItemInstance`/`ItemStack` runtime** — mechanics snapshots, stack-sharing rules, runtime state kept separate from the snapshot (`ADR-027` section 6).
+It preserves these `ADR-027` decisions:
+
+- Inventory is a separate aggregate root, not a Character section.
+- Runtime items pin an exact `ContentDefinitionRef` and store a copied mechanics snapshot; they do not depend on the latest catalog definition.
+- `ItemInstance` stores its own mechanics snapshot; `ItemStack` may share one snapshot only for mechanically identical stackable items.
+- Equipment is Inventory-owned location state; this block names it only where location modeling requires it.
+- Runtime references must protect catalog definitions from physical delete once runtime item state exists.
+
+| Order | Task ID | Status | Roadmap/product source | Title | Depends on | Planning mode | Primary result |
+|---:|---|---|---|---|---|---|---|
+| 1 | `ODY-S05-201` | Proposed | `ADR-027` §5/6; Domain Model §17.1-17.3 | Inventory Runtime Foundation | 101-106, 107 | ExecPlan | Domain/Application contracts for `InventoryId`, Inventory owner/location model, containment/location revision, `ItemInstance`/`ItemStack` identity boundaries, exact `ContentDefinitionRef`, and core one-place invariants. Establishes that Inventory is not a Character section and owns containment/location state. No persistence schema, no item creation commands, no equipment behavior, no attack pipeline. |
+| 2 | `ODY-S05-202` | Proposed | `ADR-027` §5/6/14; `ADR-002`/`003`/`011`/`012`/`013` | Inventory Persistence Foundation | 201 | ExecPlan | SQLite persistence/contracts for Inventory runtime state: inventories, item instances, item stacks, locations/location index, revision fields, idempotency ledger, and optimistic concurrency boundaries. No creation-from-catalog command semantics beyond repository primitives, no equipment command, no attack pipeline. |
+| 3 | `ODY-S05-203` | Proposed | `ADR-027` §4/6/12 | Create Item/Stack From Published Definition | 201, 202 | ExecPlan | MainGM-authoritative commands create `ItemInstance` or `ItemStack` from a Published catalog definition, pin the exact definition version, and copy a full mechanics snapshot into runtime state. Rejects Draft, Archived, missing, wrong-type, or validation-incompatible definitions. No transfer, split/merge, equipment, item use, ActiveEffect execution, or ItemDefinition migration. |
+| 4 | `ODY-S05-204` | Proposed | `ADR-027` §5/7; Domain Model §17.5 | Inventory Move / Transfer MVP | 201, 202, 203 | ExecPlan | Commands move an item/stack between valid Inventory locations while preserving the one-place invariant and using inventory/location revision guards. Covers contained-to-contained and cross-owner/location transfer cases needed by later equipment/drop work. No equip/unequip behavior beyond reserving location vocabulary, no attack or use pipeline. |
+| 5 | `ODY-S05-205` | Proposed | `ADR-027` §6 | Stack Split/Merge MVP | 201, 202, 203, 204 | ExecPlan | Commands split stack quantities and merge only mechanically identical stacks. Rejects negative/zero-invalid quantities and mechanically divergent merges, including divergent definition snapshots or runtime state. No unique-item conversion workflow unless required by split/merge invariants; no equipment or attack behavior. |
+| 6 | `ODY-S05-206` | Proposed | `ADR-027` §4.1/9; `ADR-025` | Runtime Reference Dependency Checks | 201, 202, 203 | ExecPlan | Extends catalog delete/archive dependency boundaries so physical delete can detect runtime `ItemInstance`/`ItemStack`/Inventory references once runtime item state exists. Closes, or explicitly schedules with concrete follow-up task IDs, the `RemoveBodyPart` item dependency check and `DeleteCharacterPermanently` inventory/item dependency checker stubs named by `ADR-027` §9. No new delete/archive semantics beyond `ADR-027`. |
+| 7 | `ODY-S05-207` | Proposed | Roadmap §14; `ADR-027` §4/6 | Inventory Runtime Integration Fixtures | 201-206 | Brief plan | Minimal integration fixtures proving Published catalog definitions can create runtime item snapshots and Inventory state end-to-end through the new runtime foundation. Documentation/test proof only for the Inventory runtime block; no Equipment runtime, ActiveEffect execution, attack pipeline, ItemDefinition migration workflow, balanced content pack, `.odcontent`, or Unity UI. |
+
+### 7.1 Inventory runtime task boundaries
+
+`ODY-S05-201` owns the foundation vocabulary and aggregate boundary: `InventoryId`, owner/location refs, containment/location revision, runtime item/stack identities, and invariant wording. It must not introduce persistence schema or commands whose behavior belongs to later tasks.
+
+`ODY-S05-202` owns persistence, idempotency, and optimistic concurrency. It must keep schema/contracts separate from catalog definitions and must not create the actual item/stack-from-definition command semantics.
+
+`ODY-S05-203` owns creation from Published catalog definitions and snapshot copy. It is the first task that turns catalog definitions into runtime state, but it does not move, equip, use, migrate, or execute item mechanics.
+
+`ODY-S05-204` owns item/stack movement and transfer across valid inventory locations. It may define the minimal location vocabulary needed to keep equipment as later Inventory-owned location state, but it must not implement equip/unequip behavior.
+
+`ODY-S05-205` owns stack quantity and mechanically-identical split/merge rules. It must not weaken `ADR-027`'s shared-snapshot rule.
+
+`ODY-S05-206` owns runtime dependency checks against physical catalog deletion and the `SLICE-04` stubs named by `ADR-027` §9. If a stub cannot be fully closed without Equipment or ActiveEffect runtime, this task must add an explicit follow-up task ID instead of leaving an unnamed TODO.
+
+`ODY-S05-207` is the integration proof for the Inventory runtime block, mirroring `ODY-S05-106` for Content Catalog MVP. It should compose existing surfaces and avoid new production behavior unless an earlier task deliberately reserved a tiny fixture hook.
+
+## 8. Reserved future blocks (not decomposed in this revision)
+
+Per section 3.1's explicit sequencing decision, the following `SLICE-05` blocks remain named and reserved but deliberately **not** decomposed into task IDs by this revision. Each becomes its own backlog revision-block once its prerequisites are accepted and closed, unless the product owner explicitly changes sequencing:
+
 - **Equipment runtime** — inventory-owned location state over slots/body parts (`ADR-027` section 7).
 - **Item-sourced abilities/effects runtime** — `CharacterAbility SourceKind=Item` integration and future `ActiveEffect` aggregate creation (`ADR-027` section 8).
-- **`SLICE-04` stub closure** — real `RemoveBodyPart`/`DeleteCharacterPermanently` item/inventory dependency checkers (`ADR-027` section 9).
 - **`ItemDefinition` migration preview/confirm** — MainGM workflow over runtime snapshots (`ADR-027` section 10).
 - **Full attack pipeline** — roadmap section 14.6's action/preview/range/modifier/roll/hit/damage/effect-application vertical slice.
 
-## 8. Global non-goals
+## 9. Global non-goals
 
-This backlog revision (Content Catalog MVP block) excludes:
+This backlog revision excludes:
 
 - campaign-specific custom content or per-campaign catalog overrides (section 3.2);
 - a full visual node editor for content authoring;
 - a marketplace or content-package distribution mechanism;
 - `.odcontent` import/export implementation;
 - a full, balanced MVP content pack (`106` is a proof fixture, not a content pack);
-- Inventory runtime implementation (section 7);
-- `ItemInstance`/`ItemStack` runtime (section 7);
-- Equipment runtime (section 7);
-- the full attack pipeline (section 7);
+- implementing Inventory runtime under `ODY-S05-107` itself; section 7 only decomposes future implementation tasks;
+- Equipment runtime implementation beyond minimal location vocabulary needed by Inventory runtime tasks (section 8);
+- item use, ActiveEffect execution, and the full attack pipeline (section 8);
+- ItemDefinition migration workflow implementation (section 8);
 - any Unity UI, including any Archived-list UI (`103` is data/query only, section 3.5);
 - any change to `ADR-001`–`026` — all remain accepted as-is; any child task discovering a genuine gap must stop and request a dedicated ADR task, not decide it inline (section 4).
 
-## 9. Dependency rules
+## 10. Dependency rules
 
 - `ODY-S05-101` has no dependency — it is the foundational `ContentDefinition` envelope/lifecycle every later catalog task builds on.
 - `ODY-S05-102` depends on `ODY-S05-101` (needs the `ContentDefinition` envelope to author into).
@@ -166,13 +201,20 @@ This backlog revision (Content Catalog MVP block) excludes:
 - `ODY-S05-104` depends on `ODY-S05-101` (definitions to validate) and `ODY-S05-105` (real typed properties to validate against, not a placeholder shape).
 - `ODY-S05-105` depends on `ODY-S05-101` only — typed definitions extend the generic envelope independently of authoring/publish/validation plumbing.
 - `ODY-S05-106` depends on `ODY-S05-102`, `ODY-S05-103`, `ODY-S05-104`, and `ODY-S05-105` (it proves the whole pipeline together).
+- `ODY-S05-201` depends on the completed Content Catalog MVP block (`ODY-S05-101`–`106`) and this decomposition task (`ODY-S05-107`).
+- `ODY-S05-202` depends on `ODY-S05-201` (foundation vocabulary and aggregate boundary).
+- `ODY-S05-203` depends on `ODY-S05-201` and `ODY-S05-202` (runtime state contracts and persistence exist before creation commands).
+- `ODY-S05-204` depends on `ODY-S05-201`, `ODY-S05-202`, and `ODY-S05-203` (items/stacks must exist before they can move).
+- `ODY-S05-205` depends on `ODY-S05-201`, `ODY-S05-202`, `ODY-S05-203`, and `ODY-S05-204` (stack lifecycle builds on creation and location invariants).
+- `ODY-S05-206` depends on `ODY-S05-201`, `ODY-S05-202`, and `ODY-S05-203` (runtime references exist before dependency checks can query them).
+- `ODY-S05-207` depends on `ODY-S05-201`–`206` (integration proof for the completed Inventory runtime block).
 
-## 10. Backlog change control
+## 11. Backlog change control
 
-- New work requires a new `ODY-S05-1XX` task contract; this document only reserves numbers `ODY-S05-101` through `ODY-S05-106` for the Content Catalog MVP block.
+- New work requires a task contract; this document reserves numbers `ODY-S05-101` through `ODY-S05-106` for the completed Content Catalog MVP block and `ODY-S05-201` through `ODY-S05-207` for the Inventory runtime block.
 - A task may be split before implementation by updating this backlog, following the same rule prior backlog revisions in this repository already use.
 - A task may not be merged with unrelated cleanup merely to reduce task count.
 - Completed task files move to `docs/tasks/completed/` only after required review, per the established convention in this repository.
 - This backlog does not replace any task's own acceptance criteria or `ADR-027`'s content; it does not itself decide any technical question beyond the five explicit scope decisions in section 3.
-- The reserved future blocks in section 7 are named, not scoped — decomposing any of them into real task IDs is a future backlog revision, not an implicit extension of this one.
+- The reserved future blocks in section 8 are named, not scoped — decomposing any of them into real task IDs is a future backlog revision, not an implicit extension of this one.
 - If this document's section 3 narrowing decisions are later found incorrect or resolved sooner than expected, that is a new task/backlog-revision decision, not a silent edit to this document's already-recorded reasoning — this document would gain an explicit amendment note, not a rewritten section 3.
