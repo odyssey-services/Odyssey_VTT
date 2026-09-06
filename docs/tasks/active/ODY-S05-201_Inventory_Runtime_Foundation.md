@@ -168,10 +168,11 @@ Any Equipment/Attack/ActiveEffect/ItemDefinition migration implementation file
 5. `ItemMechanicsSnapshot` requires a valid exact `ContentDefinitionRef`, positive `DefinitionSnapshotVersion`, valid content type, and immutable opaque payload; no latest-definition concept exists.
 6. `ItemStackQuantity` accepts positive quantities and rejects zero/negative quantities for live stacks.
 7. Application records exist for `InventoryRecord`, `ItemInstanceRecord`, and `ItemStackRecord` and carry IDs, `CampaignId`, owner/location refs, source definition refs, mechanics snapshots, revision, and timestamps.
-8. Reflection/search guards prove this task does not introduce Inventory repository implementation, SQLite persistence/schema, Character-section ownership, Equipment command behavior, Attack behavior, ActiveEffect implementation, or ItemDefinition migration workflow.
-9. `Tests/Metadata/test-catalog.json` contains new `TC-INVENTORY-*` entries for the tests added by this task.
-10. Task contract and ExecPlan for `ODY-S05-201` are added.
-11. `docs/tasks/SLICE-05_IMPLEMENTATION_BACKLOG.md` marks `ODY-S05-201` `In Review` with the PR link after the Draft PR is opened.
+8. `ItemInstanceRecord` and `ItemStackRecord` reject `Contained` or `Equipped` locations whose `TargetRef` points at a different `InventoryId`, preserving the one-place/location invariant at the foundation record boundary.
+9. Reflection/search guards prove this task does not introduce Inventory repository implementation, SQLite persistence/schema, Character-section ownership, Equipment command behavior, Attack behavior, ActiveEffect implementation, or ItemDefinition migration workflow.
+10. `Tests/Metadata/test-catalog.json` contains new `TC-INVENTORY-*` entries for the tests added by this task.
+11. Task contract and ExecPlan for `ODY-S05-201` are added.
+12. `docs/tasks/SLICE-05_IMPLEMENTATION_BACKLOG.md` marks `ODY-S05-201` `In Review` with the PR link after the Draft PR is opened.
 
 ## 10. Tests and validation
 
@@ -187,6 +188,7 @@ Any Equipment/Attack/ActiveEffect/ItemDefinition migration implementation file
 | `TC-INVENTORY-006` | .NET / NUnit (Domain) | `ItemStackQuantity` accepts positive quantities and rejects zero/negative quantities | Pass |
 | `TC-INVENTORY-007` | .NET / NUnit (Unit/Application) | Inventory Application records validate required IDs, refs, revisions, and timestamps | Pass |
 | `TC-INVENTORY-008` | .NET / NUnit (Unit/Reflection) | No repository, SQLite, Character-section, Equipment command, Attack, ActiveEffect, or ItemDefinition migration implementation is introduced | Pass |
+| `TC-INVENTORY-009` | .NET / NUnit (Unit/Application) | `ItemInstanceRecord`/`ItemStackRecord` reject contained/equipped locations pointing at another InventoryId | Pass |
 
 ### Required commands
 
@@ -283,8 +285,8 @@ dotnet test DotNet\Odyssey.Core.sln
 - `Packages/com.odyssey.domain/Runtime/Inventory/InventoryRuntime.cs` — minimal Inventory runtime IDs and value objects.
 - `Packages/com.odyssey.application/Runtime/Inventory/InventoryRuntimeRecords.cs` — minimal immutable Application read-record contracts.
 - `DotNet/Tests/Odyssey.Tests.Domain/Inventory/InventoryRuntimeFoundationTests.cs` — Domain tests for `TC-INVENTORY-001`-`006`.
-- `DotNet/Tests/Odyssey.Tests.Unit/Inventory/InventoryRuntimeRecordTests.cs` — Application record and scope-guard tests for `TC-INVENTORY-007`-`008`.
-- `Tests/Metadata/test-catalog.json` — `TC-INVENTORY-001`-`008` entries.
+- `DotNet/Tests/Odyssey.Tests.Unit/Inventory/InventoryRuntimeRecordTests.cs` — Application record and scope-guard tests for `TC-INVENTORY-007`-`009`.
+- `Tests/Metadata/test-catalog.json` — `TC-INVENTORY-001`-`009` entries.
 - This task contract and ExecPlan.
 
 ### Validation results
@@ -292,7 +294,7 @@ dotnet test DotNet\Odyssey.Core.sln
 | Command / check | Result | Evidence / notes |
 |---|---|---|
 | `dotnet build DotNet\Odyssey.Core.sln` | Pass | First sandboxed run failed before compilation due denied access to `C:\Users\alexx\AppData\Local\Microsoft SDKs`; escalated rerun passed with 0 warnings, 0 errors. |
-| `dotnet test DotNet\Odyssey.Core.sln` | Pass | Full suite passed: Contracts 1, Domain 74, Networking 67, Unit 134, Architecture 2, Persistence 353. |
+| `dotnet test DotNet\Odyssey.Core.sln` | Pass | Full suite passed: Contracts 1, Domain 74, Networking 67, Unit 136, Architecture 2, Persistence 353. |
 | `.\scripts\verify-format.ps1` | Pass | `FORMAT-001 PASS repository text formatting checks passed`. |
 | `.\scripts\check-repository-policy.ps1` | Pass | `Repository policy check passed`; `REPO-POLICY-*` and `TC-CI-*` checks passed. |
 | `.\scripts\verify-test-structure.ps1` | Pass | `TC-ARCH-001 PASS valid ADR-001 graph passes`; controlled invalid dependency/version/duplicate-ID cases rejected. |
@@ -308,10 +310,11 @@ dotnet test DotNet\Odyssey.Core.sln
 | AC-5 | Pass | `ItemMechanicsSnapshot`; `TC-INVENTORY-005`. |
 | AC-6 | Pass | `ItemStackQuantity`; `TC-INVENTORY-006`. |
 | AC-7 | Pass | `InventoryRecord`, `ItemInstanceRecord`, `ItemStackRecord`; `TC-INVENTORY-007`. |
-| AC-8 | Pass | `TC-INVENTORY-008`; diff review confirms no persistence/schema/Unity/ADR/equipment/attack/ActiveEffect/migration files changed. |
-| AC-9 | Pass | `Tests/Metadata/test-catalog.json` includes `TC-INVENTORY-001`-`008`. |
-| AC-10 | Pass | This task contract and ExecPlan exist. |
-| AC-11 | Pass | `SLICE-05_IMPLEMENTATION_BACKLOG.md` marks `ODY-S05-201` In Review with PR [#113](https://github.com/odyssey-services/Odyssey_VTT/pull/113). |
+| AC-8 | Pass | `InventoryRecordGuards.RequireMatchingInventoryLocation`; `TC-INVENTORY-009`. |
+| AC-9 | Pass | `TC-INVENTORY-008`; diff review confirms no persistence/schema/Unity/ADR/equipment/attack/ActiveEffect/migration files changed. |
+| AC-10 | Pass | `Tests/Metadata/test-catalog.json` includes `TC-INVENTORY-001`-`009`. |
+| AC-11 | Pass | This task contract and ExecPlan exist. |
+| AC-12 | Pass | `SLICE-05_IMPLEMENTATION_BACKLOG.md` marks `ODY-S05-201` In Review with PR [#113](https://github.com/odyssey-services/Odyssey_VTT/pull/113). |
 
 ### Build and artifact evidence
 
@@ -332,7 +335,7 @@ dotnet test DotNet\Odyssey.Core.sln
 
 - Scope review: diff limited to allowed Domain/Application contract files, tests, metadata, and planning docs; no persistence/schema/Unity/ADR files changed.
 - Architecture review: `ADR-027` preserved; Inventory is a separate aggregate vocabulary, item snapshots use exact `ContentDefinitionRef`, and equipment is only a location kind.
-- Test review: 8 new `TC-INVENTORY-*` checks added and full `dotnet test` passed.
+- Test review: 9 new `TC-INVENTORY-*` checks added and full `dotnet test` passed.
 - Security/privacy review: no private material, hidden campaign data, secrets, or user data added.
 - Documentation/version review: test metadata and planning docs updated; no application/schema/protocol/ruleset version changed.
 
@@ -347,6 +350,7 @@ dotnet test DotNet\Odyssey.Core.sln
 - 2026-09-06 — Decision: use `ItemStackQuantity >= 1` for live stack records. Authority / approval: `ADR-027` section 6.2 says negative quantity is forbidden and zero is reached only through a future consume/destroy/remove command; this task has no such command.
 - 2026-09-06 — Decision: do not add `IInventoryRepository` in `ODY-S05-201`. Authority / approval: user task brief and `SLICE-05_IMPLEMENTATION_BACKLOG.md` assign persistence/repository work to `ODY-S05-202`.
 - 2026-09-06 — Decision: keep equipment as `InventoryLocationKind.Equipped` vocabulary only. Authority / approval: `ADR-027` section 7 and this task's explicit no-equipment-behavior boundary.
+- 2026-09-06 — Amendment: `ItemInstanceRecord` and `ItemStackRecord` now validate that `Contained` and `Equipped` locations target the same `InventoryId` carried by the record. Authority / approval: owner review on PR #113.
 
 ### Approved task changes
 

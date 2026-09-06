@@ -47,6 +47,42 @@ namespace Odyssey.Tests.Unit.Inventory
         }
 
         [Test]
+        public void ItemInstanceRecord_RejectsContainedLocationPointingToAnotherInventory()
+        {
+            InventoryId inventoryId = InventoryId.NewId(Now);
+            InventoryId otherInventoryId = InventoryId.NewId(Now);
+            CampaignId campaignId = CampaignId.NewId(Now);
+            InventoryOwnerRef ownerRef = InventoryOwnerRef.ForCharacter(CharacterId.NewId(Now));
+            ContentDefinitionRef sourceRef = new ContentDefinitionRef(ContentDefinitionId.NewId(Now), 1);
+            var snapshot = new ItemMechanicsSnapshot(sourceRef, 1, ContentDefinitionType.Item, "{}");
+
+            var sameInventoryInstance = new ItemInstanceRecord(ItemInstanceId.NewId(Now), campaignId, inventoryId, ownerRef, InventoryLocationRef.Contained(inventoryId, "main"), sourceRef, snapshot, "{}", 1, Now, Now);
+
+            Assert.That(sameInventoryInstance.InventoryId, Is.EqualTo(inventoryId));
+            Assert.That(sameInventoryInstance.LocationRef.TargetRef, Is.EqualTo(inventoryId.ToString()));
+
+            Assert.Throws<ArgumentException>(new Action(() => new ItemInstanceRecord(ItemInstanceId.NewId(Now), campaignId, inventoryId, ownerRef, InventoryLocationRef.Contained(otherInventoryId, "main"), sourceRef, snapshot, "{}", 1, Now, Now)));
+        }
+
+        [Test]
+        public void ItemStackRecord_RejectsEquippedLocationPointingToAnotherInventory()
+        {
+            InventoryId inventoryId = InventoryId.NewId(Now);
+            InventoryId otherInventoryId = InventoryId.NewId(Now);
+            CampaignId campaignId = CampaignId.NewId(Now);
+            InventoryOwnerRef ownerRef = InventoryOwnerRef.ForCharacter(CharacterId.NewId(Now));
+            ContentDefinitionRef sourceRef = new ContentDefinitionRef(ContentDefinitionId.NewId(Now), 1);
+            var snapshot = new ItemMechanicsSnapshot(sourceRef, 1, ContentDefinitionType.Item, "{}");
+
+            var sameInventoryStack = new ItemStackRecord(ItemStackId.NewId(Now), campaignId, inventoryId, ownerRef, InventoryLocationRef.Equipped(inventoryId, "belt"), sourceRef, snapshot, ItemStackQuantity.Create(1), "{}", 1, Now, Now);
+
+            Assert.That(sameInventoryStack.InventoryId, Is.EqualTo(inventoryId));
+            Assert.That(sameInventoryStack.LocationRef.TargetRef, Is.EqualTo(inventoryId.ToString()));
+
+            Assert.Throws<ArgumentException>(new Action(() => new ItemStackRecord(ItemStackId.NewId(Now), campaignId, inventoryId, ownerRef, InventoryLocationRef.Equipped(otherInventoryId, "belt"), sourceRef, snapshot, ItemStackQuantity.Create(1), "{}", 1, Now, Now)));
+        }
+
+        [Test]
         public void InventoryFoundation_DoesNotIntroduceRepositoryPersistenceOrCommandBehavior()
         {
             Type[] contractTypes =

@@ -4351,6 +4351,14 @@
                           "runner":  "dotnet test",
                           "path":  "DotNet/Tests/Odyssey.Tests.Unit/Inventory/InventoryRuntimeRecordTests.cs",
                           "check":  "Reflection/source guard confirms ODY-S05-201 introduces no Inventory repository implementation, SQLite persistence/schema class, Character-section inventory fields, command service, Equipment behavior, Attack behavior, ActiveEffect implementation, or ItemDefinition migration workflow"
+                      },
+                      {
+                          "testCaseId":  "TC-INVENTORY-009",
+                          "taskId":  "ODY-S05-201",
+                          "authority":  "ODY-S05-201 owner-review amendment: ItemInstanceRecord and ItemStackRecord must reject contained/equipped locations pointing at a different InventoryId",
+                          "runner":  "dotnet test",
+                          "path":  "DotNet/Tests/Odyssey.Tests.Unit/Inventory/InventoryRuntimeRecordTests.cs",
+                          "check":  "ItemInstanceRecord rejects a Contained InventoryLocationRef whose TargetRef is another InventoryId, ItemStackRecord rejects an Equipped InventoryLocationRef whose TargetRef is another InventoryId, and same-inventory positive cases still pass"
                       }
                   ]
 }

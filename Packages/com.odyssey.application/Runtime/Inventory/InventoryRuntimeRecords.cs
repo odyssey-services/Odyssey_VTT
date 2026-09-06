@@ -51,6 +51,7 @@ namespace Odyssey.Application.Inventory
             if (!inventoryId.IsValid) throw new ArgumentException("InventoryId is required.", nameof(inventoryId));
             if (!ownerRef.IsValid) throw new ArgumentException("OwnerRef is required.", nameof(ownerRef));
             if (!locationRef.IsValid) throw new ArgumentException("LocationRef is required.", nameof(locationRef));
+            InventoryRecordGuards.RequireMatchingInventoryLocation(inventoryId, locationRef, nameof(locationRef));
             if (!sourceItemDefinitionRef.IsValid) throw new ArgumentException("Source item definition ref is required.", nameof(sourceItemDefinitionRef));
             if (!mechanicsSnapshot.SourceDefinitionRef.Equals(sourceItemDefinitionRef)) throw new ArgumentException("Mechanics snapshot must match the source item definition ref.", nameof(mechanicsSnapshot));
             if (runtimeState == null) throw new ArgumentNullException(nameof(runtimeState));
@@ -103,6 +104,7 @@ namespace Odyssey.Application.Inventory
             if (!inventoryId.IsValid) throw new ArgumentException("InventoryId is required.", nameof(inventoryId));
             if (!ownerRef.IsValid) throw new ArgumentException("OwnerRef is required.", nameof(ownerRef));
             if (!locationRef.IsValid) throw new ArgumentException("LocationRef is required.", nameof(locationRef));
+            InventoryRecordGuards.RequireMatchingInventoryLocation(inventoryId, locationRef, nameof(locationRef));
             if (!sourceItemDefinitionRef.IsValid) throw new ArgumentException("Source item definition ref is required.", nameof(sourceItemDefinitionRef));
             if (!mechanicsSnapshot.SourceDefinitionRef.Equals(sourceItemDefinitionRef)) throw new ArgumentException("Mechanics snapshot must match the source item definition ref.", nameof(mechanicsSnapshot));
             if (!quantity.IsValid) throw new ArgumentException("Quantity is required.", nameof(quantity));
@@ -135,5 +137,17 @@ namespace Odyssey.Application.Inventory
         public long Revision { get; }
         public UtcInstant CreatedAt { get; }
         public UtcInstant UpdatedAt { get; }
+    }
+
+    internal static class InventoryRecordGuards
+    {
+        internal static void RequireMatchingInventoryLocation(InventoryId inventoryId, InventoryLocationRef locationRef, string parameterName)
+        {
+            if ((locationRef.Kind == InventoryLocationKind.Contained || locationRef.Kind == InventoryLocationKind.Equipped) &&
+                !string.Equals(locationRef.TargetRef, inventoryId.ToString(), StringComparison.Ordinal))
+            {
+                throw new ArgumentException("Contained and equipped locations must target the record InventoryId.", parameterName);
+            }
+        }
     }
 }
