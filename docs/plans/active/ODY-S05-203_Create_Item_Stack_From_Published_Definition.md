@@ -1,10 +1,10 @@
 # ODY-S05-203 — Create Item/Stack From Published Definition
 
-**Status:** Active
+**Status:** Completed
 **Owner:** Codex (agent)
 **Branch:** `feat/ody-s05-203-create-item-stack-from-published-definition`
-**Pull request:** Not opened
-**Last updated:** 2026-09-06 23:12 UTC
+**Pull request:** https://github.com/odyssey-services/Odyssey_VTT/pull/115
+**Last updated:** 2026-09-06 23:15 UTC
 
 ## 1. Purpose and user-visible outcome
 
@@ -59,7 +59,7 @@ Assumptions: none.
 - [x] Update task contract, ExecPlan, backlog, and error registry.
 - [x] Run required repository validation scripts.
 - [x] Review diff scope.
-- [ ] Commit, push, open Draft PR, and record PR link.
+- [x] Commit, push, open Draft PR, and record PR link.
 
 ## 6. Progress log
 
@@ -71,6 +71,7 @@ Assumptions: none.
 - 2026-09-06 23:12 UTC — Diff review confirmed no Unity files, ADR edits, persistence schema changes, movement/split/merge/equipment/attack/ActiveEffect/migration implementation.
 - 2026-09-06 23:05 UTC — Validation passed: `dotnet build DotNet\Odyssey.Core.sln` and `dotnet test DotNet\Odyssey.Core.sln`.
 - 2026-09-06 23:12 UTC — Validation passed: `verify-format.ps1`, `check-repository-policy.ps1`, and `verify-test-structure.ps1`.
+- 2026-09-06 23:15 UTC — Opened Draft PR #115 and updated task contract, ExecPlan, and backlog with the PR link.
 
 ## 7. Decisions
 
@@ -102,4 +103,4 @@ None.
 
 ## 12. Outcome and follow-up
 
-Not complete yet. `ODY-S05-204` remains owner of movement/transfer, and `ODY-S05-205` remains owner of split/merge.
+Draft PR: https://github.com/odyssey-services/Odyssey_VTT/pull/115. `ODY-S05-204` remains owner of movement/transfer, and `ODY-S05-205` remains owner of split/merge.

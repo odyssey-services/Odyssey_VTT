@@ -1,14 +1,14 @@
 # ODY-S05-203 — Create Item/Stack From Published Definition
 
-**Status:** In Progress
+**Status:** In Review
 **Roadmap stage / slice:** SLICE-05 (Inventory runtime block)
 **Owner:** Codex (agent)
 **Requested by:** Product owner
 **Branch:** `feat/ody-s05-203-create-item-stack-from-published-definition`
-**Pull request:** Not opened
+**Pull request:** https://github.com/odyssey-services/Odyssey_VTT/pull/115
 **ExecPlan:** `docs/plans/active/ODY-S05-203_Create_Item_Stack_From_Published_Definition.md`
 **Created:** 2026-09-06
-**Last updated:** 2026-09-06 23:12 UTC
+**Last updated:** 2026-09-06 23:15 UTC
 
 ## 1. Goal
 
