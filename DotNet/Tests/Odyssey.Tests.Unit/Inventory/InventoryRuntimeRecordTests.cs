@@ -83,7 +83,7 @@ namespace Odyssey.Tests.Unit.Inventory
         }
 
         [Test]
-        public void InventoryFoundation_DoesNotIntroduceRepositoryPersistenceOrCommandBehavior()
+        public void InventoryFoundationRecords_DoNotIntroduceCommandEquipmentAttackActiveEffectOrMigrationBehavior()
         {
             Type[] contractTypes =
             {
@@ -102,10 +102,9 @@ namespace Odyssey.Tests.Unit.Inventory
             string root = FindRepositoryRoot();
             string[] inventoryRuntimeFiles = Directory.GetFiles(Path.Combine(root, "Packages"), "*.cs", SearchOption.AllDirectories)
                 .Where(path => path.IndexOf("Inventory", StringComparison.OrdinalIgnoreCase) >= 0)
+                .Where(path => path.IndexOf(Path.Combine("Runtime", "Inventory"), StringComparison.OrdinalIgnoreCase) >= 0)
                 .ToArray();
 
-            Assert.That(inventoryRuntimeFiles.Any(path => path.IndexOf("com.odyssey.persistence", StringComparison.OrdinalIgnoreCase) >= 0), Is.False, "ODY-S05-201 must not add Inventory persistence or SQLite files.");
-            Assert.That(inventoryRuntimeFiles.Any(path => Path.GetFileName(path).IndexOf("Repository", StringComparison.OrdinalIgnoreCase) >= 0), Is.False, "ODY-S05-201 must not add an Inventory repository.");
             Assert.That(inventoryRuntimeFiles.Any(path => Path.GetFileName(path).IndexOf("Command", StringComparison.OrdinalIgnoreCase) >= 0), Is.False, "ODY-S05-201 must not add Inventory commands.");
             Assert.That(inventoryRuntimeFiles.Any(path => Path.GetFileName(path).IndexOf("Service", StringComparison.OrdinalIgnoreCase) >= 0), Is.False, "ODY-S05-201 must not add Inventory services.");
 

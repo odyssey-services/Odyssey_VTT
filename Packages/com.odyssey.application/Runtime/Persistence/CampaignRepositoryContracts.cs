@@ -781,6 +781,55 @@ namespace Odyssey.Application.Persistence
             RetryDirective.DoNotRetry,
             correlationId);
 
+        /// <summary>ODY-S05-202: Inventory create replay rejection when a durable `InventoryCommandLedger` row records the same `CommandId` against a different target kind or target id.</summary>
+        public static Error InventoryCommandIdentityMismatch(CorrelationId correlationId) => Error.Create(
+            ErrorCodes.CommandIdentityMismatch,
+            ErrorCategory.Security,
+            SafeReasonCode.ActionNotAllowed,
+            UserMessageKey.Parse("errors.application.command_identity_mismatch"),
+            RetryDirective.DoNotRetry,
+            correlationId);
+
+        public static Error InventoryNotFound(CorrelationId correlationId) => Error.Create(
+            ErrorCodes.PersistenceInventoryNotFound,
+            ErrorCategory.NotFound,
+            SafeReasonCode.TargetUnavailable,
+            UserMessageKey.Parse("errors.persistence.inventory_not_found"),
+            RetryDirective.DoNotRetry,
+            correlationId);
+
+        public static Error InventoryCampaignMismatch(CorrelationId correlationId) => Error.Create(
+            ErrorCodes.PersistenceInventoryCampaignMismatch,
+            ErrorCategory.Validation,
+            SafeReasonCode.InvalidRequest,
+            UserMessageKey.Parse("errors.persistence.inventory_campaign_mismatch"),
+            RetryDirective.DoNotRetry,
+            correlationId);
+
+        public static Error InventoryIoFailed(CorrelationId correlationId) => Error.Create(
+            ErrorCodes.PersistenceInventoryIoFailed,
+            ErrorCategory.PermanentInfrastructure,
+            SafeReasonCode.UnexpectedError,
+            UserMessageKey.Parse("errors.persistence.inventory_io_failed"),
+            RetryDirective.ManualRecoveryRequired,
+            correlationId);
+
+        public static Error ItemInstanceNotFound(CorrelationId correlationId) => Error.Create(
+            ErrorCodes.PersistenceItemInstanceNotFound,
+            ErrorCategory.NotFound,
+            SafeReasonCode.TargetUnavailable,
+            UserMessageKey.Parse("errors.persistence.item_instance_not_found"),
+            RetryDirective.DoNotRetry,
+            correlationId);
+
+        public static Error ItemStackNotFound(CorrelationId correlationId) => Error.Create(
+            ErrorCodes.PersistenceItemStackNotFound,
+            ErrorCategory.NotFound,
+            SafeReasonCode.TargetUnavailable,
+            UserMessageKey.Parse("errors.persistence.item_stack_not_found"),
+            RetryDirective.DoNotRetry,
+            correlationId);
+
         // Used only by the codec's Read path (CampaignManifest.cs), which does not
         // receive a caller CorrelationId; matches the existing SerializationFailures
         // placeholder-correlation convention for codec-level structural failures.
