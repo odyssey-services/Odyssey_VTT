@@ -123,6 +123,7 @@ namespace Odyssey.Application.Results
         public static readonly ErrorCode PersistenceContentDefinitionNotPublished = ErrorCode.Parse("persistence.content_definition.not_published");
         public static readonly ErrorCode PersistenceContentDefinitionReferenced = ErrorCode.Parse("persistence.content_definition.referenced");
         public static readonly ErrorCode PersistenceInventoryNotFound = ErrorCode.Parse("persistence.inventory.not_found");
+        public static readonly ErrorCode PersistenceInventoryCampaignMismatch = ErrorCode.Parse("persistence.inventory.campaign_mismatch");
         public static readonly ErrorCode PersistenceInventoryIoFailed = ErrorCode.Parse("persistence.inventory.io_failed");
         public static readonly ErrorCode PersistenceItemInstanceNotFound = ErrorCode.Parse("persistence.item_instance.not_found");
         public static readonly ErrorCode PersistenceItemStackNotFound = ErrorCode.Parse("persistence.item_stack.not_found");

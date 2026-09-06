@@ -4439,6 +4439,62 @@
                           "runner":  "dotnet test",
                           "path":  "DotNet/Tests/Odyssey.Tests.Persistence/SqliteInventoryRepositoryTests.cs",
                           "check":  "CreateItemInstance succeeds with a missing catalog definition ref and intentionally invalid typed-definition payload, proving the repository does not inspect catalog status or typed definition validity"
+                      },
+                      {
+                          "testCaseId":  "TC-INVENTORY-020",
+                          "taskId":  "ODY-S05-202",
+                          "authority":  "ODY-S05-202 owner-review amendment: Inventory persistence must reject records whose CampaignId does not match the open CampaignHandle",
+                          "runner":  "dotnet test",
+                          "path":  "DotNet/Tests/Odyssey.Tests.Persistence/SqliteInventoryRepositoryTests.cs",
+                          "check":  "CreateInventory rejects an InventoryRecord whose CampaignId differs from the open CampaignHandle CampaignId and does not insert it"
+                      },
+                      {
+                          "testCaseId":  "TC-INVENTORY-021",
+                          "taskId":  "ODY-S05-202",
+                          "authority":  "ODY-S05-202 owner-review amendment: Inventory persistence must reject records whose CampaignId does not match the open CampaignHandle",
+                          "runner":  "dotnet test",
+                          "path":  "DotNet/Tests/Odyssey.Tests.Persistence/SqliteInventoryRepositoryTests.cs",
+                          "check":  "CreateItemInstance rejects an ItemInstanceRecord whose CampaignId differs from the open CampaignHandle CampaignId and does not insert it"
+                      },
+                      {
+                          "testCaseId":  "TC-INVENTORY-022",
+                          "taskId":  "ODY-S05-202",
+                          "authority":  "ODY-S05-202 owner-review amendment: Inventory persistence must reject records whose CampaignId does not match the open CampaignHandle",
+                          "runner":  "dotnet test",
+                          "path":  "DotNet/Tests/Odyssey.Tests.Persistence/SqliteInventoryRepositoryTests.cs",
+                          "check":  "CreateItemStack rejects an ItemStackRecord whose CampaignId differs from the open CampaignHandle CampaignId and does not insert it"
+                      },
+                      {
+                          "testCaseId":  "TC-INVENTORY-023",
+                          "taskId":  "ODY-S05-202",
+                          "authority":  "ODY-S05-202 owner-review amendment: Inventory list primitives must reject a CampaignId that differs from the open CampaignHandle",
+                          "runner":  "dotnet test",
+                          "path":  "DotNet/Tests/Odyssey.Tests.Persistence/SqliteInventoryRepositoryTests.cs",
+                          "check":  "ListItemInstances and ListItemStacks reject a list CampaignId that differs from the open CampaignHandle CampaignId"
+                      },
+                      {
+                          "testCaseId":  "TC-INVENTORY-024",
+                          "taskId":  "ODY-S05-202",
+                          "authority":  "ODY-S05-202 owner-review amendment: ItemInstance rows require an existing parent Inventory in the same campaign database",
+                          "runner":  "dotnet test",
+                          "path":  "DotNet/Tests/Odyssey.Tests.Persistence/SqliteInventoryRepositoryTests.cs",
+                          "check":  "CreateItemInstance rejects a missing InventoryId with PersistenceInventoryNotFound and does not insert the item row"
+                      },
+                      {
+                          "testCaseId":  "TC-INVENTORY-025",
+                          "taskId":  "ODY-S05-202",
+                          "authority":  "ODY-S05-202 owner-review amendment: ItemStack rows require an existing parent Inventory in the same campaign database",
+                          "runner":  "dotnet test",
+                          "path":  "DotNet/Tests/Odyssey.Tests.Persistence/SqliteInventoryRepositoryTests.cs",
+                          "check":  "CreateItemStack rejects a missing InventoryId with PersistenceInventoryNotFound and does not insert the stack row"
+                      },
+                      {
+                          "testCaseId":  "TC-INVENTORY-026",
+                          "taskId":  "ODY-S05-202",
+                          "authority":  "ODY-S05-202 owner-review amendment: ItemInstance.InventoryId and ItemStack.InventoryId should be backed by SQLite foreign keys when compatible with repository patterns",
+                          "runner":  "dotnet test",
+                          "path":  "DotNet/Tests/Odyssey.Tests.Persistence/SqliteInventoryRepositoryTests.cs",
+                          "check":  "SQLite PRAGMA foreign_key_list confirms ItemInstance.InventoryId and ItemStack.InventoryId reference Inventory.InventoryId"
                       }
                   ]
 }

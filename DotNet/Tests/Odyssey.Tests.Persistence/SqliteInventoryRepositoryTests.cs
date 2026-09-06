@@ -125,6 +125,100 @@ namespace Odyssey.Tests.Persistence
         }
 
         [Test]
+        public void CreateInventory_WithMismatchedCampaignId_IsRejected()
+        {
+            CreateInventory();
+            InventoryRecord inventory = NewInventoryRecord(OtherCampaignId());
+
+            Result<InventoryRecord> created = _inventoryRepository.CreateInventory(_campaign, inventory, NewCommandId(), TestCorrelationId);
+
+            Assert.That(created.IsFailure, Is.True);
+            Assert.That(created.Error.Code, Is.EqualTo(ErrorCodes.PersistenceInventoryCampaignMismatch));
+            Assert.That(CountRows("Inventory", "InventoryId", inventory.InventoryId.ToString()), Is.EqualTo(0));
+        }
+
+        [Test]
+        public void CreateItemInstance_WithMismatchedCampaignId_IsRejected()
+        {
+            InventoryRecord inventory = CreateInventory();
+            var mismatchedInventory = new InventoryRecord(
+                inventory.InventoryId,
+                OtherCampaignId(),
+                inventory.OwnerRef,
+                inventory.Revision,
+                inventory.CreatedAt,
+                inventory.UpdatedAt);
+            ItemInstanceRecord instance = NewItemInstanceRecord(mismatchedInventory);
+
+            Result<ItemInstanceRecord> created = _inventoryRepository.CreateItemInstance(_campaign, instance, NewCommandId(), TestCorrelationId);
+
+            Assert.That(created.IsFailure, Is.True);
+            Assert.That(created.Error.Code, Is.EqualTo(ErrorCodes.PersistenceInventoryCampaignMismatch));
+            Assert.That(CountRows("ItemInstance", "ItemInstanceId", instance.ItemInstanceId.ToString()), Is.EqualTo(0));
+        }
+
+        [Test]
+        public void CreateItemStack_WithMismatchedCampaignId_IsRejected()
+        {
+            InventoryRecord inventory = CreateInventory();
+            var mismatchedInventory = new InventoryRecord(
+                inventory.InventoryId,
+                OtherCampaignId(),
+                inventory.OwnerRef,
+                inventory.Revision,
+                inventory.CreatedAt,
+                inventory.UpdatedAt);
+            ItemStackRecord stack = NewItemStackRecord(mismatchedInventory);
+
+            Result<ItemStackRecord> created = _inventoryRepository.CreateItemStack(_campaign, stack, NewCommandId(), TestCorrelationId);
+
+            Assert.That(created.IsFailure, Is.True);
+            Assert.That(created.Error.Code, Is.EqualTo(ErrorCodes.PersistenceInventoryCampaignMismatch));
+            Assert.That(CountRows("ItemStack", "ItemStackId", stack.ItemStackId.ToString()), Is.EqualTo(0));
+        }
+
+        [Test]
+        public void ListItemRecords_WithMismatchedCampaignId_AreRejected()
+        {
+            InventoryRecord inventory = CreateInventory();
+            CampaignId otherCampaignId = OtherCampaignId();
+
+            Result<IReadOnlyList<ItemInstanceRecord>> instances = _inventoryRepository.ListItemInstances(_campaign, otherCampaignId, inventory.InventoryId, TestCorrelationId);
+            Result<IReadOnlyList<ItemStackRecord>> stacks = _inventoryRepository.ListItemStacks(_campaign, otherCampaignId, inventory.InventoryId, TestCorrelationId);
+
+            Assert.That(instances.IsFailure, Is.True);
+            Assert.That(instances.Error.Code, Is.EqualTo(ErrorCodes.PersistenceInventoryCampaignMismatch));
+            Assert.That(stacks.IsFailure, Is.True);
+            Assert.That(stacks.Error.Code, Is.EqualTo(ErrorCodes.PersistenceInventoryCampaignMismatch));
+        }
+
+        [Test]
+        public void CreateItemInstance_WithMissingInventoryId_IsRejected()
+        {
+            InventoryRecord inventory = NewInventoryRecord();
+            ItemInstanceRecord instance = NewItemInstanceRecord(inventory);
+
+            Result<ItemInstanceRecord> created = _inventoryRepository.CreateItemInstance(_campaign, instance, NewCommandId(), TestCorrelationId);
+
+            Assert.That(created.IsFailure, Is.True);
+            Assert.That(created.Error.Code, Is.EqualTo(ErrorCodes.PersistenceInventoryNotFound));
+            Assert.That(CountRows("ItemInstance", "ItemInstanceId", instance.ItemInstanceId.ToString()), Is.EqualTo(0));
+        }
+
+        [Test]
+        public void CreateItemStack_WithMissingInventoryId_IsRejected()
+        {
+            InventoryRecord inventory = NewInventoryRecord();
+            ItemStackRecord stack = NewItemStackRecord(inventory);
+
+            Result<ItemStackRecord> created = _inventoryRepository.CreateItemStack(_campaign, stack, NewCommandId(), TestCorrelationId);
+
+            Assert.That(created.IsFailure, Is.True);
+            Assert.That(created.Error.Code, Is.EqualTo(ErrorCodes.PersistenceInventoryNotFound));
+            Assert.That(CountRows("ItemStack", "ItemStackId", stack.ItemStackId.ToString()), Is.EqualTo(0));
+        }
+
+        [Test]
         public void CreateReplay_WithSameCommandIdAndTarget_ReturnsCurrentRecordWithoutDuplicate()
         {
             InventoryRecord inventory = NewInventoryRecord();
@@ -183,6 +277,15 @@ namespace Odyssey.Tests.Persistence
             };
             Assert.That(names.Select(n => n.Name), Is.SubsetOf(allowed));
             Assert.That(names.Where(n => n.Type == "table").Select(n => n.Name), Is.EquivalentTo(new[] { "Inventory", "InventoryCommandLedger", "ItemInstance", "ItemStack" }));
+        }
+
+        [Test]
+        public void InventorySchema_DefinesItemInventoryForeignKeys()
+        {
+            CreateInventory();
+
+            Assert.That(HasForeignKey("ItemInstance", "InventoryId", "Inventory", "InventoryId"), Is.True);
+            Assert.That(HasForeignKey("ItemStack", "InventoryId", "Inventory", "InventoryId"), Is.True);
         }
 
         [Test]
@@ -272,16 +375,21 @@ namespace Odyssey.Tests.Persistence
             return created.Value;
         }
 
-        private InventoryRecord NewInventoryRecord()
+        private InventoryRecord NewInventoryRecord(CampaignId? campaignId = null)
         {
             UtcInstant now = Clock.GetUtcNow();
             return new InventoryRecord(
                 InventoryId.NewId(now),
-                _campaign.CampaignId,
+                campaignId ?? _campaign.CampaignId,
                 InventoryOwnerRef.ForCharacter(CharacterId.NewId(now)),
                 1,
                 now,
                 now);
+        }
+
+        private static CampaignId OtherCampaignId()
+        {
+            return CampaignId.NewId(Clock.GetUtcNow());
         }
 
         private static ItemInstanceRecord NewItemInstanceRecord(InventoryRecord inventory, string containerKey = "main")
@@ -390,6 +498,25 @@ namespace Odyssey.Tests.Persistence
             select.CommandText = "SELECT 1 FROM sqlite_master WHERE type = 'table' AND name = $name LIMIT 1;";
             select.Parameters.AddWithValue("$name", tableName);
             return select.ExecuteScalar() != null;
+        }
+
+        private bool HasForeignKey(string tableName, string fromColumn, string referencedTable, string referencedColumn)
+        {
+            using SqliteConnection connection = OpenRawConnection();
+            using var select = connection.CreateCommand();
+            select.CommandText = "PRAGMA foreign_key_list(" + tableName + ");";
+            using SqliteDataReader reader = select.ExecuteReader();
+            while (reader.Read())
+            {
+                if (string.Equals(reader.GetString(2), referencedTable, StringComparison.Ordinal) &&
+                    string.Equals(reader.GetString(3), fromColumn, StringComparison.Ordinal) &&
+                    string.Equals(reader.GetString(4), referencedColumn, StringComparison.Ordinal))
+                {
+                    return true;
+                }
+            }
+
+            return false;
         }
 
         private SqliteConnection OpenRawConnection()

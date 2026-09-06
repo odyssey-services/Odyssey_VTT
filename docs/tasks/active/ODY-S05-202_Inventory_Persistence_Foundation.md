@@ -8,7 +8,7 @@
 **Pull request:** https://github.com/odyssey-services/Odyssey_VTT/pull/114
 **ExecPlan:** `docs/plans/active/ODY-S05-202_Inventory_Persistence_Foundation.md`
 **Created:** 2026-09-06
-**Last updated:** 2026-09-06 17:45 UTC
+**Last updated:** 2026-09-06 18:10 UTC
 
 ## 1. Goal
 
@@ -40,7 +40,7 @@ Add the minimal SQLite persistence foundation for runtime Inventory state: repos
 
 - Requirement IDs: `ODY-S05-202`, `SLICE-05`.
 - Existing test IDs: `TC-INVENTORY-001`-`009` as predecessor evidence.
-- New test IDs to introduce: `TC-INVENTORY-010`-`019`.
+- New test IDs introduced: `TC-INVENTORY-010`-`026`.
 
 ### Task-safe private context
 
@@ -70,7 +70,7 @@ Add the minimal SQLite persistence foundation for runtime Inventory state: repos
 - Tables: `Inventory`, `ItemInstance`, `ItemStack`, and `InventoryCommandLedger`.
 - Idempotency ledger behavior for create primitives.
 - Indexes needed to list instances/stacks by `CampaignId + InventoryId`.
-- Persistence tests and test metadata `TC-INVENTORY-010`-`019`.
+- Persistence tests and test metadata `TC-INVENTORY-010`-`026`.
 - Task contract, ExecPlan, and backlog status updates.
 
 ### Out of scope
@@ -147,6 +147,8 @@ Any command service, equipment behavior, attack, ActiveEffect, or ItemDefinition
 - Inventory persistence is a storage primitive only; it does not create items from catalog definitions.
 - A reused `CommandId` for a different target is rejected with `CommandIdentityMismatch`.
 - `ItemInstance`/`ItemStack` list queries are scoped by `CampaignId + InventoryId`.
+- Create/list calls reject a `CampaignId` that differs from the open `CampaignHandle.CampaignId`.
+- `ItemInstance` and `ItemStack` create calls require an existing parent `Inventory` row in the same campaign database.
 - No equipment, attack, ActiveEffect, or ItemDefinition migration tables/classes are introduced.
 
 ## 8. Deliverables
@@ -167,12 +169,14 @@ Any command service, equipment behavior, attack, ActiveEffect, or ItemDefinition
 4. Item instance and item stack list queries return only rows for the requested `CampaignId + InventoryId`.
 5. Create replay with the same `CommandId` and same target returns the current stored record and does not duplicate rows.
 6. Reusing the same `CommandId` for a different target is rejected with `CommandIdentityMismatch`.
-7. Ledger write and row write happen in one SQLite transaction.
-8. Physical schema contains only the allowed Inventory runtime tables added by this task, with no speculative Equipment/ActiveEffect/Attack/ItemDefinitionMigration tables.
-9. Repository code does not inspect catalog status, decode typed definitions, check permissions, create mechanics snapshots, or implement move/transfer/split/merge/equip/attack semantics.
-10. `Tests/Metadata/test-catalog.json` contains `TC-INVENTORY-010`-`019`.
-11. Task contract, ExecPlan, and `SLICE-05_IMPLEMENTATION_BACKLOG.md` are updated.
-12. Required validation commands pass and diff review confirms no Unity files, ADR edits, command services, equipment/attack/ActiveEffect/migration implementation.
+7. Create/list calls reject a `CampaignId` that differs from the open `CampaignHandle.CampaignId`.
+8. `ItemInstance` and `ItemStack` create calls reject a missing parent `InventoryId` as a `Result.Failure`, not a raw SQLite/provider failure.
+9. Ledger write and row write happen in one SQLite transaction.
+10. Physical schema contains only the allowed Inventory runtime tables added by this task, with no speculative Equipment/ActiveEffect/Attack/ItemDefinitionMigration tables.
+11. Repository code does not inspect catalog status, decode typed definitions, check permissions, create mechanics snapshots, or implement move/transfer/split/merge/equip/attack semantics.
+12. `Tests/Metadata/test-catalog.json` contains `TC-INVENTORY-010`-`026`.
+13. Task contract, ExecPlan, and `SLICE-05_IMPLEMENTATION_BACKLOG.md` are updated.
+14. Required validation commands pass and diff review confirms no Unity files, ADR edits, command services, equipment/attack/ActiveEffect/migration implementation.
 
 ## 10. Tests and validation
 
@@ -190,6 +194,13 @@ Any command service, equipment behavior, attack, ActiveEffect, or ItemDefinition
 | `TC-INVENTORY-017` | .NET / NUnit (Persistence) | Physical SQLite schema contains only allowed inventory runtime tables | Pass |
 | `TC-INVENTORY-018` | .NET / NUnit (Persistence) | Schema/type guard confirms no Equipment/ActiveEffect/Attack/ItemDefinitionMigration implementation | Pass |
 | `TC-INVENTORY-019` | .NET / NUnit (Persistence) | Repository does not inspect catalog status or typed definition validity | Pass |
+| `TC-INVENTORY-020` | .NET / NUnit (Persistence) | CreateInventory rejects record/campaign boundary mismatch | Pass |
+| `TC-INVENTORY-021` | .NET / NUnit (Persistence) | CreateItemInstance rejects record/campaign boundary mismatch | Pass |
+| `TC-INVENTORY-022` | .NET / NUnit (Persistence) | CreateItemStack rejects record/campaign boundary mismatch | Pass |
+| `TC-INVENTORY-023` | .NET / NUnit (Persistence) | ListItemInstances/ListItemStacks reject list campaign boundary mismatch | Pass |
+| `TC-INVENTORY-024` | .NET / NUnit (Persistence) | CreateItemInstance rejects missing parent InventoryId as Result failure | Pass |
+| `TC-INVENTORY-025` | .NET / NUnit (Persistence) | CreateItemStack rejects missing parent InventoryId as Result failure | Pass |
+| `TC-INVENTORY-026` | .NET / NUnit (Persistence) | SQLite schema defines ItemInstance/ItemStack InventoryId foreign keys | Pass |
 
 ### Required commands
 
@@ -286,11 +297,11 @@ dotnet test DotNet\Odyssey.Core.sln
 
 - `Packages/com.odyssey.application/Runtime/Persistence/InventoryRepositoryContracts.cs` — `IInventoryRepository` create/get/list storage port.
 - `Packages/com.odyssey.persistence/Runtime/Sqlite/SqliteInventoryRepository.cs` — SQLite Inventory runtime tables, mapping, idempotency ledger, and read/list implementation.
-- `Packages/com.odyssey.application/Runtime/Persistence/CampaignRepositoryContracts.cs` — Inventory persistence failure helpers.
-- `Packages/com.odyssey.application/Runtime/Results/ErrorCodes.cs` — Inventory not-found/I/O persistence error codes.
-- `DotNet/Tests/Odyssey.Tests.Persistence/SqliteInventoryRepositoryTests.cs` — `TC-INVENTORY-010`-`019` persistence tests.
+- `Packages/com.odyssey.application/Runtime/Persistence/CampaignRepositoryContracts.cs` — Inventory persistence failure helpers, including campaign-boundary mismatch.
+- `Packages/com.odyssey.application/Runtime/Results/ErrorCodes.cs` — Inventory not-found/campaign-mismatch/I/O persistence error codes.
+- `DotNet/Tests/Odyssey.Tests.Persistence/SqliteInventoryRepositoryTests.cs` — `TC-INVENTORY-010`-`026` persistence tests.
 - `DotNet/Tests/Odyssey.Tests.Unit/Inventory/InventoryRuntimeRecordTests.cs` — stale `ODY-S05-201` guard narrowed so later persistence tasks are allowed while record-layer command/equipment/migration guards remain.
-- `Tests/Metadata/test-catalog.json` — `TC-INVENTORY-010`-`019` entries and `TC-INVENTORY-008` wording aligned with post-202 scope.
+- `Tests/Metadata/test-catalog.json` — `TC-INVENTORY-010`-`026` entries and `TC-INVENTORY-008` wording aligned with post-202 scope.
 - `docs/errors/ERROR_CODES.md` — required registry entries for new Inventory persistence error codes.
 - This task contract, ExecPlan, and `SLICE-05_IMPLEMENTATION_BACKLOG.md`.
 
@@ -299,7 +310,7 @@ dotnet test DotNet\Odyssey.Core.sln
 | Command / check | Result | Evidence / notes |
 |---|---|---|
 | `dotnet build DotNet\Odyssey.Core.sln` | Passed | 0 warnings, 0 errors. |
-| `dotnet test DotNet\Odyssey.Core.sln` | Passed | Full suite passed: Contracts 1, Domain 74, Networking 67, Unit 136, Architecture 2, Persistence 363. |
+| `dotnet test DotNet\Odyssey.Core.sln` | Passed | Full suite passed: Contracts 1, Domain 74, Networking 67, Unit 136, Architecture 2, Persistence 370. |
 | `.\scripts\verify-format.ps1` | Passed | `FORMAT-001 PASS repository text formatting checks passed`. |
 | `.\scripts\check-repository-policy.ps1` | Passed | Final rerun passed after adding required Inventory persistence entries to `docs/errors/ERROR_CODES.md`. |
 | `.\scripts\verify-test-structure.ps1` | Passed | `TC-ARCH-001 PASS valid ADR-001 graph passes`; controlled invalid cases rejected. |
@@ -314,12 +325,14 @@ dotnet test DotNet\Odyssey.Core.sln
 | AC-4 | Passed | `TC-INVENTORY-013`-`014`. |
 | AC-5 | Passed | `TC-INVENTORY-015`. |
 | AC-6 | Passed | `TC-INVENTORY-016`; uses `ErrorCodes.CommandIdentityMismatch`. |
-| AC-7 | Passed | Create methods write target row and ledger row inside one `SqliteTransaction`. |
-| AC-8 | Passed | `TC-INVENTORY-017`-`018`. |
-| AC-9 | Passed | `TC-INVENTORY-019`; diff review confirms no command/equipment/attack/ActiveEffect/migration implementation. |
-| AC-10 | Passed | `Tests/Metadata/test-catalog.json` includes `TC-INVENTORY-010`-`019`. |
-| AC-11 | Passed | This task contract, ExecPlan, and backlog are updated with Draft PR [#114](https://github.com/odyssey-services/Odyssey_VTT/pull/114). |
-| AC-12 | Passed | `git diff --name-status`/`git status --short` review found no Unity files or ADR edits, and no command services/equipment/attack/ActiveEffect/migration implementation. |
+| AC-7 | Passed | `TC-INVENTORY-020`-`023`; uses `ErrorCodes.PersistenceInventoryCampaignMismatch`. |
+| AC-8 | Passed | `TC-INVENTORY-024`-`025`; uses `ErrorCodes.PersistenceInventoryNotFound` before insert. |
+| AC-9 | Passed | Create methods write target row and ledger row inside one `SqliteTransaction`. |
+| AC-10 | Passed | `TC-INVENTORY-017`-`018` and `TC-INVENTORY-026`. |
+| AC-11 | Passed | `TC-INVENTORY-019`; diff review confirms no command/equipment/attack/ActiveEffect/migration implementation. |
+| AC-12 | Passed | `Tests/Metadata/test-catalog.json` includes `TC-INVENTORY-010`-`026`. |
+| AC-13 | Passed | This task contract, ExecPlan, and backlog are updated with Draft PR [#114](https://github.com/odyssey-services/Odyssey_VTT/pull/114). |
+| AC-14 | Passed | `git diff --name-status`/`git status --short` review found no Unity files or ADR edits, and no command services/equipment/attack/ActiveEffect/migration implementation. |
 
 ### Build and artifact evidence
 
@@ -341,7 +354,7 @@ dotnet test DotNet\Odyssey.Core.sln
 
 - Scope review: diff limited to Application persistence contracts/results, SQLite persistence, tests, metadata, error registry, and task/plan/backlog docs; no Unity files or ADR edits.
 - Architecture review: Application owns the port, Persistence owns SQLite; `CommandId` idempotency ledger and record writes share one transaction; catalog definition status/typed decoding stay out of repository.
-- Test review: `TC-INVENTORY-010`-`019` added and full `dotnet test` passed.
+- Test review: `TC-INVENTORY-010`-`026` added and full `dotnet test` passed.
 - Security/privacy review: no private material, hidden campaign data, secrets, logging, diagnostics, or network projections added.
 - Documentation/version review: test metadata, error registry, task/plan/backlog updated; no application/schema/protocol/ruleset version bump.
 
@@ -356,7 +369,9 @@ dotnet test DotNet\Odyssey.Core.sln
 - 2026-09-06 — Decision: use the existing `CommandIdentityMismatch` error code for reused Inventory create `CommandId` with a different target. Authority / approval: task brief allows the existing convention; `ADR-002` defines reused command identity mismatch.
 - 2026-09-06 — Decision: do not add migration runner steps or bump schema version in this foundation task. Authority / approval: existing SQLite foundation repository pattern and task scope.
 - 2026-09-06 — Decision: update `docs/errors/ERROR_CODES.md` for new Inventory persistence not-found/I/O error codes. Authority / approval: repository policy checker requires production `ErrorCode` registry completeness.
+- 2026-09-06 — Decision: add the narrow `persistence.inventory.campaign_mismatch` error for record/list campaign-boundary violations, and reuse `persistence.inventory.not_found` for missing parent Inventory rows. Authority / approval: PR #114 owner-review amendment.
+- 2026-09-06 — Decision: add `ItemInstance.InventoryId` and `ItemStack.InventoryId` foreign keys to `Inventory.InventoryId` in the repository-created foundation schema. Authority / approval: PR #114 owner-review amendment and existing SQLite `foreign_keys = ON` pattern.
 
 ### Approved task changes
 
-- None.
+- 2026-09-06 — PR #114 owner-review amendment requested explicit campaign-boundary guards, parent Inventory existence checks, optional compatible SQLite foreign keys, and `TC-INVENTORY-020`-`026`; no command, authorization, equipment, attack, ActiveEffect, migration, or ADR scope was added.

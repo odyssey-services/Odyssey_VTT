@@ -36,6 +36,10 @@ namespace Odyssey.Persistence.Sqlite
             if (campaign == null) throw new ArgumentNullException(nameof(campaign));
             if (record == null) throw new ArgumentNullException(nameof(record));
             if (!commandId.IsValid) throw new ArgumentException("CommandId is required.", nameof(commandId));
+            if (!TryValidateCampaignBoundary(campaign, record.CampaignId, correlationId, out Error campaignError))
+            {
+                return Result<InventoryRecord>.Failure(campaignError);
+            }
 
             try
             {
@@ -100,6 +104,10 @@ namespace Odyssey.Persistence.Sqlite
             if (campaign == null) throw new ArgumentNullException(nameof(campaign));
             if (record == null) throw new ArgumentNullException(nameof(record));
             if (!commandId.IsValid) throw new ArgumentException("CommandId is required.", nameof(commandId));
+            if (!TryValidateCampaignBoundary(campaign, record.CampaignId, correlationId, out Error campaignError))
+            {
+                return Result<ItemInstanceRecord>.Failure(campaignError);
+            }
 
             try
             {
@@ -112,6 +120,12 @@ namespace Odyssey.Persistence.Sqlite
                 {
                     transaction.Commit();
                     return replay.Value;
+                }
+
+                if (!InventoryExists(connection, transaction, record.CampaignId, record.InventoryId))
+                {
+                    transaction.Commit();
+                    return Result<ItemInstanceRecord>.Failure(PersistenceFailures.InventoryNotFound(correlationId));
                 }
 
                 using (var insert = connection.CreateCommand())
@@ -167,6 +181,10 @@ namespace Odyssey.Persistence.Sqlite
             if (campaign == null) throw new ArgumentNullException(nameof(campaign));
             if (record == null) throw new ArgumentNullException(nameof(record));
             if (!commandId.IsValid) throw new ArgumentException("CommandId is required.", nameof(commandId));
+            if (!TryValidateCampaignBoundary(campaign, record.CampaignId, correlationId, out Error campaignError))
+            {
+                return Result<ItemStackRecord>.Failure(campaignError);
+            }
 
             try
             {
@@ -179,6 +197,12 @@ namespace Odyssey.Persistence.Sqlite
                 {
                     transaction.Commit();
                     return replay.Value;
+                }
+
+                if (!InventoryExists(connection, transaction, record.CampaignId, record.InventoryId))
+                {
+                    transaction.Commit();
+                    return Result<ItemStackRecord>.Failure(PersistenceFailures.InventoryNotFound(correlationId));
                 }
 
                 using (var insert = connection.CreateCommand())
@@ -235,6 +259,10 @@ namespace Odyssey.Persistence.Sqlite
             if (campaign == null) throw new ArgumentNullException(nameof(campaign));
             if (!campaignId.IsValid) throw new ArgumentException("CampaignId is required.", nameof(campaignId));
             if (!inventoryId.IsValid) throw new ArgumentException("InventoryId is required.", nameof(inventoryId));
+            if (!TryValidateCampaignBoundary(campaign, campaignId, correlationId, out Error campaignError))
+            {
+                return Result<IReadOnlyList<ItemInstanceRecord>>.Failure(campaignError);
+            }
 
             try
             {
@@ -263,6 +291,10 @@ namespace Odyssey.Persistence.Sqlite
             if (campaign == null) throw new ArgumentNullException(nameof(campaign));
             if (!campaignId.IsValid) throw new ArgumentException("CampaignId is required.", nameof(campaignId));
             if (!inventoryId.IsValid) throw new ArgumentException("InventoryId is required.", nameof(inventoryId));
+            if (!TryValidateCampaignBoundary(campaign, campaignId, correlationId, out Error campaignError))
+            {
+                return Result<IReadOnlyList<ItemStackRecord>>.Failure(campaignError);
+            }
 
             try
             {
@@ -284,6 +316,28 @@ namespace Odyssey.Persistence.Sqlite
             {
                 return Result<IReadOnlyList<ItemStackRecord>>.Failure(PersistenceFailures.InventoryIoFailed(correlationId));
             }
+        }
+
+        private static bool TryValidateCampaignBoundary(CampaignHandle campaign, CampaignId campaignId, CorrelationId correlationId, out Error error)
+        {
+            if (campaign.CampaignId.Equals(campaignId))
+            {
+                error = default!;
+                return true;
+            }
+
+            error = PersistenceFailures.InventoryCampaignMismatch(correlationId);
+            return false;
+        }
+
+        private static bool InventoryExists(SqliteConnection connection, SqliteTransaction transaction, CampaignId campaignId, InventoryId inventoryId)
+        {
+            using var select = connection.CreateCommand();
+            select.Transaction = transaction;
+            select.CommandText = "SELECT 1 FROM Inventory WHERE CampaignId = $campaignId AND InventoryId = $inventoryId LIMIT 1;";
+            select.Parameters.AddWithValue("$campaignId", campaignId.ToString());
+            select.Parameters.AddWithValue("$inventoryId", inventoryId.ToString());
+            return select.ExecuteScalar() != null;
         }
 
         private static Result<TRecord>? TryReplay<TRecord>(
@@ -525,7 +579,8 @@ CREATE TABLE IF NOT EXISTS ItemInstance (
     RuntimeState TEXT NOT NULL,
     Revision INTEGER NOT NULL,
     CreatedAt TEXT NOT NULL,
-    UpdatedAt TEXT NOT NULL
+    UpdatedAt TEXT NOT NULL,
+    FOREIGN KEY (InventoryId) REFERENCES Inventory(InventoryId)
 );
 CREATE TABLE IF NOT EXISTS ItemStack (
     ItemStackId TEXT PRIMARY KEY,
@@ -546,7 +601,8 @@ CREATE TABLE IF NOT EXISTS ItemStack (
     StackState TEXT NOT NULL,
     Revision INTEGER NOT NULL,
     CreatedAt TEXT NOT NULL,
-    UpdatedAt TEXT NOT NULL
+    UpdatedAt TEXT NOT NULL,
+    FOREIGN KEY (InventoryId) REFERENCES Inventory(InventoryId)
 );
 CREATE TABLE IF NOT EXISTS InventoryCommandLedger (
     CommandId TEXT PRIMARY KEY,

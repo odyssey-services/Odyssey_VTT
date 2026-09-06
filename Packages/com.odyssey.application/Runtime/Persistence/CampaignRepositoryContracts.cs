@@ -798,6 +798,14 @@ namespace Odyssey.Application.Persistence
             RetryDirective.DoNotRetry,
             correlationId);
 
+        public static Error InventoryCampaignMismatch(CorrelationId correlationId) => Error.Create(
+            ErrorCodes.PersistenceInventoryCampaignMismatch,
+            ErrorCategory.Validation,
+            SafeReasonCode.InvalidRequest,
+            UserMessageKey.Parse("errors.persistence.inventory_campaign_mismatch"),
+            RetryDirective.DoNotRetry,
+            correlationId);
+
         public static Error InventoryIoFailed(CorrelationId correlationId) => Error.Create(
             ErrorCodes.PersistenceInventoryIoFailed,
             ErrorCategory.PermanentInfrastructure,
