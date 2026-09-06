@@ -97,7 +97,6 @@ namespace Odyssey.Tests.Unit.Inventory
 
             Assert.That(contractTypes.Select(t => t.Name), Has.None.Contains("Repository"));
             Assert.That(contractTypes.Select(t => t.Name), Has.None.Contains("Command"));
-            Assert.That(contractTypes.Select(t => t.Name), Has.None.Contains("Service"));
 
             string root = FindRepositoryRoot();
             string[] inventoryRuntimeFiles = Directory.GetFiles(Path.Combine(root, "Packages"), "*.cs", SearchOption.AllDirectories)
@@ -106,7 +105,14 @@ namespace Odyssey.Tests.Unit.Inventory
                 .ToArray();
 
             Assert.That(inventoryRuntimeFiles.Any(path => Path.GetFileName(path).IndexOf("Command", StringComparison.OrdinalIgnoreCase) >= 0), Is.False, "ODY-S05-201 must not add Inventory commands.");
-            Assert.That(inventoryRuntimeFiles.Any(path => Path.GetFileName(path).IndexOf("Service", StringComparison.OrdinalIgnoreCase) >= 0), Is.False, "ODY-S05-201 must not add Inventory services.");
+            Assert.That(inventoryRuntimeFiles.Any(path => Path.GetFileName(path).IndexOf("Move", StringComparison.OrdinalIgnoreCase) >= 0), Is.False, "Inventory runtime must not add move behavior before ODY-S05-204.");
+            Assert.That(inventoryRuntimeFiles.Any(path => Path.GetFileName(path).IndexOf("Transfer", StringComparison.OrdinalIgnoreCase) >= 0), Is.False, "Inventory runtime must not add transfer behavior before ODY-S05-204.");
+            Assert.That(inventoryRuntimeFiles.Any(path => Path.GetFileName(path).IndexOf("Split", StringComparison.OrdinalIgnoreCase) >= 0), Is.False, "Inventory runtime must not add split behavior before ODY-S05-205.");
+            Assert.That(inventoryRuntimeFiles.Any(path => Path.GetFileName(path).IndexOf("Merge", StringComparison.OrdinalIgnoreCase) >= 0), Is.False, "Inventory runtime must not add merge behavior before ODY-S05-205.");
+            Assert.That(inventoryRuntimeFiles.Any(path => Path.GetFileName(path).IndexOf("Equipment", StringComparison.OrdinalIgnoreCase) >= 0), Is.False, "Inventory runtime must not add equipment behavior in the foundation/creation tasks.");
+            Assert.That(inventoryRuntimeFiles.Any(path => Path.GetFileName(path).IndexOf("Attack", StringComparison.OrdinalIgnoreCase) >= 0), Is.False, "Inventory runtime must not add attack behavior in the foundation/creation tasks.");
+            Assert.That(inventoryRuntimeFiles.Any(path => Path.GetFileName(path).IndexOf("ActiveEffect", StringComparison.OrdinalIgnoreCase) >= 0), Is.False, "Inventory runtime must not add ActiveEffect behavior in the foundation/creation tasks.");
+            Assert.That(inventoryRuntimeFiles.Any(path => Path.GetFileName(path).IndexOf("Migration", StringComparison.OrdinalIgnoreCase) >= 0), Is.False, "Inventory runtime must not add ItemDefinition migration behavior in the foundation/creation tasks.");
 
             string characterLifecycle = File.ReadAllText(Path.Combine(root, "Packages", "com.odyssey.domain", "Runtime", "Character", "CharacterLifecycle.cs"));
             Assert.That(characterLifecycle, Does.Not.Contain("InventoryRevision"));
