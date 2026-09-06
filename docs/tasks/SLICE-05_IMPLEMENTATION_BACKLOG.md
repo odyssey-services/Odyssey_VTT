@@ -89,7 +89,7 @@ If a later implementation task, once activated, discovers a genuine architectura
 
 "Planning mode" for tasks 1–5 reflects the expectation that each changes a future public contract, persistence schema, or authoritative catalog-lifecycle semantics — matching every prior slice's own precedent for its first-block tasks; each child task still makes and justifies its own Brief-plan-vs-ExecPlan decision per `PLANS.md` §1 when its own contract is authored. Task 6 is expected to be Brief plan (a fixture/proof task introducing no new architecture), mirroring `ODY-S04-114`/`ODY-S03-008`'s own precedent for integration-proof tasks.
 
-No `ODY-S05-1XX` task contract file exists yet. Each is created and activated as its own separate task, one at a time, when picked up — not by this scaffold.
+Task contract files for completed `ODY-S05-101`-`106` and planning task `ODY-S05-107` already exist. Future `ODY-S05-201`-`207` task contract files are not created by this decomposition; each must be created and activated separately when picked up.
 
 ## 6. Task boundaries
 
