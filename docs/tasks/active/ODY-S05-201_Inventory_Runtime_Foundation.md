@@ -1,14 +1,14 @@
 # ODY-S05-201 — Inventory Runtime Foundation
 
-**Status:** In Progress
+**Status:** In Review
 **Roadmap stage / slice:** SLICE-05 (Inventory runtime block)
 **Owner:** Codex (agent)
 **Requested by:** Product owner
 **Branch:** `feat/ody-s05-201-inventory-runtime-foundation`
-**Pull request:** Not opened
+**Pull request:** https://github.com/odyssey-services/Odyssey_VTT/pull/113
 **ExecPlan:** `docs/plans/active/ODY-S05-201_Inventory_Runtime_Foundation.md`
 **Created:** 2026-09-06
-**Last updated:** 2026-09-06 UTC (validation complete; PR pending)
+**Last updated:** 2026-09-06 UTC
 
 ## 1. Goal
 
@@ -263,7 +263,7 @@ dotnet test DotNet\Odyssey.Core.sln
 ## 16. Definition of Done
 
 - [x] Goal is achieved without unapproved scope expansion.
-- [x] All acceptance criteria are satisfied except PR-link recording, pending PR creation.
+- [x] All acceptance criteria are satisfied.
 - [x] Required automated tests pass.
 - [x] Required manual checks are completed.
 - [x] Required commands and their real results are recorded.
@@ -273,7 +273,7 @@ dotnet test DotNet\Odyssey.Core.sln
 - [x] No unapproved dependency, tool, GitHub Action, or license was introduced.
 - [x] Documentation is updated only where materially required.
 - [x] Codex/developer performed a self-review against this task and `AGENTS.md`.
-- [ ] Pull request explains changes, evidence, limitations, and follow-up work.
+- [x] Pull request explains changes, evidence, limitations, and follow-up work.
 - [ ] Product owner or authorized reviewer completes the required review; Codex does not merge into `main`.
 
 ## 17. Completion evidence
@@ -311,7 +311,7 @@ dotnet test DotNet\Odyssey.Core.sln
 | AC-8 | Pass | `TC-INVENTORY-008`; diff review confirms no persistence/schema/Unity/ADR/equipment/attack/ActiveEffect/migration files changed. |
 | AC-9 | Pass | `Tests/Metadata/test-catalog.json` includes `TC-INVENTORY-001`-`008`. |
 | AC-10 | Pass | This task contract and ExecPlan exist. |
-| AC-11 | Pending | PR not opened yet. |
+| AC-11 | Pass | `SLICE-05_IMPLEMENTATION_BACKLOG.md` marks `ODY-S05-201` In Review with PR [#113](https://github.com/odyssey-services/Odyssey_VTT/pull/113). |
 
 ### Build and artifact evidence
 

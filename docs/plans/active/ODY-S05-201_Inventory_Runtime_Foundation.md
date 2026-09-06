@@ -1,10 +1,10 @@
 # ODY-S05-201 — Inventory Runtime Foundation
 
-**Status:** Active
+**Status:** Completed
 **Owner:** Codex (agent)
 **Branch:** `feat/ody-s05-201-inventory-runtime-foundation`
-**Pull request:** Not opened
-**Last updated:** 2026-09-06 UTC (validation complete; PR pending)
+**Pull request:** https://github.com/odyssey-services/Odyssey_VTT/pull/113
+**Last updated:** 2026-09-06 UTC
 
 ## 1. Purpose and user-visible outcome
 
@@ -60,8 +60,8 @@ No `IInventoryRepository`, SQLite schema, command service, equipment behavior, o
 
 - [x] Update task contract completion evidence.
 - [x] Run required repository validation scripts.
-- [ ] Commit, push, and open Draft PR.
-- [ ] Record PR link and backlog `In Review` status.
+- [x] Commit, push, and open Draft PR.
+- [x] Record PR link and backlog `In Review` status.
 
 ## 6. Progress log
 
@@ -72,6 +72,7 @@ No `IInventoryRepository`, SQLite schema, command service, equipment behavior, o
 - 2026-09-06 — Added `InventoryRuntimeRecords.cs` with immutable Application read-record contracts only; no repository interface.
 - 2026-09-06 — Added Domain/Unit tests and `TC-INVENTORY-001`-`008` test metadata.
 - 2026-09-06 — Validation passed: `dotnet build`, `dotnet test`, `verify-format.ps1`, `check-repository-policy.ps1`, and `verify-test-structure.ps1`.
+- 2026-09-06 — Opened Draft PR #113 and updated the backlog row/task contract/plan with the PR link.
 
 ## 7. Decisions
 
@@ -102,4 +103,4 @@ None.
 
 ## 12. Outcome and follow-up
 
-Pending. Next planned implementation task remains `ODY-S05-202 — Inventory Persistence Foundation`.
+Draft PR: https://github.com/odyssey-services/Odyssey_VTT/pull/113. Next planned implementation task remains `ODY-S05-202 — Inventory Persistence Foundation`.
