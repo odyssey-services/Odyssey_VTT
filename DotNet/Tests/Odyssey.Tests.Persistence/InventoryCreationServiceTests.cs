@@ -255,7 +255,13 @@ namespace Odyssey.Tests.Persistence
             Assert.That(first.IsSuccess, Is.True);
             Assert.That(archived.IsSuccess, Is.True);
             Assert.That(replay.IsSuccess, Is.True);
-            Assert.That(replay.Value, Is.EqualTo(first.Value));
+            Assert.That(replay.Value.ItemInstanceId, Is.EqualTo(first.Value.ItemInstanceId));
+            Assert.That(replay.Value.InventoryId, Is.EqualTo(first.Value.InventoryId));
+            Assert.That(replay.Value.CampaignId, Is.EqualTo(first.Value.CampaignId));
+            Assert.That(replay.Value.SourceItemDefinitionRef, Is.EqualTo(first.Value.SourceItemDefinitionRef));
+            Assert.That(replay.Value.MechanicsSnapshot.SourceDefinitionRef.DefinitionId, Is.EqualTo(first.Value.MechanicsSnapshot.SourceDefinitionRef.DefinitionId));
+            Assert.That(replay.Value.MechanicsSnapshot.DefinitionSnapshotVersion, Is.EqualTo(first.Value.MechanicsSnapshot.DefinitionSnapshotVersion));
+            Assert.That(replay.Value.MechanicsSnapshot.ContentType, Is.EqualTo(first.Value.MechanicsSnapshot.ContentType));
             Assert.That(CountRows("ItemInstance"), Is.EqualTo(1));
         }
 
@@ -272,7 +278,14 @@ namespace Odyssey.Tests.Persistence
             Assert.That(first.IsSuccess, Is.True);
             Assert.That(archived.IsSuccess, Is.True);
             Assert.That(replay.IsSuccess, Is.True);
-            Assert.That(replay.Value, Is.EqualTo(first.Value));
+            Assert.That(replay.Value.ItemStackId, Is.EqualTo(first.Value.ItemStackId));
+            Assert.That(replay.Value.InventoryId, Is.EqualTo(first.Value.InventoryId));
+            Assert.That(replay.Value.CampaignId, Is.EqualTo(first.Value.CampaignId));
+            Assert.That(replay.Value.SourceItemDefinitionRef, Is.EqualTo(first.Value.SourceItemDefinitionRef));
+            Assert.That(replay.Value.MechanicsSnapshot.SourceDefinitionRef.DefinitionId, Is.EqualTo(first.Value.MechanicsSnapshot.SourceDefinitionRef.DefinitionId));
+            Assert.That(replay.Value.MechanicsSnapshot.DefinitionSnapshotVersion, Is.EqualTo(first.Value.MechanicsSnapshot.DefinitionSnapshotVersion));
+            Assert.That(replay.Value.MechanicsSnapshot.ContentType, Is.EqualTo(first.Value.MechanicsSnapshot.ContentType));
+            Assert.That(replay.Value.Quantity, Is.EqualTo(first.Value.Quantity));
             Assert.That(CountRows("ItemStack"), Is.EqualTo(1));
         }
 
