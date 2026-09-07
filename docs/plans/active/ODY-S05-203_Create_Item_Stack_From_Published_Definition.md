@@ -104,3 +104,11 @@ None.
 ## 12. Outcome and follow-up
 
 Draft PR: https://github.com/odyssey-services/Odyssey_VTT/pull/115. `ODY-S05-204` remains owner of movement/transfer, and `ODY-S05-205` remains owner of split/merge.
+
+## 13. Amendment — replay after definition archive
+
+- Add read-only `IInventoryRepository` replay probes backed by `InventoryCommandLedger`; they return the stored item/stack only when the `CommandId`, target kind, and target id match, otherwise they return the existing identity-mismatch failure or a neutral no-replay result.
+- Run the probe after the MainGM gate and before catalog lifecycle/type/validation checks. A new create still requires a valid Published definition; only a ledger-confirmed replay bypasses current definition lifecycle state.
+- Cover archived-source instance replay, archived-source stack replay, and archived-source target mismatch with `TC-INVENTORY-043`-`045`.
+- No schema, command framework, movement, split/merge, equipment, attack, ActiveEffect, migration, Unity, or ADR change is introduced.
+- Validation: `dotnet build DotNet\Odyssey.Core.sln`, `dotnet test DotNet\Odyssey.Core.sln`, `verify-format.ps1`, `check-repository-policy.ps1`, and `verify-test-structure.ps1` passed after the amendment.

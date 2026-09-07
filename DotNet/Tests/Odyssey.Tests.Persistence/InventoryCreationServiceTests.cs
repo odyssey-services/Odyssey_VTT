@@ -243,6 +243,57 @@ namespace Odyssey.Tests.Persistence
         }
 
         [Test]
+        public void CreateItemInstanceFromDefinition_ReplayAfterSourceArchived_ReturnsStoredRecordWithoutDuplicate()
+        {
+            InventoryRecord inventory = CreateInventory();
+            ContentDefinitionRecord published = PublishDefinition(ContentDefinitionType.Item, EncodeItem(isStackable: false));
+            CreateItemInstanceFromDefinitionRequest request = InstanceRequest(inventory, published, commandId: NewCommandId(), itemInstanceId: ItemInstanceId.NewId(Clock.GetUtcNow()));
+            Result<ItemInstanceRecord> first = InventoryCreationService.CreateItemInstanceFromDefinition(_catalogRepository, _inventoryRepository, Clock, request);
+            Result<ContentDefinitionRecord> archived = ContentCatalogLifecycleService.ArchiveDefinition(_catalogRepository, new ArchiveDefinitionRequest(_campaign, published.ContentDefinitionId, "retired", actorIsMainGm: true, NewCommandId(), TestCorrelationId));
+            Result<ItemInstanceRecord> replay = InventoryCreationService.CreateItemInstanceFromDefinition(_catalogRepository, _inventoryRepository, Clock, request);
+
+            Assert.That(first.IsSuccess, Is.True);
+            Assert.That(archived.IsSuccess, Is.True);
+            Assert.That(replay.IsSuccess, Is.True);
+            Assert.That(replay.Value, Is.EqualTo(first.Value));
+            Assert.That(CountRows("ItemInstance"), Is.EqualTo(1));
+        }
+
+        [Test]
+        public void CreateItemStackFromDefinition_ReplayAfterSourceArchived_ReturnsStoredRecordWithoutDuplicate()
+        {
+            InventoryRecord inventory = CreateInventory();
+            ContentDefinitionRecord published = PublishDefinition(ContentDefinitionType.Ammo, EncodeAmmo());
+            CreateItemStackFromDefinitionRequest request = StackRequest(inventory, published, commandId: NewCommandId(), itemStackId: ItemStackId.NewId(Clock.GetUtcNow()));
+            Result<ItemStackRecord> first = InventoryCreationService.CreateItemStackFromDefinition(_catalogRepository, _inventoryRepository, Clock, request);
+            Result<ContentDefinitionRecord> archived = ContentCatalogLifecycleService.ArchiveDefinition(_catalogRepository, new ArchiveDefinitionRequest(_campaign, published.ContentDefinitionId, "retired", actorIsMainGm: true, NewCommandId(), TestCorrelationId));
+            Result<ItemStackRecord> replay = InventoryCreationService.CreateItemStackFromDefinition(_catalogRepository, _inventoryRepository, Clock, request);
+
+            Assert.That(first.IsSuccess, Is.True);
+            Assert.That(archived.IsSuccess, Is.True);
+            Assert.That(replay.IsSuccess, Is.True);
+            Assert.That(replay.Value, Is.EqualTo(first.Value));
+            Assert.That(CountRows("ItemStack"), Is.EqualTo(1));
+        }
+
+        [Test]
+        public void CreateItemInstanceFromDefinition_ReusedCommandIdForDifferentTargetAfterSourceArchived_IsRejected()
+        {
+            InventoryRecord inventory = CreateInventory();
+            ContentDefinitionRecord published = PublishDefinition(ContentDefinitionType.Item, EncodeItem(isStackable: false));
+            CommandId commandId = NewCommandId();
+            Result<ItemInstanceRecord> first = InventoryCreationService.CreateItemInstanceFromDefinition(_catalogRepository, _inventoryRepository, Clock, InstanceRequest(inventory, published, commandId: commandId));
+            Result<ContentDefinitionRecord> archived = ContentCatalogLifecycleService.ArchiveDefinition(_catalogRepository, new ArchiveDefinitionRequest(_campaign, published.ContentDefinitionId, "retired", actorIsMainGm: true, NewCommandId(), TestCorrelationId));
+            Result<ItemInstanceRecord> mismatch = InventoryCreationService.CreateItemInstanceFromDefinition(_catalogRepository, _inventoryRepository, Clock, InstanceRequest(inventory, published, commandId: commandId));
+
+            Assert.That(first.IsSuccess, Is.True);
+            Assert.That(archived.IsSuccess, Is.True);
+            Assert.That(mismatch.IsFailure, Is.True);
+            Assert.That(mismatch.Error.Code, Is.EqualTo(ErrorCodes.CommandIdentityMismatch));
+            Assert.That(CountRows("ItemInstance"), Is.EqualTo(1));
+        }
+
+        [Test]
         public void CreateItemStackFromDefinition_OnNonStackableItem_IsRejected()
         {
             InventoryRecord inventory = CreateInventory();

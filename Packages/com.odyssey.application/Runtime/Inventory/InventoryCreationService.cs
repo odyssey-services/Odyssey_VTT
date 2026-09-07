@@ -33,7 +33,23 @@ namespace Odyssey.Application.Inventory
             if (clock == null) throw new ArgumentNullException(nameof(clock));
             if (request == null) throw new ArgumentNullException(nameof(request));
 
-            Result<ContentDefinitionRecord> prepared = PrepareDefinition(catalogRepository, request.Campaign, request.ContentDefinitionId, request.ActorIsMainGm, IsInstanceDefinitionType, request.CorrelationId);
+            if (!request.ActorIsMainGm)
+            {
+                return Result<ItemInstanceRecord>.Failure(InventoryCreationFailures.NotMainGm(request.CorrelationId));
+            }
+
+            Result<InventoryCreateReplay<ItemInstanceRecord>> replay = inventoryRepository.TryReplayCreateItemInstance(request.Campaign, request.CommandId, request.ItemInstanceId, request.CorrelationId);
+            if (replay.IsFailure)
+            {
+                return Result<ItemInstanceRecord>.Failure(replay.Error);
+            }
+
+            if (replay.Value.HasReplay)
+            {
+                return Result<ItemInstanceRecord>.Success(replay.Value.Record!);
+            }
+
+            Result<ContentDefinitionRecord> prepared = PrepareDefinition(catalogRepository, request.Campaign, request.ContentDefinitionId, IsInstanceDefinitionType, request.CorrelationId);
             if (prepared.IsFailure)
             {
                 return Result<ItemInstanceRecord>.Failure(prepared.Error);
@@ -69,7 +85,23 @@ namespace Odyssey.Application.Inventory
             if (clock == null) throw new ArgumentNullException(nameof(clock));
             if (request == null) throw new ArgumentNullException(nameof(request));
 
-            Result<ContentDefinitionRecord> prepared = PrepareDefinition(catalogRepository, request.Campaign, request.ContentDefinitionId, request.ActorIsMainGm, IsStackDefinitionType, request.CorrelationId);
+            if (!request.ActorIsMainGm)
+            {
+                return Result<ItemStackRecord>.Failure(InventoryCreationFailures.NotMainGm(request.CorrelationId));
+            }
+
+            Result<InventoryCreateReplay<ItemStackRecord>> replay = inventoryRepository.TryReplayCreateItemStack(request.Campaign, request.CommandId, request.ItemStackId, request.CorrelationId);
+            if (replay.IsFailure)
+            {
+                return Result<ItemStackRecord>.Failure(replay.Error);
+            }
+
+            if (replay.Value.HasReplay)
+            {
+                return Result<ItemStackRecord>.Success(replay.Value.Record!);
+            }
+
+            Result<ContentDefinitionRecord> prepared = PrepareDefinition(catalogRepository, request.Campaign, request.ContentDefinitionId, IsStackDefinitionType, request.CorrelationId);
             if (prepared.IsFailure)
             {
                 return Result<ItemStackRecord>.Failure(prepared.Error);
@@ -104,15 +136,9 @@ namespace Odyssey.Application.Inventory
             IContentCatalogRepository repository,
             CampaignHandle campaign,
             ContentDefinitionId definitionId,
-            bool actorIsMainGm,
             Func<ContentDefinitionType, bool> typeAllowed,
             CorrelationId correlationId)
         {
-            if (!actorIsMainGm)
-            {
-                return Result<ContentDefinitionRecord>.Failure(InventoryCreationFailures.NotMainGm(correlationId));
-            }
-
             Result<ContentDefinitionRecord> fetched = repository.GetContentDefinition(campaign, definitionId, correlationId);
             if (fetched.IsFailure)
             {

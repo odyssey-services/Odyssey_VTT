@@ -4623,6 +4623,30 @@
                           "runner":  "dotnet test",
                           "path":  "DotNet/Tests/Odyssey.Tests.Persistence/InventoryCreationServiceTests.cs",
                           "check":  "CreateItemStackFromDefinition rejects a Published stackable Item definition when requested quantity exceeds MaxStackSize and inserts no ItemStack row"
+                      },
+                      {
+                          "testCaseId":  "TC-INVENTORY-043",
+                          "taskId":  "ODY-S05-203",
+                          "authority":  "ODY-S05-203 amendment: replay is determined by InventoryCommandLedger before current catalog lifecycle validation",
+                          "runner":  "dotnet test",
+                          "path":  "DotNet/Tests/Odyssey.Tests.Persistence/InventoryCreationServiceTests.cs",
+                          "check":  "CreateItemInstanceFromDefinition replay after its source definition is archived returns the stored ItemInstance without a duplicate row"
+                      },
+                      {
+                          "testCaseId":  "TC-INVENTORY-044",
+                          "taskId":  "ODY-S05-203",
+                          "authority":  "ODY-S05-203 amendment: replay is determined by InventoryCommandLedger before current catalog lifecycle validation",
+                          "runner":  "dotnet test",
+                          "path":  "DotNet/Tests/Odyssey.Tests.Persistence/InventoryCreationServiceTests.cs",
+                          "check":  "CreateItemStackFromDefinition replay after its source definition is archived returns the stored ItemStack without a duplicate row"
+                      },
+                      {
+                          "testCaseId":  "TC-INVENTORY-045",
+                          "taskId":  "ODY-S05-203",
+                          "authority":  "ODY-S05-203 amendment: a replay probe must reject a CommandId recorded for another target before catalog lifecycle validation",
+                          "runner":  "dotnet test",
+                          "path":  "DotNet/Tests/Odyssey.Tests.Persistence/InventoryCreationServiceTests.cs",
+                          "check":  "CreateItemInstanceFromDefinition with an archived source definition and a reused CommandId for another ItemInstance target fails with CommandIdentityMismatch"
                       }
                   ]
 }

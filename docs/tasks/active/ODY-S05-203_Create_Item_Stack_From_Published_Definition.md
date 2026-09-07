@@ -8,7 +8,7 @@
 **Pull request:** https://github.com/odyssey-services/Odyssey_VTT/pull/115
 **ExecPlan:** `docs/plans/active/ODY-S05-203_Create_Item_Stack_From_Published_Definition.md`
 **Created:** 2026-09-06
-**Last updated:** 2026-09-06 23:15 UTC
+**Last updated:** 2026-09-07 UTC
 
 ## 1. Goal
 
@@ -178,6 +178,7 @@ Any move/split/merge/equipment/attack/ActiveEffect/ItemDefinition migration impl
 11. Inventory repository parent existence and idempotency remain delegated to `IInventoryRepository`.
 12. Tests and metadata cover `TC-INVENTORY-027` onward.
 13. Required validation commands pass and diff review confirms no Unity files, ADR edits, persistence schema changes, movement/split/merge/equipment/attack/ActiveEffect/migration implementation.
+14. A successful creation replay is resolved by the inventory ledger before current definition lifecycle validation, so archiving the source definition does not invalidate that replay.
 
 ## 10. Tests and validation
 
@@ -201,6 +202,9 @@ Any move/split/merge/equipment/attack/ActiveEffect/ItemDefinition migration impl
 | `TC-INVENTORY-040` | .NET / NUnit (Persistence/Application) | Scope guard confirms no move/split/merge/equipment/attack/ActiveEffect/migration implementation | Pass |
 | `TC-INVENTORY-041` | .NET / NUnit (Persistence/Application) | Non-stackable Item cannot create ItemStack | Pass |
 | `TC-INVENTORY-042` | .NET / NUnit (Persistence/Application) | ItemStack quantity cannot exceed typed Item max stack size | Pass |
+| `TC-INVENTORY-043` | .NET / NUnit (Persistence/Application) | ItemInstance replay succeeds after source definition archive | Pass |
+| `TC-INVENTORY-044` | .NET / NUnit (Persistence/Application) | ItemStack replay succeeds after source definition archive | Pass |
+| `TC-INVENTORY-045` | .NET / NUnit (Persistence/Application) | Replay probe rejects a reused command for another target after archive | Pass |
 
 ### Required commands
 
@@ -295,11 +299,13 @@ dotnet test DotNet\Odyssey.Core.sln
 
 ### Changed files / areas
 
-- `Packages/com.odyssey.application/Runtime/Inventory/InventoryCreationService.cs` — MainGM-only Application creation service, request contracts, and failures.
+- `Packages/com.odyssey.application/Runtime/Inventory/InventoryCreationService.cs` — MainGM-only Application creation service, request contracts, failures, and pre-lifecycle replay path.
+- `Packages/com.odyssey.application/Runtime/Persistence/InventoryRepositoryContracts.cs` — read-only ledger-confirmed create replay probes.
+- `Packages/com.odyssey.persistence/Runtime/Sqlite/SqliteInventoryRepository.cs` — SQLite implementation of the read-only replay probes.
 - `Packages/com.odyssey.application/Runtime/Results/ErrorCodes.cs` — Inventory creation service error codes.
-- `DotNet/Tests/Odyssey.Tests.Persistence/InventoryCreationServiceTests.cs` — `TC-INVENTORY-027`-`042` Application/Persistence tests.
+- `DotNet/Tests/Odyssey.Tests.Persistence/InventoryCreationServiceTests.cs` — `TC-INVENTORY-027`-`045` Application/Persistence tests.
 - `DotNet/Tests/Odyssey.Tests.Unit/Inventory/InventoryRuntimeRecordTests.cs` — stale `ODY-S05-201` guard narrowed to allow the authorized ODY-S05-203 creation service while still blocking movement/equipment/attack/ActiveEffect/migration scope.
-- `Tests/Metadata/test-catalog.json` — `TC-INVENTORY-027`-`042` entries.
+- `Tests/Metadata/test-catalog.json` — `TC-INVENTORY-027`-`045` entries.
 - `docs/errors/ERROR_CODES.md` — required registry entries for Inventory creation service failures.
 - This task contract, ExecPlan, and `SLICE-05_IMPLEMENTATION_BACKLOG.md`.
 
@@ -341,7 +347,7 @@ dotnet test DotNet\Odyssey.Core.sln
 
 - Scope review: diff is limited to Application Inventory creation contracts/service, tests, metadata, error registry, task/plan docs, and backlog status; no Unity files or ADR edits.
 - Architecture review: Application owns the service; Persistence remains behind repository ports; no new schema or dependency is added.
-- Test review: `TC-INVENTORY-027`-`042` added and full `dotnet test` passed.
+- Test review: `TC-INVENTORY-027`-`045` added and full `dotnet test` passed.
 - Security/privacy review: MainGM denial is checked before inventory mutation; no private material, hidden campaign data, raw exception text, logging, diagnostics, or network projections added.
 - Documentation/version review: metadata, error registry, task/plan/backlog updated; no application/schema/protocol/ruleset version bump.
 
@@ -356,6 +362,7 @@ dotnet test DotNet\Odyssey.Core.sln
 - 2026-09-06 — Decision: use a single Application service over existing catalog and inventory repository ports, with no new repository method or persistence schema. Authority / approval: `ODY-S05-203` task scope and `ADR-001`.
 - 2026-09-06 — Decision: use `ItemDefinition.IsStackable`/`MaxStackSize` for stackable `Item` creation, while `Ammo` stack creation still validates the embedded item stackability constraints. Authority / approval: task definition type rules and existing typed model.
 - 2026-09-06 — Decision: include stable `ItemInstanceId`/`ItemStackId` in creation requests so a replay with the same `CommandId` reaches the existing repository ledger with the same target id. Authority / approval: `ODY-S05-203` idempotency acceptance and `ODY-S05-202` repository contract.
+- 2026-09-07 — Amendment: probe the existing `InventoryCommandLedger` after MainGM validation and before catalog status/type validation. Rationale: a successful command must replay its stored runtime snapshot even after its source definition is archived; target identity mismatch remains a ledger failure. Authority / approval: owner amendment to PR #115 and `ADR-002`.
 
 ### Approved task changes
 
