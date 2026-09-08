@@ -176,6 +176,24 @@ namespace Odyssey.Persistence.Sqlite
             }
         }
 
+        public Result<InventoryCreateReplay<ItemInstanceRecord>> TryReplayCreateItemInstance(CampaignHandle campaign, CommandId commandId, ItemInstanceId itemInstanceId, CorrelationId correlationId)
+        {
+            if (campaign == null) throw new ArgumentNullException(nameof(campaign));
+            if (!commandId.IsValid) throw new ArgumentException("CommandId is required.", nameof(commandId));
+            if (!itemInstanceId.IsValid) throw new ArgumentException("ItemInstanceId is required.", nameof(itemInstanceId));
+
+            try
+            {
+                using SqliteConnection connection = OpenConnection(campaign.RootPath);
+                EnsureInventoryTables(connection);
+                return ProbeCreateReplay(connection, commandId, TargetItemInstance, itemInstanceId.ToString(), SelectItemInstance, correlationId);
+            }
+            catch (Exception ex) when (ex is IOException || ex is UnauthorizedAccessException || ex is SqliteException)
+            {
+                return Result<InventoryCreateReplay<ItemInstanceRecord>>.Failure(PersistenceFailures.InventoryIoFailed(correlationId));
+            }
+        }
+
         public Result<ItemStackRecord> CreateItemStack(CampaignHandle campaign, ItemStackRecord record, CommandId commandId, CorrelationId correlationId)
         {
             if (campaign == null) throw new ArgumentNullException(nameof(campaign));
@@ -251,6 +269,24 @@ namespace Odyssey.Persistence.Sqlite
             catch (Exception ex) when (ex is IOException || ex is UnauthorizedAccessException || ex is SqliteException)
             {
                 return Result<ItemStackRecord>.Failure(PersistenceFailures.InventoryIoFailed(correlationId));
+            }
+        }
+
+        public Result<InventoryCreateReplay<ItemStackRecord>> TryReplayCreateItemStack(CampaignHandle campaign, CommandId commandId, ItemStackId itemStackId, CorrelationId correlationId)
+        {
+            if (campaign == null) throw new ArgumentNullException(nameof(campaign));
+            if (!commandId.IsValid) throw new ArgumentException("CommandId is required.", nameof(commandId));
+            if (!itemStackId.IsValid) throw new ArgumentException("ItemStackId is required.", nameof(itemStackId));
+
+            try
+            {
+                using SqliteConnection connection = OpenConnection(campaign.RootPath);
+                EnsureInventoryTables(connection);
+                return ProbeCreateReplay(connection, commandId, TargetItemStack, itemStackId.ToString(), SelectItemStack, correlationId);
+            }
+            catch (Exception ex) when (ex is IOException || ex is UnauthorizedAccessException || ex is SqliteException)
+            {
+                return Result<InventoryCreateReplay<ItemStackRecord>>.Failure(PersistenceFailures.InventoryIoFailed(correlationId));
             }
         }
 
@@ -342,7 +378,7 @@ namespace Odyssey.Persistence.Sqlite
 
         private static Result<TRecord>? TryReplay<TRecord>(
             SqliteConnection connection,
-            SqliteTransaction transaction,
+            SqliteTransaction? transaction,
             CommandId commandId,
             string expectedTargetKind,
             string expectedTargetId,
@@ -369,6 +405,26 @@ namespace Odyssey.Persistence.Sqlite
             return record == null
                 ? Result<TRecord>.Failure(PersistenceFailures.CommandReplayFailed(correlationId))
                 : Result<TRecord>.Success(record);
+        }
+
+        private static Result<InventoryCreateReplay<TRecord>> ProbeCreateReplay<TRecord>(
+            SqliteConnection connection,
+            CommandId commandId,
+            string expectedTargetKind,
+            string expectedTargetId,
+            Func<SqliteConnection, SqliteTransaction?, string, TRecord?> select,
+            CorrelationId correlationId)
+            where TRecord : class
+        {
+            Result<TRecord>? replay = TryReplay(connection, null, commandId, expectedTargetKind, expectedTargetId, select, correlationId);
+            if (replay == null)
+            {
+                return Result<InventoryCreateReplay<TRecord>>.Success(InventoryCreateReplay<TRecord>.None());
+            }
+
+            return replay.Value.IsFailure
+                ? Result<InventoryCreateReplay<TRecord>>.Failure(replay.Value.Error)
+                : Result<InventoryCreateReplay<TRecord>>.Success(InventoryCreateReplay<TRecord>.Found(replay.Value.Value));
         }
 
         private static void InsertLedgerEntry(SqliteConnection connection, SqliteTransaction transaction, CommandId commandId, string targetKind, string targetId, UtcInstant now)

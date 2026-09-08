@@ -4495,6 +4495,158 @@
                           "runner":  "dotnet test",
                           "path":  "DotNet/Tests/Odyssey.Tests.Persistence/SqliteInventoryRepositoryTests.cs",
                           "check":  "SQLite PRAGMA foreign_key_list confirms ItemInstance.InventoryId and ItemStack.InventoryId reference Inventory.InventoryId"
+                      },
+                      {
+                          "testCaseId":  "TC-INVENTORY-027",
+                          "taskId":  "ODY-S05-203",
+                          "authority":  "ODY-S05-203 minimum test list item 1",
+                          "runner":  "dotnet test",
+                          "path":  "DotNet/Tests/Odyssey.Tests.Persistence/InventoryCreationServiceTests.cs",
+                          "check":  "MainGM creates an ItemInstance from a Published Item definition through InventoryCreationService and SqliteInventoryRepository"
+                      },
+                      {
+                          "testCaseId":  "TC-INVENTORY-028",
+                          "taskId":  "ODY-S05-203",
+                          "authority":  "ODY-S05-203 minimum test list item 2",
+                          "runner":  "dotnet test",
+                          "path":  "DotNet/Tests/Odyssey.Tests.Persistence/InventoryCreationServiceTests.cs",
+                          "check":  "MainGM creates an ItemInstance from a Published Weapon definition and the mechanics snapshot records ContentDefinitionType.Weapon"
+                      },
+                      {
+                          "testCaseId":  "TC-INVENTORY-029",
+                          "taskId":  "ODY-S05-203",
+                          "authority":  "ODY-S05-203 minimum test list item 3",
+                          "runner":  "dotnet test",
+                          "path":  "DotNet/Tests/Odyssey.Tests.Persistence/InventoryCreationServiceTests.cs",
+                          "check":  "MainGM creates an ItemStack from a Published Ammo definition with requested quantity"
+                      },
+                      {
+                          "testCaseId":  "TC-INVENTORY-030",
+                          "taskId":  "ODY-S05-203",
+                          "authority":  "ODY-S05-203 minimum test list item 4",
+                          "runner":  "dotnet test",
+                          "path":  "DotNet/Tests/Odyssey.Tests.Persistence/InventoryCreationServiceTests.cs",
+                          "check":  "Created runtime record pins exact ContentDefinitionRef definition id and Published version"
+                      },
+                      {
+                          "testCaseId":  "TC-INVENTORY-031",
+                          "taskId":  "ODY-S05-203",
+                          "authority":  "ODY-S05-203 minimum test list item 5",
+                          "runner":  "dotnet test",
+                          "path":  "DotNet/Tests/Odyssey.Tests.Persistence/InventoryCreationServiceTests.cs",
+                          "check":  "Created runtime record copies the Published ContentDefinition.PropertiesJson into ItemMechanicsSnapshot.Payload"
+                      },
+                      {
+                          "testCaseId":  "TC-INVENTORY-032",
+                          "taskId":  "ODY-S05-203",
+                          "authority":  "ODY-S05-203 minimum test list item 6",
+                          "runner":  "dotnet test",
+                          "path":  "DotNet/Tests/Odyssey.Tests.Persistence/InventoryCreationServiceTests.cs",
+                          "check":  "Draft definition is rejected and no ItemInstance row is inserted"
+                      },
+                      {
+                          "testCaseId":  "TC-INVENTORY-033",
+                          "taskId":  "ODY-S05-203",
+                          "authority":  "ODY-S05-203 minimum test list item 7",
+                          "runner":  "dotnet test",
+                          "path":  "DotNet/Tests/Odyssey.Tests.Persistence/InventoryCreationServiceTests.cs",
+                          "check":  "Archived definition is rejected and no ItemInstance row is inserted"
+                      },
+                      {
+                          "testCaseId":  "TC-INVENTORY-034",
+                          "taskId":  "ODY-S05-203",
+                          "authority":  "ODY-S05-203 minimum test list item 8",
+                          "runner":  "dotnet test",
+                          "path":  "DotNet/Tests/Odyssey.Tests.Persistence/InventoryCreationServiceTests.cs",
+                          "check":  "Missing ContentDefinitionId is rejected with the catalog repository not-found failure and no runtime row is inserted"
+                      },
+                      {
+                          "testCaseId":  "TC-INVENTORY-035",
+                          "taskId":  "ODY-S05-203",
+                          "authority":  "ODY-S05-203 minimum test list item 9",
+                          "runner":  "dotnet test",
+                          "path":  "DotNet/Tests/Odyssey.Tests.Persistence/InventoryCreationServiceTests.cs",
+                          "check":  "Published Effect definition is rejected for item instance and stack creation"
+                      },
+                      {
+                          "testCaseId":  "TC-INVENTORY-036",
+                          "taskId":  "ODY-S05-203",
+                          "authority":  "ODY-S05-203 minimum test list item 10",
+                          "runner":  "dotnet test",
+                          "path":  "DotNet/Tests/Odyssey.Tests.Persistence/InventoryCreationServiceTests.cs",
+                          "check":  "Published definition that fails CatalogValidationService.ValidateContentDefinition is rejected and no runtime row is inserted"
+                      },
+                      {
+                          "testCaseId":  "TC-INVENTORY-037",
+                          "taskId":  "ODY-S05-203",
+                          "authority":  "ODY-S05-203 minimum test list item 11",
+                          "runner":  "dotnet test",
+                          "path":  "DotNet/Tests/Odyssey.Tests.Persistence/InventoryCreationServiceTests.cs",
+                          "check":  "Non-MainGM request is rejected before inventory mutation"
+                      },
+                      {
+                          "testCaseId":  "TC-INVENTORY-038",
+                          "taskId":  "ODY-S05-203",
+                          "authority":  "ODY-S05-203 minimum test list item 12",
+                          "runner":  "dotnet test",
+                          "path":  "DotNet/Tests/Odyssey.Tests.Persistence/InventoryCreationServiceTests.cs",
+                          "check":  "Replay with the same CommandId and stable ItemInstanceId returns the stored item without duplicating the row"
+                      },
+                      {
+                          "testCaseId":  "TC-INVENTORY-039",
+                          "taskId":  "ODY-S05-203",
+                          "authority":  "ODY-S05-203 minimum test list item 13",
+                          "runner":  "dotnet test",
+                          "path":  "DotNet/Tests/Odyssey.Tests.Persistence/InventoryCreationServiceTests.cs",
+                          "check":  "Reusing the same CommandId for a different runtime target is rejected by the existing inventory repository ledger"
+                      },
+                      {
+                          "testCaseId":  "TC-INVENTORY-040",
+                          "taskId":  "ODY-S05-203",
+                          "authority":  "ODY-S05-203 minimum test list item 14",
+                          "runner":  "dotnet test",
+                          "path":  "DotNet/Tests/Odyssey.Tests.Persistence/InventoryCreationServiceTests.cs",
+                          "check":  "Scope guard confirms no move, transfer, split, merge, equipment, attack, ActiveEffect, or ItemDefinition migration implementation is introduced"
+                      },
+                      {
+                          "testCaseId":  "TC-INVENTORY-041",
+                          "taskId":  "ODY-S05-203",
+                          "authority":  "ODY-S05-203 definition type rules: Item can create stack only if its typed definition says stackable",
+                          "runner":  "dotnet test",
+                          "path":  "DotNet/Tests/Odyssey.Tests.Persistence/InventoryCreationServiceTests.cs",
+                          "check":  "CreateItemStackFromDefinition rejects a Published non-stackable Item definition and inserts no ItemStack row"
+                      },
+                      {
+                          "testCaseId":  "TC-INVENTORY-042",
+                          "taskId":  "ODY-S05-203",
+                          "authority":  "ODY-S05-203 definition type rules: stack quantity must respect typed Item max stack size when declared",
+                          "runner":  "dotnet test",
+                          "path":  "DotNet/Tests/Odyssey.Tests.Persistence/InventoryCreationServiceTests.cs",
+                          "check":  "CreateItemStackFromDefinition rejects a Published stackable Item definition when requested quantity exceeds MaxStackSize and inserts no ItemStack row"
+                      },
+                      {
+                          "testCaseId":  "TC-INVENTORY-043",
+                          "taskId":  "ODY-S05-203",
+                          "authority":  "ODY-S05-203 amendment: replay is determined by InventoryCommandLedger before current catalog lifecycle validation",
+                          "runner":  "dotnet test",
+                          "path":  "DotNet/Tests/Odyssey.Tests.Persistence/InventoryCreationServiceTests.cs",
+                          "check":  "CreateItemInstanceFromDefinition replay after its source definition is archived returns the stored ItemInstance without a duplicate row"
+                      },
+                      {
+                          "testCaseId":  "TC-INVENTORY-044",
+                          "taskId":  "ODY-S05-203",
+                          "authority":  "ODY-S05-203 amendment: replay is determined by InventoryCommandLedger before current catalog lifecycle validation",
+                          "runner":  "dotnet test",
+                          "path":  "DotNet/Tests/Odyssey.Tests.Persistence/InventoryCreationServiceTests.cs",
+                          "check":  "CreateItemStackFromDefinition replay after its source definition is archived returns the stored ItemStack without a duplicate row"
+                      },
+                      {
+                          "testCaseId":  "TC-INVENTORY-045",
+                          "taskId":  "ODY-S05-203",
+                          "authority":  "ODY-S05-203 amendment: a replay probe must reject a CommandId recorded for another target before catalog lifecycle validation",
+                          "runner":  "dotnet test",
+                          "path":  "DotNet/Tests/Odyssey.Tests.Persistence/InventoryCreationServiceTests.cs",
+                          "check":  "CreateItemInstanceFromDefinition with an archived source definition and a reused CommandId for another ItemInstance target fails with CommandIdentityMismatch"
                       }
                   ]
 }
