@@ -83,7 +83,7 @@ namespace Odyssey.Tests.Unit.Inventory
         }
 
         [Test]
-        public void InventoryFoundationRecords_DoNotIntroduceCommandEquipmentAttackActiveEffectOrMigrationBehavior()
+        public void InventoryRuntimeScope_AllowsOnlyMoveBehaviorBeforeLaterInventoryTasks()
         {
             Type[] contractTypes =
             {
@@ -104,8 +104,8 @@ namespace Odyssey.Tests.Unit.Inventory
                 .Where(path => path.IndexOf(Path.Combine("Runtime", "Inventory"), StringComparison.OrdinalIgnoreCase) >= 0)
                 .ToArray();
 
-            Assert.That(inventoryRuntimeFiles.Any(path => Path.GetFileName(path).IndexOf("Command", StringComparison.OrdinalIgnoreCase) >= 0), Is.False, "ODY-S05-201 must not add Inventory commands.");
-            Assert.That(inventoryRuntimeFiles.Any(path => Path.GetFileName(path).IndexOf("Move", StringComparison.OrdinalIgnoreCase) >= 0), Is.False, "Inventory runtime must not add move behavior before ODY-S05-204.");
+            Assert.That(inventoryRuntimeFiles.Any(path => Path.GetFileName(path).IndexOf("Command", StringComparison.OrdinalIgnoreCase) >= 0), Is.False, "Inventory commands remain represented by task-specific services, not a generic command surface.");
+            Assert.That(inventoryRuntimeFiles.Where(path => Path.GetFileName(path).IndexOf("Move", StringComparison.OrdinalIgnoreCase) >= 0).Select(Path.GetFileName), Is.EquivalentTo(new[] { "InventoryMovementService.cs" }), "ODY-S05-204 may introduce only its move service.");
             Assert.That(inventoryRuntimeFiles.Any(path => Path.GetFileName(path).IndexOf("Transfer", StringComparison.OrdinalIgnoreCase) >= 0), Is.False, "Inventory runtime must not add transfer behavior before ODY-S05-204.");
             Assert.That(inventoryRuntimeFiles.Any(path => Path.GetFileName(path).IndexOf("Split", StringComparison.OrdinalIgnoreCase) >= 0), Is.False, "Inventory runtime must not add split behavior before ODY-S05-205.");
             Assert.That(inventoryRuntimeFiles.Any(path => Path.GetFileName(path).IndexOf("Merge", StringComparison.OrdinalIgnoreCase) >= 0), Is.False, "Inventory runtime must not add merge behavior before ODY-S05-205.");

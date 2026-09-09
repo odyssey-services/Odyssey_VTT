@@ -4606,7 +4606,7 @@
                           "authority":  "ODY-S05-203 minimum test list item 14",
                           "runner":  "dotnet test",
                           "path":  "DotNet/Tests/Odyssey.Tests.Persistence/InventoryCreationServiceTests.cs",
-                          "check":  "Scope guard confirms no move, transfer, split, merge, equipment, attack, ActiveEffect, or ItemDefinition migration implementation is introduced"
+                          "check":  "Creation-task scope guard confirms no transfer, split, merge, equipment, attack, ActiveEffect, or ItemDefinition migration implementation is introduced; ODY-S05-204 owns move scope"
                       },
                       {
                           "testCaseId":  "TC-INVENTORY-041",
@@ -4647,6 +4647,21 @@
                           "runner":  "dotnet test",
                           "path":  "DotNet/Tests/Odyssey.Tests.Persistence/InventoryCreationServiceTests.cs",
                           "check":  "CreateItemInstanceFromDefinition with an archived source definition and a reused CommandId for another ItemInstance target fails with CommandIdentityMismatch"
-                      }
+                      },
+                      { "testCaseId": "TC-INVENTORY-046", "taskId": "ODY-S05-204", "authority": "ODY-S05-204", "runner": "dotnet test", "path": "DotNet/Tests/Odyssey.Tests.Persistence/InventoryMovementServiceTests.cs", "check": "Contained ItemInstance move" },
+                      { "testCaseId": "TC-INVENTORY-047", "taskId": "ODY-S05-204", "authority": "ODY-S05-204", "runner": "dotnet test", "path": "DotNet/Tests/Odyssey.Tests.Persistence/InventoryMovementServiceTests.cs", "check": "Cross-inventory ItemStack transfer" },
+                      { "testCaseId": "TC-INVENTORY-048", "taskId": "ODY-S05-204", "authority": "ODY-S05-204", "runner": "dotnet test", "path": "DotNet/Tests/Odyssey.Tests.Persistence/InventoryMovementServiceTests.cs", "check": "Same-inventory revision increments once" },
+                      { "testCaseId": "TC-INVENTORY-049", "taskId": "ODY-S05-204", "authority": "ODY-S05-204", "runner": "dotnet test", "path": "DotNet/Tests/Odyssey.Tests.Persistence/InventoryMovementServiceTests.cs", "check": "Persisted destination owner" },
+                      { "testCaseId": "TC-INVENTORY-050", "taskId": "ODY-S05-204", "authority": "ODY-S05-204", "runner": "dotnet test", "path": "DotNet/Tests/Odyssey.Tests.Persistence/InventoryMovementServiceTests.cs", "check": "MainGM denial" },
+                      { "testCaseId": "TC-INVENTORY-051", "taskId": "ODY-S05-204", "authority": "ODY-S05-204", "runner": "dotnet test", "path": "DotNet/Tests/Odyssey.Tests.Persistence/InventoryMovementServiceTests.cs", "check": "Equipped source rejects without changing target, Inventory revision, or move ledger" },
+                      { "testCaseId": "TC-INVENTORY-052", "taskId": "ODY-S05-204", "authority": "ODY-S05-204", "runner": "dotnet test", "path": "DotNet/Tests/Odyssey.Tests.Persistence/InventoryMovementServiceTests.cs", "check": "Missing destination Inventory rejects without persisted mutation" },
+                      { "testCaseId": "TC-INVENTORY-053", "taskId": "ODY-S05-204", "authority": "ODY-S05-204", "runner": "dotnet test", "path": "DotNet/Tests/Odyssey.Tests.Persistence/InventoryMovementServiceTests.cs", "check": "Stale target revision rejects without persisted mutation" },
+                      { "testCaseId": "TC-INVENTORY-054", "taskId": "ODY-S05-204", "authority": "ODY-S05-204", "runner": "dotnet test", "path": "DotNet/Tests/Odyssey.Tests.Persistence/InventoryMovementServiceTests.cs", "check": "Stale cross-inventory source revision rejects without persisted mutation" },
+                      { "testCaseId": "TC-INVENTORY-055", "taskId": "ODY-S05-204", "authority": "ODY-S05-204", "runner": "dotnet test", "path": "DotNet/Tests/Odyssey.Tests.Persistence/InventoryMovementServiceTests.cs", "check": "Stale cross-inventory destination revision rejects without persisted mutation" },
+                      { "testCaseId": "TC-INVENTORY-056", "taskId": "ODY-S05-204", "authority": "ODY-S05-204", "runner": "dotnet test", "path": "DotNet/Tests/Odyssey.Tests.Persistence/InventoryMovementServiceTests.cs", "check": "Exact destination rejection" },
+                      { "testCaseId": "TC-INVENTORY-057", "taskId": "ODY-S05-204", "authority": "ODY-S05-204", "runner": "dotnet test", "path": "DotNet/Tests/Odyssey.Tests.Persistence/InventoryMovementServiceTests.cs", "check": "Exact replay" },
+                      { "testCaseId": "TC-INVENTORY-058", "taskId": "ODY-S05-204", "authority": "ODY-S05-204", "runner": "dotnet test", "path": "DotNet/Tests/Odyssey.Tests.Persistence/InventoryMovementServiceTests.cs", "check": "Ledger collision" },
+                      { "testCaseId": "TC-INVENTORY-059", "taskId": "ODY-S05-204", "authority": "ODY-S05-204", "runner": "dotnet test", "path": "DotNet/Tests/Odyssey.Tests.Persistence/InventoryMovementServiceTests.cs", "check": "Trigger-injected target update failure rolls back both Inventory revisions, target, and ledger" },
+                      { "testCaseId": "TC-INVENTORY-060", "taskId": "ODY-S05-204", "authority": "ODY-S05-204", "runner": "dotnet test", "path": "DotNet/Tests/Odyssey.Tests.Persistence/InventoryMovementServiceTests.cs", "check": "No out-of-scope tables or application surface" }
                   ]
 }

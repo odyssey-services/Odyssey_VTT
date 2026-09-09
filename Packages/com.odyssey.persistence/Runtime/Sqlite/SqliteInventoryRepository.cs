@@ -176,6 +176,13 @@ namespace Odyssey.Persistence.Sqlite
             }
         }
 
+        public Result<ItemInstanceRecord> MoveItemInstance(CampaignHandle campaign, InventoryMove move, CorrelationId correlationId)
+        {
+            if (campaign == null) throw new ArgumentNullException(nameof(campaign));
+            if (move == null) throw new ArgumentNullException(nameof(move));
+            return MoveItem(campaign, move, TargetItemInstance, move.Target.ItemInstanceId.ToString(), "ItemInstance", "ItemInstanceId", SelectItemInstance, r => r.InventoryId, r => r.LocationRef, r => r.Revision, correlationId);
+        }
+
         public Result<InventoryCreateReplay<ItemInstanceRecord>> TryReplayCreateItemInstance(CampaignHandle campaign, CommandId commandId, ItemInstanceId itemInstanceId, CorrelationId correlationId)
         {
             if (campaign == null) throw new ArgumentNullException(nameof(campaign));
@@ -272,6 +279,13 @@ namespace Odyssey.Persistence.Sqlite
             }
         }
 
+        public Result<ItemStackRecord> MoveItemStack(CampaignHandle campaign, InventoryMove move, CorrelationId correlationId)
+        {
+            if (campaign == null) throw new ArgumentNullException(nameof(campaign));
+            if (move == null) throw new ArgumentNullException(nameof(move));
+            return MoveItem(campaign, move, TargetItemStack, move.Target.ItemStackId.ToString(), "ItemStack", "ItemStackId", SelectItemStack, r => r.InventoryId, r => r.LocationRef, r => r.Revision, correlationId);
+        }
+
         public Result<InventoryCreateReplay<ItemStackRecord>> TryReplayCreateItemStack(CampaignHandle campaign, CommandId commandId, ItemStackId itemStackId, CorrelationId correlationId)
         {
             if (campaign == null) throw new ArgumentNullException(nameof(campaign));
@@ -365,6 +379,65 @@ namespace Odyssey.Persistence.Sqlite
             error = PersistenceFailures.InventoryCampaignMismatch(correlationId);
             return false;
         }
+
+        private Result<T> MoveItem<T>(CampaignHandle campaign, InventoryMove move, string targetKind, string targetId, string table, string idColumn, Func<SqliteConnection, SqliteTransaction?, string, T?> select, Func<T, InventoryId> inventoryOf, Func<T, InventoryLocationRef> locationOf, Func<T, long> revisionOf, CorrelationId correlationId) where T : class
+        {
+            try
+            {
+                using SqliteConnection connection = OpenConnection(campaign.RootPath);
+                EnsureInventoryTables(connection);
+                using SqliteTransaction transaction = connection.BeginTransaction();
+                if (CommandExists(connection, transaction, "InventoryCommandLedger", move.CommandId))
+                {
+                    transaction.Commit(); return Result<T>.Failure(PersistenceFailures.InventoryCommandIdentityMismatch(correlationId));
+                }
+                Result<T>? replay = TryMoveReplay(connection, transaction, move, targetKind, targetId, select, correlationId);
+                if (replay != null) { transaction.Commit(); return replay.Value; }
+                T? target = select(connection, transaction, targetId);
+                InventoryRecord? source = SelectInventory(connection, transaction, move.SourceInventoryId.ToString());
+                InventoryRecord? destination = SelectInventory(connection, transaction, move.DestinationInventoryId.ToString());
+                if (target == null) { transaction.Commit(); return Result<T>.Failure(targetKind == TargetItemInstance ? PersistenceFailures.ItemInstanceNotFound(correlationId) : PersistenceFailures.ItemStackNotFound(correlationId)); }
+                if (source == null || destination == null) { transaction.Commit(); return Result<T>.Failure(PersistenceFailures.InventoryNotFound(correlationId)); }
+                if (!inventoryOf(target).Equals(move.SourceInventoryId) || locationOf(target).Kind != InventoryLocationKind.Contained) { transaction.Commit(); return Result<T>.Failure(InventoryMovementFailures.SourceInvalid(correlationId)); }
+                if (revisionOf(target) != move.ExpectedTargetRevision) { transaction.Commit(); return Result<T>.Failure(InventoryMovementFailures.ItemRevisionConflict(correlationId)); }
+                if (source.Revision != move.ExpectedSourceRevision || destination.Revision != move.ExpectedDestinationRevision) { transaction.Commit(); return Result<T>.Failure(InventoryMovementFailures.InventoryRevisionConflict(correlationId)); }
+                if (move.SourceInventoryId.Equals(move.DestinationInventoryId) && locationOf(target).DetailRef == move.DestinationContainerKey) { transaction.Commit(); return Result<T>.Failure(InventoryMovementFailures.DestinationUnchanged(correlationId)); }
+                UtcInstant now = _clock.GetUtcNow();
+                if (!TryUpdateInventoryForMove(connection, transaction, source.InventoryId, move.ExpectedSourceRevision, now))
+                {
+                    transaction.Rollback();
+                    return Result<T>.Failure(InventoryMovementFailures.InventoryRevisionConflict(correlationId));
+                }
+
+                if (!source.InventoryId.Equals(destination.InventoryId) && !TryUpdateInventoryForMove(connection, transaction, destination.InventoryId, move.ExpectedDestinationRevision, now))
+                {
+                    transaction.Rollback();
+                    return Result<T>.Failure(InventoryMovementFailures.InventoryRevisionConflict(correlationId));
+                }
+
+                using (var update = connection.CreateCommand())
+                {
+                    update.Transaction = transaction;
+                    update.CommandText = "UPDATE " + table + " SET InventoryId=$inventoryId,OwnerKind=$ownerKind,OwnerTargetRef=$ownerTargetRef,OwnerLocationKey=$ownerLocationKey,LocationKind=$locationKind,LocationTargetRef=$locationTargetRef,LocationDetailRef=$locationDetailRef,Revision=Revision+1,UpdatedAt=$updatedAt WHERE " + idColumn + "=$id AND InventoryId=$sourceInventoryId AND Revision=$expectedRevision;";
+                    update.Parameters.AddWithValue("$inventoryId", destination.InventoryId.ToString()); update.Parameters.AddWithValue("$ownerKind", destination.OwnerRef.Kind.ToString()); update.Parameters.AddWithValue("$ownerTargetRef", destination.OwnerRef.TargetRef); update.Parameters.AddWithValue("$ownerLocationKey", (object?)destination.OwnerRef.LocationKey ?? DBNull.Value); update.Parameters.AddWithValue("$locationKind", InventoryLocationKind.Contained.ToString()); update.Parameters.AddWithValue("$locationTargetRef", destination.InventoryId.ToString()); update.Parameters.AddWithValue("$locationDetailRef", move.DestinationContainerKey); update.Parameters.AddWithValue("$updatedAt", now.ToString()); update.Parameters.AddWithValue("$id", targetId);
+                    update.Parameters.AddWithValue("$sourceInventoryId", move.SourceInventoryId.ToString());
+                    update.Parameters.AddWithValue("$expectedRevision", move.ExpectedTargetRevision);
+                    if (update.ExecuteNonQuery() != 1)
+                    {
+                        transaction.Rollback();
+                        return Result<T>.Failure(InventoryMovementFailures.ItemRevisionConflict(correlationId));
+                    }
+                }
+                InsertMoveLedger(connection, transaction, move, targetKind, targetId, now);
+                T? moved = select(connection, transaction, targetId); transaction.Commit(); return moved == null ? Result<T>.Failure(PersistenceFailures.CommandReplayFailed(correlationId)) : Result<T>.Success(moved);
+            }
+            catch (Exception ex) when (ex is IOException || ex is UnauthorizedAccessException || ex is SqliteException) { return Result<T>.Failure(PersistenceFailures.InventoryIoFailed(correlationId)); }
+        }
+
+        private static bool CommandExists(SqliteConnection c, SqliteTransaction t, string table, CommandId id) { using var q = c.CreateCommand(); q.Transaction = t; q.CommandText = "SELECT 1 FROM " + table + " WHERE CommandId=$id LIMIT 1;"; q.Parameters.AddWithValue("$id", id.ToString()); return q.ExecuteScalar() != null; }
+        private static Result<T>? TryMoveReplay<T>(SqliteConnection c, SqliteTransaction t, InventoryMove m, string kind, string target, Func<SqliteConnection, SqliteTransaction?, string, T?> select, CorrelationId id) where T : class { using var q = c.CreateCommand(); q.Transaction = t; q.CommandText = "SELECT TargetKind,TargetId,SourceInventoryId,DestinationInventoryId,DestinationContainerKey,TargetRevision,SourceRevision,DestinationRevision FROM InventoryMoveCommandLedger WHERE CommandId=$id;"; q.Parameters.AddWithValue("$id", m.CommandId.ToString()); using var r = q.ExecuteReader(); if (!r.Read()) return null; bool same = r.GetString(0) == kind && r.GetString(1) == target && r.GetString(2) == m.SourceInventoryId.ToString() && r.GetString(3) == m.DestinationInventoryId.ToString() && r.GetString(4) == m.DestinationContainerKey && r.GetInt64(5) == m.ExpectedTargetRevision && r.GetInt64(6) == m.ExpectedSourceRevision && r.GetInt64(7) == m.ExpectedDestinationRevision; return !same ? Result<T>.Failure(PersistenceFailures.InventoryCommandIdentityMismatch(id)) : select(c, t, target) is T record ? Result<T>.Success(record) : Result<T>.Failure(PersistenceFailures.CommandReplayFailed(id)); }
+        private static bool TryUpdateInventoryForMove(SqliteConnection c, SqliteTransaction t, InventoryId id, long expectedRevision, UtcInstant now) { using var q = c.CreateCommand(); q.Transaction = t; q.CommandText = "UPDATE Inventory SET Revision=$newRevision,UpdatedAt=$updatedAt WHERE InventoryId=$inventoryId AND Revision=$expectedRevision;"; q.Parameters.AddWithValue("$newRevision", expectedRevision + 1); q.Parameters.AddWithValue("$updatedAt", now.ToString()); q.Parameters.AddWithValue("$inventoryId", id.ToString()); q.Parameters.AddWithValue("$expectedRevision", expectedRevision); return q.ExecuteNonQuery() == 1; }
+        private static void InsertMoveLedger(SqliteConnection c, SqliteTransaction t, InventoryMove m, string kind, string target, UtcInstant now) { using var q = c.CreateCommand(); q.Transaction = t; q.CommandText = "INSERT INTO InventoryMoveCommandLedger (CommandId,TargetKind,TargetId,SourceInventoryId,DestinationInventoryId,DestinationContainerKey,TargetRevision,SourceRevision,DestinationRevision,CreatedAt) VALUES ($commandId,$kind,$target,$source,$destination,$key,$targetRevision,$sourceRevision,$destinationRevision,$now);"; q.Parameters.AddWithValue("$commandId", m.CommandId.ToString()); q.Parameters.AddWithValue("$kind", kind); q.Parameters.AddWithValue("$target", target); q.Parameters.AddWithValue("$source", m.SourceInventoryId.ToString()); q.Parameters.AddWithValue("$destination", m.DestinationInventoryId.ToString()); q.Parameters.AddWithValue("$key", m.DestinationContainerKey); q.Parameters.AddWithValue("$targetRevision", m.ExpectedTargetRevision); q.Parameters.AddWithValue("$sourceRevision", m.ExpectedSourceRevision); q.Parameters.AddWithValue("$destinationRevision", m.ExpectedDestinationRevision); q.Parameters.AddWithValue("$now", now.ToString()); q.ExecuteNonQuery(); }
 
         private static bool InventoryExists(SqliteConnection connection, SqliteTransaction transaction, CampaignId campaignId, InventoryId inventoryId)
         {
@@ -666,6 +739,18 @@ CREATE TABLE IF NOT EXISTS InventoryCommandLedger (
     TargetId TEXT NOT NULL,
     CreatedAt TEXT NOT NULL,
     AppliedAt TEXT NOT NULL
+);
+CREATE TABLE IF NOT EXISTS InventoryMoveCommandLedger (
+    CommandId TEXT PRIMARY KEY,
+    TargetKind TEXT NOT NULL,
+    TargetId TEXT NOT NULL,
+    SourceInventoryId TEXT NOT NULL,
+    DestinationInventoryId TEXT NOT NULL,
+    DestinationContainerKey TEXT NOT NULL,
+    TargetRevision INTEGER NOT NULL,
+    SourceRevision INTEGER NOT NULL,
+    DestinationRevision INTEGER NOT NULL,
+    CreatedAt TEXT NOT NULL
 );
 CREATE INDEX IF NOT EXISTS IX_ItemInstance_Campaign_Inventory ON ItemInstance (CampaignId, InventoryId);
 CREATE INDEX IF NOT EXISTS IX_ItemStack_Campaign_Inventory ON ItemStack (CampaignId, InventoryId);";
