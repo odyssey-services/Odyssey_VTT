@@ -239,6 +239,7 @@ dotnet test DotNet\Odyssey.Core.sln
 
 - 2026-09-08 — Dedicated move ledger remains separate from the creation ledger.
 - 2026-09-08 — Repository owns the atomic transaction; Application does not read/rebuild/write movement state.
+- 2026-09-09 — Final Inventory and target writes use SQLite compare-and-swap predicates. A zero-row update rolls back before the move ledger can be inserted.
 
 ### Approved task changes
 

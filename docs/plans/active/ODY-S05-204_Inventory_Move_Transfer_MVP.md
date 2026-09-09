@@ -51,6 +51,7 @@ MainGM can atomically move an existing item instance or stack between Inventory 
 
 - 2026-09-08 UTC — Fetched origin, verified merged PR #115 at `542c4df`, created task branch from `origin/main`, read authorities, and created task contract/ExecPlan before product edits.
 - 2026-09-09 UTC — Implemented the MainGM-gated application surface, atomic SQLite move transaction, dedicated ledger, and test coverage. Local build, full test suite, format, policy, and test-structure gates passed.
+- 2026-09-09 UTC — Amended the move transaction so Inventory and target writes are compare-and-swap operations. Added direct persisted-state tests for non-contained sources, missing destination, stale target/source/destination revisions, exact replay, and a trigger-injected rollback.
 
 ## 7. Decisions
 

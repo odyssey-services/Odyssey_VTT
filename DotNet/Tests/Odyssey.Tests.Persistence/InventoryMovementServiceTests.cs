@@ -91,7 +91,7 @@ namespace Odyssey.Tests.Persistence
         }
 
         [Test]
-        public void Move_RejectsInvalidSourceNoOpAndStaleRevisionsWithoutLedger()
+        public void Move_RejectsExactDestinationAndStaleTargetRevisionWithoutMutation()
         {
             InventoryRecord inventory = CreateInventory();
             ItemInstanceRecord item = CreateInstance(inventory, "main");
@@ -103,6 +103,67 @@ namespace Odyssey.Tests.Persistence
             Assert.That(staleItem.Error.Code, Is.EqualTo(ErrorCodes.PersistenceInventoryItemRevisionConflict));
             Assert.That(staleInventory.Error.Code, Is.EqualTo(ErrorCodes.PersistenceInventoryRevisionConflict));
             Assert.That(CountRows("InventoryMoveCommandLedger"), Is.EqualTo(0));
+        }
+
+        [Test]
+        public void Move_RejectsNonContainedSourceWithoutMutation()
+        {
+            InventoryRecord inventory = CreateInventory();
+            ItemInstanceRecord item = NewInstance(inventory, "main", InventoryLocationRef.Equipped(inventory.InventoryId, "belt"));
+            Assert.That(_repository.CreateItemInstance(_campaign, item, NewCommandId(), CorrelationId).IsSuccess, Is.True);
+
+            Result<ItemInstanceRecord> result = InventoryMovementService.MoveItemInstance(_repository, InstanceRequest(item, inventory, inventory, "pack"));
+
+            Assert.That(result.Error.Code, Is.EqualTo(ErrorCodes.InventoryMoveSourceInvalid));
+            AssertUnchanged(item, inventory);
+        }
+
+        [Test]
+        public void Move_RejectsMissingDestinationWithoutMutation()
+        {
+            InventoryRecord source = CreateInventory();
+            ItemInstanceRecord item = CreateInstance(source, "main");
+            InventoryRecord missingDestination = NewInventoryRecord();
+
+            Result<ItemInstanceRecord> result = InventoryMovementService.MoveItemInstance(_repository, InstanceRequest(item, source, missingDestination, "pack"));
+
+            Assert.That(result.Error.Code, Is.EqualTo(ErrorCodes.PersistenceInventoryNotFound));
+            AssertUnchanged(item, source);
+        }
+
+        [Test]
+        public void Move_RejectsStaleSourceAndDestinationInventoryRevisionsWithoutMutation()
+        {
+            InventoryRecord source = CreateInventory();
+            InventoryRecord destination = CreateInventory(sceneOwner: true);
+            ItemInstanceRecord item = CreateInstance(source, "main");
+
+            Result<ItemInstanceRecord> staleSource = InventoryMovementService.MoveItemInstance(_repository, InstanceRequest(item, source, destination, "crate", sourceRevision: 2));
+            Result<ItemInstanceRecord> staleDestination = InventoryMovementService.MoveItemInstance(_repository, InstanceRequest(item, source, destination, "crate", destinationRevision: 2));
+
+            Assert.That(staleSource.Error.Code, Is.EqualTo(ErrorCodes.PersistenceInventoryRevisionConflict));
+            Assert.That(staleDestination.Error.Code, Is.EqualTo(ErrorCodes.PersistenceInventoryRevisionConflict));
+            AssertUnchanged(item, source, destination);
+        }
+
+        [Test]
+        public void Move_RollsBackAfterTargetUpdateFailure()
+        {
+            InventoryRecord source = CreateInventory();
+            InventoryRecord destination = CreateInventory(sceneOwner: true);
+            ItemInstanceRecord item = CreateInstance(source, "main");
+            using (SqliteConnection connection = Open())
+            using (var trigger = connection.CreateCommand())
+            {
+                trigger.CommandText = "CREATE TRIGGER FailInventoryMove BEFORE UPDATE ON ItemInstance BEGIN SELECT RAISE(ABORT, 'test failure'); END;";
+                trigger.ExecuteNonQuery();
+            }
+
+            Result<ItemInstanceRecord> result = InventoryMovementService.MoveItemInstance(_repository, InstanceRequest(item, source, destination, "crate"));
+
+            Assert.That(result.IsFailure, Is.True);
+            Assert.That(result.Error.Code, Is.EqualTo(ErrorCodes.PersistenceInventoryIoFailed));
+            AssertUnchanged(item, source, destination);
         }
 
         [Test]
@@ -122,6 +183,7 @@ namespace Odyssey.Tests.Persistence
             Assert.That(first.IsSuccess && replay.IsSuccess, Is.True);
             Assert.That(replay.Value.Revision, Is.EqualTo(2));
             Assert.That(CountRows("InventoryMoveCommandLedger"), Is.EqualTo(1));
+            Assert.That(_repository.GetInventory(_campaign, inventory.InventoryId, CorrelationId).Value.Revision, Is.EqualTo(2));
             Assert.That(create.IsSuccess, Is.True);
             Assert.That(collision.Error.Code, Is.EqualTo(ErrorCodes.CommandIdentityMismatch));
         }
@@ -167,11 +229,28 @@ namespace Odyssey.Tests.Persistence
             return record;
         }
 
-        private ItemInstanceRecord NewInstance(InventoryRecord inventory, string key)
+        private ItemInstanceRecord NewInstance(InventoryRecord inventory, string key, InventoryLocationRef? location = null)
         {
             UtcInstant now = Clock.GetUtcNow();
             ContentDefinitionRef source = new ContentDefinitionRef(ContentDefinitionId.NewId(now), 1);
-            return new ItemInstanceRecord(ItemInstanceId.NewId(now), _campaign.CampaignId, inventory.InventoryId, inventory.OwnerRef, InventoryLocationRef.Contained(inventory.InventoryId, key), source, new ItemMechanicsSnapshot(source, 1, ContentDefinitionType.Item, "{}"), "{}", 1, now, now);
+            return new ItemInstanceRecord(ItemInstanceId.NewId(now), _campaign.CampaignId, inventory.InventoryId, inventory.OwnerRef, location ?? InventoryLocationRef.Contained(inventory.InventoryId, key), source, new ItemMechanicsSnapshot(source, 1, ContentDefinitionType.Item, "{}"), "{}", 1, now, now);
+        }
+
+        private InventoryRecord NewInventoryRecord()
+        {
+            UtcInstant now = Clock.GetUtcNow();
+            return new InventoryRecord(InventoryId.NewId(now), _campaign.CampaignId, InventoryOwnerRef.ForCharacter(CharacterId.NewId(now)), 1, now, now);
+        }
+
+        private void AssertUnchanged(ItemInstanceRecord item, InventoryRecord source, InventoryRecord? destination = null)
+        {
+            ItemInstanceRecord storedItem = _repository.GetItemInstance(_campaign, item.ItemInstanceId, CorrelationId).Value;
+            Assert.That(storedItem.InventoryId, Is.EqualTo(item.InventoryId));
+            Assert.That(storedItem.LocationRef, Is.EqualTo(item.LocationRef));
+            Assert.That(storedItem.Revision, Is.EqualTo(item.Revision));
+            Assert.That(_repository.GetInventory(_campaign, source.InventoryId, CorrelationId).Value.Revision, Is.EqualTo(source.Revision));
+            if (destination != null) Assert.That(_repository.GetInventory(_campaign, destination.InventoryId, CorrelationId).Value.Revision, Is.EqualTo(destination.Revision));
+            Assert.That(CountRows("InventoryMoveCommandLedger"), Is.EqualTo(0));
         }
 
         private MoveItemInstanceRequest InstanceRequest(ItemInstanceRecord item, InventoryRecord source, InventoryRecord destination, string key, CommandId? commandId = null, long targetRevision = 1, long sourceRevision = 1, long destinationRevision = 1, bool mainGm = true)
