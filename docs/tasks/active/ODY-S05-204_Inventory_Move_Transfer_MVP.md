@@ -5,7 +5,7 @@
 **Owner:** Codex (agent)
 **Requested by:** Product owner
 **Branch:** `feat/ody-s05-204-inventory-move-transfer-mvp`
-**Pull request:** Pending Draft PR creation
+**Pull request:** Draft [#116](https://github.com/odyssey-services/Odyssey_VTT/pull/116)
 **ExecPlan:** `docs/plans/active/ODY-S05-204_Inventory_Move_Transfer_MVP.md`
 **Created:** 2026-09-08
 **Last updated:** 2026-09-09 UTC
@@ -215,7 +215,7 @@ dotnet test DotNet\Odyssey.Core.sln
 
 | Area | Result |
 |---|---|
-| Product code, schema, tests, metadata, error registry | Implemented; backlog awaits Draft PR number |
+| Product code, schema, tests, metadata, error registry, backlog | Implemented |
 
 ### Validation results
 

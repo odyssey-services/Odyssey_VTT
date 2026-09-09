@@ -3,7 +3,7 @@
 **Status:** Active
 **Owner:** Codex (agent)
 **Branch:** `feat/ody-s05-204-inventory-move-transfer-mvp`
-**Pull request:** Pending Draft PR creation
+**Pull request:** Draft [#116](https://github.com/odyssey-services/Odyssey_VTT/pull/116)
 **Last updated:** 2026-09-09 UTC
 
 ## 1. Purpose and user-visible outcome
@@ -44,7 +44,7 @@ MainGM can atomically move an existing item instance or stack between Inventory 
 
 ### M3 — Review-ready task
 
-- [ ] Update backlog status after the Draft PR number is assigned.
+- [x] Update backlog status after the Draft PR number is assigned.
 - [x] Run required commands and review scope diff.
 
 ## 6. Progress log
