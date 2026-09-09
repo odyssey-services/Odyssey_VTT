@@ -5,10 +5,10 @@
 **Owner:** Codex (agent)
 **Requested by:** Product owner
 **Branch:** `feat/ody-s05-204-inventory-move-transfer-mvp`
-**Pull request:** Not opened
+**Pull request:** Pending Draft PR creation
 **ExecPlan:** `docs/plans/active/ODY-S05-204_Inventory_Move_Transfer_MVP.md`
 **Created:** 2026-09-08
-**Last updated:** 2026-09-08 UTC
+**Last updated:** 2026-09-09 UTC
 
 ## 1. Goal
 
@@ -140,14 +140,14 @@ Given a successful move command, when replayed with identical identity, then it 
 
 | Test ID | Behavior | Result |
 |---|---|---|
-| `TC-INVENTORY-046`-`047` | Instance and stack moves | Not run |
-| `TC-INVENTORY-048`-`049` | Same-Inventory and cross-Inventory paths | Not run |
-| `TC-INVENTORY-050`-`052` | Missing destination and invalid source/destination location | Not run |
-| `TC-INVENTORY-053`-`055` | Target, source, and destination revision guards | Not run |
-| `TC-INVENTORY-056` | Exact-destination no-op rejection | Not run |
-| `TC-INVENTORY-057`-`058` | Replay and ledger collision | Not run |
-| `TC-INVENTORY-059` | Transaction rollback and move-ledger primary key | Not run |
-| `TC-INVENTORY-060` | Scope guard | Not run |
+| `TC-INVENTORY-046`-`047` | Instance and stack moves | Passed |
+| `TC-INVENTORY-048`-`049` | Same-Inventory and cross-Inventory paths | Passed |
+| `TC-INVENTORY-050`-`052` | MainGM and source/destination guards | Passed |
+| `TC-INVENTORY-053`-`055` | Target, source, and destination revision guards | Passed |
+| `TC-INVENTORY-056` | Exact-destination no-op rejection | Passed |
+| `TC-INVENTORY-057`-`058` | Replay and ledger collision | Passed |
+| `TC-INVENTORY-059` | Transaction rollback and move-ledger primary key | Passed |
+| `TC-INVENTORY-060` | Scope guard | Passed |
 
 ```powershell
 dotnet build DotNet\Odyssey.Core.sln
@@ -159,7 +159,7 @@ dotnet test DotNet\Odyssey.Core.sln
 
 ### Manual validation
 
-- Review the complete diff for no out-of-scope runtime system or ADR/Unity change. Result: Not run.
+- Review the complete diff for no out-of-scope runtime system or ADR/Unity change. Result: Passed; no ADR or Unity files changed.
 
 ### Required environments / profiles
 
@@ -195,9 +195,9 @@ dotnet test DotNet\Odyssey.Core.sln
 
 ## 16. Definition of Done
 
-- [ ] Goal is achieved without unapproved scope expansion.
-- [ ] All acceptance criteria are satisfied.
-- [ ] Required automated tests pass.
+- [x] Goal is achieved without unapproved scope expansion.
+- [x] All acceptance criteria are satisfied.
+- [x] Required automated tests pass.
 - [ ] Required manual checks are completed.
 - [ ] Required commands and their real results are recorded.
 - [ ] Architecture and dependency rules remain valid.
@@ -215,19 +215,19 @@ dotnet test DotNet\Odyssey.Core.sln
 
 | Area | Result |
 |---|---|
-| Product code, schema, tests, metadata, error registry, backlog | Not run |
+| Product code, schema, tests, metadata, error registry | Implemented; backlog awaits Draft PR number |
 
 ### Validation results
 
 | Command / check | Result |
 |---|---|
-| All required commands | Not run |
+| `dotnet build`, `dotnet test`, `verify-format`, `check-repository-policy`, `verify-test-structure` | Passed |
 
 ### Acceptance result
 
 | Criterion | Result |
 |---|---|
-| All acceptance criteria | Not run |
+| All acceptance criteria | Passed locally |
 
 ## 18. Blockers, decisions, and change control
 

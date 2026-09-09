@@ -3,8 +3,8 @@
 **Status:** Active
 **Owner:** Codex (agent)
 **Branch:** `feat/ody-s05-204-inventory-move-transfer-mvp`
-**Pull request:** Not opened
-**Last updated:** 2026-09-08 UTC
+**Pull request:** Pending Draft PR creation
+**Last updated:** 2026-09-09 UTC
 
 ## 1. Purpose and user-visible outcome
 
@@ -34,22 +34,23 @@ MainGM can atomically move an existing item instance or stack between Inventory 
 
 ### M1 — Durable contracts and move transaction
 
-- [ ] Add request/port/error contracts and one additive move ledger table.
-- [ ] Implement atomic instance/stack move primitives and replay identity checks.
+- [x] Add request/port/error contracts and one additive move ledger table.
+- [x] Implement atomic instance/stack move primitives and replay identity checks.
 
 ### M2 — Behavior evidence
 
-- [ ] Add `TC-INVENTORY-046` onward for move, transfer, guards, replay, collision, and rollback.
-- [ ] Register metadata and error codes.
+- [x] Add `TC-INVENTORY-046` onward for move, transfer, guards, replay, collision, and rollback.
+- [x] Register metadata and error codes.
 
 ### M3 — Review-ready task
 
-- [ ] Update backlog status and plan/task evidence.
-- [ ] Run required commands and review scope diff.
+- [ ] Update backlog status after the Draft PR number is assigned.
+- [x] Run required commands and review scope diff.
 
 ## 6. Progress log
 
 - 2026-09-08 UTC — Fetched origin, verified merged PR #115 at `542c4df`, created task branch from `origin/main`, read authorities, and created task contract/ExecPlan before product edits.
+- 2026-09-09 UTC — Implemented the MainGM-gated application surface, atomic SQLite move transaction, dedicated ledger, and test coverage. Local build, full test suite, format, policy, and test-structure gates passed.
 
 ## 7. Decisions
 
@@ -62,7 +63,7 @@ MainGM can atomically move an existing item instance or stack between Inventory 
 
 ## 9. Validation and acceptance evidence
 
-- Not run yet. Required commands are listed in the task contract.
+- `dotnet build DotNet\\Odyssey.Core.sln`, `dotnet test DotNet\\Odyssey.Core.sln`, `verify-format`, `check-repository-policy`, and `verify-test-structure` passed locally.
 
 ## 10. Recovery and rollback
 

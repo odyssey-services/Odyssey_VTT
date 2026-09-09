@@ -272,11 +272,12 @@ namespace Odyssey.Tests.Persistence
                 "ItemInstance",
                 "ItemStack",
                 "InventoryCommandLedger",
+                "InventoryMoveCommandLedger",
                 "IX_ItemInstance_Campaign_Inventory",
                 "IX_ItemStack_Campaign_Inventory"
             };
             Assert.That(names.Select(n => n.Name), Is.SubsetOf(allowed));
-            Assert.That(names.Where(n => n.Type == "table").Select(n => n.Name), Is.EquivalentTo(new[] { "Inventory", "InventoryCommandLedger", "ItemInstance", "ItemStack" }));
+            Assert.That(names.Where(n => n.Type == "table").Select(n => n.Name), Is.EquivalentTo(new[] { "Inventory", "InventoryCommandLedger", "InventoryMoveCommandLedger", "ItemInstance", "ItemStack" }));
         }
 
         [Test]
