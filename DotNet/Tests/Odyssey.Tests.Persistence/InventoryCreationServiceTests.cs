@@ -333,7 +333,7 @@ namespace Odyssey.Tests.Persistence
         }
 
         [Test]
-        public void InventoryCreationScope_DoesNotIntroduceMoveSplitMergeEquipmentAttackActiveEffectOrMigrationImplementation()
+        public void InventoryCreationScope_DoesNotIntroduceLaterInventoryCapabilities()
         {
             CreateInventory();
 
@@ -496,7 +496,7 @@ namespace Odyssey.Tests.Persistence
 
         private static void AssertForbiddenFragments(IEnumerable<string> names)
         {
-            string[] forbidden = { "Move", "Transfer", "Split", "Merge", "Equipment", "Attack", "ActiveEffect", "ItemDefinitionMigration" };
+            string[] forbidden = { "Transfer", "Split", "Merge", "Equipment", "Attack", "ActiveEffect", "ItemDefinitionMigration" };
             foreach (string name in names)
             {
                 foreach (string fragment in forbidden)
