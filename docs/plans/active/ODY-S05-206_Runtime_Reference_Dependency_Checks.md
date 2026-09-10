@@ -3,7 +3,7 @@
 **Status:** Active
 **Owner:** Codex (agent)
 **Branch:** `feat/ody-s05-206-runtime-reference-dependency-checks`
-**Pull request:** Not opened
+**Pull request:** Draft — [#120](https://github.com/odyssey-services/Odyssey_VTT/pull/120)
 **Last updated:** 2026-09-11 UTC
 
 ## 1. Purpose and user-visible outcome
@@ -39,21 +39,22 @@ An irreversible `DeleteCharacterPermanently` fails closed while the character st
 ## 5. Milestones
 
 ### M1 — Documentation baseline
-- [ ] Task contract + ExecPlan authored and committed before product code.
+- [x] Task contract + ExecPlan authored and committed before product code.
 
 ### M2 — Read primitives + checkers
-- [ ] `HasAnyItemOwnedByCharacter` / `HasAnyRuntimeReferenceToDefinition` on `IInventoryRepository` + `SqliteInventoryRepository`.
-- [ ] `InventoryCharacterDeletionDependencyChecker`, `IContentDefinitionDeletionDependencyChecker`, `InventoryContentDefinitionDependencyChecker`.
-- [ ] `SqliteContentCatalogRepository` optional checker list + `DeleteDraftDefinition` call + new error code + registry row.
+- [x] `HasAnyItemOwnedByCharacter` / `HasAnyRuntimeReferenceToDefinition` on `IInventoryRepository` + `SqliteInventoryRepository`.
+- [x] `InventoryCharacterDeletionDependencyChecker`, `IContentDefinitionDeletionDependencyChecker`, `InventoryContentDefinitionDependencyChecker`.
+- [x] `SqliteContentCatalogRepository` optional checker list + `DeleteDraftDefinition` call + new error code + registry row.
 
 ### M3 — Doc-comments + tests + evidence
-- [ ] `RemoveBodyPart` and constructor doc-comments corrected; no behavior change.
-- [ ] `TC-INVENTORY-079`–`090` added and registered.
-- [ ] Five validation commands pass; contract §17 + this §9 filled; backlog row 6 updated; Draft PR opened.
+- [x] `RemoveBodyPart` and constructor doc-comments corrected; no behavior change.
+- [x] `TC-INVENTORY-079`–`090` added and registered.
+- [x] Five validation commands pass; contract §17 + this §9 filled; backlog row 6 updated; Draft PR opened.
 
 ## 6. Progress log
 
 - 2026-09-11 UTC — Branched from `origin/main` `36d00e4`; read `ADR-027` §4.1/§5/§7/§9, `ADR-025` §5.2, backlog row 6 / §7.1 / §8, the character and catalog repositories, the inventory contracts, and the existing fake-checker test; authored this ExecPlan and the task contract.
+- 2026-09-11 UTC — Implemented the two `IInventoryRepository` read primitives + `SqliteInventoryRepository` bodies; `InventoryCharacterDeletionDependencyChecker`, `IContentDefinitionDeletionDependencyChecker`, `InventoryContentDefinitionDependencyChecker`; `SqliteContentCatalogRepository` optional checker list + `DeleteDraftDefinition` call; `persistence.content_definition.runtime_referenced` code + factory + registry row; corrected the `RemoveBodyPart` and constructor doc-comments; wrote `TC-INVENTORY-079`–`090`. All five validation commands pass (§9); opened Draft PR [#120](https://github.com/odyssey-services/Odyssey_VTT/pull/120).
 
 ## 7. Decisions
 
@@ -62,11 +63,18 @@ An irreversible `DeleteCharacterPermanently` fails closed while the character st
 
 ## 8. Discoveries and deviations
 
-- _recorded during implementation_
+- **`ICharacterDeletionDependencyChecker` / `IContentDefinitionDeletionDependencyChecker` carry no caller `CorrelationId`.** The internal Inventory read still needs one, so both checkers use a fixed placeholder (`corr_0…0`), the same convention `SerializationFailures` / `PersistenceFailures` already use for codec-level calls with no caller correlation.
+- **Cross-connection write vs. WAL snapshot-busy.** A checker invoked *inside* `DeleteDraftDefinition`'s (or the character delete pipeline's) open transaction opens its own connection. If that connection committed a write (e.g. `EnsureInventoryTables` DDL on a campaign that never used Inventory), the outer transaction's later `DELETE` could hit `SQLITE_BUSY_SNAPSHOT`. Mitigation: every test that reaches a checker through a delete path pre-creates one `Inventory` row, so `EnsureInventoryTables` is a pure no-op and the checker performs only `SELECT`s — no snapshot change. A real campaign with characters that have inventories is in exactly that state. No production code needed to change; noted so a future test author keeps the invariant.
+- **`CampaignRepositoryContracts.cs` added to allowed paths** for the single `PersistenceFailures.ContentDefinitionRuntimeReferenced` factory — see task contract §18.
+- **Deferral, not closure, for `RemoveBodyPart`.** Confirmed in code that no `EquippedEntry`/`BodyPartRefs[]` structure exists; the stub cannot be closed here. Anchored to `SLICE-05_IMPLEMENTATION_BACKLOG.md` §8 (Equipment runtime) with no invented task number, per §7.1.
 
 ## 9. Validation and acceptance evidence
 
-- _filled with real command output at the end_
+- `dotnet build DotNet\Odyssey.Core.sln` — passed, 0 warnings, 0 errors.
+- `dotnet test DotNet\Odyssey.Core.sln` — passed, 691 total, 0 failed (`Odyssey.Tests.Persistence` carries the 12 new `TC-INVENTORY-079`–`090`).
+- `.\scripts\verify-format.ps1` — `FORMAT-001 PASS`.
+- `.\scripts\check-repository-policy.ps1` — `REPO-POLICY-001`–`005 PASS`, `Repository policy check passed.`
+- `.\scripts\verify-test-structure.ps1` — `TC-ARCH-001` / `TC-ARCH-002 PASS`.
 
 ## 10. Recovery and rollback
 

@@ -1,11 +1,11 @@
 # ODY-S05-206 — Runtime Reference Dependency Checks
 
-**Status:** In Progress
+**Status:** In Review
 **Roadmap stage / slice:** SLICE-05
 **Owner:** Codex (agent)
 **Requested by:** Product owner
 **Branch:** `feat/ody-s05-206-runtime-reference-dependency-checks`
-**Pull request:** Not opened
+**Pull request:** Draft — [#120](https://github.com/odyssey-services/Odyssey_VTT/pull/120) (open, awaiting owner review)
 **ExecPlan:** `docs/plans/active/ODY-S05-206_Runtime_Reference_Dependency_Checks.md`
 **Created:** 2026-09-11
 **Last updated:** 2026-09-11 UTC
@@ -269,47 +269,63 @@ dotnet test DotNet\Odyssey.Core.sln
 
 ## 16. Definition of Done
 
-- [ ] Goal is achieved without unapproved scope expansion.
-- [ ] All acceptance criteria are satisfied.
-- [ ] Required automated tests pass.
-- [ ] Required manual checks are completed.
-- [ ] Required commands and their real results are recorded.
-- [ ] Architecture and dependency rules remain valid.
-- [ ] Security, privacy, redaction, and audience rules are verified where applicable.
-- [ ] Compatibility, migration, rollback, and versioning obligations are complete where applicable.
-- [ ] No unapproved dependency, tool, GitHub Action, or license was introduced.
-- [ ] Documentation is updated only where materially required.
-- [ ] Codex/developer performed a self-review against this task and `AGENTS.md`.
-- [ ] Pull request explains changes, evidence, limitations, and follow-up work.
+- [x] Goal is achieved without unapproved scope expansion.
+- [x] All acceptance criteria are satisfied.
+- [x] Required automated tests pass.
+- [x] Required manual checks are completed.
+- [x] Required commands and their real results are recorded.
+- [x] Architecture and dependency rules remain valid.
+- [x] Security, privacy, redaction, and audience rules are verified where applicable.
+- [x] Compatibility, migration, rollback, and versioning obligations are complete where applicable.
+- [x] No unapproved dependency, tool, GitHub Action, or license was introduced.
+- [x] Documentation is updated only where materially required.
+- [x] Codex/developer performed a self-review against this task and `AGENTS.md`.
+- [x] Pull request explains changes, evidence, limitations, and follow-up work.
 - [ ] Product owner or authorized reviewer completes the required review; Codex does not merge into `main`.
 
 ## 17. Completion evidence
 
-_Filled at the end of implementation._
-
 ### Changed files / areas
 
-- _pending_
+- `Packages/com.odyssey.application/Runtime/Persistence/InventoryRepositoryContracts.cs` — `IInventoryRepository.HasAnyItemOwnedByCharacter` / `HasAnyRuntimeReferenceToDefinition`.
+- `Packages/com.odyssey.application/Runtime/Persistence/ContentCatalogRepositoryContracts.cs` — new `IContentDefinitionDeletionDependencyChecker`.
+- `Packages/com.odyssey.application/Runtime/Persistence/CampaignRepositoryContracts.cs` — new `PersistenceFailures.ContentDefinitionRuntimeReferenced` factory (see §18).
+- `Packages/com.odyssey.application/Runtime/Results/ErrorCodes.cs` — `PersistenceContentDefinitionRuntimeReferenced`.
+- `Packages/com.odyssey.application/Runtime/Inventory/InventoryDeletionDependencyCheckers.cs` — new; `InventoryCharacterDeletionDependencyChecker`, `InventoryContentDefinitionDependencyChecker`, internal `DependencyCheckCorrelation` placeholder.
+- `Packages/com.odyssey.persistence/Runtime/Sqlite/SqliteInventoryRepository.cs` — the two new read primitives + `EscapeLike` helper.
+- `Packages/com.odyssey.persistence/Runtime/Sqlite/SqliteContentCatalogRepository.cs` — optional `runtimeDependencyCheckers` constructor parameter + the checker loop in `DeleteDraftDefinition`.
+- `Packages/com.odyssey.persistence/Runtime/Sqlite/SqliteCharacterRepository.cs` — constructor + `RemoveBodyPart` doc-comments only (method-level and inline); no code path change.
+- `DotNet/Tests/Odyssey.Tests.Persistence/InventoryDeletionDependencyCheckerTests.cs` — new; `TC-INVENTORY-079`–`090`.
+- `Tests/Metadata/test-catalog.json`, `docs/errors/ERROR_CODES.md` — registrations.
+- `docs/tasks/SLICE-05_IMPLEMENTATION_BACKLOG.md` — row 6 → `In Review (PR #120)`.
 
 ### Validation results
 
 | Command / check | Result | Evidence / notes |
 |---|---|---|
-| `dotnet build DotNet\Odyssey.Core.sln` | Not run | — |
-| `dotnet test DotNet\Odyssey.Core.sln` | Not run | — |
-| `.\scripts\verify-format.ps1` | Not run | — |
-| `.\scripts\check-repository-policy.ps1` | Not run | — |
-| `.\scripts\verify-test-structure.ps1` | Not run | — |
+| `dotnet build DotNet\Odyssey.Core.sln` | Passed | `Сборка успешно завершена. Предупреждений: 0. Ошибок: 0`. |
+| `dotnet test DotNet\Odyssey.Core.sln` | Passed | 691 total, 0 failed (Contracts 1, Domain 74, Networking 67, Unit 136, Architecture 2, Persistence 411 — the 12 new `TC-INVENTORY-079`–`090` in `InventoryDeletionDependencyCheckerTests`). |
+| `.\scripts\verify-format.ps1` | Passed | `FORMAT-001 PASS repository text formatting checks passed`. |
+| `.\scripts\check-repository-policy.ps1` | Passed | `REPO-POLICY-001`–`005 PASS`; `Repository policy check passed.` (registry complete, including `persistence.content_definition.runtime_referenced` → `TC-INVENTORY-090`). |
+| `.\scripts\verify-test-structure.ps1` | Passed | `TC-ARCH-001` / `TC-ARCH-002 PASS` (all four controlled-invalid fixtures). |
 
 ### Acceptance result
 
 | Criterion | Status | Evidence |
 |---|---|---|
-| AC-1..9 | Not run | Implementation in progress. |
+| 1 — delete blocked when character owns a contained / scene-dropped item, no backup, no row deletion | Passed | `TC-INVENTORY-084`, `-085`. |
+| 2 — delete still succeeds when nothing owned; existing suite unbroken | Passed | `TC-INVENTORY-086`; full `CharacterArchivePhysicalDeleteTests` green. |
+| 3 — `HasAnyItemOwnedByCharacter` correctness + `InventoryIoFailed` + fail-closed checker | Passed | `TC-INVENTORY-079`–`083`, `-087`. |
+| 4 — `DeleteDraftDefinition` blocked by seeded runtime ref (`runtime_referenced`, no delete, no ledger entry); still deletes without one; existing catalog suite unbroken | Passed | `TC-INVENTORY-090`; full `SqliteContentCatalogRepositoryTests` green. |
+| 5 — `HasAnyRuntimeReferenceToDefinition` matches any version + escapes `LIKE` + `InventoryIoFailed` | Passed | `TC-INVENTORY-088`, `-089`; guard mirrors the other read methods. |
+| 6 — `RemoveBodyPart` behavior unchanged; doc-comments no longer claim "no Item/Inventory system exists" | Passed | diff is doc-comments only; `CharacterResourceAnatomyTests`/anatomy suites green. |
+| 7 — new `ErrorCode` registered with a catalog test reference; policy check passes | Passed | `ERROR_CODES.md` row; `REPO-POLICY-005 PASS`. |
+| 8 — all five commands pass with recorded output | Passed | table above. |
+| 9 — diff only in §5 allowed paths | Passed | `git status --short` = 9 modified + 2 new, all in §5 (incl. the §18-recorded `CampaignRepositoryContracts.cs`). |
 
 ### Build and artifact evidence
 
-- _pending_
+- No new project, script, CI, or configuration. No schema change (no new table/column). One additive error code.
 
 ### Known limitations
 
@@ -323,7 +339,11 @@ _Filled at the end of implementation._
 
 ### Self-review summary
 
-- _pending_
+- Scope review: diff is 9 modified + 2 new files, all within §5 (the added `CampaignRepositoryContracts.cs` path is recorded in §18). No `docs/adr/**`, `Assets/**`, Unity, or `ODY-S05-205` file touched.
+- Architecture review: read primitives stay in persistence; checkers live in `Odyssey.Application.Inventory` (already depends on catalog + inventory contracts via `InventoryCreationService`); `DeleteCharacterPermanently` / `DeleteDraftDefinition` keep their transaction shape — the checkers are invoked from existing call-site loops only. Checker connections perform pure `SELECT`s in the catalog/re-check paths (inventory tables pre-exist in every affected test), so no cross-connection write causes a snapshot-busy on the outer transaction's later `DELETE`.
+- Test review: 12 new tests cover both primitives (true/false, `LocationKind` variants, campaign-boundary guard, `InventoryIoFailed`), both `DeleteCharacterPermanently` outcomes + fail-closed, and both `DeleteDraftDefinition` outcomes incl. `LIKE` escaping. Existing `CharacterArchivePhysicalDeleteTests` and `SqliteContentCatalogRepositoryTests` are unchanged and still pass.
+- Security/privacy review: `ADR-025` §5.2 fail-closed honoured; checker strings are fixed safe phrases; a probe failure surfaces only `Error.Code`.
+- Documentation/version review: no version bumped; `RemoveBodyPart` / constructor doc-comments corrected; new error code registered; deferral anchored to `SLICE-05_IMPLEMENTATION_BACKLOG.md` §8 with no invented task number.
 
 ## 18. Blockers, decisions, and change control
 
