@@ -1,14 +1,14 @@
 # ODY-S05-205 - Stack Split/Merge MVP
 
-**Status:** In Progress
+**Status:** In Review
 **Roadmap stage / slice:** SLICE-05
 **Owner:** Codex (agent)
 **Requested by:** Product owner
-**Branch:** `feat/ody-s05-205-stack-split-merge-mvp`
-**Pull request:** Not opened
+**Branch:** `feat/ody-s05-205-stack-split-merge-mvp-impl`
+**Pull request:** Draft — [#119](https://github.com/odyssey-services/Odyssey_VTT/pull/119) (open, awaiting owner review)
 **ExecPlan:** `docs/plans/active/ODY-S05-205_Stack_Split_Merge_MVP.md`
 **Created:** 2026-09-09
-**Last updated:** 2026-09-09 UTC
+**Last updated:** 2026-09-10 UTC
 
 ## 1. Goal
 Add MainGM-only, atomic split and merge operations for existing ItemStack runtime state.
@@ -134,35 +134,62 @@ dotnet test DotNet\Odyssey.Core.sln
 - Update test metadata, errors, backlog, task, and plan. No ADR/version change.
 
 ## 16. Definition of Done
-- [ ] Acceptance and scope verified.
-- [ ] Required validation passes with real evidence.
-- [ ] No architecture/dependency/security/versioning violation.
-- [ ] Draft PR is open; Codex does not merge.
+- [x] Acceptance and scope verified.
+- [x] Required validation passes with real evidence.
+- [x] No architecture/dependency/security/versioning violation.
+- [x] Draft PR is open; Codex does not merge.
 
 ## 17. Completion evidence
 ### Changed files / areas
-- Not run.
+- `Packages/com.odyssey.application/Runtime/Persistence/InventoryRepositoryContracts.cs` - `IInventoryRepository.SplitItemStack` / `MergeItemStacks` (from the applied patch).
+- `Packages/com.odyssey.application/Runtime/Inventory/InventoryStackOperationService.cs` - MainGM-gated `Split` / `Merge` service, `InventoryStackOperation`, `SplitItemStackRequest`, `MergeItemStacksRequest` (from the applied patch; the quantity guard was adjusted so the merge path's `quantity: 0` is constructible - split `>= 1`, merge `== 0`).
+- `Packages/com.odyssey.application/Runtime/Inventory/InventoryStackFailures.cs` - new public-safe factories for the three new codes.
+- `Packages/com.odyssey.application/Runtime/Results/ErrorCodes.cs` - `InventoryStackSplitQuantityInvalid`, `InventoryStackMergeMismatch`, `InventoryStackMergeExceedsMaxQuantity`.
+- `Packages/com.odyssey.persistence/Runtime/Sqlite/SqliteInventoryRepository.cs` - `SplitItemStack` / `MergeItemStacks`, `RunStackOperation` / `SplitInTransaction` / `MergeInTransaction` / `TryStackReplay` / `InsertStackLedger` helpers, and the `InventoryStackCommandLedger` table in `EnsureInventoryTables`.
+- `DotNet/Tests/Odyssey.Tests.Persistence/InventoryStackOperationServiceTests.cs` - new, `TC-INVENTORY-061`-`078`.
+- `DotNet/Tests/Odyssey.Tests.Persistence/SqliteInventoryRepositoryTests.cs`, `DotNet/Tests/Odyssey.Tests.Persistence/InventoryCreationServiceTests.cs`, `DotNet/Tests/Odyssey.Tests.Unit/Inventory/InventoryRuntimeRecordTests.cs` - updated the `ODY-S05-203`/`204` scope guards that pre-forbade split/merge and the new ledger table.
+- `Tests/Metadata/test-catalog.json` - registered `TC-INVENTORY-061`-`078`.
+- `docs/errors/ERROR_CODES.md` - registered the three new codes.
+- `docs/tasks/SLICE-05_IMPLEMENTATION_BACKLOG.md` - `ODY-S05-205` row -> `In Review (PR #119)`.
+
 ### Validation results
-| Command / check | Result | Evidence |
+| Command / check | Result | Evidence / notes |
 |---|---|---|
-| Required commands | Not run | Implementation pending. |
+| `dotnet build DotNet\Odyssey.Core.sln` | Passed | `Сборка успешно завершена. Предупреждений: 0. Ошибок: 0`. |
+| `dotnet test DotNet\Odyssey.Core.sln` | Passed | 697 total, 0 failed (Contracts 1, Domain 74, Networking 67, Unit 136, Architecture 2, Persistence 417 - the Persistence project carries the 18 new `TC-INVENTORY-061`-`078`). |
+| `.\scripts\verify-format.ps1` | Passed | `FORMAT-001 PASS repository text formatting checks passed`. |
+| `.\scripts\verify-test-structure.ps1` | Passed | `TC-ARCH-001 PASS` / `TC-ARCH-002 PASS` (all four controlled-invalid fixtures). |
+| `.\scripts\check-repository-policy.ps1` | Passed | `REPO-POLICY-001`-`005 PASS`; `Repository policy check passed.` (registry complete, including the three new codes and their `TC-INVENTORY-063`/`072`/`076` references). |
+
 ### Acceptance result
 | Criterion | Status | Evidence |
 |---|---|---|
-| All | Not run | Implementation pending. |
+| 1 - MainGM split/merge atomic, idempotent, CAS-protected | Passed | `TC-INVENTORY-061`, `-068`, `-069`, `-070`, `-077`, `-078`; single SQLite transaction per call in `RunStackOperation`. |
+| 2 - Split preserves total quantity, snapshot, state, owner, exact location | Passed | `TC-INVENTORY-061`. |
+| 3 - Merge accepts only mechanically identical stacks; stored-snapshot rules | Passed | `TC-INVENTORY-070`, `-072`, `-073`; identity check reads only stored fields, never the live catalog. Stored-snapshot max-stack-size: see Known limitations. |
+| 4 - Failures leave records, inventory revision, and ledger unchanged | Passed | `TC-INVENTORY-063`-`067`, `-072`-`076`, `-078`. |
+| 5 - No excluded capability or general delete API is added | Passed | Merge's `DELETE` is a private step inside its own transaction; scope-guard tests updated but still forbid `Transfer`/`Equipment`/`Attack`/`ActiveEffect`/`ItemDefinitionMigration`; `verify-test-structure` green. |
+
 ### Build and artifact evidence
-- Not applicable before validation.
+- No new project, script, CI, or configuration. One additive SQLite table (`InventoryStackCommandLedger`), created by `EnsureInventoryTables` on open.
+
 ### Known limitations
-- Excluded systems remain unavailable.
+- **Catalog `MaxStackSize` is not enforced by merge.** The stored `ItemMechanicsSnapshot.Payload` is opaque at the persistence layer by `ODY-S05-202`/`203` design (there is even a scope guard asserting the repository does not decode typed definitions), so a typed `ItemDefinition.MaxStackSize` cannot be read here without crossing that boundary. Merge enforces only that the combined quantity stays representable in the stored `long` range (`inventory.stack_merge.exceeds_max_quantity`). Catalog-defined maximum-stack-size enforcement belongs to a later Application-layer command that decodes the typed definition - candidate follow-up `ODY-S05-206`/`207` or a new task; no domain/catalog field was added here.
+- Split/merge deny for a non-MainGM actor with the shared `inventory.move.denied` code, reused from `InventoryMovementFailures.Denied` as wired by the supplied patch's service; no separate `stack_split`/`stack_merge` denied code was added.
+
 ### Follow-up tasks
-- `ODY-S05-206`, `ODY-S05-207`.
+- `ODY-S05-206` (runtime reference dependency checks), `ODY-S05-207` (integration fixtures), plus the catalog `MaxStackSize` enforcement noted above.
+
 ### Self-review summary
-- Pending implementation.
+- Diff confined to section 5's allowed paths; no ADR, `Assets/`, Unity, or excluded-system change. Mirrors the existing `MoveItem<T>` transaction/CAS/replay pattern. All five required commands run with real output recorded above.
 
 ## 18. Blockers, decisions, and change control
 ### Blockers
 - None.
 ### Decisions made during execution
-- 2026-09-09 - Use a dedicated stack-operation ledger - task authority.
+- 2026-09-09 - Use a dedicated `InventoryStackCommandLedger` rather than reusing the move/create ledgers - task authority (section 6).
+- 2026-09-10 - Split and merge do **not** increment `Inventory.Revision`: neither changes an item's owner/inventory, unlike a move. `ExpectedInventoryRevision` is still read and CAS-checked. (See ExecPlan section 8.)
+- 2026-09-10 - `InventoryStackOperation`'s quantity guard was made operation-kind aware so the merge path's `quantity: 0` is constructible; smallest change to the applied patch.
+- 2026-09-10 - Catalog `MaxStackSize` enforcement deferred (see Known limitations); no domain/catalog field added.
 ### Approved task changes
 - None.
