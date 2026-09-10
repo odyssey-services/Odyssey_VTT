@@ -134,6 +134,9 @@ namespace Odyssey.Application.Results
         public static readonly ErrorCode InventoryMoveDenied = ErrorCode.Parse("inventory.move.denied");
         public static readonly ErrorCode InventoryMoveSourceInvalid = ErrorCode.Parse("inventory.move.source_invalid");
         public static readonly ErrorCode InventoryMoveDestinationUnchanged = ErrorCode.Parse("inventory.move.destination_unchanged");
+        public static readonly ErrorCode InventoryStackSplitQuantityInvalid = ErrorCode.Parse("inventory.stack_split.quantity_invalid");
+        public static readonly ErrorCode InventoryStackMergeMismatch = ErrorCode.Parse("inventory.stack_merge.mismatch");
+        public static readonly ErrorCode InventoryStackMergeExceedsMaxQuantity = ErrorCode.Parse("inventory.stack_merge.exceeds_max_quantity");
         public static readonly ErrorCode PersistenceInventoryItemRevisionConflict = ErrorCode.Parse("persistence.inventory_item.revision_conflict");
         public static readonly ErrorCode PersistenceInventoryRevisionConflict = ErrorCode.Parse("persistence.inventory.revision_conflict");
         public static readonly ErrorCode ContentCatalogAuthoringDenied = ErrorCode.Parse("content_catalog.authoring.denied");
