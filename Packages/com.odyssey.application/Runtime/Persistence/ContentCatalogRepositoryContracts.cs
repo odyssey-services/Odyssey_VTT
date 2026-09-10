@@ -146,6 +146,25 @@ namespace Odyssey.Application.Persistence
         Result DeleteDraftDefinition(CampaignHandle campaign, ContentDefinitionId definitionId, CommandId commandId, CorrelationId correlationId);
     }
 
+    /// <summary>
+    /// ODY-S05-206: `ADR-027` section 4.1 rule 4/5's runtime-reference
+    /// precondition for physically deleting a Draft <c>ContentDefinition</c>.
+    /// Mirrors <see cref="ICharacterDeletionDependencyChecker"/>'s shape and
+    /// extension-point purpose: a future task adds a new implementation (for
+    /// example, an <c>ActiveEffect</c> checker once that runtime exists)
+    /// without changing <see cref="IContentCatalogRepository.DeleteDraftDefinition"/>'s
+    /// call site. A Draft cannot legitimately be runtime-referenced today
+    /// (`ContentDefinitionRef` pins <c>Version &gt;= 1</c>; only
+    /// <c>Version == 0</c> Drafts are physically deleted), so this is a real,
+    /// executing forward-compatible gate rather than a check that fires under
+    /// today's public API.
+    /// </summary>
+    public interface IContentDefinitionDeletionDependencyChecker
+    {
+        /// <summary>Returns a short, human-readable, provider-detail-free description of the blocking runtime reference if one exists, or <c>null</c> if this checker finds none.</summary>
+        string? CheckBlockingDependency(CampaignHandle campaign, ContentDefinitionId definitionId);
+    }
+
     public sealed class CreateDraftContentDefinitionRequest
     {
         public CreateDraftContentDefinitionRequest(

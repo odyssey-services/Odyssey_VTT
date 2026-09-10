@@ -98,13 +98,16 @@ namespace Odyssey.Persistence.Sqlite
         };
 
         /// <summary>
-        /// ODY-S04-110 section 1.1/1.2: <paramref name="deletionDependencyCheckers"/>
-        /// defaults to an empty list -- no Board/Item/GameLog cross-reference
-        /// to CharacterId exists anywhere in this codebase yet (confirmed by
-        /// search), so there is genuinely nothing to check today; a future
-        /// task passes its own real <see cref="ICharacterDeletionDependencyChecker"/>
-        /// implementations here without changing <c>DeleteCharacterPermanently</c>'s
-        /// own shape. <paramref name="backupRepository"/> defaults to a
+        /// ODY-S04-110 section 1.1/1.2 (extended by ODY-S05-206):
+        /// <paramref name="deletionDependencyCheckers"/> defaults to an empty
+        /// list. A real
+        /// <see cref="Odyssey.Application.Inventory.InventoryCharacterDeletionDependencyChecker"/>
+        /// now exists (ODY-S05-206) and blocks a delete while the character
+        /// still owns Inventory items; callers opt in by passing it here
+        /// explicitly -- there is still no implicit default wiring and no
+        /// composition root in this codebase. Board/GameLog cross-references to
+        /// CharacterId still do not exist, so no checker covers those.
+        /// <paramref name="backupRepository"/> defaults to a
         /// plain <see cref="SqliteBackupRepository"/> constructed from the
         /// same clock -- mirrors <see cref="_pipeline"/>'s own
         /// self-construction convention, so every pre-existing caller of
@@ -4055,15 +4058,23 @@ namespace Odyssey.Persistence.Sqlite
         }
 
         /// <summary>
-        /// ODY-S04-109 section 1.3: dependency preview boundary. Product
-        /// section 18/requirement 51's own item-dependency check is a stub
-        /// -- NO Item/Inventory system exists anywhere in this codebase
-        /// (confirmed by search), so there is nothing to check there; this
-        /// is documented, not silently skipped. What IS checked, for real,
-        /// is the one dependency this Character's own <c>CharacterAnatomy</c>
-        /// snapshot can express: any other <see cref="BodyPart.AttachedToBodyPartId"/>
-        /// or <see cref="PermanentModification.AttachedToBodyPartId"/>
-        /// referencing the part being removed.
+        /// ODY-S04-109 section 1.3 (re-documented by ODY-S05-206): dependency
+        /// preview boundary. Product section 18/requirement 51's own
+        /// item-dependency check remains a documented stub, but not for the
+        /// reason originally recorded. Inventory / <c>ItemInstance</c> /
+        /// <c>ItemStack</c> DO exist now (ODY-S05-201/202); what does not exist
+        /// is any Equipment layer binding an item to a specific body part --
+        /// <c>ADR-027</c> section 7 describes <c>EquippedEntry.BodyPartRefs[]</c>
+        /// but no such structure is created anywhere in the codebase, so
+        /// "what is equipped on this body part" cannot be asked. Closing this
+        /// stub is deferred to the Equipment runtime block named in
+        /// <c>docs/tasks/SLICE-05_IMPLEMENTATION_BACKLOG.md</c> section 8; a
+        /// concrete task ID is assigned when that block is decomposed. What IS
+        /// checked, for real, is the one dependency this Character's own
+        /// <c>CharacterAnatomy</c> snapshot can express: any other
+        /// <see cref="BodyPart.AttachedToBodyPartId"/> or
+        /// <see cref="PermanentModification.AttachedToBodyPartId"/> referencing
+        /// the part being removed.
         /// </summary>
         public Result<CharacterRecord> RemoveBodyPart(CampaignHandle campaign, CharacterId characterId, BodyPartId bodyPartId, UserId actorUserId, bool actorIsMainGm, long expectedCharacterAnatomyRevision, CommandId commandId, CorrelationId correlationId)
         {
@@ -4088,12 +4099,15 @@ namespace Odyssey.Persistence.Sqlite
                     return Result<AnatomyMutation>.Failure(PersistenceFailures.CharacterBodyPartNotFound(correlationId));
                 }
 
-                // Item-system dependency (product requirement 51): NOT
-                // checked -- no Item/Inventory system exists yet (this
-                // task's own section 1.3 stub, documented not silent).
-                // Internal dependency (this task's own real, checkable
-                // substitute): does any other body part attach to this one,
-                // or any permanent modification attach to this one?
+                // Item/equipment dependency (product requirement 51): NOT
+                // checked -- Inventory exists (ODY-S05-201/202) but no
+                // Equipment layer binds an item to a body part yet
+                // (ADR-027 section 7; deferred to the Equipment runtime
+                // block, SLICE-05_IMPLEMENTATION_BACKLOG.md section 8).
+                // Documented, not silent. Internal dependency (this task's
+                // own real, checkable substitute): does any other body part
+                // attach to this one, or any permanent modification attach
+                // to this one?
                 foreach (BodyPart candidate in current.Anatomy.BodyParts)
                 {
                     if (candidate.AttachedToBodyPartId.HasValue && candidate.AttachedToBodyPartId.Value.Equals(bodyPartId))

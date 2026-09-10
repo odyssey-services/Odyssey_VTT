@@ -87,6 +87,7 @@ Close, or explicitly and concretely defer, the two `SLICE-04` dependency-check s
 
 ```text
 Packages/com.odyssey.application/Runtime/Inventory/
+Packages/com.odyssey.application/Runtime/Persistence/CampaignRepositoryContracts.cs   (the new PersistenceFailures.ContentDefinitionRuntimeReferenced factory only — this file holds every existing PersistenceFailures.ContentDefinition* factory; see §18)
 Packages/com.odyssey.application/Runtime/Persistence/CharacterRepositoryContracts.cs
 Packages/com.odyssey.application/Runtime/Persistence/ContentCatalogRepositoryContracts.cs
 Packages/com.odyssey.application/Runtime/Persistence/InventoryRepositoryContracts.cs
@@ -341,4 +342,4 @@ _Filled at the end of implementation._
 
 ### Approved task changes
 
-- None.
+- 2026-09-11 — `Packages/com.odyssey.application/Runtime/Persistence/CampaignRepositoryContracts.cs` was added to the allowed paths for the single new `PersistenceFailures.ContentDefinitionRuntimeReferenced` factory. The ТЗ §6.4 authorised the new `ErrorCode` (in `ErrorCodes.cs`) and its registry row but did not name the path for its `PersistenceFailures` factory; that file is where every existing `PersistenceFailures.ContentDefinition*` factory lives, and the codebase convention is that repositories return errors only through those factories, never an inline `Error.Create`. Minimal 6-line addition, no other change to that file. Recorded per `TASK_TEMPLATE.md` completion rule 7.

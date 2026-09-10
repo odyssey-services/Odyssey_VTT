@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using Odyssey.Application.Commands;
 using Odyssey.Application.Inventory;
 using Odyssey.Application.Results;
+using Odyssey.Domain.Content;
 using Odyssey.Domain.Inventory;
 using Odyssey.Domain.Identity;
 
@@ -30,6 +31,28 @@ namespace Odyssey.Application.Persistence
         Result<ItemStackRecord> GetItemStack(CampaignHandle campaign, ItemStackId itemStackId, CorrelationId correlationId);
         Result<IReadOnlyList<ItemInstanceRecord>> ListItemInstances(CampaignHandle campaign, CampaignId campaignId, InventoryId inventoryId, CorrelationId correlationId);
         Result<IReadOnlyList<ItemStackRecord>> ListItemStacks(CampaignHandle campaign, CampaignId campaignId, InventoryId inventoryId, CorrelationId correlationId);
+
+        /// <summary>
+        /// ODY-S05-206: true if any <see cref="ItemInstanceRecord"/> or
+        /// <see cref="ItemStackRecord"/> in this campaign is currently owned by
+        /// this character. Contained, raw-equipped-location, and
+        /// scene-dropped-but-still-owned all count, since an item's
+        /// <c>OwnerRef</c> does not change with its <c>LocationRef</c>. A narrow
+        /// existence query for `DeleteCharacterPermanently` dependency checks --
+        /// not a general Inventory-by-owner listing.
+        /// </summary>
+        Result<bool> HasAnyItemOwnedByCharacter(CampaignHandle campaign, CampaignId campaignId, CharacterId characterId, CorrelationId correlationId);
+
+        /// <summary>
+        /// ODY-S05-206: true if any <see cref="ItemInstanceRecord"/> or
+        /// <see cref="ItemStackRecord"/> in this campaign pins any published
+        /// version of this <see cref="ContentDefinitionId"/> as its
+        /// <c>SourceItemDefinitionRef</c>. Matches by the definition id prefix,
+        /// ignoring the pinned version, since a runtime reference to any version
+        /// blocks physically deleting that definition's row
+        /// (`ADR-027` section 4.1 rule 4/5).
+        /// </summary>
+        Result<bool> HasAnyRuntimeReferenceToDefinition(CampaignHandle campaign, CampaignId campaignId, ContentDefinitionId definitionId, CorrelationId correlationId);
     }
 
     public sealed class InventoryCreateReplay<TRecord>
