@@ -321,3 +321,21 @@ Order for this segment:
 4. The full, polished UI/UX pass stays exactly where the Roadmap already plans it (Stage 11) — this decision does not move it earlier.
 
 An ExecPlan for a task inside this segment should reflect this order when sequencing its own milestones, but this section does not itself replace or override that task's own ExecPlan.
+
+### 13.1 Amendment (2026-09-03) — SLICE-05 inserted before the verification UI
+
+Step 1 of the section 13 order above is complete: `SLICE-04` closed (`GATE-C` accepted by the product owner, `SLICE-04_IMPLEMENTATION_BACKLOG.md`).
+
+Step 2 as originally recorded — build one temporary verification UI next — did **not** proceed as written. Review of `SLICE-04`'s own completed work surfaced that the entire `Characters and Progression` domain ran on hardcoded test fixtures with no real, editable content catalog (`SkillCostRules.cs`/`AbilityCostRules.cs`/`AttributeCostRules.cs` and equivalents carry explicit `TEST FIXTURE ONLY` disclaimers; no `Item`/Inventory aggregate existed at all). The product owner explicitly decided, in conversation, to build a real Content Catalog and Item/Equipment system **before** the temporary verification UI, rather than build that UI against fixtures a real catalog would immediately invalidate.
+
+This decision is recorded architecturally in `ADR-027 — Content Catalog & Item/Equipment System` (Accepted, 2026-09-03) and decomposed into `docs/tasks/SLICE-05_IMPLEMENTATION_BACKLOG.md` (created 2026-09-03). `SLICE-05`'s own scope grew beyond "just the catalog" during that decomposition — it now also names (and reserves, per its own section 8) Inventory runtime, Equipment, item-sourced Abilities/Effects, and the full attack pipeline as later blocks of the same slice.
+
+**Amended order for this segment**, superseding step 2 of the original list above (steps 1, 3, and 4 are unchanged):
+
+1. `SLICE-04` — Done (unchanged from the original order).
+2. `SLICE-05` — Content Catalog, Inventory, Items, Abilities, Effects, and Full Attack (`ADR-027`; `docs/tasks/SLICE-05_IMPLEMENTATION_BACKLOG.md`), decomposed and executed block by block as that backlog's own section 7/8 define. This step did not exist in the original 2026-09-02 order; it is inserted here by explicit owner decision.
+3. Temporary verification UI (`SLICE-UI-02` or equivalent, following the `SLICE-UI-01` precedent) — deferred until `SLICE-05` (or whichever of its blocks the product owner judges sufficient) closes, so the UI is built against real catalog/inventory data rather than fixtures a real catalog would immediately invalidate.
+4. .NET SDK / build-and-test infrastructure hardening — unchanged from the original order (still after the verification UI).
+5. The full, polished UI/UX pass — unchanged, still Roadmap Stage 11.
+
+This amendment does not reopen or invalidate any decision recorded in section 13's own original numbered list; it records why step 2 did not execute as originally written and what superseded it, per this document's own convention of an explicit amendment note rather than a silent rewrite.
