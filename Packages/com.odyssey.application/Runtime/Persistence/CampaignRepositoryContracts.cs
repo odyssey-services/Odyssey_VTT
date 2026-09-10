@@ -761,6 +761,15 @@ namespace Odyssey.Application.Persistence
             RetryDirective.DoNotRetry,
             correlationId);
 
+        /// <summary>ODY-S05-206: `DeleteDraftDefinition` rejection when a registered <see cref="IContentDefinitionDeletionDependencyChecker"/> reports that a runtime `ItemInstance`/`ItemStack` still pins this `ContentDefinitionId` (`ADR-027` section 4.1 rule 4/5's "no runtime reference exists" physical-delete precondition, the symmetric partner of <see cref="ContentDefinitionReferenced"/>). A Draft cannot be runtime-referenced through today's public API; this fires only for a directly-seeded reference or a future Archived-definition delete path. Public-safe: carries no provider or path detail.</summary>
+        public static Error ContentDefinitionRuntimeReferenced(CorrelationId correlationId) => Error.Create(
+            ErrorCodes.PersistenceContentDefinitionRuntimeReferenced,
+            ErrorCategory.Conflict,
+            SafeReasonCode.ActionNotAllowed,
+            UserMessageKey.Parse("errors.persistence.content_definition_runtime_referenced"),
+            RetryDirective.DoNotRetry,
+            correlationId);
+
         /// <summary>
         /// ODY-S05-103 amendment: `SqliteContentCatalogRepository.DeleteDraftDefinition`'s
         /// own dedicated delete ledger found the caller's `CommandId`

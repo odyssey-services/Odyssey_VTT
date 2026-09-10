@@ -384,6 +384,76 @@ namespace Odyssey.Persistence.Sqlite
             }
         }
 
+        public Result<bool> HasAnyItemOwnedByCharacter(CampaignHandle campaign, CampaignId campaignId, CharacterId characterId, CorrelationId correlationId)
+        {
+            if (campaign == null) throw new ArgumentNullException(nameof(campaign));
+            if (!campaignId.IsValid) throw new ArgumentException("CampaignId is required.", nameof(campaignId));
+            if (!characterId.IsValid) throw new ArgumentException("CharacterId is required.", nameof(characterId));
+            if (!TryValidateCampaignBoundary(campaign, campaignId, correlationId, out Error campaignError))
+            {
+                return Result<bool>.Failure(campaignError);
+            }
+
+            try
+            {
+                using SqliteConnection connection = OpenConnection(campaign.RootPath);
+                EnsureInventoryTables(connection);
+                using var select = connection.CreateCommand();
+                select.CommandText =
+                    "SELECT 1 WHERE EXISTS (SELECT 1 FROM ItemInstance WHERE CampaignId = $campaignId AND OwnerKind = $ownerKind AND OwnerTargetRef = $characterId) " +
+                    "OR EXISTS (SELECT 1 FROM ItemStack WHERE CampaignId = $campaignId AND OwnerKind = $ownerKind AND OwnerTargetRef = $characterId);";
+                select.Parameters.AddWithValue("$campaignId", campaignId.ToString());
+                select.Parameters.AddWithValue("$ownerKind", InventoryOwnerKind.Character.ToString());
+                select.Parameters.AddWithValue("$characterId", characterId.ToString());
+                return Result<bool>.Success(select.ExecuteScalar() != null);
+            }
+            catch (Exception ex) when (ex is IOException || ex is UnauthorizedAccessException || ex is SqliteException)
+            {
+                return Result<bool>.Failure(PersistenceFailures.InventoryIoFailed(correlationId));
+            }
+        }
+
+        public Result<bool> HasAnyRuntimeReferenceToDefinition(CampaignHandle campaign, CampaignId campaignId, ContentDefinitionId definitionId, CorrelationId correlationId)
+        {
+            if (campaign == null) throw new ArgumentNullException(nameof(campaign));
+            if (!campaignId.IsValid) throw new ArgumentException("CampaignId is required.", nameof(campaignId));
+            if (!definitionId.IsValid) throw new ArgumentException("ContentDefinitionId is required.", nameof(definitionId));
+            if (!TryValidateCampaignBoundary(campaign, campaignId, correlationId, out Error campaignError))
+            {
+                return Result<bool>.Failure(campaignError);
+            }
+
+            try
+            {
+                using SqliteConnection connection = OpenConnection(campaign.RootPath);
+                EnsureInventoryTables(connection);
+                // SourceItemDefinitionRef is stored as ContentDefinitionRef.ToString()
+                // "<definitionId>/<version>"; match any pinned version by the id
+                // prefix. The canonical id contains '_' (a LIKE wildcard), so the
+                // pattern is escaped.
+                string pattern = EscapeLike(definitionId.ToString()) + "/%";
+                using var select = connection.CreateCommand();
+                select.CommandText =
+                    "SELECT 1 WHERE EXISTS (SELECT 1 FROM ItemInstance WHERE CampaignId = $campaignId AND SourceItemDefinitionRef LIKE $pattern ESCAPE '\\') " +
+                    "OR EXISTS (SELECT 1 FROM ItemStack WHERE CampaignId = $campaignId AND SourceItemDefinitionRef LIKE $pattern ESCAPE '\\');";
+                select.Parameters.AddWithValue("$campaignId", campaignId.ToString());
+                select.Parameters.AddWithValue("$pattern", pattern);
+                return Result<bool>.Success(select.ExecuteScalar() != null);
+            }
+            catch (Exception ex) when (ex is IOException || ex is UnauthorizedAccessException || ex is SqliteException)
+            {
+                return Result<bool>.Failure(PersistenceFailures.InventoryIoFailed(correlationId));
+            }
+        }
+
+        private static string EscapeLike(string value)
+        {
+            return value
+                .Replace("\\", "\\\\")
+                .Replace("%", "\\%")
+                .Replace("_", "\\_");
+        }
+
         private static bool TryValidateCampaignBoundary(CampaignHandle campaign, CampaignId campaignId, CorrelationId correlationId, out Error error)
         {
             if (campaign.CampaignId.Equals(campaignId))
