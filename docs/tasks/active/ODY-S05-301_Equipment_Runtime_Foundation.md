@@ -1,11 +1,11 @@
 # ODY-S05-301 — Equipment Runtime Foundation
 
-**Status:** In Progress
+**Status:** In Review
 **Roadmap stage / slice:** SLICE-05 (Equipment runtime block)
 **Owner:** Codex (agent)
 **Requested by:** Product owner
 **Branch:** `feat/ody-s05-301-equipment-runtime-foundation`
-**Pull request:** Not opened
+**Pull request:** [#123](https://github.com/odyssey-services/Odyssey_VTT/pull/123)
 **ExecPlan:** `docs/plans/active/ODY-S05-301_Equipment_Runtime_Foundation.md`
 **Created:** 2026-09-11
 **Last updated:** 2026-09-11 UTC
@@ -254,47 +254,51 @@ dotnet test DotNet\Odyssey.Core.sln
 
 ## 16. Definition of Done
 
-- [ ] Goal is achieved without unapproved scope expansion.
-- [ ] All acceptance criteria are satisfied.
-- [ ] Required automated tests pass.
-- [ ] Required manual checks are completed.
-- [ ] Required commands and their real results are recorded.
-- [ ] Architecture and dependency rules remain valid.
-- [ ] Security, privacy, redaction, and audience rules are verified where applicable.
-- [ ] Compatibility, migration, rollback, and versioning obligations are complete where applicable.
-- [ ] No unapproved dependency, tool, GitHub Action, or license was introduced.
-- [ ] Documentation is updated only where materially required.
-- [ ] Codex/developer performed a self-review against this task and `AGENTS.md`.
-- [ ] Pull request explains changes, evidence, limitations, and follow-up work.
+- [x] Goal is achieved without unapproved scope expansion.
+- [x] All acceptance criteria are satisfied.
+- [x] Required automated tests pass.
+- [x] Required manual checks are completed.
+- [x] Required commands and their real results are recorded.
+- [x] Architecture and dependency rules remain valid.
+- [x] Security, privacy, redaction, and audience rules are verified where applicable.
+- [x] Compatibility, migration, rollback, and versioning obligations are complete where applicable.
+- [x] No unapproved dependency, tool, GitHub Action, or license was introduced.
+- [x] Documentation is updated only where materially required.
+- [x] Codex/developer performed a self-review against this task and `AGENTS.md`.
+- [x] Pull request explains changes, evidence, limitations, and follow-up work.
 - [ ] Product owner or authorized reviewer completes the required review; Codex does not merge into `main`.
 
 ## 17. Completion evidence
 
-_Filled at the end of implementation._
-
 ### Changed files / areas
 
-- _pending_
+- `Packages/com.odyssey.domain/Runtime/Inventory/EquippedEntry.cs` (new)
+- `DotNet/Tests/Odyssey.Tests.Domain/Inventory/EquippedEntryTests.cs` (new, TC-INVENTORY-095..100)
+- `DotNet/Tests/Odyssey.Tests.Unit/Inventory/InventoryRuntimeRecordTests.cs` (scope-guard update, one assertion)
+- `Tests/Metadata/test-catalog.json` (6 new entries)
+- `docs/tasks/active/ODY-S05-301_Equipment_Runtime_Foundation.md`, `docs/plans/active/ODY-S05-301_Equipment_Runtime_Foundation.md` (new)
+- `docs/tasks/SLICE-05_IMPLEMENTATION_BACKLOG.md` (§12 row 1 status only)
 
 ### Validation results
 
 | Command / check | Result | Evidence / notes |
 |---|---|---|
-| `dotnet build DotNet\Odyssey.Core.sln` | Not run | — |
-| `dotnet test DotNet\Odyssey.Core.sln` | Not run | — |
-| `.\scripts\verify-format.ps1` | Not run | — |
-| `.\scripts\check-repository-policy.ps1` | Not run | — |
-| `.\scripts\verify-test-structure.ps1` | Not run | — |
+| `dotnet build DotNet\Odyssey.Core.sln` | PASS | 0 warnings, 0 errors |
+| `dotnet test DotNet\Odyssey.Core.sln` | PASS | 719 total, 0 failed (Contracts 1, Domain 80, Networking 67, Unit 136, Architecture 2, Persistence 433) |
+| `.\scripts\verify-format.ps1` | PASS | `FORMAT-001 PASS repository text formatting checks passed` |
+| `.\scripts\check-repository-policy.ps1` | PASS | `Repository policy check passed.` (all `REPO-POLICY-*`/`TC-CI-*` sub-checks PASS) |
+| `.\scripts\verify-test-structure.ps1` | PASS | exit code 0; all `TC-ARCH-*` sub-checks PASS |
+| CI (`gh pr checks 123`) | PASS | `dotnet-restore-build-test`, `repository-policy-format-structure`, `unity-project-package-static`, `buildidentity-provenance` all pass |
 
 ### Acceptance result
 
 | Criterion | Status | Evidence |
 |---|---|---|
-| AC-1..11 | Not run | Implementation in progress. |
+| AC-1..11 | Met | `EquippedEntry` carries exactly `ADR-027` §7's field list; `BodyPartRefs` reuses `BodyPartId`; rule 1 is checkable via `ToLocationRef()`; invalid fields rejected (`TC-INVENTORY-097`); empty `BodyPartRefs` accepted (`TC-INVENTORY-096`); duplicate `BodyPartRefs` rejected (`TC-INVENTORY-098`); no persistence/command/`RemoveBodyPart` behavior added (scope-guard test, diff review); metadata and docs updated; all required validation commands pass. |
 
 ### Build and artifact evidence
 
-- _pending_
+- `dotnet build`/`dotnet test` output recorded above; no build artifacts published (library/test project only).
 
 ### Known limitations
 

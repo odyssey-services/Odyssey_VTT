@@ -1,9 +1,9 @@
 # ODY-S05-301 — Equipment Runtime Foundation
 
-**Status:** Active
+**Status:** In Review
 **Owner:** Codex (agent)
 **Branch:** `feat/ody-s05-301-equipment-runtime-foundation`
-**Pull request:** Not opened
+**Pull request:** [#123](https://github.com/odyssey-services/Odyssey_VTT/pull/123)
 **Last updated:** 2026-09-11 UTC
 
 ## 1. Purpose and user-visible outcome
@@ -58,10 +58,10 @@ No persistence, repository interface, command service, `RemoveBodyPart` real che
 
 ### M3 — Docs, validation, PR
 
-- [ ] Update task contract completion evidence.
-- [ ] Run required repository validation scripts.
-- [ ] Commit, push, and open Draft PR.
-- [ ] Record PR link and backlog `In Review` status.
+- [x] Update task contract completion evidence.
+- [x] Run required repository validation scripts.
+- [x] Commit, push, and open Draft PR.
+- [x] Record PR link and backlog `In Review` status.
 
 ## 6. Progress log
 
@@ -71,6 +71,8 @@ No persistence, repository interface, command service, `RemoveBodyPart` real che
 - 2026-09-11 — Added `EquippedEntry.cs`; build passed on first attempt (0 warnings, 0 errors).
 - 2026-09-11 — Added `EquippedEntryTests.cs` (6 tests); updated `InventoryRuntimeRecordTests.cs`'s scope guard; all Inventory-scoped tests passed on first run after fixing two issues found before commit: `Assert.Throws(new TestDelegate(...))` is obsolete in this NUnit version (switched to `new Action(...)`, the codebase's own existing convention) and `UserId` has no `NewId` method (switched to `UserId.Parse("user_" + Guid.NewGuid().ToString("N"))`, the existing Persistence-test convention).
 - 2026-09-11 — Registered `TC-INVENTORY-095`–`100`.
+- 2026-09-11 — Ran all three required repository validation scripts (`verify-format.ps1`, `check-repository-policy.ps1`, `verify-test-structure.ps1`); all passed. Committed, pushed `feat/ody-s05-301-equipment-runtime-foundation`, opened Draft PR [#123](https://github.com/odyssey-services/Odyssey_VTT/pull/123). All four CI checks (`dotnet-restore-build-test`, `repository-policy-format-structure`, `unity-project-package-static`, `buildidentity-provenance`) passed.
+- 2026-09-11 — Doc-sync follow-up: updated `SLICE-05_IMPLEMENTATION_BACKLOG.md` §12 row 1 to `In Review (PR #123)`, filled in task contract §16/§17 with real evidence, updated this ExecPlan's M3/§9. Re-ran the three validation scripts against the doc-only diff; all passed.
 
 ## 7. Decisions
 
@@ -86,7 +88,10 @@ See task contract §18 for the full decision log (standalone Domain type; whole 
 
 - `dotnet build DotNet\Odyssey.Core.sln`: passed, 0 warnings, 0 errors.
 - `dotnet test DotNet\Odyssey.Core.sln`: passed, 719 total, 0 failed (Contracts 1, Domain 80, Networking 67, Unit 136, Architecture 2, Persistence 433 — Domain carries the 6 new `TC-INVENTORY-095`–`100`).
-- `.\scripts\verify-format.ps1`, `.\scripts\check-repository-policy.ps1`, `.\scripts\verify-test-structure.ps1`: pending final run before PR (recorded with real output in the task contract §17).
+- `.\scripts\verify-format.ps1`: PASS (`FORMAT-001 PASS repository text formatting checks passed`).
+- `.\scripts\check-repository-policy.ps1`: PASS (`Repository policy check passed.`).
+- `.\scripts\verify-test-structure.ps1`: PASS (exit code 0, all `TC-ARCH-*` sub-checks PASS).
+- CI on PR #123: all four checks (`dotnet-restore-build-test`, `repository-policy-format-structure`, `unity-project-package-static`, `buildidentity-provenance`) pass.
 - Diff review: only `Packages/com.odyssey.domain/Runtime/Inventory/EquippedEntry.cs`, the two test files, test metadata, and planning docs changed. No persistence/schema/Unity/ADR/Character/Content file changed.
 
 ## 10. Recovery and rollback
