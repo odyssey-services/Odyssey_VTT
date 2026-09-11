@@ -1,9 +1,9 @@
 # ODY-S05-109 — Decompose ItemDefinition Migration Block
 
-**Status:** Active
+**Status:** In Review
 **Owner:** Codex (agent)
 **Branch:** `docs/ody-s05-109-decompose-item-definition-migration-block`
-**Pull request:** Not opened
+**Pull request:** [#129](https://github.com/odyssey-services/Odyssey_VTT/pull/129)
 **Last updated:** 2026-09-12 UTC
 
 ## 1. Purpose and user-visible outcome
@@ -61,7 +61,7 @@ No production code, no Unity/UI, no new persistence table, no new `ErrorCode`, n
 - [x] Run `.\scripts\verify-format.ps1`.
 - [x] Run `.\scripts\check-repository-policy.ps1`.
 - [x] Run `.\scripts\verify-test-structure.ps1`.
-- [ ] Commit, push, and open Draft PR.
+- [x] Commit, push, and open Draft PR.
 
 ## 6. Progress log
 
@@ -96,4 +96,4 @@ None for this task.
 
 ## 12. Outcome and follow-up
 
-Draft PR to be opened. Follow-up implementation tasks reserved: `ODY-S05-401` through `ODY-S05-404`.
+Draft PR [#129](https://github.com/odyssey-services/Odyssey_VTT/pull/129). Follow-up implementation tasks reserved: `ODY-S05-401` through `ODY-S05-404`.

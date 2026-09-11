@@ -1,11 +1,11 @@
 # ODY-S05-109 — Decompose ItemDefinition Migration Block
 
-**Status:** In Progress
+**Status:** In Review
 **Roadmap stage / slice:** SLICE-05 (ItemDefinition migration planning block)
 **Owner:** Codex (agent)
 **Requested by:** Product owner
 **Branch:** `docs/ody-s05-109-decompose-item-definition-migration-block`
-**Pull request:** Not opened
+**Pull request:** [#129](https://github.com/odyssey-services/Odyssey_VTT/pull/129)
 **Plan:** `docs/plans/active/ODY-S05-109_Decompose_ItemDefinition_Migration_Block.md` (Brief plan)
 **Created:** 2026-09-12
 **Last updated:** 2026-09-12 UTC
