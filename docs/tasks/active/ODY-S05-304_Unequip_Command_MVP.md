@@ -1,11 +1,11 @@
 # ODY-S05-304 — Unequip Command MVP
 
-**Status:** In Progress
+**Status:** In Review
 **Roadmap stage / slice:** SLICE-05 (Equipment runtime block)
 **Owner:** Codex (agent)
 **Requested by:** Product owner
 **Branch:** `feat/ody-s05-304-unequip-command-mvp`
-**Pull request:** Not opened
+**Pull request:** [#126](https://github.com/odyssey-services/Odyssey_VTT/pull/126)
 **ExecPlan:** `docs/plans/active/ODY-S05-304_Unequip_Command_MVP.md`
 **Created:** 2026-09-11
 **Last updated:** 2026-09-11 UTC

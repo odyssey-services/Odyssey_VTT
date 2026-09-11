@@ -1,9 +1,9 @@
 # ODY-S05-304 — Unequip Command MVP
 
-**Status:** Active
+**Status:** In Review
 **Owner:** Codex (agent)
 **Branch:** `feat/ody-s05-304-unequip-command-mvp`
-**Pull request:** Not opened
+**Pull request:** [#126](https://github.com/odyssey-services/Odyssey_VTT/pull/126)
 **Last updated:** 2026-09-11 UTC
 
 ## 1. Purpose and user-visible outcome
@@ -64,8 +64,8 @@ No rule 4, `RemoveBodyPart`, weapon/armor mechanics, or non-`Contained` destinat
 - [x] Update task contract completion evidence.
 - [x] Run required repository validation scripts.
 - [x] Review diff for scope.
-- [ ] Commit, push, and open Draft PR.
-- [ ] Record PR link and backlog `In Review` status.
+- [x] Commit, push, and open Draft PR.
+- [x] Record PR link and backlog `In Review` status.
 
 ## 6. Progress log
 
@@ -75,6 +75,7 @@ No rule 4, `RemoveBodyPart`, weapon/armor mechanics, or non-`Contained` destinat
 - 2026-09-11 — Implemented `IInventoryRepository.UnequipItem` (generic `UnequipItemCore<T>` in `SqliteInventoryRepository.cs`, reusing `EquipmentCommandLedger` with a new `"Unequip"` operation kind anchored to the `EquippedEntry`'s own revision) and `EquipmentService.Unequip`/`UnequipRequest`/`UnequipTransition`; build passed on first attempt after fixing `ThrowingInventoryRepository`'s fake (expected).
 - 2026-09-11 — Added `TC-INVENTORY-131`-`142` to `EquipmentServiceTests.cs`. One test (`UnequipItem_ReplayWithSameCommandId...`) initially failed on a wrong revision-math assertion (expected `instance.Revision + 1`, should be `+ 2` since Equip and Unequip each advance the item's revision once) — a test-authoring bug, not a production defect; fixed and re-ran green. Full suite then passed with no scope-guard breaks this time (no new file/type name matched any existing forbidden-fragment guard): 761 total, 0 failed (Contracts 1, Domain 80, Networking 67, Unit 136, Architecture 2, Persistence 475).
 - 2026-09-11 — Registered `TC-INVENTORY-131`-`142`; no new error code needed (every failure path reuses an existing registered code), so `docs/errors/ERROR_CODES.md` is unchanged. Validation passed: `dotnet build`, `dotnet test`, `verify-format.ps1`, `check-repository-policy.ps1` (passed on first run), `verify-test-structure.ps1`. Diff review confirmed only allowed paths touched.
+- 2026-09-11 — Committed, pushed `feat/ody-s05-304-unequip-command-mvp`, opened Draft PR [#126](https://github.com/odyssey-services/Odyssey_VTT/pull/126). Doc-sync follow-up: updated `SLICE-05_IMPLEMENTATION_BACKLOG.md` §12 row 4 to `In Review (PR #126)` and this task contract/ExecPlan headers with the PR link.
 
 ## 7. Decisions
 
