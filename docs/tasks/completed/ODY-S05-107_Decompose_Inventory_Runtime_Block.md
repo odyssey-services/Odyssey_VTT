@@ -1,6 +1,6 @@
 # ODY-S05-107 — Decompose Inventory Runtime Block
 
-**Status:** In Review
+**Status:** Done (PR #112, merged into main)
 **Roadmap stage / slice:** SLICE-05 (Inventory runtime planning block)
 **Owner:** Codex (agent)
 **Requested by:** Product owner

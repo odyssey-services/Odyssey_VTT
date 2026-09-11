@@ -14,7 +14,7 @@ This backlog converts roadmap `17_Roadmap_Odyssey_VTT_v0.11.md` section 14's `SL
 
 This backlog does **not** itself implement anything. It decomposes the slice into ordered child tasks, each of which will be its own separate task contract and pull request, activated one at a time — the same convention `SLICE-01_IMPLEMENTATION_BACKLOG.md` through `SLICE-04_IMPLEMENTATION_BACKLOG.md` used. No child task contract file is created by this document; it only reserves numbers, titles, and boundaries for the block it decomposes.
 
-Unlike prior slices' own first implementation-backlog revision, this document initially decomposed only **one** block of `SLICE-05` — the Content Catalog MVP — rather than the whole slice at once. This followed explicit product-owner direction (section 3.1): the catalog is the technical foundation the rest of `SLICE-05` (Inventory, `ItemInstance`/`ItemStack`, Equipment, item-sourced abilities/effects, `ItemDefinition` migration, and the full attack pipeline) needs before those later blocks can safely reference real definitions. After the Content Catalog MVP closed in PR #111, `ODY-S05-107` added the next Inventory runtime decomposition block in section 7.
+Unlike prior slices' own first implementation-backlog revision, this document initially decomposed only **one** block of `SLICE-05` — the Content Catalog MVP — rather than the whole slice at once. This followed explicit product-owner direction (section 3.1): the catalog is the technical foundation the rest of `SLICE-05` (Inventory, `ItemInstance`/`ItemStack`, Equipment, item-sourced abilities/effects, `ItemDefinition` migration, and the full attack pipeline) needs before those later blocks can safely reference real definitions. After the Content Catalog MVP closed in PR #111, `ODY-S05-107` added the next Inventory runtime decomposition block in section 7. After the Inventory runtime block closed (`ODY-S05-201`–`207`, merged into `main`), `ODY-S05-108` added the next Equipment runtime decomposition block in section 12.
 
 Its sources of scope are, exclusively:
 
@@ -172,7 +172,6 @@ It preserves these `ADR-027` decisions:
 
 Per section 3.1's explicit sequencing decision, the following `SLICE-05` blocks remain named and reserved but deliberately **not** decomposed into task IDs by this revision. Each becomes its own backlog revision-block once its prerequisites are accepted and closed, unless the product owner explicitly changes sequencing:
 
-- **Equipment runtime** — inventory-owned location state over slots/body parts (`ADR-027` section 7).
 - **Item-sourced abilities/effects runtime** — `CharacterAbility SourceKind=Item` integration and future `ActiveEffect` aggregate creation (`ADR-027` section 8).
 - **`ItemDefinition` migration preview/confirm** — MainGM workflow over runtime snapshots (`ADR-027` section 10).
 - **Full attack pipeline** — roadmap section 14.6's action/preview/range/modifier/roll/hit/damage/effect-application vertical slice.
@@ -187,6 +186,7 @@ This backlog revision excludes:
 - `.odcontent` import/export implementation;
 - a full, balanced MVP content pack (`106` is a proof fixture, not a content pack);
 - implementing Inventory runtime under `ODY-S05-107` itself; section 7 only decomposes future implementation tasks;
+- implementing Equipment runtime under `ODY-S05-108` itself; section 12 only decomposes future implementation tasks;
 - Equipment runtime implementation beyond minimal location vocabulary needed by Inventory runtime tasks (section 8);
 - item use, ActiveEffect execution, and the full attack pipeline (section 8);
 - ItemDefinition migration workflow implementation (section 8);
@@ -208,13 +208,70 @@ This backlog revision excludes:
 - `ODY-S05-205` depends on `ODY-S05-201`, `ODY-S05-202`, `ODY-S05-203`, and `ODY-S05-204` (stack lifecycle builds on creation and location invariants).
 - `ODY-S05-206` depends on `ODY-S05-201`, `ODY-S05-202`, and `ODY-S05-203` (runtime references exist before dependency checks can query them).
 - `ODY-S05-207` depends on `ODY-S05-201`–`206` (integration proof for the completed Inventory runtime block).
+- `ODY-S05-301` depends on the completed Inventory runtime block (`ODY-S05-201`–`207`) and this decomposition task (`ODY-S05-108`).
+- `ODY-S05-302` depends on `ODY-S05-301` (foundation vocabulary before persistence).
+- `ODY-S05-303` depends on `ODY-S05-301` and `ODY-S05-302` (runtime shape and persistence exist before the Equip command).
+- `ODY-S05-304` depends on `ODY-S05-301`, `ODY-S05-302`, and `ODY-S05-303` (an item must be equippable before it can be unequipped).
+- `ODY-S05-305` depends on `ODY-S05-301`, `ODY-S05-302`, `ODY-S05-303`, and `ODY-S05-304` (both directions of the equipped-location transition must exist before real body-part dependency data is meaningful to check).
+- `ODY-S05-306` depends on `ODY-S05-301`–`305` (integration proof for the completed Equipment runtime block).
 
 ## 11. Backlog change control
 
-- New work requires a task contract; this document reserves numbers `ODY-S05-101` through `ODY-S05-106` for the completed Content Catalog MVP block and `ODY-S05-201` through `ODY-S05-207` for the Inventory runtime block.
+- New work requires a task contract; this document reserves numbers `ODY-S05-101` through `ODY-S05-106` for the completed Content Catalog MVP block, `ODY-S05-201` through `ODY-S05-207` for the completed Inventory runtime block, and `ODY-S05-301` through `ODY-S05-306` for the Equipment runtime block (section 12).
 - A task may be split before implementation by updating this backlog, following the same rule prior backlog revisions in this repository already use.
 - A task may not be merged with unrelated cleanup merely to reduce task count.
 - Completed task files move to `docs/tasks/completed/` only after required review, per the established convention in this repository.
 - This backlog does not replace any task's own acceptance criteria or `ADR-027`'s content; it does not itself decide any technical question beyond the five explicit scope decisions in section 3.
 - The reserved future blocks in section 8 are named, not scoped — decomposing any of them into real task IDs is a future backlog revision, not an implicit extension of this one.
 - If this document's section 3 narrowing decisions are later found incorrect or resolved sooner than expected, that is a new task/backlog-revision decision, not a silent edit to this document's already-recorded reasoning — this document would gain an explicit amendment note, not a rewritten section 3.
+
+## 12. Ordered backlog (Equipment runtime block)
+
+`ODY-S05-108` decomposes the next block after the Inventory runtime block's closure (`ODY-S05-201`–`207`, merged into `main`). This block implements Equipment as `ADR-027` section 7 already normatively defines it — Inventory-owned location state over exact item/stack references, equipment slot references, and optional body-part references — plus the one real, still-open `SLICE-04` stub `ADR-027` section 9.1 assigns to this block:
+
+```text
+EquippedEntry
+├── InventoryId
+├── ItemRef
+├── EquipmentSlotRef
+├── BodyPartRefs[]
+├── EquippedByUserId
+├── EquippedAt
+└── Revision
+```
+
+It preserves these `ADR-027` section 7 rules:
+
+1. One item or stack is in exactly one place at a time — contained, equipped, dropped, consumed, destroyed, or another explicit lifecycle/location state.
+2. Equipping moves an item from contained to equipped state; it does not copy item mechanics into Character as authoritative state.
+3. Unequipping moves it back into a valid containment location or another explicit location selected by the command.
+4. Equipment must reference body parts that currently exist on the owning Character when body-part-specific placement or armor coverage is required.
+5. Removing a body part is rejected while equipment or item state depends on that body part, unless the same future command explicitly and atomically resolves the dependency under an accepted task contract.
+6. Weapon, armor, and ammo runtime state stays with the item/stack, not with Equipment placement itself.
+
+`ODY-S05-108` also verified directly in code (`InventoryCharacterDeletionDependencyChecker`/`SqliteInventoryRepository.HasAnyItemOwnedByCharacter`) that `ADR-027` section 9.2's "equipped items" requirement for `DeleteCharacterPermanently` is **already closed** by `ODY-S05-206` — that dependency query filters only on `CampaignId`/`OwnerKind`/`OwnerTargetRef`, never on location kind, and equipping an item never changes its `OwnerRef`. This block therefore does not reserve a separate `DeleteCharacterPermanently` task; see `ODY-S05-108`'s own task contract section 18 for the full finding.
+
+| Order | Task ID | Status | Roadmap/product source | Title | Depends on | Planning mode | Primary result |
+|---:|---|---|---|---|---|---|---|
+| 1 | `ODY-S05-301` | Proposed | `ADR-027` §5/7 | Equipment Runtime Foundation | 108, 201-207 | ExecPlan | Domain type(s) modeling `EquippedEntry` (or a typed extension of `InventoryLocationRef.Equipped` carrying the same fields) — `BodyPartRefs[]`, `EquippedByUserId`, `EquippedAt`, `Revision` — alongside the existing `EquipmentSlotRef` token. Establishes the one-place invariant (rule 1) and body-part-reference vocabulary only. No persistence schema, no Equip/Unequip commands, no `RemoveBodyPart` dependency check. |
+| 2 | `ODY-S05-302` | Proposed | `ADR-027` §5/7/14 | Equipment Persistence Foundation | 301 | ExecPlan | SQLite schema/contracts for persisting `EquippedEntry`-shaped state, read/write primitives on `IInventoryRepository` or a sibling contract, optimistic-concurrency (CAS) pattern mirroring `ODY-S05-202`/`204`. No Equip/Unequip command semantics, no `RemoveBodyPart` check. |
+| 3 | `ODY-S05-303` | Proposed | `ADR-027` §7 rules 1/2/4 | Equip Command MVP | 301, 302 | ExecPlan | MainGM-only command moving an item/stack from a valid contained location into an equipped location state, populating `EquipmentSlotRef`/`BodyPartRefs[]`/`EquippedByUserId`/`EquippedAt` with an atomic revision guard. Must enforce rule 4 (referenced body parts currently exist on the owning Character) and rule 1 (exclusive one-place location). No Unequip, no weapon/armor mechanical effects, no `RemoveBodyPart` check. |
+| 4 | `ODY-S05-304` | Proposed | `ADR-027` §7 rule 3 | Unequip Command MVP | 301, 302, 303 | ExecPlan | MainGM-only command moving an equipped item/stack back into a valid contained (or other explicit) location per rule 3, with a symmetric revision guard, reusing `ODY-S05-204`'s move/location vocabulary where it applies. No new Equip semantics beyond the reverse transition, no `RemoveBodyPart` check. |
+| 5 | `ODY-S05-305` | Proposed | `ADR-027` §7 rule 5; §9.1 | RemoveBodyPart Dependency Closure | 301, 302, 303, 304 | ExecPlan | Finally closes the `SqliteCharacterRepository.RemoveBodyPart` item/equipment-dependency stub (documented, not silent, since the original `SLICE-04` task and re-documented by `ODY-S05-206`): a real check for Equipment/item state depending on the body part being removed, rejecting the removal unless the same command atomically resolves the dependency. Does not touch `DeleteCharacterPermanently` (already closed by `ODY-S05-206`, see this section's intro). |
+| 6 | `ODY-S05-306` | Proposed | Roadmap §14 | Equipment Runtime Integration Fixtures | 301-305 | Brief plan | Minimal integration fixtures proving the Equipment runtime block works end-to-end, mirroring `ODY-S05-207`: a Published weapon/armor definition creates a runtime item, Equip succeeds and blocks `RemoveBodyPart` on a dependent body part, Unequip succeeds, and `RemoveBodyPart` then succeeds. Composes existing surfaces only; no new production behavior unless an earlier task deliberately reserved a tiny fixture hook. |
+
+### 12.1 Equipment runtime task boundaries
+
+`ODY-S05-301` owns the domain vocabulary for equipped-location state: the `EquippedEntry` shape (or equivalent typed extension of `InventoryLocationRef.Equipped`), `BodyPartRefs[]`, `EquippedByUserId`, `EquippedAt`, `Revision`. It must not introduce persistence schema or commands whose behavior belongs to later tasks.
+
+`ODY-S05-302` owns persistence, idempotency, and optimistic concurrency for Equipment state. It must keep schema/contracts separate from the Equip/Unequip command semantics themselves.
+
+`ODY-S05-303` owns the Equip transition and rule 4's body-part-existence check. It must not implement Unequip, weapon/armor mechanical effects, or the `RemoveBodyPart` check.
+
+`ODY-S05-304` owns the Unequip transition and rule 3's valid-destination check. It must not re-implement Equip beyond the symmetric reverse transition.
+
+`ODY-S05-305` owns closing the real `RemoveBodyPart` item/equipment-dependency stub (rule 5; `ADR-027` §9.1) — the one `SLICE-04` stub this block is responsible for. It does not touch `DeleteCharacterPermanently`, whose equivalent dependency (§9.2, "equipped items") this block's own decomposition task (`ODY-S05-108`) already verified is closed by `ODY-S05-206`.
+
+`ODY-S05-306` is the integration proof for the Equipment runtime block, mirroring `ODY-S05-207` for the Inventory runtime block. It should compose existing surfaces and avoid new production behavior unless an earlier task deliberately reserved a tiny fixture hook.
+
+If any of `ODY-S05-301`–`306` discovers that a stub or dependency cannot be fully closed without item-sourced abilities/effects (`ActiveEffect`) or another still-reserved block, that task must add an explicit follow-up task ID instead of leaving an unnamed TODO, per the same rule `ODY-S05-206` already followed for `RemoveBodyPart`'s own original deferral.
