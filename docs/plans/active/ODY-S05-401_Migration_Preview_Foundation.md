@@ -1,9 +1,9 @@
 # ODY-S05-401 — Migration Preview Foundation
 
-**Status:** Active
+**Status:** In Review
 **Owner:** Codex (agent)
 **Branch:** `feat/ody-s05-401-migration-preview-foundation`
-**Pull request:** Not opened
+**Pull request:** [odyssey-services/Odyssey_VTT#130](https://github.com/odyssey-services/Odyssey_VTT/pull/130) (Draft)
 **Last updated:** 2026-09-12 UTC
 
 ## 1. Purpose and user-visible outcome
@@ -67,11 +67,11 @@ No blocking-incompatibility computation, no `ADR-012` backup call, no apply logi
 - [x] Narrow `InventoryRuntimeRecordTests.cs`'s filename-fragment guard (discovered mid-implementation; see §8).
 - [x] Register test metadata.
 - [x] Run `dotnet test`.
-- [ ] Update task contract completion evidence.
+- [x] Update task contract completion evidence.
 - [x] Run required repository validation scripts.
 - [x] Review diff for scope.
-- [ ] Commit, push, and open Draft PR.
-- [ ] Record PR link and backlog `In Review` status.
+- [x] Commit, push, and open Draft PR.
+- [x] Record PR link and backlog `In Review` status.
 
 ## 6. Progress log
 

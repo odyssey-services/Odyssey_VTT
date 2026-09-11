@@ -1,11 +1,11 @@
 # ODY-S05-401 — Migration Preview Foundation
 
-**Status:** In Progress
+**Status:** In Review
 **Roadmap stage / slice:** SLICE-05 (ItemDefinition migration block)
 **Owner:** Codex (agent)
 **Requested by:** Product owner
 **Branch:** `feat/ody-s05-401-migration-preview-foundation`
-**Pull request:** Not opened
+**Pull request:** [odyssey-services/Odyssey_VTT#130](https://github.com/odyssey-services/Odyssey_VTT/pull/130) (Draft)
 **ExecPlan:** `docs/plans/active/ODY-S05-401_Migration_Preview_Foundation.md`
 **Created:** 2026-09-12
 **Last updated:** 2026-09-12 UTC
