@@ -1,11 +1,11 @@
 # ODY-S05-305 — RemoveBodyPart Dependency Closure
 
-**Status:** In Progress
+**Status:** In Review
 **Roadmap stage / slice:** SLICE-05 (Equipment runtime block)
 **Owner:** Codex (agent)
 **Requested by:** Product owner
 **Branch:** `feat/ody-s05-305-removebodypart-dependency-closure`
-**Pull request:** Not opened
+**Pull request:** [#127](https://github.com/odyssey-services/Odyssey_VTT/pull/127)
 **ExecPlan:** `docs/plans/active/ODY-S05-305_RemoveBodyPart_Dependency_Closure.md`
 **Created:** 2026-09-11
 **Last updated:** 2026-09-11 UTC

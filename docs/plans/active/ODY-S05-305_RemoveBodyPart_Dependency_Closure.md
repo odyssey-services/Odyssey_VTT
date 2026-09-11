@@ -1,9 +1,9 @@
 # ODY-S05-305 — RemoveBodyPart Dependency Closure
 
-**Status:** Active
+**Status:** In Review
 **Owner:** Codex (agent)
 **Branch:** `feat/ody-s05-305-removebodypart-dependency-closure`
-**Pull request:** Not opened
+**Pull request:** [#127](https://github.com/odyssey-services/Odyssey_VTT/pull/127)
 **Last updated:** 2026-09-11 UTC
 
 ## 1. Purpose and user-visible outcome
@@ -65,8 +65,8 @@ No change to `EquipItem`/`UnequipItem`/`EquipmentService`/`EquippedEntry.cs`, no
 - [x] Update task contract completion evidence.
 - [x] Run required repository validation scripts.
 - [x] Review diff for scope.
-- [ ] Commit, push, and open Draft PR.
-- [ ] Record PR link and backlog `In Review` status.
+- [x] Commit, push, and open Draft PR.
+- [x] Record PR link and backlog `In Review` status.
 
 ## 6. Progress log
 
@@ -76,6 +76,7 @@ No change to `EquipItem`/`UnequipItem`/`EquipmentService`/`EquippedEntry.cs`, no
 - 2026-09-11 — Implemented `HasAnyEquippedEntryReferencingBodyPart`, `IBodyPartRemovalDependencyChecker`/`InventoryBodyPartRemovalDependencyChecker`, and the `SqliteCharacterRepository` wiring; build passed on first attempt after fixing `ThrowingInventoryRepository`'s fake (expected).
 - 2026-09-11 — Added `BodyPartRemovalDependencyCheckerTests.cs` (`TC-INVENTORY-143`-`152`, 10 tests); all passed on first run. Full suite run then passed with no scope-guard breaks (this task added no file matching any existing forbidden-fragment guard): 771 total, 0 failed (Contracts 1, Domain 80, Networking 67, Unit 136, Architecture 2, Persistence 485).
 - 2026-09-11 — Registered `TC-INVENTORY-143`-`152`; no new error code needed (reused `CharacterBodyPartHasDependent`), so `docs/errors/ERROR_CODES.md` is unchanged. Validation passed: `dotnet build`, `dotnet test`, `verify-format.ps1`, `check-repository-policy.ps1` (passed on first run), `verify-test-structure.ps1`. Diff review of `SqliteCharacterRepository.cs` confirmed `DeleteCharacterPermanently` and every other method untouched — only the constructor and `RemoveBodyPart` changed.
+- 2026-09-11 — Committed, pushed `feat/ody-s05-305-removebodypart-dependency-closure`, opened Draft PR [#127](https://github.com/odyssey-services/Odyssey_VTT/pull/127). Doc-sync follow-up: updated `SLICE-05_IMPLEMENTATION_BACKLOG.md` §12 row 5 to `In Review (PR #127)` and this task contract/ExecPlan headers with the PR link.
 
 ## 7. Decisions
 
