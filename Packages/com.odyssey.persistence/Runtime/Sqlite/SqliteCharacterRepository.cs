@@ -50,6 +50,7 @@ namespace Odyssey.Persistence.Sqlite
         private readonly SqliteSavingPipeline _pipeline;
         private readonly IBackupRepository _backupRepository;
         private readonly IReadOnlyList<ICharacterDeletionDependencyChecker> _deletionDependencyCheckers;
+        private readonly IReadOnlyList<IBodyPartRemovalDependencyChecker> _bodyPartRemovalDependencyCheckers;
 
         private static readonly string[] HistoryEventTypes =
         {
@@ -115,12 +116,17 @@ namespace Odyssey.Persistence.Sqlite
         /// needs to observe/substitute the backup step (e.g. a test) can
         /// still pass one explicitly.
         /// </summary>
-        public SqliteCharacterRepository(IWallClock clock, IBackupRepository? backupRepository = null, IReadOnlyList<ICharacterDeletionDependencyChecker>? deletionDependencyCheckers = null)
+        public SqliteCharacterRepository(IWallClock clock, IBackupRepository? backupRepository = null, IReadOnlyList<ICharacterDeletionDependencyChecker>? deletionDependencyCheckers = null, IReadOnlyList<IBodyPartRemovalDependencyChecker>? bodyPartRemovalDependencyCheckers = null)
         {
             _clock = clock ?? throw new ArgumentNullException(nameof(clock));
             _pipeline = new SqliteSavingPipeline(clock);
             _backupRepository = backupRepository ?? new SqliteBackupRepository(clock);
             _deletionDependencyCheckers = deletionDependencyCheckers ?? Array.Empty<ICharacterDeletionDependencyChecker>();
+            // ODY-S05-305: a separate checker list from _deletionDependencyCheckers
+            // -- different interface (carries a BodyPartId), different operation
+            // (RemoveBodyPart, not DeleteCharacterPermanently). Defaults to empty,
+            // the same opt-in-only convention, no composition root.
+            _bodyPartRemovalDependencyCheckers = bodyPartRemovalDependencyCheckers ?? Array.Empty<IBodyPartRemovalDependencyChecker>();
         }
 
         public Result<CharacterRecord> CreateCharacter(CreateCharacterRequest request, CommandId commandId, CorrelationId correlationId)
@@ -4058,23 +4064,27 @@ namespace Odyssey.Persistence.Sqlite
         }
 
         /// <summary>
-        /// ODY-S04-109 section 1.3 (re-documented by ODY-S05-206): dependency
-        /// preview boundary. Product section 18/requirement 51's own
-        /// item-dependency check remains a documented stub, but not for the
-        /// reason originally recorded. Inventory / <c>ItemInstance</c> /
-        /// <c>ItemStack</c> DO exist now (ODY-S05-201/202); what does not exist
-        /// is any Equipment layer binding an item to a specific body part --
-        /// <c>ADR-027</c> section 7 describes <c>EquippedEntry.BodyPartRefs[]</c>
-        /// but no such structure is created anywhere in the codebase, so
-        /// "what is equipped on this body part" cannot be asked. Closing this
-        /// stub is deferred to the Equipment runtime block named in
-        /// <c>docs/tasks/SLICE-05_IMPLEMENTATION_BACKLOG.md</c> section 8; a
-        /// concrete task ID is assigned when that block is decomposed. What IS
-        /// checked, for real, is the one dependency this Character's own
-        /// <c>CharacterAnatomy</c> snapshot can express: any other
-        /// <see cref="BodyPart.AttachedToBodyPartId"/> or
-        /// <see cref="PermanentModification.AttachedToBodyPartId"/> referencing
-        /// the part being removed.
+        /// ODY-S04-109 section 1.3 (re-documented by ODY-S05-206, closed by
+        /// ODY-S05-305): dependency preview boundary. Product section
+        /// 18/requirement 51's own item-dependency check was a documented stub
+        /// because Inventory/<c>ItemInstance</c>/<c>ItemStack</c> existed
+        /// (ODY-S05-201/202) but no Equipment layer bound an item to a
+        /// specific body part yet -- <c>ADR-027</c> section 7 described
+        /// <c>EquippedEntry.BodyPartRefs[]</c> but no such structure existed
+        /// anywhere in the codebase, so "what is equipped on this body part"
+        /// could not be asked. That layer now exists (ODY-S05-301/302/303/304):
+        /// this method checks, for real, both the two internal Character-only
+        /// dependencies this Character's own <c>CharacterAnatomy</c> snapshot
+        /// can express (any other <see cref="BodyPart.AttachedToBodyPartId"/>
+        /// or <see cref="PermanentModification.AttachedToBodyPartId"/>
+        /// referencing the part being removed) AND, for any
+        /// <see cref="IBodyPartRemovalDependencyChecker"/> the caller passed to
+        /// this repository's constructor, whether an
+        /// <c>EquippedEntry</c> still references the part being removed
+        /// (`ADR-027` section 7 rule 5). Hard rejection only -- no atomic
+        /// auto-Unequip is performed; the caller must Unequip first, then
+        /// retry. If no checker is passed, behavior is unchanged from before
+        /// ODY-S05-305.
         /// </summary>
         public Result<CharacterRecord> RemoveBodyPart(CampaignHandle campaign, CharacterId characterId, BodyPartId bodyPartId, UserId actorUserId, bool actorIsMainGm, long expectedCharacterAnatomyRevision, CommandId commandId, CorrelationId correlationId)
         {
@@ -4099,15 +4109,22 @@ namespace Odyssey.Persistence.Sqlite
                     return Result<AnatomyMutation>.Failure(PersistenceFailures.CharacterBodyPartNotFound(correlationId));
                 }
 
-                // Item/equipment dependency (product requirement 51): NOT
-                // checked -- Inventory exists (ODY-S05-201/202) but no
-                // Equipment layer binds an item to a body part yet
-                // (ADR-027 section 7; deferred to the Equipment runtime
-                // block, SLICE-05_IMPLEMENTATION_BACKLOG.md section 8).
-                // Documented, not silent. Internal dependency (this task's
-                // own real, checkable substitute): does any other body part
-                // attach to this one, or any permanent modification attach
-                // to this one?
+                // ODY-S05-305: item/equipment dependency (product requirement
+                // 51; ADR-027 section 7 rule 5). Hard rejection only -- no
+                // atomic auto-Unequip. Absent if the caller passed no
+                // IBodyPartRemovalDependencyChecker (unchanged behavior).
+                foreach (IBodyPartRemovalDependencyChecker checker in _bodyPartRemovalDependencyCheckers)
+                {
+                    string? blockingDependency = checker.CheckBlockingDependency(campaign, characterId, bodyPartId);
+                    if (blockingDependency != null)
+                    {
+                        return Result<AnatomyMutation>.Failure(PersistenceFailures.CharacterBodyPartHasDependent(correlationId));
+                    }
+                }
+
+                // Internal dependency (this Character's own CharacterAnatomy
+                // snapshot): does any other body part attach to this one, or
+                // any permanent modification attach to this one?
                 foreach (BodyPart candidate in current.Anatomy.BodyParts)
                 {
                     if (candidate.AttachedToBodyPartId.HasValue && candidate.AttachedToBodyPartId.Value.Equals(bodyPartId))

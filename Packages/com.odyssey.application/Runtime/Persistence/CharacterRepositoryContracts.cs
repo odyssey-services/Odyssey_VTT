@@ -790,6 +790,25 @@ namespace Odyssey.Application.Persistence
         string? CheckBlockingDependency(CampaignHandle campaign, CharacterId characterId);
     }
 
+    /// <summary>
+    /// ODY-S05-305: `ADR-027` section 7 rule 5 / section 9.1's
+    /// `RemoveBodyPart` item/equipment-dependency stub closure. A new,
+    /// parallel interface to <see cref="ICharacterDeletionDependencyChecker"/>
+    /// rather than an extension of it -- that interface's own
+    /// <c>CheckBlockingDependency(CampaignHandle, CharacterId)</c> signature
+    /// has no way to carry the specific <see cref="BodyPartId"/> being
+    /// removed, and changing it would break every existing implementation/
+    /// call site for the unrelated `DeleteCharacterPermanently` operation.
+    /// Opt-in only, exactly like <see cref="ICharacterDeletionDependencyChecker"/>:
+    /// registered into <c>SqliteCharacterRepository</c>'s own separate checker
+    /// list, with no implicit default wiring and no composition root.
+    /// </summary>
+    public interface IBodyPartRemovalDependencyChecker
+    {
+        /// <summary>Returns a short, human-readable description of the blocking dependency if one exists for this specific body part, or <c>null</c> if this checker finds none.</summary>
+        string? CheckBlockingDependency(CampaignHandle campaign, CharacterId characterId, BodyPartId bodyPartId);
+    }
+
     /// <summary>ODY-S04-107: one addressed attribute-or-skill target for a respec, and the value the caller wants it to end up at after the batch (0 means "fully undo, do not repurchase").</summary>
     public sealed class CharacterRespecTarget
     {
