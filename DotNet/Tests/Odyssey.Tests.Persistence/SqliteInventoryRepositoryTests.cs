@@ -275,7 +275,13 @@ namespace Odyssey.Tests.Persistence
                 "InventoryMoveCommandLedger",
                 "InventoryStackCommandLedger",
                 "IX_ItemInstance_Campaign_Inventory",
-                "IX_ItemStack_Campaign_Inventory"
+                "IX_ItemStack_Campaign_Inventory",
+                // ODY-S05-302: the Equipment table's own list index happens to match
+                // this guard's "%Inventory%" filter because it is scoped by InventoryId;
+                // the EquippedEntry/EquipmentCommandLedger tables themselves do not
+                // match this filter and are covered by their own schema guard instead
+                // (SqliteEquipmentRepositoryTests.EquipmentSchema_ContainsOnlyAllowedEquipmentTablesAndIndex).
+                "IX_EquippedEntry_Campaign_Inventory"
             };
             Assert.That(names.Select(n => n.Name), Is.SubsetOf(allowed));
             Assert.That(names.Where(n => n.Type == "table").Select(n => n.Name), Is.EquivalentTo(new[] { "Inventory", "InventoryCommandLedger", "InventoryMoveCommandLedger", "InventoryStackCommandLedger", "ItemInstance", "ItemStack" }));
@@ -303,9 +309,16 @@ namespace Odyssey.Tests.Persistence
                 var tableNames = new List<string>();
                 while (reader.Read()) tableNames.Add(reader.GetString(0));
 
+                // ODY-S05-302 may introduce exactly its own EquipmentCommandLedger
+                // table name (the EquippedEntry table itself does not contain the
+                // substring "Equipment"); no Equip/Unequip command, ActiveEffect,
+                // Attack, or ItemDefinitionMigration table may exist.
+                string[] allowedEquipmentTables = { "EquipmentCommandLedger" };
                 string[] forbidden = { "Equipment", "ActiveEffect", "Attack", "ItemDefinitionMigration" };
                 foreach (string tableName in tableNames)
                 {
+                    if (allowedEquipmentTables.Contains(tableName)) continue;
+
                     foreach (string forbiddenName in forbidden)
                     {
                         Assert.That(tableName, Does.Not.Contain(forbiddenName));
@@ -313,6 +326,9 @@ namespace Odyssey.Tests.Persistence
                 }
             }
 
+            // No type in this assembly is named with the substring "Equipment" (the
+            // ODY-S05-302 table name is a private SQL string literal, not a type), so
+            // this check still forbids a future Equip/Unequip command class by name.
             string[] forbiddenTypeFragments = { "Equipment", "ActiveEffect", "Attack", "ItemDefinitionMigration" };
             IEnumerable<string> persistenceTypeNames = typeof(SqliteInventoryRepository).Assembly.GetTypes().Select(t => t.Name);
             foreach (string typeName in persistenceTypeNames)

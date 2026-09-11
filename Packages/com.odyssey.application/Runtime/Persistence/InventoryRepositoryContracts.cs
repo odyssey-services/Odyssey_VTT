@@ -55,6 +55,37 @@ namespace Odyssey.Application.Persistence
         /// (`ADR-027` section 4.1 rule 4/5).
         /// </summary>
         Result<bool> HasAnyRuntimeReferenceToDefinition(CampaignHandle campaign, CampaignId campaignId, ContentDefinitionId definitionId, CorrelationId correlationId);
+
+        /// <summary>
+        /// ODY-S05-302: creates the equipped-state storage row for an item.
+        /// Idempotent by <paramref name="commandId"/>; rejects a second create
+        /// for an already-equipped item (rule 1) with a dedicated conflict, not
+        /// a silent duplicate. No Equip command semantics, MainGM/authorization
+        /// check, or rule-4 body-part-existence check are performed here.
+        /// </summary>
+        Result<EquippedEntryRecord> CreateEquippedEntry(CampaignHandle campaign, EquippedEntryRecord record, CommandId commandId, CorrelationId correlationId);
+
+        /// <summary>ODY-S05-302: reads the equipped-state row for an item, if any.</summary>
+        Result<EquippedEntryRecord> GetEquippedEntry(CampaignHandle campaign, InventoryItemRef itemRef, CorrelationId correlationId);
+
+        /// <summary>
+        /// ODY-S05-302: CAS-protected replacement of an existing equipped-state
+        /// row's mutable fields (slot, body-part refs, equipped-by, equipped-at),
+        /// guarded by <paramref name="expectedRevision"/>. A physical transition
+        /// primitive only -- <c>ODY-S05-303</c>/<c>304</c> own the Equip/Unequip
+        /// business rules that call it.
+        /// </summary>
+        Result<EquippedEntryRecord> ReplaceEquippedEntry(CampaignHandle campaign, EquippedEntryRecord record, long expectedRevision, CommandId commandId, CorrelationId correlationId);
+
+        /// <summary>
+        /// ODY-S05-302: CAS-protected removal of an equipped-state row, guarded
+        /// by <paramref name="expectedRevision"/>. The physical unequip
+        /// primitive; no destination/ownership validation is performed here.
+        /// </summary>
+        Result<bool> DeleteEquippedEntry(CampaignHandle campaign, InventoryItemRef itemRef, long expectedRevision, CommandId commandId, CorrelationId correlationId);
+
+        /// <summary>ODY-S05-302: lists equipped-state rows scoped to one campaign inventory.</summary>
+        Result<IReadOnlyList<EquippedEntryRecord>> ListEquippedEntries(CampaignHandle campaign, CampaignId campaignId, InventoryId inventoryId, CorrelationId correlationId);
     }
 
     public sealed class InventoryCreateReplay<TRecord>

@@ -344,7 +344,10 @@ namespace Odyssey.Tests.Persistence
                 using SqliteDataReader reader = select.ExecuteReader();
                 var tableNames = new List<string>();
                 while (reader.Read()) tableNames.Add(reader.GetString(0));
-                AssertForbiddenFragments(tableNames);
+                // ODY-S05-302 legitimately owns EquipmentCommandLedger (Equipment
+                // persistence, not command semantics); every other forbidden fragment
+                // still applies to every table name.
+                AssertForbiddenFragments(tableNames.Where(name => name != "EquipmentCommandLedger"));
             }
 
             IEnumerable<string> inventoryTypeNames = typeof(InventoryCreationService).Assembly.GetTypes()
