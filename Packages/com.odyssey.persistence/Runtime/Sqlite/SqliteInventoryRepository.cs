@@ -448,6 +448,51 @@ namespace Odyssey.Persistence.Sqlite
             }
         }
 
+        public Result<bool> HasAnyEquippedEntryReferencingBodyPart(CampaignHandle campaign, CampaignId campaignId, CharacterId characterId, BodyPartId bodyPartId, CorrelationId correlationId)
+        {
+            if (campaign == null) throw new ArgumentNullException(nameof(campaign));
+            if (!campaignId.IsValid) throw new ArgumentException("CampaignId is required.", nameof(campaignId));
+            if (!characterId.IsValid) throw new ArgumentException("CharacterId is required.", nameof(characterId));
+            if (!bodyPartId.IsValid) throw new ArgumentException("BodyPartId is required.", nameof(bodyPartId));
+            if (!TryValidateCampaignBoundary(campaign, campaignId, correlationId, out Error campaignError))
+            {
+                return Result<bool>.Failure(campaignError);
+            }
+
+            try
+            {
+                using SqliteConnection connection = OpenConnection(campaign.RootPath);
+                EnsureInventoryTables(connection);
+                // BodyPartRefs is a comma-joined string (ODY-S05-302); wrapping both
+                // the stored value and the search pattern in commas makes a
+                // first/middle/last position match and the "head" vs "headBackup"
+                // boundary case both correct by construction. BodyPartId allows '_',
+                // a LIKE wildcard, so the searched value is escaped via the same
+                // EscapeLike helper HasAnyRuntimeReferenceToDefinition already uses.
+                string pattern = "%," + EscapeLike(bodyPartId.ToString()) + ",%";
+                using var select = connection.CreateCommand();
+                select.CommandText =
+                    "SELECT 1 WHERE EXISTS (" +
+                    "SELECT 1 FROM EquippedEntry e JOIN ItemInstance i ON i.ItemInstanceId = e.ItemRefId " +
+                    "WHERE e.CampaignId = $campaignId AND i.OwnerKind = $ownerKind AND i.OwnerTargetRef = $characterId " +
+                    "AND (',' || e.BodyPartRefs || ',') LIKE $pattern ESCAPE '\\'" +
+                    ") OR EXISTS (" +
+                    "SELECT 1 FROM EquippedEntry e JOIN ItemStack s ON s.ItemStackId = e.ItemRefId " +
+                    "WHERE e.CampaignId = $campaignId AND s.OwnerKind = $ownerKind AND s.OwnerTargetRef = $characterId " +
+                    "AND (',' || e.BodyPartRefs || ',') LIKE $pattern ESCAPE '\\'" +
+                    ");";
+                select.Parameters.AddWithValue("$campaignId", campaignId.ToString());
+                select.Parameters.AddWithValue("$ownerKind", InventoryOwnerKind.Character.ToString());
+                select.Parameters.AddWithValue("$characterId", characterId.ToString());
+                select.Parameters.AddWithValue("$pattern", pattern);
+                return Result<bool>.Success(select.ExecuteScalar() != null);
+            }
+            catch (Exception ex) when (ex is IOException || ex is UnauthorizedAccessException || ex is SqliteException)
+            {
+                return Result<bool>.Failure(PersistenceFailures.InventoryIoFailed(correlationId));
+            }
+        }
+
         private static string EscapeLike(string value)
         {
             return value

@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using Odyssey.Application.Commands;
 using Odyssey.Application.Inventory;
 using Odyssey.Application.Results;
+using Odyssey.Domain.Character;
 using Odyssey.Domain.Content;
 using Odyssey.Domain.Inventory;
 using Odyssey.Domain.Identity;
@@ -114,6 +115,18 @@ namespace Odyssey.Application.Persistence
         /// `RemoveBodyPart` check, or non-`Contained` destination is supported.
         /// </summary>
         Result<bool> UnequipItem(CampaignHandle campaign, UnequipTransition transition, CorrelationId correlationId);
+
+        /// <summary>
+        /// ODY-S05-305: true if any <see cref="EquippedEntryRecord"/> owned by
+        /// this character (via the joined <see cref="ItemInstanceRecord"/>/
+        /// <see cref="ItemStackRecord"/>'s own <c>OwnerKind</c>/<c>OwnerTargetRef</c>,
+        /// which do not change across Equip/Unequip) lists this
+        /// <see cref="Odyssey.Domain.Character.BodyPartId"/> in its
+        /// `BodyPartRefs`. A narrow existence query for
+        /// `RemoveBodyPart` dependency checks (`ADR-027` section 7 rule 5) --
+        /// not a general Equipment-by-body-part listing.
+        /// </summary>
+        Result<bool> HasAnyEquippedEntryReferencingBodyPart(CampaignHandle campaign, CampaignId campaignId, CharacterId characterId, BodyPartId bodyPartId, CorrelationId correlationId);
     }
 
     public sealed class InventoryCreateReplay<TRecord>

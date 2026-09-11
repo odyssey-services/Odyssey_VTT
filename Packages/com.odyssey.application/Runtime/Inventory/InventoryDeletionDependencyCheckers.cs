@@ -1,6 +1,7 @@
 using System;
 using Odyssey.Application.Persistence;
 using Odyssey.Application.Results;
+using Odyssey.Domain.Character;
 using Odyssey.Domain.Content;
 using Odyssey.Domain.Identity;
 
@@ -79,6 +80,45 @@ namespace Odyssey.Application.Inventory
 
             return result.Value
                 ? "One or more runtime items pin this content definition."
+                : null;
+        }
+    }
+
+    /// <summary>
+    /// ODY-S05-305: real <see cref="IBodyPartRemovalDependencyChecker"/> --
+    /// blocks <c>RemoveBodyPart</c> while an <c>EquippedEntry</c> still
+    /// references the body part being removed (`ADR-027` section 7 rule 5).
+    /// Hard rejection only; no atomic auto-Unequip. Callers opt in explicitly
+    /// by passing this to <c>SqliteCharacterRepository</c>'s constructor; there
+    /// is no implicit default wiring and no composition root in this codebase.
+    /// </summary>
+    public sealed class InventoryBodyPartRemovalDependencyChecker : IBodyPartRemovalDependencyChecker
+    {
+        private readonly IInventoryRepository _inventoryRepository;
+
+        public InventoryBodyPartRemovalDependencyChecker(IInventoryRepository inventoryRepository)
+        {
+            _inventoryRepository = inventoryRepository ?? throw new ArgumentNullException(nameof(inventoryRepository));
+        }
+
+        public string? CheckBlockingDependency(CampaignHandle campaign, CharacterId characterId, BodyPartId bodyPartId)
+        {
+            if (campaign == null) throw new ArgumentNullException(nameof(campaign));
+
+            Result<bool> result = _inventoryRepository.HasAnyEquippedEntryReferencingBodyPart(
+                campaign, campaign.CampaignId, characterId, bodyPartId, DependencyCheckCorrelation.Placeholder);
+
+            if (result.IsFailure)
+            {
+                // ADR-025 section 5.2: fail closed. An unreadable Equipment
+                // store must block an irreversible body-part removal, never
+                // silently allow it. Only the safe Error.Code is surfaced --
+                // never raw provider text or a local path.
+                return "Equipment dependency check could not be completed (" + result.Error.Code + ").";
+            }
+
+            return result.Value
+                ? "An item is still equipped referencing this body part."
                 : null;
         }
     }
