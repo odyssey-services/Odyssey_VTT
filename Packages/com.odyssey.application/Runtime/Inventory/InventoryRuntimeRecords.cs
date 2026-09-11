@@ -139,6 +139,31 @@ namespace Odyssey.Application.Inventory
         public UtcInstant UpdatedAt { get; }
     }
 
+    /// <summary>
+    /// ODY-S05-302: persistence-facing wrapper around the Domain
+    /// <see cref="EquippedEntry"/> (`ODY-S05-301`). Composes rather than
+    /// duplicates -- <see cref="EquippedEntry"/>'s own constructor already
+    /// validates its fields, so this record adds only what the Domain type
+    /// deliberately does not carry: a repository-facing <see cref="CampaignId"/>
+    /// for campaign-boundary scoping, the same reason <see cref="InventoryRecord"/>
+    /// and <see cref="ItemStackRecord"/> carry one. See `EquippedEntry.cs`'s own
+    /// doc-comment, which explicitly defers this decision to this task.
+    /// </summary>
+    public sealed class EquippedEntryRecord
+    {
+        public EquippedEntryRecord(CampaignId campaignId, EquippedEntry entry)
+        {
+            if (!campaignId.IsValid) throw new ArgumentException("CampaignId is required.", nameof(campaignId));
+            if (entry == null) throw new ArgumentNullException(nameof(entry));
+
+            CampaignId = campaignId;
+            Entry = entry;
+        }
+
+        public CampaignId CampaignId { get; }
+        public EquippedEntry Entry { get; }
+    }
+
     internal static class InventoryRecordGuards
     {
         internal static void RequireMatchingInventoryLocation(InventoryId inventoryId, InventoryLocationRef locationRef, string parameterName)

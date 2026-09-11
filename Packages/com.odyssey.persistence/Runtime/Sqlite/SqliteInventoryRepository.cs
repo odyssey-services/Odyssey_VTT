@@ -1,12 +1,14 @@
 using System;
 using System.Collections.Generic;
 using System.IO;
+using System.Linq;
 using Microsoft.Data.Sqlite;
 using Odyssey.Application.Commands;
 using Odyssey.Application.Inventory;
 using Odyssey.Application.Persistence;
 using Odyssey.Application.Results;
 using Odyssey.Application.Time;
+using Odyssey.Domain.Character;
 using Odyssey.Domain.Content;
 using Odyssey.Domain.Identity;
 using Odyssey.Domain.Inventory;
@@ -799,6 +801,389 @@ namespace Odyssey.Persistence.Sqlite
             insert.ExecuteNonQuery();
         }
 
+        // ODY-S05-302: Equipment persistence foundation. `EquippedEntry` rows are
+        // keyed by the item's own canonical id (ItemInstanceId/ItemStackId use
+        // disjoint prefixes, so one column is a safe cross-kind identity key),
+        // physically enforcing rule 1 ("one item is in exactly one place"). A
+        // dedicated EquipmentCommandLedger carries idempotency for Create and
+        // CAS-replay identity for Replace/Delete. No Equip/Unequip business
+        // rule, authorization check, or rule-4 body-part-existence check is
+        // implemented here -- ODY-S05-303/304 own those.
+        private const string EquipmentOperationCreate = "Create";
+        private const string EquipmentOperationReplace = "Replace";
+        private const string EquipmentOperationDelete = "Delete";
+
+        public Result<EquippedEntryRecord> CreateEquippedEntry(CampaignHandle campaign, EquippedEntryRecord record, CommandId commandId, CorrelationId correlationId)
+        {
+            if (campaign == null) throw new ArgumentNullException(nameof(campaign));
+            if (record == null) throw new ArgumentNullException(nameof(record));
+            if (!commandId.IsValid) throw new ArgumentException("CommandId is required.", nameof(commandId));
+            if (!TryValidateCampaignBoundary(campaign, record.CampaignId, correlationId, out Error campaignError))
+            {
+                return Result<EquippedEntryRecord>.Failure(campaignError);
+            }
+
+            string itemRefId = ItemRefIdOf(record.Entry.ItemRef);
+
+            try
+            {
+                using SqliteConnection connection = OpenConnection(campaign.RootPath);
+                EnsureInventoryTables(connection);
+                using SqliteTransaction transaction = connection.BeginTransaction();
+
+                bool ledgerExists = TryReadEquipmentLedger(connection, transaction, commandId, EquipmentOperationCreate, itemRefId, 0, out bool identityMismatch);
+                if (ledgerExists)
+                {
+                    transaction.Commit();
+                    if (identityMismatch)
+                    {
+                        return Result<EquippedEntryRecord>.Failure(PersistenceFailures.InventoryCommandIdentityMismatch(correlationId));
+                    }
+
+                    EquippedEntryRecord? replayed = SelectEquippedEntry(connection, null, itemRefId, record.CampaignId);
+                    return replayed == null
+                        ? Result<EquippedEntryRecord>.Failure(PersistenceFailures.CommandReplayFailed(correlationId))
+                        : Result<EquippedEntryRecord>.Success(replayed);
+                }
+
+                if (!InventoryExists(connection, transaction, record.CampaignId, record.Entry.InventoryId))
+                {
+                    transaction.Commit();
+                    return Result<EquippedEntryRecord>.Failure(PersistenceFailures.InventoryNotFound(correlationId));
+                }
+
+                if (SelectEquippedEntry(connection, transaction, itemRefId, record.CampaignId) != null)
+                {
+                    transaction.Commit();
+                    return Result<EquippedEntryRecord>.Failure(PersistenceFailures.EquipmentEntryAlreadyEquipped(correlationId));
+                }
+
+                using (var insert = connection.CreateCommand())
+                {
+                    insert.Transaction = transaction;
+                    insert.CommandText = "INSERT INTO EquippedEntry (" +
+                        "ItemRefId, ItemRefKind, CampaignId, InventoryId, EquipmentSlotRef, BodyPartRefs, " +
+                        "EquippedByUserId, EquippedAt, Revision, CreatedAt, UpdatedAt) VALUES (" +
+                        "$itemRefId, $itemRefKind, $campaignId, $inventoryId, $equipmentSlotRef, $bodyPartRefs, " +
+                        "$equippedByUserId, $equippedAt, $revision, $createdAt, $updatedAt);";
+                    AddEquippedEntryParameters(insert, itemRefId, record.CampaignId, record.Entry, record.Entry.EquippedAt, record.Entry.EquippedAt);
+                    insert.ExecuteNonQuery();
+                }
+
+                InsertEquipmentLedger(connection, transaction, commandId, EquipmentOperationCreate, itemRefId, 0, _clock.GetUtcNow());
+                transaction.Commit();
+                return Result<EquippedEntryRecord>.Success(record);
+            }
+            catch (Exception ex) when (ex is IOException || ex is UnauthorizedAccessException || ex is SqliteException)
+            {
+                return Result<EquippedEntryRecord>.Failure(PersistenceFailures.InventoryIoFailed(correlationId));
+            }
+        }
+
+        public Result<EquippedEntryRecord> GetEquippedEntry(CampaignHandle campaign, InventoryItemRef itemRef, CorrelationId correlationId)
+        {
+            if (campaign == null) throw new ArgumentNullException(nameof(campaign));
+            if (!itemRef.IsValid) throw new ArgumentException("ItemRef is required.", nameof(itemRef));
+
+            try
+            {
+                using SqliteConnection connection = OpenConnection(campaign.RootPath);
+                EnsureInventoryTables(connection);
+                EquippedEntryRecord? record = SelectEquippedEntry(connection, null, ItemRefIdOf(itemRef), null);
+                return record == null
+                    ? Result<EquippedEntryRecord>.Failure(PersistenceFailures.EquipmentEntryNotFound(correlationId))
+                    : Result<EquippedEntryRecord>.Success(record);
+            }
+            catch (Exception ex) when (ex is IOException || ex is UnauthorizedAccessException || ex is SqliteException)
+            {
+                return Result<EquippedEntryRecord>.Failure(PersistenceFailures.InventoryIoFailed(correlationId));
+            }
+        }
+
+        public Result<EquippedEntryRecord> ReplaceEquippedEntry(CampaignHandle campaign, EquippedEntryRecord record, long expectedRevision, CommandId commandId, CorrelationId correlationId)
+        {
+            if (campaign == null) throw new ArgumentNullException(nameof(campaign));
+            if (record == null) throw new ArgumentNullException(nameof(record));
+            if (!commandId.IsValid) throw new ArgumentException("CommandId is required.", nameof(commandId));
+            if (expectedRevision < 1) throw new ArgumentOutOfRangeException(nameof(expectedRevision));
+            if (!TryValidateCampaignBoundary(campaign, record.CampaignId, correlationId, out Error campaignError))
+            {
+                return Result<EquippedEntryRecord>.Failure(campaignError);
+            }
+
+            string itemRefId = ItemRefIdOf(record.Entry.ItemRef);
+
+            try
+            {
+                using SqliteConnection connection = OpenConnection(campaign.RootPath);
+                EnsureInventoryTables(connection);
+                using SqliteTransaction transaction = connection.BeginTransaction();
+
+                bool ledgerExists = TryReadEquipmentLedger(connection, transaction, commandId, EquipmentOperationReplace, itemRefId, expectedRevision, out bool identityMismatch);
+                if (ledgerExists)
+                {
+                    transaction.Commit();
+                    if (identityMismatch)
+                    {
+                        return Result<EquippedEntryRecord>.Failure(PersistenceFailures.InventoryCommandIdentityMismatch(correlationId));
+                    }
+
+                    EquippedEntryRecord? replayed = SelectEquippedEntry(connection, null, itemRefId, record.CampaignId);
+                    return replayed == null
+                        ? Result<EquippedEntryRecord>.Failure(PersistenceFailures.CommandReplayFailed(correlationId))
+                        : Result<EquippedEntryRecord>.Success(replayed);
+                }
+
+                EquippedEntryRecord? current = SelectEquippedEntry(connection, transaction, itemRefId, record.CampaignId);
+                if (current == null)
+                {
+                    transaction.Commit();
+                    return Result<EquippedEntryRecord>.Failure(PersistenceFailures.EquipmentEntryNotFound(correlationId));
+                }
+
+                if (!current.Entry.InventoryId.Equals(record.Entry.InventoryId))
+                {
+                    throw new ArgumentException("ReplaceEquippedEntry cannot change the equipped item's InventoryId.", nameof(record));
+                }
+
+                if (current.Entry.Revision != expectedRevision)
+                {
+                    transaction.Commit();
+                    return Result<EquippedEntryRecord>.Failure(PersistenceFailures.EquipmentEntryRevisionConflict(correlationId));
+                }
+
+                UtcInstant now = _clock.GetUtcNow();
+                using (var update = connection.CreateCommand())
+                {
+                    update.Transaction = transaction;
+                    update.CommandText = "UPDATE EquippedEntry SET EquipmentSlotRef=$equipmentSlotRef, BodyPartRefs=$bodyPartRefs, " +
+                        "EquippedByUserId=$equippedByUserId, EquippedAt=$equippedAt, Revision=Revision+1, UpdatedAt=$updatedAt " +
+                        "WHERE ItemRefId=$itemRefId AND Revision=$expectedRevision;";
+                    update.Parameters.AddWithValue("$equipmentSlotRef", record.Entry.EquipmentSlotRef);
+                    update.Parameters.AddWithValue("$bodyPartRefs", JoinBodyPartRefs(record.Entry.BodyPartRefs));
+                    update.Parameters.AddWithValue("$equippedByUserId", record.Entry.EquippedByUserId.ToString());
+                    update.Parameters.AddWithValue("$equippedAt", record.Entry.EquippedAt.ToString());
+                    update.Parameters.AddWithValue("$updatedAt", now.ToString());
+                    update.Parameters.AddWithValue("$itemRefId", itemRefId);
+                    update.Parameters.AddWithValue("$expectedRevision", expectedRevision);
+                    if (update.ExecuteNonQuery() != 1)
+                    {
+                        transaction.Rollback();
+                        return Result<EquippedEntryRecord>.Failure(PersistenceFailures.EquipmentEntryRevisionConflict(correlationId));
+                    }
+                }
+
+                InsertEquipmentLedger(connection, transaction, commandId, EquipmentOperationReplace, itemRefId, expectedRevision, now);
+                EquippedEntryRecord? updated = SelectEquippedEntry(connection, transaction, itemRefId, record.CampaignId);
+                transaction.Commit();
+                return updated == null
+                    ? Result<EquippedEntryRecord>.Failure(PersistenceFailures.CommandReplayFailed(correlationId))
+                    : Result<EquippedEntryRecord>.Success(updated);
+            }
+            catch (Exception ex) when (ex is IOException || ex is UnauthorizedAccessException || ex is SqliteException)
+            {
+                return Result<EquippedEntryRecord>.Failure(PersistenceFailures.InventoryIoFailed(correlationId));
+            }
+        }
+
+        public Result<bool> DeleteEquippedEntry(CampaignHandle campaign, InventoryItemRef itemRef, long expectedRevision, CommandId commandId, CorrelationId correlationId)
+        {
+            if (campaign == null) throw new ArgumentNullException(nameof(campaign));
+            if (!itemRef.IsValid) throw new ArgumentException("ItemRef is required.", nameof(itemRef));
+            if (!commandId.IsValid) throw new ArgumentException("CommandId is required.", nameof(commandId));
+            if (expectedRevision < 1) throw new ArgumentOutOfRangeException(nameof(expectedRevision));
+
+            string itemRefId = ItemRefIdOf(itemRef);
+
+            try
+            {
+                using SqliteConnection connection = OpenConnection(campaign.RootPath);
+                EnsureInventoryTables(connection);
+                using SqliteTransaction transaction = connection.BeginTransaction();
+
+                bool ledgerExists = TryReadEquipmentLedger(connection, transaction, commandId, EquipmentOperationDelete, itemRefId, expectedRevision, out bool identityMismatch);
+                if (ledgerExists)
+                {
+                    transaction.Commit();
+                    return identityMismatch
+                        ? Result<bool>.Failure(PersistenceFailures.InventoryCommandIdentityMismatch(correlationId))
+                        : Result<bool>.Success(true);
+                }
+
+                EquippedEntryRecord? current = SelectEquippedEntry(connection, transaction, itemRefId, null);
+                if (current == null)
+                {
+                    transaction.Commit();
+                    return Result<bool>.Failure(PersistenceFailures.EquipmentEntryNotFound(correlationId));
+                }
+
+                if (current.Entry.Revision != expectedRevision)
+                {
+                    transaction.Commit();
+                    return Result<bool>.Failure(PersistenceFailures.EquipmentEntryRevisionConflict(correlationId));
+                }
+
+                using (var delete = connection.CreateCommand())
+                {
+                    delete.Transaction = transaction;
+                    delete.CommandText = "DELETE FROM EquippedEntry WHERE ItemRefId=$itemRefId AND Revision=$expectedRevision;";
+                    delete.Parameters.AddWithValue("$itemRefId", itemRefId);
+                    delete.Parameters.AddWithValue("$expectedRevision", expectedRevision);
+                    if (delete.ExecuteNonQuery() != 1)
+                    {
+                        transaction.Rollback();
+                        return Result<bool>.Failure(PersistenceFailures.EquipmentEntryRevisionConflict(correlationId));
+                    }
+                }
+
+                InsertEquipmentLedger(connection, transaction, commandId, EquipmentOperationDelete, itemRefId, expectedRevision, _clock.GetUtcNow());
+                transaction.Commit();
+                return Result<bool>.Success(true);
+            }
+            catch (Exception ex) when (ex is IOException || ex is UnauthorizedAccessException || ex is SqliteException)
+            {
+                return Result<bool>.Failure(PersistenceFailures.InventoryIoFailed(correlationId));
+            }
+        }
+
+        public Result<IReadOnlyList<EquippedEntryRecord>> ListEquippedEntries(CampaignHandle campaign, CampaignId campaignId, InventoryId inventoryId, CorrelationId correlationId)
+        {
+            if (campaign == null) throw new ArgumentNullException(nameof(campaign));
+            if (!inventoryId.IsValid) throw new ArgumentException("InventoryId is required.", nameof(inventoryId));
+            if (!TryValidateCampaignBoundary(campaign, campaignId, correlationId, out Error campaignError))
+            {
+                return Result<IReadOnlyList<EquippedEntryRecord>>.Failure(campaignError);
+            }
+
+            try
+            {
+                using SqliteConnection connection = OpenConnection(campaign.RootPath);
+                EnsureInventoryTables(connection);
+
+                var results = new List<EquippedEntryRecord>();
+                using (var select = connection.CreateCommand())
+                {
+                    select.CommandText = EquippedEntrySelectColumns + " FROM EquippedEntry WHERE CampaignId = $campaignId AND InventoryId = $inventoryId;";
+                    select.Parameters.AddWithValue("$campaignId", campaignId.ToString());
+                    select.Parameters.AddWithValue("$inventoryId", inventoryId.ToString());
+                    using SqliteDataReader reader = select.ExecuteReader();
+                    while (reader.Read())
+                    {
+                        results.Add(ReadEquippedEntry(reader));
+                    }
+                }
+
+                return Result<IReadOnlyList<EquippedEntryRecord>>.Success(results);
+            }
+            catch (Exception ex) when (ex is IOException || ex is UnauthorizedAccessException || ex is SqliteException)
+            {
+                return Result<IReadOnlyList<EquippedEntryRecord>>.Failure(PersistenceFailures.InventoryIoFailed(correlationId));
+            }
+        }
+
+        private static string ItemRefIdOf(InventoryItemRef itemRef)
+        {
+            return itemRef.Kind == InventoryItemRefKind.ItemInstance ? itemRef.ItemInstanceId.ToString() : itemRef.ItemStackId.ToString();
+        }
+
+        private static string JoinBodyPartRefs(IReadOnlyList<BodyPartId> bodyPartRefs)
+        {
+            return string.Join(",", bodyPartRefs.Select(id => id.ToString()));
+        }
+
+        private static IReadOnlyList<BodyPartId> SplitBodyPartRefs(string bodyPartRefs)
+        {
+            return string.IsNullOrEmpty(bodyPartRefs)
+                ? Array.Empty<BodyPartId>()
+                : bodyPartRefs.Split(',').Select(BodyPartId.Parse).ToArray();
+        }
+
+        private static void AddEquippedEntryParameters(SqliteCommand command, string itemRefId, CampaignId campaignId, EquippedEntry entry, UtcInstant createdAt, UtcInstant updatedAt)
+        {
+            command.Parameters.AddWithValue("$itemRefId", itemRefId);
+            command.Parameters.AddWithValue("$itemRefKind", entry.ItemRef.Kind.ToString());
+            command.Parameters.AddWithValue("$campaignId", campaignId.ToString());
+            command.Parameters.AddWithValue("$inventoryId", entry.InventoryId.ToString());
+            command.Parameters.AddWithValue("$equipmentSlotRef", entry.EquipmentSlotRef);
+            command.Parameters.AddWithValue("$bodyPartRefs", JoinBodyPartRefs(entry.BodyPartRefs));
+            command.Parameters.AddWithValue("$equippedByUserId", entry.EquippedByUserId.ToString());
+            command.Parameters.AddWithValue("$equippedAt", entry.EquippedAt.ToString());
+            command.Parameters.AddWithValue("$revision", entry.Revision);
+            command.Parameters.AddWithValue("$createdAt", createdAt.ToString());
+            command.Parameters.AddWithValue("$updatedAt", updatedAt.ToString());
+        }
+
+        private const string EquippedEntrySelectColumns =
+            "SELECT ItemRefId, ItemRefKind, CampaignId, InventoryId, EquipmentSlotRef, BodyPartRefs, " +
+            "EquippedByUserId, EquippedAt, Revision, CreatedAt, UpdatedAt";
+
+        private static EquippedEntryRecord? SelectEquippedEntry(SqliteConnection connection, SqliteTransaction? transaction, string itemRefId, CampaignId? expectedCampaignId)
+        {
+            using var select = connection.CreateCommand();
+            select.Transaction = transaction;
+            select.CommandText = EquippedEntrySelectColumns + " FROM EquippedEntry WHERE ItemRefId = $itemRefId LIMIT 1;";
+            select.Parameters.AddWithValue("$itemRefId", itemRefId);
+            using SqliteDataReader reader = select.ExecuteReader();
+            if (!reader.Read()) return null;
+
+            EquippedEntryRecord record = ReadEquippedEntry(reader);
+            if (expectedCampaignId.HasValue && !record.CampaignId.Equals(expectedCampaignId.Value)) return null;
+            return record;
+        }
+
+        private static EquippedEntryRecord ReadEquippedEntry(SqliteDataReader reader)
+        {
+            string itemRefKind = reader.GetString(1);
+            InventoryItemRef itemRef = itemRefKind == InventoryItemRefKind.ItemInstance.ToString()
+                ? InventoryItemRef.ForInstance(ItemInstanceId.Parse(reader.GetString(0)))
+                : InventoryItemRef.ForStack(ItemStackId.Parse(reader.GetString(0)));
+
+            var entry = new EquippedEntry(
+                InventoryId.Parse(reader.GetString(3)),
+                itemRef,
+                reader.GetString(4),
+                SplitBodyPartRefs(reader.GetString(5)),
+                UserId.Parse(reader.GetString(6)),
+                UtcInstant.Parse(reader.GetString(7)),
+                reader.GetInt64(8));
+
+            return new EquippedEntryRecord(CampaignId.Parse(reader.GetString(2)), entry);
+        }
+
+        private static bool TryReadEquipmentLedger(SqliteConnection connection, SqliteTransaction transaction, CommandId commandId, string expectedOperationKind, string expectedItemRefId, long expectedRevision, out bool identityMismatch)
+        {
+            using var select = connection.CreateCommand();
+            select.Transaction = transaction;
+            select.CommandText = "SELECT OperationKind, ItemRefId, ExpectedRevision FROM EquipmentCommandLedger WHERE CommandId = $commandId LIMIT 1;";
+            select.Parameters.AddWithValue("$commandId", commandId.ToString());
+            using SqliteDataReader reader = select.ExecuteReader();
+            if (!reader.Read())
+            {
+                identityMismatch = false;
+                return false;
+            }
+
+            bool same = string.Equals(reader.GetString(0), expectedOperationKind, StringComparison.Ordinal) &&
+                string.Equals(reader.GetString(1), expectedItemRefId, StringComparison.Ordinal) &&
+                reader.GetInt64(2) == expectedRevision;
+            identityMismatch = !same;
+            return true;
+        }
+
+        private static void InsertEquipmentLedger(SqliteConnection connection, SqliteTransaction transaction, CommandId commandId, string operationKind, string itemRefId, long expectedRevision, UtcInstant now)
+        {
+            using var insert = connection.CreateCommand();
+            insert.Transaction = transaction;
+            insert.CommandText = "INSERT INTO EquipmentCommandLedger (CommandId, OperationKind, ItemRefId, ExpectedRevision, CreatedAt, AppliedAt) VALUES ($commandId, $operationKind, $itemRefId, $expectedRevision, $createdAt, $appliedAt);";
+            insert.Parameters.AddWithValue("$commandId", commandId.ToString());
+            insert.Parameters.AddWithValue("$operationKind", operationKind);
+            insert.Parameters.AddWithValue("$itemRefId", itemRefId);
+            insert.Parameters.AddWithValue("$expectedRevision", expectedRevision);
+            insert.Parameters.AddWithValue("$createdAt", now.ToString());
+            insert.Parameters.AddWithValue("$appliedAt", now.ToString());
+            insert.ExecuteNonQuery();
+        }
+
         private static bool InventoryExists(SqliteConnection connection, SqliteTransaction transaction, CampaignId campaignId, InventoryId inventoryId)
         {
             using var select = connection.CreateCommand();
@@ -1125,8 +1510,31 @@ CREATE TABLE IF NOT EXISTS InventoryStackCommandLedger (
     ResultStackId TEXT NOT NULL,
     CreatedAt TEXT NOT NULL
 );
+CREATE TABLE IF NOT EXISTS EquippedEntry (
+    ItemRefId TEXT PRIMARY KEY,
+    ItemRefKind TEXT NOT NULL,
+    CampaignId TEXT NOT NULL,
+    InventoryId TEXT NOT NULL,
+    EquipmentSlotRef TEXT NOT NULL,
+    BodyPartRefs TEXT NOT NULL,
+    EquippedByUserId TEXT NOT NULL,
+    EquippedAt TEXT NOT NULL,
+    Revision INTEGER NOT NULL,
+    CreatedAt TEXT NOT NULL,
+    UpdatedAt TEXT NOT NULL,
+    FOREIGN KEY (InventoryId) REFERENCES Inventory(InventoryId)
+);
+CREATE TABLE IF NOT EXISTS EquipmentCommandLedger (
+    CommandId TEXT PRIMARY KEY,
+    OperationKind TEXT NOT NULL,
+    ItemRefId TEXT NOT NULL,
+    ExpectedRevision INTEGER NOT NULL,
+    CreatedAt TEXT NOT NULL,
+    AppliedAt TEXT NOT NULL
+);
 CREATE INDEX IF NOT EXISTS IX_ItemInstance_Campaign_Inventory ON ItemInstance (CampaignId, InventoryId);
-CREATE INDEX IF NOT EXISTS IX_ItemStack_Campaign_Inventory ON ItemStack (CampaignId, InventoryId);";
+CREATE INDEX IF NOT EXISTS IX_ItemStack_Campaign_Inventory ON ItemStack (CampaignId, InventoryId);
+CREATE INDEX IF NOT EXISTS IX_EquippedEntry_Campaign_Inventory ON EquippedEntry (CampaignId, InventoryId);";
             command.ExecuteNonQuery();
         }
     }

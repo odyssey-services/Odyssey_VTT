@@ -140,6 +140,9 @@ namespace Odyssey.Application.Results
         public static readonly ErrorCode InventoryStackMergeExceedsMaxQuantity = ErrorCode.Parse("inventory.stack_merge.exceeds_max_quantity");
         public static readonly ErrorCode PersistenceInventoryItemRevisionConflict = ErrorCode.Parse("persistence.inventory_item.revision_conflict");
         public static readonly ErrorCode PersistenceInventoryRevisionConflict = ErrorCode.Parse("persistence.inventory.revision_conflict");
+        public static readonly ErrorCode PersistenceEquipmentEntryNotFound = ErrorCode.Parse("persistence.equipment_entry.not_found");
+        public static readonly ErrorCode PersistenceEquipmentEntryAlreadyEquipped = ErrorCode.Parse("persistence.equipment_entry.already_equipped");
+        public static readonly ErrorCode PersistenceEquipmentEntryRevisionConflict = ErrorCode.Parse("persistence.equipment_entry.revision_conflict");
         public static readonly ErrorCode ContentCatalogAuthoringDenied = ErrorCode.Parse("content_catalog.authoring.denied");
         public static readonly ErrorCode ContentCatalogTypedDefinitionWrongType = ErrorCode.Parse("content_catalog.typed_definition.wrong_type");
         public static readonly ErrorCode ContentCatalogTypedDefinitionMalformedPayload = ErrorCode.Parse("content_catalog.typed_definition.malformed_payload");

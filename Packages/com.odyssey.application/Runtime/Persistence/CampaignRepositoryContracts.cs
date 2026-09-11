@@ -839,6 +839,33 @@ namespace Odyssey.Application.Persistence
             RetryDirective.DoNotRetry,
             correlationId);
 
+        /// <summary>ODY-S05-302: `GetEquippedEntry`/`ReplaceEquippedEntry`/`DeleteEquippedEntry` lookup failure for an item with no equipped-state row.</summary>
+        public static Error EquipmentEntryNotFound(CorrelationId correlationId) => Error.Create(
+            ErrorCodes.PersistenceEquipmentEntryNotFound,
+            ErrorCategory.NotFound,
+            SafeReasonCode.TargetUnavailable,
+            UserMessageKey.Parse("errors.persistence.equipment_entry_not_found"),
+            RetryDirective.DoNotRetry,
+            correlationId);
+
+        /// <summary>ODY-S05-302: `CreateEquippedEntry` rejection when the item already has an equipped-state row (`ADR-027` section 7 rule 1, "one item is in exactly one place"), for a create call that is not a replay of the same `CommandId`.</summary>
+        public static Error EquipmentEntryAlreadyEquipped(CorrelationId correlationId) => Error.Create(
+            ErrorCodes.PersistenceEquipmentEntryAlreadyEquipped,
+            ErrorCategory.Conflict,
+            SafeReasonCode.ActionNotAllowed,
+            UserMessageKey.Parse("errors.persistence.equipment_entry_already_equipped"),
+            RetryDirective.DoNotRetry,
+            correlationId);
+
+        /// <summary>ODY-S05-302: `ReplaceEquippedEntry`/`DeleteEquippedEntry` optimistic-concurrency failure for a stale expected `Revision`.</summary>
+        public static Error EquipmentEntryRevisionConflict(CorrelationId correlationId) => Error.Create(
+            ErrorCodes.PersistenceEquipmentEntryRevisionConflict,
+            ErrorCategory.Conflict,
+            SafeReasonCode.StateChanged,
+            UserMessageKey.Parse("errors.persistence.equipment_entry_revision_conflict"),
+            RetryDirective.DoNotRetry,
+            correlationId);
+
         // Used only by the codec's Read path (CampaignManifest.cs), which does not
         // receive a caller CorrelationId; matches the existing SerializationFailures
         // placeholder-correlation convention for codec-level structural failures.
