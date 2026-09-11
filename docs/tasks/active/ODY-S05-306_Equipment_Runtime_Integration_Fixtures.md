@@ -1,11 +1,11 @@
 # ODY-S05-306 — Equipment Runtime Integration Fixtures
 
-**Status:** In Progress
+**Status:** In Review
 **Roadmap stage / slice:** SLICE-05 (Equipment runtime block)
 **Owner:** Codex (agent)
 **Requested by:** Product owner
 **Branch:** `feat/ody-s05-306-equipment-runtime-integration-fixtures`
-**Pull request:** Not opened
+**Pull request:** [#128](https://github.com/odyssey-services/Odyssey_VTT/pull/128)
 **ExecPlan:** `docs/plans/active/ODY-S05-306_Equipment_Runtime_Integration_Fixtures.md` (Brief plan)
 **Created:** 2026-09-11
 **Last updated:** 2026-09-11 UTC

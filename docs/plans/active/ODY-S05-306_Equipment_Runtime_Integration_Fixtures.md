@@ -1,9 +1,9 @@
 # ODY-S05-306 — Equipment Runtime Integration Fixtures
 
-**Status:** Active
+**Status:** In Review
 **Owner:** Codex (agent)
 **Branch:** `feat/ody-s05-306-equipment-runtime-integration-fixtures`
-**Pull request:** Not opened
+**Pull request:** [#128](https://github.com/odyssey-services/Odyssey_VTT/pull/128)
 **Planning mode:** Brief plan (no new public contract, no new persistence shape, no new architecture — pure integration proof over `ODY-S05-301`–`305`, mirroring `ODY-S05-207`)
 **Last updated:** 2026-09-11 UTC
 
@@ -57,8 +57,8 @@ No production code change, no Unity/UI, no new table, no new `ErrorCode`, no `AD
 - [x] `.\scripts\verify-format.ps1`.
 - [x] `.\scripts\check-repository-policy.ps1`.
 - [x] `.\scripts\verify-test-structure.ps1`.
-- [ ] `docs/tasks/SLICE-05_IMPLEMENTATION_BACKLOG.md` row 6 → `In Review (PR #NNN)`.
-- [ ] Commit, push, open Draft PR.
+- [x] `docs/tasks/SLICE-05_IMPLEMENTATION_BACKLOG.md` row 6 → `In Review (PR #128)`.
+- [x] Commit, push, open Draft PR.
 - [ ] Record CI status.
 
 ## 6. Progress log
@@ -96,4 +96,4 @@ Normal revert of the branch/PR — test-only change, no production code, no sche
 
 ## 12. Outcome and follow-up
 
-Draft PR to be opened. Closes the Equipment runtime block (`ODY-S05-301`–`306`).
+Draft PR [#128](https://github.com/odyssey-services/Odyssey_VTT/pull/128). Closes the Equipment runtime block (`ODY-S05-301`–`306`).
