@@ -286,6 +286,22 @@ namespace Odyssey.Persistence.Sqlite
             return MoveItem(campaign, move, TargetItemStack, move.Target.ItemStackId.ToString(), "ItemStack", "ItemStackId", SelectItemStack, r => r.InventoryId, r => r.LocationRef, r => r.Revision, correlationId);
         }
 
+        public Result<ItemStackRecord> SplitItemStack(CampaignHandle campaign, InventoryStackOperation operation, CorrelationId correlationId)
+        {
+            if (campaign == null) throw new ArgumentNullException(nameof(campaign));
+            if (operation == null) throw new ArgumentNullException(nameof(operation));
+            if (operation.IsMerge) throw new ArgumentException("SplitItemStack requires a split operation.", nameof(operation));
+            return RunStackOperation(campaign, operation, correlationId);
+        }
+
+        public Result<ItemStackRecord> MergeItemStacks(CampaignHandle campaign, InventoryStackOperation operation, CorrelationId correlationId)
+        {
+            if (campaign == null) throw new ArgumentNullException(nameof(campaign));
+            if (operation == null) throw new ArgumentNullException(nameof(operation));
+            if (!operation.IsMerge) throw new ArgumentException("MergeItemStacks requires a merge operation.", nameof(operation));
+            return RunStackOperation(campaign, operation, correlationId);
+        }
+
         public Result<InventoryCreateReplay<ItemStackRecord>> TryReplayCreateItemStack(CampaignHandle campaign, CommandId commandId, ItemStackId itemStackId, CorrelationId correlationId)
         {
             if (campaign == null) throw new ArgumentNullException(nameof(campaign));
@@ -508,6 +524,280 @@ namespace Odyssey.Persistence.Sqlite
         private static Result<T>? TryMoveReplay<T>(SqliteConnection c, SqliteTransaction t, InventoryMove m, string kind, string target, Func<SqliteConnection, SqliteTransaction?, string, T?> select, CorrelationId id) where T : class { using var q = c.CreateCommand(); q.Transaction = t; q.CommandText = "SELECT TargetKind,TargetId,SourceInventoryId,DestinationInventoryId,DestinationContainerKey,TargetRevision,SourceRevision,DestinationRevision FROM InventoryMoveCommandLedger WHERE CommandId=$id;"; q.Parameters.AddWithValue("$id", m.CommandId.ToString()); using var r = q.ExecuteReader(); if (!r.Read()) return null; bool same = r.GetString(0) == kind && r.GetString(1) == target && r.GetString(2) == m.SourceInventoryId.ToString() && r.GetString(3) == m.DestinationInventoryId.ToString() && r.GetString(4) == m.DestinationContainerKey && r.GetInt64(5) == m.ExpectedTargetRevision && r.GetInt64(6) == m.ExpectedSourceRevision && r.GetInt64(7) == m.ExpectedDestinationRevision; return !same ? Result<T>.Failure(PersistenceFailures.InventoryCommandIdentityMismatch(id)) : select(c, t, target) is T record ? Result<T>.Success(record) : Result<T>.Failure(PersistenceFailures.CommandReplayFailed(id)); }
         private static bool TryUpdateInventoryForMove(SqliteConnection c, SqliteTransaction t, InventoryId id, long expectedRevision, UtcInstant now) { using var q = c.CreateCommand(); q.Transaction = t; q.CommandText = "UPDATE Inventory SET Revision=$newRevision,UpdatedAt=$updatedAt WHERE InventoryId=$inventoryId AND Revision=$expectedRevision;"; q.Parameters.AddWithValue("$newRevision", expectedRevision + 1); q.Parameters.AddWithValue("$updatedAt", now.ToString()); q.Parameters.AddWithValue("$inventoryId", id.ToString()); q.Parameters.AddWithValue("$expectedRevision", expectedRevision); return q.ExecuteNonQuery() == 1; }
         private static void InsertMoveLedger(SqliteConnection c, SqliteTransaction t, InventoryMove m, string kind, string target, UtcInstant now) { using var q = c.CreateCommand(); q.Transaction = t; q.CommandText = "INSERT INTO InventoryMoveCommandLedger (CommandId,TargetKind,TargetId,SourceInventoryId,DestinationInventoryId,DestinationContainerKey,TargetRevision,SourceRevision,DestinationRevision,CreatedAt) VALUES ($commandId,$kind,$target,$source,$destination,$key,$targetRevision,$sourceRevision,$destinationRevision,$now);"; q.Parameters.AddWithValue("$commandId", m.CommandId.ToString()); q.Parameters.AddWithValue("$kind", kind); q.Parameters.AddWithValue("$target", target); q.Parameters.AddWithValue("$source", m.SourceInventoryId.ToString()); q.Parameters.AddWithValue("$destination", m.DestinationInventoryId.ToString()); q.Parameters.AddWithValue("$key", m.DestinationContainerKey); q.Parameters.AddWithValue("$targetRevision", m.ExpectedTargetRevision); q.Parameters.AddWithValue("$sourceRevision", m.ExpectedSourceRevision); q.Parameters.AddWithValue("$destinationRevision", m.ExpectedDestinationRevision); q.Parameters.AddWithValue("$now", now.ToString()); q.ExecuteNonQuery(); }
+
+        // ODY-S05-205: MainGM-only atomic stack split/merge. One CAS-protected SQLite
+        // transaction per call; a dedicated InventoryStackCommandLedger carries replay
+        // identity without touching creation/movement ledger semantics.
+        private const string OperationKindSplit = "Split";
+        private const string OperationKindMerge = "Merge";
+
+        private Result<ItemStackRecord> RunStackOperation(CampaignHandle campaign, InventoryStackOperation operation, CorrelationId correlationId)
+        {
+            try
+            {
+                using SqliteConnection connection = OpenConnection(campaign.RootPath);
+                EnsureInventoryTables(connection);
+                using SqliteTransaction transaction = connection.BeginTransaction();
+
+                if (CommandExists(connection, transaction, "InventoryCommandLedger", operation.CommandId))
+                {
+                    transaction.Commit();
+                    return Result<ItemStackRecord>.Failure(PersistenceFailures.InventoryCommandIdentityMismatch(correlationId));
+                }
+
+                Result<ItemStackRecord>? replay = TryStackReplay(connection, transaction, operation, correlationId);
+                if (replay != null)
+                {
+                    transaction.Commit();
+                    return replay.Value;
+                }
+
+                return operation.IsMerge
+                    ? MergeInTransaction(connection, transaction, operation, correlationId)
+                    : SplitInTransaction(connection, transaction, operation, correlationId);
+            }
+            catch (Exception ex) when (ex is IOException || ex is UnauthorizedAccessException || ex is SqliteException)
+            {
+                return Result<ItemStackRecord>.Failure(PersistenceFailures.InventoryIoFailed(correlationId));
+            }
+        }
+
+        private Result<ItemStackRecord> SplitInTransaction(SqliteConnection connection, SqliteTransaction transaction, InventoryStackOperation operation, CorrelationId correlationId)
+        {
+            ItemStackRecord? source = SelectItemStack(connection, transaction, operation.SourceId.ToString());
+            if (source == null)
+            {
+                transaction.Commit();
+                return Result<ItemStackRecord>.Failure(PersistenceFailures.ItemStackNotFound(correlationId));
+            }
+
+            if (!source.InventoryId.Equals(operation.InventoryId) || source.LocationRef.Kind != InventoryLocationKind.Contained)
+            {
+                transaction.Commit();
+                return Result<ItemStackRecord>.Failure(InventoryMovementFailures.SourceInvalid(correlationId));
+            }
+
+            if (source.Revision != operation.ExpectedSourceRevision)
+            {
+                transaction.Commit();
+                return Result<ItemStackRecord>.Failure(InventoryMovementFailures.ItemRevisionConflict(correlationId));
+            }
+
+            InventoryRecord? inventory = SelectInventory(connection, transaction, operation.InventoryId.ToString());
+            if (inventory == null)
+            {
+                transaction.Commit();
+                return Result<ItemStackRecord>.Failure(PersistenceFailures.InventoryNotFound(correlationId));
+            }
+
+            if (inventory.Revision != operation.ExpectedInventoryRevision)
+            {
+                transaction.Commit();
+                return Result<ItemStackRecord>.Failure(InventoryMovementFailures.InventoryRevisionConflict(correlationId));
+            }
+
+            // Split must take a positive proper subset: 0 < quantity < source quantity.
+            // The lower bound is guaranteed by InventoryStackOperation's constructor.
+            if (operation.Quantity >= source.Quantity.Value)
+            {
+                transaction.Commit();
+                return Result<ItemStackRecord>.Failure(InventoryStackFailures.SplitQuantityInvalid(correlationId));
+            }
+
+            UtcInstant now = _clock.GetUtcNow();
+            long remainingSourceQuantity = source.Quantity.Value - operation.Quantity;
+
+            using (var update = connection.CreateCommand())
+            {
+                update.Transaction = transaction;
+                update.CommandText = "UPDATE ItemStack SET Quantity=$quantity,Revision=Revision+1,UpdatedAt=$updatedAt WHERE ItemStackId=$id AND Revision=$expectedRevision;";
+                update.Parameters.AddWithValue("$quantity", remainingSourceQuantity);
+                update.Parameters.AddWithValue("$updatedAt", now.ToString());
+                update.Parameters.AddWithValue("$id", operation.SourceId.ToString());
+                update.Parameters.AddWithValue("$expectedRevision", operation.ExpectedSourceRevision);
+                if (update.ExecuteNonQuery() != 1)
+                {
+                    transaction.Rollback();
+                    return Result<ItemStackRecord>.Failure(InventoryMovementFailures.ItemRevisionConflict(correlationId));
+                }
+            }
+
+            using (var insert = connection.CreateCommand())
+            {
+                insert.Transaction = transaction;
+                insert.CommandText = "INSERT INTO ItemStack (" +
+                    "ItemStackId, CampaignId, InventoryId, OwnerKind, OwnerTargetRef, OwnerLocationKey, " +
+                    "LocationKind, LocationTargetRef, LocationDetailRef, SourceItemDefinitionRef, " +
+                    "MechanicsSourceDefinitionRef, MechanicsDefinitionSnapshotVersion, MechanicsContentType, MechanicsPayload, " +
+                    "Quantity, StackState, Revision, CreatedAt, UpdatedAt) VALUES (" +
+                    "$itemStackId, $campaignId, $inventoryId, $ownerKind, $ownerTargetRef, $ownerLocationKey, " +
+                    "$locationKind, $locationTargetRef, $locationDetailRef, $sourceItemDefinitionRef, " +
+                    "$mechanicsSourceDefinitionRef, $mechanicsDefinitionSnapshotVersion, $mechanicsContentType, $mechanicsPayload, " +
+                    "$quantity, $stackState, $revision, $createdAt, $updatedAt);";
+                AddItemCommonParameters(insert, source.CampaignId, source.InventoryId, source.OwnerRef, source.LocationRef, source.SourceItemDefinitionRef, source.MechanicsSnapshot, 1, now, now);
+                insert.Parameters.AddWithValue("$itemStackId", operation.ResultId.ToString());
+                insert.Parameters.AddWithValue("$quantity", operation.Quantity);
+                insert.Parameters.AddWithValue("$stackState", source.StackState);
+                insert.ExecuteNonQuery();
+            }
+
+            InsertStackLedger(connection, transaction, operation, OperationKindSplit, operation.ResultId, now);
+            ItemStackRecord? created = SelectItemStack(connection, transaction, operation.ResultId.ToString());
+            transaction.Commit();
+            return created == null
+                ? Result<ItemStackRecord>.Failure(PersistenceFailures.CommandReplayFailed(correlationId))
+                : Result<ItemStackRecord>.Success(created);
+        }
+
+        private Result<ItemStackRecord> MergeInTransaction(SqliteConnection connection, SqliteTransaction transaction, InventoryStackOperation operation, CorrelationId correlationId)
+        {
+            ItemStackRecord? source = SelectItemStack(connection, transaction, operation.SourceId.ToString());
+            ItemStackRecord? destination = SelectItemStack(connection, transaction, operation.ResultId.ToString());
+            if (source == null || destination == null)
+            {
+                transaction.Commit();
+                return Result<ItemStackRecord>.Failure(PersistenceFailures.ItemStackNotFound(correlationId));
+            }
+
+            if (source.Revision != operation.ExpectedSourceRevision || destination.Revision != operation.ExpectedResultRevision)
+            {
+                transaction.Commit();
+                return Result<ItemStackRecord>.Failure(InventoryMovementFailures.ItemRevisionConflict(correlationId));
+            }
+
+            InventoryRecord? inventory = SelectInventory(connection, transaction, operation.InventoryId.ToString());
+            if (inventory == null)
+            {
+                transaction.Commit();
+                return Result<ItemStackRecord>.Failure(PersistenceFailures.InventoryNotFound(correlationId));
+            }
+
+            if (inventory.Revision != operation.ExpectedInventoryRevision)
+            {
+                transaction.Commit();
+                return Result<ItemStackRecord>.Failure(InventoryMovementFailures.InventoryRevisionConflict(correlationId));
+            }
+
+            if (source.LocationRef.Kind != InventoryLocationKind.Contained || destination.LocationRef.Kind != InventoryLocationKind.Contained)
+            {
+                transaction.Commit();
+                return Result<ItemStackRecord>.Failure(InventoryMovementFailures.SourceInvalid(correlationId));
+            }
+
+            // ADR-027 section 6.2: merge only mechanically identical stacks -- exact
+            // definition ref, stored mechanics snapshot, stack runtime state, owner,
+            // inventory, and contained location. Stored snapshots, never the current
+            // catalog definition, decide this.
+            bool mechanicallyIdentical =
+                source.InventoryId.Equals(operation.InventoryId) &&
+                destination.InventoryId.Equals(operation.InventoryId) &&
+                source.SourceItemDefinitionRef.Equals(destination.SourceItemDefinitionRef) &&
+                source.MechanicsSnapshot.Equals(destination.MechanicsSnapshot) &&
+                string.Equals(source.StackState, destination.StackState, StringComparison.Ordinal) &&
+                source.OwnerRef.Equals(destination.OwnerRef) &&
+                source.LocationRef.Equals(destination.LocationRef);
+            if (!mechanicallyIdentical)
+            {
+                transaction.Commit();
+                return Result<ItemStackRecord>.Failure(InventoryStackFailures.MergeMismatch(correlationId));
+            }
+
+            // Stored snapshots carry no decodable max-stack-size at this layer (the
+            // mechanics payload is opaque here by ODY-S05-202/203 design), so the only
+            // hard ceiling enforced is long-range representability. Catalog-defined
+            // MaxStackSize enforcement is a documented follow-up, see the task contract.
+            if (source.Quantity.Value > long.MaxValue - destination.Quantity.Value)
+            {
+                transaction.Commit();
+                return Result<ItemStackRecord>.Failure(InventoryStackFailures.MergeExceedsMaxQuantity(correlationId));
+            }
+
+            long mergedQuantity = destination.Quantity.Value + source.Quantity.Value;
+            UtcInstant now = _clock.GetUtcNow();
+
+            using (var update = connection.CreateCommand())
+            {
+                update.Transaction = transaction;
+                update.CommandText = "UPDATE ItemStack SET Quantity=$quantity,Revision=Revision+1,UpdatedAt=$updatedAt WHERE ItemStackId=$id AND Revision=$expectedRevision;";
+                update.Parameters.AddWithValue("$quantity", mergedQuantity);
+                update.Parameters.AddWithValue("$updatedAt", now.ToString());
+                update.Parameters.AddWithValue("$id", operation.ResultId.ToString());
+                update.Parameters.AddWithValue("$expectedRevision", operation.ExpectedResultRevision);
+                if (update.ExecuteNonQuery() != 1)
+                {
+                    transaction.Rollback();
+                    return Result<ItemStackRecord>.Failure(InventoryMovementFailures.ItemRevisionConflict(correlationId));
+                }
+            }
+
+            using (var delete = connection.CreateCommand())
+            {
+                delete.Transaction = transaction;
+                delete.CommandText = "DELETE FROM ItemStack WHERE ItemStackId=$id AND Revision=$expectedRevision;";
+                delete.Parameters.AddWithValue("$id", operation.SourceId.ToString());
+                delete.Parameters.AddWithValue("$expectedRevision", operation.ExpectedSourceRevision);
+                if (delete.ExecuteNonQuery() != 1)
+                {
+                    transaction.Rollback();
+                    return Result<ItemStackRecord>.Failure(InventoryMovementFailures.ItemRevisionConflict(correlationId));
+                }
+            }
+
+            InsertStackLedger(connection, transaction, operation, OperationKindMerge, operation.ResultId, now);
+            ItemStackRecord? survivor = SelectItemStack(connection, transaction, operation.ResultId.ToString());
+            transaction.Commit();
+            return survivor == null
+                ? Result<ItemStackRecord>.Failure(PersistenceFailures.CommandReplayFailed(correlationId))
+                : Result<ItemStackRecord>.Success(survivor);
+        }
+
+        private static Result<ItemStackRecord>? TryStackReplay(SqliteConnection connection, SqliteTransaction transaction, InventoryStackOperation operation, CorrelationId correlationId)
+        {
+            using var lookup = connection.CreateCommand();
+            lookup.Transaction = transaction;
+            lookup.CommandText = "SELECT OperationKind,SourceId,ResultId,InventoryId,Quantity,ExpectedSourceRevision,ExpectedResultRevision,ExpectedInventoryRevision,ResultStackId FROM InventoryStackCommandLedger WHERE CommandId=$commandId;";
+            lookup.Parameters.AddWithValue("$commandId", operation.CommandId.ToString());
+            string resultStackId;
+            using (SqliteDataReader reader = lookup.ExecuteReader())
+            {
+                if (!reader.Read()) return null;
+                bool same =
+                    reader.GetString(0) == (operation.IsMerge ? OperationKindMerge : OperationKindSplit) &&
+                    reader.GetString(1) == operation.SourceId.ToString() &&
+                    reader.GetString(2) == operation.ResultId.ToString() &&
+                    reader.GetString(3) == operation.InventoryId.ToString() &&
+                    reader.GetInt64(4) == operation.Quantity &&
+                    reader.GetInt64(5) == operation.ExpectedSourceRevision &&
+                    reader.GetInt64(6) == operation.ExpectedResultRevision &&
+                    reader.GetInt64(7) == operation.ExpectedInventoryRevision;
+                if (!same) return Result<ItemStackRecord>.Failure(PersistenceFailures.InventoryCommandIdentityMismatch(correlationId));
+                resultStackId = reader.GetString(8);
+            }
+
+            ItemStackRecord? record = SelectItemStack(connection, transaction, resultStackId);
+            return record == null
+                ? Result<ItemStackRecord>.Failure(PersistenceFailures.CommandReplayFailed(correlationId))
+                : Result<ItemStackRecord>.Success(record);
+        }
+
+        private static void InsertStackLedger(SqliteConnection connection, SqliteTransaction transaction, InventoryStackOperation operation, string operationKind, ItemStackId resultStackId, UtcInstant now)
+        {
+            using var insert = connection.CreateCommand();
+            insert.Transaction = transaction;
+            insert.CommandText = "INSERT INTO InventoryStackCommandLedger (CommandId,OperationKind,SourceId,ResultId,InventoryId,Quantity,ExpectedSourceRevision,ExpectedResultRevision,ExpectedInventoryRevision,ResultStackId,CreatedAt) VALUES ($commandId,$operationKind,$sourceId,$resultId,$inventoryId,$quantity,$expectedSourceRevision,$expectedResultRevision,$expectedInventoryRevision,$resultStackId,$createdAt);";
+            insert.Parameters.AddWithValue("$commandId", operation.CommandId.ToString());
+            insert.Parameters.AddWithValue("$operationKind", operationKind);
+            insert.Parameters.AddWithValue("$sourceId", operation.SourceId.ToString());
+            insert.Parameters.AddWithValue("$resultId", operation.ResultId.ToString());
+            insert.Parameters.AddWithValue("$inventoryId", operation.InventoryId.ToString());
+            insert.Parameters.AddWithValue("$quantity", operation.Quantity);
+            insert.Parameters.AddWithValue("$expectedSourceRevision", operation.ExpectedSourceRevision);
+            insert.Parameters.AddWithValue("$expectedResultRevision", operation.ExpectedResultRevision);
+            insert.Parameters.AddWithValue("$expectedInventoryRevision", operation.ExpectedInventoryRevision);
+            insert.Parameters.AddWithValue("$resultStackId", resultStackId.ToString());
+            insert.Parameters.AddWithValue("$createdAt", now.ToString());
+            insert.ExecuteNonQuery();
+        }
 
         private static bool InventoryExists(SqliteConnection connection, SqliteTransaction transaction, CampaignId campaignId, InventoryId inventoryId)
         {
@@ -820,6 +1110,19 @@ CREATE TABLE IF NOT EXISTS InventoryMoveCommandLedger (
     TargetRevision INTEGER NOT NULL,
     SourceRevision INTEGER NOT NULL,
     DestinationRevision INTEGER NOT NULL,
+    CreatedAt TEXT NOT NULL
+);
+CREATE TABLE IF NOT EXISTS InventoryStackCommandLedger (
+    CommandId TEXT PRIMARY KEY,
+    OperationKind TEXT NOT NULL,
+    SourceId TEXT NOT NULL,
+    ResultId TEXT NOT NULL,
+    InventoryId TEXT NOT NULL,
+    Quantity INTEGER NOT NULL,
+    ExpectedSourceRevision INTEGER NOT NULL,
+    ExpectedResultRevision INTEGER NOT NULL,
+    ExpectedInventoryRevision INTEGER NOT NULL,
+    ResultStackId TEXT NOT NULL,
     CreatedAt TEXT NOT NULL
 );
 CREATE INDEX IF NOT EXISTS IX_ItemInstance_Campaign_Inventory ON ItemInstance (CampaignId, InventoryId);
