@@ -496,7 +496,10 @@ namespace Odyssey.Tests.Persistence
 
         private static void AssertForbiddenFragments(IEnumerable<string> names)
         {
-            string[] forbidden = { "Transfer", "Split", "Merge", "Equipment", "Attack", "ActiveEffect", "ItemDefinitionMigration" };
+            // "Split"/"Merge" were forbidden here while ODY-S05-205 was still Proposed;
+            // that task now legitimately owns stack split/merge, so they are no longer
+            // out-of-scope fragments for the Inventory runtime surface.
+            string[] forbidden = { "Transfer", "Equipment", "Attack", "ActiveEffect", "ItemDefinitionMigration" };
             foreach (string name in names)
             {
                 foreach (string fragment in forbidden)
