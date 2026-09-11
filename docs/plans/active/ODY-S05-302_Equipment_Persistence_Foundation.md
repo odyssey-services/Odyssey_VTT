@@ -1,9 +1,9 @@
 # ODY-S05-302 — Equipment Persistence Foundation
 
-**Status:** Active
+**Status:** In Review
 **Owner:** Codex (agent)
 **Branch:** `feat/ody-s05-302-equipment-persistence-foundation`
-**Pull request:** Not opened
+**Pull request:** [#124](https://github.com/odyssey-services/Odyssey_VTT/pull/124)
 **Last updated:** 2026-09-11 UTC
 
 ## 1. Purpose and user-visible outcome
@@ -70,8 +70,8 @@ No command handler, MainGM/authorization check, rule-4 body-part-existence check
 - [x] Update task contract completion evidence.
 - [x] Run required repository validation scripts.
 - [x] Review diff for scope.
-- [ ] Commit, push, and open Draft PR.
-- [ ] Record PR link and backlog `In Review` status.
+- [x] Commit, push, and open Draft PR.
+- [x] Record PR link and backlog `In Review` status.
 
 ## 6. Progress log
 
@@ -81,6 +81,7 @@ No command handler, MainGM/authorization check, rule-4 body-part-existence check
 - 2026-09-11 — Implemented `EquippedEntryRecord`, the five `IInventoryRepository` Equipment primitives, `EquippedEntry`/`EquipmentCommandLedger` tables, and three new error codes; build passed on first attempt.
 - 2026-09-11 — Added `SqliteEquipmentRepositoryTests.cs` (`TC-INVENTORY-101`-`117`); all 17 passed on first run. Running the full suite surfaced two pre-existing scope guards this task's new names broke (beyond the one anticipated): `SqliteInventoryRepositoryTests.InventorySchema_ContainsOnlyAllowedInventoryRuntimeTablesAndIndexes` (the new list index's name contains "Inventory") and `InventoryCreationServiceTests.InventoryCreationScope_DoesNotIntroduceLaterInventoryCapabilities` (forbids any table name containing "Equipment"); narrowed both, then full suite passed: 736 total, 0 failed (Contracts 1, Domain 80, Networking 67, Unit 136, Architecture 2, Persistence 450).
 - 2026-09-11 — Registered `TC-INVENTORY-101`-`117` and the three new error codes in `docs/errors/ERROR_CODES.md`. Validation passed: `dotnet build`, `dotnet test`, `verify-format.ps1`, `check-repository-policy.ps1` (passed on first run), `verify-test-structure.ps1`. Diff review confirmed only allowed paths touched.
+- 2026-09-11 — Committed, pushed `feat/ody-s05-302-equipment-persistence-foundation`, opened Draft PR [#124](https://github.com/odyssey-services/Odyssey_VTT/pull/124). Doc-sync follow-up: updated `SLICE-05_IMPLEMENTATION_BACKLOG.md` §12 row 2 to `In Review (PR #124)` and this task contract/ExecPlan headers with the PR link.
 
 ## 7. Decisions
 
