@@ -65,10 +65,23 @@ namespace Odyssey.Persistence.Sqlite
     public sealed class SqliteContentCatalogRepository : IContentCatalogRepository
     {
         private readonly IWallClock _clock;
+        private readonly IReadOnlyList<IContentDefinitionDeletionDependencyChecker> _runtimeDependencyCheckers;
 
-        public SqliteContentCatalogRepository(IWallClock clock)
+        /// <summary>
+        /// ODY-S05-206: <paramref name="runtimeDependencyCheckers"/> defaults to
+        /// an empty list -- same opt-in pattern as
+        /// <c>SqliteCharacterRepository</c>'s own deletion checkers. A caller
+        /// that wants `DeleteDraftDefinition` to also reject a definition still
+        /// pinned by a runtime `ItemInstance`/`ItemStack`
+        /// (`ADR-027` section 4.1 rule 4/5) passes an
+        /// <see cref="Odyssey.Application.Inventory.InventoryContentDefinitionDependencyChecker"/>
+        /// here explicitly. No composition root exists in this codebase yet, so
+        /// every pre-existing single-argument caller is unaffected.
+        /// </summary>
+        public SqliteContentCatalogRepository(IWallClock clock, IReadOnlyList<IContentDefinitionDeletionDependencyChecker>? runtimeDependencyCheckers = null)
         {
             _clock = clock ?? throw new ArgumentNullException(nameof(clock));
+            _runtimeDependencyCheckers = runtimeDependencyCheckers ?? Array.Empty<IContentDefinitionDeletionDependencyChecker>();
         }
 
         public Result<ContentDefinitionRecord> CreateDraftContentDefinition(CreateDraftContentDefinitionRequest request, CommandId commandId, CorrelationId correlationId)
@@ -633,6 +646,21 @@ namespace Odyssey.Persistence.Sqlite
                 {
                     transaction.Commit();
                     return Result.Failure(PersistenceFailures.ContentDefinitionReferenced(correlationId));
+                }
+
+                // ODY-S05-206: ADR-027 section 4.1 rule 4/5's "no runtime
+                // reference exists" precondition, the symmetric partner of the
+                // catalog-dependency scan above. Registered checkers open their
+                // own read connections; this transaction has written nothing
+                // yet, so there is no writer-lock contention.
+                foreach (IContentDefinitionDeletionDependencyChecker checker in _runtimeDependencyCheckers)
+                {
+                    string? blockingDependency = checker.CheckBlockingDependency(campaign, definitionId);
+                    if (blockingDependency != null)
+                    {
+                        transaction.Commit();
+                        return Result.Failure(PersistenceFailures.ContentDefinitionRuntimeReferenced(correlationId));
+                    }
                 }
 
                 using (var delete = connection.CreateCommand())
