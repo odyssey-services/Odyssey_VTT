@@ -6,7 +6,7 @@
 **Predecessor backlog:** `docs/tasks/SLICE-05_BACKLOG.md` (prerequisite ADR revision — `COMPLETE` as of `ODY-S05-002`/`ADR-027`; not rewritten by this document)
 **ExecPlan:** Not required (Brief plan)
 **Created:** 2026-09-03
-**Last updated:** 2026-09-06 UTC
+**Last updated:** 2026-09-12 UTC
 
 ## 1. Purpose
 
@@ -173,7 +173,6 @@ It preserves these `ADR-027` decisions:
 Per section 3.1's explicit sequencing decision, the following `SLICE-05` blocks remain named and reserved but deliberately **not** decomposed into task IDs by this revision. Each becomes its own backlog revision-block once its prerequisites are accepted and closed, unless the product owner explicitly changes sequencing:
 
 - **Item-sourced abilities/effects runtime** — `CharacterAbility SourceKind=Item` integration and future `ActiveEffect` aggregate creation (`ADR-027` section 8).
-- **`ItemDefinition` migration preview/confirm** — MainGM workflow over runtime snapshots (`ADR-027` section 10).
 - **Full attack pipeline** — roadmap section 14.6's action/preview/range/modifier/roll/hit/damage/effect-application vertical slice.
 
 ## 9. Global non-goals
@@ -187,6 +186,7 @@ This backlog revision excludes:
 - a full, balanced MVP content pack (`106` is a proof fixture, not a content pack);
 - implementing Inventory runtime under `ODY-S05-107` itself; section 7 only decomposes future implementation tasks;
 - implementing Equipment runtime under `ODY-S05-108` itself; section 12 only decomposes future implementation tasks;
+- implementing `ItemDefinition` migration under `ODY-S05-109` itself; section 13 only decomposes future implementation tasks;
 - Equipment runtime implementation beyond minimal location vocabulary needed by Inventory runtime tasks (section 8);
 - item use, ActiveEffect execution, and the full attack pipeline (section 8);
 - ItemDefinition migration workflow implementation (section 8);
@@ -214,10 +214,14 @@ This backlog revision excludes:
 - `ODY-S05-304` depends on `ODY-S05-301`, `ODY-S05-302`, and `ODY-S05-303` (an item must be equippable before it can be unequipped).
 - `ODY-S05-305` depends on `ODY-S05-301`, `ODY-S05-302`, `ODY-S05-303`, and `ODY-S05-304` (both directions of the equipped-location transition must exist before real body-part dependency data is meaningful to check).
 - `ODY-S05-306` depends on `ODY-S05-301`–`305` (integration proof for the completed Equipment runtime block).
+- `ODY-S05-401` depends on the completed Content Catalog MVP block (`ODY-S05-101`–`106`), the completed Inventory runtime block (`ODY-S05-201`–`207`), and this decomposition task (`ODY-S05-109`) — preview construction reads Published catalog definitions and runtime `ItemInstance`/`ItemStack` snapshots, both of which those blocks already provide.
+- `ODY-S05-402` depends on `ODY-S05-401` (blocking-incompatibility rules evaluate the preview `ODY-S05-401` builds).
+- `ODY-S05-403` depends on `ODY-S05-401` and `ODY-S05-402` (confirm/apply needs a complete, incompatibility-checked preview before it can act).
+- `ODY-S05-404` depends on `ODY-S05-401`–`403` (integration proof for the completed `ItemDefinition` migration block).
 
 ## 11. Backlog change control
 
-- New work requires a task contract; this document reserves numbers `ODY-S05-101` through `ODY-S05-106` for the completed Content Catalog MVP block, `ODY-S05-201` through `ODY-S05-207` for the completed Inventory runtime block, and `ODY-S05-301` through `ODY-S05-306` for the Equipment runtime block (section 12).
+- New work requires a task contract; this document reserves numbers `ODY-S05-101` through `ODY-S05-106` for the completed Content Catalog MVP block, `ODY-S05-201` through `ODY-S05-207` for the completed Inventory runtime block, `ODY-S05-301` through `ODY-S05-306` for the Equipment runtime block (section 12), and `ODY-S05-401` through `ODY-S05-404` for the `ItemDefinition` migration block (section 13).
 - A task may be split before implementation by updating this backlog, following the same rule prior backlog revisions in this repository already use.
 - A task may not be merged with unrelated cleanup merely to reduce task count.
 - Completed task files move to `docs/tasks/completed/` only after required review, per the established convention in this repository.
@@ -275,3 +279,48 @@ It preserves these `ADR-027` section 7 rules:
 `ODY-S05-306` is the integration proof for the Equipment runtime block, mirroring `ODY-S05-207` for the Inventory runtime block. It should compose existing surfaces and avoid new production behavior unless an earlier task deliberately reserved a tiny fixture hook.
 
 If any of `ODY-S05-301`–`306` discovers that a stub or dependency cannot be fully closed without item-sourced abilities/effects (`ActiveEffect`) or another still-reserved block, that task must add an explicit follow-up task ID instead of leaving an unnamed TODO, per the same rule `ODY-S05-206` already followed for `RemoveBodyPart`'s own original deferral.
+
+## 13. Ordered backlog (ItemDefinition migration block)
+
+`ODY-S05-109` decomposes the next block after the Equipment runtime block's closure (`ODY-S05-301`–`306`, merged into `main`). This block implements `ADR-027` section 10's own fully-specified `ItemDefinition` migration preview/confirm workflow:
+
+> **Decision:** ItemDefinition migration is a MainGM-only preview/confirm workflow over runtime item snapshots. It is not automatic publication side effect and not database schema migration.
+>
+> Workflow:
+>
+> 1. A new ItemDefinition version is published or selected as the migration target.
+> 2. MainGM builds or refreshes `ItemDefinitionMigrationPreview`.
+> 3. The system creates the required backup before migration review using `ADR-012`'s existing snapshot/`BackupRecord` mechanism.
+> 4. Preview lists affected `ItemInstance` and mechanically identical `ItemStack` records, before/after snapshot changes, runtime-state compatibility checks, blocking issues, and required migration rules.
+> 5. Confirmation requires current `SourceDefinitionRevision`, `AffectedInventoryRevision`, and `PreviewRevision`.
+> 6. If revisions changed, host refreshes preview and requires new confirmation before starting the transaction.
+> 7. If blocking incompatibilities remain, migration does not start.
+> 8. Confirmed migration updates all matching item/stack snapshots in one `ADR-012` transaction and emits the required events/audit/report.
+> 9. After successful migration there is no rollback command. A later correction is a new ItemDefinition version and another confirmed migration.
+>
+> Blocking incompatibilities include at minimum: removed ammo type currently loaded, removed equipment slot currently occupied, reduced capacity below current content, removed armor/body-part coverage with runtime damage, custom state the new definition cannot interpret, or hidden mechanics that cannot be safely compared.
+>
+> This workflow changes item mechanics snapshots only. It preserves runtime state and does not rewrite DomainEvents.
+
+`ADR-027` section 11 draws a deliberate boundary this decomposition must not blur: existing `ActiveEffect` aggregates **never mass-migrate** to a new `EffectDefinition` (applying an effect captures a full snapshot; publishing a new `EffectDefinition` applies only to future ActiveEffects) — because ActiveEffects may be mid-duration, mid-combat, tied to turn timing, and stacking state that bulk rewriting would unpredictably disturb. `ItemDefinition` migration is possible only because items do not carry that same timing sensitivity. None of `ODY-S05-401`–`404` may generalize this preview/confirm mechanism to `ActiveEffect`.
+
+`ODY-S05-109` verified directly against the tracked repository that this block starts from a genuine clean slate: no `ItemDefinitionMigrationPreview` type, apply command, persistence table, or any other migration-specific implementation exists anywhere today. The only existing references to `"ItemDefinitionMigration"` are two forbidden-fragment scope-guard test arrays (`SqliteInventoryRepositoryTests.cs`, `InventoryCreationServiceTests.cs`) that currently forbid such code from appearing — whichever of `ODY-S05-401`–`404` first introduces real migration-specific type/table names must narrow (not remove) those guards, the same pattern already used when `EquippedEntry`/`EquipmentCommandLedger` were introduced in `ODY-S05-301`/`302`.
+
+`RulesetMigrationRules.BuildPlan`/`ComputePreviewHash` and `SqliteCharacterRepository.ApplyCharacterRulesetMigration` (`ODY-S04-113`, Character Ruleset-version migration) are the direct structural precedent for a preview/plan/apply separation with revision-guarded confirmation — cited by analogy only. That precedent's own concrete fields (`RulesetDefinitionMapping`, `RulesetUnresolvedDecision`, three `ExpectedXRevision` fields, `PreviewHash`) describe Character definition-category remapping, not item mechanics snapshots, and must be reinvented for this block's own domain, not copied.
+
+| Order | Task ID | Status | Roadmap/product source | Title | Depends on | Planning mode | Primary result |
+|---:|---|---|---|---|---|---|---|
+| 1 | `ODY-S05-401` | Proposed | `ADR-027` §10 steps 1-4 | Migration Preview Foundation | 109, 101-106, 201-207 | ExecPlan | A preview type (`ItemDefinitionMigrationPreview` or similarly named) and its builder, over already-Published source/target `ItemDefinition` versions and the runtime `ItemInstance`/`ItemStack` records they affect — modeled by analogy on `RulesetMigrationRules.BuildPlan`'s preview/plan shape, reinvented for item snapshots. Lists affected records and before/after snapshot changes. No apply, no `ADR-012` backup call, no blocking-incompatibility computation. |
+| 2 | `ODY-S05-402` | Proposed | `ADR-027` §10 (blocking incompatibilities) | Migration Blocking Incompatibility Rules | 401 | ExecPlan | The blocking-incompatibility computation named in §10's own list, including type-specific rules (Weapon: removed ammo type currently loaded; Armor: removed equipment slot currently occupied, removed armor/body-part coverage with runtime damage) and generic rules (reduced capacity below current content, unrecognizable custom state, uncomparable hidden mechanics). Computation feeding into the `ODY-S05-401` preview only — no apply. |
+| 3 | `ODY-S05-403` | Proposed | `ADR-027` §10 steps 5-9; §12 rules 1-2 | Migration Confirm/Apply Command | 401, 402 | ExecPlan | MainGM-only confirm/apply command: triple revision guard (`SourceDefinitionRevision`/`AffectedInventoryRevision`/`PreviewRevision`), mandatory `ADR-012` backup before migration review, refusal to start while any blocking incompatibility from `ODY-S05-402` remains, atomic update of every matching item/stack snapshot in one transaction with required events/audit, no rollback command after success (a later correction is a new version plus another confirmed migration). |
+| 4 | `ODY-S05-404` | Proposed | Roadmap-analog of `ODY-S05-207`/`306` | Migration Integration Fixtures | 401, 402, 403 | Brief plan | End-to-end integration proof mirroring `ODY-S05-207`/`306`: publish a new `ItemDefinition` version, build a preview against existing runtime items, discover a blocking incompatibility, resolve it, confirm, apply atomically, and verify the snapshots update while `DomainEvents` remain unrewritten. Composes existing surfaces only; no new production behavior unless an earlier task deliberately reserved a tiny fixture hook. |
+
+### 13.1 ItemDefinition migration task boundaries
+
+`ODY-S05-401` owns the preview type and its construction: which `ItemInstance`/`ItemStack` records a candidate migration would affect, and their before/after snapshot values. It must not compute blocking incompatibilities, call the `ADR-012` backup mechanism, or apply anything — those belong to later tasks.
+
+`ODY-S05-402` owns the blocking-incompatibility rules named in `ADR-027` §10, including the type-specific ones (Weapon ammo, Armor slot/body-part coverage) alongside the generic ones (capacity, custom state, hidden mechanics). It computes a list of blocking issues against an `ODY-S05-401` preview; it does not build the preview itself and does not apply a migration.
+
+`ODY-S05-403` owns the MainGM-only confirm/apply transition: the triple revision guard, the mandatory pre-review backup, atomic multi-snapshot update, and the explicit absence of a rollback command after success. It must not re-implement preview construction or blocking-rule computation — it consumes what `ODY-S05-401`/`402` already produce.
+
+`ODY-S05-404` is the integration proof for the `ItemDefinition` migration block, mirroring `ODY-S05-207`/`306`. It should compose existing surfaces and avoid new production behavior unless an earlier task deliberately reserved a tiny fixture hook.
