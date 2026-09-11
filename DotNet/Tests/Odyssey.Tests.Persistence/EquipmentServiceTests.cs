@@ -1,5 +1,7 @@
 using System;
+using System.Collections.Generic;
 using System.IO;
+using System.Linq;
 using Microsoft.Data.Sqlite;
 using NUnit.Framework;
 using Odyssey.Application.Commands;
@@ -17,11 +19,12 @@ using Odyssey.Persistence.Sqlite;
 namespace Odyssey.Tests.Persistence
 {
     /// <summary>
-    /// ODY-S05-303: real SQLite tests for the Equip transition
-    /// (<see cref="IInventoryRepository.EquipItem"/>) and the MainGM/rule-4
-    /// gate (<see cref="EquipmentService"/>). No Unequip, weapon/armor
-    /// mechanical effect, or `RemoveBodyPart` dependency behavior is
-    /// exercised here.
+    /// ODY-S05-303/304: real SQLite tests for the Equip transition
+    /// (<see cref="IInventoryRepository.EquipItem"/>), the MainGM/rule-4 gate
+    /// (<see cref="EquipmentService.Equip"/>), the symmetric Unequip transition
+    /// (<see cref="IInventoryRepository.UnequipItem"/>), and its MainGM gate
+    /// (<see cref="EquipmentService.Unequip"/>). No weapon/armor mechanical
+    /// effect or `RemoveBodyPart` dependency behavior is exercised here.
     /// </summary>
     public sealed class EquipmentServiceTests
     {
@@ -267,6 +270,210 @@ namespace Odyssey.Tests.Persistence
             Result<EquippedEntryRecord> result = EquipmentService.Equip(_inventoryRepository, _characterRepository, request);
 
             Assert.That(result.IsSuccess, Is.True, "empty BodyPartRefs must skip rule 4 entirely, even for a non-Character owner");
+        }
+
+        // ---------- IInventoryRepository.UnequipItem / EquipmentService.Unequip ----------
+
+        [Test] // TC-INVENTORY-131
+        public void UnequipItem_ForItemInstance_Succeeds_LocationRefBecomesContainedAndEquippedEntryRemoved()
+        {
+            InventoryRecord inventory = CreateInventory(CharacterId.NewId(Clock.GetUtcNow()));
+            ItemInstanceRecord instance = CreateItemInstance(inventory);
+            EquippedEntryRecord equipped = EquipItemDirectly(inventory, InventoryItemRef.ForInstance(instance.ItemInstanceId), instance.Revision);
+
+            var transition = new UnequipTransition(equipped.Entry.ItemRef, inventory.InventoryId, instance.Revision + 1, equipped.Entry.Revision, "backpack", NewCommandId());
+            Result<bool> result = _inventoryRepository.UnequipItem(_campaign, transition, TestCorrelationId);
+
+            Assert.That(result.IsSuccess, Is.True);
+            Result<ItemInstanceRecord> updated = _inventoryRepository.GetItemInstance(_campaign, instance.ItemInstanceId, TestCorrelationId);
+            Assert.That(updated.Value.LocationRef, Is.EqualTo(InventoryLocationRef.Contained(inventory.InventoryId, "backpack")));
+            Result<EquippedEntryRecord> stillEquipped = _inventoryRepository.GetEquippedEntry(_campaign, equipped.Entry.ItemRef, TestCorrelationId);
+            Assert.That(stillEquipped.IsFailure, Is.True);
+            Assert.That(stillEquipped.Error.Code, Is.EqualTo(ErrorCodes.PersistenceEquipmentEntryNotFound));
+        }
+
+        [Test] // TC-INVENTORY-132
+        public void UnequipItem_ForItemStack_Succeeds_WithTheSameGuarantee()
+        {
+            InventoryRecord inventory = CreateInventory(CharacterId.NewId(Clock.GetUtcNow()));
+            ItemStackRecord stack = CreateItemStack(inventory);
+            EquippedEntryRecord equipped = EquipItemDirectly(inventory, InventoryItemRef.ForStack(stack.ItemStackId), stack.Revision);
+
+            var transition = new UnequipTransition(equipped.Entry.ItemRef, inventory.InventoryId, stack.Revision + 1, equipped.Entry.Revision, "backpack", NewCommandId());
+            Result<bool> result = _inventoryRepository.UnequipItem(_campaign, transition, TestCorrelationId);
+
+            Assert.That(result.IsSuccess, Is.True);
+            Result<ItemStackRecord> updated = _inventoryRepository.GetItemStack(_campaign, stack.ItemStackId, TestCorrelationId);
+            Assert.That(updated.Value.LocationRef, Is.EqualTo(InventoryLocationRef.Contained(inventory.InventoryId, "backpack")));
+        }
+
+        [Test] // TC-INVENTORY-133
+        public void UnequipItem_RejectsItemWithNoEquippedEntryRow()
+        {
+            InventoryRecord inventory = CreateInventory(CharacterId.NewId(Clock.GetUtcNow()));
+            ItemInstanceRecord instance = CreateItemInstance(inventory);
+
+            var transition = new UnequipTransition(InventoryItemRef.ForInstance(instance.ItemInstanceId), inventory.InventoryId, instance.Revision, 1, "backpack", NewCommandId());
+            Result<bool> result = _inventoryRepository.UnequipItem(_campaign, transition, TestCorrelationId);
+
+            Assert.That(result.IsFailure, Is.True);
+            Assert.That(result.Error.Code, Is.EqualTo(ErrorCodes.PersistenceEquipmentEntryNotFound));
+        }
+
+        [Test] // TC-INVENTORY-134
+        public void UnequipItem_RejectsStaleEquippedEntryRevision()
+        {
+            InventoryRecord inventory = CreateInventory(CharacterId.NewId(Clock.GetUtcNow()));
+            ItemInstanceRecord instance = CreateItemInstance(inventory);
+            EquippedEntryRecord equipped = EquipItemDirectly(inventory, InventoryItemRef.ForInstance(instance.ItemInstanceId), instance.Revision);
+
+            var transition = new UnequipTransition(equipped.Entry.ItemRef, inventory.InventoryId, instance.Revision + 1, equipped.Entry.Revision + 9, "backpack", NewCommandId());
+            Result<bool> result = _inventoryRepository.UnequipItem(_campaign, transition, TestCorrelationId);
+
+            Assert.That(result.IsFailure, Is.True);
+            Assert.That(result.Error.Code, Is.EqualTo(ErrorCodes.PersistenceEquipmentEntryRevisionConflict));
+            Result<ItemInstanceRecord> unchanged = _inventoryRepository.GetItemInstance(_campaign, instance.ItemInstanceId, TestCorrelationId);
+            Assert.That(unchanged.Value.LocationRef.Kind, Is.EqualTo(InventoryLocationKind.Equipped));
+        }
+
+        [Test] // TC-INVENTORY-135
+        public void UnequipItem_RejectsStaleItemRevision()
+        {
+            InventoryRecord inventory = CreateInventory(CharacterId.NewId(Clock.GetUtcNow()));
+            ItemInstanceRecord instance = CreateItemInstance(inventory);
+            EquippedEntryRecord equipped = EquipItemDirectly(inventory, InventoryItemRef.ForInstance(instance.ItemInstanceId), instance.Revision);
+
+            var transition = new UnequipTransition(equipped.Entry.ItemRef, inventory.InventoryId, instance.Revision + 41, equipped.Entry.Revision, "backpack", NewCommandId());
+            Result<bool> result = _inventoryRepository.UnequipItem(_campaign, transition, TestCorrelationId);
+
+            Assert.That(result.IsFailure, Is.True);
+            Assert.That(result.Error.Code, Is.EqualTo(ErrorCodes.PersistenceInventoryItemRevisionConflict));
+            Result<EquippedEntryRecord> stillEquipped = _inventoryRepository.GetEquippedEntry(_campaign, equipped.Entry.ItemRef, TestCorrelationId);
+            Assert.That(stillEquipped.IsSuccess, Is.True, "a rejected item-revision CAS must not remove the EquippedEntry row");
+        }
+
+        [Test] // TC-INVENTORY-136
+        public void UnequipItem_RejectsInventoryIdMismatch()
+        {
+            InventoryRecord inventory = CreateInventory(CharacterId.NewId(Clock.GetUtcNow()));
+            InventoryRecord otherInventory = CreateInventory(CharacterId.NewId(Clock.GetUtcNow()));
+            ItemInstanceRecord instance = CreateItemInstance(inventory);
+            EquippedEntryRecord equipped = EquipItemDirectly(inventory, InventoryItemRef.ForInstance(instance.ItemInstanceId), instance.Revision);
+
+            var transition = new UnequipTransition(equipped.Entry.ItemRef, otherInventory.InventoryId, instance.Revision + 1, equipped.Entry.Revision, "backpack", NewCommandId());
+            Result<bool> result = _inventoryRepository.UnequipItem(_campaign, transition, TestCorrelationId);
+
+            Assert.That(result.IsFailure, Is.True);
+            Assert.That(result.Error.Code, Is.EqualTo(ErrorCodes.InventoryMoveSourceInvalid));
+        }
+
+        [Test] // TC-INVENTORY-137
+        public void UnequipItem_ReplayWithSameCommandId_ReturnsSuccessWithoutSecondMutation()
+        {
+            InventoryRecord inventory = CreateInventory(CharacterId.NewId(Clock.GetUtcNow()));
+            ItemInstanceRecord instance = CreateItemInstance(inventory);
+            EquippedEntryRecord equipped = EquipItemDirectly(inventory, InventoryItemRef.ForInstance(instance.ItemInstanceId), instance.Revision);
+            CommandId commandId = NewCommandId();
+            var transition = new UnequipTransition(equipped.Entry.ItemRef, inventory.InventoryId, instance.Revision + 1, equipped.Entry.Revision, "backpack", commandId);
+
+            Result<bool> first = _inventoryRepository.UnequipItem(_campaign, transition, TestCorrelationId);
+            Result<bool> replay = _inventoryRepository.UnequipItem(_campaign, transition, TestCorrelationId);
+
+            Assert.That(first.IsSuccess, Is.True);
+            Assert.That(replay.IsSuccess, Is.True);
+            Result<ItemInstanceRecord> item = _inventoryRepository.GetItemInstance(_campaign, instance.ItemInstanceId, TestCorrelationId);
+            Assert.That(item.Value.Revision, Is.EqualTo(instance.Revision + 2), "one Equip and one Unequip each advance the item's revision once; replay must not add a third");
+        }
+
+        [Test] // TC-INVENTORY-138
+        public void UnequipItem_WithSameCommandIdForDifferentTarget_IsRejected()
+        {
+            InventoryRecord inventory = CreateInventory(CharacterId.NewId(Clock.GetUtcNow()));
+            ItemInstanceRecord first = CreateItemInstance(inventory);
+            ItemInstanceRecord second = CreateItemInstance(inventory);
+            EquippedEntryRecord firstEquipped = EquipItemDirectly(inventory, InventoryItemRef.ForInstance(first.ItemInstanceId), first.Revision);
+            EquippedEntryRecord secondEquipped = EquipItemDirectly(inventory, InventoryItemRef.ForInstance(second.ItemInstanceId), second.Revision);
+            CommandId commandId = NewCommandId();
+
+            Result<bool> firstResult = _inventoryRepository.UnequipItem(_campaign, new UnequipTransition(firstEquipped.Entry.ItemRef, inventory.InventoryId, first.Revision + 1, firstEquipped.Entry.Revision, "backpack", commandId), TestCorrelationId);
+            Result<bool> secondResult = _inventoryRepository.UnequipItem(_campaign, new UnequipTransition(secondEquipped.Entry.ItemRef, inventory.InventoryId, second.Revision + 1, secondEquipped.Entry.Revision, "backpack", commandId), TestCorrelationId);
+
+            Assert.That(firstResult.IsSuccess, Is.True);
+            Assert.That(secondResult.IsFailure, Is.True);
+            Assert.That(secondResult.Error.Code, Is.EqualTo(ErrorCodes.CommandIdentityMismatch));
+            Result<EquippedEntryRecord> secondStillEquipped = _inventoryRepository.GetEquippedEntry(_campaign, secondEquipped.Entry.ItemRef, TestCorrelationId);
+            Assert.That(secondStillEquipped.IsSuccess, Is.True);
+        }
+
+        [Test] // TC-INVENTORY-139
+        public void EquipmentService_Unequip_DeniesNonMainGmActor_BeforeAnyRepositoryCall()
+        {
+            InventoryId nonExistentInventoryId = InventoryId.NewId(Clock.GetUtcNow());
+            UnequipRequest request = new UnequipRequest(_campaign, InventoryItemRef.ForInstance(ItemInstanceId.NewId(Clock.GetUtcNow())), nonExistentInventoryId, 1, 1, "backpack", NewUserId(), actorIsMainGm: false, NewCommandId(), TestCorrelationId);
+
+            Result<bool> result = EquipmentService.Unequip(_inventoryRepository, request);
+
+            Assert.That(result.IsFailure, Is.True);
+            Assert.That(result.Error.Code, Is.EqualTo(ErrorCodes.InventoryMoveDenied), "MainGM denial must precede any repository call that would otherwise return a different error for this nonexistent InventoryId/item");
+        }
+
+        [Test] // TC-INVENTORY-140
+        public void EquipThenUnequip_RoundTrip_ItemIsContainedAndReEquippable()
+        {
+            InventoryRecord inventory = CreateInventory(CharacterId.NewId(Clock.GetUtcNow()));
+            ItemInstanceRecord instance = CreateItemInstance(inventory);
+            EquippedEntryRecord equipped = EquipItemDirectly(inventory, InventoryItemRef.ForInstance(instance.ItemInstanceId), instance.Revision);
+
+            Result<bool> unequipped = _inventoryRepository.UnequipItem(_campaign, new UnequipTransition(equipped.Entry.ItemRef, inventory.InventoryId, instance.Revision + 1, equipped.Entry.Revision, "backpack", NewCommandId()), TestCorrelationId);
+            Assert.That(unequipped.IsSuccess, Is.True);
+            Result<ItemInstanceRecord> afterUnequip = _inventoryRepository.GetItemInstance(_campaign, instance.ItemInstanceId, TestCorrelationId);
+
+            EquippedEntryRecord reequipped = EquipItemDirectly(inventory, InventoryItemRef.ForInstance(instance.ItemInstanceId), afterUnequip.Value.Revision);
+
+            Assert.That(reequipped.Entry.ToLocationRef(), Is.EqualTo(InventoryLocationRef.Equipped(inventory.InventoryId, "chest_slot")));
+        }
+
+        [Test] // TC-INVENTORY-141
+        public void UnequipItem_RejectsSourceThatIsStillContained()
+        {
+            InventoryRecord inventory = CreateInventory(CharacterId.NewId(Clock.GetUtcNow()));
+            ItemInstanceRecord instance = CreateItemInstance(inventory);
+            InsertEquippedEntryRowDirectly(BuildEquippedEntryRecord(inventory, InventoryItemRef.ForInstance(instance.ItemInstanceId), Array.Empty<BodyPartId>()));
+
+            var transition = new UnequipTransition(InventoryItemRef.ForInstance(instance.ItemInstanceId), inventory.InventoryId, instance.Revision, 1, "backpack", NewCommandId());
+            Result<bool> result = _inventoryRepository.UnequipItem(_campaign, transition, TestCorrelationId);
+
+            Assert.That(result.IsFailure, Is.True);
+            Assert.That(result.Error.Code, Is.EqualTo(ErrorCodes.PersistenceInventoryIoFailed), "an EquippedEntry row for a still-Contained item is an inconsistency, not a normal business rejection");
+        }
+
+        [Test] // TC-INVENTORY-142
+        public void EquipmentService_Unequip_TakesNoCharacterRepositoryDependency_AndIntroducesNoRemoveBodyPartOrWeaponArmorType()
+        {
+            System.Reflection.MethodInfo? unequip = typeof(EquipmentService).GetMethod("Unequip");
+            Assert.That(unequip, Is.Not.Null);
+            System.Reflection.ParameterInfo[] parameters = unequip!.GetParameters();
+            Assert.That(parameters.Select(p => p.ParameterType.Name), Has.None.EqualTo(nameof(ICharacterRepository)), "Unequip must not depend on ICharacterRepository -- rule 4 is an Equip-only concern");
+
+            string[] forbiddenTypeFragments = { "RemoveBodyPart", "WeaponMechanic", "ArmorMechanic", "ActiveEffect", "Attack" };
+            IEnumerable<string> inventoryTypeNames = typeof(EquipmentService).Assembly.GetTypes()
+                .Where(t => string.Equals(t.Namespace, "Odyssey.Application.Inventory", StringComparison.Ordinal))
+                .Select(t => t.Name);
+            foreach (string typeName in inventoryTypeNames)
+            {
+                foreach (string forbidden in forbiddenTypeFragments)
+                {
+                    Assert.That(typeName, Does.Not.Contain(forbidden));
+                }
+            }
+        }
+
+        private EquippedEntryRecord EquipItemDirectly(InventoryRecord inventory, InventoryItemRef itemRef, long expectedItemRevision)
+        {
+            EquippedEntryRecord record = BuildEquippedEntryRecord(inventory, itemRef, Array.Empty<BodyPartId>());
+            Result<EquippedEntryRecord> equipped = _inventoryRepository.EquipItem(_campaign, new EquipTransition(record, expectedItemRevision, NewCommandId()), TestCorrelationId);
+            Assert.That(equipped.IsSuccess, Is.True);
+            return equipped.Value;
         }
 
         private CharacterRecord CreateInitializedCharacter()

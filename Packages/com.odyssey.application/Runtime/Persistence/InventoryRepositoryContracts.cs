@@ -101,6 +101,19 @@ namespace Odyssey.Application.Persistence
         /// owns those before calling this primitive.
         /// </summary>
         Result<EquippedEntryRecord> EquipItem(CampaignHandle campaign, EquipTransition transition, CorrelationId correlationId);
+
+        /// <summary>
+        /// ODY-S05-304: the atomic Unequip transition, the symmetric reverse of
+        /// <see cref="EquipItem"/>. In one SQLite transaction: reads and
+        /// CAS-checks the <see cref="EquippedEntryRecord"/> (the authority for
+        /// "is this item currently equipped"), defensively cross-checks the
+        /// item's own `LocationRef` against it, CAS-checks the item's own
+        /// revision, updates its `LocationRef` back to
+        /// `Contained(InventoryId, DestinationContainerKey)`, and removes the
+        /// `EquippedEntry` row. No rule-4/`ICharacterRepository` dependency,
+        /// `RemoveBodyPart` check, or non-`Contained` destination is supported.
+        /// </summary>
+        Result<bool> UnequipItem(CampaignHandle campaign, UnequipTransition transition, CorrelationId correlationId);
     }
 
     public sealed class InventoryCreateReplay<TRecord>

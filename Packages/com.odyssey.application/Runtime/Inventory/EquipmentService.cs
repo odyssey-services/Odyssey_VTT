@@ -75,6 +75,28 @@ namespace Odyssey.Application.Inventory
             var transition = new EquipTransition(record, request.ExpectedTargetRevision, request.CommandId);
             return inventoryRepository.EquipItem(request.Campaign, transition, request.CorrelationId);
         }
+
+        /// <summary>
+        /// ODY-S05-304: the symmetric reverse of <see cref="Equip"/>. Does not
+        /// take an <see cref="ICharacterRepository"/> -- rule 4 (a body part
+        /// must currently exist) only matters when something is newly attached
+        /// to it; removing an already-equipped item does not re-validate
+        /// anatomy. No new Equip semantics beyond the reverse transition; no
+        /// `RemoveBodyPart` check.
+        /// </summary>
+        public static Result<bool> Unequip(IInventoryRepository inventoryRepository, UnequipRequest request)
+        {
+            if (inventoryRepository == null) throw new ArgumentNullException(nameof(inventoryRepository));
+            if (request == null) throw new ArgumentNullException(nameof(request));
+
+            if (!request.ActorIsMainGm)
+            {
+                return Result<bool>.Failure(InventoryMovementFailures.Denied(request.CorrelationId));
+            }
+
+            var transition = new UnequipTransition(request.ItemRef, request.InventoryId, request.ExpectedTargetRevision, request.ExpectedEquippedEntryRevision, request.DestinationContainerKey, request.CommandId);
+            return inventoryRepository.UnequipItem(request.Campaign, transition, request.CorrelationId);
+        }
     }
 
     /// <summary>
@@ -101,6 +123,81 @@ namespace Odyssey.Application.Inventory
         public EquippedEntryRecord Record { get; }
         public long ExpectedTargetRevision { get; }
         public CommandId CommandId { get; }
+    }
+
+    /// <summary>
+    /// ODY-S05-304: the symmetric reverse of <see cref="EquipTransition"/>.
+    /// <see cref="InventoryId"/> is the item's own current Inventory (Unequip
+    /// never moves an item to a different Inventory); the repository verifies
+    /// it against the <see cref="EquippedEntryRecord"/>'s own stored
+    /// `InventoryId`. <see cref="DestinationContainerKey"/> is validated
+    /// eagerly here via <see cref="InventoryLocationRef.Contained"/> the same
+    /// way <c>InventoryMove</c> validates its own destination container key.
+    /// </summary>
+    public sealed class UnequipTransition
+    {
+        public UnequipTransition(InventoryItemRef itemRef, InventoryId inventoryId, long expectedTargetRevision, long expectedEquippedEntryRevision, string destinationContainerKey, CommandId commandId)
+        {
+            if (!itemRef.IsValid) throw new ArgumentException("ItemRef is required.", nameof(itemRef));
+            if (!inventoryId.IsValid) throw new ArgumentException("InventoryId is required.", nameof(inventoryId));
+            if (expectedTargetRevision < 1) throw new ArgumentOutOfRangeException(nameof(expectedTargetRevision));
+            if (expectedEquippedEntryRevision < 1) throw new ArgumentOutOfRangeException(nameof(expectedEquippedEntryRevision));
+            if (!commandId.IsValid) throw new ArgumentException("CommandId is required.", nameof(commandId));
+            _ = InventoryLocationRef.Contained(inventoryId, destinationContainerKey);
+
+            ItemRef = itemRef;
+            InventoryId = inventoryId;
+            ExpectedTargetRevision = expectedTargetRevision;
+            ExpectedEquippedEntryRevision = expectedEquippedEntryRevision;
+            DestinationContainerKey = destinationContainerKey;
+            CommandId = commandId;
+        }
+
+        public InventoryItemRef ItemRef { get; }
+        public InventoryId InventoryId { get; }
+        public long ExpectedTargetRevision { get; }
+        public long ExpectedEquippedEntryRevision { get; }
+        public string DestinationContainerKey { get; }
+        public CommandId CommandId { get; }
+    }
+
+    public sealed class UnequipRequest
+    {
+        public UnequipRequest(
+            CampaignHandle campaign,
+            InventoryItemRef itemRef,
+            InventoryId inventoryId,
+            long expectedTargetRevision,
+            long expectedEquippedEntryRevision,
+            string destinationContainerKey,
+            UserId actorUserId,
+            bool actorIsMainGm,
+            CommandId commandId,
+            CorrelationId correlationId)
+        {
+            if (campaign == null) throw new ArgumentNullException(nameof(campaign));
+            if (!actorUserId.IsValid) throw new ArgumentException("Actor is required.", nameof(actorUserId));
+
+            Campaign = campaign;
+            ItemRef = itemRef;
+            InventoryId = inventoryId;
+            ExpectedTargetRevision = expectedTargetRevision;
+            ExpectedEquippedEntryRevision = expectedEquippedEntryRevision;
+            DestinationContainerKey = destinationContainerKey;
+            ActorIsMainGm = actorIsMainGm;
+            CommandId = commandId;
+            CorrelationId = correlationId;
+        }
+
+        public CampaignHandle Campaign { get; }
+        public InventoryItemRef ItemRef { get; }
+        public InventoryId InventoryId { get; }
+        public long ExpectedTargetRevision { get; }
+        public long ExpectedEquippedEntryRevision { get; }
+        public string DestinationContainerKey { get; }
+        public bool ActorIsMainGm { get; }
+        public CommandId CommandId { get; }
+        public CorrelationId CorrelationId { get; }
     }
 
     public sealed class EquipRequest
