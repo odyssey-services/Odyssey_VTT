@@ -1,6 +1,6 @@
 # ODY-S05-207 — Inventory Runtime Integration Fixtures
 
-**Status:** Active
+**Status:** Done (PR #121, merged into main)
 **Owner:** Codex (agent)
 **Branch:** `feat/ody-s05-207-inventory-runtime-integration-fixtures`
 **Pull request:** Draft — [#121](https://github.com/odyssey-services/Odyssey_VTT/pull/121)

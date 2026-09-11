@@ -1,6 +1,6 @@
 # ODY-S05-206 — Runtime Reference Dependency Checks
 
-**Status:** In Review
+**Status:** Done (PR #120, merged into main)
 **Roadmap stage / slice:** SLICE-05
 **Owner:** Codex (agent)
 **Requested by:** Product owner

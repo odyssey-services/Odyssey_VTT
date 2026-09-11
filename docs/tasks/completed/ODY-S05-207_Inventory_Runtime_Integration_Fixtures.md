@@ -1,6 +1,6 @@
 # ODY-S05-207 — Inventory Runtime Integration Fixtures
 
-**Status:** In Review
+**Status:** Done (PR #121, merged into main)
 **Roadmap stage / slice:** SLICE-05 (Inventory runtime block)
 **Owner:** Codex (agent)
 **Requested by:** Product owner

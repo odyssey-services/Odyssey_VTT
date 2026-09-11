@@ -1,6 +1,6 @@
 # ODY-S05-205 - Stack Split/Merge MVP
 
-**Status:** Active
+**Status:** Done (PR #119, merged into main)
 **Owner:** Codex (agent)
 **Branch:** `feat/ody-s05-205-stack-split-merge-mvp-impl`
 **Pull request:** Draft - [#119](https://github.com/odyssey-services/Odyssey_VTT/pull/119)

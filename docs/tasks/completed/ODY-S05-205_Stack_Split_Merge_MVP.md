@@ -1,6 +1,6 @@
 # ODY-S05-205 - Stack Split/Merge MVP
 
-**Status:** In Review
+**Status:** Done (PR #119, merged into main)
 **Roadmap stage / slice:** SLICE-05
 **Owner:** Codex (agent)
 **Requested by:** Product owner

@@ -1,6 +1,6 @@
 # ODY-S05-206 — Runtime Reference Dependency Checks
 
-**Status:** Active
+**Status:** Done (PR #120, merged into main)
 **Owner:** Codex (agent)
 **Branch:** `feat/ody-s05-206-runtime-reference-dependency-checks`
 **Pull request:** Draft — [#120](https://github.com/odyssey-services/Odyssey_VTT/pull/120)
