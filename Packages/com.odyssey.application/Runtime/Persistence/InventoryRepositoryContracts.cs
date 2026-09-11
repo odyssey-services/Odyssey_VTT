@@ -86,6 +86,21 @@ namespace Odyssey.Application.Persistence
 
         /// <summary>ODY-S05-302: lists equipped-state rows scoped to one campaign inventory.</summary>
         Result<IReadOnlyList<EquippedEntryRecord>> ListEquippedEntries(CampaignHandle campaign, CampaignId campaignId, InventoryId inventoryId, CorrelationId correlationId);
+
+        /// <summary>
+        /// ODY-S05-303: the atomic Equip transition. In one SQLite transaction:
+        /// verifies the target item/stack is currently `Contained` in
+        /// <see cref="EquipTransition.Record"/>'s own <c>InventoryId</c> at
+        /// <see cref="EquipTransition.ExpectedTargetRevision"/> (CAS), verifies
+        /// no <see cref="EquippedEntryRecord"/> already exists for it (rule 1),
+        /// updates its `LocationRef` to `Equipped`, and inserts the
+        /// <see cref="EquippedEntryRecord"/> row -- keeping the item's own
+        /// `LocationRef` and `EquippedEntry.ToLocationRef()` consistent by
+        /// construction. No MainGM/authorization check or rule-4
+        /// body-part-existence check is performed here -- <c>EquipmentService</c>
+        /// owns those before calling this primitive.
+        /// </summary>
+        Result<EquippedEntryRecord> EquipItem(CampaignHandle campaign, EquipTransition transition, CorrelationId correlationId);
     }
 
     public sealed class InventoryCreateReplay<TRecord>

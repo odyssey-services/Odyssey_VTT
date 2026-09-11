@@ -1081,6 +1081,134 @@ namespace Odyssey.Persistence.Sqlite
             }
         }
 
+        // ODY-S05-303: the atomic Equip transition. Reuses EquipmentCommandLedger
+        // (ODY-S05-302) with a new "Equip" operation kind, whose ExpectedRevision
+        // column means the item's own expected revision for this operation kind --
+        // the same column already carries a different meaning per operation kind
+        // (0 for Create; the EquippedEntry's own revision for Replace/Delete).
+        private const string EquipmentOperationEquip = "Equip";
+
+        public Result<EquippedEntryRecord> EquipItem(CampaignHandle campaign, EquipTransition transition, CorrelationId correlationId)
+        {
+            if (campaign == null) throw new ArgumentNullException(nameof(campaign));
+            if (transition == null) throw new ArgumentNullException(nameof(transition));
+            if (!TryValidateCampaignBoundary(campaign, transition.Record.CampaignId, correlationId, out Error campaignError))
+            {
+                return Result<EquippedEntryRecord>.Failure(campaignError);
+            }
+
+            return transition.Record.Entry.ItemRef.Kind == InventoryItemRefKind.ItemInstance
+                ? EquipItemCore(campaign, transition, TargetItemInstance, "ItemInstance", "ItemInstanceId", SelectItemInstance, r => r.CampaignId, r => r.InventoryId, r => r.LocationRef, r => r.Revision, correlationId)
+                : EquipItemCore(campaign, transition, TargetItemStack, "ItemStack", "ItemStackId", SelectItemStack, r => r.CampaignId, r => r.InventoryId, r => r.LocationRef, r => r.Revision, correlationId);
+        }
+
+        private Result<EquippedEntryRecord> EquipItemCore<T>(
+            CampaignHandle campaign,
+            EquipTransition transition,
+            string targetKind,
+            string table,
+            string idColumn,
+            Func<SqliteConnection, SqliteTransaction?, string, T?> select,
+            Func<T, CampaignId> campaignOf,
+            Func<T, InventoryId> inventoryOf,
+            Func<T, InventoryLocationRef> locationOf,
+            Func<T, long> revisionOf,
+            CorrelationId correlationId)
+            where T : class
+        {
+            string itemRefId = ItemRefIdOf(transition.Record.Entry.ItemRef);
+            InventoryId inventoryId = transition.Record.Entry.InventoryId;
+
+            try
+            {
+                using SqliteConnection connection = OpenConnection(campaign.RootPath);
+                EnsureInventoryTables(connection);
+                using SqliteTransaction transaction = connection.BeginTransaction();
+
+                bool ledgerExists = TryReadEquipmentLedger(connection, transaction, transition.CommandId, EquipmentOperationEquip, itemRefId, transition.ExpectedTargetRevision, out bool identityMismatch);
+                if (ledgerExists)
+                {
+                    transaction.Commit();
+                    if (identityMismatch)
+                    {
+                        return Result<EquippedEntryRecord>.Failure(PersistenceFailures.InventoryCommandIdentityMismatch(correlationId));
+                    }
+
+                    EquippedEntryRecord? replayed = SelectEquippedEntry(connection, null, itemRefId, transition.Record.CampaignId);
+                    return replayed == null
+                        ? Result<EquippedEntryRecord>.Failure(PersistenceFailures.CommandReplayFailed(correlationId))
+                        : Result<EquippedEntryRecord>.Success(replayed);
+                }
+
+                T? target = select(connection, transaction, itemRefId);
+                if (target == null)
+                {
+                    transaction.Commit();
+                    return Result<EquippedEntryRecord>.Failure(targetKind == TargetItemInstance ? PersistenceFailures.ItemInstanceNotFound(correlationId) : PersistenceFailures.ItemStackNotFound(correlationId));
+                }
+
+                if (!inventoryOf(target).Equals(inventoryId) || locationOf(target).Kind != InventoryLocationKind.Contained)
+                {
+                    transaction.Commit();
+                    return Result<EquippedEntryRecord>.Failure(InventoryMovementFailures.SourceInvalid(correlationId));
+                }
+
+                if (revisionOf(target) != transition.ExpectedTargetRevision)
+                {
+                    transaction.Commit();
+                    return Result<EquippedEntryRecord>.Failure(InventoryMovementFailures.ItemRevisionConflict(correlationId));
+                }
+
+                if (SelectEquippedEntry(connection, transaction, itemRefId, campaignOf(target)) != null)
+                {
+                    transaction.Commit();
+                    return Result<EquippedEntryRecord>.Failure(PersistenceFailures.EquipmentEntryAlreadyEquipped(correlationId));
+                }
+
+                UtcInstant now = _clock.GetUtcNow();
+                using (var update = connection.CreateCommand())
+                {
+                    update.Transaction = transaction;
+                    update.CommandText = "UPDATE " + table + " SET LocationKind=$locationKind, LocationTargetRef=$locationTargetRef, LocationDetailRef=$locationDetailRef, Revision=Revision+1, UpdatedAt=$updatedAt WHERE " + idColumn + "=$id AND InventoryId=$inventoryId AND Revision=$expectedRevision;";
+                    update.Parameters.AddWithValue("$locationKind", InventoryLocationKind.Equipped.ToString());
+                    update.Parameters.AddWithValue("$locationTargetRef", inventoryId.ToString());
+                    update.Parameters.AddWithValue("$locationDetailRef", transition.Record.Entry.EquipmentSlotRef);
+                    update.Parameters.AddWithValue("$updatedAt", now.ToString());
+                    update.Parameters.AddWithValue("$id", itemRefId);
+                    update.Parameters.AddWithValue("$inventoryId", inventoryId.ToString());
+                    update.Parameters.AddWithValue("$expectedRevision", transition.ExpectedTargetRevision);
+                    if (update.ExecuteNonQuery() != 1)
+                    {
+                        transaction.Rollback();
+                        return Result<EquippedEntryRecord>.Failure(InventoryMovementFailures.ItemRevisionConflict(correlationId));
+                    }
+                }
+
+                using (var insert = connection.CreateCommand())
+                {
+                    insert.Transaction = transaction;
+                    insert.CommandText = "INSERT INTO EquippedEntry (" +
+                        "ItemRefId, ItemRefKind, CampaignId, InventoryId, EquipmentSlotRef, BodyPartRefs, " +
+                        "EquippedByUserId, EquippedAt, Revision, CreatedAt, UpdatedAt) VALUES (" +
+                        "$itemRefId, $itemRefKind, $campaignId, $inventoryId, $equipmentSlotRef, $bodyPartRefs, " +
+                        "$equippedByUserId, $equippedAt, $revision, $createdAt, $updatedAt);";
+                    AddEquippedEntryParameters(insert, itemRefId, campaignOf(target), transition.Record.Entry, now, now);
+                    insert.ExecuteNonQuery();
+                }
+
+                InsertEquipmentLedger(connection, transaction, transition.CommandId, EquipmentOperationEquip, itemRefId, transition.ExpectedTargetRevision, now);
+                EquippedEntryRecord? created = SelectEquippedEntry(connection, transaction, itemRefId, campaignOf(target));
+                transaction.Commit();
+                return created == null
+                    ? Result<EquippedEntryRecord>.Failure(PersistenceFailures.CommandReplayFailed(correlationId))
+                    : Result<EquippedEntryRecord>.Success(created);
+            }
+            catch (Exception ex) when (ex is IOException || ex is UnauthorizedAccessException || ex is SqliteException)
+            {
+                return Result<EquippedEntryRecord>.Failure(PersistenceFailures.InventoryIoFailed(correlationId));
+            }
+        }
+
         private static string ItemRefIdOf(InventoryItemRef itemRef)
         {
             return itemRef.Kind == InventoryItemRefKind.ItemInstance ? itemRef.ItemInstanceId.ToString() : itemRef.ItemStackId.ToString();

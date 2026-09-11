@@ -143,6 +143,8 @@ namespace Odyssey.Application.Results
         public static readonly ErrorCode PersistenceEquipmentEntryNotFound = ErrorCode.Parse("persistence.equipment_entry.not_found");
         public static readonly ErrorCode PersistenceEquipmentEntryAlreadyEquipped = ErrorCode.Parse("persistence.equipment_entry.already_equipped");
         public static readonly ErrorCode PersistenceEquipmentEntryRevisionConflict = ErrorCode.Parse("persistence.equipment_entry.revision_conflict");
+        public static readonly ErrorCode InventoryEquipBodyPartNotFound = ErrorCode.Parse("inventory.equip.body_part_not_found");
+        public static readonly ErrorCode InventoryEquipBodyPartRefsRequireCharacterOwner = ErrorCode.Parse("inventory.equip.body_part_refs_require_character_owner");
         public static readonly ErrorCode ContentCatalogAuthoringDenied = ErrorCode.Parse("content_catalog.authoring.denied");
         public static readonly ErrorCode ContentCatalogTypedDefinitionWrongType = ErrorCode.Parse("content_catalog.typed_definition.wrong_type");
         public static readonly ErrorCode ContentCatalogTypedDefinitionMalformedPayload = ErrorCode.Parse("content_catalog.typed_definition.malformed_payload");

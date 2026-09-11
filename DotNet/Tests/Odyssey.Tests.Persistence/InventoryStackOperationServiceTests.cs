@@ -511,6 +511,7 @@ namespace Odyssey.Tests.Persistence
             public Result<EquippedEntryRecord> ReplaceEquippedEntry(CampaignHandle campaign, EquippedEntryRecord record, long expectedRevision, CommandId commandId, CorrelationId correlationId) => throw Reached();
             public Result<bool> DeleteEquippedEntry(CampaignHandle campaign, InventoryItemRef itemRef, long expectedRevision, CommandId commandId, CorrelationId correlationId) => throw Reached();
             public Result<IReadOnlyList<EquippedEntryRecord>> ListEquippedEntries(CampaignHandle campaign, CampaignId campaignId, InventoryId inventoryId, CorrelationId correlationId) => throw Reached();
+            public Result<EquippedEntryRecord> EquipItem(CampaignHandle campaign, EquipTransition transition, CorrelationId correlationId) => throw Reached();
         }
     }
 }
