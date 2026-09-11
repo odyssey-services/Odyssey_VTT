@@ -58,6 +58,28 @@ namespace Odyssey.Application.Persistence
         Result<bool> HasAnyRuntimeReferenceToDefinition(CampaignHandle campaign, CampaignId campaignId, ContentDefinitionId definitionId, CorrelationId correlationId);
 
         /// <summary>
+        /// ODY-S05-401: lists every <see cref="ItemInstanceRecord"/> in this
+        /// campaign whose <c>SourceItemDefinitionRef</c> pins any published
+        /// version of this <see cref="ContentDefinitionId"/>. Matches by the
+        /// definition id prefix, ignoring the pinned version, and is
+        /// campaign-wide (not scoped to one Inventory), so an ItemDefinition
+        /// migration preview can see items created from any past published
+        /// version of the definition across every Inventory in the campaign.
+        /// </summary>
+        Result<IReadOnlyList<ItemInstanceRecord>> ListItemInstancesBySourceDefinitionId(CampaignHandle campaign, CampaignId campaignId, ContentDefinitionId definitionId, CorrelationId correlationId);
+
+        /// <summary>
+        /// ODY-S05-401: lists every <see cref="ItemStackRecord"/> in this
+        /// campaign whose <c>SourceItemDefinitionRef</c> pins any published
+        /// version of this <see cref="ContentDefinitionId"/>. Matches by the
+        /// definition id prefix, ignoring the pinned version, and is
+        /// campaign-wide (not scoped to one Inventory), so an ItemDefinition
+        /// migration preview can see stacks created from any past published
+        /// version of the definition across every Inventory in the campaign.
+        /// </summary>
+        Result<IReadOnlyList<ItemStackRecord>> ListItemStacksBySourceDefinitionId(CampaignHandle campaign, CampaignId campaignId, ContentDefinitionId definitionId, CorrelationId correlationId);
+
+        /// <summary>
         /// ODY-S05-302: creates the equipped-state storage row for an item.
         /// Idempotent by <paramref name="commandId"/>; rejects a second create
         /// for an already-equipped item (rule 1) with a dedicated conflict, not

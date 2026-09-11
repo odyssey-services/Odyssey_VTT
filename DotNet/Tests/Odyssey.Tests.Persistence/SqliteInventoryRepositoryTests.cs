@@ -124,6 +124,52 @@ namespace Odyssey.Tests.Persistence
             Assert.That(listed.Value.Select(s => s.ItemStackId), Is.EquivalentTo(new[] { expected.ItemStackId }));
         }
 
+        [Test] // TC-INVENTORY-163
+        public void ListItemInstancesBySourceDefinitionId_MatchesAcrossAllPublishedVersionsAndInventories()
+        {
+            InventoryRecord inventoryA = CreateInventory();
+            InventoryRecord inventoryB = CreateInventory();
+            ContentDefinitionId definitionId = ContentDefinitionId.NewId(Clock.GetUtcNow());
+            ItemInstanceRecord fromV1 = CreateItemInstanceWithDefinition(inventoryA, new ContentDefinitionRef(definitionId, 1));
+            ItemInstanceRecord fromV2 = CreateItemInstanceWithDefinition(inventoryB, new ContentDefinitionRef(definitionId, 2));
+            ItemInstanceRecord unrelated = CreateItemInstance(inventoryA, "unrelated");
+
+            Result<IReadOnlyList<ItemInstanceRecord>> listed = _inventoryRepository.ListItemInstancesBySourceDefinitionId(_campaign, _campaign.CampaignId, definitionId, TestCorrelationId);
+
+            Assert.That(listed.IsSuccess, Is.True);
+            Assert.That(listed.Value.Select(i => i.ItemInstanceId), Is.EquivalentTo(new[] { fromV1.ItemInstanceId, fromV2.ItemInstanceId }));
+            Assert.That(listed.Value.Select(i => i.ItemInstanceId), Does.Not.Contain(unrelated.ItemInstanceId));
+        }
+
+        [Test] // TC-INVENTORY-164
+        public void ListItemStacksBySourceDefinitionId_MatchesAcrossMultipleInventoriesInTheSameCampaign()
+        {
+            InventoryRecord inventoryA = CreateInventory();
+            InventoryRecord inventoryB = CreateInventory();
+            ContentDefinitionId definitionId = ContentDefinitionId.NewId(Clock.GetUtcNow());
+            ItemStackRecord stackA = CreateItemStackWithDefinition(inventoryA, new ContentDefinitionRef(definitionId, 1));
+            ItemStackRecord stackB = CreateItemStackWithDefinition(inventoryB, new ContentDefinitionRef(definitionId, 3));
+
+            Result<IReadOnlyList<ItemStackRecord>> listed = _inventoryRepository.ListItemStacksBySourceDefinitionId(_campaign, _campaign.CampaignId, definitionId, TestCorrelationId);
+
+            Assert.That(listed.IsSuccess, Is.True);
+            Assert.That(listed.Value.Select(s => s.ItemStackId), Is.EquivalentTo(new[] { stackA.ItemStackId, stackB.ItemStackId }));
+        }
+
+        [Test] // TC-INVENTORY-165
+        public void ListItemRecordsBySourceDefinitionId_IsScopedToTheRequestedCampaign()
+        {
+            InventoryRecord inventory = CreateInventory();
+            ContentDefinitionId definitionId = ContentDefinitionId.NewId(Clock.GetUtcNow());
+            CreateItemInstanceWithDefinition(inventory, new ContentDefinitionRef(definitionId, 1));
+            CampaignId otherCampaignId = OtherCampaignId();
+
+            Result<IReadOnlyList<ItemInstanceRecord>> listed = _inventoryRepository.ListItemInstancesBySourceDefinitionId(_campaign, otherCampaignId, definitionId, TestCorrelationId);
+
+            Assert.That(listed.IsFailure, Is.True);
+            Assert.That(listed.Error.Code, Is.EqualTo(ErrorCodes.PersistenceInventoryCampaignMismatch));
+        }
+
         [Test]
         public void CreateInventory_WithMismatchedCampaignId_IsRejected()
         {
@@ -388,6 +434,49 @@ namespace Odyssey.Tests.Persistence
         private ItemStackRecord CreateItemStack(InventoryRecord inventory, string containerKey)
         {
             ItemStackRecord record = NewItemStackRecord(inventory, containerKey: containerKey);
+            Result<ItemStackRecord> created = _inventoryRepository.CreateItemStack(_campaign, record, NewCommandId(), TestCorrelationId);
+            Assert.That(created.IsSuccess, Is.True);
+            return created.Value;
+        }
+
+        private ItemInstanceRecord CreateItemInstanceWithDefinition(InventoryRecord inventory, ContentDefinitionRef sourceRef)
+        {
+            UtcInstant now = Clock.GetUtcNow();
+            var snapshot = new ItemMechanicsSnapshot(sourceRef, sourceRef.Version, ContentDefinitionType.Item, "{\"mechanics\":\"copied\"}");
+            var record = new ItemInstanceRecord(
+                ItemInstanceId.NewId(now),
+                inventory.CampaignId,
+                inventory.InventoryId,
+                inventory.OwnerRef,
+                InventoryLocationRef.Contained(inventory.InventoryId, "main"),
+                sourceRef,
+                snapshot,
+                "{}",
+                1,
+                now,
+                now);
+            Result<ItemInstanceRecord> created = _inventoryRepository.CreateItemInstance(_campaign, record, NewCommandId(), TestCorrelationId);
+            Assert.That(created.IsSuccess, Is.True);
+            return created.Value;
+        }
+
+        private ItemStackRecord CreateItemStackWithDefinition(InventoryRecord inventory, ContentDefinitionRef sourceRef)
+        {
+            UtcInstant now = Clock.GetUtcNow();
+            var snapshot = new ItemMechanicsSnapshot(sourceRef, sourceRef.Version, ContentDefinitionType.Ammo, "{\"damage\":\"copied\"}");
+            var record = new ItemStackRecord(
+                ItemStackId.NewId(now),
+                inventory.CampaignId,
+                inventory.InventoryId,
+                inventory.OwnerRef,
+                InventoryLocationRef.Contained(inventory.InventoryId, "main"),
+                sourceRef,
+                snapshot,
+                ItemStackQuantity.Create(1),
+                "{\"stack\":\"opaque\"}",
+                1,
+                now,
+                now);
             Result<ItemStackRecord> created = _inventoryRepository.CreateItemStack(_campaign, record, NewCommandId(), TestCorrelationId);
             Assert.That(created.IsSuccess, Is.True);
             return created.Value;
