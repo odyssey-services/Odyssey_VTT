@@ -1,6 +1,6 @@
 # ODY-S05-107 — Decompose Inventory Runtime Block
 
-**Status:** Completed
+**Status:** Done (PR #112, merged into main)
 **Owner:** Codex (agent)
 **Branch:** `docs/ody-s05-107-inventory-runtime-backlog`
 **Pull request:** https://github.com/odyssey-services/Odyssey_VTT/pull/112
