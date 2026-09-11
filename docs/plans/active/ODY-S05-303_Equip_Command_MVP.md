@@ -1,9 +1,9 @@
 # ODY-S05-303 — Equip Command MVP
 
-**Status:** Active
+**Status:** In Review
 **Owner:** Codex (agent)
 **Branch:** `feat/ody-s05-303-equip-command-mvp`
-**Pull request:** Not opened
+**Pull request:** [#125](https://github.com/odyssey-services/Odyssey_VTT/pull/125)
 **Last updated:** 2026-09-11 UTC
 
 ## 1. Purpose and user-visible outcome
@@ -64,8 +64,8 @@ No Unequip, weapon/armor mechanical effect, or `RemoveBodyPart` behavior is adde
 - [x] Update task contract completion evidence.
 - [x] Run required repository validation scripts.
 - [x] Review diff for scope.
-- [ ] Commit, push, and open Draft PR.
-- [ ] Record PR link and backlog `In Review` status.
+- [x] Commit, push, and open Draft PR.
+- [x] Record PR link and backlog `In Review` status.
 
 ## 6. Progress log
 
@@ -75,6 +75,7 @@ No Unequip, weapon/armor mechanical effect, or `RemoveBodyPart` behavior is adde
 - 2026-09-11 — Implemented `IInventoryRepository.EquipItem` (generic `EquipItemCore<T>` in `SqliteInventoryRepository.cs`, reusing `EquipmentCommandLedger` with a new `"Equip"` operation kind) and `EquipmentService.Equip`/`EquipRequest`/`EquipmentFailures`; build passed on first attempt after fixing `ThrowingInventoryRepository`'s fake (expected, per the ODY-S05-119/120 lesson).
 - 2026-09-11 — Added `EquipmentServiceTests.cs` (`TC-INVENTORY-118`-`130`); all 13 passed on first run. Full suite run then surfaced two more pre-existing scope guards this task's new file/type names broke (`InventoryRuntimeRecordTests.cs`'s file-name guard and `InventoryCreationServiceTests.cs`'s type-name guard); narrowed both, then full suite passed: 749 total, 0 failed (Contracts 1, Domain 80, Networking 67, Unit 136, Architecture 2, Persistence 463).
 - 2026-09-11 — Registered `TC-INVENTORY-118`-`130` and the two new error codes in `docs/errors/ERROR_CODES.md`. Validation passed: `dotnet build`, `dotnet test`, `verify-format.ps1`, `check-repository-policy.ps1` (passed on first run), `verify-test-structure.ps1`. Diff review confirmed only allowed paths touched except one unavoidable one-line guard narrowing in `DotNet/Tests/Odyssey.Tests.Unit/Inventory/InventoryRuntimeRecordTests.cs` (documented in task contract §18).
+- 2026-09-11 — Committed, pushed `feat/ody-s05-303-equip-command-mvp`, opened Draft PR [#125](https://github.com/odyssey-services/Odyssey_VTT/pull/125). Doc-sync follow-up: updated `SLICE-05_IMPLEMENTATION_BACKLOG.md` §12 row 3 to `In Review (PR #125)` and this task contract/ExecPlan headers with the PR link.
 
 ## 7. Decisions
 
