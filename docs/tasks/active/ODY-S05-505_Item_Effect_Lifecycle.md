@@ -5,7 +5,7 @@
 **Owner:** Codex (agent)
 **Requested by:** Product owner
 **Branch:** `codex/ody-s05-505-item-effects`
-**Pull request:** TBD (Draft)
+**Pull request:** [odyssey-services/Odyssey_VTT#140](https://github.com/odyssey-services/Odyssey_VTT/pull/140) (Draft)
 **ExecPlan:** `docs/plans/active/ODY-S05-505.md`
 **Created:** 2026-09-12
 **Last updated:** 2026-09-13 UTC
@@ -288,7 +288,7 @@ dotnet test DotNet\Odyssey.Core.sln
 - [x] No unapproved dependency, tool, GitHub Action, or license was introduced.
 - [x] Documentation is updated only where materially required.
 - [x] Codex/developer performed a self-review against this task and `AGENTS.md`.
-- [ ] Pull request explains changes, evidence, limitations, and follow-up work.
+- [x] Pull request explains changes, evidence, limitations, and follow-up work.
 - [ ] Product owner or authorized reviewer completes the required review; Codex does not merge into `main`.
 
 ## 17. Completion evidence
@@ -329,7 +329,7 @@ dotnet test DotNet\Odyssey.Core.sln
 | AC-9 (all 3 scripts pass) | Met | Validation table above. |
 | AC-10 (tests cover all named scenarios) | Met | §10 table. |
 | AC-11 (backlog In Review + PR link) | Met | Backlog diff. |
-| AC-12 (Draft PR opened) | Met | PR opened during this closeout. |
+| AC-12 (Draft PR opened) | Met | PR #140 opened during this closeout. |
 | AC-13 (no self-merge) | Met | PR left as Draft. |
 
 ### Build and artifact evidence
