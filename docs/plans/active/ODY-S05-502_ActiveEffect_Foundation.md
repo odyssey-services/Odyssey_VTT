@@ -3,7 +3,7 @@
 **Status:** In Review
 **Owner:** Codex (agent)
 **Branch:** `feat/ody-s05-502-activeeffect-foundation`
-**Pull request:** TBD (Draft)
+**Pull request:** [odyssey-services/Odyssey_VTT#137](https://github.com/odyssey-services/Odyssey_VTT/pull/137) (Draft)
 **Last updated:** 2026-09-12 UTC
 
 ## 1. Purpose and user-visible outcome
@@ -72,10 +72,10 @@ No change to `IInventoryRepository`/`ICharacterRepository` or their implementati
 - [x] Run `.\scripts\check-repository-policy.ps1` — first run failed `REPO-POLICY-005` (unpadded test-reference IDs); renumbered all `TC-ACTIVEEFFECT-*` references to zero-padded three-digit form across the two test files and `ERROR_CODES.md`; second run passed.
 - [x] Run `.\scripts\verify-test-structure.ps1` — first run failed (`TC-ACTIVEEFFECT-001` references missing task contract `ODY-S05-502`); this task contract's own existence resolves it.
 - [x] Write the task contract and this ExecPlan to full depth.
-- [ ] Update `docs/tasks/SLICE-05_IMPLEMENTATION_BACKLOG.md` row 1 in §15 to `In Review`.
-- [ ] Review `git diff --name-status` for scope.
-- [ ] Commit, push, and open Draft PR.
-- [ ] Record PR link and backlog status.
+- [x] Update `docs/tasks/SLICE-05_IMPLEMENTATION_BACKLOG.md` row 1 in §15 to `In Review`.
+- [x] Review `git diff --name-status` for scope — every changed file matches the task contract's allowed-paths list exactly.
+- [x] Commit, push, and open Draft PR.
+- [x] Record PR link and backlog status.
 
 ## 6. Progress log
 
@@ -108,7 +108,7 @@ See task contract §18 for the full decision log: `CampaignId`-on-wrapper-not-ag
 - `.\scripts\verify-format.ps1`: PASS.
 - `.\scripts\check-repository-policy.ps1`: PASS (after the zero-padding fix; including the 3 new `ERROR_CODES.md` rows).
 - `.\scripts\verify-test-structure.ps1`: PASS (after this task contract was written).
-- Diff review: pending final `git diff --name-status` confirmation before commit.
+- Diff review: `git diff --name-status 528f002 HEAD` confirmed every changed file matches the task contract's allowed-paths list exactly; PR #137 opened as Draft.
 
 ## 10. Recovery and rollback
 

@@ -5,7 +5,7 @@
 **Owner:** Codex (agent)
 **Requested by:** Product owner
 **Branch:** `feat/ody-s05-502-activeeffect-foundation`
-**Pull request:** TBD (Draft)
+**Pull request:** [odyssey-services/Odyssey_VTT#137](https://github.com/odyssey-services/Odyssey_VTT/pull/137) (Draft)
 **ExecPlan:** `docs/plans/active/ODY-S05-502_ActiveEffect_Foundation.md`
 **Created:** 2026-09-12
 **Last updated:** 2026-09-12 UTC
@@ -309,7 +309,7 @@ dotnet test DotNet\Odyssey.Core.sln
 - [x] No unapproved dependency, tool, GitHub Action, or license was introduced.
 - [x] Documentation is updated only where materially required.
 - [x] Codex/developer performed a self-review against this task and `AGENTS.md`.
-- [ ] Pull request explains changes, evidence, limitations, and follow-up work.
+- [x] Pull request explains changes, evidence, limitations, and follow-up work.
 - [ ] Product owner or authorized reviewer completes the required review; Codex does not merge into `main`.
 
 ## 17. Completion evidence
@@ -352,7 +352,7 @@ dotnet test DotNet\Odyssey.Core.sln
 | AC-7 (four scope guards point-narrowed) | Met | Diff review of all four guard files. |
 | AC-8 (TC-ACTIVEEFFECT-* prefix, catalog synced) | Met | Table above; `Tests/Metadata/test-catalog.json` diff. |
 | AC-9 (dotnet test green) | Met | Table above. |
-| AC-10 (backlog In Review, Draft PR) | Met | Backlog row updated; PR to be opened as Draft. |
+| AC-10 (backlog In Review, Draft PR) | Met | Backlog row updated; PR #137 opened as Draft. |
 
 ### Build and artifact evidence
 
