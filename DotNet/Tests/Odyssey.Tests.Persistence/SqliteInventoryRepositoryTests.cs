@@ -375,7 +375,11 @@ namespace Odyssey.Tests.Persistence
             // No type in this assembly is named with the substring "Equipment" (the
             // ODY-S05-302 table name is a private SQL string literal, not a type), so
             // this check still forbids a future Equip/Unequip command class by name.
-            string[] forbiddenTypeFragments = { "Equipment", "ActiveEffect", "Attack", "ItemDefinitionMigration" };
+            // ODY-S05-502 legitimately introduces the standalone ActiveEffect
+            // aggregate/repository elsewhere in this assembly (not owned by
+            // Inventory, ADR-028 section 8.2 rule 2) -- every other forbidden
+            // fragment still applies to every type name in this assembly.
+            string[] forbiddenTypeFragments = { "Equipment", "Attack", "ItemDefinitionMigration" };
             IEnumerable<string> persistenceTypeNames = typeof(SqliteInventoryRepository).Assembly.GetTypes().Select(t => t.Name);
             foreach (string typeName in persistenceTypeNames)
             {
