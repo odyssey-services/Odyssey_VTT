@@ -364,7 +364,10 @@ namespace Odyssey.Tests.Persistence
                 "ItemDefinitionMigrationAffectedStackMember",
                 "ItemDefinitionMigrationAffectedStackGroup",
                 "ItemDefinitionMigrationInventoryRevision",
-                "ItemDefinitionMigrationRules"
+                "ItemDefinitionMigrationRules",
+                "ItemDefinitionMigrationBlockingIssue",
+                "ItemDefinitionMigrationBlockingIssueCode",
+                "ItemDefinitionMigrationIncompatibilityReport"
             };
             IEnumerable<string> inventoryTypeNames = typeof(InventoryCreationService).Assembly.GetTypes()
                 .Where(t => string.Equals(t.Namespace, "Odyssey.Application.Inventory", StringComparison.Ordinal))

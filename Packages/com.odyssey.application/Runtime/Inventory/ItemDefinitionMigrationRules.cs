@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Text;
+using Odyssey.Application.Content;
 using Odyssey.Application.Persistence;
 using Odyssey.Domain.Content;
 using Odyssey.Domain.Identity;
@@ -175,6 +176,46 @@ namespace Odyssey.Application.Inventory
         public string PreviewRevision { get; }
     }
 
+    public enum ItemDefinitionMigrationBlockingIssueCode
+    {
+        EquipmentSlotNoLongerDefined = 1,
+        StackCapacityReducedBelowCurrentContent = 2
+    }
+
+    /// <summary>Host-side finding. Filter record references for the audience before UI, transport, or diagnostics use.</summary>
+    public sealed class ItemDefinitionMigrationBlockingIssue
+    {
+        public ItemDefinitionMigrationBlockingIssue(ItemDefinitionMigrationBlockingIssueCode issueCode, string description, InventoryId inventoryId, InventoryItemRef itemRef)
+        {
+            if (!Enum.IsDefined(typeof(ItemDefinitionMigrationBlockingIssueCode), issueCode)) throw new ArgumentOutOfRangeException(nameof(issueCode));
+            if (string.IsNullOrWhiteSpace(description)) throw new ArgumentException("Description is required.", nameof(description));
+            if (!inventoryId.IsValid) throw new ArgumentException("InventoryId is required.", nameof(inventoryId));
+            if (!itemRef.IsValid) throw new ArgumentException("ItemRef is required.", nameof(itemRef));
+            IssueCode = issueCode;
+            Description = description;
+            InventoryId = inventoryId;
+            ItemRef = itemRef;
+        }
+
+        public ItemDefinitionMigrationBlockingIssueCode IssueCode { get; }
+        public string Description { get; }
+        public InventoryId InventoryId { get; }
+        public InventoryItemRef ItemRef { get; }
+    }
+
+    public sealed class ItemDefinitionMigrationIncompatibilityReport
+    {
+        public ItemDefinitionMigrationIncompatibilityReport(IReadOnlyList<ItemDefinitionMigrationBlockingIssue> issues)
+        {
+            if (issues == null) throw new ArgumentNullException(nameof(issues));
+            if (issues.Any(issue => issue == null)) throw new ArgumentException("Issues must not contain null entries.", nameof(issues));
+            Issues = Array.AsReadOnly(issues.ToArray());
+        }
+
+        public bool HasBlockingIssues => Issues.Count > 0;
+        public IReadOnlyList<ItemDefinitionMigrationBlockingIssue> Issues { get; }
+    }
+
     /// <summary>
     /// ODY-S05-401: `ADR-027` section 14's assignment of preview/confirm
     /// orchestration to <c>Odyssey.Application</c> -- not
@@ -193,6 +234,91 @@ namespace Odyssey.Application.Inventory
     /// </summary>
     public static class ItemDefinitionMigrationRules
     {
+        /// <summary>
+        /// ODY-S05-402: only two of ADR-027 section 10's six named cases have
+        /// runtime data to check today: equipment slot occupancy and stack capacity.
+        /// Loaded ammo, armor runtime damage, custom state and hidden mechanics
+        /// have no runtime representation and are deliberately not implemented.
+        /// Extend this method when those representations exist (ammo/damage await
+        /// the future attack pipeline; custom/hidden state still need specification).
+        /// Later tasks must not assume an empty report proves all six cases safe.
+        /// The caller collects found GetEquippedEntry records for each affected
+        /// instance's InventoryItemRef.ForInstance; this method performs no I/O.
+        /// Target payload must decode under its own type and match the preview.
+        /// Invalid payloads are caller precondition failures, not blocking issues.
+        /// </summary>
+        public static ItemDefinitionMigrationIncompatibilityReport ComputeBlockingIssues(
+            ItemDefinitionMigrationPreview preview,
+            ContentDefinitionRecord targetDefinition,
+            IReadOnlyList<EquippedEntryRecord> currentlyEquippedAffectedItems)
+        {
+            if (preview == null) throw new ArgumentNullException(nameof(preview));
+            if (targetDefinition == null) throw new ArgumentNullException(nameof(targetDefinition));
+            if (currentlyEquippedAffectedItems == null) throw new ArgumentNullException(nameof(currentlyEquippedAffectedItems));
+            RequirePublished(targetDefinition, nameof(targetDefinition));
+            if (!preview.TargetDefinitionRef.Equals(new ContentDefinitionRef(targetDefinition.ContentDefinitionId, targetDefinition.Version)))
+                throw new ArgumentException("Target definition must match the preview target.", nameof(targetDefinition));
+
+            // Codec failures are discarded and translated to caller preconditions;
+            // this local correlation value is never emitted as an operation diagnostic.
+            var codecCorrelationId = CorrelationId.Parse("corr_00000000000000000000000000000000");
+            ItemDefinition? item = null;
+            string? targetSlot = null;
+            switch (targetDefinition.DefinitionType)
+            {
+                case ContentDefinitionType.Item:
+                    var decodedItem = TypedDefinitionCodec.DecodeItem(targetDefinition.DefinitionType, targetDefinition.PropertiesJson, codecCorrelationId);
+                    if (decodedItem.IsSuccess) item = decodedItem.Value;
+                    break;
+                case ContentDefinitionType.Weapon:
+                    var decodedWeapon = TypedDefinitionCodec.DecodeWeapon(targetDefinition.DefinitionType, targetDefinition.PropertiesJson, codecCorrelationId);
+                    if (decodedWeapon.IsSuccess) item = decodedWeapon.Value.Item;
+                    break;
+                case ContentDefinitionType.Armor:
+                    var decodedArmor = TypedDefinitionCodec.DecodeArmor(targetDefinition.DefinitionType, targetDefinition.PropertiesJson, codecCorrelationId);
+                    if (decodedArmor.IsSuccess)
+                    {
+                        item = decodedArmor.Value.Item;
+                        targetSlot = decodedArmor.Value.EquipmentSlotKey;
+                    }
+                    break;
+                case ContentDefinitionType.Ammo:
+                    var decodedAmmo = TypedDefinitionCodec.DecodeAmmo(targetDefinition.DefinitionType, targetDefinition.PropertiesJson, codecCorrelationId);
+                    if (decodedAmmo.IsSuccess) item = decodedAmmo.Value.Item;
+                    break;
+            }
+            if (item == null) throw new ArgumentException("Target must contain a valid typed item definition payload.", nameof(targetDefinition));
+
+            var issues = new List<ItemDefinitionMigrationBlockingIssue>();
+            var affected = preview.AffectedInstances.ToDictionary(instance => InventoryItemRef.ForInstance(instance.ItemInstanceId), instance => instance.InventoryId);
+            var seen = new HashSet<InventoryItemRef>();
+            foreach (EquippedEntryRecord record in currentlyEquippedAffectedItems)
+            {
+                if (record == null) throw new ArgumentException("Equipped records must not contain null entries.", nameof(currentlyEquippedAffectedItems));
+                EquippedEntry entry = record.Entry;
+                if (!affected.TryGetValue(entry.ItemRef, out InventoryId inventoryId) || !inventoryId.Equals(entry.InventoryId) || !seen.Add(entry.ItemRef))
+                    throw new ArgumentException("Equipped records must uniquely reference affected instances in their preview inventories.", nameof(currentlyEquippedAffectedItems));
+                if (!string.Equals(targetSlot, entry.EquipmentSlotRef, StringComparison.Ordinal))
+                {
+                    issues.Add(new ItemDefinitionMigrationBlockingIssue(ItemDefinitionMigrationBlockingIssueCode.EquipmentSlotNoLongerDefined,
+                        "The target definition no longer defines the occupied equipment slot.", entry.InventoryId, entry.ItemRef));
+                }
+            }
+
+            foreach (ItemDefinitionMigrationAffectedStackGroup group in preview.AffectedStacks)
+            {
+                foreach (ItemDefinitionMigrationAffectedStackMember member in group.Members)
+                {
+                    if (item.MaxStackSize.HasValue && member.Quantity.Value > item.MaxStackSize.Value)
+                    {
+                        issues.Add(new ItemDefinitionMigrationBlockingIssue(ItemDefinitionMigrationBlockingIssueCode.StackCapacityReducedBelowCurrentContent,
+                            "The current stack quantity exceeds the target definition capacity.", member.InventoryId, InventoryItemRef.ForStack(member.ItemStackId)));
+                    }
+                }
+            }
+            return new ItemDefinitionMigrationIncompatibilityReport(issues);
+        }
+
         public static ItemDefinitionMigrationPreview BuildPreview(
             ContentDefinitionRecord sourceDefinition,
             ContentDefinitionRecord targetDefinition,
