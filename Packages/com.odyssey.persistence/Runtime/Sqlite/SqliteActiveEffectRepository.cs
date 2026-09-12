@@ -1,8 +1,11 @@
 using System;
 using System.Collections.Generic;
 using System.IO;
+using System.Globalization;
 using Microsoft.Data.Sqlite;
+using Newtonsoft.Json;
 using Odyssey.Application.Commands;
+using Odyssey.Application.Content;
 using Odyssey.Application.Effects;
 using Odyssey.Application.Persistence;
 using Odyssey.Application.Results;
@@ -33,8 +36,8 @@ namespace Odyssey.Persistence.Sqlite
     /// own `Removed` transition covers it -- see that task's own contract
     /// §18 decision log): no stacking-policy mutation (`ODY-S05-503`,
     /// implemented separately as a pure decision layer with no repository
-    /// change), no `WhileItemEquipped` suspend/resume (`ODY-S05-505`), and no
-    /// removal (`ODY-S05-506`).
+    /// change), and no removal (`ODY-S05-506`). `ODY-S05-505` adds
+    /// <see cref="SetItemEffectEquipped"/> for WhileItemEquipped suspend/resume.
     /// </summary>
     public sealed class SqliteActiveEffectRepository : IActiveEffectRepository
     {
@@ -255,6 +258,100 @@ namespace Odyssey.Persistence.Sqlite
             {
                 return Result<ActiveEffectRecord>.Failure(PersistenceFailures.ActiveEffectIoFailed(correlationId));
             }
+        }
+
+        public Result<long> SetItemEffectEquipped(CampaignHandle campaign, CampaignId campaignId, ActiveEffectId activeEffectId, bool equipped, long expectedRevision, UserId actorUserId, CommandId commandId, CorrelationId correlationId)
+        {
+            if (campaign == null) throw new ArgumentNullException(nameof(campaign));
+            if (!activeEffectId.IsValid) throw new ArgumentException("ActiveEffectId is required.", nameof(activeEffectId));
+            if (!actorUserId.IsValid) throw new ArgumentException("ActorUserId is required.", nameof(actorUserId));
+            if (!commandId.IsValid) throw new ArgumentException("CommandId is required.", nameof(commandId));
+            if (expectedRevision < 1 || expectedRevision == long.MaxValue) throw new ArgumentOutOfRangeException(nameof(expectedRevision));
+            if (!TryValidateCampaignBoundary(campaign, campaignId, correlationId, out Error boundaryError))
+                return Result<long>.Failure(boundaryError);
+
+            ActiveEffectStatus from = equipped ? ActiveEffectStatus.Suspended : ActiveEffectStatus.Active;
+            ActiveEffectStatus to = equipped ? ActiveEffectStatus.Active : ActiveEffectStatus.Suspended;
+            string payload = EquipmentTransitionPayload(campaignId, activeEffectId, actorUserId, expectedRevision, to);
+            long revision = expectedRevision + 1;
+            try
+            {
+                using SqliteConnection connection = OpenConnection(campaign.RootPath);
+                EnsureActiveEffectTables(connection);
+                return _pipeline.Execute(connection, campaignId, commandId, correlationId,
+                    tryReplay: transaction =>
+                    {
+                        using var replay = connection.CreateCommand();
+                        replay.Transaction = transaction;
+                        replay.CommandText = "SELECT ResultSummary FROM AppliedCommands WHERE CommandId=$commandId;";
+                        replay.Parameters.AddWithValue("$commandId", commandId.ToString());
+                        return string.Equals(replay.ExecuteScalar() as string, payload, StringComparison.Ordinal)
+                            ? Result<long>.Success(revision)
+                            : Result<long>.Failure(PersistenceFailures.CommandReplayFailed(correlationId));
+                    },
+                    apply: transaction =>
+                    {
+                        ActiveEffectRecord current;
+                        using (var select = connection.CreateCommand())
+                        {
+                            select.Transaction = transaction;
+                            select.CommandText = SelectColumns + " FROM ActiveEffect WHERE ActiveEffectId=$id AND CampaignId=$campaign;";
+                            select.Parameters.AddWithValue("$id", activeEffectId.ToString());
+                            select.Parameters.AddWithValue("$campaign", campaignId.ToString());
+                            using var reader = select.ExecuteReader();
+                            if (!reader.Read()) return Result<PipelineWrite<long>>.Failure(PersistenceFailures.ActiveEffectNotFound(correlationId));
+                            current = ReadRecord(reader);
+                        }
+
+                        ActiveEffect effect = current.Effect;
+                        var definition = TypedDefinitionCodec.DecodeEffect(effect.EffectMechanicsSnapshot.ContentType, effect.EffectMechanicsSnapshot.Payload, correlationId);
+                        if (definition.IsFailure) return Result<PipelineWrite<long>>.Failure(definition.Error);
+                        if (definition.Value.DurationType != EffectDurationType.WhileItemEquipped ||
+                            (effect.SourceRef.Kind != ActiveEffectSourceKind.Item && effect.SourceRef.Kind != ActiveEffectSourceKind.EquippedItem))
+                            return Result<PipelineWrite<long>>.Failure(ItemEffectLifecycleFailures.Invalid(correlationId));
+                        if (effect.Revision != expectedRevision || effect.Status != from)
+                            return Result<PipelineWrite<long>>.Failure(PersistenceFailures.ActiveEffectRevisionConflict(correlationId));
+
+                        using var update = connection.CreateCommand();
+                        update.Transaction = transaction;
+                        update.CommandText = "UPDATE ActiveEffect SET Status=$status, Revision=Revision+1, UpdatedAt=$now, LastCommandId=$command " +
+                            "WHERE ActiveEffectId=$id AND CampaignId=$campaign AND Revision=$revision AND Status=$from;";
+                        update.Parameters.AddWithValue("$status", to.ToString());
+                        update.Parameters.AddWithValue("$now", _clock.GetUtcNow().ToString());
+                        update.Parameters.AddWithValue("$command", commandId.ToString());
+                        update.Parameters.AddWithValue("$id", activeEffectId.ToString());
+                        update.Parameters.AddWithValue("$campaign", campaignId.ToString());
+                        update.Parameters.AddWithValue("$revision", expectedRevision);
+                        update.Parameters.AddWithValue("$from", from.ToString());
+                        if (update.ExecuteNonQuery() != 1)
+                            return Result<PipelineWrite<long>>.Failure(PersistenceFailures.ActiveEffectRevisionConflict(correlationId));
+                        return Result<PipelineWrite<long>>.Success(new PipelineWrite<long>(revision,
+                            equipped ? "odyssey.persistence.active_effect_resumed" : "odyssey.persistence.active_effect_suspended",
+                            payload, payload, aggregateType: "active_effect", aggregateId: activeEffectId.ToString(), aggregateRevision: revision));
+                    });
+            }
+            catch (Exception ex) when (ex is IOException || ex is UnauthorizedAccessException || ex is SqliteException)
+            {
+                return Result<long>.Failure(PersistenceFailures.ActiveEffectIoFailed(correlationId));
+            }
+        }
+
+        // Versioned, fixed-order event and command summary; no reflection serialization.
+        private static string EquipmentTransitionPayload(CampaignId campaignId, ActiveEffectId effectId, UserId actor, long expectedRevision, ActiveEffectStatus status)
+        {
+            using var text = new StringWriter(CultureInfo.InvariantCulture);
+            using var writer = new JsonTextWriter(text);
+            writer.WriteStartObject();
+            writer.WritePropertyName("version"); writer.WriteValue(1);
+            writer.WritePropertyName("operation"); writer.WriteValue("item-effect-equipment");
+            writer.WritePropertyName("campaignId"); writer.WriteValue(campaignId.ToString());
+            writer.WritePropertyName("activeEffectId"); writer.WriteValue(effectId.ToString());
+            writer.WritePropertyName("actorUserId"); writer.WriteValue(actor.ToString());
+            writer.WritePropertyName("expectedRevision"); writer.WriteValue(expectedRevision);
+            writer.WritePropertyName("status"); writer.WriteValue(status.ToString());
+            writer.WriteEndObject();
+            writer.Flush();
+            return text.ToString();
         }
 
         private static ActiveEffectRecord ReadOneById(SqliteConnection connection, SqliteTransaction transaction, ActiveEffectId activeEffectId)
