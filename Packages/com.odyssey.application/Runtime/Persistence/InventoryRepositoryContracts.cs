@@ -20,6 +20,9 @@ namespace Odyssey.Application.Persistence
     /// </summary>
     public interface IInventoryRepository
     {
+        /// <summary>MainGM-only confirmation with backup, live revision checks and atomic journal/snapshot commit. No post-success rollback command.</summary>
+        Result<ItemDefinitionMigrationApplyResult> ApplyItemDefinitionMigration(CampaignHandle campaign, ItemDefinitionMigrationTransition transition, UserId actorUserId, bool actorIsMainGm, CorrelationId correlationId);
+
         Result<InventoryRecord> CreateInventory(CampaignHandle campaign, InventoryRecord record, CommandId commandId, CorrelationId correlationId);
         Result<InventoryRecord> GetInventory(CampaignHandle campaign, InventoryId inventoryId, CorrelationId correlationId);
         Result<ItemInstanceRecord> CreateItemInstance(CampaignHandle campaign, ItemInstanceRecord record, CommandId commandId, CorrelationId correlationId);

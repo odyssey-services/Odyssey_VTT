@@ -2,6 +2,9 @@ namespace Odyssey.Application.Results
 {
     public static class ErrorCodes
     {
+        public static readonly ErrorCode InventoryMigrationDenied = ErrorCode.Parse("inventory.migration.denied");
+        public static readonly ErrorCode InventoryMigrationPreviewConflict = ErrorCode.Parse("inventory.migration.preview_conflict");
+        public static readonly ErrorCode InventoryMigrationBlocked = ErrorCode.Parse("inventory.migration.blocked");
         public static readonly ErrorCode ApplicationValidationInvalid = ErrorCode.Parse("application.validation.invalid");
         public static readonly ErrorCode ApplicationInternalUnexpected = ErrorCode.Parse("application.internal.unexpected");
         public static readonly ErrorCode ApplicationBootstrapConfigurationInvalid = ErrorCode.Parse("application.bootstrap.configuration_invalid");
