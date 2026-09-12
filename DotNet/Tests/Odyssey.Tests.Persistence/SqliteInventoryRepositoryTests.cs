@@ -359,7 +359,7 @@ namespace Odyssey.Tests.Persistence
                 // table name (the EquippedEntry table itself does not contain the
                 // substring "Equipment"); no Equip/Unequip command, ActiveEffect,
                 // Attack, or ItemDefinitionMigration table may exist.
-                string[] allowedEquipmentTables = { "EquipmentCommandLedger" };
+                string[] allowedEquipmentTables = { "EquipmentCommandLedger", "ItemDefinitionMigrationCommandLedger" };
                 string[] forbidden = { "Equipment", "ActiveEffect", "Attack", "ItemDefinitionMigration" };
                 foreach (string tableName in tableNames)
                 {

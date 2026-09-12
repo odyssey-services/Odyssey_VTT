@@ -1,6 +1,8 @@
 using System;
 using System.Collections.Generic;
 using System.IO;
+using System.Globalization;
+using Newtonsoft.Json;
 using System.Linq;
 using Microsoft.Data.Sqlite;
 using Odyssey.Application.Commands;
@@ -28,10 +30,327 @@ namespace Odyssey.Persistence.Sqlite
         private const string TargetItemStack = "ItemStack";
         private readonly IWallClock _clock;
 
-        public SqliteInventoryRepository(IWallClock clock)
+        private readonly IBackupRepository _backupRepository;
+        private readonly SqliteSavingPipeline _pipeline;
+
+        public SqliteInventoryRepository(IWallClock clock, IBackupRepository? backupRepository = null)
         {
             _clock = clock ?? throw new ArgumentNullException(nameof(clock));
+            _backupRepository = backupRepository ?? new SqliteBackupRepository(clock);
+            _pipeline = new SqliteSavingPipeline(clock);
         }
+
+        /// <summary>
+        /// ODY-S05-403: host-authoritative confirmation, with a separate-connection
+        /// backup before the apply transaction. PreviewRevision is only a sanity
+        /// digest of supplied content, not a database CAS token or authentication.
+        /// Live source/inventory/item revisions, complete membership and snapshots
+        /// are checked before backup and again while the transaction holds the lock.
+        /// After successful migration there is no rollback command. A later correction
+        /// requires a new ItemDefinition version and another confirmed migration.
+        /// </summary>
+        public Result<ItemDefinitionMigrationApplyResult> ApplyItemDefinitionMigration(CampaignHandle campaign, ItemDefinitionMigrationTransition transition, UserId actorUserId, bool actorIsMainGm, CorrelationId correlationId)
+        {
+            if (!actorIsMainGm) return Result<ItemDefinitionMigrationApplyResult>.Failure(MigrationDenied(correlationId));
+            if (campaign == null) throw new ArgumentNullException(nameof(campaign));
+            if (transition == null) throw new ArgumentNullException(nameof(transition));
+            if (!actorUserId.IsValid) throw new ArgumentException("ActorUserId is required.", nameof(actorUserId));
+
+            try
+            {
+                ItemDefinitionMigrationPreview preview = transition.Preview;
+                string computedRevision = ItemDefinitionMigrationRules.ComputePreviewRevision(preview.SourceDefinitionRef, preview.TargetDefinitionRef,
+                    preview.ExpectedSourceDefinitionRevision, preview.AffectedInstances, preview.AffectedStacks, preview.AffectedInventoryRevisions);
+                if (!string.Equals(computedRevision, preview.PreviewRevision, StringComparison.Ordinal))
+                    return Result<ItemDefinitionMigrationApplyResult>.Failure(MigrationPreviewConflict(correlationId));
+                string fingerprint = MigrationFingerprint(preview);
+                using SqliteConnection connection = OpenConnection(campaign.RootPath);
+                EnsureInventoryTables(connection);
+                Result<ItemDefinitionMigrationApplyResult>? replay = ReadMigrationReplay(connection, null, transition.CommandId, actorUserId, fingerprint, correlationId);
+                if (replay.HasValue) return replay.Value;
+
+                var catalog = new SqliteContentCatalogRepository(_clock);
+                Result<ContentDefinitionRecord> sourceRead = catalog.GetContentDefinition(campaign, preview.SourceDefinitionRef.DefinitionId, correlationId);
+                if (sourceRead.IsFailure) return Result<ItemDefinitionMigrationApplyResult>.Failure(sourceRead.Error);
+                Result<ContentDefinitionRecord> targetRead = catalog.GetContentDefinition(campaign, preview.TargetDefinitionRef.DefinitionId, correlationId);
+                if (targetRead.IsFailure) return Result<ItemDefinitionMigrationApplyResult>.Failure(targetRead.Error);
+                ContentDefinitionRecord source = sourceRead.Value;
+                ContentDefinitionRecord target = targetRead.Value;
+                Result<ItemDefinitionMigrationPreview> checkedPreview = CheckMigrationState(connection, null, campaign, preview, source, target, fingerprint, correlationId);
+                if (checkedPreview.IsFailure) return Result<ItemDefinitionMigrationApplyResult>.Failure(checkedPreview.Error);
+
+                // No migration write transaction exists while the backup opens its own connection.
+                // "pre-migration:" (14 chars) + two 37-char ContentDefinitionIds + "->" (2 chars)
+                // = 90 chars, under SqliteBackupRepository's 96-char reason limit, while still
+                // identifying which migration produced the backup in the backup list.
+                string backupReason = "pre-migration:" + preview.SourceDefinitionRef.DefinitionId + "->" + preview.TargetDefinitionRef.DefinitionId;
+                Result<BackupRecord> backup = _backupRepository.CreateBackup(campaign, backupReason, correlationId);
+                if (backup.IsFailure) return Result<ItemDefinitionMigrationApplyResult>.Failure(backup.Error);
+                if (!backup.Value.CampaignId.Equals(campaign.CampaignId))
+                    return Result<ItemDefinitionMigrationApplyResult>.Failure(PersistenceFailures.InventoryCampaignMismatch(correlationId));
+
+                return _pipeline.Execute(connection, campaign.CampaignId, transition.CommandId, correlationId,
+                    transaction => ReadMigrationReplay(connection, transaction, transition.CommandId, actorUserId, fingerprint, correlationId)
+                        ?? Result<ItemDefinitionMigrationApplyResult>.Failure(PersistenceFailures.CommandReplayFailed(correlationId)),
+                    transaction =>
+                    {
+                        // Catch identities created during backup, including other Inventory operations.
+                        Result<ItemDefinitionMigrationApplyResult>? racedReplay = ReadMigrationReplay(connection, transaction, transition.CommandId, actorUserId, fingerprint, correlationId);
+                        if (racedReplay.HasValue)
+                            return Result<PipelineWrite<ItemDefinitionMigrationApplyResult>>.Failure(PersistenceFailures.InventoryCommandIdentityMismatch(correlationId));
+                        if (!MigrationDefinitionUnchanged(connection, transaction, source) || !MigrationDefinitionUnchanged(connection, transaction, target))
+                            return Result<PipelineWrite<ItemDefinitionMigrationApplyResult>>.Failure(MigrationPreviewConflict(correlationId));
+                        Result<ItemDefinitionMigrationPreview> lockedPreview = CheckMigrationState(connection, transaction, campaign, preview, source, target, fingerprint, correlationId);
+                        if (lockedPreview.IsFailure) return Result<PipelineWrite<ItemDefinitionMigrationApplyResult>>.Failure(lockedPreview.Error);
+
+                        UtcInstant now = _clock.GetUtcNow();
+                        long instanceCount = 0;
+                        long stackCount = 0;
+                        foreach (ItemDefinitionMigrationAffectedInstance instance in preview.AffectedInstances)
+                        {
+                            if (!UpdateMigrationSnapshot(connection, transaction, "ItemInstance", "ItemInstanceId", instance.ItemInstanceId.ToString(), instance.InventoryId,
+                                campaign.CampaignId, instance.ExpectedRevision, instance.AfterSnapshot, now))
+                                return Result<PipelineWrite<ItemDefinitionMigrationApplyResult>>.Failure(InventoryMovementFailures.ItemRevisionConflict(correlationId));
+                            // Decode the persisted result before committing, failing closed on corruption.
+                            ItemInstanceRecord? updated = SelectItemInstance(connection, transaction, instance.ItemInstanceId.ToString());
+                            if (updated == null || !updated.MechanicsSnapshot.Equals(instance.AfterSnapshot) || updated.Revision != checked(instance.ExpectedRevision + 1))
+                                return Result<PipelineWrite<ItemDefinitionMigrationApplyResult>>.Failure(MigrationPreviewConflict(correlationId));
+                            instanceCount++;
+                        }
+                        foreach (ItemDefinitionMigrationAffectedStackGroup group in preview.AffectedStacks)
+                        {
+                            foreach (ItemDefinitionMigrationAffectedStackMember member in group.Members)
+                            {
+                                if (!UpdateMigrationSnapshot(connection, transaction, "ItemStack", "ItemStackId", member.ItemStackId.ToString(), member.InventoryId,
+                                    campaign.CampaignId, member.ExpectedRevision, group.AfterSnapshot, now))
+                                    return Result<PipelineWrite<ItemDefinitionMigrationApplyResult>>.Failure(InventoryMovementFailures.ItemRevisionConflict(correlationId));
+                                ItemStackRecord? updated = SelectItemStack(connection, transaction, member.ItemStackId.ToString());
+                                if (updated == null || !updated.MechanicsSnapshot.Equals(group.AfterSnapshot) || updated.Revision != checked(member.ExpectedRevision + 1) || !updated.Quantity.Equals(member.Quantity))
+                                    return Result<PipelineWrite<ItemDefinitionMigrationApplyResult>>.Failure(MigrationPreviewConflict(correlationId));
+                                stackCount++;
+                            }
+                        }
+
+                        // Read equipment again on this very transaction immediately before journal/commit.
+                        // 402 deliberately covers only slots and stack capacity, not absent runtime mechanics.
+                        if (ItemDefinitionMigrationRules.ComputeBlockingIssues(preview, target, ReadMigrationEquipment(connection, transaction, campaign, preview)).HasBlockingIssues)
+                            return Result<PipelineWrite<ItemDefinitionMigrationApplyResult>>.Failure(MigrationBlocked(correlationId));
+                        var result = new ItemDefinitionMigrationApplyResult(backup.Value.BackupId, instanceCount, stackCount);
+                        InsertMigrationLedger(connection, transaction, transition.CommandId, actorUserId, fingerprint, result, now);
+                        return Result<PipelineWrite<ItemDefinitionMigrationApplyResult>>.Success(new PipelineWrite<ItemDefinitionMigrationApplyResult>(
+                            result, "odyssey.persistence.item_definition_migrated", MigrationAuditPayload(preview, actorUserId, result), "item_definition_migrated"));
+                    });
+            }
+            catch (Exception ex) when (ex is IOException || ex is UnauthorizedAccessException || ex is SqliteException || ex is FormatException || ex is ArgumentException || ex is InvalidOperationException || ex is OverflowException || ex is JsonException)
+            {
+                // Pipeline transaction disposal rolls back every snapshot, ledger and event on failure.
+                return Result<ItemDefinitionMigrationApplyResult>.Failure(PersistenceFailures.InventoryIoFailed(correlationId));
+            }
+        }
+
+        private static Result<ItemDefinitionMigrationPreview> CheckMigrationState(SqliteConnection connection, SqliteTransaction? transaction, CampaignHandle campaign,
+            ItemDefinitionMigrationPreview preview, ContentDefinitionRecord source, ContentDefinitionRecord target, string fingerprint, CorrelationId correlationId)
+        {
+            if (source.Revision != preview.ExpectedSourceDefinitionRevision)
+                return Result<ItemDefinitionMigrationPreview>.Failure(PersistenceFailures.ContentDefinitionRevisionConflict(correlationId));
+            if (source.Version != preview.SourceDefinitionRef.Version || target.Version != preview.TargetDefinitionRef.Version ||
+                source.Status != ContentDefinitionStatus.Published || target.Status != ContentDefinitionStatus.Published || source.DefinitionType != target.DefinitionType)
+                return Result<ItemDefinitionMigrationPreview>.Failure(MigrationPreviewConflict(correlationId));
+
+            var inventories = new List<InventoryRecord>();
+            foreach (ItemDefinitionMigrationInventoryRevision expected in preview.AffectedInventoryRevisions)
+            {
+                InventoryRecord? inventory = SelectInventory(connection, transaction, expected.InventoryId.ToString());
+                if (inventory == null || !inventory.CampaignId.Equals(campaign.CampaignId) || inventory.Revision != expected.ExpectedRevision)
+                    return Result<ItemDefinitionMigrationPreview>.Failure(InventoryMovementFailures.InventoryRevisionConflict(correlationId));
+                inventories.Add(inventory);
+            }
+            foreach (ItemDefinitionMigrationAffectedInstance expected in preview.AffectedInstances)
+            {
+                ItemInstanceRecord? instance = SelectItemInstance(connection, transaction, expected.ItemInstanceId.ToString());
+                if (instance == null || instance.Revision != expected.ExpectedRevision || !instance.InventoryId.Equals(expected.InventoryId) || !instance.CampaignId.Equals(campaign.CampaignId))
+                    return Result<ItemDefinitionMigrationPreview>.Failure(InventoryMovementFailures.ItemRevisionConflict(correlationId));
+            }
+            foreach (ItemDefinitionMigrationAffectedStackMember expected in preview.AffectedStacks.SelectMany(group => group.Members))
+            {
+                ItemStackRecord? stack = SelectItemStack(connection, transaction, expected.ItemStackId.ToString());
+                if (stack == null || stack.Revision != expected.ExpectedRevision || !stack.InventoryId.Equals(expected.InventoryId) || !stack.CampaignId.Equals(campaign.CampaignId))
+                    return Result<ItemDefinitionMigrationPreview>.Failure(InventoryMovementFailures.ItemRevisionConflict(correlationId));
+            }
+
+            var instances = new List<ItemInstanceRecord>();
+            var stacks = new List<ItemStackRecord>();
+            using (var query = connection.CreateCommand())
+            {
+                query.Transaction = transaction;
+                query.CommandText = ItemInstanceSelectColumns + " FROM ItemInstance WHERE CampaignId=$campaign AND SourceItemDefinitionRef LIKE $prefix ESCAPE '\\' ORDER BY ItemInstanceId;";
+                query.Parameters.AddWithValue("$campaign", campaign.CampaignId.ToString());
+                query.Parameters.AddWithValue("$prefix", EscapeLike(source.ContentDefinitionId.ToString()) + "/%");
+                using SqliteDataReader reader = query.ExecuteReader();
+                while (reader.Read()) instances.Add(ReadItemInstance(reader));
+            }
+            using (var query = connection.CreateCommand())
+            {
+                query.Transaction = transaction;
+                query.CommandText = ItemStackSelectColumns + " FROM ItemStack WHERE CampaignId=$campaign AND SourceItemDefinitionRef LIKE $prefix ESCAPE '\\' ORDER BY ItemStackId;";
+                query.Parameters.AddWithValue("$campaign", campaign.CampaignId.ToString());
+                query.Parameters.AddWithValue("$prefix", EscapeLike(source.ContentDefinitionId.ToString()) + "/%");
+                using SqliteDataReader reader = query.ExecuteReader();
+                while (reader.Read()) stacks.Add(ReadItemStack(reader));
+            }
+            // Missing inventory/member must be a conflict, including newly created source items.
+            var inventoryIds = new HashSet<InventoryId>(inventories.Select(inventory => inventory.InventoryId));
+            if (inventoryIds.Count != inventories.Count || instances.Any(instance => !inventoryIds.Contains(instance.InventoryId)) || stacks.Any(stack => !inventoryIds.Contains(stack.InventoryId)))
+                return Result<ItemDefinitionMigrationPreview>.Failure(MigrationPreviewConflict(correlationId));
+            ItemDefinitionMigrationPreview fresh = ItemDefinitionMigrationRules.BuildPreview(source, target, instances, stacks, inventories);
+            if (!string.Equals(MigrationFingerprint(fresh), fingerprint, StringComparison.Ordinal))
+                return Result<ItemDefinitionMigrationPreview>.Failure(MigrationPreviewConflict(correlationId));
+            if (ItemDefinitionMigrationRules.ComputeBlockingIssues(fresh, target, ReadMigrationEquipment(connection, transaction, campaign, fresh)).HasBlockingIssues)
+                return Result<ItemDefinitionMigrationPreview>.Failure(MigrationBlocked(correlationId));
+            return Result<ItemDefinitionMigrationPreview>.Success(fresh);
+        }
+
+        private static bool MigrationDefinitionUnchanged(SqliteConnection connection, SqliteTransaction transaction, ContentDefinitionRecord definition)
+        {
+            using var query = connection.CreateCommand();
+            query.Transaction = transaction;
+            query.CommandText = "SELECT Revision,Version,Status,DefinitionType,PropertiesJson FROM ContentDefinition WHERE ContentDefinitionId=$id;";
+            query.Parameters.AddWithValue("$id", definition.ContentDefinitionId.ToString());
+            using SqliteDataReader reader = query.ExecuteReader();
+            return reader.Read() && reader.GetInt64(0) == definition.Revision && reader.GetInt64(1) == definition.Version &&
+                reader.GetString(2) == definition.Status.ToString() && reader.GetString(3) == definition.DefinitionType.ToString() && reader.GetString(4) == definition.PropertiesJson;
+        }
+
+        private static IReadOnlyList<EquippedEntryRecord> ReadMigrationEquipment(SqliteConnection connection, SqliteTransaction? transaction, CampaignHandle campaign, ItemDefinitionMigrationPreview preview)
+        {
+            var records = new List<EquippedEntryRecord>();
+            foreach (ItemDefinitionMigrationAffectedInstance instance in preview.AffectedInstances)
+            {
+                EquippedEntryRecord? record = SelectEquippedEntry(connection, transaction, ItemRefIdOf(InventoryItemRef.ForInstance(instance.ItemInstanceId)), null);
+                if (record == null) continue;
+                if (!record.CampaignId.Equals(campaign.CampaignId)) throw new InvalidOperationException("Equipment campaign mismatch.");
+                records.Add(record);
+            }
+            return records;
+        }
+
+        private static bool UpdateMigrationSnapshot(SqliteConnection connection, SqliteTransaction transaction, string table, string idColumn, string id, InventoryId inventoryId,
+            CampaignId campaignId, long revision, ItemMechanicsSnapshot snapshot, UtcInstant now)
+        {
+            using var update = connection.CreateCommand();
+            update.Transaction = transaction;
+            update.CommandText = "UPDATE " + table + " SET SourceItemDefinitionRef=$source,MechanicsSourceDefinitionRef=$source,MechanicsDefinitionSnapshotVersion=$version,MechanicsContentType=$type,MechanicsPayload=$payload,Revision=Revision+1,UpdatedAt=$now WHERE " + idColumn + "=$id AND CampaignId=$campaign AND InventoryId=$inventory AND Revision=$revision;";
+            update.Parameters.AddWithValue("$source", snapshot.SourceDefinitionRef.ToString());
+            update.Parameters.AddWithValue("$version", snapshot.DefinitionSnapshotVersion);
+            update.Parameters.AddWithValue("$type", snapshot.ContentType.ToString());
+            update.Parameters.AddWithValue("$payload", snapshot.Payload);
+            update.Parameters.AddWithValue("$now", now.ToString());
+            update.Parameters.AddWithValue("$id", id);
+            update.Parameters.AddWithValue("$campaign", campaignId.ToString());
+            update.Parameters.AddWithValue("$inventory", inventoryId.ToString());
+            update.Parameters.AddWithValue("$revision", revision);
+            return update.ExecuteNonQuery() == 1;
+        }
+
+        private static Result<ItemDefinitionMigrationApplyResult>? ReadMigrationReplay(SqliteConnection connection, SqliteTransaction? transaction, CommandId commandId,
+            UserId actor, string fingerprint, CorrelationId correlationId)
+        {
+            using (var query = connection.CreateCommand())
+            {
+                query.Transaction = transaction;
+                query.CommandText = "SELECT ActorUserId,Fingerprint,BackupId,InstanceCount,StackCount FROM ItemDefinitionMigrationCommandLedger WHERE CommandId=$id;";
+                query.Parameters.AddWithValue("$id", commandId.ToString());
+                using SqliteDataReader reader = query.ExecuteReader();
+                if (reader.Read())
+                {
+                    if (reader.GetString(0) != actor.ToString() || reader.GetString(1) != fingerprint)
+                        return Result<ItemDefinitionMigrationApplyResult>.Failure(PersistenceFailures.InventoryCommandIdentityMismatch(correlationId));
+                    return Result<ItemDefinitionMigrationApplyResult>.Success(new ItemDefinitionMigrationApplyResult(BackupId.Parse(reader.GetString(2)), reader.GetInt64(3), reader.GetInt64(4)));
+                }
+            }
+            // Inventory legacy ledgers are distinct; none may lend its identity to a migration.
+            using var collision = connection.CreateCommand();
+            collision.Transaction = transaction;
+            collision.CommandText = "SELECT CommandId FROM InventoryCommandLedger WHERE CommandId=$id UNION ALL SELECT CommandId FROM InventoryMoveCommandLedger WHERE CommandId=$id UNION ALL SELECT CommandId FROM InventoryStackCommandLedger WHERE CommandId=$id UNION ALL SELECT CommandId FROM EquipmentCommandLedger WHERE CommandId=$id UNION ALL SELECT CommandId FROM AppliedCommands WHERE CommandId=$id LIMIT 1;";
+            collision.Parameters.AddWithValue("$id", commandId.ToString());
+            return collision.ExecuteScalar() == null ? null : Result<ItemDefinitionMigrationApplyResult>.Failure(PersistenceFailures.InventoryCommandIdentityMismatch(correlationId));
+        }
+
+        private static void InsertMigrationLedger(SqliteConnection connection, SqliteTransaction transaction, CommandId commandId, UserId actor, string fingerprint,
+            ItemDefinitionMigrationApplyResult result, UtcInstant now)
+        {
+            using var insert = connection.CreateCommand();
+            insert.Transaction = transaction;
+            insert.CommandText = "INSERT INTO ItemDefinitionMigrationCommandLedger (CommandId,ActorUserId,Fingerprint,BackupId,InstanceCount,StackCount,AppliedAt) VALUES ($id,$actor,$fingerprint,$backup,$instances,$stacks,$now);";
+            insert.Parameters.AddWithValue("$id", commandId.ToString());
+            insert.Parameters.AddWithValue("$actor", actor.ToString());
+            insert.Parameters.AddWithValue("$fingerprint", fingerprint);
+            insert.Parameters.AddWithValue("$backup", result.BackupId.ToString());
+            insert.Parameters.AddWithValue("$instances", result.UpdatedInstanceCount);
+            insert.Parameters.AddWithValue("$stacks", result.UpdatedStackCount);
+            insert.Parameters.AddWithValue("$now", now.ToString());
+            insert.ExecuteNonQuery();
+        }
+
+        private static string MigrationFingerprint(ItemDefinitionMigrationPreview preview)
+        {
+            using var text = new StringWriter(CultureInfo.InvariantCulture);
+            using (var writer = new JsonTextWriter(text))
+            {
+                // Versioned positional contract; strings are escaped, numbers invariant,
+                // and identities sorted ordinally. No ambiguous delimiter concatenation.
+                writer.WriteStartArray(); writer.WriteValue(1);
+                writer.WriteValue(preview.SourceDefinitionRef.ToString()); writer.WriteValue(preview.TargetDefinitionRef.ToString()); writer.WriteValue(preview.ExpectedSourceDefinitionRevision);
+                writer.WriteStartArray();
+                foreach (var inventory in preview.AffectedInventoryRevisions.OrderBy(value => value.InventoryId.ToString(), StringComparer.Ordinal))
+                {
+                    writer.WriteStartArray(); writer.WriteValue(inventory.InventoryId.ToString()); writer.WriteValue(inventory.ExpectedRevision); writer.WriteEndArray();
+                }
+                writer.WriteEndArray(); writer.WriteStartArray();
+                foreach (var instance in preview.AffectedInstances.OrderBy(value => value.ItemInstanceId.ToString(), StringComparer.Ordinal))
+                {
+                    writer.WriteStartArray(); writer.WriteValue(instance.ItemInstanceId.ToString()); writer.WriteValue(instance.InventoryId.ToString()); writer.WriteValue(instance.ExpectedRevision);
+                    WriteMigrationSnapshot(writer, instance.BeforeSnapshot); WriteMigrationSnapshot(writer, instance.AfterSnapshot); writer.WriteEndArray();
+                }
+                writer.WriteEndArray(); writer.WriteStartArray();
+                foreach (var pair in preview.AffectedStacks.SelectMany(group => group.Members.Select(member => (Group: group, Member: member))).OrderBy(value => value.Member.ItemStackId.ToString(), StringComparer.Ordinal))
+                {
+                    writer.WriteStartArray(); writer.WriteValue(pair.Member.ItemStackId.ToString()); writer.WriteValue(pair.Member.InventoryId.ToString()); writer.WriteValue(pair.Member.ExpectedRevision);
+                    writer.WriteValue(pair.Member.Quantity.Value); writer.WriteValue(pair.Group.StackState);
+                    WriteMigrationSnapshot(writer, pair.Group.BeforeSnapshot); WriteMigrationSnapshot(writer, pair.Group.AfterSnapshot); writer.WriteEndArray();
+                }
+                writer.WriteEndArray(); writer.WriteEndArray();
+            }
+            return SqliteSavingPipeline.ComputeSha256Hex(text.ToString());
+        }
+
+        private static void WriteMigrationSnapshot(JsonTextWriter writer, ItemMechanicsSnapshot snapshot)
+        {
+            writer.WriteStartArray(); writer.WriteValue(snapshot.SourceDefinitionRef.ToString()); writer.WriteValue(snapshot.DefinitionSnapshotVersion);
+            writer.WriteValue(snapshot.ContentType.ToString()); writer.WriteValue(snapshot.Payload); writer.WriteEndArray();
+        }
+
+        private static string MigrationAuditPayload(ItemDefinitionMigrationPreview preview, UserId actor, ItemDefinitionMigrationApplyResult result)
+        {
+            using var text = new StringWriter(CultureInfo.InvariantCulture);
+            using (var writer = new JsonTextWriter(text))
+            {
+                writer.WriteStartObject();
+                writer.WritePropertyName("schemaVersion"); writer.WriteValue(1);
+                writer.WritePropertyName("sourceDefinitionRef"); writer.WriteValue(preview.SourceDefinitionRef.ToString());
+                writer.WritePropertyName("targetDefinitionRef"); writer.WriteValue(preview.TargetDefinitionRef.ToString());
+                writer.WritePropertyName("backupId"); writer.WriteValue(result.BackupId.ToString());
+                writer.WritePropertyName("actorUserId"); writer.WriteValue(actor.ToString());
+                writer.WritePropertyName("updatedInstanceCount"); writer.WriteValue(result.UpdatedInstanceCount);
+                writer.WritePropertyName("updatedStackCount"); writer.WriteValue(result.UpdatedStackCount);
+                writer.WriteEndObject();
+            }
+            return text.ToString();
+        }
+
+        private static Error MigrationDenied(CorrelationId id) => Error.Create(ErrorCodes.InventoryMigrationDenied, ErrorCategory.Authorization, SafeReasonCode.PermissionDenied, UserMessageKey.Parse("errors.inventory.migration_denied"), RetryDirective.DoNotRetry, id);
+        private static Error MigrationPreviewConflict(CorrelationId id) => Error.Create(ErrorCodes.InventoryMigrationPreviewConflict, ErrorCategory.Conflict, SafeReasonCode.StateChanged, UserMessageKey.Parse("errors.inventory.migration_preview_conflict"), RetryDirective.DoNotRetry, id);
+        private static Error MigrationBlocked(CorrelationId id) => Error.Create(ErrorCodes.InventoryMigrationBlocked, ErrorCategory.Conflict, SafeReasonCode.ActionNotAllowed, UserMessageKey.Parse("errors.inventory.migration_blocked"), RetryDirective.DoNotRetry, id);
 
         public Result<InventoryRecord> CreateInventory(CampaignHandle campaign, InventoryRecord record, CommandId commandId, CorrelationId correlationId)
         {
@@ -1903,6 +2222,15 @@ CREATE TABLE IF NOT EXISTS EquipmentCommandLedger (
     ItemRefId TEXT NOT NULL,
     ExpectedRevision INTEGER NOT NULL,
     CreatedAt TEXT NOT NULL,
+    AppliedAt TEXT NOT NULL
+);
+CREATE TABLE IF NOT EXISTS ItemDefinitionMigrationCommandLedger (
+    CommandId TEXT PRIMARY KEY,
+    ActorUserId TEXT NOT NULL,
+    Fingerprint TEXT NOT NULL,
+    BackupId TEXT NOT NULL,
+    InstanceCount INTEGER NOT NULL CHECK (InstanceCount >= 0),
+    StackCount INTEGER NOT NULL CHECK (StackCount >= 0),
     AppliedAt TEXT NOT NULL
 );
 CREATE INDEX IF NOT EXISTS IX_ItemInstance_Campaign_Inventory ON ItemInstance (CampaignId, InventoryId);

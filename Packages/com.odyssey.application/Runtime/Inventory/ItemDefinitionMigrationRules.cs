@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Text;
+using Odyssey.Application.Commands;
 using Odyssey.Application.Content;
 using Odyssey.Application.Persistence;
 using Odyssey.Domain.Content;
@@ -176,6 +177,41 @@ namespace Odyssey.Application.Inventory
         public string PreviewRevision { get; }
     }
 
+    /// <summary>Host confirmation intent; freezes caller-owned lists before backup or transactional work.</summary>
+    public sealed class ItemDefinitionMigrationTransition
+    {
+        public ItemDefinitionMigrationTransition(ItemDefinitionMigrationPreview preview, CommandId commandId)
+        {
+            if (preview == null) throw new ArgumentNullException(nameof(preview));
+            if (!commandId.IsValid) throw new ArgumentException("CommandId is required.", nameof(commandId));
+            Preview = new ItemDefinitionMigrationPreview(preview.SourceDefinitionRef, preview.TargetDefinitionRef, preview.ExpectedSourceDefinitionRevision,
+                Array.AsReadOnly(preview.AffectedInstances.ToArray()),
+                Array.AsReadOnly(preview.AffectedStacks.Select(group => new ItemDefinitionMigrationAffectedStackGroup(group.StackState, group.BeforeSnapshot, group.AfterSnapshot, Array.AsReadOnly(group.Members.ToArray()))).ToArray()),
+                Array.AsReadOnly(preview.AffectedInventoryRevisions.ToArray()), preview.PreviewRevision);
+            CommandId = commandId;
+        }
+
+        public ItemDefinitionMigrationPreview Preview { get; }
+        public CommandId CommandId { get; }
+    }
+
+    /// <summary>Durable host-side result; replay returns these original counts and backup identity.</summary>
+    public sealed class ItemDefinitionMigrationApplyResult
+    {
+        public ItemDefinitionMigrationApplyResult(BackupId backupId, long updatedInstanceCount, long updatedStackCount)
+        {
+            if (!backupId.IsValid) throw new ArgumentException("BackupId is required.", nameof(backupId));
+            if (updatedInstanceCount < 0) throw new ArgumentOutOfRangeException(nameof(updatedInstanceCount));
+            if (updatedStackCount < 0) throw new ArgumentOutOfRangeException(nameof(updatedStackCount));
+            BackupId = backupId;
+            UpdatedInstanceCount = updatedInstanceCount;
+            UpdatedStackCount = updatedStackCount;
+        }
+
+        public BackupId BackupId { get; }
+        public long UpdatedInstanceCount { get; }
+        public long UpdatedStackCount { get; }
+    }
     public enum ItemDefinitionMigrationBlockingIssueCode
     {
         EquipmentSlotNoLongerDefined = 1,

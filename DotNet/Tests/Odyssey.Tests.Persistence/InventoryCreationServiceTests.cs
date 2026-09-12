@@ -345,9 +345,12 @@ namespace Odyssey.Tests.Persistence
                 var tableNames = new List<string>();
                 while (reader.Read()) tableNames.Add(reader.GetString(0));
                 // ODY-S05-302 legitimately owns EquipmentCommandLedger (Equipment
-                // persistence, not command semantics); every other forbidden fragment
+                // persistence, not command semantics); ODY-S05-403 legitimately owns
+                // ItemDefinitionMigrationCommandLedger (migration apply idempotency,
+                // not blocking-rule computation); every other forbidden fragment
                 // still applies to every table name.
-                AssertForbiddenFragments(tableNames.Where(name => name != "EquipmentCommandLedger"));
+                string[] allowedMigrationTables = { "EquipmentCommandLedger", "ItemDefinitionMigrationCommandLedger" };
+                AssertForbiddenFragments(tableNames.Where(name => !allowedMigrationTables.Contains(name)));
             }
 
             // ODY-S05-303 legitimately owns the Equip transition's orchestrator
@@ -367,7 +370,9 @@ namespace Odyssey.Tests.Persistence
                 "ItemDefinitionMigrationRules",
                 "ItemDefinitionMigrationBlockingIssue",
                 "ItemDefinitionMigrationBlockingIssueCode",
-                "ItemDefinitionMigrationIncompatibilityReport"
+                "ItemDefinitionMigrationIncompatibilityReport",
+                "ItemDefinitionMigrationTransition",
+                "ItemDefinitionMigrationApplyResult"
             };
             IEnumerable<string> inventoryTypeNames = typeof(InventoryCreationService).Assembly.GetTypes()
                 .Where(t => string.Equals(t.Namespace, "Odyssey.Application.Inventory", StringComparison.Ordinal))

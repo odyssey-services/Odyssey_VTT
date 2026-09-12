@@ -490,6 +490,7 @@ namespace Odyssey.Tests.Persistence
                 return new InvalidOperationException("The repository must not be reached when authorization fails.");
             }
 
+            public Result<ItemDefinitionMigrationApplyResult> ApplyItemDefinitionMigration(CampaignHandle campaign, ItemDefinitionMigrationTransition transition, UserId actorUserId, bool actorIsMainGm, CorrelationId correlationId) => throw Reached();
             public Result<InventoryRecord> CreateInventory(CampaignHandle campaign, InventoryRecord record, CommandId commandId, CorrelationId correlationId) => throw Reached();
             public Result<InventoryRecord> GetInventory(CampaignHandle campaign, InventoryId inventoryId, CorrelationId correlationId) => throw Reached();
             public Result<ItemInstanceRecord> CreateItemInstance(CampaignHandle campaign, ItemInstanceRecord record, CommandId commandId, CorrelationId correlationId) => throw Reached();
