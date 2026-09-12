@@ -1,9 +1,9 @@
 # ODY-S05-501 — ADR Addendum: ActiveEffect Aggregate Specification
 
-**Status:** In Progress
+**Status:** In Review
 **Owner:** Codex (agent)
 **Branch:** `feat/ody-s05-501-activeeffect-adr`
-**Pull request:** Not opened
+**Pull request:** [odyssey-services/Odyssey_VTT#135](https://github.com/odyssey-services/Odyssey_VTT/pull/135) (Draft)
 **Last updated:** 2026-09-12 UTC
 
 ## 1. Purpose and user-visible outcome
@@ -67,10 +67,10 @@ No production code, no Unity/UI, no other ADR edited, no `502+` decomposition.
 
 - [x] Update `SLICE-05_IMPLEMENTATION_BACKLOG.md` §14 row 1's status cell only.
 - [x] Write this task contract and Brief plan with full decision-log evidence.
-- [ ] Run `dotnet test`, `verify-format.ps1`, `check-repository-policy.ps1`, `verify-test-structure.ps1`.
-- [ ] Review diff for scope.
-- [ ] Commit, push, and open Draft PR.
-- [ ] Record PR link and backlog status.
+- [x] Run `dotnet test`, `verify-format.ps1`, `check-repository-policy.ps1`, `verify-test-structure.ps1`.
+- [x] Review diff for scope.
+- [x] Commit, push, and open Draft PR.
+- [x] Record PR link and backlog status.
 
 ## 6. Progress log
 
@@ -90,9 +90,9 @@ See task contract §18 for the full decision log: standalone `ADR-028` vs. adden
 
 ## 9. Validation and acceptance evidence
 
-- `dotnet test DotNet\Odyssey.Core.sln`: pending.
-- `.\scripts\verify-format.ps1`, `.\scripts\check-repository-policy.ps1`, `.\scripts\verify-test-structure.ps1`: pending.
-- Diff review: pending.
+- `dotnet build`/`dotnet test DotNet\Odyssey.Core.sln`: PASS — Contracts 1/1, Domain 80/80, Networking 67/67, Unit 136/136, Architecture 2/2, Persistence 534/534.
+- `.\scripts\verify-format.ps1`, `.\scripts\check-repository-policy.ps1`, `.\scripts\verify-test-structure.ps1`: all PASS.
+- Diff review: `git diff --name-status` confirmed only §5's allowed paths changed; PR #135 opened as Draft.
 
 ## 10. Recovery and rollback
 

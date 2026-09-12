@@ -1,11 +1,11 @@
 # ODY-S05-501 — ADR Addendum: ActiveEffect Aggregate Specification
 
-**Status:** In Progress
+**Status:** In Review
 **Roadmap stage / slice:** SLICE-05 (item-sourced abilities/effects — ADR foundation)
 **Owner:** Codex (agent)
 **Requested by:** Product owner
 **Branch:** `feat/ody-s05-501-activeeffect-adr`
-**Pull request:** Not opened
+**Pull request:** [odyssey-services/Odyssey_VTT#135](https://github.com/odyssey-services/Odyssey_VTT/pull/135) (Draft)
 **Plan:** `docs/plans/active/ODY-S05-501_ActiveEffect_Aggregate_Specification.md` (Brief plan)
 **Created:** 2026-09-12
 **Last updated:** 2026-09-12 UTC
@@ -278,7 +278,7 @@ dotnet test DotNet\Odyssey.Core.sln
 - [x] No unapproved dependency, tool, GitHub Action, or license was introduced.
 - [x] Documentation is updated only where materially required.
 - [x] Codex/developer performed a self-review against this task and `AGENTS.md`.
-- [ ] Pull request explains changes, evidence, limitations, and follow-up work.
+- [x] Pull request explains changes, evidence, limitations, and follow-up work.
 - [ ] Product owner or authorized reviewer completes the required review; Codex does not merge into `main`.
 
 ## 17. Completion evidence
@@ -294,16 +294,28 @@ dotnet test DotNet\Odyssey.Core.sln
 
 | Command / check | Result | Evidence / notes |
 |---|---|---|
-| `dotnet build`/`dotnet test DotNet\Odyssey.Core.sln` | Pending | To be run and recorded before PR. |
-| `.\scripts\verify-format.ps1` | Pending | To be run and recorded before PR. |
-| `.\scripts\check-repository-policy.ps1` | Pending | To be run and recorded before PR. |
-| `.\scripts\verify-test-structure.ps1` | Pending | To be run and recorded before PR. |
+| `dotnet build DotNet\Odyssey.Core.sln` | PASS | 0 warnings, 0 errors (harness projects included). |
+| `dotnet test DotNet\Odyssey.Core.sln` | PASS | Contracts 1/1, Domain 80/80, Networking 67/67, Unit 136/136, Architecture 2/2, Persistence 534/534 — identical count to before this docs-only diff. |
+| `.\scripts\verify-format.ps1` | PASS | `FORMAT-001 PASS repository text formatting checks passed`. |
+| `.\scripts\check-repository-policy.ps1` | PASS | `Repository policy check passed.` |
+| `.\scripts\verify-test-structure.ps1` | PASS | Exit code 0. |
 
 ### Acceptance result
 
 | Criterion | Status | Evidence |
 |---|---|---|
-| AC-1..12 | Pending | To be filled after validation runs. |
+| AC-1 | Met | `ADR-028` §5-13 resolve all 8 required decisions explicitly, each in its own numbered section. |
+| AC-2 | Met | `ADR-028` §5.1 uses the identical fenced-record + numbered-rules form as `ADR-027` §7's `EquippedEntry`. |
+| AC-3 | Met | `ADR-028` §13 names the Block 3 boundary explicitly, including which `EffectDurationType` values it reserves. |
+| AC-4 | Met | `ADR-028` §10 cites both `ADR-025` §5.1/§5.2 patterns by name and justifies choosing between them per operation. |
+| AC-5 | Met | `ADR-028` §4 explicitly notes, without repeating, `ADR-027`'s own `ADR-024`/`CharacterAbility` citation inaccuracy; verified by direct `grep -c` search returning 0. |
+| AC-6 | Met | `git diff` confirms `SLICE-05_IMPLEMENTATION_BACKLOG.md`'s only change is the `501` status cell; no `502`+ row added. |
+| AC-7 | Met | Backlog §14 row 1 now reads `In Review (PR #135)`. |
+| AC-8 | Met | No `.cs`/`.json`/test file in the diff. |
+| AC-9 | Met | Only one new file under `docs/adr/**` (`ADR-028`); no existing ADR edited. |
+| AC-10 | Met | This contract and Brief plan exist. |
+| AC-11 | Met | `git diff --name-status` limited to §5's allowed paths. |
+| AC-12 | Met | PR #135 opened as Draft; product owner review pending. |
 
 ### Build and artifact evidence
 
