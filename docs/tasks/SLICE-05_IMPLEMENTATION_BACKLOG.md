@@ -172,8 +172,9 @@ It preserves these `ADR-027` decisions:
 
 Per section 3.1's explicit sequencing decision, the following `SLICE-05` blocks remain named and reserved but deliberately **not** decomposed into task IDs by this revision. Each becomes its own backlog revision-block once its prerequisites are accepted and closed, unless the product owner explicitly changes sequencing:
 
-- **Item-sourced abilities/effects runtime** — `CharacterAbility SourceKind=Item` integration and future `ActiveEffect` aggregate creation (`ADR-027` section 8).
 - **Full attack pipeline** — roadmap section 14.6's action/preview/range/modifier/roll/hit/damage/effect-application vertical slice.
+
+The item-sourced abilities/effects block (`CharacterAbility SourceKind=Item` integration and the `ActiveEffect` aggregate, `ADR-027` section 8) was decomposed by `ODY-S05-110` — see section 14.
 
 ## 9. Global non-goals
 
@@ -187,8 +188,9 @@ This backlog revision excludes:
 - implementing Inventory runtime under `ODY-S05-107` itself; section 7 only decomposes future implementation tasks;
 - implementing Equipment runtime under `ODY-S05-108` itself; section 12 only decomposes future implementation tasks;
 - implementing `ItemDefinition` migration under `ODY-S05-109` itself; section 13 only decomposes future implementation tasks;
+- implementing the item-sourced abilities/effects block under `ODY-S05-110` itself; section 14 only decomposes one ADR-specification task (`ODY-S05-501`) — the block's remaining implementation tasks are a future backlog revision, not decided by this one;
 - Equipment runtime implementation beyond minimal location vocabulary needed by Inventory runtime tasks (section 8);
-- item use, ActiveEffect execution, and the full attack pipeline (section 8);
+- item use and `ActiveEffect` runtime implementation beyond the ADR-specification task `ODY-S05-501` (section 14), and the full attack pipeline (section 8);
 - ItemDefinition migration workflow implementation (section 8);
 - any Unity UI, including any Archived-list UI (`103` is data/query only, section 3.5);
 - any change to `ADR-001`–`026` — all remain accepted as-is; any child task discovering a genuine gap must stop and request a dedicated ADR task, not decide it inline (section 4).
@@ -218,10 +220,12 @@ This backlog revision excludes:
 - `ODY-S05-402` depends on `ODY-S05-401` (blocking-incompatibility rules evaluate the preview `ODY-S05-401` builds).
 - `ODY-S05-403` depends on `ODY-S05-401` and `ODY-S05-402` (confirm/apply needs a complete, incompatibility-checked preview before it can act).
 - `ODY-S05-404` depends on `ODY-S05-401`–`403` (integration proof for the completed `ItemDefinition` migration block).
+- `ODY-S05-501` depends on the completed `ItemDefinition` migration block (`ODY-S05-401`–`404`) and this decomposition task (`ODY-S05-110`) — the `ActiveEffect` aggregate specification builds on a closed migration block precedent (`ADR-027` §11's own migration-vs-`ActiveEffect` distinction) and needs no other block's own code. Any future implementation task in this block (`ODY-S05-502` onward, not yet decomposed) will depend on `ODY-S05-501`'s own accepted ADR.
 
 ## 11. Backlog change control
 
 - New work requires a task contract; this document reserves numbers `ODY-S05-101` through `ODY-S05-106` for the completed Content Catalog MVP block, `ODY-S05-201` through `ODY-S05-207` for the completed Inventory runtime block, `ODY-S05-301` through `ODY-S05-306` for the Equipment runtime block (section 12), and `ODY-S05-401` through `ODY-S05-404` for the `ItemDefinition` migration block (section 13).
+- `ODY-S05-501` through `ODY-S05-50N` are reserved for the item-sourced abilities/effects block (section 14); only `ODY-S05-501` (the `ActiveEffect` aggregate ADR-specification task) is decomposed by this revision — the exact count and scope of the block's remaining implementation tasks (`502` onward) is a future backlog revision, once `501`'s own ADR is accepted, not an implicit extension of this one.
 - A task may be split before implementation by updating this backlog, following the same rule prior backlog revisions in this repository already use.
 - A task may not be merged with unrelated cleanup merely to reduce task count.
 - Completed task files move to `docs/tasks/completed/` only after required review, per the established convention in this repository.
@@ -326,3 +330,52 @@ If any of `ODY-S05-301`–`306` discovers that a stub or dependency cannot be fu
 `ODY-S05-403` owns the MainGM-only confirm/apply transition: the triple revision guard, the mandatory pre-review backup, atomic multi-snapshot update, and the explicit absence of a rollback command after success. It must not re-implement preview construction or blocking-rule computation — it consumes what `ODY-S05-401`/`402` already produce.
 
 `ODY-S05-404` is the integration proof for the `ItemDefinition` migration block, mirroring `ODY-S05-207`/`306`. It should compose existing surfaces and avoid new production behavior unless an earlier task deliberately reserved a tiny fixture hook.
+
+## 14. Ordered backlog (Item-sourced abilities/effects — ADR foundation)
+
+**Block status: ADR foundation only.** `ODY-S05-110` decomposes the next block after the `ItemDefinition` migration block's closure (`ODY-S05-401`–`404`). Unlike every prior block in this backlog, this one cannot be decomposed straight into implementation tasks the way `ODY-S05-107`/`108`/`109` decomposed theirs — `ADR-027` section 8 does not fully specify it.
+
+`ADR-027` section 8, quoted verbatim in full:
+
+> # 8. Item-sourced abilities and effects
+>
+> ## 8.1 CharacterAbility integration
+>
+> `SLICE-04` already introduced `CharacterAbility` with `SourceKind=Item` and `SourceKind=ActiveEffect`. This ADR does not add a parallel ability system.
+>
+> Rules:
+>
+> 1. Equipping or using an item may create or activate `CharacterAbility` entries with `SourceKind=Item` and a source item reference.
+> 2. Unequipping, consuming, destroying, transferring away, or migrating an item must remove, suppress, or revalidate only those `CharacterAbility` entries whose source is that item, while permanent progression-purchased abilities remain unaffected.
+> 3. The item remains the source of the ability. Character stores the ability instance/reference needed by Character mechanics and projections, not the item's whole mechanics snapshot.
+>
+> ## 8.2 ActiveEffect integration
+>
+> Applying an item effect creates an `ActiveEffect` aggregate using `EffectDefinitionRef` and `EffectMechanicsSnapshot` captured at application. The ActiveEffect source references the item/equipment/action that created it; the target references the affected Character, item, scene object, or other supported entity.
+>
+> Rules:
+>
+> 1. Character, ItemInstance, and SceneObject store only `ActiveEffect` references or derived projections.
+> 2. Existing ActiveEffects are not owned by Inventory or Character, and do not mass-migrate when their source `EffectDefinition` changes.
+> 3. Effects with duration `WhileItemEquipped` subscribe to authoritative `ItemEquipped`/`ItemUnequipped` events; they expire, suppress, or remove through ActiveEffect lifecycle commands/events, not by directly mutating Character or item snapshots.
+
+Section 8 specifies only how `ActiveEffect` *integrates* with items (creation trigger, reference-only storage, `WhileItemEquipped` lifecycle coupling) — it never specifies the `ActiveEffect` aggregate itself: its persisted field shape, its repository contract, its stacking behavior against the already-existing `EffectStackPolicy` vocabulary, how non-`WhileItemEquipped` `EffectDurationType` values (`ForRounds`/`ForTurns`/`ForDuration`/`UntilSceneChange`/`UntilSessionEnd`/`UntilSourceTurnStart`/`UntilSourceTurnEnd`/`UntilTargetTurnStart`/`UntilTargetTurnEnd`/`WhileCondition`/`WhileSourceExists` — 11 of the 15 total values, per `TypedDefinitions.cs`'s own `EffectDurationType` enum) actually expire, who may create or remove an `ActiveEffect` directly (not only through an item), and what permission that requires. `ODY-S05-109` had `ADR-027` §10's own complete 9-step workflow to decompose directly into implementation tasks; this block has no equivalent complete specification to decompose against.
+
+`ODY-S05-110` verified directly against the tracked repository that this gap is real, not assumed:
+
+- No `ActiveEffect` class, struct, or interface exists anywhere in the codebase (repository-wide search).
+- No ADR other than `ADR-027` mentions `ActiveEffect` at all (repository-wide search of `docs/adr/*.md`); `ADR-027` §8.2 and §11 (migration never mass-migrates `ActiveEffect`) are the only two normative references, and both explicitly describe `ActiveEffect` as integration/boundary text around a future aggregate, not the aggregate's own specification.
+- `Packages/com.odyssey.domain/Runtime/Character/Ability.cs`'s `SourceKind` enum (`ODY-S04-108`) already reserves `SourceKind.ActiveEffect = 5`, with its own doc comment stating plainly that `Item`/`ActiveEffect`/`RulesetAdvancement` are "structurally accepted by `AcquireAbility`... but this task implements no automatic acquisition through them."
+- `Packages/com.odyssey.domain/Runtime/Content/TypedDefinitions.cs`'s `EffectDefinition` (`ODY-S05-105`) already carries `TargetRule`/`DurationType`/`DurationValue`/`StackPolicy`/`MechanicsPayloadRef`, with its own doc comment stating `MechanicsPayloadRef` is "the snapshot-relevant mechanics placeholder `ADR-027` section 6's `DefinitionMechanicsSnapshot`/future `ActiveEffect.EffectMechanicsSnapshot` will eventually copy from -- no `ActiveEffect` aggregate or snapshot-copy mechanism is implemented by this task." `ItemDefinition.BuiltInAbilityRefs`/`BuiltInEffectRefs` carry the same "integration point for a future task" framing for their own two doc comments.
+
+Per this backlog's own §4 discipline ("any child task discovering a genuine gap must stop and request a dedicated ADR task, not decide it inline"), decomposing this block straight into implementation tasks would force whichever task implements `ActiveEffect` first to silently decide this ADR-level architecture inline. `ODY-S05-110` instead decomposes this block into two tiers: one ADR-specification task (`ODY-S05-501`), decomposed now; and the block's remaining implementation tasks, deliberately **not** decomposed by this revision — reserved as a number range only, to be decomposed by a future backlog revision once `ODY-S05-501`'s own ADR is accepted, by direct analogy to how this whole block itself was "named, not scoped" in section 8 until today.
+
+| Order | Task ID | Status | Roadmap/product source | Title | Depends on | Planning mode | Primary result |
+|---:|---|---|---|---|---|---|---|
+| 1 | `ODY-S05-501` | Proposed | `ADR-027` §8 | ADR Addendum — ActiveEffect Aggregate Specification | 110, 401-404 | ADR task (produces a document; not code — outside `PLANS.md`'s own Brief/ExecPlan framework, which governs implementation planning) | A new ADR document (an addendum to `ADR-027` or a new `ADR-028`, the executor's choice, justified in the PR) specifying: the `ActiveEffect` aggregate's exact field shape and persistence/repository contract; how it integrates with the existing `EffectStackPolicy` vocabulary; how each `EffectDurationType` value (not only `WhileItemEquipped`) actually expires; the command/event for explicit early removal and who may issue it; whether `ActiveEffect` creation/removal requires MainGM-only authorization (matching `ADR-027` §12's migration precedent) or a broader, combat-usable right; and an explicit textual boundary against Block 3 (the full attack pipeline, roadmap §14.6) — this task specifies only the generic `ActiveEffect` mechanism and its item integration (`ADR-027` §8.1/§8.2), not combat/damage-sourced effects. No production code. |
+
+### 14.1 Item-sourced abilities/effects task boundaries
+
+`ODY-S05-501` owns the `ActiveEffect` aggregate specification only (ADR document, no code). It must not implement any runtime code, and it must not decompose the remaining implementation tasks of this block — that is a future backlog revision once this ADR is accepted.
+
+Once `ODY-S05-501` is accepted, a future backlog revision decomposes `ODY-S05-502` onward into the actual `ActiveEffect` persistence/runtime/lifecycle implementation tasks, `CharacterAbility SourceKind=Item` integration (`ADR-027` §8.1), and their own integration fixtures — mirroring the two-tier structure (foundation → persistence → commands → dependency closure → fixtures) every prior implementation block in this backlog already used, once `501`'s own ADR gives that decomposition a complete specification to work from.
