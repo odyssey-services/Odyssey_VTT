@@ -3,7 +3,7 @@
 **Status:** In Review
 **Owner:** Codex (agent)
 **Branch:** `feat/ody-s05-504-non-combat-duration-expiry`
-**Pull request:** TBD (Draft)
+**Pull request:** [odyssey-services/Odyssey_VTT#139](https://github.com/odyssey-services/Odyssey_VTT/pull/139) (Draft)
 **Last updated:** 2026-09-12 UTC
 
 ## 1. Purpose and user-visible outcome
@@ -70,10 +70,10 @@ No change to `ActiveEffectStackingRules.cs`, `ActiveEffect.cs`, `Create`/`Get`/`
 - [x] Register `TC-ACTIVEEFFECT-036`-`050` in `Tests/Metadata/test-catalog.json`.
 - [x] Run all 5 required validation commands; record real results.
 - [x] Write the task contract and this ExecPlan to full depth.
-- [ ] Update `docs/tasks/SLICE-05_IMPLEMENTATION_BACKLOG.md` row 3 in §15 to `In Review` (typo fix already applied in M1).
-- [ ] Review `git diff --name-status` for scope.
-- [ ] Commit, push, and open Draft PR.
-- [ ] Record PR link and backlog status.
+- [x] Update `docs/tasks/SLICE-05_IMPLEMENTATION_BACKLOG.md` row 3 in §15 to `In Review` (typo fix already applied in M1).
+- [x] Review `git diff --name-status` for scope — every changed file matches the task contract's allowed-paths list exactly.
+- [x] Commit, push, and open Draft PR.
+- [x] Record PR link and backlog status.
 
 ## 6. Progress log
 
@@ -104,7 +104,7 @@ See task contract §18 for the full decision log: the "9"→"8" backlog typo fix
 - `.\scripts\verify-format.ps1`: PASS.
 - `.\scripts\check-repository-policy.ps1`: PASS (new `ERROR_CODES.md` row accepted).
 - `.\scripts\verify-test-structure.ps1`: PASS.
-- Diff review: pending final `git diff --name-status` confirmation before commit.
+- Diff review: `git diff --name-status e378ca7 HEAD` confirmed every changed file matches the task contract's allowed-paths list exactly; PR #139 opened as Draft.
 
 ## 10. Recovery and rollback
 
