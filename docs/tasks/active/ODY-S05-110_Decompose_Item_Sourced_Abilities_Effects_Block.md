@@ -1,11 +1,11 @@
 # ODY-S05-110 — Decompose Item-Sourced Abilities/Effects Block
 
-**Status:** In Progress
+**Status:** In Review
 **Roadmap stage / slice:** SLICE-05 (item-sourced abilities/effects planning block)
 **Owner:** Codex (agent)
 **Requested by:** Product owner
 **Branch:** `feat/ody-s05-110-decompose-abilities-effects-block`
-**Pull request:** Not opened
+**Pull request:** [odyssey-services/Odyssey_VTT#134](https://github.com/odyssey-services/Odyssey_VTT/pull/134) (Draft)
 **Plan:** `docs/plans/active/ODY-S05-110_Decompose_Item_Sourced_Abilities_Effects_Block.md` (Brief plan)
 **Created:** 2026-09-12
 **Last updated:** 2026-09-12 UTC
@@ -293,7 +293,7 @@ dotnet test DotNet\Odyssey.Core.sln
 - [x] No unapproved dependency, tool, GitHub Action, or license was introduced.
 - [x] Documentation is updated only where materially required.
 - [x] Codex/developer performed a self-review against this task and `AGENTS.md`.
-- [ ] Pull request explains changes, evidence, limitations, and follow-up work.
+- [x] Pull request explains changes, evidence, limitations, and follow-up work.
 - [ ] Product owner or authorized reviewer completes the required review; Codex does not merge into `main`.
 
 ## 17. Completion evidence
@@ -308,16 +308,27 @@ dotnet test DotNet\Odyssey.Core.sln
 
 | Command / check | Result | Evidence / notes |
 |---|---|---|
-| `dotnet test DotNet\Odyssey.Core.sln` | Pending | To be run and recorded before PR. |
-| `.\scripts\verify-format.ps1` | Pending | To be run and recorded before PR. |
-| `.\scripts\check-repository-policy.ps1` | Pending | To be run and recorded before PR. |
-| `.\scripts\verify-test-structure.ps1` | Pending | To be run and recorded before PR. |
+| `dotnet build DotNet\Odyssey.Core.sln` | PASS | 0 warnings, 0 errors (harness projects included). |
+| `dotnet test DotNet\Odyssey.Core.sln` | PASS | Contracts 1/1, Domain 80/80, Networking 67/67, Unit 136/136, Architecture 2/2, Persistence 534/534 — identical count to before this docs-only diff. |
+| `.\scripts\verify-format.ps1` | PASS | `FORMAT-001 PASS repository text formatting checks passed`. |
+| `.\scripts\check-repository-policy.ps1` | PASS | `Repository policy check passed.` |
+| `.\scripts\verify-test-structure.ps1` | PASS | Exit code 0. |
 
 ### Acceptance result
 
 | Criterion | Status | Evidence |
 |---|---|---|
-| AC-1..11 | Pending | To be filled after validation runs. |
+| AC-1 | Met | §8's "item-sourced abilities/effects runtime" bullet replaced with a pointer to §14; the full attack pipeline bullet is untouched (confirmed via `git diff`). |
+| AC-2 | Met | New §14/§14.1 decompose the block into exactly one task (`501`), at the same structural depth as §7/§7.1, §12/§12.1, §13/§13.1. |
+| AC-3 | Met | §14's quote of `ADR-027` §8.1/§8.2 diffed byte-for-byte against the ADR source (only difference: the quote's trailing `---` vs. this document's own following commentary paragraph); the specific architectural gaps are named in the same paragraph. |
+| AC-4 | Met | §4 above and §18 decision log record both repository-wide search findings (no `ActiveEffect` type in code; no ADR besides `ADR-027` mentions it) with exact evidence, plus the three placeholder doc-comment quotes. |
+| AC-5 | Met | `ODY-S05-501`'s own table row and §14.1 explicitly name the Block 3 (full attack pipeline) boundary. |
+| AC-6 | Met | `git diff` shows §1–§7, §12, §13 untouched; all edits are additive (new §14/§14.1, additive sentences in §8/§9/§10/§11). |
+| AC-7 | Met | No `.cs`/`.json`/test file in the diff. |
+| AC-8 | Met | No `docs/adr/**` file in the diff. |
+| AC-9 | Met | This contract and Brief plan exist. |
+| AC-10 | Met | `git diff --name-status` limited to §5's allowed paths (one backlog file + this task's own two new files). |
+| AC-11 | Met | Draft PR body states planning/decomposition only, with no implementation and no ADR content. |
 
 ### Build and artifact evidence
 
