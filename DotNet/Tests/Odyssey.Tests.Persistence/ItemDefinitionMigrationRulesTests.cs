@@ -1,7 +1,9 @@
 using System;
 using System.Collections.Generic;
 using NUnit.Framework;
+using Odyssey.Application.Content;
 using Odyssey.Application.Inventory;
+using Odyssey.Domain.Character;
 using Odyssey.Application.Persistence;
 using Odyssey.Application.Time;
 using Odyssey.Domain.Content;
@@ -190,6 +192,152 @@ namespace Odyssey.Tests.Persistence
             Assert.That(second.PreviewRevision, Is.Not.EqualTo(first.PreviewRevision));
         }
 
+        [TestCase(ContentDefinitionType.Armor)] // TC-INVENTORY-169
+        [TestCase(ContentDefinitionType.Item)]
+        public void BlockingIssues_ChangedOrAbsentSlot_IdentifiesEquippedInstance(ContentDefinitionType type)
+        {
+            var target = BlockingTarget(type, slot: "head");
+            var inventory = NewInventoryRecord(1);
+            var instance = NewInstance(inventory, target, 1);
+            var preview = ItemDefinitionMigrationRules.BuildPreview(target, target, new[] { instance }, Array.Empty<ItemStackRecord>(), new[] { inventory });
+            var report = ItemDefinitionMigrationRules.ComputeBlockingIssues(preview, target, new[] { Equipped(inventory, instance, "torso") });
+            Assert.That(report.HasBlockingIssues, Is.True);
+            Assert.That(report.Issues.Count, Is.EqualTo(1));
+            Assert.That(report.Issues[0].IssueCode, Is.EqualTo(ItemDefinitionMigrationBlockingIssueCode.EquipmentSlotNoLongerDefined));
+            Assert.That(report.Issues[0].InventoryId, Is.EqualTo(inventory.InventoryId));
+            Assert.That(report.Issues[0].ItemRef, Is.EqualTo(InventoryItemRef.ForInstance(instance.ItemInstanceId)));
+        }
+
+        [Test] // TC-INVENTORY-170
+        public void BlockingIssues_PreservedSlot_IsCompatible()
+        {
+            var target = BlockingTarget(ContentDefinitionType.Armor);
+            var inventory = NewInventoryRecord(1);
+            var instance = NewInstance(inventory, target, 1);
+            var preview = ItemDefinitionMigrationRules.BuildPreview(target, target, new[] { instance }, Array.Empty<ItemStackRecord>(), new[] { inventory });
+            Assert.That(ItemDefinitionMigrationRules.ComputeBlockingIssues(preview, target, new[] { Equipped(inventory, instance, "torso") }).Issues, Is.Empty);
+        }
+
+        [Test] // TC-INVENTORY-171
+        public void BlockingIssues_UnequippedInstance_DoesNotCheckSlot()
+        {
+            var target = BlockingTarget(ContentDefinitionType.Item);
+            var inventory = NewInventoryRecord(1);
+            var instance = NewInstance(inventory, target, 1);
+            var preview = ItemDefinitionMigrationRules.BuildPreview(target, target, new[] { instance }, Array.Empty<ItemStackRecord>(), new[] { inventory });
+            Assert.That(ItemDefinitionMigrationRules.ComputeBlockingIssues(preview, target, Array.Empty<EquippedEntryRecord>()).Issues, Is.Empty);
+        }
+
+        [TestCase(ContentDefinitionType.Item)] // TC-INVENTORY-172
+        [TestCase(ContentDefinitionType.Weapon)]
+        [TestCase(ContentDefinitionType.Armor)]
+        [TestCase(ContentDefinitionType.Ammo)]
+        public void BlockingIssues_Capacity_IsCheckedPerMemberForEveryItemShape(ContentDefinitionType type)
+        {
+            var target = BlockingTarget(type, capacity: 5);
+            var inventory = NewInventoryRecord(1);
+            var small = NewStack(inventory, target, 3, "normal", 1);
+            var large = NewStack(inventory, target, 6, "normal", 1);
+            var preview = ItemDefinitionMigrationRules.BuildPreview(target, target, Array.Empty<ItemInstanceRecord>(), new[] { small, large }, new[] { inventory });
+            var report = ItemDefinitionMigrationRules.ComputeBlockingIssues(preview, target, Array.Empty<EquippedEntryRecord>());
+            Assert.That(report.Issues.Count, Is.EqualTo(1));
+            Assert.That(report.Issues[0].IssueCode, Is.EqualTo(ItemDefinitionMigrationBlockingIssueCode.StackCapacityReducedBelowCurrentContent));
+            Assert.That(report.Issues[0].ItemRef, Is.EqualTo(InventoryItemRef.ForStack(large.ItemStackId)));
+            Assert.That(report.Issues[0].InventoryId, Is.EqualTo(inventory.InventoryId));
+        }
+
+        [TestCase(5L)] // TC-INVENTORY-173
+        [TestCase(6L)]
+        [TestCase(null)]
+        public void BlockingIssues_InclusiveOrNullCapacity_DoesNotBlock(long? capacity)
+        {
+            var target = BlockingTarget(ContentDefinitionType.Item, capacity);
+            var inventory = NewInventoryRecord(1);
+            var stacks = new[] { NewStack(inventory, target, 5, "normal", 1), NewStack(inventory, target, 5, "normal", 1) };
+            var preview = ItemDefinitionMigrationRules.BuildPreview(target, target, Array.Empty<ItemInstanceRecord>(), stacks, new[] { inventory });
+            var report = ItemDefinitionMigrationRules.ComputeBlockingIssues(preview, target, Array.Empty<EquippedEntryRecord>());
+            Assert.That(report.HasBlockingIssues, Is.False);
+            Assert.That(report.Issues, Is.Empty, "Group total must not be treated as an individual stack quantity.");
+        }
+
+        [Test] // TC-INVENTORY-174
+        public void BlockingIssues_EmptyPreview_HasNoIssues()
+        {
+            var target = BlockingTarget(ContentDefinitionType.Item);
+            var preview = ItemDefinitionMigrationRules.BuildPreview(target, target, Array.Empty<ItemInstanceRecord>(), Array.Empty<ItemStackRecord>(), Array.Empty<InventoryRecord>());
+            var report = ItemDefinitionMigrationRules.ComputeBlockingIssues(preview, target, Array.Empty<EquippedEntryRecord>());
+            Assert.That(report.HasBlockingIssues, Is.False);
+            Assert.That(report.Issues, Is.Empty);
+        }
+
+        [Test] // TC-INVENTORY-175
+        public void BlockingIssues_DurabilityCapability_IsNotRuntimeDamageValidation()
+        {
+            // Documented coverage boundary: no loaded-ammo, armor-damage,
+            // custom-state or hidden-mechanics runtime representation exists.
+            var target = BlockingTarget(ContentDefinitionType.Armor, durability: true);
+            var inventory = NewInventoryRecord(1);
+            var instance = NewInstance(inventory, target, 1);
+            var preview = ItemDefinitionMigrationRules.BuildPreview(target, target, new[] { instance }, Array.Empty<ItemStackRecord>(), new[] { inventory });
+            Assert.That(ItemDefinitionMigrationRules.ComputeBlockingIssues(preview, target, new[] { Equipped(inventory, instance, "torso") }).HasBlockingIssues, Is.False);
+        }
+
+        [TestCase(ContentDefinitionType.Item)] // TC-INVENTORY-176
+        [TestCase(ContentDefinitionType.Weapon)]
+        [TestCase(ContentDefinitionType.Armor)]
+        [TestCase(ContentDefinitionType.Ammo)]
+        public void BlockingIssues_MalformedTarget_IsPreconditionFailure(ContentDefinitionType type)
+        {
+            var target = NewPublishedDefinition(ContentDefinitionId.NewId(Clock.GetUtcNow()), 1, type, "{}");
+            var preview = ItemDefinitionMigrationRules.BuildPreview(target, target, Array.Empty<ItemInstanceRecord>(), Array.Empty<ItemStackRecord>(), Array.Empty<InventoryRecord>());
+            Assert.That(Assert.Throws<ArgumentException>(new Action(() => ItemDefinitionMigrationRules.ComputeBlockingIssues(preview, target, Array.Empty<EquippedEntryRecord>())))!.ParamName, Is.EqualTo("targetDefinition"));
+        }
+
+        [Test] // TC-INVENTORY-177
+        public void BlockingIssues_MismatchedInputs_ArePreconditionFailures()
+        {
+            var target = BlockingTarget(ContentDefinitionType.Armor);
+            var other = BlockingTarget(ContentDefinitionType.Armor);
+            var inventory = NewInventoryRecord(1);
+            var instance = NewInstance(inventory, target, 1);
+            var preview = ItemDefinitionMigrationRules.BuildPreview(target, target, new[] { instance }, Array.Empty<ItemStackRecord>(), new[] { inventory });
+            Assert.Throws<ArgumentException>(new Action(() => ItemDefinitionMigrationRules.ComputeBlockingIssues(preview, other, Array.Empty<EquippedEntryRecord>())));
+            Assert.Throws<ArgumentException>(new Action(() => ItemDefinitionMigrationRules.ComputeBlockingIssues(preview, target, new[] { Equipped(NewInventoryRecord(1), instance, "torso") })));
+            var entry = Equipped(inventory, instance, "torso");
+            Assert.Throws<ArgumentException>(new Action(() => ItemDefinitionMigrationRules.ComputeBlockingIssues(preview, target, new[] { entry, entry })));
+        }
+
+        [Test] // TC-INVENTORY-178
+        public void BlockingReport_CopiesIssueList()
+        {
+            var inventory = NewInventoryRecord(1);
+            var issues = new List<ItemDefinitionMigrationBlockingIssue>
+            {
+                new(ItemDefinitionMigrationBlockingIssueCode.EquipmentSlotNoLongerDefined, "Slot removed.", inventory.InventoryId, InventoryItemRef.ForInstance(ItemInstanceId.NewId(Clock.GetUtcNow())))
+            };
+            var report = new ItemDefinitionMigrationIncompatibilityReport(issues);
+            issues.Clear();
+            Assert.That(report.HasBlockingIssues, Is.True);
+            Assert.That(report.Issues.Count, Is.EqualTo(1));
+            Assert.Throws<NotSupportedException>(new Action(() => ((IList<ItemDefinitionMigrationBlockingIssue>)report.Issues).Clear()));
+        }
+
+        private static ContentDefinitionRecord BlockingTarget(ContentDefinitionType type, long? capacity = null, string slot = "torso", bool durability = false)
+        {
+            var item = new ItemDefinition(ItemCategory.Generic, capacity.HasValue, capacity, 1, durability, durability ? 10L : null, false, null, Array.Empty<ContentDefinitionRef>(), Array.Empty<ContentDefinitionRef>());
+            string payload = type switch
+            {
+                ContentDefinitionType.Item => TypedDefinitionCodec.EncodeItem(item),
+                ContentDefinitionType.Weapon => TypedDefinitionCodec.EncodeWeapon(new WeaponDefinition(item, "1", 1, WeaponAttackMode.Melee, 1, AmmoRequirement.None, Array.Empty<string>())),
+                ContentDefinitionType.Armor => TypedDefinitionCodec.EncodeArmor(new ArmorDefinition(item, slot, new[] { BodyPartId.Parse("torso") }, 1)),
+                ContentDefinitionType.Ammo => TypedDefinitionCodec.EncodeAmmo(new AmmoDefinition(item, new[] { "arrow" }, null, Array.Empty<ContentDefinitionRef>())),
+                _ => throw new ArgumentOutOfRangeException(nameof(type))
+            };
+            return NewPublishedDefinition(ContentDefinitionId.NewId(Clock.GetUtcNow()), 2, type, payload);
+        }
+
+        private static EquippedEntryRecord Equipped(InventoryRecord inventory, ItemInstanceRecord instance, string slot)
+            => new(inventory.CampaignId, new EquippedEntry(inventory.InventoryId, InventoryItemRef.ForInstance(instance.ItemInstanceId), slot, Array.Empty<BodyPartId>(), NewUserId(), inventory.CreatedAt, 1));
         private static ContentDefinitionRecord NewPublishedDefinition(ContentDefinitionId id, long version, ContentDefinitionType type, string propertiesJson)
         {
             UtcInstant now = Clock.GetUtcNow();
