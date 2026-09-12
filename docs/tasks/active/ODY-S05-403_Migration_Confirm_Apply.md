@@ -1,11 +1,11 @@
 # ODY-S05-403 — Migration Confirm/Apply Command
 
-**Status:** In Progress
+**Status:** In Review
 **Roadmap stage / slice:** SLICE-05 (ItemDefinition migration block)
 **Owner:** Codex (agent)
 **Requested by:** Product owner
 **Branch:** `codex/ody-s05-403-migration-apply`
-**Pull request:** Not opened
+**Pull request:** [odyssey-services/Odyssey_VTT#132](https://github.com/odyssey-services/Odyssey_VTT/pull/132) (Draft)
 **ExecPlan:** `docs/plans/active/ODY-S05-403_Migration_Confirm_Apply.md`
 **Created:** 2026-09-12
 **Last updated:** 2026-09-12 UTC
@@ -321,7 +321,7 @@ dotnet test DotNet\Odyssey.Core.sln
 - [x] No unapproved dependency, tool, GitHub Action, or license was introduced.
 - [x] Documentation is updated only where materially required.
 - [x] Codex/developer performed a self-review against this task and `AGENTS.md`.
-- [ ] Pull request explains changes, evidence, limitations, and follow-up work.
+- [x] Pull request explains changes, evidence, limitations, and follow-up work.
 - [ ] Product owner or authorized reviewer completes the required review; Codex does not merge into `main`.
 
 ## 17. Completion evidence
@@ -363,7 +363,7 @@ dotnet test DotNet\Odyssey.Core.sln
 | AC-8 (no rollback command; doc comment) | Met | Diff review; doc comment on `ApplyItemDefinitionMigration`. |
 | AC-9 (10 tests, dotnet test green) | Met | Table above. |
 | AC-10 (three scope guards narrowed by point exception) | Met | Diff review of all three guard files. |
-| AC-11 (backlog In Review, Draft PR) | Pending PR creation. |
+| AC-11 (backlog In Review, Draft PR) | Met | PR #132 opened as Draft; backlog row updated. |
 
 ### Build and artifact evidence
 

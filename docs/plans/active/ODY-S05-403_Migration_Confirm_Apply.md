@@ -1,9 +1,9 @@
 # ODY-S05-403 — Migration Confirm/Apply Command
 
-**Status:** In Progress
+**Status:** In Review
 **Owner:** Codex (agent)
 **Branch:** `codex/ody-s05-403-migration-apply`
-**Pull request:** Not opened
+**Pull request:** [odyssey-services/Odyssey_VTT#132](https://github.com/odyssey-services/Odyssey_VTT/pull/132) (Draft)
 **Last updated:** 2026-09-12 UTC
 
 ## 1. Purpose and user-visible outcome
@@ -65,10 +65,10 @@ No change to `ItemDefinitionMigrationPreview`/`ItemDefinitionMigrationRules.Buil
 - [x] Register `TC-INVENTORY-179`-`188` in `Tests/Metadata/test-catalog.json`.
 - [x] Run all 5 required validation commands; record real results.
 - [x] Rewrite the task contract and this ExecPlan to full depth with every verified fact and decision.
-- [ ] Update `docs/tasks/SLICE-05_IMPLEMENTATION_BACKLOG.md` row 3 to `In Review`.
-- [ ] Review `git diff --name-status` for scope.
-- [ ] Commit, push, and open Draft PR.
-- [ ] Record PR link and backlog status.
+- [x] Update `docs/tasks/SLICE-05_IMPLEMENTATION_BACKLOG.md` row 3 to `In Review`.
+- [x] Review `git diff --name-status` for scope.
+- [x] Commit, push, and open Draft PR.
+- [x] Record PR link and backlog status.
 
 ## 6. Progress log
 
@@ -97,7 +97,7 @@ See task contract §18 for the full decision log: `SqliteSavingPipeline` reuse (
 - `.\scripts\verify-format.ps1`: PASS.
 - `.\scripts\check-repository-policy.ps1`: PASS (including the 3 new `ERROR_CODES.md` rows).
 - `.\scripts\verify-test-structure.ps1`: PASS, exit code 0.
-- Diff review: pending final `git diff --name-status` pass before commit.
+- Diff review: `git diff --name-status` confirmed only allowed paths changed; PR #132 opened as Draft.
 
 ## 10. Recovery and rollback
 
