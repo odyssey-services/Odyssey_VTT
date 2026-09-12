@@ -3,7 +3,7 @@
 **Status:** In Review
 **Owner:** Codex (agent)
 **Branch:** `feat/ody-s05-503-stacking-policy-resolution`
-**Pull request:** TBD (Draft)
+**Pull request:** [odyssey-services/Odyssey_VTT#138](https://github.com/odyssey-services/Odyssey_VTT/pull/138) (Draft)
 **Last updated:** 2026-09-12 UTC
 
 ## 1. Purpose and user-visible outcome
@@ -70,10 +70,10 @@ No change to `ADR-028`, `IActiveEffectRepository`/`SqliteActiveEffectRepository`
 - [x] Register `TC-ACTIVEEFFECT-020`-`035` in `Tests/Metadata/test-catalog.json`.
 - [x] Run all 5 required validation commands; record real results.
 - [x] Write the task contract and this ExecPlan to full depth.
-- [ ] Update `docs/tasks/SLICE-05_IMPLEMENTATION_BACKLOG.md` row 2 in §15 to `In Review`.
-- [ ] Review `git diff --name-status` for scope.
-- [ ] Commit, push, and open Draft PR.
-- [ ] Record PR link and backlog status.
+- [x] Update `docs/tasks/SLICE-05_IMPLEMENTATION_BACKLOG.md` row 2 in §15 to `In Review`.
+- [x] Review `git diff --name-status` for scope — every changed file matches the task contract's allowed-paths list exactly.
+- [x] Commit, push, and open Draft PR.
+- [x] Record PR link and backlog status.
 
 ## 6. Progress log
 
@@ -104,7 +104,7 @@ See task contract §18 for the full decision log: no new `IActiveEffectRepositor
 - `.\scripts\verify-format.ps1`: PASS.
 - `.\scripts\check-repository-policy.ps1`: PASS (no new `ERROR_CODES.md` rows required).
 - `.\scripts\verify-test-structure.ps1`: PASS.
-- Diff review: pending final `git diff --name-status` confirmation before commit.
+- Diff review: `git diff --name-status 7e8507f HEAD` confirmed every changed file matches the task contract's allowed-paths list exactly; PR #138 opened as Draft.
 
 ## 10. Recovery and rollback
 

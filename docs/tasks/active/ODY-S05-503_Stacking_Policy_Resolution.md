@@ -5,7 +5,7 @@
 **Owner:** Codex (agent)
 **Requested by:** Product owner
 **Branch:** `feat/ody-s05-503-stacking-policy-resolution`
-**Pull request:** TBD (Draft)
+**Pull request:** [odyssey-services/Odyssey_VTT#138](https://github.com/odyssey-services/Odyssey_VTT/pull/138) (Draft)
 **ExecPlan:** `docs/plans/active/ODY-S05-503_Stacking_Policy_Resolution.md`
 **Created:** 2026-09-12
 **Last updated:** 2026-09-12 UTC
@@ -311,7 +311,7 @@ dotnet test DotNet\Odyssey.Core.sln
 - [x] No unapproved dependency, tool, GitHub Action, or license was introduced.
 - [x] Documentation is updated only where materially required.
 - [x] Codex/developer performed a self-review against this task and `AGENTS.md`.
-- [ ] Pull request explains changes, evidence, limitations, and follow-up work.
+- [x] Pull request explains changes, evidence, limitations, and follow-up work.
 - [ ] Product owner or authorized reviewer completes the required review; Codex does not merge into `main`.
 
 ## 17. Completion evidence
@@ -345,7 +345,7 @@ dotnet test DotNet\Odyssey.Core.sln
 | AC-5 (tests cover all behaviors + comparison + full cycle) | Met | Table in §10. |
 | AC-6 (no duration/expiry/removal logic) | Met | Diff review; no `ExpiresAt` computation, no `Status → Removed` transition beyond what `ReplaceExisting`'s own decision-carrying payload names for a future caller to apply. |
 | AC-7 (dotnet test green, backlog In Review) | Met | Validation table above; backlog row updated. |
-| AC-8 (Draft PR) | Met | PR to be opened as Draft. |
+| AC-8 (Draft PR) | Met | PR #138 opened as Draft. |
 
 ### Build and artifact evidence
 
