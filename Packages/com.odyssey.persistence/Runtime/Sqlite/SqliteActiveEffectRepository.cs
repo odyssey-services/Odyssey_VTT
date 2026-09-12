@@ -26,10 +26,15 @@ namespace Odyssey.Persistence.Sqlite
     /// whose own tables/idempotency ledgers exist for Inventory-owned state
     /// this aggregate deliberately is not (`ADR-028` §8.2 rule 2).
     ///
-    /// Only creation and basic persistence are implemented here
-    /// (`ODY-S05-502`'s own boundary, `SLICE-05_IMPLEMENTATION_BACKLOG.md`
-    /// §15.1): no stacking-policy mutation (`ODY-S05-503`), no duration/
-    /// expiry transition (`ODY-S05-504`/`505`), and no removal (`ODY-S05-506`).
+    /// `ODY-S05-502` implemented creation and basic persistence only. This
+    /// class now also implements `ODY-S05-504`'s own <see cref="ExpireActiveEffect"/>
+    /// (the `Status → Expired` transition, added by exclusion since neither
+    /// `ODY-S05-505`'s own `Suspended`/`Active` transition nor `ODY-S05-506`'s
+    /// own `Removed` transition covers it -- see that task's own contract
+    /// §18 decision log): no stacking-policy mutation (`ODY-S05-503`,
+    /// implemented separately as a pure decision layer with no repository
+    /// change), no `WhileItemEquipped` suspend/resume (`ODY-S05-505`), and no
+    /// removal (`ODY-S05-506`).
     /// </summary>
     public sealed class SqliteActiveEffectRepository : IActiveEffectRepository
     {
@@ -195,6 +200,76 @@ namespace Odyssey.Persistence.Sqlite
             {
                 return Result<IReadOnlyList<ActiveEffectRecord>>.Failure(PersistenceFailures.ActiveEffectIoFailed(correlationId));
             }
+        }
+
+        public Result<ActiveEffectRecord> ExpireActiveEffect(CampaignHandle campaign, CampaignId campaignId, ActiveEffectId activeEffectId, long expectedRevision, CommandId commandId, CorrelationId correlationId)
+        {
+            if (campaign == null) throw new ArgumentNullException(nameof(campaign));
+            if (!activeEffectId.IsValid) throw new ArgumentException("ActiveEffectId is required.", nameof(activeEffectId));
+            if (expectedRevision < 1) throw new ArgumentOutOfRangeException(nameof(expectedRevision));
+            if (!commandId.IsValid) throw new ArgumentException("CommandId is required.", nameof(commandId));
+            if (!TryValidateCampaignBoundary(campaign, campaignId, correlationId, out Error campaignError))
+            {
+                return Result<ActiveEffectRecord>.Failure(campaignError);
+            }
+
+            try
+            {
+                using SqliteConnection connection = OpenConnection(campaign.RootPath);
+                EnsureActiveEffectTables(connection);
+
+                return _pipeline.Execute(
+                    connection,
+                    campaignId,
+                    commandId,
+                    correlationId,
+                    tryReplay: transaction => ReplayByCommandId(connection, transaction, campaignId, commandId, correlationId),
+                    apply: transaction =>
+                    {
+                        UtcInstant now = _clock.GetUtcNow();
+                        using (var update = connection.CreateCommand())
+                        {
+                            update.Transaction = transaction;
+                            update.CommandText = "UPDATE ActiveEffect SET Status=$status, Revision=Revision+1, UpdatedAt=$now, LastCommandId=$commandId " +
+                                "WHERE ActiveEffectId=$id AND CampaignId=$campaign AND Revision=$expectedRevision;";
+                            update.Parameters.AddWithValue("$status", ActiveEffectStatus.Expired.ToString());
+                            update.Parameters.AddWithValue("$now", now.ToString());
+                            update.Parameters.AddWithValue("$commandId", commandId.ToString());
+                            update.Parameters.AddWithValue("$id", activeEffectId.ToString());
+                            update.Parameters.AddWithValue("$campaign", campaignId.ToString());
+                            update.Parameters.AddWithValue("$expectedRevision", expectedRevision);
+                            if (update.ExecuteNonQuery() != 1)
+                            {
+                                return Result<PipelineWrite<ActiveEffectRecord>>.Failure(PersistenceFailures.ActiveEffectRevisionConflict(correlationId));
+                            }
+                        }
+
+                        ActiveEffectRecord expired = ReadOneById(connection, transaction, activeEffectId);
+                        string payloadJson = "{\"activeEffectId\":\"" + activeEffectId + "\"}";
+                        return Result<PipelineWrite<ActiveEffectRecord>>.Success(new PipelineWrite<ActiveEffectRecord>(
+                            expired, "odyssey.persistence.active_effect_expired", payloadJson, activeEffectId.ToString(),
+                            aggregateType: "active_effect", aggregateId: activeEffectId.ToString(), aggregateRevision: expired.Effect.Revision));
+                    });
+            }
+            catch (Exception ex) when (ex is IOException || ex is UnauthorizedAccessException || ex is SqliteException)
+            {
+                return Result<ActiveEffectRecord>.Failure(PersistenceFailures.ActiveEffectIoFailed(correlationId));
+            }
+        }
+
+        private static ActiveEffectRecord ReadOneById(SqliteConnection connection, SqliteTransaction transaction, ActiveEffectId activeEffectId)
+        {
+            using var select = connection.CreateCommand();
+            select.Transaction = transaction;
+            select.CommandText = SelectColumns + " FROM ActiveEffect WHERE ActiveEffectId = $activeEffectId LIMIT 1;";
+            select.Parameters.AddWithValue("$activeEffectId", activeEffectId.ToString());
+            using SqliteDataReader reader = select.ExecuteReader();
+            if (!reader.Read())
+            {
+                throw new InvalidOperationException("ActiveEffect row disappeared inside its own update transaction.");
+            }
+
+            return ReadRecord(reader);
         }
 
         private static Result<ActiveEffectRecord> ReplayByCommandId(SqliteConnection connection, SqliteTransaction transaction, CampaignId campaignId, CommandId commandId, CorrelationId correlationId)

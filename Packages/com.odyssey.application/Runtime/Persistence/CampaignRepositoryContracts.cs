@@ -158,6 +158,15 @@ namespace Odyssey.Application.Persistence
             RetryDirective.DoNotRetry,
             correlationId);
 
+        /// <summary>ODY-S05-504: `ADR-028` §6 rule 2's own `Revision`-CAS status-transition guard for `SqliteActiveEffectRepository.ExpireActiveEffect`, mirroring <see cref="EquipmentEntryRevisionConflict"/>'s exact convention.</summary>
+        public static Error ActiveEffectRevisionConflict(CorrelationId correlationId) => Error.Create(
+            ErrorCodes.PersistenceActiveEffectRevisionConflict,
+            ErrorCategory.Conflict,
+            SafeReasonCode.StateChanged,
+            UserMessageKey.Parse("errors.persistence.active_effect_revision_conflict"),
+            RetryDirective.DoNotRetry,
+            correlationId);
+
         /// <summary>
         /// ODY-S03-004: ADR-002 section 10.2's optimistic-concurrency check,
         /// enforced atomically inside <c>SqliteSceneRepository.MoveToken</c>'s
