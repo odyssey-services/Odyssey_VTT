@@ -448,6 +448,72 @@ namespace Odyssey.Persistence.Sqlite
             }
         }
 
+        public Result<IReadOnlyList<ItemInstanceRecord>> ListItemInstancesBySourceDefinitionId(CampaignHandle campaign, CampaignId campaignId, ContentDefinitionId definitionId, CorrelationId correlationId)
+        {
+            if (campaign == null) throw new ArgumentNullException(nameof(campaign));
+            if (!campaignId.IsValid) throw new ArgumentException("CampaignId is required.", nameof(campaignId));
+            if (!definitionId.IsValid) throw new ArgumentException("ContentDefinitionId is required.", nameof(definitionId));
+            if (!TryValidateCampaignBoundary(campaign, campaignId, correlationId, out Error campaignError))
+            {
+                return Result<IReadOnlyList<ItemInstanceRecord>>.Failure(campaignError);
+            }
+
+            try
+            {
+                using SqliteConnection connection = OpenConnection(campaign.RootPath);
+                EnsureInventoryTables(connection);
+                string pattern = EscapeLike(definitionId.ToString()) + "/%";
+                var results = new List<ItemInstanceRecord>();
+                using (var select = connection.CreateCommand())
+                {
+                    select.CommandText = ItemInstanceSelectColumns + " FROM ItemInstance WHERE CampaignId = $campaignId AND SourceItemDefinitionRef LIKE $pattern ESCAPE '\\' ORDER BY CreatedAt, ItemInstanceId;";
+                    select.Parameters.AddWithValue("$campaignId", campaignId.ToString());
+                    select.Parameters.AddWithValue("$pattern", pattern);
+                    using SqliteDataReader reader = select.ExecuteReader();
+                    while (reader.Read()) results.Add(ReadItemInstance(reader));
+                }
+
+                return Result<IReadOnlyList<ItemInstanceRecord>>.Success(results);
+            }
+            catch (Exception ex) when (ex is IOException || ex is UnauthorizedAccessException || ex is SqliteException)
+            {
+                return Result<IReadOnlyList<ItemInstanceRecord>>.Failure(PersistenceFailures.InventoryIoFailed(correlationId));
+            }
+        }
+
+        public Result<IReadOnlyList<ItemStackRecord>> ListItemStacksBySourceDefinitionId(CampaignHandle campaign, CampaignId campaignId, ContentDefinitionId definitionId, CorrelationId correlationId)
+        {
+            if (campaign == null) throw new ArgumentNullException(nameof(campaign));
+            if (!campaignId.IsValid) throw new ArgumentException("CampaignId is required.", nameof(campaignId));
+            if (!definitionId.IsValid) throw new ArgumentException("ContentDefinitionId is required.", nameof(definitionId));
+            if (!TryValidateCampaignBoundary(campaign, campaignId, correlationId, out Error campaignError))
+            {
+                return Result<IReadOnlyList<ItemStackRecord>>.Failure(campaignError);
+            }
+
+            try
+            {
+                using SqliteConnection connection = OpenConnection(campaign.RootPath);
+                EnsureInventoryTables(connection);
+                string pattern = EscapeLike(definitionId.ToString()) + "/%";
+                var results = new List<ItemStackRecord>();
+                using (var select = connection.CreateCommand())
+                {
+                    select.CommandText = ItemStackSelectColumns + " FROM ItemStack WHERE CampaignId = $campaignId AND SourceItemDefinitionRef LIKE $pattern ESCAPE '\\' ORDER BY CreatedAt, ItemStackId;";
+                    select.Parameters.AddWithValue("$campaignId", campaignId.ToString());
+                    select.Parameters.AddWithValue("$pattern", pattern);
+                    using SqliteDataReader reader = select.ExecuteReader();
+                    while (reader.Read()) results.Add(ReadItemStack(reader));
+                }
+
+                return Result<IReadOnlyList<ItemStackRecord>>.Success(results);
+            }
+            catch (Exception ex) when (ex is IOException || ex is UnauthorizedAccessException || ex is SqliteException)
+            {
+                return Result<IReadOnlyList<ItemStackRecord>>.Failure(PersistenceFailures.InventoryIoFailed(correlationId));
+            }
+        }
+
         public Result<bool> HasAnyEquippedEntryReferencingBodyPart(CampaignHandle campaign, CampaignId campaignId, CharacterId characterId, BodyPartId bodyPartId, CorrelationId correlationId)
         {
             if (campaign == null) throw new ArgumentNullException(nameof(campaign));

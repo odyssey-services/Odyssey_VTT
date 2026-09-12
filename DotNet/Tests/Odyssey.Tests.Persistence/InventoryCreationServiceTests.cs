@@ -351,13 +351,26 @@ namespace Odyssey.Tests.Persistence
             }
 
             // ODY-S05-303 legitimately owns the Equip transition's orchestrator
-            // types (EquipmentService/EquipmentFailures); every other forbidden
-            // fragment still applies to every other type name in this namespace.
+            // types (EquipmentService/EquipmentFailures); ODY-S05-401 legitimately
+            // owns the migration preview type/builder (preview construction only --
+            // no blocking-incompatibility computation, backup call, or apply logic);
+            // every other forbidden fragment still applies to every other type name
+            // in this namespace.
             string[] allowedEquipmentTypes = { "EquipmentService", "EquipmentFailures" };
+            string[] allowedItemDefinitionMigrationTypes =
+            {
+                "ItemDefinitionMigrationPreview",
+                "ItemDefinitionMigrationAffectedInstance",
+                "ItemDefinitionMigrationAffectedStackMember",
+                "ItemDefinitionMigrationAffectedStackGroup",
+                "ItemDefinitionMigrationInventoryRevision",
+                "ItemDefinitionMigrationRules"
+            };
             IEnumerable<string> inventoryTypeNames = typeof(InventoryCreationService).Assembly.GetTypes()
                 .Where(t => string.Equals(t.Namespace, "Odyssey.Application.Inventory", StringComparison.Ordinal))
                 .Select(t => t.Name)
-                .Where(name => !allowedEquipmentTypes.Contains(name));
+                .Where(name => !allowedEquipmentTypes.Contains(name))
+                .Where(name => !allowedItemDefinitionMigrationTypes.Contains(name));
             AssertForbiddenFragments(inventoryTypeNames);
         }
 
