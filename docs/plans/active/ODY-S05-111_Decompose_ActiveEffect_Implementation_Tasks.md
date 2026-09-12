@@ -1,9 +1,9 @@
 # ODY-S05-111 — Decompose ActiveEffect Implementation Tasks (502+)
 
-**Status:** In Progress
+**Status:** In Review
 **Owner:** Codex (agent)
 **Branch:** `feat/ody-s05-111-decompose-activeeffect-implementation`
-**Pull request:** Not opened
+**Pull request:** [odyssey-services/Odyssey_VTT#136](https://github.com/odyssey-services/Odyssey_VTT/pull/136) (Draft)
 **Last updated:** 2026-09-12 UTC
 
 ## 1. Purpose and user-visible outcome
@@ -55,12 +55,12 @@ No production code, no Unity/UI, no new persistence table, no new `ErrorCode`, n
 
 ### M2 — Validation and PR
 
-- [ ] Review diff for docs-only scope.
-- [ ] Run `dotnet test DotNet\Odyssey.Core.sln`.
-- [ ] Run `.\scripts\verify-format.ps1`.
-- [ ] Run `.\scripts\check-repository-policy.ps1`.
-- [ ] Run `.\scripts\verify-test-structure.ps1`.
-- [ ] Commit, push, and open Draft PR.
+- [x] Review diff for docs-only scope.
+- [x] Run `dotnet build`/`dotnet test DotNet\Odyssey.Core.sln`.
+- [x] Run `.\scripts\verify-format.ps1`.
+- [x] Run `.\scripts\check-repository-policy.ps1`.
+- [x] Run `.\scripts\verify-test-structure.ps1`.
+- [x] Commit, push, and open Draft PR.
 
 ## 6. Progress log
 
@@ -78,9 +78,9 @@ See task contract §18 for the full decision log.
 
 ## 9. Validation and acceptance evidence
 
-- `dotnet test DotNet\Odyssey.Core.sln`: pending.
-- `.\scripts\verify-format.ps1`, `.\scripts\check-repository-policy.ps1`, `.\scripts\verify-test-structure.ps1`: pending.
-- Diff review: pending.
+- `dotnet build`/`dotnet test DotNet\Odyssey.Core.sln`: PASS — Contracts 1/1, Domain 80/80, Networking 67/67, Unit 136/136, Architecture 2/2, Persistence 534/534.
+- `.\scripts\verify-format.ps1`, `.\scripts\check-repository-policy.ps1`, `.\scripts\verify-test-structure.ps1`: all PASS.
+- Diff review: `git diff --name-status` confirmed only §5's allowed paths changed; PR #136 opened as Draft.
 
 ## 10. Recovery and rollback
 

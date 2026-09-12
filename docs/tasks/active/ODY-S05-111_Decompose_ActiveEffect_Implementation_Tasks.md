@@ -1,11 +1,11 @@
 # ODY-S05-111 — Decompose ActiveEffect Implementation Tasks (502+)
 
-**Status:** In Progress
+**Status:** In Review
 **Roadmap stage / slice:** SLICE-05 (item-sourced abilities/effects — implementation planning block)
 **Owner:** Codex (agent)
 **Requested by:** Product owner
 **Branch:** `feat/ody-s05-111-decompose-activeeffect-implementation`
-**Pull request:** Not opened
+**Pull request:** [odyssey-services/Odyssey_VTT#136](https://github.com/odyssey-services/Odyssey_VTT/pull/136) (Draft)
 **Plan:** `docs/plans/active/ODY-S05-111_Decompose_ActiveEffect_Implementation_Tasks.md` (Brief plan)
 **Created:** 2026-09-12
 **Last updated:** 2026-09-12 UTC
@@ -264,7 +264,7 @@ dotnet test DotNet\Odyssey.Core.sln
 - [x] No unapproved dependency, tool, GitHub Action, or license was introduced.
 - [x] Documentation is updated only where materially required.
 - [x] Codex/developer performed a self-review against this task and `AGENTS.md`.
-- [ ] Pull request explains changes, evidence, limitations, and follow-up work.
+- [x] Pull request explains changes, evidence, limitations, and follow-up work.
 - [ ] Product owner or authorized reviewer completes the required review; Codex does not merge into `main`.
 
 ## 17. Completion evidence
@@ -279,16 +279,28 @@ dotnet test DotNet\Odyssey.Core.sln
 
 | Command / check | Result | Evidence / notes |
 |---|---|---|
-| `dotnet build`/`dotnet test DotNet\Odyssey.Core.sln` | Pending | To be run and recorded before PR. |
-| `.\scripts\verify-format.ps1` | Pending | To be run and recorded before PR. |
-| `.\scripts\check-repository-policy.ps1` | Pending | To be run and recorded before PR. |
-| `.\scripts\verify-test-structure.ps1` | Pending | To be run and recorded before PR. |
+| `dotnet build DotNet\Odyssey.Core.sln` | PASS | 0 warnings, 0 errors (harness projects included). |
+| `dotnet test DotNet\Odyssey.Core.sln` | PASS | Contracts 1/1, Domain 80/80, Networking 67/67, Unit 136/136, Architecture 2/2, Persistence 534/534 — identical count to before this docs-only diff. |
+| `.\scripts\verify-format.ps1` | PASS | `FORMAT-001 PASS repository text formatting checks passed`. |
+| `.\scripts\check-repository-policy.ps1` | PASS | `Repository policy check passed.` |
+| `.\scripts\verify-test-structure.ps1` | PASS | Exit code 0. |
 
 ### Acceptance result
 
 | Criterion | Status | Evidence |
 |---|---|---|
-| AC-1..12 | Pending | To be filled after validation runs. |
+| AC-1 | Met | §11 now reads "`ODY-S05-501` through `ODY-S05-507` are reserved... No further number in this block remains reserved-but-unscoped after this revision." |
+| AC-2 | Met | §15 table has exactly 6 rows (`502`–`507`) with purpose/dependencies/planning mode/primary result, matching §7/§12/§13's own column structure. |
+| AC-3 | Met | §15.1 gives each task an explicit "owns"/"must not" boundary; verified by re-reading against `ADR-028` §5-§13's own 8 decision areas — no overlap, no gap. |
+| AC-4 | Met | `grep` against §15's own content confirms the six turn/round-based values and combat-triggered application appear exactly once, only in the closing exclusion statement. |
+| AC-5 | Met | §15's own table: `503`/`504`/`505`/`506` each list `502` in `Depends on`; `507` lists `502-506`. |
+| AC-6 | Met | `git diff` confirms §1–§8/§12/§13 unchanged in substance; §9/§10/§11/§14.1 edits are additive/point-corrective only. |
+| AC-7 | Met | No `.cs`/`.json`/test file in the diff. |
+| AC-8 | Met | No `docs/adr/**` file in the diff. |
+| AC-9 | Met | No file exists under `docs/tasks/active/ODY-S05-50[2-7]_*`. |
+| AC-10 | Met | This contract and Brief plan exist. |
+| AC-11 | Met | `git diff --name-status` limited to §5's allowed paths. |
+| AC-12 | Met | PR #136 body states planning/decomposition only. |
 
 ### Build and artifact evidence
 
