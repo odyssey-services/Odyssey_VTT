@@ -132,6 +132,32 @@ namespace Odyssey.Application.Persistence
             RetryDirective.DoNotRetry,
             correlationId);
 
+        public static Error ActiveEffectNotFound(CorrelationId correlationId) => Error.Create(
+            ErrorCodes.PersistenceActiveEffectNotFound,
+            ErrorCategory.NotFound,
+            SafeReasonCode.TargetUnavailable,
+            UserMessageKey.Parse("errors.persistence.active_effect_not_found"),
+            RetryDirective.DoNotRetry,
+            correlationId);
+
+        /// <summary>ODY-S05-502: `SqliteActiveEffectRepository`'s wrapper for ActiveEffect file or SQLite I/O failures, mirroring <see cref="SceneIoFailed"/>'s exact convention for a new aggregate.</summary>
+        public static Error ActiveEffectIoFailed(CorrelationId correlationId) => Error.Create(
+            ErrorCodes.PersistenceActiveEffectIoFailed,
+            ErrorCategory.PermanentInfrastructure,
+            SafeReasonCode.UnexpectedError,
+            UserMessageKey.Parse("errors.persistence.active_effect_io_failed"),
+            RetryDirective.ManualRecoveryRequired,
+            correlationId);
+
+        /// <summary>ODY-S05-502: mirrors <see cref="InventoryCampaignMismatch"/>'s exact convention -- a caller-supplied record whose own `CampaignId` does not match the `CampaignHandle` it was called with.</summary>
+        public static Error ActiveEffectCampaignMismatch(CorrelationId correlationId) => Error.Create(
+            ErrorCodes.PersistenceActiveEffectCampaignMismatch,
+            ErrorCategory.Validation,
+            SafeReasonCode.InvalidRequest,
+            UserMessageKey.Parse("errors.persistence.active_effect_campaign_mismatch"),
+            RetryDirective.DoNotRetry,
+            correlationId);
+
         /// <summary>
         /// ODY-S03-004: ADR-002 section 10.2's optimistic-concurrency check,
         /// enforced atomically inside <c>SqliteSceneRepository.MoveToken</c>'s

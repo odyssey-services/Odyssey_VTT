@@ -455,7 +455,10 @@ namespace Odyssey.Tests.Persistence
             System.Reflection.ParameterInfo[] parameters = unequip!.GetParameters();
             Assert.That(parameters.Select(p => p.ParameterType.Name), Has.None.EqualTo(nameof(ICharacterRepository)), "Unequip must not depend on ICharacterRepository -- rule 4 is an Equip-only concern");
 
-            string[] forbiddenTypeFragments = { "RemoveBodyPart", "WeaponMechanic", "ArmorMechanic", "ActiveEffect", "Attack" };
+            // ODY-S05-502 legitimately introduces the standalone ActiveEffect
+            // aggregate/repository elsewhere in this assembly/namespace (not
+            // owned by Equipment, ADR-028 section 8.2 rule 2).
+            string[] forbiddenTypeFragments = { "RemoveBodyPart", "WeaponMechanic", "ArmorMechanic", "Attack" };
             IEnumerable<string> inventoryTypeNames = typeof(EquipmentService).Assembly.GetTypes()
                 .Where(t => string.Equals(t.Namespace, "Odyssey.Application.Inventory", StringComparison.Ordinal))
                 .Select(t => t.Name);

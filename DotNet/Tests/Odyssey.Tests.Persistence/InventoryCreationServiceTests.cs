@@ -527,8 +527,11 @@ namespace Odyssey.Tests.Persistence
         {
             // "Split"/"Merge" were forbidden here while ODY-S05-205 was still Proposed;
             // that task now legitimately owns stack split/merge, so they are no longer
-            // out-of-scope fragments for the Inventory runtime surface.
-            string[] forbidden = { "Transfer", "Equipment", "Attack", "ActiveEffect", "ItemDefinitionMigration" };
+            // out-of-scope fragments for the Inventory runtime surface. ODY-S05-502
+            // legitimately introduces the standalone ActiveEffect aggregate/repository
+            // elsewhere in this assembly/namespace (not owned by Inventory,
+            // ADR-028 section 8.2 rule 2).
+            string[] forbidden = { "Transfer", "Equipment", "Attack", "ItemDefinitionMigration" };
             foreach (string name in names)
             {
                 foreach (string fragment in forbidden)

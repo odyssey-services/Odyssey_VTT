@@ -304,7 +304,11 @@ namespace Odyssey.Tests.Persistence
         [Test] // TC-INVENTORY-117
         public void EquipmentPersistence_IntroducesNoEquipCommandOrRemoveBodyPartBehavior()
         {
-            string[] forbiddenTypeFragments = { "EquipCommand", "UnequipCommand", "RemoveBodyPart", "ActiveEffect", "Attack" };
+            // ODY-S05-502 legitimately introduces the standalone ActiveEffect
+            // aggregate/repository elsewhere in this assembly (not owned by
+            // Equipment/Inventory, ADR-028 section 8.2 rule 2) -- every other
+            // forbidden fragment still applies to every type name in this assembly.
+            string[] forbiddenTypeFragments = { "EquipCommand", "UnequipCommand", "RemoveBodyPart", "Attack" };
             IEnumerable<string> persistenceTypeNames = typeof(SqliteInventoryRepository).Assembly.GetTypes().Select(t => t.Name);
             foreach (string typeName in persistenceTypeNames)
             {
