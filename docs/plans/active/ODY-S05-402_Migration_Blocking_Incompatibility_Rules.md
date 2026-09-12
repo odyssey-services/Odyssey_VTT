@@ -3,7 +3,7 @@
 **Status:** Active
 **Owner:** Codex
 **Branch:** codex/ody-s05-402-migration-blocking
-**Pull request:** Not opened
+**Pull request:** https://github.com/odyssey-services/Odyssey_VTT/pull/131
 **Last updated:** 2026-09-12 UTC
 
 ## 1. Purpose and user-visible outcome
@@ -26,10 +26,11 @@ Add typed issue code, issue with InventoryId and InventoryItemRef, and immutable
 
 - [x] M1: verify baseline/runtime gaps and record decisions before coding.
 - [x] M2: implement two checks and registered tests 169-178, preserve preview and guard forbidden arrays.
-- [ ] M3: run available required checks, review complete diff, publish Draft PR and update backlog.
+- [x] M3: run available required checks, review complete diff, publish Draft PR and update backlog.
 
 ## 6. Progress log
 
+- 2026-09-12 00:55 UTC — all available required local checks passed; Draft PR #131 opened and backlog linked. No merge.
 - 2026-09-12 UTC — fetched main and created isolated task worktree; inspected preview, typed definitions/codecs, repository queries and runtime fields.
 
 ## 7. Decisions
@@ -56,4 +57,4 @@ None for implementation. Missing documentation script is an environment/reposito
 
 ## 12. Outcome and follow-up
 
-Pending. Future state representations must extend the rule method; 403 owns confirm/apply, 404 owns integration.
+Draft PR #131 delivers two pure blocking checks and the separate report; backlog is In Review. CI and owner review remain pending, so plan remains Active. Future state representations must extend the rule method; 403 owns confirm/apply, 404 owns integration.

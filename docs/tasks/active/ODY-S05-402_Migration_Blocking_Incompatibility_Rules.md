@@ -1,11 +1,11 @@
 # ODY-S05-402 — Migration Blocking Incompatibility Rules
 
-**Status:** In Progress
+**Status:** In Review
 **Roadmap stage / slice:** SLICE-05
 **Owner:** Codex
 **Requested by:** Product owner
 **Branch:** codex/ody-s05-402-migration-blocking
-**Pull request:** Not opened
+**Pull request:** https://github.com/odyssey-services/Odyssey_VTT/pull/131
 **ExecPlan:** docs/plans/active/ODY-S05-402_Migration_Blocking_Incompatibility_Rules.md
 **Created:** 2026-09-12
 **Last updated:** 2026-09-12 UTC
@@ -83,7 +83,7 @@ Only task, plan and the 402 backlog row change. ADRs and all version fields rema
 
 - [x] Implementation and registered tests complete.
 - [x] Required checks and scope review recorded.
-- [ ] Draft PR ready for owner review; no merge.
+- [x] Draft PR #131 ready for owner review; no merge.
 - [ ] Owner review complete.
 
 ## 17. Completion evidence
