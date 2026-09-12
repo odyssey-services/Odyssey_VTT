@@ -1,9 +1,9 @@
 # ODY-S05-404 — Migration Integration Fixtures (Brief plan)
 
-**Status:** In Progress
+**Status:** In Review
 **Owner:** Codex (agent)
 **Branch:** `feat/ody-s05-404-migration-integration-fixtures`
-**Pull request:** Not opened
+**Pull request:** [odyssey-services/Odyssey_VTT#133](https://github.com/odyssey-services/Odyssey_VTT/pull/133) (Draft)
 **Last updated:** 2026-09-12 UTC
 
 Per `PLANS.md` §1.1: this task is contained in one area (tests), changes no public contract/schema/permissions/dependency graph, has one clear implementation path, fits in one PR, and needs no migration/recovery procedure — a Brief plan, not an ExecPlan, matching the exact precedent `ODY-S05-207`/`306` set for their own integration-fixture tasks.

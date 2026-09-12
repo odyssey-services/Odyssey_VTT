@@ -1,11 +1,11 @@
 # ODY-S05-404 — Migration Integration Fixtures
 
-**Status:** In Progress
+**Status:** In Review
 **Roadmap stage / slice:** SLICE-05 (ItemDefinition migration block — final task)
 **Owner:** Codex (agent)
 **Requested by:** Product owner
 **Branch:** `feat/ody-s05-404-migration-integration-fixtures`
-**Pull request:** Not opened
+**Pull request:** [odyssey-services/Odyssey_VTT#133](https://github.com/odyssey-services/Odyssey_VTT/pull/133) (Draft)
 **Plan:** `docs/plans/active/ODY-S05-404_Migration_Integration_Fixtures.md` (Brief plan)
 **Created:** 2026-09-12
 **Last updated:** 2026-09-12 UTC
@@ -252,7 +252,7 @@ dotnet test DotNet\Odyssey.Core.sln
 - [x] No unapproved dependency, tool, GitHub Action, or license was introduced.
 - [x] Documentation is updated only where materially required.
 - [x] Codex/developer performed a self-review against this task and `AGENTS.md`.
-- [ ] Pull request explains changes, evidence, limitations, and follow-up work.
+- [x] Pull request explains changes, evidence, limitations, and follow-up work.
 - [ ] Product owner or authorized reviewer completes the required review; Codex does not merge into `main`.
 
 ## 17. Completion evidence
@@ -284,7 +284,7 @@ dotnet test DotNet\Odyssey.Core.sln
 | AC-5 (test metadata registered) | Met | `Tests/Metadata/test-catalog.json`. |
 | AC-6 (no new production logic; no fixture hook needed) | Met | `git diff --name-status` touches only `DotNet/Tests/**`/`Tests/Metadata/**`/`docs/**`. |
 | AC-7 (dotnet test green, backlog updated, block noted complete) | Met | Table above; backlog row and block note updated. |
-| AC-8 (Draft PR) | Pending PR creation. |
+| AC-8 (Draft PR) | Met | PR #133 opened as Draft. |
 
 ### Build and artifact evidence
 
