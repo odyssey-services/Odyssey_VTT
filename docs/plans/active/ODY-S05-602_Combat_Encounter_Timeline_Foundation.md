@@ -57,6 +57,10 @@ None yet.
 
 Restored the Application/Persistence boundary with a narrow service; added durable-ledger collision checks and real SQLite encounter tests. No attack-pipeline seam was added.
 
+### Amendment 2 (2026-09-13)
+
+Corrected the catalog-delete ledger identifier and added direct-SQL fixture coverage for foreign command-id collisions, schema constraints, and source-level scope guards.
+
 Revert PR before merge; no migration is planned.
 
 ## 11. Open questions and blockers

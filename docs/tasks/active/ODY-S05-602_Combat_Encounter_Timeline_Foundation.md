@@ -83,6 +83,10 @@ Implementation validation is recorded in the execution plan before review.
 
 `CombatEncounterService` owns the MainGM check and passes persistence-ready command data to the repository. The SQLite repository keeps only timeline, replay, collision, eligibility, and transaction work. Command-id collisions with known durable stores are rejected with `CommandIdentityMismatch`, preserving the caller correlation id. The test catalog is backed by real NUnit integration coverage rather than registration anchors.
 
+### Amendment 2 — collision coverage (2026-09-13)
+
+The collision check uses the catalog's actual `ContentDefinitionDeleteLedger` table and its `CommandId` key. Integration tests seed that ledger and `AppliedCommands` directly, then prove the combat command is rejected without combat rows. Scope and schema assertions cover the production boundary and SQLite key/index contract.
+
 ### Blockers
 
 None.
