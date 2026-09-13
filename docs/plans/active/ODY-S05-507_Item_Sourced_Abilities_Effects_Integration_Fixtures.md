@@ -3,7 +3,7 @@
 **Status:** In Review
 **Owner:** Codex (agent)
 **Branch:** `feat/ody-s05-507-integration-fixtures`
-**Pull request:** TBD (Draft)
+**Pull request:** [odyssey-services/Odyssey_VTT#142](https://github.com/odyssey-services/Odyssey_VTT/pull/142) (Draft)
 **Last updated:** 2026-09-13 UTC
 
 Per `PLANS.md` §1.1: this task is contained in one area (tests), changes no public contract/schema/permissions/dependency graph, has one clear implementation path, fits in one PR, and needs no migration/recovery procedure — a Brief plan, not an ExecPlan, matching the exact precedent `ODY-S05-207`/`306`/`404` set for their own integration-fixture tasks.

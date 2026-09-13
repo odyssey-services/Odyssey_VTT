@@ -5,7 +5,7 @@
 **Owner:** Codex (agent)
 **Requested by:** Product owner
 **Branch:** `feat/ody-s05-507-integration-fixtures`
-**Pull request:** TBD (Draft)
+**Pull request:** [odyssey-services/Odyssey_VTT#142](https://github.com/odyssey-services/Odyssey_VTT/pull/142) (Draft)
 **Plan:** `docs/plans/active/ODY-S05-507_Item_Sourced_Abilities_Effects_Integration_Fixtures.md` (Brief plan)
 **Created:** 2026-09-13
 **Last updated:** 2026-09-13 UTC
@@ -269,7 +269,7 @@ dotnet test DotNet\Odyssey.Core.sln
 - [x] No unapproved dependency, tool, GitHub Action, or license was introduced.
 - [x] Documentation is updated only where materially required.
 - [x] Codex/developer performed a self-review against this task and `AGENTS.md`.
-- [ ] Pull request explains changes, evidence, limitations, and follow-up work.
+- [x] Pull request explains changes, evidence, limitations, and follow-up work.
 - [ ] Product owner or authorized reviewer completes the required review; Codex does not merge into `main`.
 
 ## 17. Completion evidence
@@ -301,7 +301,7 @@ dotnet test DotNet\Odyssey.Core.sln
 | AC-5 (test metadata registered, descriptions accurate) | Met | `Tests/Metadata/test-catalog.json`. |
 | AC-6 (no new production logic; no fixture hook needed) | Met | `git diff --name-status` touches only `DotNet/Tests/**`/`Tests/Metadata/**`/`docs/**`. |
 | AC-7 (dotnet test green, backlog updated) | Met | Table above; backlog row updated. |
-| AC-8 (Draft PR) | Met | PR to be opened as Draft. |
+| AC-8 (Draft PR) | Met | PR #142 opened as Draft. |
 
 ### Build and artifact evidence
 
