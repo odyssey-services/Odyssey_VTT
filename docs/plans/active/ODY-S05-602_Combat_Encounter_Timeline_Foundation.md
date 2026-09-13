@@ -1,0 +1,64 @@
+# ODY-S05-602 — Combat Encounter Timeline Foundation
+
+**Status:** Active  
+**Owner:** Codex (agent)  
+**Branch:** `feat/ody-s05-602-combat-encounter-timeline`  
+**Pull request:** Not opened
+
+## 1. Purpose and user-visible outcome
+
+Provide the authoritative turn/round board on which later attack commands can run, without implementing attacks.
+
+## 2. Task contract
+
+See `docs/tasks/active/ODY-S05-602_Combat_Encounter_Timeline_Foundation.md`. Required commands: build/test plus format/policy/test-structure verification.
+
+## 3. Current state
+
+Started from `origin/main` `245109e` after PR #145. Documentation-first commit precedes production inspection.
+
+## 4. Proposed approach
+
+Reuse existing aggregate/repository/SQLite-ledger patterns. Add only encounter identity/state, ordered Character participants, lifecycle records, create/advance commands, and their narrow tests. Use an injected clock and a single transaction; do not add an initiative abstraction or generic engine.
+
+## 5. Milestones
+
+### M1 — Documentation gate
+
+- [x] Task contract and ExecPlan committed without production inspection/edit.
+
+### M2 — Timeline vertical slice
+
+- [ ] Inspect existing patterns; implement Domain/Application/Persistence and tests.
+
+### M3 — Evidence and review
+
+- [ ] Run required validation, update docs/backlog, open Draft PR.
+
+## 6. Progress log
+
+- 2026-09-13 — Created contract and plan; validation not run.
+
+## 7. Decisions
+
+- 2026-09-13 — Persist supplied order; no initiative formula. Authority: task brief, `ADR-029` §1.
+
+## 8. Discoveries and deviations
+
+None yet.
+
+## 9. Validation and acceptance evidence
+
+Not run at documentation-first stage.
+
+## 10. Recovery and rollback
+
+Revert PR before merge; no migration is planned.
+
+## 11. Open questions and blockers
+
+None.
+
+## 12. Outcome and follow-up
+
+Pending implementation; `ODY-S05-603` remains out of scope.
