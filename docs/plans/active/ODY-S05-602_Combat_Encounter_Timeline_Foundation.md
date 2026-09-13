@@ -49,7 +49,7 @@ None yet.
 
 ## 9. Validation and acceptance evidence
 
-2026-09-13: `test-fast`, `verify-format`, `check-repository-policy`, `verify-test-structure`, `verify-repository`, and `verify-docs` passed after implementation. The initial `format.ps1` invocation was not run because that script does not exist; the changed C# files were formatted with the repository's `dotnet format` solution command before `verify-format` passed.
+2026-09-13: `test-fast`, `verify-format`, `check-repository-policy`, `verify-test-structure`, and `verify-repository` passed after implementation. `verify-docs.ps1` and `format.ps1` do not exist in this repository, so neither was run; the changed C# files were formatted with the repository's `dotnet format` solution command before `verify-format` passed.
 
 ## 10. Recovery and rollback
 
