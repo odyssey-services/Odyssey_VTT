@@ -4,7 +4,7 @@
 **ADR:** ADR-029  
 **Версия:** 1.0  
 **Дата:** 2026-09-13  
-**Статус:** Proposed — pending product-owner acceptance  
+**Статус:** Accepted — product-owner decisions recorded 2026-09-13  
 **Область:** authoritative combat turn/round timeline and attack resolution pipeline, including combat-sourced `ActiveEffect` application. This ADR extends the boundary left by `ADR-028` §13; it does not amend `ADR-001`–`ADR-028`.  
 **Связанные этапы:** `SLICE-05`, Block 3, task `ODY-S05-601`  
 **Базовые документы:** `ADR-001` §1–§5; `ADR-002` §3–§6; `ADR-003` §3–§7; `ADR-004` §3–§5; `ADR-008` §3–§6; `ADR-010` §3–§7; `ADR-012` §5; `ADR-019`; `ADR-027` §1 rule 13, §5, §8.2, §11–§14, §18; `ADR-028` §8, §12–§15, §19; `docs/tasks/SLICE-05_BACKLOG.md` §3.2.
@@ -233,11 +233,13 @@ Implementation decomposition and tests must prove at minimum:
 
 ---
 
-# 14. Открытые вопросы
+# 14. Resolved questions and product-owner decisions
 
-1. `Documentation/17_Roadmap_Odyssey_VTT_v0.11.md` §14.6 is cited by `ADR-027` and the historical backlog, but no `Documentation/` directory or roadmap file is tracked in this repository. This ADR deliberately relies only on the verbatim `SLICE-05_BACKLOG.md` §3.2 quote and `ADR-028` §13/§14 boundary. **Product owner decision requested:** confirm whether the unavailable roadmap contains additional mandatory pipeline requirements before this ADR may be accepted.
-2. The historical quote lists fifteen labels, while task material calls the conveyor "fourteen-step." This ADR preserves all fifteen labels rather than silently combine two. **Product owner decision requested:** confirm whether the count is merely editorial or whether a specific pair is intended to be one stage.
-3. The Ruleset-specific definitions of intervention options/deadlines and initiative/order changes are intentionally not invented here. Future implementation must use the section 4/6 architecture and obtain a concrete Ruleset contract before implementing those payloads.
+The product owner resolved both acceptance questions on 2026-09-13. The decisions are recorded verbatim:
+
+1. **Missing roadmap document — resolved.** Product owner decision (2026-09-13): "считать, что содержания недостающего внешнего roadmap-документа, выходящего за рамки уже учтённого в `SLICE-05_BACKLOG.md` §3.2 и `ADR-028` §13/§14, не требуется." The absent `Documentation/17_Roadmap_Odyssey_VTT_v0.11.md` therefore adds no mandatory requirement beyond the tracked sources used by this ADR; the acceptance blocker is closed.
+2. **Pipeline count — resolved.** Product owner decision (2026-09-13): "это опечатка в старом тексте задачи (`ODY-S05-112`/контракт `601`), не сознательное решение объединить два шага." The product owner further confirmed: "Список из `SLICE-05_BACKLOG.md` §3.2 при буквальном подсчёте даёт 15 пунктов — именно это число `ADR-029` уже и использует в своей таблице (§6). Менять саму механику/таблицу шагов не нужно." The table in section 6 remains the accepted fifteen-stage pipeline.
+3. The Ruleset-specific definitions of intervention options/deadlines and initiative/order changes remain intentionally out of implementation scope. Future implementation must use the section 4/6 architecture and obtain a concrete Ruleset contract before implementing those payloads; this is not an unresolved acceptance blocker for this ADR.
 
 ---
 
@@ -256,7 +258,7 @@ Existing ADRs reused without redefinition: `ADR-001` (module boundaries), `ADR-0
 
 # 16. Нормативное действие
 
-**This ADR is Proposed.** It becomes binding only after the repository's normal product-owner ADR acceptance process. Until then, it enables no implementation task and does not authorize any update of the `ODY-S05-601` backlog status.
+**This ADR is Accepted.** The product-owner acceptance decisions are recorded in section 14. This ADR is binding for future implementation decomposition and authorizes the corresponding `ODY-S05-601` backlog status update.
 
 Once accepted, a separate backlog-revision task may decompose `ODY-S05-602` onward. Those tasks must implement the decisions above rather than renegotiating them inline; a change requires an ADR amendment or superseding ADR.
 
