@@ -168,6 +168,25 @@ namespace Odyssey.Application.Persistence
             correlationId);
 
         /// <summary>
+        /// ODY-S05-506: `ADR-028` §10 rules 2-3's own two MainGM-only permission
+        /// gates -- `RemoveActiveEffect` and direct (non-item) `ActiveEffect`
+        /// creation -- share this one error code, mirroring
+        /// <see cref="Odyssey.Application.Inventory.InventoryMovementFailures.Denied"/>'s
+        /// own "one shared code across several operations of the same domain"
+        /// convention (not <c>CharacterDeletionDenied</c>'s own
+        /// one-code-per-operation style), since the backlog's own text groups
+        /// both operations together as "two MainGM-only permission gates...
+        /// grouped together."
+        /// </summary>
+        public static Error ActiveEffectOperationDenied(CorrelationId correlationId) => Error.Create(
+            ErrorCodes.PersistenceActiveEffectOperationDenied,
+            ErrorCategory.Authorization,
+            SafeReasonCode.PermissionDenied,
+            UserMessageKey.Parse("errors.persistence.active_effect_operation_denied"),
+            RetryDirective.DoNotRetry,
+            correlationId);
+
+        /// <summary>
         /// ODY-S03-004: ADR-002 section 10.2's optimistic-concurrency check,
         /// enforced atomically inside <c>SqliteSceneRepository.MoveToken</c>'s
         /// own transaction -- the final guard against a concurrent revision

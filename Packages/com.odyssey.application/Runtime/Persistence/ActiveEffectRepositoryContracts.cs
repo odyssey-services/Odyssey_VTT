@@ -18,16 +18,20 @@ namespace Odyssey.Application.Persistence
     /// persistence idiom is invented.
     ///
     /// `ODY-S05-502`'s own minimum contract was create, read-by-id,
-    /// list-by-`TargetRef`, list-by-`SourceRef` only. `ODY-S05-504` adds
-    /// <see cref="ExpireActiveEffect"/> -- by exclusion, the only remaining
-    /// task in this range that owns any `Status → Expired` transition
-    /// (`ODY-S05-505` owns only `Suspended`/`Active` for `WhileItemEquipped`;
-    /// `ODY-S05-506` owns only `Removed`; neither covers `Expired`), per
+    /// list-by-`TargetRef`, list-by-`SourceRef` only. `ODY-S05-504` added
+    /// <see cref="ExpireActiveEffect"/> (`Status → Expired`) and `ODY-S05-505`
+    /// added <see cref="SetItemEffectEquipped"/> (`Status ↔ Suspended`/`Active`
+    /// for `WhileItemEquipped`) -- by exclusion, `ODY-S05-506` is the only
+    /// remaining task in this range that could own `Status → Removed`, per
     /// `ADR-028` §6 rule 2's own minimum contract ("transition `Status`
-    /// (expire/suspend/resume/remove)"). No stacking-policy mutation
-    /// (`ODY-S05-503`, a pure decision layer) or removal (`ODY-S05-506`)
-    /// exists on this interface. `ODY-S05-505` adds the item-equipment
-    /// suspend/resume transition through <see cref="SetItemEffectEquipped"/>.
+    /// (expire/suspend/resume/remove)"), and adds
+    /// <see cref="RemoveActiveEffect"/> for exactly that. No stacking-policy
+    /// mutation (`ODY-S05-503`, a pure decision layer with no repository
+    /// change) exists on this interface. Direct (non-item) creation
+    /// (`ADR-028` §10 rule 2, also `ODY-S05-506`'s own territory) needs no
+    /// new method here at all -- it is a MainGM-gated Application-layer
+    /// wrapper (`ActiveEffectDirectCommandService`) over the already-existing
+    /// <see cref="CreateActiveEffect"/>, unmodified.
     /// </summary>
     public interface IActiveEffectRepository
     {
@@ -68,5 +72,21 @@ namespace Odyssey.Application.Persistence
         /// Authorization is inherited from the successful host equipment operation.
         /// </summary>
         Result<long> SetItemEffectEquipped(CampaignHandle campaign, CampaignId campaignId, ActiveEffectId activeEffectId, bool equipped, long expectedRevision, UserId actorUserId, CommandId commandId, CorrelationId correlationId);
+
+        /// <summary>
+        /// ODY-S05-506: `ADR-028` §9's own explicit early-removal command --
+        /// transitions an `Active`/`Suspended` `ActiveEffect` row's own
+        /// `Status` to `Removed`, `Revision`-CAS-guarded against
+        /// <paramref name="expectedRevision"/>, routed through the shared
+        /// `SqliteSavingPipeline` (`ADR-028` §12). Never physically deletes
+        /// the row (`ADR-012`'s append-only-history discipline). Idempotent
+        /// by <paramref name="commandId"/>. `ADR-028` §10 rule 3's own
+        /// MainGM-only gate is checked as this method's own first statement,
+        /// before any I/O -- the same repository-level placement
+        /// `SqliteCharacterRepository.DeleteCharacterPermanently` already
+        /// established for an analogous explicit lifecycle-ending command,
+        /// not a separate Application-layer wrapper.
+        /// </summary>
+        Result<ActiveEffectRecord> RemoveActiveEffect(CampaignHandle campaign, CampaignId campaignId, ActiveEffectId activeEffectId, UserId actorUserId, bool actorIsMainGm, long expectedRevision, CommandId commandId, CorrelationId correlationId);
     }
 }
