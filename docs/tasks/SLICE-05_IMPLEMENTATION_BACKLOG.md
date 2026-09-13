@@ -230,12 +230,13 @@ This backlog revision excludes:
 - `ODY-S05-506` depends on `ODY-S05-502` (`RemoveActiveEffect` and the direct-creation permission gate both act on the same aggregate).
 - `ODY-S05-507` depends on `ODY-S05-502`–`506` (integration proof for the completed item-sourced abilities/effects implementation range).
 - `ODY-S05-601` depends on the completed item-sourced abilities/effects range (`ODY-S05-501`–`507`) and this decomposition task (`ODY-S05-112`) — the full attack pipeline's own `ActiveEffect` integration (the six turn/round-based `EffectDurationType` values, combat-triggered effect application) builds on the already-accepted `ADR-028` and needs no other block's own code. Any future implementation task in this block (`ODY-S05-602` onward, not yet decomposed) will depend on `ODY-S05-601`'s own accepted ADR.
+- `ODY-S05-602` depends on `ODY-S05-601` and `ODY-S05-113`; `603` on `602`; `604` on `602`/`603`; `605` on `602`/`502`; `606` on `603`–`605`; `607` on `604`; `608` on `602`–`607`.
 
 ## 11. Backlog change control
 
 - New work requires a task contract; this document reserves numbers `ODY-S05-101` through `ODY-S05-106` for the completed Content Catalog MVP block, `ODY-S05-201` through `ODY-S05-207` for the completed Inventory runtime block, `ODY-S05-301` through `ODY-S05-306` for the Equipment runtime block (section 12), and `ODY-S05-401` through `ODY-S05-404` for the `ItemDefinition` migration block (section 13).
 - `ODY-S05-501` through `ODY-S05-507` are reserved for the item-sourced abilities/effects block: `ODY-S05-501` (section 14, the `ActiveEffect` aggregate ADR-specification task) was decomposed by `ODY-S05-110`; `ODY-S05-502`–`507` (section 15) were decomposed by `ODY-S05-111`, once `501`'s own `ADR-028` was accepted. No further number in this block remains reserved-but-unscoped.
-- `ODY-S05-601` through `ODY-S05-60N` are reserved for the full attack pipeline block (section 16): `ODY-S05-601` (the full attack pipeline ADR-specification task) is decomposed by this revision (`ODY-S05-112`). Unlike the item-sourced abilities/effects block's own closed `502`–`507` range, `N` is deliberately left open here — this block's own implementation-task count cannot be responsibly fixed before `601`'s own ADR exists to decompose against, the same reasoning `ODY-S05-110` already applied when it first reserved `ODY-S05-501`–`ODY-S05-50N` (later closed at `507` by `ODY-S05-111`, once `ADR-028` existed). `ODY-S05-602` onward remains reserved-but-unscoped until a future backlog revision decomposes it, once `601`'s own ADR is accepted.
+- `ODY-S05-601` through `ODY-S05-608` are reserved for the full attack pipeline block: accepted ADR `601` plus `602`–`608`, decomposed by `ODY-S05-113` in section 17. No number remains reserved-but-unscoped.
 - A task may be split before implementation by updating this backlog, following the same rule prior backlog revisions in this repository already use.
 - A task may not be merged with unrelated cleanup merely to reduce task count.
 - Completed task files move to `docs/tasks/completed/` only after required review, per the established convention in this repository.
@@ -428,7 +429,7 @@ No task in `ODY-S05-502`–`507` may implement any of the six turn/round-based `
 
 ## 16. Ordered backlog (Full attack pipeline — ADR foundation)
 
-**Block status: ADR foundation only.** `ODY-S05-112` decomposes the full attack pipeline block (roadmap section 14.6) now that the item-sourced abilities/effects range (`ODY-S05-501`–`507`) is closed, per section 3.1's own product-owner sequencing decision ("migration block first, then item-sourced abilities/effects, then the full attack pipeline"). This block has **no ADR coverage of any kind** — not even the partial coverage `ODY-S05-110` found for item-sourced abilities/effects (`ADR-027` §8, which at least specified item integration rules). `ODY-S05-112` verified directly against the tracked repository that this absence is real, not assumed:
+**Block status: ADR foundation accepted.** `ODY-S05-112` recorded the historical absence of a pipeline ADR; `ODY-S05-601` then produced accepted `ADR-029` (PR #144). The evidence below is historical context, not current coverage.
 
 - No ADR (draft, numbered, or stub) for the full attack pipeline exists anywhere under `docs/adr/` (repository-wide directory listing).
 - `ADR-027` and `ADR-028` each name the full attack pipeline only as a boundary they explicitly exclude from their own scope, never as something they specify: `ADR-027` §1 rule 13 ("This ADR does **not** implement... full attack pipeline..."), its own §13 "Non-goals" list and §18 "Deferred but not open here" list (both naming "full attack pipeline" explicitly), and `ADR-028` §13 ("Boundary with the full attack pipeline (Block 3)") and §14 ("the full attack pipeline and its own turn/round infrastructure") — all non-goals or deferrals, never specifications.
@@ -446,4 +447,22 @@ Per this backlog's own §4 discipline ("any child task discovering a genuine gap
 
 `ODY-S05-601` owns the full attack pipeline specification only (ADR document, no code). It must not implement any runtime code, and it must not decompose the remaining implementation tasks of this block — that is a future backlog revision once this ADR is accepted, by direct analogy to how `ODY-S05-501` owned only the `ActiveEffect` ADR and left `ODY-S05-502`–`507` to `ODY-S05-111`.
 
-Once `ODY-S05-601`'s own ADR is accepted, `ODY-S05-602` onward — the actual turn/round infrastructure, action/preview/range/modifier/roll/hit/damage/effect-application implementation, and its own integration fixtures — is decomposed by a future backlog revision, mirroring the two-tier structure (`ODY-S05-110`/`111`) already used for the item-sourced abilities/effects block.
+`ODY-S05-601` is accepted and `ODY-S05-602`–`608` are decomposed by `ODY-S05-113` in section 17; individual task contracts are created only on activation.
+
+## 17. Ordered backlog (Full attack pipeline — implementation)
+
+`ODY-S05-113` maps accepted `ADR-029` seams without choosing Ruleset formulas or reopening `ADR-028`.
+
+| Order | Task ID | Status | Roadmap/product source | Title | Depends on | Planning mode | Primary result |
+|---:|---|---|---|---|---|---|---|
+| 1 | `ODY-S05-602` | Proposed | `ADR-029` §1 rules 1–2, §4 | Combat Encounter Timeline Foundation | 601, 113 | ExecPlan | Authoritative encounter, participants/order, round/turn lifecycle and command advancement; no attack evaluation. |
+| 2 | `ODY-S05-603` | Proposed | `ADR-029` §1 rules 3–4, §5–§6 stages 1–11 | Attack Intent, Preview, and Evaluation | 602 | ExecPlan | Pure preview and host-recomputed Rules evaluation, RNG inputs, and `EffectApplicationDecision`; no persisted apply. |
+| 3 | `ODY-S05-604` | Proposed | `ADR-029` §1 rules 5–6, §6 stages 12–13 | Intervention and Atomic Attack Apply | 602, 603 | ExecPlan | Pending resolution, intervention command, no-reroll/idempotency, and one atomic transaction. |
+| 4 | `ODY-S05-605` | Proposed | `ADR-029` §7 | Combat Effect Duration Expiry | 602, 502 | ExecPlan | Six combat duration boundary mechanisms/bindings; no effect creation or `ADR-028` redesign. |
+| 5 | `ODY-S05-606` | Proposed | `ADR-029` §1 rule 8, §8 | Combat ActiveEffect Application | 603, 604, 605 | ExecPlan | Apply explicit combat effect decisions through existing ActiveEffect saving pipeline. |
+| 6 | `ODY-S05-607` | Proposed | `ADR-029` §1 rule 7/10, §6 stages 14–15 | Compensation and Game Log Projections | 604 | ExecPlan | Causally-linked compensation and redacted committed projections; never rollback history. |
+| 7 | `ODY-S05-608` | Proposed | `ADR-029` §12 | Full Attack Pipeline Integration Fixtures | 602-607 | Brief plan | End-to-end proof of all nine §12 outcomes without new production behavior. |
+
+### 17.1 Full attack pipeline implementation task boundaries
+
+`602` owns timeline; `603` owns pure preview/evaluation; `604` owns pending/intervention/atomic apply; `605` owns only combat durations; `606` owns only combat effect application; `607` owns compensation and redacted projections; `608` composes them. `ADR-029` §11 is fully assigned: preview/recompute/RNG (`603`/`604`), durations (`605`), effects (`606`), atomicity/compensation (`604`/`607`), audience filtering (`607`), integration (`608`). No task chooses Ruleset formulas or changes `ADR-028` ownership, stacking, non-combat duration, removal, or fail-closed rules.
