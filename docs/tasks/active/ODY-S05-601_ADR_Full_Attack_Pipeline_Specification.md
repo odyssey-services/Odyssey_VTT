@@ -1,12 +1,12 @@
 # ODY-S05-601 — ADR: Full Attack Pipeline Specification
 
-**Status:** Proposed
+**Status:** Accepted
 **Roadmap stage / slice:** SLICE-05 (full attack pipeline, Block 3)
-**Owner:** Unassigned (future task)
+**Owner:** Codex (agent)
 **Requested by:** Product owner (activated by `ODY-S05-112`)
-**Branch:** TBD
-**Pull request:** TBD
-**Plan:** TBD — the executor of this task must choose an appropriate planning mode once activated; producing a new ADR is document work, not code, and sits outside `PLANS.md`'s own Brief/ExecPlan framework (which governs implementation planning), so the executor should determine the right process at that time rather than this contract prescribing one now.
+**Branch:** `feat/ody-s05-601-full-attack-pipeline-adr`
+**Pull request:** https://github.com/odyssey-services/Odyssey_VTT/pull/144 (Draft)
+**Plan:** Brief plan in §14 — the change is limited to one documentation area, has a single ADR deliverable and validation path, creates no runtime/public/persisted contract or dependency, and requires no migration/recovery procedure.
 **Created:** 2026-09-13 (contract only; task not yet started)
 **Last updated:** 2026-09-13 UTC
 
@@ -44,7 +44,7 @@ Produce and gain acceptance for a new ADR that specifies the full attack pipelin
 
 - Approved summary / references: none beyond the public authorities listed above. If the executor believes private/hidden product documentation (e.g. an actual roadmap document) is genuinely required to complete this ADR responsibly, that must be raised as an explicit open question to the product owner — see §4 and §9 below — not assumed or invented.
 
-## 4. Verified current state (as of contract creation by `ODY-S05-112`)
+## 4. Verified current state
 
 ### Verified facts
 
@@ -52,6 +52,7 @@ Produce and gain acceptance for a new ADR that specifies the full attack pipelin
 - `ADR-027` cites `Documentation/17_Roadmap_Odyssey_VTT_v0.11.md` §14 as the ultimate scope authority for the pipeline; this directory/file does not exist anywhere in the tracked repository (confirmed via direct repository-wide search during `ODY-S05-112`).
 - The only in-repository text enumerating the pipeline's own parts is the closed `docs/tasks/SLICE-05_BACKLOG.md` §3.2: "Roadmap section 14.6 names action intent, preview, range, modifiers, roll, hit, body part, armor, damage, costs, effect application, intervention, atomic apply, compensation, and game log. Those are full implementation and likely further ADR/task-decomposition work. `ADR-027` deliberately fixes only the item/equipment/content-catalog substrate needed before that pipeline can safely reference items, equipment, ammo, abilities, and effects."
 - `ADR-028` §13 ("Boundary with the full attack pipeline (Block 3)") reserves exactly six turn/round-based `EffectDurationType` values and explicitly states it does not specify how a combat roll decides to apply an effect — this is the one piece of real, binding integration content this ADR must honor.
+- Re-verified at task start after `git fetch origin`: `origin/main` is `3eedfc5` (PR #143 merged); `ODY-S05-112`, this task contract, and `ADR-028` are tracked on the base. The highest ADR is `ADR-028`; `ADR-029` is available. `Documentation/` remains absent.
 
 ### Assumptions the future executor must re-verify, not trust from this contract
 
@@ -119,7 +120,7 @@ Assets/**
 
 ### Scenario 2 — the full conveyor is specified end-to-end
 
-**Given** `SLICE-05_BACKLOG.md` §3.2 names fourteen conveyor steps (action intent through game log)
+**Given** `SLICE-05_BACKLOG.md` §3.2 names fifteen conveyor steps (action intent through game log)
 **When** this task's ADR is written
 **Then** it specifies each step's own responsibility, ordering, and authoritative/non-authoritative boundary, sufficient for future implementation tasks to be decomposed against it without re-deciding architecture.
 
@@ -153,7 +154,7 @@ Assets/**
 
 ## 9. Acceptance criteria
 
-1. A new ADR is authored specifying turn/round structure, the full fourteen-step conveyor, and `ActiveEffect` integration (six `EffectDurationType` values, the combat-roll-application rule), per §7's scenarios.
+1. A new ADR is authored specifying turn/round structure, the full fifteen-step conveyor, and `ActiveEffect` integration (six `EffectDurationType` values, the combat-roll-application rule), per §7's scenarios.
 2. The ADR is grounded explicitly in `SLICE-05_BACKLOG.md` §3.2's own verbatim quote and `ADR-028` §13/§14's own boundary text — it does not present invented content as if drawn from the non-existent roadmap file.
 3. Any requirement the executor cannot resolve without the missing roadmap file is raised as an explicit open question to the product owner, not silently assumed.
 4. The ADR does not contradict any already-accepted ADR (`ADR-001`–`ADR-028`).
@@ -169,7 +170,14 @@ None — document-only deliverable.
 
 ### Required commands
 
-To be determined by the executor based on the repository's validation conventions at the time this task starts (likely at minimum `.\scripts\check-repository-policy.ps1` and `.\scripts\verify-format.ps1`, mirroring how every other docs-affecting task in this backlog has run them).
+```powershell
+.\scripts\verify-format.ps1
+.\scripts\check-repository-policy.ps1
+.\scripts\verify-test-structure.ps1
+.\scripts\verify-repository.ps1
+```
+
+`verify-docs.ps1` is not present in this checkout and is therefore recorded as not run rather than substituted with a private command. Runtime test suites are not required: this task adds no production code or test behavior.
 
 ### Manual validation
 
@@ -211,8 +219,9 @@ To be determined by the executor; likely identical to every other planning task 
 
 ## 14. Planning and execution mode
 
-- Planning mode: to be chosen by this task's own future executor at activation time — an ADR is a document deliverable, not code, and sits outside `PLANS.md`'s own Brief/ExecPlan framework, which governs implementation planning. This contract does not prescribe a planning mode.
-- Plan path: TBD.
+- Planning mode: Brief plan, recorded here rather than in a separate plan file. Rationale: the work changes one documentation area, has one clear ADR-authoring/review path, introduces no code, public runtime contract, persistence format, dependency, migration, or recovery operation, and can be validated in one focused PR. This is proportionate to `PLANS.md` §1.1 even though the task is documentation-only.
+- Brief plan: (1) re-verify ADR number, required contract/dependency state, absent roadmap, and exact source citations; (2) author `ADR-029` with the pipeline, turn/round, `ActiveEffect`, atomicity, and permission decisions; (3) update this contract with decisions/evidence; (4) review document-only diff and run documentation/repository validation. Do not update the backlog status or decompose `602`+ before product-owner acceptance.
+- Plan path: Not applicable — no standalone ExecPlan is required.
 - Expected pull request count: at least 1 (the ADR itself); a follow-up backlog-status-update commit/PR may be needed once accepted, mirroring the two-commit pattern used elsewhere in this backlog.
 - Milestone or sequencing constraints: depends on `ODY-S05-112` (this decomposition) and the fully merged item-sourced abilities/effects range (`ODY-S05-501`–`507`). Must be accepted before any future task decomposes or implements `ODY-S05-602` onward.
 
@@ -243,18 +252,29 @@ To be determined by the executor; likely identical to every other planning task 
 
 ## 17. Completion evidence
 
-Not applicable — this task has not started. This section will be filled in by the future executor once the ADR is actually authored and accepted.
+- 2026-09-13 — Re-synchronized with `origin`; `origin/main` advanced to `3eedfc5`, the merge of PR #143 (`ODY-S05-112`). Created a clean task worktree/branch from that base to avoid unrelated local `ODY-S05-205` changes.
+- 2026-09-13 — Re-read required task/backlog/ADR authorities, confirmed `ADR-029` is the next available number, and confirmed the required external `Documentation/17_Roadmap_Odyssey_VTT_v0.11.md` is not tracked.
+- 2026-09-13 — Authored proposed `docs/adr/ADR-029_Full_Attack_Pipeline_Specification_v1.0.md`. It defines the timeline, all labels from the historical pipeline quote, preview/commit boundary, authoritative RNG/idempotency/intervention/atomicity/compensation, `ActiveEffect` application decision, and six reserved duration semantics. Validation evidence is completed only after commands and manual review.
+- 2026-09-13 — Passed `.\scripts\verify-format.ps1` (`FORMAT-001`), `.\scripts\check-repository-policy.ps1` (repository policy checks), `.\scripts\verify-test-structure.ps1` (`TC-ARCH-001`/`TC-ARCH-002`), and `.\scripts\verify-repository.ps1` (`REPOSITORY-VERIFY PASS`). `verify-docs.ps1` was not run because the script is absent. Runtime tests are not applicable to a documentation-only diff.
+- 2026-09-13 — Manual review confirmed the diff is limited to this contract and the new ADR; no backlog status, `ODY-S05-602`+ decomposition, production code, schema, or tests changed.
+- 2026-09-13 — Opened Draft PR [#144](https://github.com/odyssey-services/Odyssey_VTT/pull/144). The PR remains unmerged; the product-owner acceptance decision is recorded separately below before the backlog-status update.
+- 2026-09-13 — Product owner accepted `ADR-029` and resolved both recorded questions. The backlog row is now updated to `Done (ADR-029 Accepted; PR #144)`; no `ODY-S05-602`+ task was decomposed.
+- 2026-09-13 — Re-ran `.\scripts\verify-format.ps1`, `.\scripts\check-repository-policy.ps1`, `.\scripts\verify-test-structure.ps1`, and `.\scripts\verify-repository.ps1` after recording acceptance. All passed.
 
 ## 18. Blockers, decisions, and change control
 
 ### Blockers
 
-- This task cannot start meaningfully until `ODY-S05-112` (this contract's own origin) is accepted, since it depends on the backlog's own §16/§16.1 decomposition existing.
-- If the executor determines the external roadmap document is genuinely required, that is a blocker requiring product-owner input before the ADR can be considered complete.
+- `ODY-S05-112` is now merged into `origin/main`; its dependency no longer blocks authoring.
+- Resolved — Product owner decision (2026-09-13): "считать, что содержания недостающего внешнего roadmap-документа, выходящего за рамки уже учтённого в `SLICE-05_BACKLOG.md` §3.2 и `ADR-028` §13/§14, не требуется." This closes the roadmap acceptance blocker; no absent-roadmap content was invented.
+- Resolved — Product owner decision (2026-09-13): "это опечатка в старом тексте задачи (`ODY-S05-112`/контракт `601`), не сознательное решение объединить два шага." "Список из `SLICE-05_BACKLOG.md` §3.2 при буквальном подсчёте даёт 15 пунктов — именно это число `ADR-029` уже и использует в своей таблице (§6). Менять саму механику/таблицу шагов не нужно." The contract now consistently calls this the fifteen-step pipeline.
 
 ### Decisions made during execution
 
-- None yet — this task has not started. The future executor must record their own decisions here, following the same evidentiary discipline `ODY-S05-110`/`112` used: verify claims directly against the repository rather than trusting any prior task's own summary, and cite exact ADR sections rather than paraphrasing.
+- 2026-09-13 — Selected Brief plan for the documented reasons in §14. Authority: `PLANS.md` §1.1 and documentation-only scope.
+- 2026-09-13 — Kept `ADR-029` status `Proposed`; did not alter `SLICE-05_IMPLEMENTATION_BACKLOG.md` because the contract requires product-owner acceptance first.
+- 2026-09-13 — Treated `SLICE-05_BACKLOG.md` §3.2 as a verbatim historical anchor only and `ADR-028` §13/§14 as binding integration boundary; did not infer content from the absent roadmap.
+- 2026-09-13 — Product owner accepted `ADR-029`, closed the roadmap question, and confirmed the historical step-count wording is a typo rather than an instruction to combine stages. Status changed to `Accepted` and the backlog row changed only after that decision. Authority: product-owner decisions recorded verbatim above and in `ADR-029` §14.
 
 ### Approved task changes
 
