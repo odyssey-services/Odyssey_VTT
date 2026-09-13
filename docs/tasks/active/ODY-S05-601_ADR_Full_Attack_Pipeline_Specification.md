@@ -5,7 +5,7 @@
 **Owner:** Codex (agent)
 **Requested by:** Product owner (activated by `ODY-S05-112`)
 **Branch:** `feat/ody-s05-601-full-attack-pipeline-adr`
-**Pull request:** Not opened
+**Pull request:** https://github.com/odyssey-services/Odyssey_VTT/pull/144 (Draft)
 **Plan:** Brief plan in §14 — the change is limited to one documentation area, has a single ADR deliverable and validation path, creates no runtime/public/persisted contract or dependency, and requires no migration/recovery procedure.
 **Created:** 2026-09-13 (contract only; task not yet started)
 **Last updated:** 2026-09-13 UTC
@@ -257,6 +257,7 @@ To be determined by the executor; likely identical to every other planning task 
 - 2026-09-13 — Authored proposed `docs/adr/ADR-029_Full_Attack_Pipeline_Specification_v1.0.md`. It defines the timeline, all labels from the historical pipeline quote, preview/commit boundary, authoritative RNG/idempotency/intervention/atomicity/compensation, `ActiveEffect` application decision, and six reserved duration semantics. Validation evidence is completed only after commands and manual review.
 - 2026-09-13 — Passed `.\scripts\verify-format.ps1` (`FORMAT-001`), `.\scripts\check-repository-policy.ps1` (repository policy checks), `.\scripts\verify-test-structure.ps1` (`TC-ARCH-001`/`TC-ARCH-002`), and `.\scripts\verify-repository.ps1` (`REPOSITORY-VERIFY PASS`). `verify-docs.ps1` was not run because the script is absent. Runtime tests are not applicable to a documentation-only diff.
 - 2026-09-13 — Manual review confirmed the diff is limited to this contract and the new ADR; no backlog status, `ODY-S05-602`+ decomposition, production code, schema, or tests changed.
+- 2026-09-13 — Opened Draft PR [#144](https://github.com/odyssey-services/Odyssey_VTT/pull/144). Product-owner ADR acceptance remains required; this task did not merge the PR or change the backlog status.
 
 ## 18. Blockers, decisions, and change control
 
