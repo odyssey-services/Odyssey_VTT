@@ -29,15 +29,20 @@ namespace Odyssey.Persistence.Sqlite
     /// whose own tables/idempotency ledgers exist for Inventory-owned state
     /// this aggregate deliberately is not (`ADR-028` §8.2 rule 2).
     ///
-    /// `ODY-S05-502` implemented creation and basic persistence only. This
-    /// class now also implements `ODY-S05-504`'s own <see cref="ExpireActiveEffect"/>
-    /// (the `Status → Expired` transition, added by exclusion since neither
-    /// `ODY-S05-505`'s own `Suspended`/`Active` transition nor `ODY-S05-506`'s
-    /// own `Removed` transition covers it -- see that task's own contract
-    /// §18 decision log): no stacking-policy mutation (`ODY-S05-503`,
-    /// implemented separately as a pure decision layer with no repository
-    /// change), and no removal (`ODY-S05-506`). `ODY-S05-505` adds
-    /// <see cref="SetItemEffectEquipped"/> for WhileItemEquipped suspend/resume.
+    /// `ODY-S05-502` implemented creation and basic persistence only.
+    /// `ODY-S05-504` added <see cref="ExpireActiveEffect"/> (`Status → Expired`);
+    /// `ODY-S05-505` added <see cref="SetItemEffectEquipped"/> (`Status ↔
+    /// Suspended`/`Active` for `WhileItemEquipped`); `ODY-S05-506` adds
+    /// <see cref="RemoveActiveEffect"/> (`Status → Removed`, MainGM-only,
+    /// `ADR-028` §10 rule 3) -- together the four exhaust `ADR-028` §6 rule
+    /// 2's own minimum contract ("transition `Status` (expire/suspend/resume/
+    /// remove)"). No stacking-policy mutation exists on this class
+    /// (`ODY-S05-503`, implemented separately as a pure decision layer with
+    /// no repository change). Direct (non-item) creation (`ADR-028` §10 rule
+    /// 2, also `ODY-S05-506`'s own territory) needs no change here at all --
+    /// it is a MainGM-gated Application-layer wrapper
+    /// (`ActiveEffectDirectCommandService`) over <see cref="CreateActiveEffect"/>,
+    /// unmodified.
     /// </summary>
     public sealed class SqliteActiveEffectRepository : IActiveEffectRepository
     {
@@ -352,6 +357,92 @@ namespace Odyssey.Persistence.Sqlite
             writer.WriteEndObject();
             writer.Flush();
             return text.ToString();
+        }
+
+        public Result<ActiveEffectRecord> RemoveActiveEffect(CampaignHandle campaign, CampaignId campaignId, ActiveEffectId activeEffectId, UserId actorUserId, bool actorIsMainGm, long expectedRevision, CommandId commandId, CorrelationId correlationId)
+        {
+            if (campaign == null) throw new ArgumentNullException(nameof(campaign));
+            if (!activeEffectId.IsValid) throw new ArgumentException("ActiveEffectId is required.", nameof(activeEffectId));
+            if (!actorUserId.IsValid) throw new ArgumentException("ActorUserId is required.", nameof(actorUserId));
+            if (expectedRevision < 1) throw new ArgumentOutOfRangeException(nameof(expectedRevision));
+            if (!commandId.IsValid) throw new ArgumentException("CommandId is required.", nameof(commandId));
+
+            // ADR-028 section 10 rule 3: MainGM-only, checked before touching
+            // the database at all -- matching every other MainGM-only gate's
+            // own convention (SqliteCharacterRepository.DeleteCharacterPermanently).
+            if (!actorIsMainGm)
+            {
+                return Result<ActiveEffectRecord>.Failure(PersistenceFailures.ActiveEffectOperationDenied(correlationId));
+            }
+
+            if (!TryValidateCampaignBoundary(campaign, campaignId, correlationId, out Error campaignError))
+            {
+                return Result<ActiveEffectRecord>.Failure(campaignError);
+            }
+
+            try
+            {
+                using SqliteConnection connection = OpenConnection(campaign.RootPath);
+                EnsureActiveEffectTables(connection);
+
+                return _pipeline.Execute(
+                    connection,
+                    campaignId,
+                    commandId,
+                    correlationId,
+                    tryReplay: transaction => ReplayByCommandId(connection, transaction, campaignId, commandId, correlationId),
+                    apply: transaction =>
+                    {
+                        ActiveEffectRecord current;
+                        using (var select = connection.CreateCommand())
+                        {
+                            select.Transaction = transaction;
+                            select.CommandText = SelectColumns + " FROM ActiveEffect WHERE ActiveEffectId=$id AND CampaignId=$campaign;";
+                            select.Parameters.AddWithValue("$id", activeEffectId.ToString());
+                            select.Parameters.AddWithValue("$campaign", campaignId.ToString());
+                            using var reader = select.ExecuteReader();
+                            if (!reader.Read()) return Result<PipelineWrite<ActiveEffectRecord>>.Failure(PersistenceFailures.ActiveEffectNotFound(correlationId));
+                            current = ReadRecord(reader);
+                        }
+
+                        if (current.Effect.Status != ActiveEffectStatus.Active && current.Effect.Status != ActiveEffectStatus.Suspended)
+                        {
+                            // Already terminal (Expired/Removed) -- an early-removal
+                            // command has nothing left to end; treated as a CAS
+                            // conflict, mirroring SetItemEffectEquipped's own
+                            // rejection of a transition from a terminal status.
+                            return Result<PipelineWrite<ActiveEffectRecord>>.Failure(PersistenceFailures.ActiveEffectRevisionConflict(correlationId));
+                        }
+
+                        UtcInstant now = _clock.GetUtcNow();
+                        using (var update = connection.CreateCommand())
+                        {
+                            update.Transaction = transaction;
+                            update.CommandText = "UPDATE ActiveEffect SET Status=$status, Revision=Revision+1, UpdatedAt=$now, LastCommandId=$commandId " +
+                                "WHERE ActiveEffectId=$id AND CampaignId=$campaign AND Revision=$expectedRevision;";
+                            update.Parameters.AddWithValue("$status", ActiveEffectStatus.Removed.ToString());
+                            update.Parameters.AddWithValue("$now", now.ToString());
+                            update.Parameters.AddWithValue("$commandId", commandId.ToString());
+                            update.Parameters.AddWithValue("$id", activeEffectId.ToString());
+                            update.Parameters.AddWithValue("$campaign", campaignId.ToString());
+                            update.Parameters.AddWithValue("$expectedRevision", expectedRevision);
+                            if (update.ExecuteNonQuery() != 1)
+                            {
+                                return Result<PipelineWrite<ActiveEffectRecord>>.Failure(PersistenceFailures.ActiveEffectRevisionConflict(correlationId));
+                            }
+                        }
+
+                        ActiveEffectRecord removed = ReadOneById(connection, transaction, activeEffectId);
+                        string payloadJson = "{\"activeEffectId\":\"" + activeEffectId + "\",\"actorUserId\":\"" + actorUserId + "\"}";
+                        return Result<PipelineWrite<ActiveEffectRecord>>.Success(new PipelineWrite<ActiveEffectRecord>(
+                            removed, "odyssey.persistence.active_effect_removed", payloadJson, activeEffectId.ToString(),
+                            aggregateType: "active_effect", aggregateId: activeEffectId.ToString(), aggregateRevision: removed.Effect.Revision));
+                    });
+            }
+            catch (Exception ex) when (ex is IOException || ex is UnauthorizedAccessException || ex is SqliteException)
+            {
+                return Result<ActiveEffectRecord>.Failure(PersistenceFailures.ActiveEffectIoFailed(correlationId));
+            }
         }
 
         private static ActiveEffectRecord ReadOneById(SqliteConnection connection, SqliteTransaction transaction, ActiveEffectId activeEffectId)

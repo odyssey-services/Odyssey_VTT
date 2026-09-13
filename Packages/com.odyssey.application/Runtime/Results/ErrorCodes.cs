@@ -31,6 +31,7 @@ namespace Odyssey.Application.Results
         public static readonly ErrorCode PersistenceActiveEffectIoFailed = ErrorCode.Parse("persistence.active_effect.io_failed");
         public static readonly ErrorCode PersistenceActiveEffectCampaignMismatch = ErrorCode.Parse("persistence.active_effect.campaign_mismatch");
         public static readonly ErrorCode PersistenceActiveEffectRevisionConflict = ErrorCode.Parse("persistence.active_effect.revision_conflict");
+        public static readonly ErrorCode PersistenceActiveEffectOperationDenied = ErrorCode.Parse("persistence.active_effect.operation_denied");
         public static readonly ErrorCode PersistenceIntegrityCheckFailed = ErrorCode.Parse("persistence.integrity.check_failed");
         public static readonly ErrorCode PersistenceCommandReplayFailed = ErrorCode.Parse("persistence.command.replay_failed");
         public static readonly ErrorCode PersistenceBackupCreateFailed = ErrorCode.Parse("persistence.backup.create_failed");
