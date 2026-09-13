@@ -53,6 +53,10 @@ None yet.
 
 ## 10. Recovery and rollback
 
+### Amendment (2026-09-13)
+
+Restored the Application/Persistence boundary with a narrow service; added durable-ledger collision checks and real SQLite encounter tests. No attack-pipeline seam was added.
+
 Revert PR before merge; no migration is planned.
 
 ## 11. Open questions and blockers

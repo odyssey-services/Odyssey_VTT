@@ -79,6 +79,10 @@ Implementation validation is recorded in the execution plan before review.
 
 ## 18. Blockers, decisions, and change control
 
+### Amendment — application boundary and test evidence (2026-09-13)
+
+`CombatEncounterService` owns the MainGM check and passes persistence-ready command data to the repository. The SQLite repository keeps only timeline, replay, collision, eligibility, and transaction work. Command-id collisions with known durable stores are rejected with `CommandIdentityMismatch`, preserving the caller correlation id. The test catalog is backed by real NUnit integration coverage rather than registration anchors.
+
 ### Blockers
 
 None.
