@@ -451,11 +451,11 @@ Per this backlog's own §4 discipline ("any child task discovering a genuine gap
 
 ## 17. Ordered backlog (Full attack pipeline — implementation)
 
-`ODY-S05-113` maps accepted `ADR-029` seams without choosing Ruleset formulas or reopening `ADR-028`.
+`ODY-S05-113` is Done (PR #145 merged) and maps accepted `ADR-029` seams without choosing Ruleset formulas or reopening `ADR-028`.
 
 | Order | Task ID | Status | Roadmap/product source | Title | Depends on | Planning mode | Primary result |
 |---:|---|---|---|---|---|---|---|
-| 1 | `ODY-S05-602` | Proposed | `ADR-029` §1 rules 1–2, §4 | Combat Encounter Timeline Foundation | 601, 113 | ExecPlan | Authoritative encounter, participants/order, round/turn lifecycle and command advancement; no attack evaluation. |
+| 1 | `ODY-S05-602` | In Review (PR #146) | `ADR-029` §1 rules 1–2, §4 | Combat Encounter Timeline Foundation | 601, 113 | ExecPlan | Authoritative encounter, participants/order, round/turn lifecycle and command advancement; no attack evaluation. |
 | 2 | `ODY-S05-603` | Proposed | `ADR-029` §1 rules 3–4, §5–§6 stages 1–11 | Attack Intent, Preview, and Evaluation | 602 | ExecPlan | Pure preview and host-recomputed Rules evaluation, RNG inputs, and `EffectApplicationDecision`; no persisted apply. |
 | 3 | `ODY-S05-604` | Proposed | `ADR-029` §1 rules 5–6, §6 stages 12–13 | Intervention and Atomic Attack Apply | 602, 603 | ExecPlan | Pending resolution, intervention command, no-reroll/idempotency, and one atomic transaction. |
 | 4 | `ODY-S05-605` | Proposed | `ADR-029` §7 | Combat Effect Duration Expiry | 602, 502 | ExecPlan | Six combat duration boundary mechanisms/bindings; no effect creation or `ADR-028` redesign. |
