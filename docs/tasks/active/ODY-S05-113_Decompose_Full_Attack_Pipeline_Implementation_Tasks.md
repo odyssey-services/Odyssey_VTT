@@ -4,7 +4,7 @@
 **Roadmap stage / slice:** SLICE-05, Block 3  
 **Owner:** Codex (agent)  
 **Branch:** `feat/ody-s05-113-decompose-attack-pipeline`  
-**Pull request:** Pending creation  
+**Pull request:** https://github.com/odyssey-services/Odyssey_VTT/pull/145 (Draft)  
 **Plan:** `docs/plans/active/ODY-S05-113_Decompose_Full_Attack_Pipeline_Implementation_Tasks.md` (Brief plan)
 
 ## 1. Goal
@@ -76,7 +76,7 @@ Only backlog, contract, plan. No version change.
 
 ## 17. Completion evidence
 
-`verify-format`, `check-repository-policy`, `verify-test-structure`, and `verify-repository` passed on 2026-09-13. No child contracts created; final diff is documentation-only.
+`verify-format`, `check-repository-policy`, `verify-test-structure`, and `verify-repository` passed on 2026-09-13. Draft PR #145 is open. No child contracts created; final diff is documentation-only.
 
 ## 18. Blockers, decisions, and change control
 
