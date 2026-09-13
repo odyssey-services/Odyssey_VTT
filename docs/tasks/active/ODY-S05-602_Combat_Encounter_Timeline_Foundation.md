@@ -45,7 +45,7 @@ All behaviors and exclusions in the product brief are implemented; lifecycle/rep
 
 ## 10. Tests and validation
 
-Run `dotnet build`, `dotnet test`, `verify-format`, `check-repository-policy`, `verify-test-structure`. Before implementation these are **Not run**; results will be recorded honestly.
+Required validation is `test-fast`, `verify-format`, `check-repository-policy`, `verify-test-structure`, `verify-repository`, and `verify-docs`.
 
 ## 11. Compatibility, migration, and rollback
 
@@ -75,7 +75,7 @@ Task/plan first; backlog status only after PR exists. No application/protocol/ru
 
 ## 17. Completion evidence
 
-Documentation-first stage only. All implementation validation: **Not run**.
+Implementation validation is recorded in the execution plan before review.
 
 ## 18. Blockers, decisions, and change control
 
