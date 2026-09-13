@@ -105,6 +105,19 @@ namespace Odyssey.Tests.Persistence
             Assert.That(IndexExists(c, "IX_CombatEncounter_CampaignId"), Is.True); Assert.That(IndexExists(c, "IX_CombatEncounterLifecycleEvent_EncounterId"), Is.True);
         }
 
+        [Test]
+        public void Cross_campaign_and_injected_sql_failure_are_rejected_without_partial_rows()
+        {
+            CharacterId active = Active("rollback"); Create(active);
+            Seed("CREATE TRIGGER FailCombatEvent BEFORE INSERT ON CombatEncounterLifecycleEvent BEGIN SELECT RAISE(ABORT, 'forced'); END;", Command());
+            Assert.That(Create(active).IsFailure, Is.True); Assert.That(Count("CombatEncounter"), Is.EqualTo(1)); Assert.That(Count("CombatEncounterParticipant"), Is.EqualTo(1)); Assert.That(Count("CombatEncounterLifecycleEvent"), Is.EqualTo(3)); Assert.That(Count("CombatEncounterCommandLedger"), Is.EqualTo(1));
+            using var c = new SqliteConnection("Data Source=" + Path.Combine(_root, "campaign.db")); c.Open(); using var drop = c.CreateCommand(); drop.CommandText = "DROP TRIGGER FailCombatEvent;"; drop.ExecuteNonQuery();
+            CombatEncounterRecord encounter = Create(active).Value;
+            string otherRoot = Path.Combine(Path.GetTempPath(), "ody-s05-602-other-" + Guid.NewGuid().ToString("N"));
+            Result<CampaignHandle> other = new SqliteCampaignRepository(new SystemWallClock()).Create(new CreateCampaignRequest(otherRoot, "Other", "ruleset.core", "1.0.0", "0.1.0"), Command(), Corr);
+            Assert.That(_encounters.Get(other.Value, encounter.EncounterId, Corr).IsFailure, Is.True);
+        }
+
         private Result<CombatEncounterRecord> Create(params CharacterId[] ids) => CombatEncounterService.Create(_encounters, _campaign, new CreateCombatEncounterRequest(ids, User(), true, Command()), Corr);
         private Result<CombatEncounterRecord> Advance(CombatEncounterRecord record) => CombatEncounterService.Advance(_encounters, _campaign, new AdvanceCombatEncounterRequest(record.EncounterId, record.Revision, User(), true, Command()), Corr);
         private CharacterId Active(string name) { CharacterId id = _characters.CreateCharacter(new CreateCharacterRequest(_campaign, CharacterKind.PlayerCharacter, name), Command(), Corr).Value.CharacterId; CharacterRecord current = _characters.GetCharacter(_campaign, id, Corr).Value; return _characters.ApproveCharacterDraft(_campaign, id, true, current.Revisions.LifecycleRevision, Command(), Corr).Value.CharacterId; }
