@@ -87,6 +87,10 @@ Implementation validation is recorded in the execution plan before review.
 
 The collision check uses the catalog's actual `ContentDefinitionDeleteLedger` table and its `CommandId` key. Integration tests seed that ledger and `AppliedCommands` directly, then prove the combat command is rejected without combat rows. Scope and schema assertions cover the production boundary and SQLite key/index contract.
 
+### Amendment 3 — replay and clock evidence (2026-09-13)
+
+Focused tests cover combat identity and participant constructor invariants, exact advance replay, advance-side foreign command-id collision, and source-level injected-clock discipline.
+
 ### Blockers
 
 None.

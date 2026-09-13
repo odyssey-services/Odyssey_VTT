@@ -61,6 +61,10 @@ Restored the Application/Persistence boundary with a narrow service; added durab
 
 Corrected the catalog-delete ledger identifier and added direct-SQL fixture coverage for foreign command-id collisions, schema constraints, and source-level scope guards.
 
+### Amendment 3 (2026-09-13)
+
+Added constructor invariant, exact replay, foreign-advance collision, and `IWallClock`/forbidden-clock-source evidence without changing production behavior.
+
 Revert PR before merge; no migration is planned.
 
 ## 11. Open questions and blockers

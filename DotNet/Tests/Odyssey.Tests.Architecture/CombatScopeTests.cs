@@ -22,10 +22,12 @@ namespace Odyssey.Tests.Architecture
             string root = directory!.FullName;
             string source = File.ReadAllText(Path.Combine(root, "Packages", "com.odyssey.persistence", "Runtime", "Sqlite", "SqliteCombatEncounterRepository.cs")) +
                             File.ReadAllText(Path.Combine(root, "Packages", "com.odyssey.application", "Runtime", "Combat", "CombatEncounterContracts.cs"));
+            Assert.That(source, Does.Contain("IWallClock"));
             foreach (string forbidden in new[] { "using Odyssey.Networking", "using UnityEngine", "using Odyssey.Application.GameLog", "using Odyssey.Application.Random", "using Odyssey.Application.Effects", "DiceRoll", "DamageResult" })
             {
                 Assert.That(source, Does.Not.Contain(forbidden));
             }
+            foreach (string forbiddenTimeSource in new[] { "DateTime.UtcNow", "DateTime.Now", "Stopwatch", "Environment.TickCount", "UnityEngine.Time" }) Assert.That(source, Does.Not.Contain(forbiddenTimeSource));
         }
     }
 }

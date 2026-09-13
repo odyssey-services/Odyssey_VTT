@@ -9,6 +9,7 @@ using Odyssey.Application.Persistence;
 using Odyssey.Application.Results;
 using Odyssey.Application.Time;
 using Odyssey.Domain.Character;
+using Odyssey.Domain.Combat;
 using Odyssey.Domain.Identity;
 using Odyssey.Persistence.Sqlite;
 
@@ -32,6 +33,15 @@ namespace Odyssey.Tests.Persistence
             _characters = new SqliteCharacterRepository(clock); _encounters = new SqliteCombatEncounterRepository(clock);
         }
 
+
+        [Test]
+        public void Domain_identity_and_participant_invariants_reject_invalid_values()
+        {
+            Assert.That(Throws<FormatException>(() => CombatEncounterId.Parse("enc_invalid")), Is.True);
+            Assert.That(Throws<ArgumentException>(() => new CombatParticipant(default, 0)), Is.True);
+            CharacterId character = CharacterId.Parse("char_0123456789abcdef0123456789abcdef");
+            Assert.That(Throws<ArgumentOutOfRangeException>(() => new CombatParticipant(character, -1)), Is.True);
+        }
 
         [Test]
         public void Create_captures_order_ruleset_and_lifecycle_sequence()
@@ -65,6 +75,16 @@ namespace Odyssey.Tests.Persistence
         }
 
         [Test]
+        public void Exact_advance_replay_returns_durable_result_without_duplicate_events()
+        {
+            CharacterId first = Active("first"), second = Active("second"); CombatEncounterRecord encounter = Create(first, second).Value;
+            CommandId command = Command(); var request = new AdvanceCombatEncounterRequest(encounter.EncounterId, encounter.Revision, User(), true, command);
+            CombatEncounterRecord advanced = CombatEncounterService.Advance(_encounters, _campaign, request, Corr).Value; int events = Events(encounter.EncounterId).Count;
+            CombatEncounterRecord replay = CombatEncounterService.Advance(_encounters, _campaign, request, Corr).Value;
+            Assert.That(replay.Revision, Is.EqualTo(advanced.Revision)); Assert.That(replay.CurrentParticipantId, Is.EqualTo(advanced.CurrentParticipantId)); Assert.That(replay.RoundOrdinal, Is.EqualTo(advanced.RoundOrdinal)); Assert.That(replay.TurnOrdinal, Is.EqualTo(advanced.TurnOrdinal)); Assert.That(Events(encounter.EncounterId).Count, Is.EqualTo(events));
+        }
+
+        [Test]
         public void Advance_wraps_skips_and_closes()
         {
             CharacterId first = Active("first"), second = Active("second"); CombatEncounterRecord created = Create(first, second).Value;
@@ -95,6 +115,9 @@ namespace Odyssey.Tests.Persistence
             Assert.That(rejected.IsFailure, Is.True); Assert.That(rejected.Error.Code, Is.EqualTo(ErrorCodes.CommandIdentityMismatch)); Assert.That(rejected.Error.CorrelationId, Is.EqualTo(deleteCorrelation)); Assert.That(Count("CombatEncounter"), Is.Zero); Assert.That(Count("CombatEncounterCommandLedger"), Is.Zero);
             CommandId appliedCommand = Command(); Seed("INSERT INTO AppliedCommands (CommandId, Status, ResultEventSequenceFrom, ResultEventSequenceTo, ResultSummary, FailureCode, CreatedAt, CompletedAt) VALUES ($id, 'Completed', 1, 1, '', NULL, '2026-01-01T00:00:00.0000000Z', '2026-01-01T00:00:00.0000000Z');", appliedCommand);
             Assert.That(CombatEncounterService.Create(_encounters, _campaign, new CreateCombatEncounterRequest(new[] { active }, User(), true, appliedCommand), Corr).Error.Code, Is.EqualTo(ErrorCodes.CommandIdentityMismatch));
+            CombatEncounterRecord encounter = Create(active).Value; int events = Events(encounter.EncounterId).Count; CommandId advanceCommand = Command(); Seed("INSERT INTO AppliedCommands (CommandId, Status, ResultEventSequenceFrom, ResultEventSequenceTo, ResultSummary, FailureCode, CreatedAt, CompletedAt) VALUES ($id, 'Completed', 1, 1, '', NULL, '2026-01-01T00:00:00.0000000Z', '2026-01-01T00:00:00.0000000Z');", advanceCommand);
+            CorrelationId advanceCorrelation = CorrelationId.Parse("corr_22222222222222222222222222222222"); Result<CombatEncounterRecord> advance = CombatEncounterService.Advance(_encounters, _campaign, new AdvanceCombatEncounterRequest(encounter.EncounterId, encounter.Revision, User(), true, advanceCommand), advanceCorrelation);
+            Assert.That(advance.IsFailure, Is.True); Assert.That(advance.Error.Code, Is.EqualTo(ErrorCodes.CommandIdentityMismatch)); Assert.That(advance.Error.CorrelationId, Is.EqualTo(advanceCorrelation)); Assert.That(_encounters.Get(_campaign, encounter.EncounterId, Corr).Value.Revision, Is.EqualTo(encounter.Revision)); Assert.That(Events(encounter.EncounterId).Count, Is.EqualTo(events));
         }
 
         [Test]
@@ -126,6 +149,7 @@ namespace Odyssey.Tests.Persistence
         private void Seed(string sql, CommandId command) { using var c = new SqliteConnection("Data Source=" + Path.Combine(_root, "campaign.db")); c.Open(); using var q = c.CreateCommand(); q.CommandText = sql; q.Parameters.AddWithValue("$id", command.ToString()); q.ExecuteNonQuery(); }
         private int Count(string table) { using var c = new SqliteConnection("Data Source=" + Path.Combine(_root, "campaign.db")); c.Open(); using var q = c.CreateCommand(); q.CommandText = "SELECT COUNT(*) FROM " + table; return Convert.ToInt32(q.ExecuteScalar()); }
         private static bool IndexExists(SqliteConnection c, string name) { using var q = c.CreateCommand(); q.CommandText = "SELECT 1 FROM sqlite_master WHERE type='index' AND name=$name;"; q.Parameters.AddWithValue("$name", name); return q.ExecuteScalar() != null; }
+        private static bool Throws<T>(Action action) where T : Exception { try { action(); return false; } catch (T) { return true; } }
         private static CommandId Command() => CommandId.Parse("cmd_" + Guid.NewGuid().ToString("N")); private static UserId User() => UserId.Parse("user_" + Guid.NewGuid().ToString("N"));
         private sealed class CountingRepository : ICombatEncounterRepository { public int Calls { get; private set; } public Result<CombatEncounterRecord> Create(CampaignHandle c, CreateCombatEncounterCommand x, CorrelationId id) { Calls++; throw new InvalidOperationException(); } public Result<CombatEncounterRecord> Advance(CampaignHandle c, AdvanceCombatEncounterCommand x, CorrelationId id) { Calls++; throw new InvalidOperationException(); } public Result<CombatEncounterRecord> Get(CampaignHandle c, CombatEncounterId x, CorrelationId id) { Calls++; throw new InvalidOperationException(); } }
     }
