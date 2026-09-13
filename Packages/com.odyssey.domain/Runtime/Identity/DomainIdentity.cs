@@ -121,6 +121,25 @@ namespace Odyssey.Domain.Identity
         public static bool operator !=(CharacterId left, CharacterId right) => !left.Equals(right);
     }
 
+    /// <summary>ODY-S05-602: opaque identity of one authoritative combat encounter.</summary>
+    public readonly struct CombatEncounterId : IEquatable<CombatEncounterId>
+    {
+        private const string Prefix = "enc_";
+        private const int HexLength = 32;
+        private readonly string _value;
+        private CombatEncounterId(string value) => _value = value;
+        public bool IsValid => _value != null;
+        public static CombatEncounterId NewId(Odyssey.Domain.Time.UtcInstant now) => new CombatEncounterId(Prefix + Uuid7.NewHex32(now));
+        public static bool TryParse(string? value, out CombatEncounterId id) => CanonicalId.TryParse(value, Prefix, HexLength, out id, static v => new CombatEncounterId(v));
+        public static CombatEncounterId Parse(string value) => TryParse(value, out CombatEncounterId id) ? id : throw new FormatException("CombatEncounterId is not canonical.");
+        public override string ToString() => _value ?? string.Empty;
+        public bool Equals(CombatEncounterId other) => string.Equals(_value, other._value, StringComparison.Ordinal);
+        public override bool Equals(object? obj) => obj is CombatEncounterId other && Equals(other);
+        public override int GetHashCode() => _value == null ? 0 : StringComparer.Ordinal.GetHashCode(_value);
+        public static bool operator ==(CombatEncounterId left, CombatEncounterId right) => left.Equals(right);
+        public static bool operator !=(CombatEncounterId left, CombatEncounterId right) => !left.Equals(right);
+    }
+
     /// <summary>
     /// ODY-S04-103: identifies one <c>CharacterTemplate</c> aggregate row
     /// (ADR-023 section 5.1) -- the single aggregate type shared by
