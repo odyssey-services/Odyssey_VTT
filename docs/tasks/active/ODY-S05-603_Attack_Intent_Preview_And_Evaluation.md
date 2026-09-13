@@ -28,7 +28,7 @@ Authorize before reader/Rules/RNG; preview does not use authoritative RNG; evalu
 Read-only authoritative state only. No attack table, ledger, event, DTO, or mutation method.
 
 ## 10. Tests and validation
-Register TC-ATTACK-001–022. Before implementation all validation is **Not run**.
+The initial focused NUnit suite passes: 141/141. The full .NET solution run passes its reported assemblies; final repository gates remain to be recorded before review.
 
 ## 11. Compatibility and rollback
 New in-memory contracts only; removing them leaves stored campaign state unchanged.
@@ -49,7 +49,7 @@ Existing typed IDs, encounter reader, ownership authorization, runtime snapshots
 See the active ExecPlan.
 
 ## 17. Completion evidence
-Documentation-first stage only; implementation evidence is **Not run**.
+Implemented immutable Domain proposal contracts, pure Rules seam, read-only Application state seam, authorization/current-turn preconditions, and deterministic host-RNG derivation. No persistence adapter or mutation entry point was added.
 
 ## 18. Change control
 Any missing Ruleset formula is represented by a fake/test Rule implementation, never invented in production.

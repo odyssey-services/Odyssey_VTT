@@ -25,7 +25,7 @@ Typed Result failures preserve correlation ID; no write-side recovery path exist
 Use fake reader, Rules, and RNG for ordering/no-write proof; use real encounter read where persistence claims require it.
 
 ## 9. Validation and acceptance evidence
-Not run at documentation-first stage.
+Focused NUnit: 141/141 passed. Full `dotnet test DotNet\\Odyssey.Core.sln --no-restore` completed with all reported assemblies green; run repository gates after final formatting before opening the Draft PR.
 
 ## 10. Recovery and rollback
 No persisted task-owned data; revert source only.
