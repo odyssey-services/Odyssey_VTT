@@ -25,10 +25,9 @@ namespace Odyssey.Application.Persistence
     /// `ODY-S05-506` owns only `Removed`; neither covers `Expired`), per
     /// `ADR-028` §6 rule 2's own minimum contract ("transition `Status`
     /// (expire/suspend/resume/remove)"). No stacking-policy mutation
-    /// (`ODY-S05-503`, already implemented), no `WhileItemEquipped`
-    /// suspend/resume transition, and no removal (`ODY-S05-506`) exist on
-    /// this interface -- those are each their own task's own contract
-    /// addition, not decided here.
+    /// (`ODY-S05-503`, a pure decision layer) or removal (`ODY-S05-506`)
+    /// exists on this interface. `ODY-S05-505` adds the item-equipment
+    /// suspend/resume transition through <see cref="SetItemEffectEquipped"/>.
     /// </summary>
     public interface IActiveEffectRepository
     {
@@ -59,5 +58,15 @@ namespace Odyssey.Application.Persistence
         /// separate "apply" half of `ODY-S05-402`'s own "decide" half.
         /// </summary>
         Result<ActiveEffectRecord> ExpireActiveEffect(CampaignHandle campaign, CampaignId campaignId, ActiveEffectId activeEffectId, long expectedRevision, CommandId commandId, CorrelationId correlationId);
+
+        /// <summary>
+        /// Suspends or resumes an item-sourced WhileItemEquipped effect using its
+        /// pinned snapshot and a revision CAS. Returns the committed revision.
+        /// Replaying the same command returns that revision even after later writes;
+        /// changing the effect, actor, revision or direction is a replay conflict.
+        /// Only Active to Suspended and Suspended to Active are allowed.
+        /// Authorization is inherited from the successful host equipment operation.
+        /// </summary>
+        Result<long> SetItemEffectEquipped(CampaignHandle campaign, CampaignId campaignId, ActiveEffectId activeEffectId, bool equipped, long expectedRevision, UserId actorUserId, CommandId commandId, CorrelationId correlationId);
     }
 }
