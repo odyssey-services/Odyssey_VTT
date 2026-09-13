@@ -5,7 +5,7 @@
 **Owner:** Codex (agent)
 **Requested by:** Product owner
 **Branch:** `feat/ody-s05-506-remove-and-direct-creation`
-**Pull request:** TBD (Draft)
+**Pull request:** [odyssey-services/Odyssey_VTT#141](https://github.com/odyssey-services/Odyssey_VTT/pull/141) (Draft)
 **ExecPlan:** `docs/plans/active/ODY-S05-506_RemoveActiveEffect_And_Direct_Creation.md`
 **Created:** 2026-09-13
 **Last updated:** 2026-09-13 UTC
@@ -288,7 +288,7 @@ dotnet test DotNet\Odyssey.Core.sln
 - [x] No unapproved dependency, tool, GitHub Action, or license was introduced.
 - [x] Documentation is updated only where materially required.
 - [x] Codex/developer performed a self-review against this task and `AGENTS.md`.
-- [ ] Pull request explains changes, evidence, limitations, and follow-up work.
+- [x] Pull request explains changes, evidence, limitations, and follow-up work.
 - [ ] Product owner or authorized reviewer completes the required review; Codex does not merge into `main`.
 
 ## 17. Completion evidence
@@ -326,7 +326,7 @@ dotnet test DotNet\Odyssey.Core.sln
 | AC-6 (no out-of-scope logic) | Met | `git diff --name-status`. |
 | AC-7 (tests pass, dotnet test green) | Met | Validation table above. |
 | AC-8 (backlog In Review) | Met | Backlog diff. |
-| AC-9 (Draft PR) | Met | PR to be opened as Draft. |
+| AC-9 (Draft PR) | Met | PR #141 opened as Draft. |
 
 ### Build and artifact evidence
 
