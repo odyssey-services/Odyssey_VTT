@@ -1,11 +1,11 @@
 # ODY-S05-112 — Decompose Full Attack Pipeline Block (Block 3)
 
-**Status:** In Review
+**Status:** In Review (PR #143)
 **Roadmap stage / slice:** SLICE-05 (full attack pipeline planning block)
 **Owner:** Codex (agent)
 **Requested by:** Product owner
 **Branch:** `feat/ody-s05-112-decompose-attack-pipeline`
-**Pull request:** TBD (Draft)
+**Pull request:** https://github.com/odyssey-services/Odyssey_VTT/pull/143 (Draft)
 **Plan:** `docs/plans/active/ODY-S05-112_Decompose_Full_Attack_Pipeline_Block.md` (Brief plan)
 **Created:** 2026-09-13
 **Last updated:** 2026-09-13 UTC
