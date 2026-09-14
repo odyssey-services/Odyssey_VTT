@@ -384,6 +384,7 @@ namespace Odyssey.Tests.Persistence
             foreach (string typeName in persistenceTypeNames)
             {
                 if (typeName == "SqliteAttackStateReader") continue; // ODY-S05-603 read-only adapter; it owns no command or mutation path.
+                if (typeName == "SqliteAttackApplyRepository") continue; // ODY-S05-604 standalone attack-outcome repository; not an Equipment/Inventory command.
                 foreach (string forbidden in forbiddenTypeFragments)
                 {
                     Assert.That(typeName, Does.Not.Contain(forbidden));

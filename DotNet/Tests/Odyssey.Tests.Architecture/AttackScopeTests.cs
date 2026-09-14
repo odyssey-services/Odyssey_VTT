@@ -21,8 +21,14 @@ namespace Odyssey.Tests.Architecture
         }
 
         [Test] // TC-ATTACK-027
-        public void Persistence_source_declares_exactly_one_attack_named_type_and_it_is_the_read_only_reader()
+        public void Persistence_source_declares_only_the_two_deliberate_attack_named_types()
         {
+            // ODY-S05-604 adds a second, legitimate standalone Attack-named
+            // persistence type (SqliteAttackApplyRepository) alongside
+            // ODY-S05-603's read-only SqliteAttackStateReader -- this is a
+            // direct, mechanical update of the invariant this test already
+            // enforced (no *unexpected* Attack-named persistence type), not a
+            // change to ODY-S05-603's own behavior.
             DirectoryInfo? root = new DirectoryInfo(Directory.GetCurrentDirectory());
             while (root != null && !Directory.Exists(Path.Combine(root.FullName, "Packages"))) root = root.Parent;
             Assert.That(root, Is.Not.Null);
@@ -33,7 +39,7 @@ namespace Odyssey.Tests.Architecture
                 foreach (Match match in Regex.Matches(File.ReadAllText(file), @"\b(?:class|struct|record)\s+(\w*Attack\w*)\b"))
                     declaredTypeNames.Add(match.Groups[1].Value);
             }
-            Assert.That(declaredTypeNames, Is.EquivalentTo(new[] { "SqliteAttackStateReader" }));
+            Assert.That(declaredTypeNames, Is.EquivalentTo(new[] { "SqliteAttackStateReader", "SqliteAttackApplyRepository" }));
         }
     }
 }

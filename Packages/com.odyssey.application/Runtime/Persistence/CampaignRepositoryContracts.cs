@@ -920,6 +920,42 @@ namespace Odyssey.Application.Persistence
             RetryDirective.DoNotRetry,
             correlationId);
 
+        /// <summary>ODY-S05-604: no durable outcome exists for the requested <c>ResolveAttack</c>/pending <c>CommandId</c>.</summary>
+        public static Error AttackOutcomeNotFound(CorrelationId correlationId) => Error.Create(
+            ErrorCodes.PersistenceAttackOutcomeNotFound,
+            ErrorCategory.NotFound,
+            SafeReasonCode.TargetUnavailable,
+            UserMessageKey.Parse("errors.persistence.attack_outcome_not_found"),
+            RetryDirective.DoNotRetry,
+            correlationId);
+
+        /// <summary>ODY-S05-604: `ResolveAttackIntervention`'s CAS guard -- the pending outcome it targets is no longer `Pending` (already resolved/cancelled by an earlier command).</summary>
+        public static Error AttackOutcomeNotPending(CorrelationId correlationId) => Error.Create(
+            ErrorCodes.PersistenceAttackOutcomeNotPending,
+            ErrorCategory.Conflict,
+            SafeReasonCode.StateChanged,
+            UserMessageKey.Parse("errors.persistence.attack_outcome_not_pending"),
+            RetryDirective.DoNotRetry,
+            correlationId);
+
+        /// <summary>ODY-S05-604: `ResolveAttackIntervention` is MainGM-only (ADR-029 section 10) -- mirrors `ActiveEffectOperationDenied`'s own MainGM-gate convention.</summary>
+        public static Error AttackOutcomeOperationDenied(CorrelationId correlationId) => Error.Create(
+            ErrorCodes.PersistenceAttackOutcomeOperationDenied,
+            ErrorCategory.Authorization,
+            SafeReasonCode.PermissionDenied,
+            UserMessageKey.Parse("errors.persistence.attack_outcome_operation_denied"),
+            RetryDirective.DoNotRetry,
+            correlationId);
+
+        /// <summary>ODY-S05-604: an unexpected I/O failure while reading/writing attack outcome state.</summary>
+        public static Error AttackOutcomeIoFailed(CorrelationId correlationId) => Error.Create(
+            ErrorCodes.PersistenceAttackOutcomeIoFailed,
+            ErrorCategory.PermanentInfrastructure,
+            SafeReasonCode.UnexpectedError,
+            UserMessageKey.Parse("errors.persistence.attack_outcome_io_failed"),
+            RetryDirective.ManualRecoveryRequired,
+            correlationId);
+
         // Used only by the codec's Read path (CampaignManifest.cs), which does not
         // receive a caller CorrelationId; matches the existing SerializationFailures
         // placeholder-correlation convention for codec-level structural failures.
