@@ -161,5 +161,6 @@ namespace Odyssey.Application.Results
         public static readonly ErrorCode PersistenceAttackOutcomeNotPending = ErrorCode.Parse("persistence.attack_outcome.not_pending");
         public static readonly ErrorCode PersistenceAttackOutcomeOperationDenied = ErrorCode.Parse("persistence.attack_outcome.operation_denied");
         public static readonly ErrorCode PersistenceAttackOutcomeIoFailed = ErrorCode.Parse("persistence.attack_outcome.io_failed");
+        public static readonly ErrorCode PersistenceCombatEncounterLifecycleIoFailed = ErrorCode.Parse("persistence.combat_encounter_lifecycle.io_failed");
     }
 }

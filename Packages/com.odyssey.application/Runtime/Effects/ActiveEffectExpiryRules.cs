@@ -122,5 +122,60 @@ namespace Odyssey.Application.Effects
 
             return ActiveEffectExpiryDecision.Expired;
         }
+
+        /// <summary>
+        /// ODY-S05-605: `ADR-029` §7's own `ForRounds` boundary -- "an effect
+        /// committed in round R with N = 1 expires before actions in round
+        /// R + 2," i.e. the boundary round is <c>R + N + 1</c>. Pure ordinal
+        /// arithmetic against the encounter's own live `RoundOrdinal`; no I/O.
+        /// Fail-closed: a <paramref name="currentRoundOrdinal"/> that
+        /// precedes <paramref name="appliedRoundOrdinal"/> (stale/corrupt
+        /// input) never expires the effect.
+        /// </summary>
+        public static ActiveEffectExpiryDecision CheckForRoundsExpiry(long appliedRoundOrdinal, int requiredRounds, long currentRoundOrdinal)
+        {
+            if (appliedRoundOrdinal < 1) throw new ArgumentOutOfRangeException(nameof(appliedRoundOrdinal));
+            if (requiredRounds < 1) throw new ArgumentOutOfRangeException(nameof(requiredRounds));
+            if (currentRoundOrdinal < 1) throw new ArgumentOutOfRangeException(nameof(currentRoundOrdinal));
+
+            if (currentRoundOrdinal < appliedRoundOrdinal) return ActiveEffectExpiryDecision.NotExpired;
+            return currentRoundOrdinal >= appliedRoundOrdinal + requiredRounds + 1 ? ActiveEffectExpiryDecision.Expired : ActiveEffectExpiryDecision.NotExpired;
+        }
+
+        /// <summary>
+        /// ODY-S05-605: `ADR-029` §7's own `ForTurns` boundary -- "the effect
+        /// expires at the `TurnEnded` boundary of the Nth counted target
+        /// turn," counting only the target's own completed turns starting
+        /// strictly after application (not a global turn count). The caller
+        /// supplies <paramref name="completedTargetTurnsSinceApplication"/>
+        /// already counted from `CombatEncounterLifecycleEvent` audit rows
+        /// (an I/O concern this pure function never performs itself).
+        /// Fail-closed: a negative count (the caller's own signal that it
+        /// could not conclusively count, e.g. the target left the encounter)
+        /// never expires the effect.
+        /// </summary>
+        public static ActiveEffectExpiryDecision CheckForTurnsExpiry(int requiredTurns, int completedTargetTurnsSinceApplication)
+        {
+            if (requiredTurns < 1) throw new ArgumentOutOfRangeException(nameof(requiredTurns));
+
+            if (completedTargetTurnsSinceApplication < 0) return ActiveEffectExpiryDecision.NotExpired;
+            return completedTargetTurnsSinceApplication >= requiredTurns ? ActiveEffectExpiryDecision.Expired : ActiveEffectExpiryDecision.NotExpired;
+        }
+
+        /// <summary>ODY-S05-605: `ADR-029` §7's own `UntilSourceTurnStart` boundary. <paramref name="sourceTurnStartedSinceApplication"/> is the caller's own already-derived, fail-closed-by-construction answer (false when inconclusive, e.g. the source left the encounter) to "has the source combatant's `TurnStarted` fired strictly after application."</summary>
+        public static ActiveEffectExpiryDecision CheckUntilSourceTurnStartExpiry(bool sourceTurnStartedSinceApplication)
+            => sourceTurnStartedSinceApplication ? ActiveEffectExpiryDecision.Expired : ActiveEffectExpiryDecision.NotExpired;
+
+        /// <summary>ODY-S05-605: `ADR-029` §7's own `UntilSourceTurnEnd` boundary. <paramref name="sourceTurnEndedSinceApplication"/> is the caller's own already-derived, fail-closed-by-construction answer to "has the source combatant's `TurnEnded` fired strictly after application."</summary>
+        public static ActiveEffectExpiryDecision CheckUntilSourceTurnEndExpiry(bool sourceTurnEndedSinceApplication)
+            => sourceTurnEndedSinceApplication ? ActiveEffectExpiryDecision.Expired : ActiveEffectExpiryDecision.NotExpired;
+
+        /// <summary>ODY-S05-605: `ADR-029` §7's own `UntilTargetTurnStart` boundary. <paramref name="targetTurnStartedSinceApplication"/> is the caller's own already-derived, fail-closed-by-construction answer to "has the target combatant's `TurnStarted` fired strictly after application."</summary>
+        public static ActiveEffectExpiryDecision CheckUntilTargetTurnStartExpiry(bool targetTurnStartedSinceApplication)
+            => targetTurnStartedSinceApplication ? ActiveEffectExpiryDecision.Expired : ActiveEffectExpiryDecision.NotExpired;
+
+        /// <summary>ODY-S05-605: `ADR-029` §7's own `UntilTargetTurnEnd` boundary. <paramref name="targetTurnEndedSinceApplication"/> is the caller's own already-derived, fail-closed-by-construction answer to "has the target combatant's `TurnEnded` fired strictly after application."</summary>
+        public static ActiveEffectExpiryDecision CheckUntilTargetTurnEndExpiry(bool targetTurnEndedSinceApplication)
+            => targetTurnEndedSinceApplication ? ActiveEffectExpiryDecision.Expired : ActiveEffectExpiryDecision.NotExpired;
     }
 }
