@@ -88,7 +88,8 @@ namespace Odyssey.Persistence.Sqlite
                                 "$mechanicsSourceDefinitionRef, $mechanicsDefinitionSnapshotVersion, $mechanicsContentType, $mechanicsPayload, " +
                                 "$sourceKind, $sourceItemRefKind, $sourceItemRefId, " +
                                 "$targetKind, $targetCharacterId, $targetItemInstanceId, " +
-                                "$status, $stackCount, $appliedByUserId, $appliedAt, $expiresAt, $revision, $updatedAt, $lastCommandId);";
+                                "$status, $stackCount, $appliedByUserId, $appliedAt, $expiresAt, $revision, $updatedAt, $lastCommandId, " +
+                                "$combatEncounterId, $combatSourceCombatantId, $combatTargetCombatantId, $combatAppliedRoundOrdinal, $combatAppliedLifecycleEventId, $combatRequiredCount);";
                             AddParameters(insert, record, now);
                             insert.Parameters.AddWithValue("$lastCommandId", commandId.ToString());
                             insert.ExecuteNonQuery();
@@ -500,6 +501,14 @@ namespace Odyssey.Persistence.Sqlite
             insert.Parameters.AddWithValue("$expiresAt", effect.ExpiresAt.HasValue ? effect.ExpiresAt.Value.ToString() : (object)DBNull.Value);
             insert.Parameters.AddWithValue("$revision", effect.Revision);
             insert.Parameters.AddWithValue("$updatedAt", now.ToString());
+
+            CombatDurationBinding? combatBinding = effect.CombatBinding;
+            insert.Parameters.AddWithValue("$combatEncounterId", combatBinding.HasValue ? combatBinding.Value.EncounterId.ToString() : (object)DBNull.Value);
+            insert.Parameters.AddWithValue("$combatSourceCombatantId", combatBinding.HasValue && combatBinding.Value.SourceCombatantId.HasValue ? combatBinding.Value.SourceCombatantId.Value.ToString() : (object)DBNull.Value);
+            insert.Parameters.AddWithValue("$combatTargetCombatantId", combatBinding.HasValue && combatBinding.Value.TargetCombatantId.HasValue ? combatBinding.Value.TargetCombatantId.Value.ToString() : (object)DBNull.Value);
+            insert.Parameters.AddWithValue("$combatAppliedRoundOrdinal", combatBinding.HasValue ? combatBinding.Value.AppliedRoundOrdinal : (object)DBNull.Value);
+            insert.Parameters.AddWithValue("$combatAppliedLifecycleEventId", combatBinding.HasValue ? combatBinding.Value.AppliedLifecycleEventId : (object)DBNull.Value);
+            insert.Parameters.AddWithValue("$combatRequiredCount", combatBinding.HasValue ? combatBinding.Value.RequiredCount : (object)DBNull.Value);
         }
 
         /// <summary>ODY-S05-502: shared column-order contract for every INSERT into <c>ActiveEffect</c>. The trailing <c>$lastCommandId</c> parameter is bound by each caller separately (see <see cref="CreateActiveEffect"/>), since it is not part of <see cref="AddParameters"/>'s own record-derived values.</summary>
@@ -508,7 +517,8 @@ namespace Odyssey.Persistence.Sqlite
             "MechanicsSourceDefinitionRef, MechanicsDefinitionSnapshotVersion, MechanicsContentType, MechanicsPayload, " +
             "SourceKind, SourceItemRefKind, SourceItemRefId, " +
             "TargetKind, TargetCharacterId, TargetItemInstanceId, " +
-            "Status, StackCount, AppliedByUserId, AppliedAt, ExpiresAt, Revision, UpdatedAt, LastCommandId)";
+            "Status, StackCount, AppliedByUserId, AppliedAt, ExpiresAt, Revision, UpdatedAt, LastCommandId, " +
+            "CombatEncounterId, CombatSourceCombatantId, CombatTargetCombatantId, CombatAppliedRoundOrdinal, CombatAppliedLifecycleEventId, CombatRequiredCount)";
 
         /// <summary>ODY-S05-502: shared column-order contract for every SELECT against <c>ActiveEffect</c> that returns a full row -- <see cref="ReadRecord"/> uses this exact column list/order.</summary>
         private const string SelectColumns =
@@ -516,7 +526,8 @@ namespace Odyssey.Persistence.Sqlite
             "MechanicsSourceDefinitionRef, MechanicsDefinitionSnapshotVersion, MechanicsContentType, MechanicsPayload, " +
             "SourceKind, SourceItemRefKind, SourceItemRefId, " +
             "TargetKind, TargetCharacterId, TargetItemInstanceId, " +
-            "Status, StackCount, AppliedByUserId, AppliedAt, ExpiresAt, Revision";
+            "Status, StackCount, AppliedByUserId, AppliedAt, ExpiresAt, Revision, " +
+            "CombatEncounterId, CombatSourceCombatantId, CombatTargetCombatantId, CombatAppliedRoundOrdinal, CombatAppliedLifecycleEventId, CombatRequiredCount";
 
         private static ActiveEffectRecord ReadRecord(SqliteDataReader reader)
         {
@@ -555,7 +566,19 @@ namespace Odyssey.Persistence.Sqlite
             UtcInstant? expiresAt = reader.IsDBNull(17) ? (UtcInstant?)null : UtcInstant.Parse(reader.GetString(17));
             long revision = reader.GetInt64(18);
 
-            var effect = new ActiveEffect(activeEffectId, effectDefinitionRef, mechanicsSnapshot, sourceRef, targetRef, status, stackCount, appliedByUserId, appliedAt, expiresAt, revision);
+            CombatDurationBinding? combatBinding = null;
+            if (!reader.IsDBNull(19))
+            {
+                Domain.Identity.CombatEncounterId combatEncounterId = Domain.Identity.CombatEncounterId.Parse(reader.GetString(19));
+                CharacterId? sourceCombatantId = reader.IsDBNull(20) ? (CharacterId?)null : CharacterId.Parse(reader.GetString(20));
+                CharacterId? targetCombatantId = reader.IsDBNull(21) ? (CharacterId?)null : CharacterId.Parse(reader.GetString(21));
+                long appliedRoundOrdinal = reader.GetInt64(22);
+                long appliedLifecycleEventId = reader.GetInt64(23);
+                int requiredCount = reader.GetInt32(24);
+                combatBinding = new CombatDurationBinding(combatEncounterId, sourceCombatantId, targetCombatantId, appliedRoundOrdinal, appliedLifecycleEventId, requiredCount);
+            }
+
+            var effect = new ActiveEffect(activeEffectId, effectDefinitionRef, mechanicsSnapshot, sourceRef, targetRef, status, stackCount, appliedByUserId, appliedAt, expiresAt, revision, combatBinding);
             return new ActiveEffectRecord(campaignId, effect);
         }
 
@@ -614,7 +637,13 @@ CREATE TABLE IF NOT EXISTS ActiveEffect (
     ExpiresAt TEXT,
     Revision INTEGER NOT NULL,
     UpdatedAt TEXT NOT NULL,
-    LastCommandId TEXT NOT NULL
+    LastCommandId TEXT NOT NULL,
+    CombatEncounterId TEXT,
+    CombatSourceCombatantId TEXT,
+    CombatTargetCombatantId TEXT,
+    CombatAppliedRoundOrdinal INTEGER,
+    CombatAppliedLifecycleEventId INTEGER,
+    CombatRequiredCount INTEGER
 );
 CREATE INDEX IF NOT EXISTS IX_ActiveEffect_Campaign_Target ON ActiveEffect (CampaignId, TargetKind, TargetCharacterId, TargetItemInstanceId);
 CREATE INDEX IF NOT EXISTS IX_ActiveEffect_Campaign_Source ON ActiveEffect (CampaignId, SourceKind, SourceItemRefId);";

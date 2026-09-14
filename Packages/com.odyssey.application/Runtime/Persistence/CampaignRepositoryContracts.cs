@@ -956,6 +956,15 @@ namespace Odyssey.Application.Persistence
             RetryDirective.ManualRecoveryRequired,
             correlationId);
 
+        /// <summary>ODY-S05-605: `SqliteCombatEncounterLifecycleReader`'s own I/O failure wrapper, mirroring `AttackOutcomeIoFailed`'s exact convention for a new read seam.</summary>
+        public static Error CombatEncounterLifecycleIoFailed(CorrelationId correlationId) => Error.Create(
+            ErrorCodes.PersistenceCombatEncounterLifecycleIoFailed,
+            ErrorCategory.PermanentInfrastructure,
+            SafeReasonCode.UnexpectedError,
+            UserMessageKey.Parse("errors.persistence.combat_encounter_lifecycle_io_failed"),
+            RetryDirective.ManualRecoveryRequired,
+            correlationId);
+
         // Used only by the codec's Read path (CampaignManifest.cs), which does not
         // receive a caller CorrelationId; matches the existing SerializationFailures
         // placeholder-correlation convention for codec-level structural failures.

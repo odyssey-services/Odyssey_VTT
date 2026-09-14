@@ -211,6 +211,67 @@ namespace Odyssey.Domain.Effects
     }
 
     /// <summary>
+    /// ODY-S05-605: `ADR-029` §7's own combat-duration binding snapshot,
+    /// captured once at application time for each of the six turn/round-based
+    /// `EffectDurationType` values `ADR-028` §13 reserved. Mirrors
+    /// <see cref="ActiveEffect.ExpiresAt"/>'s own "populated only for duration
+    /// types that need it" idiom -- this is <see cref="ActiveEffect.CombatBinding"/>'s
+    /// null-only-when-irrelevant field, not a parallel aggregate. Captures
+    /// exactly what `ADR-029` §7's own closing paragraph requires ("the
+    /// encounter ID, source/target bindings, relevant ordinal ... with the
+    /// application snapshot"), plus <see cref="AppliedLifecycleEventId"/> (a
+    /// `CombatEncounterLifecycleEvent` high-water-mark) and
+    /// <see cref="RequiredCount"/> (the Ruleset-content-supplied `N` for
+    /// `ForRounds`/`ForTurns`, unused/zero for the four boundary-only types)
+    /// so a caller can determine "has the relevant boundary already happened"
+    /// without re-deriving it from encounter participant order, which `ADR-029`
+    /// §7's own closing paragraph explicitly allows to change over time
+    /// (joins/leaves/skips) -- see `ODY-S05-605`'s own task contract for why
+    /// ordinal arithmetic alone is not safe against that.
+    /// </summary>
+    public readonly struct CombatDurationBinding : IEquatable<CombatDurationBinding>
+    {
+        public CombatDurationBinding(CombatEncounterId encounterId, CharacterId? sourceCombatantId, CharacterId? targetCombatantId, long appliedRoundOrdinal, long appliedLifecycleEventId, int requiredCount)
+        {
+            if (!encounterId.IsValid) throw new ArgumentException("EncounterId is required.", nameof(encounterId));
+            if (sourceCombatantId == null && targetCombatantId == null) throw new ArgumentException("At least one combat participant binding is required.");
+            if (sourceCombatantId.HasValue && !sourceCombatantId.Value.IsValid) throw new ArgumentException("SourceCombatantId, when supplied, must be valid.", nameof(sourceCombatantId));
+            if (targetCombatantId.HasValue && !targetCombatantId.Value.IsValid) throw new ArgumentException("TargetCombatantId, when supplied, must be valid.", nameof(targetCombatantId));
+            if (appliedRoundOrdinal < 1) throw new ArgumentOutOfRangeException(nameof(appliedRoundOrdinal));
+            if (appliedLifecycleEventId < 0) throw new ArgumentOutOfRangeException(nameof(appliedLifecycleEventId));
+            if (requiredCount < 0) throw new ArgumentOutOfRangeException(nameof(requiredCount));
+
+            EncounterId = encounterId;
+            SourceCombatantId = sourceCombatantId;
+            TargetCombatantId = targetCombatantId;
+            AppliedRoundOrdinal = appliedRoundOrdinal;
+            AppliedLifecycleEventId = appliedLifecycleEventId;
+            RequiredCount = requiredCount;
+        }
+
+        public CombatEncounterId EncounterId { get; }
+
+        /// <summary>Populated for `ForRounds` (both bindings required) and the two `UntilSourceTurn*` values; null for the two `UntilTargetTurn*` values and unused for `ForTurns` (target-only per `ADR-029` §7's own table).</summary>
+        public CharacterId? SourceCombatantId { get; }
+
+        /// <summary>Populated for `ForRounds` (both bindings required), `ForTurns`, and the two `UntilTargetTurn*` values; null for the two `UntilSourceTurn*` values.</summary>
+        public CharacterId? TargetCombatantId { get; }
+
+        /// <summary>The encounter's own `RoundOrdinal` at the moment this effect was committed -- `ForRounds`'s own anchor; captured for every combat duration type for traceability even though only `ForRounds` compares against it.</summary>
+        public long AppliedRoundOrdinal { get; }
+
+        /// <summary>The `CombatEncounterLifecycleEvent` table's own highest `EventId` at the moment this effect was committed -- the high-water-mark a caller filters "strictly after application" audit rows against for the four turn-boundary values and `ForTurns`.</summary>
+        public long AppliedLifecycleEventId { get; }
+
+        /// <summary>`ForRounds`/`ForTurns`'s own Ruleset-content-supplied `N`; `0` (unused) for the four boundary-only values.</summary>
+        public int RequiredCount { get; }
+
+        public bool Equals(CombatDurationBinding other) => EncounterId.Equals(other.EncounterId) && SourceCombatantId.Equals(other.SourceCombatantId) && TargetCombatantId.Equals(other.TargetCombatantId) && AppliedRoundOrdinal == other.AppliedRoundOrdinal && AppliedLifecycleEventId == other.AppliedLifecycleEventId && RequiredCount == other.RequiredCount;
+        public override bool Equals(object? obj) => obj is CombatDurationBinding other && Equals(other);
+        public override int GetHashCode() => HashCode.Combine(EncounterId, SourceCombatantId, TargetCombatantId, AppliedRoundOrdinal, AppliedLifecycleEventId, RequiredCount);
+    }
+
+    /// <summary>
     /// ODY-S05-502: `ADR-028` §5's own `ActiveEffect` aggregate -- the pure
     /// Domain identity/value half of it (`ADR-028` §15/`ADR-001`: Domain owns
     /// pure identity/value invariants, campaign-scoping is an
@@ -241,7 +302,8 @@ namespace Odyssey.Domain.Effects
             UserId appliedByUserId,
             UtcInstant appliedAt,
             UtcInstant? expiresAt,
-            long revision)
+            long revision,
+            CombatDurationBinding? combatBinding = null)
         {
             if (!activeEffectId.IsValid) throw new ArgumentException("ActiveEffectId is required.", nameof(activeEffectId));
             if (!effectDefinitionRef.IsValid) throw new ArgumentException("EffectDefinitionRef is required.", nameof(effectDefinitionRef));
@@ -264,6 +326,7 @@ namespace Odyssey.Domain.Effects
             AppliedAt = appliedAt;
             ExpiresAt = expiresAt;
             Revision = revision;
+            CombatBinding = combatBinding;
         }
 
         public ActiveEffectId ActiveEffectId { get; }
@@ -283,5 +346,8 @@ namespace Odyssey.Domain.Effects
         public UtcInstant? ExpiresAt { get; }
 
         public long Revision { get; }
+
+        /// <summary>ODY-S05-605: populated only for the six turn/round-based `EffectDurationType` values `ADR-028` §13 reserved and `ADR-029` §7 specifies; null for every other duration type, mirroring <see cref="ExpiresAt"/>'s own "populated only when relevant" idiom.</summary>
+        public CombatDurationBinding? CombatBinding { get; }
     }
 }
