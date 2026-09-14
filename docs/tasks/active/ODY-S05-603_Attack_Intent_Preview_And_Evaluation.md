@@ -53,3 +53,9 @@ Implemented immutable Domain proposal contracts, pure Rules seam, read-only Appl
 
 ## 18. Change control
 Any missing Ruleset formula is represented by a fake/test Rule implementation, never invented in production.
+
+## Amendment — authoritative reads and complete proposal (2026-09-14)
+
+`AttackIntent` now accepts only `ItemInstanceId`, not a client-supplied generic definition ref. `SqliteAttackStateReader` composes the existing encounter, inventory and character read ports: it requires the current Open/TurnOpen encounter, exact expected revision, current actor, encounter targets, campaign-owned item and `InventoryOwnerRef.ForCharacter(actor)`. The source mechanics are the item's already-pinned `ItemMechanicsSnapshot`; no latest catalog record is read.
+
+The proposed resolution now carries typed range, modifiers, sample-presence, hit, body-part, armor, damage, cost and effect-candidate results. All remain in-memory proposals. TC-ATTACK-001–022 are registered; focused evidence: Unit 143/143 and Architecture 5/5 passed. No attack table, write SQL, ledger, event, Game Log, ActiveEffect, UI or networking surface was added.

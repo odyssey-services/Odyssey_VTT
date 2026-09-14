@@ -80,9 +80,15 @@ namespace Odyssey.Application.Combat
             Result<AttackEvaluationState> state = reader.Read(campaign, request.Intent, request.CorrelationId);
             if (state.IsFailure) return state;
             CombatEncounterRecord encounter = state.Value.Encounter;
-            if (encounter.Status != CombatEncounterStatus.Open || encounter.Phase != CombatPhase.TurnOpen || !encounter.CurrentParticipantId.HasValue || encounter.CurrentParticipantId.Value != request.Intent.ActorId)
+            if (encounter.Status != CombatEncounterStatus.Open || encounter.Phase != CombatPhase.TurnOpen || !encounter.CurrentParticipantId.HasValue || encounter.CurrentParticipantId.Value != request.Intent.ActorId || encounter.Revision != request.Intent.ExpectedEncounterRevision || state.Value.Snapshot.EncounterRevision != encounter.Revision || !ContainsAll(encounter.Participants, request.Intent.TargetIds))
                 return Result<AttackEvaluationState>.Failure(ClosedOrInactive(request.CorrelationId));
             return state;
+        }
+
+        private static bool ContainsAll(System.Collections.Generic.IReadOnlyList<CombatParticipant> participants, System.Collections.Generic.IReadOnlyList<CharacterId> targets)
+        {
+            for (int targetIndex = 0; targetIndex < targets.Count; targetIndex++) { bool found = false; for (int participantIndex = 0; participantIndex < participants.Count; participantIndex++) if (participants[participantIndex].CharacterId == targets[targetIndex]) { found = true; break; } if (!found) return false; }
+            return true;
         }
 
         private static Error Denied(CorrelationId id) => Error.Create(ErrorCodes.ApplicationValidationInvalid, ErrorCategory.Authorization, SafeReasonCode.PermissionDenied, UserMessageKey.Parse("errors.attack.denied"), RetryDirective.DoNotRetry, id);

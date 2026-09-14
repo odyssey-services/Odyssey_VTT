@@ -29,3 +29,7 @@ Focused NUnit: 141/141 passed. Full `dotnet test DotNet\\Odyssey.Core.sln --no-r
 
 ## 10. Recovery and rollback
 No persisted task-owned data; revert source only.
+
+## Amendment — 2026-09-14
+
+Changed production files: `AttackPipelineContracts.cs`, `AttackEvaluationService.cs`, and `SqliteAttackStateReader.cs`; tests: `AttackEvaluationServiceTests.cs`, `AttackScopeTests.cs`, and the test catalog. The reader is composition-only and invokes no write path. `ItemInstanceId` is the MVP source decision: its current runtime row must belong to the acting Character and exposes the exact pinned mechanics snapshot. Validation after amendment begins with Unit 143/143 and Architecture 5/5; full repository gates are run before push.
