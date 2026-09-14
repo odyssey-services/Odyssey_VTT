@@ -1,7 +1,7 @@
 # ODY-S05-605 — Combat Effect Duration Expiry
 
 ## 1. Task identity
-`ODY-S05-605`; status: In Progress.
+`ODY-S05-605`; status: In Review (Draft PR https://github.com/odyssey-services/Odyssey_VTT/pull/149).
 
 ## 2. Goal
 Implement `ADR-029` §7's own six turn/round-based `EffectDurationType` boundary-check mechanisms (`ForRounds`, `ForTurns`, `UntilSourceTurnStart`, `UntilSourceTurnEnd`, `UntilTargetTurnStart`, `UntilTargetTurnEnd`) as pure decision functions, plus a minimal, real (not stubbed) caller that reuses the existing `ExpireActiveEffect` to apply that decision. This task decides only *whether* a combat-duration effect has expired -- it never decides *whether* to create or apply an effect (`ADR-029` §8, `ODY-S05-606`'s own territory).
