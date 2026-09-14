@@ -6,6 +6,7 @@ using System.Linq;
 using Microsoft.Data.Sqlite;
 using Newtonsoft.Json.Linq;
 using Odyssey.Application.Commands;
+using Odyssey.Application.Dice;
 using Odyssey.Application.Effects;
 using Odyssey.Application.Persistence;
 using Odyssey.Application.Results;
@@ -272,7 +273,148 @@ namespace Odyssey.Persistence.Sqlite
             }
         }
 
-        private static void WriteAcceptedAttackGameLogEntry(SqliteConnection connection, SqliteTransaction transaction, CampaignId campaignId, string logEntryId, CommandId rootCommandId, UserId actorUserId, AttackIntent intent, int randomSampleValue, UtcInstant now)
+        /// <summary>
+        /// ODY-S05-607: `ADR-029` §1 rule 7's own compensating root command,
+        /// by direct structural analogy to <c>SqliteCharacterRepository.RevertCharacterRulesetMigration</c>
+        /// (`ODY-S04-113`): MainGM-only gate as this method's own first
+        /// statement, a required non-empty reason code, a CAS guard against
+        /// compensating the same original committing event twice, and a
+        /// brand-new <c>SqliteSavingPipeline.Execute</c> call/transaction --
+        /// never a reopening or edit of the original <c>RecordAttackOutcome</c>/
+        /// <c>ResolveAttackIntervention</c> transaction. Only corrects the
+        /// Game Log/`AttackOutcome` bookkeeping this block itself wrote (a
+        /// new, causally-linked `GameLogEntries`/`DiceRolls` row pair); it
+        /// never touches `ICharacterRepository`/`IInventoryRepository` or any
+        /// Character/Item resource state (`ODY-S05-609`'s own territory).
+        /// </summary>
+        public Result<AttackCompensationRecord> CompensateAttackOutcome(CampaignHandle campaign, CommandId resolveAttackCommandId, string reasonCode, string correctedSummaryPayload, UserId actorUserId, bool actorIsMainGm, CommandId commandId, CorrelationId correlationId)
+        {
+            if (campaign == null) throw new ArgumentNullException(nameof(campaign));
+            if (!resolveAttackCommandId.IsValid) throw new ArgumentException("ResolveAttackCommandId is required.", nameof(resolveAttackCommandId));
+            if (!actorUserId.IsValid) throw new ArgumentException("ActorUserId is required.", nameof(actorUserId));
+            if (!commandId.IsValid) throw new ArgumentException("CommandId is required.", nameof(commandId));
+
+            // ADR-029 section 1 rule 7: a compensating command is a separate,
+            // authorized action -- MainGM-only, checked first, mirroring
+            // RevertCharacterRulesetMigration's own exact placement.
+            if (!actorIsMainGm)
+            {
+                return Result<AttackCompensationRecord>.Failure(PersistenceFailures.AttackOutcomeOperationDenied(correlationId));
+            }
+
+            if (string.IsNullOrWhiteSpace(reasonCode) || string.IsNullOrWhiteSpace(correctedSummaryPayload))
+            {
+                return Result<AttackCompensationRecord>.Failure(PersistenceFailures.AttackOutcomeCompensationReasonRequired(correlationId));
+            }
+
+            try
+            {
+                using SqliteConnection connection = OpenConnection(campaign.RootPath);
+                EnsureAttackApplyTables(connection);
+
+                return _pipeline.Execute(
+                    connection,
+                    campaign.CampaignId,
+                    commandId,
+                    correlationId,
+                    tryReplay: transaction => ReplayCompensation(connection, transaction, commandId, correlationId),
+                    apply: transaction =>
+                    {
+                        AttackOutcomeRecord? original = ReadByCommandId(connection, transaction, resolveAttackCommandId);
+                        if (original == null)
+                        {
+                            return Result<PipelineWrite<AttackCompensationRecord>>.Failure(PersistenceFailures.AttackOutcomeNotFound(correlationId));
+                        }
+
+                        if (original.OutcomeKind != AttackOutcomeKind.Accepted || original.GameLogEntryId == null)
+                        {
+                            return Result<PipelineWrite<AttackCompensationRecord>>.Failure(PersistenceFailures.AttackOutcomeNotAccepted(correlationId));
+                        }
+
+                        CommandId committingCommandId = original.ResolvedByCommandId ?? original.ResolveAttackCommandId;
+                        long? originalEventSequence = FindCommittingEventSequence(connection, transaction, campaign.CampaignId, committingCommandId);
+                        if (originalEventSequence == null)
+                        {
+                            return Result<PipelineWrite<AttackCompensationRecord>>.Failure(PersistenceFailures.AttackOutcomeNotFound(correlationId));
+                        }
+
+                        if (IsAlreadyCompensated(connection, transaction, originalEventSequence.Value))
+                        {
+                            return Result<PipelineWrite<AttackCompensationRecord>>.Failure(PersistenceFailures.AttackOutcomeAlreadyCompensated(correlationId));
+                        }
+
+                        UtcInstant now = _clock.GetUtcNow();
+                        string compensationGroupId = commandId.ToString();
+                        string newLogEntryId = "log_" + Guid.NewGuid().ToString("N");
+                        (DiceRollAudienceKind audienceKind, string audienceUsersJson, string audienceGroupsJson) = ComputeEncounterAudience(connection, transaction, original.EncounterId);
+                        WriteCompensatingGameLogEntry(connection, transaction, campaign.CampaignId, newLogEntryId, commandId, actorUserId, original, correctedSummaryPayload, audienceKind, audienceUsersJson, audienceGroupsJson, now);
+
+                        var payload = new JObject
+                        {
+                            ["resolveAttackCommandId"] = resolveAttackCommandId.ToString(),
+                            ["reasonCode"] = reasonCode,
+                            ["correctedSummaryPayload"] = correctedSummaryPayload,
+                            ["gameLogEntryId"] = newLogEntryId,
+                            ["actorUserId"] = actorUserId.ToString(),
+                            ["compensationGroupId"] = compensationGroupId,
+                        };
+
+                        var result = new AttackCompensationRecord(commandId, resolveAttackCommandId, reasonCode, correctedSummaryPayload, newLogEntryId, now);
+                        return Result<PipelineWrite<AttackCompensationRecord>>.Success(new PipelineWrite<AttackCompensationRecord>(
+                            result, "odyssey.persistence.attack_outcome_compensated", payload.ToString(Newtonsoft.Json.Formatting.None), newLogEntryId,
+                            aggregateType: "attack_outcome_compensation", aggregateId: newLogEntryId, aggregateRevision: 1,
+                            onEventSequenceAssigned: (txn, sequence) => UpdateGameLogAuthoritativeSequence(connection, txn, newLogEntryId, sequence),
+                            originalEventId: originalEventSequence.Value, compensationGroupId: compensationGroupId, isCompensating: true));
+                    });
+            }
+            catch (Exception ex) when (ex is IOException || ex is UnauthorizedAccessException || ex is SqliteException)
+            {
+                return Result<AttackCompensationRecord>.Failure(PersistenceFailures.AttackOutcomeIoFailed(correlationId));
+            }
+        }
+
+        private static Result<AttackCompensationRecord> ReplayCompensation(SqliteConnection connection, SqliteTransaction transaction, CommandId commandId, CorrelationId correlationId)
+        {
+            using var select = connection.CreateCommand();
+            select.Transaction = transaction;
+            select.CommandText = "SELECT PayloadJson, CreatedAtHost FROM DomainEvents WHERE CommandId = $commandId AND EventType = 'odyssey.persistence.attack_outcome_compensated' LIMIT 1;";
+            select.Parameters.AddWithValue("$commandId", commandId.ToString());
+            using SqliteDataReader reader = select.ExecuteReader();
+            if (!reader.Read())
+            {
+                return Result<AttackCompensationRecord>.Failure(PersistenceFailures.CommandReplayFailed(correlationId));
+            }
+
+            var payload = JObject.Parse(reader.GetString(0));
+            CommandId originalCommandId = CommandId.Parse((string)payload["resolveAttackCommandId"]!);
+            string reasonCode = (string)payload["reasonCode"]!;
+            string correctedSummary = (string)payload["correctedSummaryPayload"]!;
+            string gameLogEntryId = (string)payload["gameLogEntryId"]!;
+            UtcInstant createdAt = UtcInstant.Parse(reader.GetString(1));
+            return Result<AttackCompensationRecord>.Success(new AttackCompensationRecord(commandId, originalCommandId, reasonCode, correctedSummary, gameLogEntryId, createdAt));
+        }
+
+        private static long? FindCommittingEventSequence(SqliteConnection connection, SqliteTransaction transaction, CampaignId campaignId, CommandId committingCommandId)
+        {
+            using var select = connection.CreateCommand();
+            select.Transaction = transaction;
+            select.CommandText = "SELECT EventSequence FROM DomainEvents WHERE CampaignId = $campaignId AND CommandId = $commandId AND EventType IN ('odyssey.persistence.attack_outcome_recorded','odyssey.persistence.attack_outcome_resolved') LIMIT 1;";
+            select.Parameters.AddWithValue("$campaignId", campaignId.ToString());
+            select.Parameters.AddWithValue("$commandId", committingCommandId.ToString());
+            object? value = select.ExecuteScalar();
+            return value == null ? (long?)null : Convert.ToInt64(value);
+        }
+
+        private static bool IsAlreadyCompensated(SqliteConnection connection, SqliteTransaction transaction, long originalEventSequence)
+        {
+            using var select = connection.CreateCommand();
+            select.Transaction = transaction;
+            select.CommandText = "SELECT COUNT(*) FROM DomainEvents WHERE OriginalEventId = $originalEventId AND EventType = 'odyssey.persistence.attack_outcome_compensated';";
+            select.Parameters.AddWithValue("$originalEventId", originalEventSequence);
+            return Convert.ToInt64(select.ExecuteScalar()) > 0;
+        }
+
+        private static void WriteCompensatingGameLogEntry(SqliteConnection connection, SqliteTransaction transaction, CampaignId campaignId, string logEntryId, CommandId compensatingCommandId, UserId actorUserId, AttackOutcomeRecord original, string correctedSummaryPayload, DiceRollAudienceKind audienceKind, string audienceUsersJson, string audienceGroupsJson, UtcInstant now)
         {
             string rollId = "roll_" + Guid.NewGuid().ToString("N");
             using (var insertRoll = connection.CreateCommand())
@@ -280,13 +422,60 @@ namespace Odyssey.Persistence.Sqlite
                 insertRoll.Transaction = transaction;
                 insertRoll.CommandText =
                     "INSERT INTO DiceRolls (RollId, CampaignId, ActorUserId, Purpose, FormulaOriginal, FormulaNormalized, FormulaParserVersion, NaturalResultsJson, ModifierEntriesJson, BaseTotal, RngAlgorithmVersion, Status, PreviousRollId, CreatedAt, AudienceKind, AudienceSelectedUserIdsJson, AudienceSelectedGroupIdsJson, LastCommandId) " +
-                    "VALUES ($rollId, $campaignId, $actorUserId, 'combat.attack.roll', '1d100', '1d100', 1, $naturalResults, '[]', $baseTotal, 1, 'Resolved', NULL, $createdAt, 'PlayerAndGM', '[]', '[]', $lastCommandId);";
+                    "VALUES ($rollId, $campaignId, $actorUserId, 'combat.attack.roll', '1d100', '1d100', 1, $naturalResults, '[]', $baseTotal, 1, 'Resolved', NULL, $createdAt, $audienceKind, $audienceUsers, $audienceGroups, $lastCommandId);";
+                insertRoll.Parameters.AddWithValue("$rollId", rollId);
+                insertRoll.Parameters.AddWithValue("$campaignId", campaignId.ToString());
+                insertRoll.Parameters.AddWithValue("$actorUserId", actorUserId.ToString());
+                // Reuses the original committed roll value verbatim -- compensation is
+                // bookkeeping correction only, never a re-roll (ADR-008; governing ТЗ
+                // section 3's own explicit invariant).
+                insertRoll.Parameters.AddWithValue("$naturalResults", "[{\"dieIndex\":0,\"groupIndex\":0,\"sides\":100,\"value\":" + original.RandomSampleValue.ToString(CultureInfo.InvariantCulture) + "}]");
+                insertRoll.Parameters.AddWithValue("$baseTotal", original.RandomSampleValue);
+                insertRoll.Parameters.AddWithValue("$createdAt", now.ToString());
+                insertRoll.Parameters.AddWithValue("$audienceKind", audienceKind.ToString());
+                insertRoll.Parameters.AddWithValue("$audienceUsers", audienceUsersJson);
+                insertRoll.Parameters.AddWithValue("$audienceGroups", audienceGroupsJson);
+                insertRoll.Parameters.AddWithValue("$lastCommandId", compensatingCommandId.ToString());
+                insertRoll.ExecuteNonQuery();
+            }
+
+            using (var insertEntry = connection.CreateCommand())
+            {
+                insertEntry.Transaction = transaction;
+                insertEntry.CommandText =
+                    "INSERT INTO GameLogEntries (LogEntryId, CampaignId, RootCommandId, EntryType, SummaryPayload, ActorUserId, DiceRollId, CreatedAt, AuthoritativeSequence, LastCommandId) " +
+                    "VALUES ($logEntryId, $campaignId, $rootCommandId, 'AttackCompensated', $summaryPayload, $actorUserId, $diceRollId, $createdAt, 0, $lastCommandId);";
+                insertEntry.Parameters.AddWithValue("$logEntryId", logEntryId);
+                insertEntry.Parameters.AddWithValue("$campaignId", campaignId.ToString());
+                insertEntry.Parameters.AddWithValue("$rootCommandId", compensatingCommandId.ToString());
+                insertEntry.Parameters.AddWithValue("$summaryPayload", correctedSummaryPayload);
+                insertEntry.Parameters.AddWithValue("$actorUserId", actorUserId.ToString());
+                insertEntry.Parameters.AddWithValue("$diceRollId", rollId);
+                insertEntry.Parameters.AddWithValue("$createdAt", now.ToString());
+                insertEntry.Parameters.AddWithValue("$lastCommandId", compensatingCommandId.ToString());
+                insertEntry.ExecuteNonQuery();
+            }
+        }
+
+        private static void WriteAcceptedAttackGameLogEntry(SqliteConnection connection, SqliteTransaction transaction, CampaignId campaignId, string logEntryId, CommandId rootCommandId, UserId actorUserId, AttackIntent intent, int randomSampleValue, UtcInstant now)
+        {
+            string rollId = "roll_" + Guid.NewGuid().ToString("N");
+            (DiceRollAudienceKind audienceKind, string audienceUsersJson, string audienceGroupsJson) = ComputeEncounterAudience(connection, transaction, intent.EncounterId);
+            using (var insertRoll = connection.CreateCommand())
+            {
+                insertRoll.Transaction = transaction;
+                insertRoll.CommandText =
+                    "INSERT INTO DiceRolls (RollId, CampaignId, ActorUserId, Purpose, FormulaOriginal, FormulaNormalized, FormulaParserVersion, NaturalResultsJson, ModifierEntriesJson, BaseTotal, RngAlgorithmVersion, Status, PreviousRollId, CreatedAt, AudienceKind, AudienceSelectedUserIdsJson, AudienceSelectedGroupIdsJson, LastCommandId) " +
+                    "VALUES ($rollId, $campaignId, $actorUserId, 'combat.attack.roll', '1d100', '1d100', 1, $naturalResults, '[]', $baseTotal, 1, 'Resolved', NULL, $createdAt, $audienceKind, $audienceUsers, $audienceGroups, $lastCommandId);";
                 insertRoll.Parameters.AddWithValue("$rollId", rollId);
                 insertRoll.Parameters.AddWithValue("$campaignId", campaignId.ToString());
                 insertRoll.Parameters.AddWithValue("$actorUserId", actorUserId.ToString());
                 insertRoll.Parameters.AddWithValue("$naturalResults", "[{\"dieIndex\":0,\"groupIndex\":0,\"sides\":100,\"value\":" + randomSampleValue.ToString(CultureInfo.InvariantCulture) + "}]");
                 insertRoll.Parameters.AddWithValue("$baseTotal", randomSampleValue);
                 insertRoll.Parameters.AddWithValue("$createdAt", now.ToString());
+                insertRoll.Parameters.AddWithValue("$audienceKind", audienceKind.ToString());
+                insertRoll.Parameters.AddWithValue("$audienceUsers", audienceUsersJson);
+                insertRoll.Parameters.AddWithValue("$audienceGroups", audienceGroupsJson);
                 insertRoll.Parameters.AddWithValue("$lastCommandId", rootCommandId.ToString());
                 insertRoll.ExecuteNonQuery();
             }
@@ -308,6 +497,70 @@ namespace Odyssey.Persistence.Sqlite
                 insertEntry.Parameters.AddWithValue("$lastCommandId", rootCommandId.ToString());
                 insertEntry.ExecuteNonQuery();
             }
+        }
+
+        /// <summary>
+        /// ODY-S05-607: `ADR-029` §1's own attack-participants-see-the-result
+        /// expectation, computed as "every current combat encounter participant's
+        /// owning user(s) + MainGM (unconditional via `DiceRollVisibilityPolicy`,
+        /// unmodified)" -- reusing the already-existing `DiceRollAudienceKind.SelectedParticipants`
+        /// shape rather than a new enum value. Reads the already-existing
+        /// `CombatEncounterParticipant`/`Character` tables directly on this same
+        /// connection/transaction (both tables are guaranteed to already exist:
+        /// this method only ever runs after `AttackEvaluationService` already
+        /// read this same encounter/actor successfully earlier in the same call).
+        /// No method is appended to `ICombatEncounterRepository`/`ICharacterRepository`
+        /// to obtain this -- a plain read against their own existing tables.
+        /// Falls back to `GMOnly` only when no participant has any owning user at
+        /// all (e.g. an all-NPC encounter) -- `SelectedParticipants` itself
+        /// requires at least one selected user/group and MainGM already sees
+        /// everything unconditionally, so `GMOnly` is the honest, narrowest
+        /// audience for that edge case, not a widening.
+        /// </summary>
+        private static (DiceRollAudienceKind Kind, string UsersJson, string GroupsJson) ComputeEncounterAudience(SqliteConnection connection, SqliteTransaction transaction, CombatEncounterId encounterId)
+        {
+            var userIds = new List<string>();
+            using (var select = connection.CreateCommand())
+            {
+                select.Transaction = transaction;
+                select.CommandText =
+                    "SELECT c.PrimaryOwnerUserId, c.CoOwnerUserIdsJson FROM CombatEncounterParticipant p " +
+                    "JOIN Character c ON c.CharacterId = p.CharacterId WHERE p.EncounterId = $encounterId;";
+                select.Parameters.AddWithValue("$encounterId", encounterId.ToString());
+                using SqliteDataReader reader = select.ExecuteReader();
+                while (reader.Read())
+                {
+                    if (!reader.IsDBNull(0)) AddDistinct(userIds, reader.GetString(0));
+                    foreach (string coOwner in DeserializeStringArray(reader.GetString(1))) AddDistinct(userIds, coOwner);
+                }
+            }
+
+            if (userIds.Count == 0)
+            {
+                return (DiceRollAudienceKind.GMOnly, "[]", "[]");
+            }
+
+            return (DiceRollAudienceKind.SelectedParticipants, SerializeStringArray(userIds), "[]");
+        }
+
+        private static void AddDistinct(List<string> values, string value)
+        {
+            if (!values.Contains(value, StringComparer.Ordinal)) values.Add(value);
+        }
+
+        private static string SerializeStringArray(IReadOnlyList<string> values)
+        {
+            var array = new JArray();
+            foreach (string value in values) array.Add(value);
+            return array.ToString(Newtonsoft.Json.Formatting.None);
+        }
+
+        private static IReadOnlyList<string> DeserializeStringArray(string json)
+        {
+            var array = JArray.Parse(json);
+            var result = new List<string>(array.Count);
+            foreach (JToken token in array) result.Add((string)token!);
+            return result;
         }
 
         /// <summary>

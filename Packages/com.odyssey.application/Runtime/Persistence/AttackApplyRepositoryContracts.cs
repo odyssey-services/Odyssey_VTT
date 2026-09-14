@@ -88,6 +88,49 @@ namespace Odyssey.Application.Persistence
     }
 
     /// <summary>
+    /// ODY-S05-607: the durable, causally-linked correction record `ADR-029`
+    /// §1 rule 7's own compensating-command requirement produces -- never a
+    /// mutation of the original <see cref="AttackOutcomeRecord"/>/Game Log
+    /// row, only a new row referencing it. By direct structural analogy to
+    /// `ODY-S04-113`'s own `RevertCharacterRulesetMigration` precedent: this
+    /// task corrects only the Game Log/`AttackOutcome` bookkeeping this
+    /// block itself wrote (a mis-logged summary, a wrong audience at the
+    /// time of writing) -- it never touches Character/Item resource state
+    /// (`ODY-S05-609`'s own territory, untouched).
+    /// </summary>
+    public sealed class AttackCompensationRecord
+    {
+        public AttackCompensationRecord(
+            CommandId compensatingCommandId,
+            CommandId originalResolveAttackCommandId,
+            string reasonCode,
+            string correctedSummaryPayload,
+            string gameLogEntryId,
+            UtcInstant createdAt)
+        {
+            if (!compensatingCommandId.IsValid) throw new ArgumentException("CompensatingCommandId is required.", nameof(compensatingCommandId));
+            if (!originalResolveAttackCommandId.IsValid) throw new ArgumentException("OriginalResolveAttackCommandId is required.", nameof(originalResolveAttackCommandId));
+            if (string.IsNullOrWhiteSpace(reasonCode)) throw new ArgumentException("ReasonCode is required.", nameof(reasonCode));
+            if (string.IsNullOrWhiteSpace(correctedSummaryPayload)) throw new ArgumentException("CorrectedSummaryPayload is required.", nameof(correctedSummaryPayload));
+            if (string.IsNullOrWhiteSpace(gameLogEntryId)) throw new ArgumentException("GameLogEntryId is required.", nameof(gameLogEntryId));
+
+            CompensatingCommandId = compensatingCommandId;
+            OriginalResolveAttackCommandId = originalResolveAttackCommandId;
+            ReasonCode = reasonCode;
+            CorrectedSummaryPayload = correctedSummaryPayload;
+            GameLogEntryId = gameLogEntryId;
+            CreatedAt = createdAt;
+        }
+
+        public CommandId CompensatingCommandId { get; }
+        public CommandId OriginalResolveAttackCommandId { get; }
+        public string ReasonCode { get; }
+        public string CorrectedSummaryPayload { get; }
+        public string GameLogEntryId { get; }
+        public UtcInstant CreatedAt { get; }
+    }
+
+    /// <summary>
     /// ODY-S05-604: the sole persistence seam for attack pending/intervention/
     /// atomic-apply state. A new, standalone contract -- by direct analogy to
     /// how <c>IActiveEffectRepository</c> (ADR-028/ADR-029 section 8) never
@@ -137,5 +180,23 @@ namespace Odyssey.Application.Persistence
         /// command's own root identity, distinct from <paramref name="pendingCommandId"/>).
         /// </summary>
         Result<AttackOutcomeRecord> ResolveAttackIntervention(CampaignHandle campaign, CommandId pendingCommandId, AttackInterventionResolution resolution, UserId actorUserId, bool actorIsMainGm, CommandId commandId, CorrelationId correlationId);
+
+        /// <summary>
+        /// ODY-S05-607: `ADR-029` §1 rule 7's own compensating root command --
+        /// never a nested handler call, never a rewrite of
+        /// <paramref name="resolveAttackCommandId"/>'s own original
+        /// `AttackOutcome`/Game Log/`DiceRolls` rows. MainGM-only (checked as
+        /// this method's own first statement), requires a non-empty
+        /// <paramref name="reasonCode"/>, and only applies to an already
+        /// <c>Accepted</c> outcome (only an accepted attack has a committed
+        /// Game Log entry to correct). CAS-guarded against compensating the
+        /// same original committing event twice (an already-compensated
+        /// outcome is a typed conflict, not a silent no-op or an implicit
+        /// second correction). Never re-derives RNG -- this is bookkeeping
+        /// correction only, never a re-roll. Idempotent by
+        /// <paramref name="commandId"/> (this command's own root identity,
+        /// distinct from <paramref name="resolveAttackCommandId"/>).
+        /// </summary>
+        Result<AttackCompensationRecord> CompensateAttackOutcome(CampaignHandle campaign, CommandId resolveAttackCommandId, string reasonCode, string correctedSummaryPayload, UserId actorUserId, bool actorIsMainGm, CommandId commandId, CorrelationId correlationId);
     }
 }
