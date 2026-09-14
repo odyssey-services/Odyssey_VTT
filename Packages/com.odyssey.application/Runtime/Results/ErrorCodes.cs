@@ -157,5 +157,9 @@ namespace Odyssey.Application.Results
         public static readonly ErrorCode ContentCatalogTypedDefinitionWrongType = ErrorCode.Parse("content_catalog.typed_definition.wrong_type");
         public static readonly ErrorCode ContentCatalogTypedDefinitionMalformedPayload = ErrorCode.Parse("content_catalog.typed_definition.malformed_payload");
         public static readonly ErrorCode ContentCatalogPublishValidationFailed = ErrorCode.Parse("content_catalog.publish.validation_failed");
+        public static readonly ErrorCode PersistenceAttackOutcomeNotFound = ErrorCode.Parse("persistence.attack_outcome.not_found");
+        public static readonly ErrorCode PersistenceAttackOutcomeNotPending = ErrorCode.Parse("persistence.attack_outcome.not_pending");
+        public static readonly ErrorCode PersistenceAttackOutcomeOperationDenied = ErrorCode.Parse("persistence.attack_outcome.operation_denied");
+        public static readonly ErrorCode PersistenceAttackOutcomeIoFailed = ErrorCode.Parse("persistence.attack_outcome.io_failed");
     }
 }
