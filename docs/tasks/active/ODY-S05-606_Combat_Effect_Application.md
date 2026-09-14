@@ -1,7 +1,7 @@
 # ODY-S05-606 — Combat Effect Application (`EffectApplicationDecision`)
 
 ## 1. Task identity
-`ODY-S05-606`; status: In Progress.
+`ODY-S05-606`; status: In Review (Draft PR https://github.com/odyssey-services/Odyssey_VTT/pull/150).
 
 ## 2. Goal
 Implement `ADR-029` §8: when an attack's atomic apply commits (immediately or via an approved intervention), every candidate whose final `EffectApplicationDecision` is `Apply` creates/stacks an `ActiveEffect` row -- routed through the existing `ADR-028` `EffectStackPolicy` decision layer (`ODY-S05-503`), in the same transaction as the rest of atomic apply. `DoNotApply`/unresolved `RequiresIntervention` candidates never create a row. This task does not decide `EffectApplicationDecision` itself (Rules already does, `ODY-S05-603`, unmodified) and does not implement `AttackDelta`/Character-Item state application (`ODY-S05-609`'s own territory).
