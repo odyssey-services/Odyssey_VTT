@@ -83,13 +83,7 @@ namespace Odyssey.Persistence.Sqlite
                         using (var insert = connection.CreateCommand())
                         {
                             insert.Transaction = transaction;
-                            insert.CommandText = InsertColumns + " VALUES (" +
-                                "$activeEffectId, $campaignId, $effectDefinitionRef, " +
-                                "$mechanicsSourceDefinitionRef, $mechanicsDefinitionSnapshotVersion, $mechanicsContentType, $mechanicsPayload, " +
-                                "$sourceKind, $sourceItemRefKind, $sourceItemRefId, " +
-                                "$targetKind, $targetCharacterId, $targetItemInstanceId, " +
-                                "$status, $stackCount, $appliedByUserId, $appliedAt, $expiresAt, $revision, $updatedAt, $lastCommandId, " +
-                                "$combatEncounterId, $combatSourceCombatantId, $combatTargetCombatantId, $combatAppliedRoundOrdinal, $combatAppliedLifecycleEventId, $combatRequiredCount);";
+                            insert.CommandText = InsertColumns + " VALUES " + InsertPlaceholders + ";";
                             AddParameters(insert, record, now);
                             insert.Parameters.AddWithValue("$lastCommandId", commandId.ToString());
                             insert.ExecuteNonQuery();
@@ -476,7 +470,7 @@ namespace Odyssey.Persistence.Sqlite
             return Result<ActiveEffectRecord>.Success(ReadRecord(reader));
         }
 
-        private static void AddParameters(SqliteCommand insert, ActiveEffectRecord record, UtcInstant now)
+        internal static void AddParameters(SqliteCommand insert, ActiveEffectRecord record, UtcInstant now)
         {
             ActiveEffect effect = record.Effect;
             bool hasItemRef = effect.SourceRef.Kind == ActiveEffectSourceKind.Item || effect.SourceRef.Kind == ActiveEffectSourceKind.EquippedItem;
@@ -512,7 +506,7 @@ namespace Odyssey.Persistence.Sqlite
         }
 
         /// <summary>ODY-S05-502: shared column-order contract for every INSERT into <c>ActiveEffect</c>. The trailing <c>$lastCommandId</c> parameter is bound by each caller separately (see <see cref="CreateActiveEffect"/>), since it is not part of <see cref="AddParameters"/>'s own record-derived values.</summary>
-        private const string InsertColumns =
+        internal const string InsertColumns =
             "INSERT INTO ActiveEffect (ActiveEffectId, CampaignId, EffectDefinitionRef, " +
             "MechanicsSourceDefinitionRef, MechanicsDefinitionSnapshotVersion, MechanicsContentType, MechanicsPayload, " +
             "SourceKind, SourceItemRefKind, SourceItemRefId, " +
@@ -520,8 +514,17 @@ namespace Odyssey.Persistence.Sqlite
             "Status, StackCount, AppliedByUserId, AppliedAt, ExpiresAt, Revision, UpdatedAt, LastCommandId, " +
             "CombatEncounterId, CombatSourceCombatantId, CombatTargetCombatantId, CombatAppliedRoundOrdinal, CombatAppliedLifecycleEventId, CombatRequiredCount)";
 
+        /// <summary>ODY-S05-606: the shared `VALUES (...)` placeholder list matching <see cref="InsertColumns"/>'s own column order exactly -- extracted so <c>SqliteAttackApplyRepository</c>'s own combat-effect apply path can reuse the identical INSERT shape via <see cref="AddParameters"/>, instead of duplicating this list.</summary>
+        internal const string InsertPlaceholders =
+            "($activeEffectId, $campaignId, $effectDefinitionRef, " +
+            "$mechanicsSourceDefinitionRef, $mechanicsDefinitionSnapshotVersion, $mechanicsContentType, $mechanicsPayload, " +
+            "$sourceKind, $sourceItemRefKind, $sourceItemRefId, " +
+            "$targetKind, $targetCharacterId, $targetItemInstanceId, " +
+            "$status, $stackCount, $appliedByUserId, $appliedAt, $expiresAt, $revision, $updatedAt, $lastCommandId, " +
+            "$combatEncounterId, $combatSourceCombatantId, $combatTargetCombatantId, $combatAppliedRoundOrdinal, $combatAppliedLifecycleEventId, $combatRequiredCount)";
+
         /// <summary>ODY-S05-502: shared column-order contract for every SELECT against <c>ActiveEffect</c> that returns a full row -- <see cref="ReadRecord"/> uses this exact column list/order.</summary>
-        private const string SelectColumns =
+        internal const string SelectColumns =
             "SELECT ActiveEffectId, CampaignId, EffectDefinitionRef, " +
             "MechanicsSourceDefinitionRef, MechanicsDefinitionSnapshotVersion, MechanicsContentType, MechanicsPayload, " +
             "SourceKind, SourceItemRefKind, SourceItemRefId, " +
@@ -529,7 +532,7 @@ namespace Odyssey.Persistence.Sqlite
             "Status, StackCount, AppliedByUserId, AppliedAt, ExpiresAt, Revision, " +
             "CombatEncounterId, CombatSourceCombatantId, CombatTargetCombatantId, CombatAppliedRoundOrdinal, CombatAppliedLifecycleEventId, CombatRequiredCount";
 
-        private static ActiveEffectRecord ReadRecord(SqliteDataReader reader)
+        internal static ActiveEffectRecord ReadRecord(SqliteDataReader reader)
         {
             ActiveEffectId activeEffectId = ActiveEffectId.Parse(reader.GetString(0));
             CampaignId campaignId = CampaignId.Parse(reader.GetString(1));
@@ -612,7 +615,7 @@ namespace Odyssey.Persistence.Sqlite
             return connection;
         }
 
-        private static void EnsureActiveEffectTables(SqliteConnection connection)
+        internal static void EnsureActiveEffectTables(SqliteConnection connection)
         {
             using var command = connection.CreateCommand();
             command.CommandText = @"

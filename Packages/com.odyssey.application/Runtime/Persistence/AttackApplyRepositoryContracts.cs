@@ -34,6 +34,7 @@ namespace Odyssey.Application.Persistence
             long expectedEncounterRevision,
             int randomSampleValue,
             bool interventionRequired,
+            IReadOnlyList<AttackEffectCandidate> effectCandidates,
             AttackOutcomeKind outcomeKind,
             string? gameLogEntryId,
             UtcInstant createdAt,
@@ -47,6 +48,7 @@ namespace Odyssey.Application.Persistence
             if (targetIds == null || targetIds.Count == 0) throw new ArgumentException("At least one target is required.", nameof(targetIds));
             if (!actionItemInstanceId.IsValid) throw new ArgumentException("ActionItemInstanceId is required.", nameof(actionItemInstanceId));
             if (expectedEncounterRevision < 1) throw new ArgumentOutOfRangeException(nameof(expectedEncounterRevision));
+            if (effectCandidates == null) throw new ArgumentNullException(nameof(effectCandidates));
 
             ResolveAttackCommandId = resolveAttackCommandId;
             CampaignId = campaignId;
@@ -57,6 +59,7 @@ namespace Odyssey.Application.Persistence
             ExpectedEncounterRevision = expectedEncounterRevision;
             RandomSampleValue = randomSampleValue;
             InterventionRequired = interventionRequired;
+            EffectCandidates = effectCandidates;
             OutcomeKind = outcomeKind;
             GameLogEntryId = gameLogEntryId;
             CreatedAt = createdAt;
@@ -73,6 +76,10 @@ namespace Odyssey.Application.Persistence
         public long ExpectedEncounterRevision { get; }
         public int RandomSampleValue { get; }
         public bool InterventionRequired { get; }
+
+        /// <summary>ODY-S05-606: `ADR-029` §8's own effect candidates, computed by Rules at stage 11 (`ODY-S05-603`, unmodified) and persisted here so `ResolveAttackIntervention` can act on them without re-evaluating Rules or losing them between the pending and resolved steps.</summary>
+        public IReadOnlyList<AttackEffectCandidate> EffectCandidates { get; }
+
         public AttackOutcomeKind OutcomeKind { get; }
         public string? GameLogEntryId { get; }
         public UtcInstant CreatedAt { get; }
@@ -111,7 +118,7 @@ namespace Odyssey.Application.Persistence
         /// <paramref name="commandId"/>: an exact retry returns the original
         /// row and creates no second mutation.
         /// </summary>
-        Result<AttackOutcomeRecord> RecordAttackOutcome(CampaignHandle campaign, AttackIntent intent, AttackRandomSample randomSample, bool interventionRequired, UserId actorUserId, CommandId commandId, CorrelationId correlationId);
+        Result<AttackOutcomeRecord> RecordAttackOutcome(CampaignHandle campaign, AttackIntent intent, AttackRandomSample randomSample, bool interventionRequired, IReadOnlyList<AttackEffectCandidate> effectCandidates, UserId actorUserId, CommandId commandId, CorrelationId correlationId);
 
         /// <summary>
         /// <c>ResolveAttackIntervention</c> (ADR-029 section 1 rule 6): a new
