@@ -55,7 +55,7 @@ namespace Odyssey.Application.Combat
             }
 
             bool interventionRequired = evaluated.Value.EffectCandidates.Any(candidate => candidate.Decision == EffectApplicationDecision.RequiresIntervention);
-            return apply.RecordAttackOutcome(campaign, request.Intent, evaluated.Value.RandomSample!.Value, interventionRequired, request.ActorUserId, request.CommandId, request.CorrelationId);
+            return apply.RecordAttackOutcome(campaign, request.Intent, evaluated.Value.RandomSample!.Value, interventionRequired, evaluated.Value.EffectCandidates, request.ActorUserId, request.CommandId, request.CorrelationId);
         }
 
         /// <summary>
