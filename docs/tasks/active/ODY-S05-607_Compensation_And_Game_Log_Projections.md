@@ -1,7 +1,7 @@
 # ODY-S05-607 — Compensation and Game Log Projections
 
 ## 1. Task identity
-`ODY-S05-607`; status: In Review (Draft PR, see the backlog row for the link once opened).
+`ODY-S05-607`; status: In Review (Draft PR https://github.com/odyssey-services/Odyssey_VTT/pull/151).
 
 ## 2. Goal
 Implement `ADR-029` §1 rule 7 and §6 stages 14-15: a MainGM-only, reason-coded compensating root command that corrects an already-committed attack's Game Log/`AttackOutcome` bookkeeping (roll summary, audience, mis-logged data) without ever deleting or editing the original rows, plus expansion of the attack Game Log entry's audience from the hardcoded binary `PlayerAndGM` to all current combat-encounter participants + GM, via the already-existing `DiceRollAudienceKind`/`DiceRollVisibilityPolicy`/`GameLogReconnectService` mechanism. Does not anticipate `609`'s resource-delta compensation, does not touch `605`/`606`'s own logic, and does not introduce field-level/partial redaction.
