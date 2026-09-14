@@ -1,7 +1,7 @@
 # ODY-S05-604 — Intervention and Atomic Attack Apply
 
 ## 1. Task identity
-`ODY-S05-604`; status: In Progress.
+`ODY-S05-604`; status: In Review (Draft PR https://github.com/odyssey-services/Odyssey_VTT/pull/148).
 
 ## 2. Goal
 Implement ADR-029 section 6 stages 12-13 (intervention, atomic apply) on top of the unmodified ODY-S05-603 evaluation: a durable `Pending` outcome when Rules requires intervention, immediate `Accepted` otherwise, a new `ResolveAttackIntervention` root command, and one atomic transaction committing the outcome/idempotency record and the Game Log entry.
