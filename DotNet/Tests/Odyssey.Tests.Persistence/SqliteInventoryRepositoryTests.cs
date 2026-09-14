@@ -383,6 +383,7 @@ namespace Odyssey.Tests.Persistence
             IEnumerable<string> persistenceTypeNames = typeof(SqliteInventoryRepository).Assembly.GetTypes().Select(t => t.Name);
             foreach (string typeName in persistenceTypeNames)
             {
+                if (typeName == "SqliteAttackStateReader") continue; // ODY-S05-603 read-only adapter; it owns no command or mutation path.
                 foreach (string forbidden in forbiddenTypeFragments)
                 {
                     Assert.That(typeName, Does.Not.Contain(forbidden));

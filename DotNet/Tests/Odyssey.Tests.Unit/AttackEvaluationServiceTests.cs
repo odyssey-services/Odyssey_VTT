@@ -7,6 +7,7 @@ using Odyssey.Application.Persistence;
 using Odyssey.Application.Random;
 using Odyssey.Application.Results;
 using Odyssey.Domain.Combat;
+using Odyssey.Domain.Character;
 using Odyssey.Domain.Content;
 using Odyssey.Domain.Identity;
 using Odyssey.Domain.Inventory;
@@ -94,6 +95,22 @@ namespace Odyssey.Tests.Unit
             Assert.That(AttackEvaluationService.PreviewAttack(new Reader(State()), new Rules(), Campaign(), wrongTarget).IsFailure, Is.True);
         }
 
+        [Test] // TC-ATTACK-022
+        public void Intent_PublicSurfaceCarriesNoClientSidePreviewOrExecutionResult()
+        {
+            string[] allowed = { "EncounterId", "ActorId", "TargetIds", "ActionItemInstanceId", "ExpectedEncounterRevision" };
+            string[] actual = Array.ConvertAll(typeof(AttackIntent).GetProperties(), p => p.Name);
+            Assert.That(actual, Is.EquivalentTo(allowed));
+            string[] forbiddenNameFragments = { "Preview", "Resolution", "Random", "Sample", "Hit", "Damage", "Cost", "Effect", "Modifier", "Armor", "BodyPart", "Range" };
+            foreach (string name in actual)
+            {
+                foreach (string forbidden in forbiddenNameFragments)
+                {
+                    Assert.That(name, Does.Not.Contain(forbidden));
+                }
+            }
+        }
+
         [Test]
         public void Preview_HasNoSample_AndAllProposalCollectionsAreCopied()
         {
@@ -116,13 +133,14 @@ namespace Odyssey.Tests.Unit
         }
 
         private static AttackRequest Request(bool mainGm = true) => new AttackRequest(new AttackIntent(Encounter(), Actor(), new[] { Target() }, Item(), 1), UserId.Parse("user_0123456789abcdef0123456789abcdef"), mainGm, CommandId.Parse("cmd_0123456789abcdef0123456789abcdef"), CorrelationId.Parse("corr_0123456789abcdef0123456789abcdef"));
-        private static AttackEvaluationState State(CharacterId? current = null, long revision = 1) => new AttackEvaluationState(new CombatEncounterRecord(Encounter(), Campaign().CampaignId, "core", "1.0.0", new[] { new CombatParticipant(Actor(), 0), new CombatParticipant(Target(), 1) }, revision, 1, 1, CombatEncounterStatus.Open, CombatPhase.TurnOpen, current ?? Actor(), default, default), new AttackEvaluationSnapshot("fingerprint", "core", "1.0.0", revision, Source(), Mechanics()));
+        private static AttackEvaluationState State(CharacterId? current = null, long revision = 1) => new AttackEvaluationState(new CombatEncounterRecord(Encounter(), Campaign().CampaignId, "core", "1.0.0", new[] { new CombatParticipant(Actor(), 0), new CombatParticipant(Target(), 1) }, revision, 1, 1, CombatEncounterStatus.Open, CombatPhase.TurnOpen, current ?? Actor(), default, default), new AttackEvaluationSnapshot("fingerprint", "core", "1.0.0", revision, Source(), Mechanics(), Participant(Actor()), Array.AsReadOnly(new[] { Participant(Target()) }), new AttackUnavailableInput(AttackInputAvailability.UnavailableNotBound, "no topology"), new AttackUnavailableInput(AttackInputAvailability.UnavailableNotBound, "no armor/effects")));
         private static CombatEncounterId Encounter() => CombatEncounterId.Parse("enc_0123456789abcdef0123456789abcdef");
         private static CharacterId Actor() => CharacterId.Parse("char_0123456789abcdef0123456789abcdef");
         private static CharacterId Target() => CharacterId.Parse("char_fedcba9876543210fedcba9876543210");
         private static ContentDefinitionRef Source() => ContentDefinitionRef.Parse("cdef_0123456789abcdef0123456789abcdef/1");
         private static ItemInstanceId Item() => ItemInstanceId.Parse("iinst_0123456789abcdef0123456789abcdef");
         private static ItemMechanicsSnapshot Mechanics() => new ItemMechanicsSnapshot(Source(), 1, ContentDefinitionType.Item, "{}");
+        private static AttackParticipantState Participant(CharacterId id) => new AttackParticipantState(id, CharacterLifecycleStatus.Active, CharacterApprovalState.Approved);
 
         private sealed class Reader : IAttackStateReader
         {

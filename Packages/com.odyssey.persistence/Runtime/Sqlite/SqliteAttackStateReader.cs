@@ -36,7 +36,14 @@ namespace Odyssey.Persistence.Sqlite
             Result<ItemInstanceRecord> item = _inventory.GetItemInstance(campaign, intent.ActionItemInstanceId, correlationId);
             if (item.IsFailure) return Result<AttackEvaluationState>.Failure(item.Error);
             if (item.Value.CampaignId != campaign.CampaignId || item.Value.OwnerRef.Kind != InventoryOwnerKind.Character || item.Value.OwnerRef.TargetRef != intent.ActorId.ToString() || !item.Value.MechanicsSnapshot.SourceDefinitionRef.Equals(item.Value.SourceItemDefinitionRef)) return Result<AttackEvaluationState>.Failure(Rejected(correlationId));
-            var snapshot = new AttackEvaluationSnapshot(Fingerprint(encounter.Value, item.Value), encounter.Value.RulesetId, encounter.Value.RulesetVersion, encounter.Value.Revision, item.Value.SourceItemDefinitionRef, item.Value.MechanicsSnapshot);
+            Result<CharacterRecord> actor = _characters.GetCharacter(campaign, intent.ActorId, correlationId);
+            if (actor.IsFailure || actor.Value.CampaignId != campaign.CampaignId) return Result<AttackEvaluationState>.Failure(actor.IsFailure ? actor.Error : Rejected(correlationId));
+            var targets = new List<AttackParticipantState>();
+            for (int index = 0; index < intent.TargetIds.Count; index++) { Result<CharacterRecord> target = _characters.GetCharacter(campaign, intent.TargetIds[index], correlationId); if (target.IsFailure || target.Value.CampaignId != campaign.CampaignId) return Result<AttackEvaluationState>.Failure(target.IsFailure ? target.Error : Rejected(correlationId)); targets.Add(State(target.Value)); }
+            AttackParticipantState actorState = State(actor.Value);
+            var topology = new AttackUnavailableInput(AttackInputAvailability.UnavailableNotBound, "Encounter has no tactical topology binding.");
+            var armorAndEffects = new AttackUnavailableInput(AttackInputAvailability.UnavailableNotBound, "No narrow combat armor/effect read binding exists.");
+            var snapshot = new AttackEvaluationSnapshot(Fingerprint(encounter.Value, item.Value, actorState, targets), encounter.Value.RulesetId, encounter.Value.RulesetVersion, encounter.Value.Revision, item.Value.SourceItemDefinitionRef, item.Value.MechanicsSnapshot, actorState, targets, topology, armorAndEffects);
             return Result<AttackEvaluationState>.Success(new AttackEvaluationState(encounter.Value, snapshot));
         }
 
@@ -49,7 +56,8 @@ namespace Odyssey.Persistence.Sqlite
 
         private static bool Contains(IReadOnlyList<CombatParticipant> participants, CharacterId id) { for (int index = 0; index < participants.Count; index++) if (participants[index].CharacterId == id) return true; return false; }
         private static bool ContainsAll(IReadOnlyList<CombatParticipant> participants, IReadOnlyList<CharacterId> ids) { for (int index = 0; index < ids.Count; index++) if (!Contains(participants, ids[index])) return false; return true; }
-        private static string Fingerprint(CombatEncounterRecord encounter, ItemInstanceRecord item) => encounter.EncounterId + ":" + encounter.Revision + ":" + item.ItemInstanceId + ":" + item.Revision + ":" + item.MechanicsSnapshot.SourceDefinitionRef + ":" + item.MechanicsSnapshot.DefinitionSnapshotVersion;
+        private static AttackParticipantState State(CharacterRecord record) => new AttackParticipantState(record.CharacterId, record.LifecycleStatus, record.ApprovalState);
+        private static string Fingerprint(CombatEncounterRecord encounter, ItemInstanceRecord item, AttackParticipantState actor, IReadOnlyList<AttackParticipantState> targets) { string value = encounter.EncounterId + ":" + encounter.Revision + ":" + item.ItemInstanceId + ":" + item.Revision + ":" + item.MechanicsSnapshot.SourceDefinitionRef + ":" + item.MechanicsSnapshot.DefinitionSnapshotVersion + ":" + actor.LifecycleStatus + ":" + actor.ApprovalState; for (int index = 0; index < targets.Count; index++) value += ":" + targets[index].CharacterId + ":" + targets[index].LifecycleStatus + ":" + targets[index].ApprovalState; return value; }
         private static Error Rejected(CorrelationId correlationId) => Error.Create(ErrorCodes.ApplicationValidationInvalid, ErrorCategory.Precondition, SafeReasonCode.ActionNotAllowed, UserMessageKey.Parse("errors.attack.invalid_state"), RetryDirective.DoNotRetry, correlationId);
     }
 }
