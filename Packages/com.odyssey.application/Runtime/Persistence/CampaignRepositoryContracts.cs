@@ -965,6 +965,33 @@ namespace Odyssey.Application.Persistence
             RetryDirective.ManualRecoveryRequired,
             correlationId);
 
+        /// <summary>ODY-S05-607: `CompensateAttackOutcome` rejection when no reason code/corrected summary is supplied, mirroring `CharacterRulesetMigrationRevertReasonRequired`'s own convention.</summary>
+        public static Error AttackOutcomeCompensationReasonRequired(CorrelationId correlationId) => Error.Create(
+            ErrorCodes.PersistenceAttackOutcomeCompensationReasonRequired,
+            ErrorCategory.Validation,
+            SafeReasonCode.InvalidRequest,
+            UserMessageKey.Parse("errors.persistence.attack_outcome_compensation_reason_required"),
+            RetryDirective.DoNotRetry,
+            correlationId);
+
+        /// <summary>ODY-S05-607: `CompensateAttackOutcome` only applies to an already-`Accepted` outcome -- a `Pending`/`Rejected`/`Cancelled` outcome has no committed Game Log entry to correct.</summary>
+        public static Error AttackOutcomeNotAccepted(CorrelationId correlationId) => Error.Create(
+            ErrorCodes.PersistenceAttackOutcomeNotAccepted,
+            ErrorCategory.Precondition,
+            SafeReasonCode.ActionNotAllowed,
+            UserMessageKey.Parse("errors.persistence.attack_outcome_not_accepted"),
+            RetryDirective.DoNotRetry,
+            correlationId);
+
+        /// <summary>ODY-S05-607: `CompensateAttackOutcome`'s own CAS guard, mirroring `CharacterRulesetMigrationAlreadyReverted`'s exact convention -- an already-compensated committing event cannot be compensated a second time.</summary>
+        public static Error AttackOutcomeAlreadyCompensated(CorrelationId correlationId) => Error.Create(
+            ErrorCodes.PersistenceAttackOutcomeAlreadyCompensated,
+            ErrorCategory.Conflict,
+            SafeReasonCode.StateChanged,
+            UserMessageKey.Parse("errors.persistence.attack_outcome_already_compensated"),
+            RetryDirective.DoNotRetry,
+            correlationId);
+
         // Used only by the codec's Read path (CampaignManifest.cs), which does not
         // receive a caller CorrelationId; matches the existing SerializationFailures
         // placeholder-correlation convention for codec-level structural failures.

@@ -162,5 +162,8 @@ namespace Odyssey.Application.Results
         public static readonly ErrorCode PersistenceAttackOutcomeOperationDenied = ErrorCode.Parse("persistence.attack_outcome.operation_denied");
         public static readonly ErrorCode PersistenceAttackOutcomeIoFailed = ErrorCode.Parse("persistence.attack_outcome.io_failed");
         public static readonly ErrorCode PersistenceCombatEncounterLifecycleIoFailed = ErrorCode.Parse("persistence.combat_encounter_lifecycle.io_failed");
+        public static readonly ErrorCode PersistenceAttackOutcomeCompensationReasonRequired = ErrorCode.Parse("persistence.attack_outcome.compensation_reason_required");
+        public static readonly ErrorCode PersistenceAttackOutcomeNotAccepted = ErrorCode.Parse("persistence.attack_outcome.not_accepted");
+        public static readonly ErrorCode PersistenceAttackOutcomeAlreadyCompensated = ErrorCode.Parse("persistence.attack_outcome.already_compensated");
     }
 }

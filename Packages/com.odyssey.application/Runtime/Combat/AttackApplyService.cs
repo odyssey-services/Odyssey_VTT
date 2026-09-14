@@ -71,5 +71,17 @@ namespace Odyssey.Application.Combat
             if (apply == null) throw new ArgumentNullException(nameof(apply));
             return apply.ResolveAttackIntervention(campaign, pendingCommandId, resolution, actorUserId, actorIsMainGm, commandId, correlationId);
         }
+
+        /// <summary>
+        /// ODY-S05-607: `CompensateAttackOutcome` -- a third independent root
+        /// command, not a nested call into either of the two above. Delegates
+        /// directly to <see cref="IAttackApplyRepository.CompensateAttackOutcome"/>;
+        /// this method never touches <see cref="IAuthoritativeRandomStreamFactory"/>.
+        /// </summary>
+        public static Result<AttackCompensationRecord> CompensateAttackOutcome(IAttackApplyRepository apply, CampaignHandle campaign, CommandId resolveAttackCommandId, string reasonCode, string correctedSummaryPayload, UserId actorUserId, bool actorIsMainGm, CommandId commandId, CorrelationId correlationId)
+        {
+            if (apply == null) throw new ArgumentNullException(nameof(apply));
+            return apply.CompensateAttackOutcome(campaign, resolveAttackCommandId, reasonCode, correctedSummaryPayload, actorUserId, actorIsMainGm, commandId, correlationId);
+        }
     }
 }
