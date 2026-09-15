@@ -878,6 +878,51 @@ namespace Odyssey.Persistence.Sqlite
             }
         }
 
+        public Result<IReadOnlyList<EquippedEntryRecord>> ListEquippedEntriesByCharacter(CampaignHandle campaign, CampaignId campaignId, CharacterId characterId, CorrelationId correlationId)
+        {
+            if (campaign == null) throw new ArgumentNullException(nameof(campaign));
+            if (!characterId.IsValid) throw new ArgumentException("CharacterId is required.", nameof(characterId));
+            if (!TryValidateCampaignBoundary(campaign, campaignId, correlationId, out Error campaignError))
+            {
+                return Result<IReadOnlyList<EquippedEntryRecord>>.Failure(campaignError);
+            }
+
+            try
+            {
+                using SqliteConnection connection = OpenConnection(campaign.RootPath);
+                EnsureInventoryTables(connection);
+
+                var results = new List<EquippedEntryRecord>();
+                using (var select = connection.CreateCommand())
+                {
+                    // Column names are prefixed with e. -- ItemInstance/ItemStack both also have their own
+                    // CampaignId/InventoryId columns, so an unprefixed SELECT would be ambiguous once joined.
+                    select.CommandText =
+                        "SELECT e.ItemRefId, e.ItemRefKind, e.CampaignId, e.InventoryId, e.EquipmentSlotRef, e.BodyPartRefs, e.EquippedByUserId, e.EquippedAt, e.Revision, e.CreatedAt, e.UpdatedAt " +
+                        "FROM EquippedEntry e JOIN ItemInstance i ON i.ItemInstanceId = e.ItemRefId " +
+                        "WHERE e.CampaignId = $campaignId AND i.OwnerKind = $ownerKind AND i.OwnerTargetRef = $characterId " +
+                        "UNION ALL " +
+                        "SELECT e.ItemRefId, e.ItemRefKind, e.CampaignId, e.InventoryId, e.EquipmentSlotRef, e.BodyPartRefs, e.EquippedByUserId, e.EquippedAt, e.Revision, e.CreatedAt, e.UpdatedAt " +
+                        "FROM EquippedEntry e JOIN ItemStack s ON s.ItemStackId = e.ItemRefId " +
+                        "WHERE e.CampaignId = $campaignId AND s.OwnerKind = $ownerKind AND s.OwnerTargetRef = $characterId;";
+                    select.Parameters.AddWithValue("$campaignId", campaignId.ToString());
+                    select.Parameters.AddWithValue("$ownerKind", InventoryOwnerKind.Character.ToString());
+                    select.Parameters.AddWithValue("$characterId", characterId.ToString());
+                    using SqliteDataReader reader = select.ExecuteReader();
+                    while (reader.Read())
+                    {
+                        results.Add(ReadEquippedEntry(reader));
+                    }
+                }
+
+                return Result<IReadOnlyList<EquippedEntryRecord>>.Success(results);
+            }
+            catch (Exception ex) when (ex is IOException || ex is UnauthorizedAccessException || ex is SqliteException)
+            {
+                return Result<IReadOnlyList<EquippedEntryRecord>>.Failure(PersistenceFailures.InventoryIoFailed(correlationId));
+            }
+        }
+
         private static string EscapeLike(string value)
         {
             return value

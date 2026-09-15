@@ -46,6 +46,58 @@ namespace Odyssey.Domain.Combat
     }
     public readonly struct AttackUnavailableInput { public AttackUnavailableInput(AttackInputAvailability availability, string reason) { if (availability != AttackInputAvailability.UnavailableNotBound || string.IsNullOrWhiteSpace(reason)) throw new ArgumentException("Only explicit unavailable input is valid."); Availability = availability; Reason = reason; } public AttackInputAvailability Availability { get; } public string Reason { get; } }
 
+    public enum AttackArmorAvailability { Available = 1, UnavailableNotBound = 2 }
+
+    /// <summary>ODY-S06-103: one target's own one piece of currently-equipped armor, decoded into its real content-catalog <see cref="ArmorDefinition"/>. A target may carry several entries (e.g. a helmet and a breastplate both equipped) -- which piece, if any, a real hit actually consults is `ODY-S06-105`'s own aggregation/selection decision, not this type's.</summary>
+    public readonly struct AttackTargetArmorEntry
+    {
+        public AttackTargetArmorEntry(CharacterId targetId, ArmorDefinition armor)
+        {
+            if (!targetId.IsValid) throw new ArgumentException("TargetId is required.", nameof(targetId));
+            TargetId = targetId;
+            Armor = armor ?? throw new ArgumentNullException(nameof(armor));
+        }
+        public CharacterId TargetId { get; }
+        public ArmorDefinition Armor { get; }
+    }
+
+    /// <summary>
+    /// ODY-S06-103: replaces <c>AttackEvaluationSnapshot.ArmorAndEffects</c>'s former <see cref="AttackUnavailableInput"/>
+    /// typing -- that type's own constructor structurally rejects any <see cref="AttackInputAvailability"/> but
+    /// <c>UnavailableNotBound</c> (`TC-ATTACK-025`), so it could never be extended to carry real armor data.
+    /// <see cref="Unavailable"/> preserves the exact prior "not bound" semantics for when no target in the
+    /// intent has any equipped armor at all; <see cref="Available"/> carries every real, decoded
+    /// <see cref="ArmorDefinition"/> each target currently has equipped, tagged by <see cref="AttackTargetArmorEntry.TargetId"/>.
+    /// </summary>
+    public sealed class AttackArmorInput
+    {
+        private AttackArmorInput(AttackArmorAvailability availability, string reason, IReadOnlyList<AttackTargetArmorEntry> entries)
+        {
+            Availability = availability;
+            Reason = reason;
+            Entries = entries;
+        }
+
+        public static AttackArmorInput Unavailable(string reason)
+        {
+            if (string.IsNullOrWhiteSpace(reason)) throw new ArgumentException("Reason is required.", nameof(reason));
+            return new AttackArmorInput(AttackArmorAvailability.UnavailableNotBound, reason, Array.Empty<AttackTargetArmorEntry>());
+        }
+
+        public static AttackArmorInput Available(IReadOnlyList<AttackTargetArmorEntry> entries)
+        {
+            if (entries == null) throw new ArgumentNullException(nameof(entries));
+            if (entries.Count == 0) throw new ArgumentException("Available armor input requires at least one entry; use Unavailable when no target has any equipped armor.", nameof(entries));
+            AttackTargetArmorEntry[] copy = new AttackTargetArmorEntry[entries.Count];
+            for (int index = 0; index < copy.Length; index++) copy[index] = entries[index];
+            return new AttackArmorInput(AttackArmorAvailability.Available, string.Empty, Array.AsReadOnly(copy));
+        }
+
+        public AttackArmorAvailability Availability { get; }
+        public string Reason { get; }
+        public IReadOnlyList<AttackTargetArmorEntry> Entries { get; }
+    }
+
     public readonly struct AttackRangeResult { public AttackRangeResult(bool isInRange, string reason) { IsInRange = isInRange; Reason = reason ?? throw new ArgumentNullException(nameof(reason)); } public bool IsInRange { get; } public string Reason { get; } }
     public readonly struct AttackModifierEntry { public AttackModifierEntry(string source, int value) { if (string.IsNullOrWhiteSpace(source)) throw new ArgumentException("Source is required.", nameof(source)); Source = source; Value = value; } public string Source { get; } public int Value { get; } }
     public readonly struct AttackHitResult { public AttackHitResult(bool isHit, string outcome) { IsHit = isHit; Outcome = outcome ?? throw new ArgumentNullException(nameof(outcome)); } public bool IsHit { get; } public string Outcome { get; } }
@@ -154,10 +206,10 @@ namespace Odyssey.Domain.Combat
 
     public sealed class AttackEvaluationSnapshot
     {
-        public AttackEvaluationSnapshot(string fingerprint, string rulesetId, string rulesetVersion, long encounterRevision, ContentDefinitionRef actionSourceRef, ItemMechanicsSnapshot actionMechanics, AttackParticipantState actor, IReadOnlyList<AttackParticipantState> targets, AttackUnavailableInput topology, AttackUnavailableInput armorAndEffects)
+        public AttackEvaluationSnapshot(string fingerprint, string rulesetId, string rulesetVersion, long encounterRevision, ContentDefinitionRef actionSourceRef, ItemMechanicsSnapshot actionMechanics, AttackParticipantState actor, IReadOnlyList<AttackParticipantState> targets, AttackUnavailableInput topology, AttackArmorInput armorAndEffects)
         {
             if (string.IsNullOrWhiteSpace(fingerprint) || string.IsNullOrWhiteSpace(rulesetId) || string.IsNullOrWhiteSpace(rulesetVersion) || encounterRevision < 1 || !actionSourceRef.IsValid || !actionMechanics.SourceDefinitionRef.Equals(actionSourceRef)) throw new ArgumentException("Snapshot values are required.");
-            if (actor.CharacterId == default || targets == null) throw new ArgumentException("Read participant state is required.");
+            if (actor.CharacterId == default || targets == null || armorAndEffects == null) throw new ArgumentException("Read participant state is required.");
             Fingerprint = fingerprint; RulesetId = rulesetId; RulesetVersion = rulesetVersion; EncounterRevision = encounterRevision; ActionSourceRef = actionSourceRef; ActionMechanics = actionMechanics; Actor = actor; Targets = Copy(targets, nameof(targets)); Topology = topology; ArmorAndEffects = armorAndEffects;
         }
         public string Fingerprint { get; }
@@ -169,7 +221,7 @@ namespace Odyssey.Domain.Combat
         public AttackParticipantState Actor { get; }
         public IReadOnlyList<AttackParticipantState> Targets { get; }
         public AttackUnavailableInput Topology { get; }
-        public AttackUnavailableInput ArmorAndEffects { get; }
+        public AttackArmorInput ArmorAndEffects { get; }
         private static IReadOnlyList<T> Copy<T>(IReadOnlyList<T> source, string name) { T[] copy = new T[source.Count]; for (int index = 0; index < copy.Length; index++) copy[index] = source[index]; return Array.AsReadOnly(copy); }
     }
 

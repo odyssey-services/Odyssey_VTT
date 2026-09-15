@@ -196,6 +196,8 @@ namespace Odyssey.Tests.Persistence
             return _characters.ApproveCharacterDraft(_campaign, id, true, current.Revisions.LifecycleRevision, Command(), Corr).Value.CharacterId;
         }
 
+        // ODY-S06-103: the attack action item must now be currently Equipped, not merely owned -- every
+        // caller of this fixture helper wants the still-supported (owned AND equipped) legitimate path.
         private ItemInstanceRecord ItemFor(CharacterId owner)
         {
             UtcInstant now = _clock.GetUtcNow();
@@ -204,7 +206,11 @@ namespace Odyssey.Tests.Persistence
             Assert.That(_inventory.CreateInventory(_campaign, inventory, Command(), Corr).IsSuccess, Is.True);
             ContentDefinitionRef source = ContentDefinitionRef.Parse("cdef_0123456789abcdef0123456789abcdef/1");
             ItemInstanceRecord item = new ItemInstanceRecord(ItemInstanceId.NewId(now), _campaign.CampaignId, inventoryId, InventoryOwnerRef.ForCharacter(owner), InventoryLocationRef.Contained(inventoryId, "main"), source, new ItemMechanicsSnapshot(source, 1, ContentDefinitionType.Item, "{}"), "{}", 1, now, now);
-            return _inventory.CreateItemInstance(_campaign, item, Command(), Corr).Value;
+            ItemInstanceRecord created = _inventory.CreateItemInstance(_campaign, item, Command(), Corr).Value;
+            var entry = new EquippedEntry(created.InventoryId, InventoryItemRef.ForInstance(created.ItemInstanceId), "main_hand", Array.Empty<BodyPartId>(), User(), now, 1);
+            Result<EquippedEntryRecord> equipped = _inventory.EquipItem(_campaign, new EquipTransition(new EquippedEntryRecord(_campaign.CampaignId, entry), created.Revision, Command()), Corr);
+            Assert.That(equipped.IsSuccess, Is.True);
+            return _inventory.GetItemInstance(_campaign, created.ItemInstanceId, Corr).Value;
         }
 
         private long TotalRowCount()

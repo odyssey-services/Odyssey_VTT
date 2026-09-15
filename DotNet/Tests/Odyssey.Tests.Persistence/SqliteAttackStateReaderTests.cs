@@ -5,6 +5,7 @@ using Microsoft.Data.Sqlite;
 using NUnit.Framework;
 using Odyssey.Application.Combat;
 using Odyssey.Application.Commands;
+using Odyssey.Application.Content;
 using Odyssey.Application.Inventory;
 using Odyssey.Application.Persistence;
 using Odyssey.Application.Results;
@@ -95,7 +96,7 @@ namespace Odyssey.Tests.Persistence
 
             AttackEvaluationSnapshot snapshot = _reader.Read(_campaign, Intent(encounter, actor, target, item), Corr).Value.Snapshot;
             Assert.That(snapshot.Topology.Availability, Is.EqualTo(AttackInputAvailability.UnavailableNotBound));
-            Assert.That(snapshot.ArmorAndEffects.Availability, Is.EqualTo(AttackInputAvailability.UnavailableNotBound));
+            Assert.That(snapshot.ArmorAndEffects.Availability, Is.EqualTo(AttackArmorAvailability.UnavailableNotBound));
             Assert.That(snapshot.Topology.Reason, Is.Not.Null.And.Not.Empty);
             Assert.That(snapshot.ArmorAndEffects.Reason, Is.Not.Null.And.Not.Empty);
 
@@ -122,16 +123,19 @@ namespace Odyssey.Tests.Persistence
             string afterEncounterRevisionChanged = _reader.Read(_campaign, Intent(afterSecondAdvance, actor, target, item), Corr).Value.Snapshot.Fingerprint;
             Assert.That(afterEncounterRevisionChanged, Is.Not.EqualTo(baseline));
 
-            // Item revision: moving the actor's own item to a different container key bumps ItemInstanceRecord.Revision
-            // without changing its owner or mechanics snapshot.
-            ItemInstanceRecord movedItem = Move(item, "belt");
-            Assert.That(movedItem.Revision, Is.GreaterThan(item.Revision));
-            string afterItemRevisionChanged = _reader.Read(_campaign, Intent(afterSecondAdvance, actor, target, movedItem), Corr).Value.Snapshot.Fingerprint;
+            // Item revision: ODY-S06-103's own equip-status gate now requires the action item to stay
+            // Equipped for a read to succeed, so a Contained-container Move (which requires the source to
+            // BE Contained) can no longer serve this purpose -- unequipping then re-equipping the actor's
+            // own item bumps ItemInstanceRecord.Revision the same way, without changing its owner or
+            // mechanics snapshot, while leaving it Equipped again at the end.
+            ItemInstanceRecord reequippedItem = Requip(item);
+            Assert.That(reequippedItem.Revision, Is.GreaterThan(item.Revision));
+            string afterItemRevisionChanged = _reader.Read(_campaign, Intent(afterSecondAdvance, actor, target, reequippedItem), Corr).Value.Snapshot.Fingerprint;
             Assert.That(afterItemRevisionChanged, Is.Not.EqualTo(afterEncounterRevisionChanged));
 
             // Participant lifecycle: transitioning the target to Dead changes its LifecycleStatus without touching the encounter or item.
             TransitionToDead(target);
-            string afterTargetDied = _reader.Read(_campaign, Intent(afterSecondAdvance, actor, target, movedItem), Corr).Value.Snapshot.Fingerprint;
+            string afterTargetDied = _reader.Read(_campaign, Intent(afterSecondAdvance, actor, target, reequippedItem), Corr).Value.Snapshot.Fingerprint;
             Assert.That(afterTargetDied, Is.Not.EqualTo(afterItemRevisionChanged));
         }
 
@@ -239,6 +243,99 @@ namespace Odyssey.Tests.Persistence
             Assert.That(evaluated.Value.Snapshot.Actor.AttributeValues[AttributeDefinitionId.Parse("Strength")], Is.EqualTo(9));
         }
 
+        // ---- ODY-S06-103: weapon equip-status gate + armor data reaches the attack snapshot ----------
+
+        [Test] // TC-ATTACK-105
+        public void Read_RejectsAnOwnedButNotEquippedWeapon_NewBehaviorPreviouslyPassed()
+        {
+            CharacterId actor = Active("actor"), target = Active("target");
+            CombatEncounterRecord encounter = CreateEncounter(actor, target);
+            ItemInstanceRecord unequippedWeapon = CreateContainedItem(actor);
+
+            Result<AttackEvaluationState> rejected = _reader.Read(_campaign, Intent(encounter, actor, target, unequippedWeapon), Corr);
+
+            Assert.That(rejected.IsFailure, Is.True);
+        }
+
+        [Test] // TC-ATTACK-106
+        public void Read_AcceptsAnOwnedAndEquippedWeapon_LegitimatePathStillWorks()
+        {
+            CharacterId actor = Active("actor"), target = Active("target");
+            CombatEncounterRecord encounter = CreateEncounter(actor, target);
+            ItemInstanceRecord equippedWeapon = ItemFor(actor);
+
+            Result<AttackEvaluationState> accepted = _reader.Read(_campaign, Intent(encounter, actor, target, equippedWeapon), Corr);
+
+            Assert.That(accepted.IsSuccess, Is.True);
+        }
+
+        [Test] // TC-ATTACK-107
+        public void Read_TargetWithNoEquippedArmor_ArmorAndEffectsIsUnavailable()
+        {
+            CharacterId actor = Active("actor"), target = Active("target");
+            CombatEncounterRecord encounter = CreateEncounter(actor, target);
+            ItemInstanceRecord item = ItemFor(actor);
+
+            AttackEvaluationSnapshot snapshot = _reader.Read(_campaign, Intent(encounter, actor, target, item), Corr).Value.Snapshot;
+
+            Assert.That(snapshot.ArmorAndEffects.Availability, Is.EqualTo(AttackArmorAvailability.UnavailableNotBound));
+            Assert.That(snapshot.ArmorAndEffects.Entries, Is.Empty);
+        }
+
+        [Test] // TC-ATTACK-108
+        public void Read_TargetWithOneEquippedArmor_SnapshotCarriesTheRealDecodedArmorDefinition()
+        {
+            CharacterId actor = Active("actor"), target = Active("target");
+            CombatEncounterRecord encounter = CreateEncounter(actor, target);
+            ItemInstanceRecord item = ItemFor(actor);
+            EquipArmor(target, "chest_slot", protection: 6, "Torso");
+
+            AttackEvaluationSnapshot snapshot = _reader.Read(_campaign, Intent(encounter, actor, target, item), Corr).Value.Snapshot;
+
+            Assert.That(snapshot.ArmorAndEffects.Availability, Is.EqualTo(AttackArmorAvailability.Available));
+            Assert.That(snapshot.ArmorAndEffects.Entries.Count, Is.EqualTo(1));
+            AttackTargetArmorEntry entry = snapshot.ArmorAndEffects.Entries[0];
+            Assert.That(entry.TargetId, Is.EqualTo(target));
+            Assert.That(entry.Armor.Protection, Is.EqualTo(6));
+            Assert.That(entry.Armor.CoveredBodyPartIds, Is.EquivalentTo(new[] { BodyPartId.Parse("Torso") }));
+        }
+
+        [Test] // TC-ATTACK-109
+        public void Read_TargetWithArmorAndANonArmorEquippedItem_SnapshotCarriesOnlyTheRealArmor()
+        {
+            CharacterId actor = Active("actor"), target = Active("target");
+            CombatEncounterRecord encounter = CreateEncounter(actor, target);
+            ItemInstanceRecord item = ItemFor(actor);
+            EquipArmor(target, "chest_slot", protection: 4, "Torso");
+            Equip(CreateContainedItem(target), "amulet_slot");
+
+            AttackEvaluationSnapshot snapshot = _reader.Read(_campaign, Intent(encounter, actor, target, item), Corr).Value.Snapshot;
+
+            Assert.That(snapshot.ArmorAndEffects.Availability, Is.EqualTo(AttackArmorAvailability.Available));
+            Assert.That(snapshot.ArmorAndEffects.Entries.Count, Is.EqualTo(1));
+            Assert.That(snapshot.ArmorAndEffects.Entries[0].Armor.Protection, Is.EqualTo(4));
+        }
+
+        [Test] // TC-ATTACK-110
+        public void Read_MultipleTargets_EachHasItsOwnCorrectArmor_NotMixedUp()
+        {
+            CharacterId actor = Active("actor"), targetA = Active("targetA"), targetB = Active("targetB");
+            CombatEncounterRecord encounter = CombatEncounterService.Create(_encounters, _campaign, new CreateCombatEncounterRequest(new[] { actor, targetA, targetB }, User(), true, Command()), Corr).Value;
+            ItemInstanceRecord item = ItemFor(actor);
+            EquipArmor(targetA, "chest_slot", protection: 3, "Torso");
+            EquipArmor(targetB, "head_slot", protection: 9, "Head");
+
+            AttackIntent intent = new AttackIntent(encounter.EncounterId, actor, new[] { targetA, targetB }, item.ItemInstanceId, encounter.Revision);
+            AttackEvaluationSnapshot snapshot = _reader.Read(_campaign, intent, Corr).Value.Snapshot;
+
+            Assert.That(snapshot.ArmorAndEffects.Availability, Is.EqualTo(AttackArmorAvailability.Available));
+            Assert.That(snapshot.ArmorAndEffects.Entries.Count, Is.EqualTo(2));
+            AttackTargetArmorEntry entryA = Single(snapshot.ArmorAndEffects.Entries, targetA);
+            AttackTargetArmorEntry entryB = Single(snapshot.ArmorAndEffects.Entries, targetB);
+            Assert.That(entryA.Armor.Protection, Is.EqualTo(3));
+            Assert.That(entryB.Armor.Protection, Is.EqualTo(9));
+        }
+
         private CharacterRecord GrantAttribute(CharacterId characterId, string attributeName, long value)
         {
             CharacterRecord current = _characters.GetCharacter(_campaign, characterId, Corr).Value;
@@ -286,23 +383,62 @@ namespace Odyssey.Tests.Persistence
             Assert.That(transitioned.IsSuccess, Is.True);
         }
 
-        private ItemInstanceRecord ItemFor(CharacterId owner)
+        // ODY-S06-103: the attack action item must now be currently Equipped, not merely owned -- every
+        // ItemFor caller in this file wants the still-supported (owned AND equipped) legitimate path,
+        // so this helper equips what it creates. CreateContainedItem is the raw, deliberately-unequipped
+        // primitive for the tests that need an owned-but-not-equipped item instead (TC-ATTACK-105).
+        private ItemInstanceRecord ItemFor(CharacterId owner) => Equip(CreateContainedItem(owner), "main_hand");
+
+        private ItemInstanceRecord CreateContainedItem(CharacterId owner) => CreateContainedItemWithMechanics(owner, ContentDefinitionType.Item, "{}");
+
+        private ItemInstanceRecord CreateContainedItemWithMechanics(CharacterId owner, ContentDefinitionType contentType, string payload)
         {
             UtcInstant now = _clock.GetUtcNow();
             InventoryId inventoryId = InventoryId.NewId(now);
             InventoryRecord inventory = new InventoryRecord(inventoryId, _campaign.CampaignId, InventoryOwnerRef.ForCharacter(owner), 1, now, now);
             Assert.That(_inventory.CreateInventory(_campaign, inventory, Command(), Corr).IsSuccess, Is.True);
-            ContentDefinitionRef source = ContentDefinitionRef.Parse("cdef_0123456789abcdef0123456789abcdef/1");
-            ItemInstanceRecord item = new ItemInstanceRecord(ItemInstanceId.NewId(now), _campaign.CampaignId, inventoryId, InventoryOwnerRef.ForCharacter(owner), InventoryLocationRef.Contained(inventoryId, "main"), source, new ItemMechanicsSnapshot(source, 1, ContentDefinitionType.Item, "{}"), "{}", 1, now, now);
+            ContentDefinitionRef source = ContentDefinitionRef.Parse("cdef_" + Guid.NewGuid().ToString("N") + "/1");
+            ItemInstanceRecord item = new ItemInstanceRecord(ItemInstanceId.NewId(now), _campaign.CampaignId, inventoryId, InventoryOwnerRef.ForCharacter(owner), InventoryLocationRef.Contained(inventoryId, "main"), source, new ItemMechanicsSnapshot(source, 1, contentType, payload), "{}", 1, now, now);
             return _inventory.CreateItemInstance(_campaign, item, Command(), Corr).Value;
         }
 
-        private ItemInstanceRecord Move(ItemInstanceRecord item, string destinationContainerKey)
+        // ODY-S06-103: a real, decodable ArmorDefinition payload (TypedDefinitionCodec.EncodeArmor, the
+        // same codec DecodeArmor reads back) -- not a hand-written JSON stand-in.
+        private ItemInstanceRecord CreateContainedArmorItem(CharacterId owner, string equipmentSlotKey, long protection, string coveredBodyPart)
         {
-            var request = new MoveItemInstanceRequest(_campaign, item.ItemInstanceId, item.Revision, item.InventoryId, item.Revision, item.InventoryId, item.Revision, destinationContainerKey, User(), true, Command(), Corr);
-            Result<ItemInstanceRecord> moved = InventoryMovementService.MoveItemInstance(_inventory, request);
-            Assert.That(moved.IsSuccess, Is.True);
-            return moved.Value;
+            var itemDefinition = new ItemDefinition(ItemCategory.Generic, false, null, 1, false, null, false, null, Array.Empty<ContentDefinitionRef>(), Array.Empty<ContentDefinitionRef>());
+            var armorDefinition = new ArmorDefinition(itemDefinition, equipmentSlotKey, new[] { BodyPartId.Parse(coveredBodyPart) }, protection);
+            return CreateContainedItemWithMechanics(owner, ContentDefinitionType.Armor, TypedDefinitionCodec.EncodeArmor(armorDefinition));
+        }
+
+        private ItemInstanceRecord EquipArmor(CharacterId owner, string equipmentSlotKey, long protection, string coveredBodyPart)
+            => Equip(CreateContainedArmorItem(owner, equipmentSlotKey, protection, coveredBodyPart), equipmentSlotKey);
+
+        private ItemInstanceRecord Equip(ItemInstanceRecord item, string equipmentSlotKey)
+        {
+            var entry = new EquippedEntry(item.InventoryId, InventoryItemRef.ForInstance(item.ItemInstanceId), equipmentSlotKey, Array.Empty<BodyPartId>(), User(), _clock.GetUtcNow(), 1);
+            Result<EquippedEntryRecord> equipped = _inventory.EquipItem(_campaign, new EquipTransition(new EquippedEntryRecord(_campaign.CampaignId, entry), item.Revision, Command()), Corr);
+            Assert.That(equipped.IsSuccess, Is.True);
+            return _inventory.GetItemInstance(_campaign, item.ItemInstanceId, Corr).Value;
+        }
+
+        // ODY-S06-103: unequip then re-equip the actor's own item -- bumps ItemInstanceRecord.Revision the
+        // same way a Contained-container Move used to, without changing owner or mechanics snapshot, while
+        // leaving the item Equipped again at the end (required by the new equip-status gate).
+        private ItemInstanceRecord Requip(ItemInstanceRecord equippedItem)
+        {
+            Result<EquippedEntryRecord> current = _inventory.GetEquippedEntry(_campaign, InventoryItemRef.ForInstance(equippedItem.ItemInstanceId), Corr);
+            Assert.That(current.IsSuccess, Is.True);
+            Result<bool> unequipped = _inventory.UnequipItem(_campaign, new UnequipTransition(current.Value.Entry.ItemRef, current.Value.Entry.InventoryId, equippedItem.Revision, current.Value.Entry.Revision, "main", Command()), Corr);
+            Assert.That(unequipped.IsSuccess, Is.True);
+            ItemInstanceRecord contained = _inventory.GetItemInstance(_campaign, equippedItem.ItemInstanceId, Corr).Value;
+            return Equip(contained, current.Value.Entry.EquipmentSlotRef);
+        }
+
+        private static AttackTargetArmorEntry Single(IReadOnlyList<AttackTargetArmorEntry> entries, CharacterId targetId)
+        {
+            for (int index = 0; index < entries.Count; index++) if (entries[index].TargetId == targetId) return entries[index];
+            throw new InvalidOperationException("No armor entry found for target " + targetId + ".");
         }
 
         private long TotalRowCount()
