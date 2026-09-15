@@ -52,4 +52,4 @@ No production file changes. No fixture hook needed (confirmed during implementat
 
 ## Outcome
 
-Draft PR opened. This closes the full attack pipeline block (`ODY-S05-602`-`609`, `608`) — `ODY-S05-610` (`RequestGMResolution` stacking-conflict GM resolution, `606`'s own disclosed gap) remains its own separate, already-reserved follow-up task, explicitly not a dependency of `608`. The `CombatEffectExpiryService.EvaluateAndExpireIfDue` automatic-wiring gap (`605`'s own disclosed limitation) also remains open and unassigned — not closed by `605`, `606`, or `608`.
+Draft PR [odyssey-services/Odyssey_VTT#153](https://github.com/odyssey-services/Odyssey_VTT/pull/153) opened. This closes the full attack pipeline block (`ODY-S05-602`-`609`, `608`) — `ODY-S05-610` (`RequestGMResolution` stacking-conflict GM resolution, `606`'s own disclosed gap) remains its own separate, already-reserved follow-up task, explicitly not a dependency of `608`. The `CombatEffectExpiryService.EvaluateAndExpireIfDue` automatic-wiring gap (`605`'s own disclosed limitation) also remains open and unassigned — not closed by `605`, `606`, or `608`.

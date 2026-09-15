@@ -1,7 +1,7 @@
 # ODY-S05-608 — Full Attack Pipeline Integration Fixtures
 
 ## 1. Task identity
-`ODY-S05-608`; status: In Review (Draft PR, see the backlog row for the link once opened).
+`ODY-S05-608`; status: In Review (Draft PR https://github.com/odyssey-services/Odyssey_VTT/pull/153).
 
 ## 2. Goal
 Prove the full attack pipeline block (`ODY-S05-602`-`607`, `609`) composes end-to-end against one real SQLite database, mirroring `ODY-S05-404`'s/`507`'s own integration-fixture precedent exactly: one new test file that runs several `ADR-029` §12 Definition-of-Done items TOGETHER in connected scenarios, using only already-accepted public services (`AttackEvaluationService`, `AttackApplyService`, `SqliteAttackApplyRepository`'s four public methods, `CombatEffectExpiryService`, `GameLogReconnectService`/`DiceRollVisibilityPolicy`). This task introduces zero new production behavior -- every individual §12 item already has an isolated test in its own owning task; the only real gap this task closes is composition, since every predecessor task resets state in its own `SetUp()`.
