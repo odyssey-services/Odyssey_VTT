@@ -1,7 +1,7 @@
 # ODY-S06-101 — ADR-030: Rules Engine / Mechanics Execution Architecture
 
 ## 1. Task identity
-`ODY-S06-101`; status: In Review (Draft PR, see the backlog row for the link once opened). First task of `SLICE-06`.
+`ODY-S06-101`; status: In Review (Draft PR [#157](https://github.com/odyssey-services/Odyssey_VTT/pull/157), CI green, merge left to the product owner). First task of `SLICE-06`.
 
 ## 2. Goal
 Produce and accept `ADR-030`, the architecture that turns declarative Ruleset content into real mutating outcomes: the real `IAttackRulesEvaluator` implementation boundary, a shared formula grammar for `WeaponDefinition.DamageExpression`, a minimal mechanics-primitive schema for `AbilityDefinition.MechanicsPayloadRef`/`EffectDefinition.MechanicsPayloadRef`, a `RulesetId@RulesetVersion` rules registry, and the `ActivateAbility` root-command architecture -- one shared engine, not three independent mechanisms. Also create `docs/tasks/SLICE-06_IMPLEMENTATION_BACKLOG.md` and a `PLANS.md` §13 amendment in the same task/PR (product-owner-authorized simplification of `SLICE-05`'s own two-phase propose-then-decompose process). This task produces no production code.
