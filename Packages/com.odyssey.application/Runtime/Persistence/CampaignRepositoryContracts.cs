@@ -1028,6 +1028,42 @@ namespace Odyssey.Application.Persistence
             RetryDirective.DoNotRetry,
             correlationId);
 
+        /// <summary>ODY-S05-610: `ResolveStackConflict` is MainGM-only (`ADR-028` §7 rule 7), mirroring `AttackOutcomeOperationDenied`'s own MainGM-gate convention for the analogous `ResolveAttackIntervention` decision.</summary>
+        public static Error CombatStackConflictOperationDenied(CorrelationId correlationId) => Error.Create(
+            ErrorCodes.PersistenceCombatStackConflictOperationDenied,
+            ErrorCategory.Authorization,
+            SafeReasonCode.PermissionDenied,
+            UserMessageKey.Parse("errors.persistence.combat_stack_conflict_operation_denied"),
+            RetryDirective.DoNotRetry,
+            correlationId);
+
+        /// <summary>ODY-S05-610: no durable pending `ActiveEffectStackConflict` row exists for the requested (raising `CommandId`, conflicting `ActiveEffectId`) pair.</summary>
+        public static Error CombatStackConflictNotFound(CorrelationId correlationId) => Error.Create(
+            ErrorCodes.PersistenceCombatStackConflictNotFound,
+            ErrorCategory.NotFound,
+            SafeReasonCode.TargetUnavailable,
+            UserMessageKey.Parse("errors.persistence.combat_stack_conflict_not_found"),
+            RetryDirective.DoNotRetry,
+            correlationId);
+
+        /// <summary>ODY-S05-610: `ResolveStackConflict`'s own CAS guard -- the targeted pending conflict is already `Resolved`, mirroring `AttackOutcomeAlreadyCompensated`'s exact convention for the analogous condition.</summary>
+        public static Error CombatStackConflictAlreadyResolved(CorrelationId correlationId) => Error.Create(
+            ErrorCodes.PersistenceCombatStackConflictAlreadyResolved,
+            ErrorCategory.Conflict,
+            SafeReasonCode.StateChanged,
+            UserMessageKey.Parse("errors.persistence.combat_stack_conflict_already_resolved"),
+            RetryDirective.DoNotRetry,
+            correlationId);
+
+        /// <summary>ODY-S05-610: an unexpected I/O failure while reading/writing combat stack conflict state, mirroring `AttackOutcomeIoFailed`'s exact convention for a new aggregate.</summary>
+        public static Error CombatStackConflictIoFailed(CorrelationId correlationId) => Error.Create(
+            ErrorCodes.PersistenceCombatStackConflictIoFailed,
+            ErrorCategory.PermanentInfrastructure,
+            SafeReasonCode.UnexpectedError,
+            UserMessageKey.Parse("errors.persistence.combat_stack_conflict_io_failed"),
+            RetryDirective.ManualRecoveryRequired,
+            correlationId);
+
         // Used only by the codec's Read path (CampaignManifest.cs), which does not
         // receive a caller CorrelationId; matches the existing SerializationFailures
         // placeholder-correlation convention for codec-level structural failures.
