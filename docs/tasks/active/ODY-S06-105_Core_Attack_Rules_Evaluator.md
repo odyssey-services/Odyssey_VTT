@@ -1,7 +1,7 @@
 # ODY-S06-105 — Real `IAttackRulesEvaluator` Implementation (Formula + Attributes + Armor + Range)
 
 ## 1. Task identity
-`ODY-S06-105`; status: In Review (Draft PR, see the backlog row for the link once opened). Fifth task of `SLICE-06`, the first real, production `IAttackRulesEvaluator` implementation -- every predecessor task (`ODY-S05-601`-`611`, `ODY-S06-101`-`104`) exercised only hand-written test fixtures.
+`ODY-S06-105`; status: In Review (Draft PR [#161](https://github.com/odyssey-services/Odyssey_VTT/pull/161), CI green, merge left to the product owner). Fifth task of `SLICE-06`, the first real, production `IAttackRulesEvaluator` implementation -- every predecessor task (`ODY-S05-601`-`611`, `ODY-S06-101`-`104`) exercised only hand-written test fixtures.
 
 ## 2. Goal
 Build `CoreAttackRulesEvaluator`, computing a real damage/range/hit resolution from a weapon's own real `DamageExpression`, the actor's real attributes (`ODY-S06-102`), the target's real armor (`ODY-S06-103`), and the real actor-target distance (`ODY-S06-104`) -- not a placeholder. Resolve the long-open `AttackRandomSample` single-int limitation (a multi-dice-term formula like "2d6+3" needs more than one independent draw). Wire this real evaluator into the production entry points (`AttackEvaluationService`/`AttackApplyService`) so a real attack, once a real caller exists, produces real numbers.
