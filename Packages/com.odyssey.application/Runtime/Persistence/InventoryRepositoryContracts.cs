@@ -152,6 +152,17 @@ namespace Odyssey.Application.Persistence
         /// not a general Equipment-by-body-part listing.
         /// </summary>
         Result<bool> HasAnyEquippedEntryReferencingBodyPart(CampaignHandle campaign, CampaignId campaignId, CharacterId characterId, BodyPartId bodyPartId, CorrelationId correlationId);
+
+        /// <summary>
+        /// ODY-S06-103: lists every <see cref="EquippedEntryRecord"/> currently owned by this character (via
+        /// the joined <see cref="ItemInstanceRecord"/>/<see cref="ItemStackRecord"/>'s own
+        /// <c>OwnerKind</c>/<c>OwnerTargetRef</c>, which do not change across Equip/Unequip), by the same
+        /// join <see cref="HasAnyEquippedEntryReferencingBodyPart"/> already proves is possible against this
+        /// schema. Unlike that method, this returns the real rows, not a boolean existence check -- the
+        /// narrow addition this task needs to read a target's own real equipped armor into the attack
+        /// snapshot (`ADR-030`), without introducing a broader "inventory by character" abstraction.
+        /// </summary>
+        Result<IReadOnlyList<EquippedEntryRecord>> ListEquippedEntriesByCharacter(CampaignHandle campaign, CampaignId campaignId, CharacterId characterId, CorrelationId correlationId);
     }
 
     public sealed class InventoryCreateReplay<TRecord>
