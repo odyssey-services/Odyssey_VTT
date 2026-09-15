@@ -339,3 +339,22 @@ This decision is recorded architecturally in `ADR-027 — Content Catalog & Item
 5. The full, polished UI/UX pass — unchanged, still Roadmap Stage 11.
 
 This amendment does not reopen or invalidate any decision recorded in section 13's own original numbered list; it records why step 2 did not execute as originally written and what superseded it, per this document's own convention of an explicit amendment note rather than a silent rewrite.
+
+### 13.2 Amendment (2026-09-17) — SLICE-06 inserted after SLICE-05
+
+`SLICE-05` (step 2 of section 13.1's own amended order) is complete: Content Catalog, Inventory, Items, Abilities, Effects, and the full attack pipeline (`ADR-027`/`028`/`029`, `docs/tasks/SLICE-05_IMPLEMENTATION_BACKLOG.md`, `ODY-S05-101`-`611`) are all merged into `main`.
+
+Independent review of `SLICE-05`'s own completed work, performed at `SLICE-06`'s own first task (`ODY-S06-101`), confirmed directly against the tracked repository that the full attack pipeline is technically complete but has no real "brain": `IAttackRulesEvaluator` (`ADR-029`) has no production implementation anywhere, and `WeaponDefinition.DamageExpression`/`AbilityDefinition.MechanicsPayloadRef`/`EffectDefinition.MechanicsPayloadRef` (`ADR-027`, `ODY-S05-105`) remain opaque, unparsed strings. A Character can already acquire an ability but nothing can activate one. The product owner decided to insert a new slice, `SLICE-06`, to close this gap and prove a concrete MVP scenario -- two Characters, gear, abilities, combat, movement, and a second combat -- before either the temporary verification UI (section 13.1's own step 3) or .NET build/test infrastructure hardening (step 4) proceed.
+
+This decision is recorded architecturally in `ADR-030 — Rules Engine / Mechanics Execution Architecture` (Accepted, 2026-09-17) and decomposed into `docs/tasks/SLICE-06_IMPLEMENTATION_BACKLOG.md` (created 2026-09-17, in the same task/PR as `ADR-030` itself -- see that backlog's own section 1 for the explicit, product-owner-authorized simplification of skipping `SLICE-05`'s own separate two-phase propose-then-decompose process for this one-ADR slice).
+
+**Amended order for this segment**, superseding step 3 of section 13.1's own amended list (steps 1, 2, and 4 of that list are unchanged; step 4 is renumbered here as step 5):
+
+1. `SLICE-04` — Done (unchanged).
+2. `SLICE-05` — Done (unchanged): Content Catalog, Inventory, Items, Abilities, Effects, and Full Attack, merged into `main`.
+3. `SLICE-06` — Rules Engine, Mechanics Execution, and the two-character MVP scenario (`ADR-030`; `docs/tasks/SLICE-06_IMPLEMENTATION_BACKLOG.md`), decomposed and executed block by block as that backlog's own section 8/9 define. This step did not exist in section 13.1's own amended order; it is inserted here by explicit owner decision, before the temporary verification UI, so that UI (once built) exercises real computed attack/ability outcomes rather than a pipeline whose own "brain" is still a test-only fixture.
+4. Temporary verification UI (`SLICE-UI-02` or equivalent, following the `SLICE-UI-01` precedent) — deferred until `SLICE-06` (or whichever of its blocks the product owner judges sufficient) closes.
+5. .NET SDK / build-and-test infrastructure hardening — unchanged from the original order (still after the verification UI).
+6. The full, polished UI/UX pass — unchanged, still Roadmap Stage 11.
+
+This amendment does not reopen or invalidate any decision recorded in section 13 or 13.1's own original text; it records why `SLICE-06` was inserted and where, per this document's own convention of an explicit amendment note rather than a silent rewrite.
