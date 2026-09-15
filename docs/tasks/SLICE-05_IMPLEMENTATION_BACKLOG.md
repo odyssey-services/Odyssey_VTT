@@ -464,7 +464,7 @@ Per this backlog's own §4 discipline ("any child task discovering a genuine gap
 | 7 | `ODY-S05-609` | In Review | `ADR-029` §1 rule 5, §6 stage 13, §12 item 4 | Attack Aggregate Delta Commit | 604 | ExecPlan | Applies accepted `AttackDelta` values to Character resource state, atomically inside the attack's own apply transaction (never the public `SetResourceCurrentValue`); item-targeted deltas are a disclosed, escalated blocker (no numeric field exists on `ItemInstanceRecord`). No new Ruleset formula. |
 | 8 | `ODY-S05-610` | In Review | `ADR-028` §7 rule 7 | Combat Stacking Conflict GM Resolution | 606 | ExecPlan | Durable persistence and a real MainGM resolution command for `RequestGMResolution` stacking conflicts; closes `606`'s own disclosed gap. |
 | 9 | `ODY-S05-608` | In Review | `ADR-029` §12 | Full Attack Pipeline Integration Fixtures | 602-607, 609 | Brief plan | End-to-end proof of all nine §12 outcomes without new production behavior. |
-| 10 | `ODY-S05-611` | Proposed | `ADR-029` §7 | Combat Duration Expiry Automatic Trigger Wiring | 605, 602 | ExecPlan | Gives `CombatEffectExpiryService.EvaluateAndExpireIfDue` a real automatic call site; closes `605`'s own disclosed deferred-wiring gap, reconfirmed still open by `608`. |
+| 10 | `ODY-S05-611` | In Review | `ADR-029` §7 | Combat Duration Expiry Automatic Trigger Wiring | 605, 602 | ExecPlan | Gives `CombatEffectExpiryService.EvaluateAndExpireIfDue` a real automatic call site inside `SqliteCombatEncounterRepository.Advance`; closes `605`'s own disclosed deferred-wiring gap, reconfirmed still open by `608`. Final task of the full attack pipeline block. |
 
 ### 17.1 Full attack pipeline implementation task boundaries
 

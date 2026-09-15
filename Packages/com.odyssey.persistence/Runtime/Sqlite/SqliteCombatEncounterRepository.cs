@@ -4,21 +4,56 @@ using System.IO;
 using Microsoft.Data.Sqlite;
 using Odyssey.Application.Combat;
 using Odyssey.Application.Commands;
+using Odyssey.Application.Content;
+using Odyssey.Application.Effects;
 using Odyssey.Application.Persistence;
 using Odyssey.Application.Results;
 using Odyssey.Application.Time;
 using Odyssey.Domain.Character;
 using Odyssey.Domain.Combat;
+using Odyssey.Domain.Content;
+using Odyssey.Domain.Effects;
 using Odyssey.Domain.Identity;
 using Odyssey.Domain.Time;
 
 namespace Odyssey.Persistence.Sqlite
 {
-    /// <summary>ODY-S05-602's small, authoritative encounter timeline store. It deliberately owns no attack, effect or Game Log behaviour.</summary>
+    /// <summary>
+    /// ODY-S05-602's small, authoritative encounter timeline store. It
+    /// deliberately owns no attack, effect or Game Log behaviour of its own
+    /// -- with one exception, ODY-S05-611: <see cref="Advance"/> is the
+    /// single, already-authorized point in this whole codebase where a
+    /// combat round/turn genuinely moves forward, so it is also the correct
+    /// (and, per direct verification, the ONLY) place to trigger `605`'s own
+    /// <see cref="CombatEffectExpiryService.EvaluateAndExpireIfDue"/> for
+    /// combat-duration-bound `ActiveEffect` rows -- closing that task's own
+    /// disclosed "no automatic wiring point exists" gap. See this task's own
+    /// contract decision log for the full reasoning.
+    /// </summary>
     public sealed class SqliteCombatEncounterRepository : ICombatEncounterRepository
     {
         private readonly IWallClock _clock;
-        public SqliteCombatEncounterRepository(IWallClock clock) { _clock = clock ?? throw new ArgumentNullException(nameof(clock)); }
+        private readonly IActiveEffectRepository _activeEffects;
+        private readonly ICombatEncounterLifecycleReader _lifecycleReader;
+
+        /// <summary>
+        /// ODY-S05-611: <paramref name="activeEffects"/>/<paramref name="lifecycleReader"/>
+        /// are optional, defaulting to real, unmocked implementations
+        /// (<see cref="SqliteActiveEffectRepository"/>/<see cref="SqliteCombatEncounterLifecycleReader"/>)
+        /// specifically so every one of this class's own existing
+        /// single-argument call sites (<c>new SqliteCombatEncounterRepository(clock)</c>,
+        /// nine of them across this codebase's own test suite) keep compiling
+        /// unchanged -- the same "add as an optional parameter with a real
+        /// default, never force every existing caller to change" precedent
+        /// this codebase already used elsewhere for a comparable constructor
+        /// dependency.
+        /// </summary>
+        public SqliteCombatEncounterRepository(IWallClock clock, IActiveEffectRepository? activeEffects = null, ICombatEncounterLifecycleReader? lifecycleReader = null)
+        {
+            _clock = clock ?? throw new ArgumentNullException(nameof(clock));
+            _activeEffects = activeEffects ?? new SqliteActiveEffectRepository(_clock);
+            _lifecycleReader = lifecycleReader ?? new SqliteCombatEncounterLifecycleReader(this);
+        }
 
         public Result<CombatEncounterRecord> Create(CampaignHandle campaign, CreateCombatEncounterCommand request, CorrelationId correlationId)
         {
@@ -81,10 +116,73 @@ namespace Odyssey.Persistence.Sqlite
                     InsertEvent(c, t, current.EncounterId, CombatLifecycleEventKind.TurnStarted, round, turn, next, now);
                 }
                 CombatEncounterRecord result = GetInternal(c, t, campaign.CampaignId, current.EncounterId)!;
-                InsertLedger(c, t, request.CommandId, "advance", fingerprint, current.EncounterId, now); t.Commit(); return Result<CombatEncounterRecord>.Success(result);
+                InsertLedger(c, t, request.CommandId, "advance", fingerprint, current.EncounterId, now); t.Commit();
+                // ODY-S05-611: fires only on a genuine (non-replayed) advance --
+                // a retry of this same request.CommandId is short-circuited by
+                // the Replay() check above and never reaches this line, so
+                // expiry is never re-evaluated twice for one real advance.
+                // Deliberately AFTER t.Commit(): ExpireActiveEffect (605/502)
+                // opens its own separate SqliteConnection and cannot share
+                // this transaction, and a failure expiring one candidate must
+                // never roll back the round/turn advance that already
+                // committed (see this task's own contract decision log).
+                ExpireDueCombatEffects(campaign, result, correlationId);
+                return Result<CombatEncounterRecord>.Success(result);
             }
             catch (SqliteException) { return Result<CombatEncounterRecord>.Failure(Io(correlationId)); }
             catch (IOException) { return Result<CombatEncounterRecord>.Failure(Io(correlationId)); }
+        }
+
+        /// <summary>
+        /// ODY-S05-611: for each of <paramref name="encounter"/>'s own
+        /// current participants, lists their `ActiveEffect` rows (`ODY-S05-502`'s
+        /// own <see cref="IActiveEffectRepository.ListActiveEffectsByTarget"/>,
+        /// unmodified) and, for every `Active`, combat-bound row whose
+        /// `CombatBinding.EncounterId` matches this encounter, decodes its
+        /// own `EffectDurationType` from its already-pinned mechanics
+        /// snapshot payload -- via `TypedDefinitionCodec.DecodeEffect`, the
+        /// exact same, already-established source `ItemEffectLifecycleService`
+        /// (`ODY-S05-505`) already uses; not a newly-invented source -- and,
+        /// only for one of the six `ADR-029` section 7 combat duration types,
+        /// calls the existing, unmodified `CombatEffectExpiryService.EvaluateAndExpireIfDue`.
+        /// A fresh, internally-synthesized `CommandId` is used per candidate
+        /// (never <paramref name="encounter"/>'s own triggering command) --
+        /// reusing one `CommandId` across more than one `ExpireActiveEffect`
+        /// call would make the second call replay the first's own already-
+        /// applied result instead of evaluating its own candidate, since
+        /// `SqliteSavingPipeline` idempotency is keyed by `CommandId` alone.
+        /// A read or expiry failure for one candidate is skipped, never
+        /// thrown -- this method's own caller (`Advance`) has already
+        /// committed the round/turn advance and must not be disturbed by it.
+        /// A target character no longer among the encounter's own current
+        /// participants (e.g. it left the encounter) is a disclosed,
+        /// deliberate residual gap, not a silent oversight -- see this
+        /// task's own contract decision log.
+        /// </summary>
+        private void ExpireDueCombatEffects(CampaignHandle campaign, CombatEncounterRecord encounter, CorrelationId correlationId)
+        {
+            foreach (CombatParticipant participant in encounter.Participants)
+            {
+                Result<IReadOnlyList<ActiveEffectRecord>> effects = _activeEffects.ListActiveEffectsByTarget(campaign, campaign.CampaignId, ActiveEffectTargetRef.ForCharacter(participant.CharacterId), correlationId);
+                if (effects.IsFailure)
+                {
+                    continue;
+                }
+
+                foreach (ActiveEffectRecord record in effects.Value)
+                {
+                    if (record.Effect.Status != ActiveEffectStatus.Active) continue;
+                    if (!record.Effect.CombatBinding.HasValue) continue;
+                    if (!record.Effect.CombatBinding.Value.EncounterId.Equals(encounter.EncounterId)) continue;
+
+                    Result<EffectDefinition> decoded = TypedDefinitionCodec.DecodeEffect(record.Effect.EffectMechanicsSnapshot.ContentType, record.Effect.EffectMechanicsSnapshot.Payload, correlationId);
+                    if (decoded.IsFailure) continue;
+                    if (!CombatEffectExpiryService.IsCombatDurationType(decoded.Value.DurationType)) continue;
+
+                    CommandId expiryCommandId = CommandId.Parse("cmd_" + Guid.NewGuid().ToString("N"));
+                    CombatEffectExpiryService.EvaluateAndExpireIfDue(_activeEffects, this, _lifecycleReader, campaign, record, decoded.Value.DurationType, expiryCommandId, correlationId);
+                }
+            }
         }
 
         public Result<CombatEncounterRecord> Get(CampaignHandle campaign, CombatEncounterId encounterId, CorrelationId correlationId)
