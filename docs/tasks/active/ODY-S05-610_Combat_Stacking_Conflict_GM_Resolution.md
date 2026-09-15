@@ -1,7 +1,7 @@
 # ODY-S05-610 — Combat Stacking Conflict GM Resolution
 
 ## 1. Task identity
-`ODY-S05-610`; status: In Review (Draft PR, see the backlog row for the link once opened).
+`ODY-S05-610`; status: In Review (Draft PR https://github.com/odyssey-services/Odyssey_VTT/pull/154).
 
 ## 2. Goal
 Give `ODY-S05-503`'s own `ActiveEffectStackConflict` (the pending record `ActiveEffectStackingRules.ResolveStacking` already produces for `EffectStackPolicy.RequestGMResolution`) durable, cross-session persistence, and provide a real command a MainGM can use to resolve it (`ActiveEffectStackConflictResolution.ApplyAsIndependentInstance`/`Replace`/`Ignore`, already defined by `ODY-S05-503`). This closes the gap `ODY-S05-606` found and disclosed: a combat-sourced `RequestGMResolution` collision previously created no row and reached no GM at all.
