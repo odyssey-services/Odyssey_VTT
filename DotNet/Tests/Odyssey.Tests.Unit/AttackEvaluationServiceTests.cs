@@ -140,7 +140,7 @@ namespace Odyssey.Tests.Unit
         private static ContentDefinitionRef Source() => ContentDefinitionRef.Parse("cdef_0123456789abcdef0123456789abcdef/1");
         private static ItemInstanceId Item() => ItemInstanceId.Parse("iinst_0123456789abcdef0123456789abcdef");
         private static ItemMechanicsSnapshot Mechanics() => new ItemMechanicsSnapshot(Source(), 1, ContentDefinitionType.Item, "{}");
-        private static AttackParticipantState Participant(CharacterId id) => new AttackParticipantState(id, CharacterLifecycleStatus.Active, CharacterApprovalState.Approved);
+        private static AttackParticipantState Participant(CharacterId id) => new AttackParticipantState(id, CharacterLifecycleStatus.Active, CharacterApprovalState.Approved, new Dictionary<AttributeDefinitionId, long>());
 
         private sealed class Reader : IAttackStateReader
         {

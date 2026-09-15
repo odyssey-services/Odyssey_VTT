@@ -16,6 +16,8 @@ using Odyssey.Domain.Identity;
 using Odyssey.Domain.Inventory;
 using Odyssey.Domain.Time;
 using Odyssey.Persistence.Sqlite;
+using Odyssey.Application.Random;
+using Odyssey.Rules.Combat;
 
 namespace Odyssey.Tests.Persistence
 {
@@ -177,6 +179,88 @@ namespace Odyssey.Tests.Persistence
 
             Assert.That(_reader.CanControlActor(_campaign, actor, owner, Corr).Value, Is.True);
             Assert.That(_reader.CanControlActor(_campaign, actor, User(), Corr).Value, Is.False);
+        }
+
+        // ---- ODY-S06-102: attribute data reaches the attack snapshot -----------------
+
+        [Test] // TC-ATTACK-101
+        public void PreviewAttack_CopiesActorAttributeEffectiveValues_FromCharacterRecord_IntoSnapshot()
+        {
+            CharacterId actor = Active("actor"), target = Active("target");
+            GrantAttribute(actor, "Strength", 5);
+            GrantAttribute(actor, "Dexterity", 3);
+            CombatEncounterRecord encounter = CreateEncounter(actor, target);
+            ItemInstanceRecord item = ItemFor(actor);
+
+            Result<ProposedAttackResolution> preview = AttackEvaluationService.PreviewAttack(_reader, new RecordingRules(), _campaign, ServiceRequest(encounter, actor, target, item));
+            Assert.That(preview.IsSuccess, Is.True);
+            AttackParticipantState snapshotActor = preview.Value.Snapshot.Actor;
+            Assert.That(snapshotActor.AttributeValues[AttributeDefinitionId.Parse("Strength")], Is.EqualTo(5));
+            Assert.That(snapshotActor.AttributeValues[AttributeDefinitionId.Parse("Dexterity")], Is.EqualTo(3));
+        }
+
+        [Test] // TC-ATTACK-102
+        public void PreviewAttack_CopiesTargetAttributeEffectiveValues_FromCharacterRecord_IntoSnapshot()
+        {
+            CharacterId actor = Active("actor"), target = Active("target");
+            GrantAttribute(target, "Constitution", 7);
+            CombatEncounterRecord encounter = CreateEncounter(actor, target);
+            ItemInstanceRecord item = ItemFor(actor);
+
+            Result<ProposedAttackResolution> preview = AttackEvaluationService.PreviewAttack(_reader, new RecordingRules(), _campaign, ServiceRequest(encounter, actor, target, item));
+            Assert.That(preview.IsSuccess, Is.True);
+            Assert.That(preview.Value.Snapshot.Targets[0].AttributeValues[AttributeDefinitionId.Parse("Constitution")], Is.EqualTo(7));
+        }
+
+        [Test] // TC-ATTACK-103
+        public void PreviewAttack_CharacterWithNoPurchasedAttributes_HasEmptyAttributeValues_NotACrash()
+        {
+            CharacterId actor = Active("actor"), target = Active("target");
+            CombatEncounterRecord encounter = CreateEncounter(actor, target);
+            ItemInstanceRecord item = ItemFor(actor);
+
+            Result<ProposedAttackResolution> preview = AttackEvaluationService.PreviewAttack(_reader, new RecordingRules(), _campaign, ServiceRequest(encounter, actor, target, item));
+            Assert.That(preview.IsSuccess, Is.True);
+            Assert.That(preview.Value.Snapshot.Actor.AttributeValues, Is.Empty);
+            Assert.That(preview.Value.Snapshot.Targets[0].AttributeValues, Is.Empty);
+        }
+
+        [Test] // TC-ATTACK-104
+        public void EvaluateAttack_AlsoCopiesAttributeValues_ThroughTheRandomizedPath()
+        {
+            CharacterId actor = Active("actor"), target = Active("target");
+            GrantAttribute(actor, "Strength", 9);
+            CombatEncounterRecord encounter = CreateEncounter(actor, target);
+            ItemInstanceRecord item = ItemFor(actor);
+            var random = new DeterministicRandomStreamFactory(CampaignRngKey.FromBytes(new byte[32]));
+
+            Result<ProposedAttackResolution> evaluated = AttackEvaluationService.EvaluateAttack(_reader, new RecordingRules(), random, _campaign, RngKeyEpochId.Parse("epoch-001"), ServiceRequest(encounter, actor, target, item));
+            Assert.That(evaluated.IsSuccess, Is.True);
+            Assert.That(evaluated.Value.Snapshot.Actor.AttributeValues[AttributeDefinitionId.Parse("Strength")], Is.EqualTo(9));
+        }
+
+        private CharacterRecord GrantAttribute(CharacterId characterId, string attributeName, long value)
+        {
+            CharacterRecord current = _characters.GetCharacter(_campaign, characterId, Corr).Value;
+            Result<CharacterRecord> granted = _characters.GrantDevelopmentPoints(_campaign, characterId, 100, "test", User(), actorIsMainGm: true, current.Revisions.MechanicsRevision, Command(), Corr);
+            Assert.That(granted.IsSuccess, Is.True);
+            Result<CharacterRecord> purchased = _characters.PurchaseAttributeIncrease(_campaign, characterId, AttributeDefinitionId.Parse(attributeName), value, User(), actorIsMainGm: true, granted.Value.Revisions.MechanicsRevision, expectedAttributeRevision: 0, Command(), Corr);
+            Assert.That(purchased.IsSuccess, Is.True);
+            return purchased.Value;
+        }
+
+        private static AttackRequest ServiceRequest(CombatEncounterRecord encounter, CharacterId actor, CharacterId target, ItemInstanceRecord item)
+            => new AttackRequest(Intent(encounter, actor, target, item), User(), actorIsMainGm: true, Command(), Corr);
+
+        // Real attack-evaluator implementation is ODY-S06-105's own job; this fixture is a fixed-outcome
+        // stand-in identical in shape to AttackEvaluationServiceTests' own -- this task only needs the real
+        // AttackEvaluationService/SqliteAttackStateReader pipeline to run so the snapshot it produces is real.
+        private sealed class RecordingRules : IAttackRulesEvaluator
+        {
+            public ProposedAttackResolution Preview(AttackIntent intent, AttackEvaluationSnapshot snapshot) => Resolution(intent, snapshot, null);
+            public ProposedAttackResolution Evaluate(AttackIntent intent, AttackEvaluationSnapshot snapshot, AttackRandomSample randomSample) => Resolution(intent, snapshot, randomSample);
+            private static ProposedAttackResolution Resolution(AttackIntent intent, AttackEvaluationSnapshot snapshot, AttackRandomSample? sample)
+                => new ProposedAttackResolution(intent, snapshot, sample, new AttackRangeResult(true, "in-range"), Array.AsReadOnly(new AttackModifierEntry[0]), new AttackHitResult(true, "hit"), null, null, Array.AsReadOnly(new AttackDelta[0]), Array.AsReadOnly(new AttackDelta[0]), Array.AsReadOnly(new AttackEffectCandidate[0]));
         }
 
         private CombatEncounterRecord CreateEncounter(CharacterId actor, CharacterId target)
