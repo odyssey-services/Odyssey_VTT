@@ -98,6 +98,68 @@ namespace Odyssey.Domain.Combat
         public IReadOnlyList<AttackTargetArmorEntry> Entries { get; }
     }
 
+    public enum AttackTopologyAvailability { Available = 1, UnavailableNotBound = 2 }
+
+    /// <summary>
+    /// ODY-S06-104: one target's own already-computed Euclidean distance from the actor (`Odyssey.Domain.Geometry.BoardGeometry.EuclideanDistance`,
+    /// world units/meters, the same scale `WeaponDefinition.Range` is read in). The distance, not the two raw
+    /// positions, is what travels here -- computing it is a pure, deterministic operation with no Ruleset/business
+    /// meaning of its own, so it belongs in this data-wiring layer; deciding what counts as "in range" (comparing
+    /// this distance against `WeaponDefinition.Range`) is `ODY-S06-105`'s own job, producing `AttackRangeResult`.
+    /// </summary>
+    public readonly struct AttackTargetDistanceEntry
+    {
+        public AttackTargetDistanceEntry(CharacterId targetId, double distance)
+        {
+            if (!targetId.IsValid) throw new ArgumentException("TargetId is required.", nameof(targetId));
+            if (!double.IsFinite(distance) || distance < 0) throw new ArgumentOutOfRangeException(nameof(distance));
+            TargetId = targetId;
+            Distance = distance;
+        }
+        public CharacterId TargetId { get; }
+        public double Distance { get; }
+    }
+
+    /// <summary>
+    /// ODY-S06-104: replaces <c>AttackEvaluationSnapshot.Topology</c>'s former <see cref="AttackUnavailableInput"/>
+    /// typing -- the same structural dead end `ODY-S06-103` already found and fixed for `ArmorAndEffects`
+    /// (that type's own constructor rejects any <see cref="AttackInputAvailability"/> but <c>UnavailableNotBound</c>).
+    /// <see cref="Unavailable"/> preserves the exact prior "not bound" semantics for when no target's distance
+    /// could be resolved (missing Character-Token link on either side, or actor/target tokens on different Scenes);
+    /// <see cref="Available"/> carries every target whose distance WAS resolvable, tagged by
+    /// <see cref="AttackTargetDistanceEntry.TargetId"/> -- a target that could not be resolved is simply absent
+    /// from <see cref="Entries"/>, not a reason to fail the whole intent (unlike `ODY-S06-103`'s own deliberate
+    /// equip-status gate, missing position data is not a new hard-fail).
+    /// </summary>
+    public sealed class AttackTopologyInput
+    {
+        private AttackTopologyInput(AttackTopologyAvailability availability, string reason, IReadOnlyList<AttackTargetDistanceEntry> entries)
+        {
+            Availability = availability;
+            Reason = reason;
+            Entries = entries;
+        }
+
+        public static AttackTopologyInput Unavailable(string reason)
+        {
+            if (string.IsNullOrWhiteSpace(reason)) throw new ArgumentException("Reason is required.", nameof(reason));
+            return new AttackTopologyInput(AttackTopologyAvailability.UnavailableNotBound, reason, Array.Empty<AttackTargetDistanceEntry>());
+        }
+
+        public static AttackTopologyInput Available(IReadOnlyList<AttackTargetDistanceEntry> entries)
+        {
+            if (entries == null) throw new ArgumentNullException(nameof(entries));
+            if (entries.Count == 0) throw new ArgumentException("Available topology input requires at least one entry; use Unavailable when no target's distance could be resolved.", nameof(entries));
+            AttackTargetDistanceEntry[] copy = new AttackTargetDistanceEntry[entries.Count];
+            for (int index = 0; index < copy.Length; index++) copy[index] = entries[index];
+            return new AttackTopologyInput(AttackTopologyAvailability.Available, string.Empty, Array.AsReadOnly(copy));
+        }
+
+        public AttackTopologyAvailability Availability { get; }
+        public string Reason { get; }
+        public IReadOnlyList<AttackTargetDistanceEntry> Entries { get; }
+    }
+
     public readonly struct AttackRangeResult { public AttackRangeResult(bool isInRange, string reason) { IsInRange = isInRange; Reason = reason ?? throw new ArgumentNullException(nameof(reason)); } public bool IsInRange { get; } public string Reason { get; } }
     public readonly struct AttackModifierEntry { public AttackModifierEntry(string source, int value) { if (string.IsNullOrWhiteSpace(source)) throw new ArgumentException("Source is required.", nameof(source)); Source = source; Value = value; } public string Source { get; } public int Value { get; } }
     public readonly struct AttackHitResult { public AttackHitResult(bool isHit, string outcome) { IsHit = isHit; Outcome = outcome ?? throw new ArgumentNullException(nameof(outcome)); } public bool IsHit { get; } public string Outcome { get; } }
@@ -206,10 +268,10 @@ namespace Odyssey.Domain.Combat
 
     public sealed class AttackEvaluationSnapshot
     {
-        public AttackEvaluationSnapshot(string fingerprint, string rulesetId, string rulesetVersion, long encounterRevision, ContentDefinitionRef actionSourceRef, ItemMechanicsSnapshot actionMechanics, AttackParticipantState actor, IReadOnlyList<AttackParticipantState> targets, AttackUnavailableInput topology, AttackArmorInput armorAndEffects)
+        public AttackEvaluationSnapshot(string fingerprint, string rulesetId, string rulesetVersion, long encounterRevision, ContentDefinitionRef actionSourceRef, ItemMechanicsSnapshot actionMechanics, AttackParticipantState actor, IReadOnlyList<AttackParticipantState> targets, AttackTopologyInput topology, AttackArmorInput armorAndEffects)
         {
             if (string.IsNullOrWhiteSpace(fingerprint) || string.IsNullOrWhiteSpace(rulesetId) || string.IsNullOrWhiteSpace(rulesetVersion) || encounterRevision < 1 || !actionSourceRef.IsValid || !actionMechanics.SourceDefinitionRef.Equals(actionSourceRef)) throw new ArgumentException("Snapshot values are required.");
-            if (actor.CharacterId == default || targets == null || armorAndEffects == null) throw new ArgumentException("Read participant state is required.");
+            if (actor.CharacterId == default || targets == null || topology == null || armorAndEffects == null) throw new ArgumentException("Read participant state is required.");
             Fingerprint = fingerprint; RulesetId = rulesetId; RulesetVersion = rulesetVersion; EncounterRevision = encounterRevision; ActionSourceRef = actionSourceRef; ActionMechanics = actionMechanics; Actor = actor; Targets = Copy(targets, nameof(targets)); Topology = topology; ArmorAndEffects = armorAndEffects;
         }
         public string Fingerprint { get; }
@@ -220,7 +282,7 @@ namespace Odyssey.Domain.Combat
         public ItemMechanicsSnapshot ActionMechanics { get; }
         public AttackParticipantState Actor { get; }
         public IReadOnlyList<AttackParticipantState> Targets { get; }
-        public AttackUnavailableInput Topology { get; }
+        public AttackTopologyInput Topology { get; }
         public AttackArmorInput ArmorAndEffects { get; }
         private static IReadOnlyList<T> Copy<T>(IReadOnlyList<T> source, string name) { T[] copy = new T[source.Count]; for (int index = 0; index < copy.Length; index++) copy[index] = source[index]; return Array.AsReadOnly(copy); }
     }

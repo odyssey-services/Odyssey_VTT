@@ -40,10 +40,30 @@ namespace Odyssey.Application.Persistence
     public interface ISceneRepository
     {
         Result<SceneRecord> CreateScene(CampaignHandle campaign, string sceneName, CommandId commandId, CorrelationId correlationId);
-        Result<TokenRecord> CreateToken(CampaignHandle campaign, SceneId sceneId, TokenPosition initialPosition, UserId controllerUserId, CommandId commandId, CorrelationId correlationId);
+
+        /// <summary>
+        /// ODY-S06-104: <paramref name="characterId"/> is an optional "one token = one
+        /// Character" link (08_Scenes_And_Board's own token vocabulary; a token with no
+        /// Character is a prop/marker, still fully supported). Set once at creation --
+        /// this MVP scope has no re-linking command; a token created without one stays
+        /// without one. Defaulted to preserve every pre-existing caller unchanged.
+        /// </summary>
+        Result<TokenRecord> CreateToken(CampaignHandle campaign, SceneId sceneId, TokenPosition initialPosition, UserId controllerUserId, CommandId commandId, CorrelationId correlationId, CharacterId? characterId = null);
         Result<TokenRecord> GetToken(CampaignHandle campaign, TokenId tokenId, CorrelationId correlationId);
         Result<TokenRecord> MoveToken(CampaignHandle campaign, TokenId tokenId, TokenPosition newPosition, long expectedRevision, CommandId commandId, CorrelationId correlationId);
         Result<IReadOnlyList<TokenRecord>> ListTokens(CampaignHandle campaign, SceneId sceneId, CorrelationId correlationId);
+
+        /// <summary>
+        /// ODY-S06-104: campaign-wide (not Scene-scoped) lookup of every token currently
+        /// linked to this Character -- needed because <see cref="Odyssey.Domain.Combat.AttackIntent"/>'s
+        /// own CombatEncounter carries no SceneId (deliberately scene-agnostic), so the
+        /// Scene a Character's token lives on cannot be known in advance the way
+        /// <see cref="ListTokens"/>'s own SceneId-scoped listing assumes. Ordinarily at
+        /// most one result (the "one token = one Character" convention), but this
+        /// returns every match rather than asserting uniqueness the schema itself does
+        /// not enforce.
+        /// </summary>
+        Result<IReadOnlyList<TokenRecord>> ListTokensByCharacter(CampaignHandle campaign, CharacterId characterId, CorrelationId correlationId);
         Result<AssetManifestEntryRecord> RegisterAsset(CampaignHandle campaign, string sourceFilePath, CommandId commandId, CorrelationId correlationId);
     }
 
@@ -92,13 +112,14 @@ namespace Odyssey.Application.Persistence
 
     public sealed class TokenRecord
     {
-        public TokenRecord(TokenId tokenId, SceneId sceneId, CampaignId campaignId, TokenPosition position, UserId controllerUserId, long revision, UtcInstant createdAt, UtcInstant updatedAt)
+        public TokenRecord(TokenId tokenId, SceneId sceneId, CampaignId campaignId, TokenPosition position, UserId controllerUserId, long revision, UtcInstant createdAt, UtcInstant updatedAt, CharacterId? characterId = null)
         {
             if (!tokenId.IsValid) throw new ArgumentException("TokenId is required.", nameof(tokenId));
             if (!sceneId.IsValid) throw new ArgumentException("SceneId is required.", nameof(sceneId));
             if (!campaignId.IsValid) throw new ArgumentException("CampaignId is required.", nameof(campaignId));
             if (!controllerUserId.IsValid) throw new ArgumentException("ControllerUserId is required.", nameof(controllerUserId));
             if (revision < 1) throw new ArgumentOutOfRangeException(nameof(revision));
+            if (characterId.HasValue && !characterId.Value.IsValid) throw new ArgumentException("CharacterId must be valid when supplied.", nameof(characterId));
 
             TokenId = tokenId;
             SceneId = sceneId;
@@ -108,6 +129,7 @@ namespace Odyssey.Application.Persistence
             Revision = revision;
             CreatedAt = createdAt;
             UpdatedAt = updatedAt;
+            CharacterId = characterId;
         }
 
         public TokenId TokenId { get; }
@@ -125,6 +147,9 @@ namespace Odyssey.Application.Persistence
         public long Revision { get; }
         public UtcInstant CreatedAt { get; }
         public UtcInstant UpdatedAt { get; }
+
+        /// <summary>ODY-S06-104: the optional "one token = one Character" link -- null for a prop/marker token with no Character behind it.</summary>
+        public CharacterId? CharacterId { get; }
     }
 
     public sealed class AssetManifestEntryRecord

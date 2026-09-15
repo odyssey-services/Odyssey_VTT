@@ -31,6 +31,7 @@ namespace Odyssey.Tests.Persistence
         private SqliteCharacterRepository _characters = null!;
         private SqliteCombatEncounterRepository _encounters = null!;
         private SqliteInventoryRepository _inventory = null!;
+        private SqliteSceneRepository _scenes = null!;
         private SqliteAttackStateReader _reader = null!;
 
         [SetUp]
@@ -44,7 +45,8 @@ namespace Odyssey.Tests.Persistence
             _characters = new SqliteCharacterRepository(_clock);
             _encounters = new SqliteCombatEncounterRepository(_clock);
             _inventory = new SqliteInventoryRepository(_clock);
-            _reader = new SqliteAttackStateReader(_encounters, _inventory, _characters, _clock);
+            _scenes = new SqliteSceneRepository(_clock);
+            _reader = new SqliteAttackStateReader(_encounters, _inventory, _characters, _clock, _scenes);
         }
 
         [Test] // TC-ATTACK-016
@@ -95,7 +97,7 @@ namespace Odyssey.Tests.Persistence
             ItemInstanceRecord item = ItemFor(actor);
 
             AttackEvaluationSnapshot snapshot = _reader.Read(_campaign, Intent(encounter, actor, target, item), Corr).Value.Snapshot;
-            Assert.That(snapshot.Topology.Availability, Is.EqualTo(AttackInputAvailability.UnavailableNotBound));
+            Assert.That(snapshot.Topology.Availability, Is.EqualTo(AttackTopologyAvailability.UnavailableNotBound));
             Assert.That(snapshot.ArmorAndEffects.Availability, Is.EqualTo(AttackArmorAvailability.UnavailableNotBound));
             Assert.That(snapshot.Topology.Reason, Is.Not.Null.And.Not.Empty);
             Assert.That(snapshot.ArmorAndEffects.Reason, Is.Not.Null.And.Not.Empty);
@@ -334,6 +336,115 @@ namespace Odyssey.Tests.Persistence
             AttackTargetArmorEntry entryB = Single(snapshot.ArmorAndEffects.Entries, targetB);
             Assert.That(entryA.Armor.Protection, Is.EqualTo(3));
             Assert.That(entryB.Armor.Protection, Is.EqualTo(9));
+        }
+
+        // ---- ODY-S06-104: Character-Token position resolution reaches the attack snapshot -----------
+
+        [Test] // TC-ATTACK-111
+        public void PreviewAttack_ActorAndTargetTokensOnSameScene_TopologyCarriesTheRealComputedDistance()
+        {
+            CharacterId actor = Active("actor"), target = Active("target");
+            SceneId scene = CreateScene();
+            LinkToken(scene, actor, 0, 0);
+            LinkToken(scene, target, 3, 4);
+            CombatEncounterRecord encounter = CreateEncounter(actor, target);
+            ItemInstanceRecord item = ItemFor(actor);
+
+            Result<ProposedAttackResolution> preview = AttackEvaluationService.PreviewAttack(_reader, new RecordingRules(), _campaign, ServiceRequest(encounter, actor, target, item));
+            Assert.That(preview.IsSuccess, Is.True);
+            AttackTopologyInput topology = preview.Value.Snapshot.Topology;
+            Assert.That(topology.Availability, Is.EqualTo(AttackTopologyAvailability.Available));
+            Assert.That(topology.Entries.Count, Is.EqualTo(1));
+            Assert.That(topology.Entries[0].TargetId, Is.EqualTo(target));
+            Assert.That(topology.Entries[0].Distance, Is.EqualTo(5.0).Within(1e-9));
+        }
+
+        [Test] // TC-ATTACK-112
+        public void Read_ActorWithNoLinkedToken_TopologyIsUnavailable()
+        {
+            CharacterId actor = Active("actor"), target = Active("target");
+            SceneId scene = CreateScene();
+            LinkToken(scene, target, 1, 1);
+            CombatEncounterRecord encounter = CreateEncounter(actor, target);
+            ItemInstanceRecord item = ItemFor(actor);
+
+            AttackEvaluationSnapshot snapshot = _reader.Read(_campaign, Intent(encounter, actor, target, item), Corr).Value.Snapshot;
+
+            Assert.That(snapshot.Topology.Availability, Is.EqualTo(AttackTopologyAvailability.UnavailableNotBound));
+            Assert.That(snapshot.Topology.Entries, Is.Empty);
+        }
+
+        [Test] // TC-ATTACK-113
+        public void Read_TargetWithNoLinkedToken_TopologyIsUnavailable()
+        {
+            CharacterId actor = Active("actor"), target = Active("target");
+            SceneId scene = CreateScene();
+            LinkToken(scene, actor, 0, 0);
+            CombatEncounterRecord encounter = CreateEncounter(actor, target);
+            ItemInstanceRecord item = ItemFor(actor);
+
+            AttackEvaluationSnapshot snapshot = _reader.Read(_campaign, Intent(encounter, actor, target, item), Corr).Value.Snapshot;
+
+            Assert.That(snapshot.Topology.Availability, Is.EqualTo(AttackTopologyAvailability.UnavailableNotBound));
+            Assert.That(snapshot.Topology.Entries, Is.Empty);
+        }
+
+        [Test] // TC-ATTACK-114
+        public void Read_ActorAndTargetOnDifferentScenes_TopologyIsUnavailableForThatTarget()
+        {
+            CharacterId actor = Active("actor"), target = Active("target");
+            SceneId actorScene = CreateScene();
+            SceneId targetScene = CreateScene();
+            LinkToken(actorScene, actor, 0, 0);
+            LinkToken(targetScene, target, 1, 1);
+            CombatEncounterRecord encounter = CreateEncounter(actor, target);
+            ItemInstanceRecord item = ItemFor(actor);
+
+            AttackEvaluationSnapshot snapshot = _reader.Read(_campaign, Intent(encounter, actor, target, item), Corr).Value.Snapshot;
+
+            Assert.That(snapshot.Topology.Availability, Is.EqualTo(AttackTopologyAvailability.UnavailableNotBound));
+            Assert.That(snapshot.Topology.Entries, Is.Empty);
+        }
+
+        [Test] // TC-ATTACK-115
+        public void Read_MultipleTargets_SomeWithPositionSomeWithout_MixedResultIsCorrect()
+        {
+            CharacterId actor = Active("actor"), targetA = Active("targetA"), targetB = Active("targetB");
+            SceneId scene = CreateScene();
+            LinkToken(scene, actor, 0, 0);
+            LinkToken(scene, targetA, 6, 8);
+            // targetB deliberately has no linked token.
+            CombatEncounterRecord encounter = CombatEncounterService.Create(_encounters, _campaign, new CreateCombatEncounterRequest(new[] { actor, targetA, targetB }, User(), true, Command()), Corr).Value;
+            ItemInstanceRecord item = ItemFor(actor);
+
+            AttackIntent intent = new AttackIntent(encounter.EncounterId, actor, new[] { targetA, targetB }, item.ItemInstanceId, encounter.Revision);
+            AttackEvaluationSnapshot snapshot = _reader.Read(_campaign, intent, Corr).Value.Snapshot;
+
+            Assert.That(snapshot.Topology.Availability, Is.EqualTo(AttackTopologyAvailability.Available));
+            Assert.That(snapshot.Topology.Entries.Count, Is.EqualTo(1));
+            Assert.That(snapshot.Topology.Entries[0].TargetId, Is.EqualTo(targetA));
+            Assert.That(snapshot.Topology.Entries[0].Distance, Is.EqualTo(10.0).Within(1e-9));
+        }
+
+        [Test] // TC-ATTACK-116
+        public void Read_ExistingTestsWithNoLinkedTokens_TopologyRemainsUnavailable_NotBrokenByThisTask()
+        {
+            CharacterId actor = Active("actor"), target = Active("target");
+            CombatEncounterRecord encounter = CreateEncounter(actor, target);
+            ItemInstanceRecord item = ItemFor(actor);
+
+            AttackEvaluationSnapshot snapshot = _reader.Read(_campaign, Intent(encounter, actor, target, item), Corr).Value.Snapshot;
+
+            Assert.That(snapshot.Topology.Availability, Is.EqualTo(AttackTopologyAvailability.UnavailableNotBound));
+        }
+
+        private SceneId CreateScene() => _scenes.CreateScene(_campaign, "Battle Map " + Guid.NewGuid().ToString("N"), Command(), Corr).Value.SceneId;
+
+        private TokenRecord LinkToken(SceneId scene, CharacterId characterId, double x, double y)
+        {
+            Result<TokenRecord> created = _scenes.CreateToken(_campaign, scene, new TokenPosition(x, y), User(), Command(), Corr, characterId);
+            Assert.That(created.IsSuccess, Is.True);
+            return created.Value;
         }
 
         private CharacterRecord GrantAttribute(CharacterId characterId, string attributeName, long value)
