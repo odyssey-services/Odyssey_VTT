@@ -15,12 +15,13 @@ namespace Odyssey.Application.Persistence
     /// outcome (ADR-029 section 3.3's "pending resolution", section 6 stages
     /// 12-13). Carries the already-derived <see cref="RandomSampleValue"/> so it
     /// is never re-rolled on retry or intervention resolution (ADR-008 rules
-    /// 13-14). Does not carry a concretely-applied damage/cost/effect delta:
-    /// no accepted Ruleset formula exists to interpret <c>AttackDelta</c>/
-    /// <c>AttackEffectCandidate</c> values into specific Character/Item state
-    /// (ADR-029 section 10's own non-goal), so this record captures the
-    /// outcome/idempotency and Game Log bookkeeping this task owns, not a
-    /// concrete state delta -- see the ODY-S05-604 task contract's decision log.
+    /// 13-14). ODY-S05-609 closes the gap this record's own doc comment used
+    /// to disclose here: <see cref="DamageDeltas"/>/<see cref="CostDeltas"/>
+    /// now travel alongside <see cref="EffectCandidates"/> so they survive
+    /// the pending-to-resolved round trip and can be applied at atomic-apply
+    /// time -- this record still does not choose or evaluate any Ruleset
+    /// formula (the deltas' own <c>Value</c> is already computed by the time
+    /// it reaches here), only carries the already-computed values through.
     /// </summary>
     public sealed class AttackOutcomeRecord
     {
@@ -35,6 +36,8 @@ namespace Odyssey.Application.Persistence
             int randomSampleValue,
             bool interventionRequired,
             IReadOnlyList<AttackEffectCandidate> effectCandidates,
+            IReadOnlyList<AttackDelta> damageDeltas,
+            IReadOnlyList<AttackDelta> costDeltas,
             AttackOutcomeKind outcomeKind,
             string? gameLogEntryId,
             UtcInstant createdAt,
@@ -49,6 +52,8 @@ namespace Odyssey.Application.Persistence
             if (!actionItemInstanceId.IsValid) throw new ArgumentException("ActionItemInstanceId is required.", nameof(actionItemInstanceId));
             if (expectedEncounterRevision < 1) throw new ArgumentOutOfRangeException(nameof(expectedEncounterRevision));
             if (effectCandidates == null) throw new ArgumentNullException(nameof(effectCandidates));
+            if (damageDeltas == null) throw new ArgumentNullException(nameof(damageDeltas));
+            if (costDeltas == null) throw new ArgumentNullException(nameof(costDeltas));
 
             ResolveAttackCommandId = resolveAttackCommandId;
             CampaignId = campaignId;
@@ -60,6 +65,8 @@ namespace Odyssey.Application.Persistence
             RandomSampleValue = randomSampleValue;
             InterventionRequired = interventionRequired;
             EffectCandidates = effectCandidates;
+            DamageDeltas = damageDeltas;
+            CostDeltas = costDeltas;
             OutcomeKind = outcomeKind;
             GameLogEntryId = gameLogEntryId;
             CreatedAt = createdAt;
@@ -79,6 +86,12 @@ namespace Odyssey.Application.Persistence
 
         /// <summary>ODY-S05-606: `ADR-029` §8's own effect candidates, computed by Rules at stage 11 (`ODY-S05-603`, unmodified) and persisted here so `ResolveAttackIntervention` can act on them without re-evaluating Rules or losing them between the pending and resolved steps.</summary>
         public IReadOnlyList<AttackEffectCandidate> EffectCandidates { get; }
+
+        /// <summary>ODY-S05-609: `ADR-029` §1 rule 5/§6 stage 13's own aggregate deltas, computed by Rules at stage 11 (`ODY-S05-603`, unmodified) and persisted here so `ResolveAttackIntervention` can apply them on the deferred step without losing them between the pending and resolved steps -- the same "persist across the pending/resolved round trip" shape `EffectCandidates` already established for `606`.</summary>
+        public IReadOnlyList<AttackDelta> DamageDeltas { get; }
+
+        /// <summary>ODY-S05-609: see <see cref="DamageDeltas"/> -- the action's own cost deltas (e.g. resource expenditure by the actor), carried and applied identically.</summary>
+        public IReadOnlyList<AttackDelta> CostDeltas { get; }
 
         public AttackOutcomeKind OutcomeKind { get; }
         public string? GameLogEntryId { get; }
@@ -157,11 +170,15 @@ namespace Odyssey.Application.Persistence
         /// <c>Pending</c> outcome (stage 12) carrying the already-derived
         /// <paramref name="randomSample"/>, in one <c>SqliteSavingPipeline</c>
         /// transaction together with the committed Game Log entry (Accepted
-        /// only) and the DomainEvent/idempotency row. Idempotent by
+        /// only), any resulting `ActiveEffect` rows (`ODY-S05-606`), any
+        /// resulting Character/Item resource deltas (`ODY-S05-609` --
+        /// <paramref name="damageDeltas"/>/<paramref name="costDeltas"/>,
+        /// applied only when the outcome commits as <c>Accepted</c>), and the
+        /// DomainEvent/idempotency row. Idempotent by
         /// <paramref name="commandId"/>: an exact retry returns the original
         /// row and creates no second mutation.
         /// </summary>
-        Result<AttackOutcomeRecord> RecordAttackOutcome(CampaignHandle campaign, AttackIntent intent, AttackRandomSample randomSample, bool interventionRequired, IReadOnlyList<AttackEffectCandidate> effectCandidates, UserId actorUserId, CommandId commandId, CorrelationId correlationId);
+        Result<AttackOutcomeRecord> RecordAttackOutcome(CampaignHandle campaign, AttackIntent intent, AttackRandomSample randomSample, bool interventionRequired, IReadOnlyList<AttackEffectCandidate> effectCandidates, IReadOnlyList<AttackDelta> damageDeltas, IReadOnlyList<AttackDelta> costDeltas, UserId actorUserId, CommandId commandId, CorrelationId correlationId);
 
         /// <summary>
         /// <c>ResolveAttackIntervention</c> (ADR-029 section 1 rule 6): a new

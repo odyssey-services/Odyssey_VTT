@@ -321,7 +321,12 @@ namespace Odyssey.Tests.Persistence
             private ProposedAttackResolution Resolution(AttackIntent intent, AttackEvaluationSnapshot snapshot, AttackRandomSample? sample)
             {
                 AttackEffectCandidate[] effectCandidates = _candidates(intent);
-                return new ProposedAttackResolution(intent, snapshot, sample, new AttackRangeResult(true, "in-range"), Array.AsReadOnly(new[] { new AttackModifierEntry("fixture", 1) }), new AttackHitResult(true, "hit"), new AttackBodyPartProposal("body"), new AttackArmorProposal("armor", 0), Array.AsReadOnly(new[] { new AttackDelta(intent.TargetIds[0].ToString(), 1) }), Array.AsReadOnly(new[] { new AttackDelta(intent.ActorId.ToString(), 1) }), Array.AsReadOnly(effectCandidates));
+                // ODY-S05-609: this fixture's own tests exercise ActiveEffect
+                // application/stacking, not delta application -- empty delta
+                // lists avoid the new `TargetRef` addressing convention
+                // entirely, rather than passing an unaddressable placeholder
+                // value that would now be genuinely resolved and rejected.
+                return new ProposedAttackResolution(intent, snapshot, sample, new AttackRangeResult(true, "in-range"), Array.AsReadOnly(new[] { new AttackModifierEntry("fixture", 1) }), new AttackHitResult(true, "hit"), new AttackBodyPartProposal("body"), new AttackArmorProposal("armor", 0), Array.Empty<AttackDelta>(), Array.Empty<AttackDelta>(), Array.AsReadOnly(effectCandidates));
             }
         }
 

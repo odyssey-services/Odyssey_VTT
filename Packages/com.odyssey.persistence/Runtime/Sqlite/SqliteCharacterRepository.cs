@@ -5693,7 +5693,8 @@ namespace Odyssey.Persistence.Sqlite
             return list;
         }
 
-        private static string SerializeResources(IReadOnlyList<CharacterResource> resources)
+        /// <summary>ODY-S05-609: `internal` (not `private`) so `SqliteAttackApplyRepository` can serialize an updated `CharacterResource` list back into `Character.ResourcesJson` inside its own atomic-apply transaction (`ADR-029` §1 rule 5/§6 stage 13) without duplicating this JSON shape or opening a second transaction through the public `SetResourceCurrentValue`/`MutateResources` -- the same `internal`-visibility-for-cross-repository-reuse pattern `ODY-S05-606` already established for `SqliteActiveEffectRepository`'s own SQL helpers.</summary>
+        internal static string SerializeResources(IReadOnlyList<CharacterResource> resources)
         {
             var array = new JArray();
             foreach (CharacterResource resource in resources)
@@ -5714,7 +5715,8 @@ namespace Odyssey.Persistence.Sqlite
             return array.ToString(Newtonsoft.Json.Formatting.None);
         }
 
-        private static IReadOnlyList<CharacterResource> DeserializeResources(string json)
+        /// <summary>ODY-S05-609: `internal` for the same reason as <see cref="SerializeResources"/> -- lets `SqliteAttackApplyRepository` read the current `CharacterResource` list back out of `Character.ResourcesJson` on its own connection/transaction.</summary>
+        internal static IReadOnlyList<CharacterResource> DeserializeResources(string json)
         {
             var array = (JArray)ParseJsonPreservingStrings(json);
             var list = new List<CharacterResource>(array.Count);
