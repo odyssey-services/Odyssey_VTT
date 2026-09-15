@@ -24,23 +24,14 @@ namespace Odyssey.Persistence.Sqlite
     /// <summary>
     /// ODY-S05-604: the sole SQLite implementation of <see cref="IAttackApplyRepository"/>.
     /// Owns a new, standalone <c>AttackOutcome</c> table -- it never appends a
-    /// method or column to <see cref="ICombatEncounterRepository"/>,
-    /// <see cref="IInventoryRepository"/>, or <see cref="ICharacterRepository"/>,
+    /// method or column to <see cref="ICombatEncounterRepository"/> or
+    /// <see cref="IInventoryRepository"/> (beyond what already exists),
     /// mirroring <see cref="SqliteActiveEffectRepository"/>'s own standalone-table
     /// idiom. Every mutating method commits through the shared
     /// <see cref="SqliteSavingPipeline"/> (ADR-012 section 5): the AttackOutcome
     /// row, the committed Game Log entry (only for an Accepted outcome), the
     /// DomainEvent, and the AppliedCommands idempotency row land in one SQLite
     /// transaction, or none of them do.
-    ///
-    /// Deliberately does NOT write any Character/Item state delta: no accepted
-    /// Ruleset formula exists to interpret an <c>AttackDelta</c>'s opaque
-    /// <c>TargetRef</c> string into a specific repository row (that would be
-    /// exactly the "choose a Ruleset formula" decision ADR-029 section 10
-    /// forbids this task from making) -- see the ODY-S05-604 task contract's
-    /// decision log for the full reasoning, an honest scope narrowing in the
-    /// same spirit as ODY-S05-504's documented <c>EffectConditionRules.Evaluate</c>
-    /// no-op; ODY-S05-609 owns closing that gap.
     ///
     /// ODY-S05-606 adds combat `ActiveEffect` application: an accepted
     /// attack's own `Apply` candidates are inserted directly into the
@@ -54,6 +45,20 @@ namespace Odyssey.Persistence.Sqlite
     /// break ADR-029 section 8's own "as one participant in the attack's
     /// atomic apply transaction" requirement. See the ODY-S05-606 task
     /// contract's decision log for the full reasoning.
+    ///
+    /// ODY-S05-609 closes `604`'s own disclosed gap: an accepted attack's
+    /// `DamageDeltas`/`CostDeltas` are resolved (via the `character:{id}:{resourceKind}`
+    /// `TargetRef` convention -- see this class's own `ApplyAttackDelta`) and
+    /// applied directly against `Character.ResourcesJson`, in this same
+    /// transaction, by making `SqliteCharacterRepository.SerializeResources`/
+    /// `DeserializeResources` `internal` for reuse -- never by calling the
+    /// public `ICharacterRepository.SetResourceCurrentValue`, which (a) opens
+    /// its own separate connection/transaction via `MutateResources`, and (b)
+    /// hard-requires `actorIsMainGm == true`, which an immediate (non-
+    /// intervention) attack accept is not necessarily. See the ODY-S05-609
+    /// task contract's decision log for the full reasoning, including why an
+    /// `item:`-targeted delta is a disclosed, escalated blocker rather than a
+    /// silently-invented Domain field.
     /// </summary>
     public sealed class SqliteAttackApplyRepository : IAttackApplyRepository
     {
@@ -86,11 +91,13 @@ namespace Odyssey.Persistence.Sqlite
             }
         }
 
-        public Result<AttackOutcomeRecord> RecordAttackOutcome(CampaignHandle campaign, AttackIntent intent, AttackRandomSample randomSample, bool interventionRequired, IReadOnlyList<AttackEffectCandidate> effectCandidates, UserId actorUserId, CommandId commandId, CorrelationId correlationId)
+        public Result<AttackOutcomeRecord> RecordAttackOutcome(CampaignHandle campaign, AttackIntent intent, AttackRandomSample randomSample, bool interventionRequired, IReadOnlyList<AttackEffectCandidate> effectCandidates, IReadOnlyList<AttackDelta> damageDeltas, IReadOnlyList<AttackDelta> costDeltas, UserId actorUserId, CommandId commandId, CorrelationId correlationId)
         {
             if (campaign == null) throw new ArgumentNullException(nameof(campaign));
             if (intent == null) throw new ArgumentNullException(nameof(intent));
             if (effectCandidates == null) throw new ArgumentNullException(nameof(effectCandidates));
+            if (damageDeltas == null) throw new ArgumentNullException(nameof(damageDeltas));
+            if (costDeltas == null) throw new ArgumentNullException(nameof(costDeltas));
             if (!actorUserId.IsValid) throw new ArgumentException("ActorUserId is required.", nameof(actorUserId));
             if (!commandId.IsValid) throw new ArgumentException("CommandId is required.", nameof(commandId));
 
@@ -121,8 +128,8 @@ namespace Odyssey.Persistence.Sqlite
                         {
                             insert.Transaction = transaction;
                             insert.CommandText =
-                                "INSERT INTO AttackOutcome (CommandId, CampaignId, EncounterId, ActorId, TargetIds, ActionItemInstanceId, ExpectedEncounterRevision, RandomSampleValue, InterventionRequired, EffectCandidatesJson, OutcomeKind, GameLogEntryId, Revision, CreatedAt, ResolvedAt, ResolvedByCommandId) " +
-                                "VALUES ($commandId, $campaignId, $encounterId, $actorId, $targetIds, $itemInstanceId, $expectedRevision, $randomSample, $interventionRequired, $effectCandidates, $outcomeKind, NULL, 1, $createdAt, NULL, NULL);";
+                                "INSERT INTO AttackOutcome (CommandId, CampaignId, EncounterId, ActorId, TargetIds, ActionItemInstanceId, ExpectedEncounterRevision, RandomSampleValue, InterventionRequired, EffectCandidatesJson, DamageDeltasJson, CostDeltasJson, OutcomeKind, GameLogEntryId, Revision, CreatedAt, ResolvedAt, ResolvedByCommandId) " +
+                                "VALUES ($commandId, $campaignId, $encounterId, $actorId, $targetIds, $itemInstanceId, $expectedRevision, $randomSample, $interventionRequired, $effectCandidates, $damageDeltas, $costDeltas, $outcomeKind, NULL, 1, $createdAt, NULL, NULL);";
                             insert.Parameters.AddWithValue("$commandId", commandId.ToString());
                             insert.Parameters.AddWithValue("$campaignId", campaign.CampaignId.ToString());
                             insert.Parameters.AddWithValue("$encounterId", intent.EncounterId.ToString());
@@ -133,6 +140,8 @@ namespace Odyssey.Persistence.Sqlite
                             insert.Parameters.AddWithValue("$randomSample", randomSample.Value);
                             insert.Parameters.AddWithValue("$interventionRequired", interventionRequired ? 1 : 0);
                             insert.Parameters.AddWithValue("$effectCandidates", SerializeEffectCandidates(effectCandidates));
+                            insert.Parameters.AddWithValue("$damageDeltas", SerializeDeltas(damageDeltas));
+                            insert.Parameters.AddWithValue("$costDeltas", SerializeDeltas(costDeltas));
                             insert.Parameters.AddWithValue("$outcomeKind", outcomeKind.ToString());
                             insert.Parameters.AddWithValue("$createdAt", now.ToString());
                             insert.ExecuteNonQuery();
@@ -147,9 +156,14 @@ namespace Odyssey.Persistence.Sqlite
                             SetOutcomeGameLogEntryId(connection, transaction, commandId, capturedLogEntryId);
                             onSequenceAssigned = (txn, sequence) => UpdateGameLogAuthoritativeSequence(connection, txn, capturedLogEntryId, sequence);
                             ApplyEffectCandidates(connection, transaction, campaign, actorUserId, effectCandidates, includeRequiresIntervention: false, commandId, now);
+                            Result deltaResult = ApplyAttackDeltas(connection, transaction, damageDeltas, costDeltas, commandId, now, correlationId);
+                            if (deltaResult.IsFailure)
+                            {
+                                return Result<PipelineWrite<AttackOutcomeRecord>>.Failure(deltaResult.Error);
+                            }
                         }
 
-                        AttackOutcomeRecord result = new AttackOutcomeRecord(commandId, campaign.CampaignId, intent.EncounterId, intent.ActorId, intent.TargetIds, intent.ActionItemInstanceId, intent.ExpectedEncounterRevision, randomSample.Value, interventionRequired, effectCandidates, outcomeKind, gameLogEntryId, now, null, null);
+                        AttackOutcomeRecord result = new AttackOutcomeRecord(commandId, campaign.CampaignId, intent.EncounterId, intent.ActorId, intent.TargetIds, intent.ActionItemInstanceId, intent.ExpectedEncounterRevision, randomSample.Value, interventionRequired, effectCandidates, damageDeltas, costDeltas, outcomeKind, gameLogEntryId, now, null, null);
                         string payloadJson = "{\"commandId\":\"" + commandId + "\",\"outcomeKind\":\"" + outcomeKind + "\"}";
                         return Result<PipelineWrite<AttackOutcomeRecord>>.Success(new PipelineWrite<AttackOutcomeRecord>(
                             result, "odyssey.persistence.attack_outcome_recorded", payloadJson, commandId.ToString(),
@@ -257,9 +271,14 @@ namespace Odyssey.Persistence.Sqlite
                             // candidates are now applied alongside any plain Apply candidates.
                             // See the ODY-S05-606 task contract's decision log.
                             ApplyEffectCandidates(connection, transaction, campaign, actorUserId, pending.EffectCandidates, includeRequiresIntervention: true, pendingCommandId, now);
+                            Result deltaResult = ApplyAttackDeltas(connection, transaction, pending.DamageDeltas, pending.CostDeltas, pendingCommandId, now, correlationId);
+                            if (deltaResult.IsFailure)
+                            {
+                                return Result<PipelineWrite<AttackOutcomeRecord>>.Failure(deltaResult.Error);
+                            }
                         }
 
-                        AttackOutcomeRecord resolved = new AttackOutcomeRecord(pending.ResolveAttackCommandId, pending.CampaignId, pending.EncounterId, pending.ActorId, pending.TargetIds, pending.ActionItemInstanceId, pending.ExpectedEncounterRevision, pending.RandomSampleValue, pending.InterventionRequired, pending.EffectCandidates, newKind, gameLogEntryId, pending.CreatedAt, now, commandId);
+                        AttackOutcomeRecord resolved = new AttackOutcomeRecord(pending.ResolveAttackCommandId, pending.CampaignId, pending.EncounterId, pending.ActorId, pending.TargetIds, pending.ActionItemInstanceId, pending.ExpectedEncounterRevision, pending.RandomSampleValue, pending.InterventionRequired, pending.EffectCandidates, pending.DamageDeltas, pending.CostDeltas, newKind, gameLogEntryId, pending.CreatedAt, now, commandId);
                         string payloadJson = "{\"pendingCommandId\":\"" + pendingCommandId + "\",\"resolution\":\"" + resolution + "\",\"outcomeKind\":\"" + newKind + "\"}";
                         return Result<PipelineWrite<AttackOutcomeRecord>>.Success(new PipelineWrite<AttackOutcomeRecord>(
                             resolved, "odyssey.persistence.attack_outcome_resolved", payloadJson, pendingCommandId.ToString(),
@@ -696,6 +715,197 @@ namespace Odyssey.Persistence.Sqlite
             update.ExecuteNonQuery();
         }
 
+        /// <summary>
+        /// ODY-S05-609: `ADR-029` §1 rule 5/§6 stage 13 -- resolves and applies
+        /// every already-computed `AttackDelta` (`damageDeltas` then
+        /// `costDeltas`, in order) against the target identity its own
+        /// `TargetRef` names, inside this same atomic-apply transaction.
+        /// Stops and returns the first failure encountered (a typed,
+        /// no-partial-commit rejection -- the caller returns it from the
+        /// `apply:` lambda itself, so `SqliteSavingPipeline` rolls back the
+        /// whole transaction, exactly like any other guard failure in this
+        /// class). Multiple deltas targeting the SAME character in one
+        /// attack (e.g. a `DamageDeltas` and a `CostDeltas` entry on the same
+        /// actor) are applied strictly sequentially, each re-reading
+        /// `Character.ResourcesJson`/`CharacterResourcesRevision` fresh from
+        /// this same transaction -- so the second delta's own revision
+        /// increment is always correct, with no risk of the two conflicting
+        /// the way two independent calls to the public `SetResourceCurrentValue`
+        /// (each with its own separately-read `expectedCharacterResourcesRevision`)
+        /// would.
+        /// </summary>
+        private static Result ApplyAttackDeltas(SqliteConnection connection, SqliteTransaction transaction, IReadOnlyList<AttackDelta> damageDeltas, IReadOnlyList<AttackDelta> costDeltas, CommandId commandId, UtcInstant now, CorrelationId correlationId)
+        {
+            foreach (AttackDelta delta in damageDeltas)
+            {
+                Result result = ApplyAttackDelta(connection, transaction, delta, commandId, now, correlationId);
+                if (result.IsFailure)
+                {
+                    return result;
+                }
+            }
+
+            foreach (AttackDelta delta in costDeltas)
+            {
+                Result result = ApplyAttackDelta(connection, transaction, delta, commandId, now, correlationId);
+                if (result.IsFailure)
+                {
+                    return result;
+                }
+            }
+
+            return Result.Success();
+        }
+
+        /// <summary>
+        /// ODY-S05-609 section 3's own product-owner-approved `TargetRef`
+        /// convention: `"character:{characterId}:{resourceKind}"` or
+        /// `"item:{itemInstanceId}:{itemResourceKind}"` -- exactly three
+        /// colon-separated segments, the first segment selecting the
+        /// resolution path. This is identity resolution only: `delta.Value`
+        /// itself is never recomputed, chosen, or clamped upward/downward by
+        /// any Ruleset formula here.
+        /// </summary>
+        private static Result ApplyAttackDelta(SqliteConnection connection, SqliteTransaction transaction, AttackDelta delta, CommandId commandId, UtcInstant now, CorrelationId correlationId)
+        {
+            string[] segments = delta.TargetRef.Split(':');
+            if (segments.Length != 3)
+            {
+                return Result.Failure(PersistenceFailures.AttackOutcomeDeltaTargetRefInvalid(correlationId));
+            }
+
+            switch (segments[0])
+            {
+                case "character":
+                    if (!CharacterId.TryParse(segments[1], out CharacterId characterId) || !ResourceDefinitionId.TryParse(segments[2], out ResourceDefinitionId resourceDefinitionId))
+                    {
+                        return Result.Failure(PersistenceFailures.AttackOutcomeDeltaTargetRefInvalid(correlationId));
+                    }
+
+                    return ApplyCharacterResourceDelta(connection, transaction, characterId, resourceDefinitionId, delta.Value, commandId, now, correlationId);
+
+                case "item":
+                    // ODY-S05-609 section 4/decision log: ItemInstanceRecord
+                    // carries only an opaque RuntimeState string -- no
+                    // numeric mutable field exists at the Domain level to
+                    // write a resource delta into (no durability/charges
+                    // field anywhere in Odyssey.Domain.Inventory). Escalated
+                    // as a disclosed blocker rather than silently inventing a
+                    // new Domain field within this task's own scope.
+                    return Result.Failure(PersistenceFailures.AttackOutcomeDeltaItemTargetUnsupported(correlationId));
+
+                default:
+                    return Result.Failure(PersistenceFailures.AttackOutcomeDeltaTargetRefInvalid(correlationId));
+            }
+        }
+
+        /// <summary>
+        /// ODY-S05-609: applies one already-computed delta to one
+        /// <c>CharacterResource</c>'s <c>CurrentValue</c>, reading and
+        /// writing <c>Character.ResourcesJson</c>/<c>CharacterResourcesRevision</c>/
+        /// <c>CharacterRevision</c> directly via a minimal, targeted raw SQL
+        /// SELECT/UPDATE against the already-open connection/transaction --
+        /// never the public <c>ICharacterRepository.SetResourceCurrentValue</c>
+        /// (see this class's own doc comment for why). Reuses
+        /// <c>SqliteCharacterRepository.SerializeResources</c>/<c>DeserializeResources</c>
+        /// (`internal`, ODY-S05-609) rather than duplicating that JSON shape;
+        /// does not read or write any other Character column, so the full
+        /// 36+-column <c>SelectForUpdate</c>/<c>CharacterRecord</c>
+        /// round trip that public method uses is deliberately not needed
+        /// here. Rejects (never clamps) a resolved value outside
+        /// <c>[MinimumValue, EffectiveMaximum]</c>, mirroring
+        /// <c>SetResourceCurrentValue</c>'s own behavior exactly.
+        /// </summary>
+        private static Result ApplyCharacterResourceDelta(SqliteConnection connection, SqliteTransaction transaction, CharacterId characterId, ResourceDefinitionId resourceDefinitionId, int deltaValue, CommandId commandId, UtcInstant now, CorrelationId correlationId)
+        {
+            string resourcesJson;
+            long resourcesRevision;
+            long characterRevision;
+            using (var select = connection.CreateCommand())
+            {
+                select.Transaction = transaction;
+                select.CommandText = "SELECT ResourcesJson, CharacterResourcesRevision, CharacterRevision FROM Character WHERE CharacterId = $characterId;";
+                select.Parameters.AddWithValue("$characterId", characterId.ToString());
+                using SqliteDataReader reader = select.ExecuteReader();
+                if (!reader.Read())
+                {
+                    return Result.Failure(PersistenceFailures.AttackOutcomeDeltaResourceNotFound(correlationId));
+                }
+
+                resourcesJson = reader.GetString(0);
+                resourcesRevision = reader.GetInt64(1);
+                characterRevision = reader.GetInt64(2);
+            }
+
+            IReadOnlyList<CharacterResource> resources = SqliteCharacterRepository.DeserializeResources(resourcesJson);
+            CharacterResource? existing = null;
+            foreach (CharacterResource candidate in resources)
+            {
+                if (candidate.ResourceDefinitionId.Equals(resourceDefinitionId))
+                {
+                    existing = candidate;
+                    break;
+                }
+            }
+
+            if (existing == null)
+            {
+                return Result.Failure(PersistenceFailures.AttackOutcomeDeltaResourceNotFound(correlationId));
+            }
+
+            long newValue = existing.CurrentValue + deltaValue;
+            if (newValue < existing.MinimumValue || newValue > existing.EffectiveMaximum)
+            {
+                return Result.Failure(PersistenceFailures.AttackOutcomeDeltaValueOutOfRange(correlationId));
+            }
+
+            var updated = new CharacterResource(existing.CharacterResourceId, existing.ResourceDefinitionId, newValue, existing.BaseMaximum, existing.PermanentMaximumAdjustment, existing.MinimumValue, existing.RecoveryRule, existing.Revision + 1);
+            var newResources = new List<CharacterResource>(resources.Count);
+            foreach (CharacterResource candidate in resources)
+            {
+                newResources.Add(candidate.ResourceDefinitionId.Equals(resourceDefinitionId) ? updated : candidate);
+            }
+
+            using (var update = connection.CreateCommand())
+            {
+                update.Transaction = transaction;
+                update.CommandText = "UPDATE Character SET ResourcesJson = $resourcesJson, CharacterResourcesRevision = $resourcesRevision, CharacterRevision = $characterRevision, UpdatedAt = $updatedAt, LastCommandId = $lastCommandId WHERE CharacterId = $characterId;";
+                update.Parameters.AddWithValue("$resourcesJson", SqliteCharacterRepository.SerializeResources(newResources));
+                update.Parameters.AddWithValue("$resourcesRevision", resourcesRevision + 1);
+                update.Parameters.AddWithValue("$characterRevision", characterRevision + 1);
+                update.Parameters.AddWithValue("$updatedAt", now.ToString());
+                update.Parameters.AddWithValue("$lastCommandId", commandId.ToString());
+                update.Parameters.AddWithValue("$characterId", characterId.ToString());
+                update.ExecuteNonQuery();
+            }
+
+            return Result.Success();
+        }
+
+        private static string SerializeDeltas(IReadOnlyList<AttackDelta> deltas)
+        {
+            var array = new JArray();
+            foreach (AttackDelta delta in deltas)
+            {
+                array.Add(new JObject { ["targetRef"] = delta.TargetRef, ["value"] = delta.Value });
+            }
+
+            return array.ToString(Newtonsoft.Json.Formatting.None);
+        }
+
+        private static IReadOnlyList<AttackDelta> DeserializeDeltas(string json)
+        {
+            var array = JArray.Parse(json);
+            var result = new List<AttackDelta>(array.Count);
+            foreach (JToken token in array)
+            {
+                var obj = (JObject)token;
+                result.Add(new AttackDelta((string)obj["targetRef"]!, (int)obj["value"]!));
+            }
+
+            return result;
+        }
+
         private static string SerializeEffectCandidates(IReadOnlyList<AttackEffectCandidate> candidates)
         {
             var array = new JArray();
@@ -799,7 +1009,7 @@ namespace Odyssey.Persistence.Sqlite
             update.ExecuteNonQuery();
         }
 
-        private const string AttackOutcomeSelectColumns = "SELECT CommandId, CampaignId, EncounterId, ActorId, TargetIds, ActionItemInstanceId, ExpectedEncounterRevision, RandomSampleValue, InterventionRequired, EffectCandidatesJson, OutcomeKind, GameLogEntryId, CreatedAt, ResolvedAt, ResolvedByCommandId";
+        private const string AttackOutcomeSelectColumns = "SELECT CommandId, CampaignId, EncounterId, ActorId, TargetIds, ActionItemInstanceId, ExpectedEncounterRevision, RandomSampleValue, InterventionRequired, EffectCandidatesJson, DamageDeltasJson, CostDeltasJson, OutcomeKind, GameLogEntryId, CreatedAt, ResolvedAt, ResolvedByCommandId";
 
         private static AttackOutcomeRecord? ReadByCommandId(SqliteConnection connection, SqliteTransaction? transaction, CommandId commandId)
         {
@@ -833,12 +1043,14 @@ namespace Odyssey.Persistence.Sqlite
             int randomSampleValue = reader.GetInt32(7);
             bool interventionRequired = reader.GetInt64(8) != 0;
             IReadOnlyList<AttackEffectCandidate> effectCandidates = DeserializeEffectCandidates(reader.GetString(9));
-            AttackOutcomeKind outcomeKind = (AttackOutcomeKind)Enum.Parse(typeof(AttackOutcomeKind), reader.GetString(10));
-            string? gameLogEntryId = reader.IsDBNull(11) ? null : reader.GetString(11);
-            UtcInstant createdAt = UtcInstant.Parse(reader.GetString(12));
-            UtcInstant? resolvedAt = reader.IsDBNull(13) ? (UtcInstant?)null : UtcInstant.Parse(reader.GetString(13));
-            CommandId? resolvedByCommandId = reader.IsDBNull(14) ? (CommandId?)null : CommandId.Parse(reader.GetString(14));
-            return new AttackOutcomeRecord(commandId, campaignId, encounterId, actorId, targetIds, itemInstanceId, expectedRevision, randomSampleValue, interventionRequired, effectCandidates, outcomeKind, gameLogEntryId, createdAt, resolvedAt, resolvedByCommandId);
+            IReadOnlyList<AttackDelta> damageDeltas = DeserializeDeltas(reader.GetString(10));
+            IReadOnlyList<AttackDelta> costDeltas = DeserializeDeltas(reader.GetString(11));
+            AttackOutcomeKind outcomeKind = (AttackOutcomeKind)Enum.Parse(typeof(AttackOutcomeKind), reader.GetString(12));
+            string? gameLogEntryId = reader.IsDBNull(13) ? null : reader.GetString(13);
+            UtcInstant createdAt = UtcInstant.Parse(reader.GetString(14));
+            UtcInstant? resolvedAt = reader.IsDBNull(15) ? (UtcInstant?)null : UtcInstant.Parse(reader.GetString(15));
+            CommandId? resolvedByCommandId = reader.IsDBNull(16) ? (CommandId?)null : CommandId.Parse(reader.GetString(16));
+            return new AttackOutcomeRecord(commandId, campaignId, encounterId, actorId, targetIds, itemInstanceId, expectedRevision, randomSampleValue, interventionRequired, effectCandidates, damageDeltas, costDeltas, outcomeKind, gameLogEntryId, createdAt, resolvedAt, resolvedByCommandId);
         }
 
         private static string SerializeTargetIds(IReadOnlyList<CharacterId> targetIds) => string.Join(",", targetIds.Select(id => id.ToString()));
@@ -879,6 +1091,8 @@ CREATE TABLE IF NOT EXISTS AttackOutcome (
     RandomSampleValue INTEGER NOT NULL,
     InterventionRequired INTEGER NOT NULL,
     EffectCandidatesJson TEXT NOT NULL,
+    DamageDeltasJson TEXT NOT NULL DEFAULT '[]',
+    CostDeltasJson TEXT NOT NULL DEFAULT '[]',
     OutcomeKind TEXT NOT NULL,
     GameLogEntryId TEXT,
     Revision INTEGER NOT NULL,

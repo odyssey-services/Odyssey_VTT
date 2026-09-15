@@ -992,6 +992,42 @@ namespace Odyssey.Application.Persistence
             RetryDirective.DoNotRetry,
             correlationId);
 
+        /// <summary>ODY-S05-609: an `AttackDelta.TargetRef` does not match either the `character:{characterId}:{resourceKind}` or `item:{itemInstanceId}:{itemResourceKind}` convention (wrong segment count, unrecognized prefix, or a segment that does not parse as its own identity type) -- rejected before any write, no partial commit.</summary>
+        public static Error AttackOutcomeDeltaTargetRefInvalid(CorrelationId correlationId) => Error.Create(
+            ErrorCodes.PersistenceAttackOutcomeDeltaTargetRefInvalid,
+            ErrorCategory.Validation,
+            SafeReasonCode.InvalidRequest,
+            UserMessageKey.Parse("errors.persistence.attack_outcome_delta_target_ref_invalid"),
+            RetryDirective.DoNotRetry,
+            correlationId);
+
+        /// <summary>ODY-S05-609: a `character:{characterId}:{resourceKind}` `TargetRef` parses, but that character has no `CharacterResource` with the named `ResourceDefinitionId` -- mirrors `CharacterResourceNotFound`'s own convention for the same underlying condition reached from the attack apply path.</summary>
+        public static Error AttackOutcomeDeltaResourceNotFound(CorrelationId correlationId) => Error.Create(
+            ErrorCodes.PersistenceAttackOutcomeDeltaResourceNotFound,
+            ErrorCategory.NotFound,
+            SafeReasonCode.TargetUnavailable,
+            UserMessageKey.Parse("errors.persistence.attack_outcome_delta_resource_not_found"),
+            RetryDirective.DoNotRetry,
+            correlationId);
+
+        /// <summary>ODY-S05-609: applying an `AttackDelta.Value` would push the resolved `CharacterResource.CurrentValue` outside `[MinimumValue, EffectiveMaximum]` -- mirrors `CharacterResourceValueOutOfRange`'s own convention; no clamping is performed, the whole apply transaction is rejected instead.</summary>
+        public static Error AttackOutcomeDeltaValueOutOfRange(CorrelationId correlationId) => Error.Create(
+            ErrorCodes.PersistenceAttackOutcomeDeltaValueOutOfRange,
+            ErrorCategory.Validation,
+            SafeReasonCode.InvalidRequest,
+            UserMessageKey.Parse("errors.persistence.attack_outcome_delta_value_out_of_range"),
+            RetryDirective.DoNotRetry,
+            correlationId);
+
+        /// <summary>ODY-S05-609: an `item:{itemInstanceId}:{itemResourceKind}` `TargetRef` parses, but no numeric mutable field exists on `ItemInstanceRecord` at the Domain level to write a resource delta into (only an opaque `RuntimeState` string) -- a disclosed blocker, not a silently-invented Domain field; see the task contract's decision log.</summary>
+        public static Error AttackOutcomeDeltaItemTargetUnsupported(CorrelationId correlationId) => Error.Create(
+            ErrorCodes.PersistenceAttackOutcomeDeltaItemTargetUnsupported,
+            ErrorCategory.Compatibility,
+            SafeReasonCode.ActionNotAllowed,
+            UserMessageKey.Parse("errors.persistence.attack_outcome_delta_item_target_unsupported"),
+            RetryDirective.DoNotRetry,
+            correlationId);
+
         // Used only by the codec's Read path (CampaignManifest.cs), which does not
         // receive a caller CorrelationId; matches the existing SerializationFailures
         // placeholder-correlation convention for codec-level structural failures.
