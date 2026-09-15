@@ -1,7 +1,7 @@
 # ODY-S05-609 — Attack Aggregate Delta Commit
 
 ## 1. Task identity
-`ODY-S05-609`; status: In Review (Draft PR, see the backlog row for the link once opened).
+`ODY-S05-609`; status: In Review (Draft PR https://github.com/odyssey-services/Odyssey_VTT/pull/152).
 
 ## 2. Goal
 Close `604`'s own disclosed gap (`ADR-029` §1 rule 5, §6 stage 13, §12 item 4): apply an accepted attack outcome's own already-computed `AttackDelta.Value` (`DamageDeltas`/`CostDeltas`, `ODY-S05-603`, unmodified) against concrete Character resource state, in the same atomic-apply transaction as `604`'s own outcome/Game Log commit. This task never chooses, evaluates, or invents a Ruleset formula -- `AttackDelta.Value` is already computed by the time it reaches here; this task's own work is (a) a new, explicit `TargetRef` addressing convention (deltas were never actually persisted or resolved before this task -- see §18's correction of this contract's own original, inaccurate draft) and (b) the Persistence-layer orchestration that resolves and writes the already-computed value.
