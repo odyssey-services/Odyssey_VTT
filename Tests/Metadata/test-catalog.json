@@ -1641,6 +1641,22 @@
                           "check":  "a moved token's position, controller, and revision are identical after closing and reopening the campaign, confirmed by a fresh SqliteSceneRepository instance against the reopened connection"
                       },
                       {
+                          "testCaseId":  "TC-BOARD-014",
+                          "taskId":  "ODY-S06-104",
+                          "authority":  "ADR-030 section 5; 08_Scenes_And_Board's own token vocabulary",
+                          "runner":  "dotnet test",
+                          "path":  "DotNet/Tests/Odyssey.Tests.Persistence/SqliteSceneRepositoryTests.cs",
+                          "check":  "CreateToken with a supplied CharacterId links the token to that Character -- GetToken returns the same CharacterId back"
+                      },
+                      {
+                          "testCaseId":  "TC-BOARD-015",
+                          "taskId":  "ODY-S06-104",
+                          "authority":  "ADR-030 section 5",
+                          "runner":  "dotnet test",
+                          "path":  "DotNet/Tests/Odyssey.Tests.Persistence/SqliteSceneRepositoryTests.cs",
+                          "check":  "CreateToken without a CharacterId defaults to no link (null) -- the pre-existing prop/marker-token creation path is unchanged"
+                      },
+                      {
                           "testCaseId":  "TC-DICE-001",
                           "taskId":  "ODY-S03-005",
                           "authority":  "09_Dice_And_Game_Log section 7.1; ODY-S03-005",
@@ -5008,6 +5024,12 @@
                       { "testCaseId": "TC-ATTACK-107", "taskId": "ODY-S06-103", "authority": "ADR-030 section 5", "runner": "dotnet test", "path": "DotNet/Tests/Odyssey.Tests.Persistence/SqliteAttackStateReaderTests.cs", "check": "A target with no equipped armor at all yields AttackArmorInput.Unavailable, with an empty Entries list" },
                       { "testCaseId": "TC-ATTACK-108", "taskId": "ODY-S06-103", "authority": "ADR-030 section 5", "runner": "dotnet test", "path": "DotNet/Tests/Odyssey.Tests.Persistence/SqliteAttackStateReaderTests.cs", "check": "A target with one equipped armor item yields AttackArmorInput.Available carrying the real, TypedDefinitionCodec-decoded ArmorDefinition (Protection/CoveredBodyPartIds verified against the real fixture values, not a tautology)" },
                       { "testCaseId": "TC-ATTACK-109", "taskId": "ODY-S06-103", "authority": "ADR-030 section 5", "runner": "dotnet test", "path": "DotNet/Tests/Odyssey.Tests.Persistence/SqliteAttackStateReaderTests.cs", "check": "A target with both an equipped armor item and a separate equipped non-armor item yields only the real, decoded armor entry -- the non-armor item does not crash decoding and is silently skipped" },
-                      { "testCaseId": "TC-ATTACK-110", "taskId": "ODY-S06-103", "authority": "ADR-030 section 5", "runner": "dotnet test", "path": "DotNet/Tests/Odyssey.Tests.Persistence/SqliteAttackStateReaderTests.cs", "check": "Multiple targets in one intent each carry their own correct, not-mixed-up armor entries, tagged by TargetId" }
+                      { "testCaseId": "TC-ATTACK-110", "taskId": "ODY-S06-103", "authority": "ADR-030 section 5", "runner": "dotnet test", "path": "DotNet/Tests/Odyssey.Tests.Persistence/SqliteAttackStateReaderTests.cs", "check": "Multiple targets in one intent each carry their own correct, not-mixed-up armor entries, tagged by TargetId" },
+                      { "testCaseId": "TC-ATTACK-111", "taskId": "ODY-S06-104", "authority": "ADR-030 section 5", "runner": "dotnet test", "path": "DotNet/Tests/Odyssey.Tests.Persistence/SqliteAttackStateReaderTests.cs", "check": "Actor and target tokens linked on the same Scene at a known distance -- Topology is Available and the target's own distance matches BoardGeometry.EuclideanDistance over the real fixture coordinates, not a tautology" },
+                      { "testCaseId": "TC-ATTACK-112", "taskId": "ODY-S06-104", "authority": "ADR-030 section 5", "runner": "dotnet test", "path": "DotNet/Tests/Odyssey.Tests.Persistence/SqliteAttackStateReaderTests.cs", "check": "An actor with no Character-Token link yields Topology.Unavailable with an empty Entries list -- missing position data is not a hard-fail" },
+                      { "testCaseId": "TC-ATTACK-113", "taskId": "ODY-S06-104", "authority": "ADR-030 section 5", "runner": "dotnet test", "path": "DotNet/Tests/Odyssey.Tests.Persistence/SqliteAttackStateReaderTests.cs", "check": "A target with no Character-Token link yields Topology.Unavailable for that target -- missing position data is not a hard-fail" },
+                      { "testCaseId": "TC-ATTACK-114", "taskId": "ODY-S06-104", "authority": "ADR-030 section 5", "runner": "dotnet test", "path": "DotNet/Tests/Odyssey.Tests.Persistence/SqliteAttackStateReaderTests.cs", "check": "Actor and target tokens on different SceneIds yield Topology.Unavailable for that target -- cross-Scene distance is not computed as if meaningful" },
+                      { "testCaseId": "TC-ATTACK-115", "taskId": "ODY-S06-104", "authority": "ADR-030 section 5", "runner": "dotnet test", "path": "DotNet/Tests/Odyssey.Tests.Persistence/SqliteAttackStateReaderTests.cs", "check": "Multiple targets, some with a resolvable position and some without, yield a correct mixed Topology result -- only the resolvable target's real distance appears" },
+                      { "testCaseId": "TC-ATTACK-116", "taskId": "ODY-S06-104", "authority": "ADR-030 section 5", "runner": "dotnet test", "path": "DotNet/Tests/Odyssey.Tests.Persistence/SqliteAttackStateReaderTests.cs", "check": "An existing test scenario with no Character-Token link at all still reads successfully with Topology.Unavailable, exactly as before this task -- position resolution is additive, not a new precondition" }
                   ]
 }

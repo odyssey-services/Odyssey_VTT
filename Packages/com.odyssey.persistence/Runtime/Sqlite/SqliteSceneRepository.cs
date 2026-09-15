@@ -95,12 +95,13 @@ namespace Odyssey.Persistence.Sqlite
             }
         }
 
-        public Result<TokenRecord> CreateToken(CampaignHandle campaign, SceneId sceneId, TokenPosition initialPosition, UserId controllerUserId, CommandId commandId, CorrelationId correlationId)
+        public Result<TokenRecord> CreateToken(CampaignHandle campaign, SceneId sceneId, TokenPosition initialPosition, UserId controllerUserId, CommandId commandId, CorrelationId correlationId, CharacterId? characterId = null)
         {
             if (campaign == null) throw new ArgumentNullException(nameof(campaign));
             if (!sceneId.IsValid) throw new ArgumentException("SceneId is required.", nameof(sceneId));
             if (!controllerUserId.IsValid) throw new ArgumentException("ControllerUserId is required.", nameof(controllerUserId));
             if (!commandId.IsValid) throw new ArgumentException("CommandId is required.", nameof(commandId));
+            if (characterId.HasValue && !characterId.Value.IsValid) throw new ArgumentException("CharacterId must be valid when supplied.", nameof(characterId));
 
             try
             {
@@ -128,8 +129,8 @@ namespace Odyssey.Persistence.Sqlite
                         using (var insert = connection.CreateCommand())
                         {
                             insert.Transaction = transaction;
-                            insert.CommandText = "INSERT INTO Token (TokenId, SceneId, CampaignId, PositionX, PositionY, ControllerUserId, Revision, CreatedAt, UpdatedAt, LastCommandId) " +
-                                                  "VALUES ($tokenId, $sceneId, $campaignId, $x, $y, $controllerUserId, $revision, $createdAt, $updatedAt, $lastCommandId);";
+                            insert.CommandText = "INSERT INTO Token (TokenId, SceneId, CampaignId, PositionX, PositionY, ControllerUserId, Revision, CreatedAt, UpdatedAt, LastCommandId, CharacterId) " +
+                                                  "VALUES ($tokenId, $sceneId, $campaignId, $x, $y, $controllerUserId, $revision, $createdAt, $updatedAt, $lastCommandId, $characterId);";
                             insert.Parameters.AddWithValue("$tokenId", tokenId.ToString());
                             insert.Parameters.AddWithValue("$sceneId", sceneId.ToString());
                             insert.Parameters.AddWithValue("$campaignId", campaign.CampaignId.ToString());
@@ -140,10 +141,11 @@ namespace Odyssey.Persistence.Sqlite
                             insert.Parameters.AddWithValue("$createdAt", now.ToString());
                             insert.Parameters.AddWithValue("$updatedAt", now.ToString());
                             insert.Parameters.AddWithValue("$lastCommandId", commandId.ToString());
+                            insert.Parameters.AddWithValue("$characterId", characterId.HasValue ? characterId.Value.ToString() : (object)DBNull.Value);
                             insert.ExecuteNonQuery();
                         }
 
-                        var record = new TokenRecord(tokenId, sceneId, campaign.CampaignId, initialPosition, controllerUserId, revision, now, now);
+                        var record = new TokenRecord(tokenId, sceneId, campaign.CampaignId, initialPosition, controllerUserId, revision, now, now, characterId);
                         string payloadJson = "{\"tokenId\":\"" + tokenId + "\",\"sceneId\":\"" + sceneId + "\",\"controllerUserId\":\"" + controllerUserId + "\",\"x\":" +
                                               initialPosition.X.ToString(CultureInfo.InvariantCulture) + ",\"y\":" + initialPosition.Y.ToString(CultureInfo.InvariantCulture) + "}";
                         return Result<PipelineWrite<TokenRecord>>.Success(new PipelineWrite<TokenRecord>(
@@ -168,7 +170,7 @@ namespace Odyssey.Persistence.Sqlite
                 EnsureSceneTokenTables(connection);
 
                 using var select = connection.CreateCommand();
-                select.CommandText = "SELECT TokenId, SceneId, PositionX, PositionY, ControllerUserId, Revision, CreatedAt, UpdatedAt FROM Token WHERE TokenId = $tokenId LIMIT 1;";
+                select.CommandText = "SELECT TokenId, SceneId, PositionX, PositionY, ControllerUserId, Revision, CreatedAt, UpdatedAt, CharacterId FROM Token WHERE TokenId = $tokenId LIMIT 1;";
                 select.Parameters.AddWithValue("$tokenId", tokenId.ToString());
                 using SqliteDataReader reader = select.ExecuteReader();
                 if (!reader.Read())
@@ -208,10 +210,11 @@ namespace Odyssey.Persistence.Sqlite
                         UserId controllerUserId;
                         long previousRevision;
                         UtcInstant createdAt;
+                        CharacterId? characterId;
                         using (var select = connection.CreateCommand())
                         {
                             select.Transaction = transaction;
-                            select.CommandText = "SELECT SceneId, ControllerUserId, Revision, CreatedAt FROM Token WHERE TokenId = $tokenId LIMIT 1;";
+                            select.CommandText = "SELECT SceneId, ControllerUserId, Revision, CreatedAt, CharacterId FROM Token WHERE TokenId = $tokenId LIMIT 1;";
                             select.Parameters.AddWithValue("$tokenId", tokenId.ToString());
                             using SqliteDataReader reader = select.ExecuteReader();
                             if (!reader.Read())
@@ -227,6 +230,7 @@ namespace Odyssey.Persistence.Sqlite
                             controllerUserId = UserId.Parse(reader.GetString(1));
                             previousRevision = reader.GetInt64(2);
                             createdAt = UtcInstant.Parse(reader.GetString(3));
+                            characterId = reader.IsDBNull(4) ? (CharacterId?)null : CharacterId.Parse(reader.GetString(4));
                         }
 
                         // ADR-002 section 10.2: the final, atomic optimistic-
@@ -255,7 +259,7 @@ namespace Odyssey.Persistence.Sqlite
                             update.ExecuteNonQuery();
                         }
 
-                        var record = new TokenRecord(tokenId, sceneId, campaign.CampaignId, newPosition, controllerUserId, newRevision, createdAt, now);
+                        var record = new TokenRecord(tokenId, sceneId, campaign.CampaignId, newPosition, controllerUserId, newRevision, createdAt, now, characterId);
                         string payloadJson = "{\"tokenId\":\"" + tokenId + "\",\"x\":" + newPosition.X.ToString(CultureInfo.InvariantCulture) +
                                               ",\"y\":" + newPosition.Y.ToString(CultureInfo.InvariantCulture) + "}";
                         return Result<PipelineWrite<TokenRecord>>.Success(new PipelineWrite<TokenRecord>(
@@ -287,8 +291,45 @@ namespace Odyssey.Persistence.Sqlite
                 var tokens = new List<TokenRecord>();
                 using (var select = connection.CreateCommand())
                 {
-                    select.CommandText = "SELECT TokenId, SceneId, PositionX, PositionY, ControllerUserId, Revision, CreatedAt, UpdatedAt FROM Token WHERE SceneId = $sceneId ORDER BY CreatedAt;";
+                    select.CommandText = "SELECT TokenId, SceneId, PositionX, PositionY, ControllerUserId, Revision, CreatedAt, UpdatedAt, CharacterId FROM Token WHERE SceneId = $sceneId ORDER BY CreatedAt;";
                     select.Parameters.AddWithValue("$sceneId", sceneId.ToString());
+                    using SqliteDataReader reader = select.ExecuteReader();
+                    while (reader.Read())
+                    {
+                        tokens.Add(ReadTokenRecord(reader, campaign.CampaignId));
+                    }
+                }
+
+                return Result<IReadOnlyList<TokenRecord>>.Success(tokens);
+            }
+            catch (Exception ex) when (ex is IOException || ex is UnauthorizedAccessException || ex is SqliteException)
+            {
+                return Result<IReadOnlyList<TokenRecord>>.Failure(PersistenceFailures.SceneIoFailed(correlationId));
+            }
+        }
+
+        /// <summary>
+        /// ODY-S06-104: campaign-wide (not Scene-scoped) -- <see cref="Odyssey.Domain.Combat.AttackIntent"/>'s
+        /// own CombatEncounter carries no SceneId, so the Scene a Character's token lives on is not knowable
+        /// in advance; a Scene-scoped query (the shape <see cref="ListTokens"/> already offers) cannot answer
+        /// "does this Character have a token, and where" without already knowing the answer.
+        /// </summary>
+        public Result<IReadOnlyList<TokenRecord>> ListTokensByCharacter(CampaignHandle campaign, CharacterId characterId, CorrelationId correlationId)
+        {
+            if (campaign == null) throw new ArgumentNullException(nameof(campaign));
+            if (!characterId.IsValid) throw new ArgumentException("CharacterId is required.", nameof(characterId));
+
+            try
+            {
+                using SqliteConnection connection = OpenConnection(campaign.RootPath);
+                EnsureSceneTokenTables(connection);
+
+                var tokens = new List<TokenRecord>();
+                using (var select = connection.CreateCommand())
+                {
+                    select.CommandText = "SELECT TokenId, SceneId, PositionX, PositionY, ControllerUserId, Revision, CreatedAt, UpdatedAt, CharacterId FROM Token WHERE CampaignId = $campaignId AND CharacterId = $characterId ORDER BY CreatedAt;";
+                    select.Parameters.AddWithValue("$campaignId", campaign.CampaignId.ToString());
+                    select.Parameters.AddWithValue("$characterId", characterId.ToString());
                     using SqliteDataReader reader = select.ExecuteReader();
                     while (reader.Read())
                     {
@@ -402,7 +443,7 @@ namespace Odyssey.Persistence.Sqlite
         {
             using var select = connection.CreateCommand();
             select.Transaction = transaction;
-            select.CommandText = "SELECT TokenId, SceneId, PositionX, PositionY, ControllerUserId, Revision, CreatedAt, UpdatedAt FROM Token WHERE " + whereClause + " LIMIT 1;";
+            select.CommandText = "SELECT TokenId, SceneId, PositionX, PositionY, ControllerUserId, Revision, CreatedAt, UpdatedAt, CharacterId FROM Token WHERE " + whereClause + " LIMIT 1;";
             if (knownTokenId.HasValue)
             {
                 select.Parameters.AddWithValue("$tokenId", knownTokenId.Value.ToString());
@@ -424,8 +465,9 @@ namespace Odyssey.Persistence.Sqlite
         /// <summary>
         /// ODY-S03-004: shared column-order contract for every SELECT against
         /// <c>Token</c> that returns a full row -- TokenId, SceneId, PositionX,
-        /// PositionY, ControllerUserId, Revision, CreatedAt, UpdatedAt, in that
-        /// order. Every caller (<see cref="GetToken"/>, <see cref="ListTokens"/>,
+        /// PositionY, ControllerUserId, Revision, CreatedAt, UpdatedAt, CharacterId
+        /// (ODY-S06-104), in that order. Every caller (<see cref="GetToken"/>,
+        /// <see cref="ListTokens"/>, <see cref="ListTokensByCharacter"/>,
         /// <see cref="ReplayToken"/>) uses this exact column list.
         /// </summary>
         private static TokenRecord ReadTokenRecord(SqliteDataReader reader, CampaignId campaignId)
@@ -437,7 +479,8 @@ namespace Odyssey.Persistence.Sqlite
             long revision = reader.GetInt64(5);
             UtcInstant createdAt = UtcInstant.Parse(reader.GetString(6));
             UtcInstant updatedAt = UtcInstant.Parse(reader.GetString(7));
-            return new TokenRecord(tokenId, sceneId, campaignId, position, controllerUserId, revision, createdAt, updatedAt);
+            CharacterId? characterId = reader.IsDBNull(8) ? (CharacterId?)null : CharacterId.Parse(reader.GetString(8));
+            return new TokenRecord(tokenId, sceneId, campaignId, position, controllerUserId, revision, createdAt, updatedAt, characterId);
         }
 
         private static Result<AssetManifestEntryRecord> ReplayAsset(SqliteConnection connection, SqliteTransaction transaction, CommandId commandId, CorrelationId correlationId)
@@ -498,7 +541,8 @@ CREATE TABLE IF NOT EXISTS Token (
     Revision INTEGER NOT NULL,
     CreatedAt TEXT NOT NULL,
     UpdatedAt TEXT NOT NULL,
-    LastCommandId TEXT NOT NULL
+    LastCommandId TEXT NOT NULL,
+    CharacterId TEXT
 );";
             command.ExecuteNonQuery();
         }

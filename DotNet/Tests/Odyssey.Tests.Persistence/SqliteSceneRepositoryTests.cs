@@ -95,6 +95,37 @@ namespace Odyssey.Tests.Persistence
             Assert.That(persistedB.Position.Y, Is.EqualTo(2));
         }
 
+        [Test] // TC-BOARD-014
+        public void CreateToken_WithCharacterId_LinksTokenToCharacter_GetTokenReturnsItBack()
+        {
+            var repository = new SqliteSceneRepository(Clock);
+            SceneId sceneId = repository.CreateScene(_campaign, "Battle Map", NewCommandId(), TestCorrelationId).Value.SceneId;
+            CharacterId characterId = CharacterId.Parse("char_0123456789abcdef0123456789abcdef");
+
+            Result<TokenRecord> created = repository.CreateToken(_campaign, sceneId, new TokenPosition(3, 4), NewUserId(), NewCommandId(), TestCorrelationId, characterId);
+            Assert.That(created.IsSuccess, Is.True);
+            Assert.That(created.Value.CharacterId, Is.EqualTo(characterId));
+
+            Result<TokenRecord> reread = repository.GetToken(_campaign, created.Value.TokenId, TestCorrelationId);
+            Assert.That(reread.IsSuccess, Is.True);
+            Assert.That(reread.Value.CharacterId, Is.EqualTo(characterId));
+        }
+
+        [Test] // TC-BOARD-015
+        public void CreateToken_WithoutCharacterId_DefaultsToNull_ExistingBehaviorUnchanged()
+        {
+            var repository = new SqliteSceneRepository(Clock);
+            SceneId sceneId = repository.CreateScene(_campaign, "Battle Map", NewCommandId(), TestCorrelationId).Value.SceneId;
+
+            Result<TokenRecord> created = repository.CreateToken(_campaign, sceneId, new TokenPosition(0, 0), NewUserId(), NewCommandId(), TestCorrelationId);
+            Assert.That(created.IsSuccess, Is.True);
+            Assert.That(created.Value.CharacterId, Is.Null);
+
+            Result<TokenRecord> reread = repository.GetToken(_campaign, created.Value.TokenId, TestCorrelationId);
+            Assert.That(reread.IsSuccess, Is.True);
+            Assert.That(reread.Value.CharacterId, Is.Null);
+        }
+
         [Test]
         public void CreateToken_OnNonExistentScene_ReturnsTypedSceneNotFound()
         {

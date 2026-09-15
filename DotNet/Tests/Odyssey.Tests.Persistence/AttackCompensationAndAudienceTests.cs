@@ -45,6 +45,7 @@ namespace Odyssey.Tests.Persistence
         private SqliteCharacterRepository _characters = null!;
         private SqliteCombatEncounterRepository _encounters = null!;
         private SqliteInventoryRepository _inventory = null!;
+        private SqliteSceneRepository _scenes = null!;
         private SqliteAttackStateReader _reader = null!;
         private SqliteAttackApplyRepository _apply = null!;
         private SqliteGameLogRepository _gameLog = null!;
@@ -60,7 +61,8 @@ namespace Odyssey.Tests.Persistence
             _characters = new SqliteCharacterRepository(_clock);
             _encounters = new SqliteCombatEncounterRepository(_clock);
             _inventory = new SqliteInventoryRepository(_clock);
-            _reader = new SqliteAttackStateReader(_encounters, _inventory, _characters, _clock);
+            _scenes = new SqliteSceneRepository(_clock);
+            _reader = new SqliteAttackStateReader(_encounters, _inventory, _characters, _clock, _scenes);
             _apply = new SqliteAttackApplyRepository(_clock);
             _gameLog = new SqliteGameLogRepository(_clock);
         }
