@@ -56,7 +56,15 @@ namespace Odyssey.Persistence.Sqlite
 
         private static bool Contains(IReadOnlyList<CombatParticipant> participants, CharacterId id) { for (int index = 0; index < participants.Count; index++) if (participants[index].CharacterId == id) return true; return false; }
         private static bool ContainsAll(IReadOnlyList<CombatParticipant> participants, IReadOnlyList<CharacterId> ids) { for (int index = 0; index < ids.Count; index++) if (!Contains(participants, ids[index])) return false; return true; }
-        private static AttackParticipantState State(CharacterRecord record) => new AttackParticipantState(record.CharacterId, record.LifecycleStatus, record.ApprovalState);
+        // ODY-S06-102: AttackParticipantState.AttributeValues -- record.Attributes is already loaded by
+        // GetCharacter above; this copies its EffectiveValue readings into the snapshot without a second
+        // database read, so ADR-030 section 6.2's attributeReference formula term can resolve against them.
+        private static AttackParticipantState State(CharacterRecord record)
+        {
+            var attributeValues = new Dictionary<AttributeDefinitionId, long>(record.Attributes.Count);
+            foreach (AttributeValue attribute in record.Attributes) attributeValues[attribute.AttributeDefinitionId] = attribute.EffectiveValue;
+            return new AttackParticipantState(record.CharacterId, record.LifecycleStatus, record.ApprovalState, attributeValues);
+        }
         private static string Fingerprint(CombatEncounterRecord encounter, ItemInstanceRecord item, AttackParticipantState actor, IReadOnlyList<AttackParticipantState> targets) { string value = encounter.EncounterId + ":" + encounter.Revision + ":" + item.ItemInstanceId + ":" + item.Revision + ":" + item.MechanicsSnapshot.SourceDefinitionRef + ":" + item.MechanicsSnapshot.DefinitionSnapshotVersion + ":" + actor.LifecycleStatus + ":" + actor.ApprovalState; for (int index = 0; index < targets.Count; index++) value += ":" + targets[index].CharacterId + ":" + targets[index].LifecycleStatus + ":" + targets[index].ApprovalState; return value; }
         private static Error Rejected(CorrelationId correlationId) => Error.Create(ErrorCodes.ApplicationValidationInvalid, ErrorCategory.Precondition, SafeReasonCode.ActionNotAllowed, UserMessageKey.Parse("errors.attack.invalid_state"), RetryDirective.DoNotRetry, correlationId);
     }

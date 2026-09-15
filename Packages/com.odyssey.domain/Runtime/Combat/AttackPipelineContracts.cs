@@ -22,7 +22,28 @@ namespace Odyssey.Domain.Combat
     // the encounter-sourced RulesetVersion travel in AttackEvaluationSnapshot (already true below);
     // it does not require cross-checking it against any Character-side value. See ODY-S05-603 task
     // contract's RulesetVersion decision record for the full citation.
-    public readonly struct AttackParticipantState { public AttackParticipantState(CharacterId characterId, CharacterLifecycleStatus lifecycleStatus, CharacterApprovalState approvalState) { if (!characterId.IsValid) throw new ArgumentException("Participant state is invalid."); CharacterId = characterId; LifecycleStatus = lifecycleStatus; ApprovalState = approvalState; } public CharacterId CharacterId { get; } public CharacterLifecycleStatus LifecycleStatus { get; } public CharacterApprovalState ApprovalState { get; } }
+    // ODY-S06-102: AttributeValues carries the participant's own already-loaded AttributeValue.EffectiveValue
+    // readings, keyed by the same AttributeDefinitionId catalog key the Character aggregate already uses --
+    // no new attribute-representation format. This is what makes ADR-030 section 6.2's attributeReference
+    // formula term resolvable (e.g. "1d6+STR") without a second database read.
+    public readonly struct AttackParticipantState
+    {
+        public AttackParticipantState(CharacterId characterId, CharacterLifecycleStatus lifecycleStatus, CharacterApprovalState approvalState, IReadOnlyDictionary<AttributeDefinitionId, long> attributeValues)
+        {
+            if (!characterId.IsValid) throw new ArgumentException("Participant state is invalid.");
+            if (attributeValues == null) throw new ArgumentNullException(nameof(attributeValues));
+            CharacterId = characterId;
+            LifecycleStatus = lifecycleStatus;
+            ApprovalState = approvalState;
+            var copy = new Dictionary<AttributeDefinitionId, long>(attributeValues.Count);
+            foreach (KeyValuePair<AttributeDefinitionId, long> entry in attributeValues) copy[entry.Key] = entry.Value;
+            AttributeValues = copy;
+        }
+        public CharacterId CharacterId { get; }
+        public CharacterLifecycleStatus LifecycleStatus { get; }
+        public CharacterApprovalState ApprovalState { get; }
+        public IReadOnlyDictionary<AttributeDefinitionId, long> AttributeValues { get; }
+    }
     public readonly struct AttackUnavailableInput { public AttackUnavailableInput(AttackInputAvailability availability, string reason) { if (availability != AttackInputAvailability.UnavailableNotBound || string.IsNullOrWhiteSpace(reason)) throw new ArgumentException("Only explicit unavailable input is valid."); Availability = availability; Reason = reason; } public AttackInputAvailability Availability { get; } public string Reason { get; } }
 
     public readonly struct AttackRangeResult { public AttackRangeResult(bool isInRange, string reason) { IsInRange = isInRange; Reason = reason ?? throw new ArgumentNullException(nameof(reason)); } public bool IsInRange { get; } public string Reason { get; } }
