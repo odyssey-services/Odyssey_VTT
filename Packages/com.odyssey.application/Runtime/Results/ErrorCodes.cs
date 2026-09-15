@@ -169,5 +169,9 @@ namespace Odyssey.Application.Results
         public static readonly ErrorCode PersistenceAttackOutcomeDeltaResourceNotFound = ErrorCode.Parse("persistence.attack_outcome.delta_resource_not_found");
         public static readonly ErrorCode PersistenceAttackOutcomeDeltaValueOutOfRange = ErrorCode.Parse("persistence.attack_outcome.delta_value_out_of_range");
         public static readonly ErrorCode PersistenceAttackOutcomeDeltaItemTargetUnsupported = ErrorCode.Parse("persistence.attack_outcome.delta_item_target_unsupported");
+        public static readonly ErrorCode PersistenceCombatStackConflictOperationDenied = ErrorCode.Parse("persistence.combat_stack_conflict.operation_denied");
+        public static readonly ErrorCode PersistenceCombatStackConflictNotFound = ErrorCode.Parse("persistence.combat_stack_conflict.not_found");
+        public static readonly ErrorCode PersistenceCombatStackConflictAlreadyResolved = ErrorCode.Parse("persistence.combat_stack_conflict.already_resolved");
+        public static readonly ErrorCode PersistenceCombatStackConflictIoFailed = ErrorCode.Parse("persistence.combat_stack_conflict.io_failed");
     }
 }

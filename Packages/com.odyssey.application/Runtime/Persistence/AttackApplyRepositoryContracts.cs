@@ -1,9 +1,11 @@
 using System;
 using System.Collections.Generic;
 using Odyssey.Application.Commands;
+using Odyssey.Application.Effects;
 using Odyssey.Application.Results;
 using Odyssey.Application.Time;
 using Odyssey.Domain.Combat;
+using Odyssey.Domain.Effects;
 using Odyssey.Domain.Identity;
 using Odyssey.Domain.Inventory;
 using Odyssey.Domain.Time;
@@ -144,6 +146,63 @@ namespace Odyssey.Application.Persistence
     }
 
     /// <summary>
+    /// ODY-S05-610: the durable, cross-session record of one pending
+    /// `ActiveEffectStackConflict` (`ODY-S05-503`, `ADR-028` §7 rule 7) --
+    /// closes the disclosed gap `ODY-S05-606` found: a combat-sourced
+    /// `RequestGMResolution` collision previously created no row and reached
+    /// no GM at all. Keyed by the pair (raising `CommandId`, conflicting
+    /// `ActiveEffectId`) -- no new Domain-level identity type is introduced
+    /// (direct analogy to `AttackOutcomeRecord`'s own `CommandId`-keyed
+    /// identity); the composite key (rather than the raising `CommandId`
+    /// alone) is this task's own deliberate, minimal safety refinement to
+    /// handle more than one independently-conflicting effect candidate
+    /// arising from the same attack without a primary-key collision -- see
+    /// this task's own contract decision log.
+    /// </summary>
+    public sealed class CombatStackConflictRecord
+    {
+        public CombatStackConflictRecord(
+            CommandId raisingCommandId,
+            CampaignId campaignId,
+            ActiveEffectRecord candidateApplication,
+            ActiveEffectId conflictingActiveEffectId,
+            UtcInstant raisedAt,
+            bool isResolved,
+            UtcInstant? resolvedAt,
+            CommandId? resolvedByCommandId,
+            ActiveEffectStackConflictResolution? resolution)
+        {
+            if (!raisingCommandId.IsValid) throw new ArgumentException("RaisingCommandId is required.", nameof(raisingCommandId));
+            if (!campaignId.IsValid) throw new ArgumentException("CampaignId is required.", nameof(campaignId));
+            if (candidateApplication == null) throw new ArgumentNullException(nameof(candidateApplication));
+            if (!conflictingActiveEffectId.IsValid) throw new ArgumentException("ConflictingActiveEffectId is required.", nameof(conflictingActiveEffectId));
+
+            RaisingCommandId = raisingCommandId;
+            CampaignId = campaignId;
+            CandidateApplication = candidateApplication;
+            ConflictingActiveEffectId = conflictingActiveEffectId;
+            RaisedAt = raisedAt;
+            IsResolved = isResolved;
+            ResolvedAt = resolvedAt;
+            ResolvedByCommandId = resolvedByCommandId;
+            Resolution = resolution;
+        }
+
+        /// <summary>The `ResolveAttack`/`ResolveAttackIntervention` `CommandId` whose own atomic-apply step raised this conflict.</summary>
+        public CommandId RaisingCommandId { get; }
+        public CampaignId CampaignId { get; }
+
+        /// <summary>The full row that would be created if this conflict is resolved as `ApplyAsIndependentInstance`/`Replace` -- the same `ActiveEffectStackConflict.CandidateApplication` `ODY-S05-503` already defined, reconstructed from this durable row.</summary>
+        public ActiveEffectRecord CandidateApplication { get; }
+        public ActiveEffectId ConflictingActiveEffectId { get; }
+        public UtcInstant RaisedAt { get; }
+        public bool IsResolved { get; }
+        public UtcInstant? ResolvedAt { get; }
+        public CommandId? ResolvedByCommandId { get; }
+        public ActiveEffectStackConflictResolution? Resolution { get; }
+    }
+
+    /// <summary>
     /// ODY-S05-604: the sole persistence seam for attack pending/intervention/
     /// atomic-apply state. A new, standalone contract -- by direct analogy to
     /// how <c>IActiveEffectRepository</c> (ADR-028/ADR-029 section 8) never
@@ -215,5 +274,25 @@ namespace Odyssey.Application.Persistence
         /// distinct from <paramref name="resolveAttackCommandId"/>).
         /// </summary>
         Result<AttackCompensationRecord> CompensateAttackOutcome(CampaignHandle campaign, CommandId resolveAttackCommandId, string reasonCode, string correctedSummaryPayload, UserId actorUserId, bool actorIsMainGm, CommandId commandId, CorrelationId correlationId);
+
+        /// <summary>
+        /// ODY-S05-610: `ADR-028` §7 rule 7's own resolution command for a
+        /// durable, pending `ActiveEffectStackConflict` -- a fourth
+        /// independent root command, not a nested handler call. MainGM-only
+        /// (checked as this method's own first statement, mirroring
+        /// `ResolveAttackIntervention`'s exact placement), CAS-guarded
+        /// against resolving the same (<paramref name="raisingCommandId"/>,
+        /// <paramref name="conflictingActiveEffectId"/>) conflict twice (an
+        /// already-resolved conflict is a typed conflict, not a silent
+        /// no-op), and idempotent by <paramref name="commandId"/> (this
+        /// command's own root identity, distinct from
+        /// <paramref name="raisingCommandId"/>). Reuses the existing,
+        /// unmodified <c>ActiveEffectStackingRules.ResolveActiveEffectStackConflict</c>
+        /// to translate <paramref name="resolution"/> into the same
+        /// `ActiveEffectStackDecision` shape `ApplyEffectCandidates` already
+        /// knows how to apply -- never a duplicated create/replace/ignore
+        /// implementation.
+        /// </summary>
+        Result<CombatStackConflictRecord> ResolveStackConflict(CampaignHandle campaign, CommandId raisingCommandId, ActiveEffectId conflictingActiveEffectId, ActiveEffectStackConflictResolution resolution, UserId actorUserId, bool actorIsMainGm, CommandId commandId, CorrelationId correlationId);
     }
 }

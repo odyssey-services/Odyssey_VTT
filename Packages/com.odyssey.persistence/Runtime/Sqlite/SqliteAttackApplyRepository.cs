@@ -625,36 +625,268 @@ namespace Odyssey.Persistence.Sqlite
                 ActiveEffectRecord? existing = FindConflictingActiveEffect(connection, transaction, campaign.CampaignId, targetRef, candidate.EffectRef);
                 ActiveEffectStackDecision decision = ActiveEffectStackingRules.ResolveStacking(candidate.StackPolicy, existing, candidateRecord, now);
 
-                switch (decision.Kind)
+                if (decision.Kind == ActiveEffectStackDecisionKind.RequestGmResolution)
                 {
-                    case ActiveEffectStackDecisionKind.CreateNewEffect:
-                        InsertActiveEffectRow(connection, transaction, decision.EffectToCreate!, commandId, now);
-                        break;
-                    case ActiveEffectStackDecisionKind.ReplaceExistingEffect:
-                        UpdateActiveEffectStatus(connection, transaction, decision.ExistingActiveEffectId!.Value, ActiveEffectStatus.Removed, now);
-                        InsertActiveEffectRow(connection, transaction, decision.EffectToCreate!, commandId, now);
-                        break;
-                    case ActiveEffectStackDecisionKind.RefreshExistingDuration:
-                        RefreshActiveEffectDuration(connection, transaction, decision.ExistingActiveEffectId!.Value, decision.RefreshedAppliedAt!.Value, decision.RefreshedExpiresAt, now);
-                        break;
-                    case ActiveEffectStackDecisionKind.IncreaseExistingStack:
-                        IncreaseActiveEffectStack(connection, transaction, decision.ExistingActiveEffectId!.Value, now);
-                        break;
-                    case ActiveEffectStackDecisionKind.IgnoreNewApplication:
-                        // ADR-028 section 7 rule 6's own "silent success" convention: the
-                        // attack still commits; only this candidate's own stacking is a no-op.
-                        break;
-                    case ActiveEffectStackDecisionKind.RequestGmResolution:
-                        // ODY-S05-503's own ActiveEffectStackConflict has no durable
-                        // persistence anywhere in this codebase (a disclosed limitation,
-                        // not an oversight -- see ODY-S05-606's own task contract decision
-                        // log). This candidate creates/mutates no row; the rest of the
-                        // attack's own atomic apply still commits.
-                        break;
-                    default:
-                        throw new ArgumentOutOfRangeException(nameof(decision), decision.Kind, "Unrecognized ActiveEffectStackDecisionKind.");
+                    // ODY-S05-610: closes 606's own disclosed gap -- a durable
+                    // pending record is now written in this SAME atomic-apply
+                    // transaction, so a MainGM can later resolve it via
+                    // ResolveStackConflict. The rest of the attack's own
+                    // atomic apply still commits regardless (ADR-028 section
+                    // 7 rule 6's own "silent success" convention extends to
+                    // an unresolved conflict too).
+                    RecordStackConflict(connection, transaction, campaign.CampaignId, commandId, decision.Conflict!, now);
+                    continue;
                 }
+
+                ApplyStackDecisionMutation(connection, transaction, decision, commandId, now);
             }
+        }
+
+        /// <summary>
+        /// ODY-S05-606/610: the shared mutation this codebase's own two
+        /// producers of an `ActiveEffectStackDecision` (`ApplyEffectCandidates`'s
+        /// own immediate `ResolveStacking` call, and `ResolveStackConflict`'s
+        /// own `ResolveActiveEffectStackConflict` call) both apply -- extracted
+        /// so the create/replace/refresh/increase/ignore logic is written and
+        /// tested exactly once, per this task's own explicit "reuse the
+        /// switch, do not duplicate it" requirement. `RequestGmResolution` is
+        /// deliberately NOT handled here: `ApplyEffectCandidates` intercepts
+        /// that kind itself (to persist a new pending conflict, not mutate an
+        /// `ActiveEffect` row), and `ResolveActiveEffectStackConflict` can
+        /// never itself produce that kind again -- reaching it here is a
+        /// caller error, not a reachable runtime state.
+        /// </summary>
+        private static void ApplyStackDecisionMutation(SqliteConnection connection, SqliteTransaction transaction, ActiveEffectStackDecision decision, CommandId commandId, UtcInstant now)
+        {
+            switch (decision.Kind)
+            {
+                case ActiveEffectStackDecisionKind.CreateNewEffect:
+                    InsertActiveEffectRow(connection, transaction, decision.EffectToCreate!, commandId, now);
+                    break;
+                case ActiveEffectStackDecisionKind.ReplaceExistingEffect:
+                    UpdateActiveEffectStatus(connection, transaction, decision.ExistingActiveEffectId!.Value, ActiveEffectStatus.Removed, now);
+                    InsertActiveEffectRow(connection, transaction, decision.EffectToCreate!, commandId, now);
+                    break;
+                case ActiveEffectStackDecisionKind.RefreshExistingDuration:
+                    RefreshActiveEffectDuration(connection, transaction, decision.ExistingActiveEffectId!.Value, decision.RefreshedAppliedAt!.Value, decision.RefreshedExpiresAt, now);
+                    break;
+                case ActiveEffectStackDecisionKind.IncreaseExistingStack:
+                    IncreaseActiveEffectStack(connection, transaction, decision.ExistingActiveEffectId!.Value, now);
+                    break;
+                case ActiveEffectStackDecisionKind.IgnoreNewApplication:
+                    // ADR-028 section 7 rule 6's own "silent success" convention: the
+                    // triggering command still commits; only this decision's own
+                    // stacking outcome is a no-op.
+                    break;
+                case ActiveEffectStackDecisionKind.RequestGmResolution:
+                    throw new InvalidOperationException("RequestGmResolution must be intercepted by the caller (to persist a pending conflict) before reaching ApplyStackDecisionMutation.");
+                default:
+                    throw new ArgumentOutOfRangeException(nameof(decision), decision.Kind, "Unrecognized ActiveEffectStackDecisionKind.");
+            }
+        }
+
+        /// <summary>
+        /// ODY-S05-610: `ADR-028` §7 rule 7's own durable pending-conflict
+        /// write -- inside the SAME atomic-apply transaction as the rest of
+        /// the triggering attack's own commit (never a second connection/
+        /// transaction). Embeds <paramref name="conflict"/>'s own
+        /// `CandidateApplication` using the exact same column shape/order
+        /// <see cref="SqliteActiveEffectRepository.InsertPlaceholders"/>/
+        /// <see cref="SqliteActiveEffectRepository.AddParameters"/> already
+        /// define for the real `ActiveEffect` table -- reusing that
+        /// serialization logic verbatim rather than duplicating it, even
+        /// though this row lands in a different, standalone table.
+        /// </summary>
+        private static void RecordStackConflict(SqliteConnection connection, SqliteTransaction transaction, CampaignId campaignId, CommandId raisingCommandId, ActiveEffectStackConflict conflict, UtcInstant now)
+        {
+            using (var insert = connection.CreateCommand())
+            {
+                insert.Transaction = transaction;
+                insert.CommandText =
+                    "INSERT INTO CombatStackConflict (CommandId, ConflictingActiveEffectId, " +
+                    "ActiveEffectId, CampaignId, EffectDefinitionRef, " +
+                    "MechanicsSourceDefinitionRef, MechanicsDefinitionSnapshotVersion, MechanicsContentType, MechanicsPayload, " +
+                    "SourceKind, SourceItemRefKind, SourceItemRefId, " +
+                    "TargetKind, TargetCharacterId, TargetItemInstanceId, " +
+                    "Status, StackCount, AppliedByUserId, AppliedAt, ExpiresAt, Revision, UpdatedAt, LastCommandId, " +
+                    "CombatEncounterId, CombatSourceCombatantId, CombatTargetCombatantId, CombatAppliedRoundOrdinal, CombatAppliedLifecycleEventId, CombatRequiredCount, " +
+                    "RaisedAt, ConflictStatus, ResolvedAt, ResolvedByCommandId, Resolution) VALUES " +
+                    "($commandId, $conflictingActiveEffectId, " +
+                    "$activeEffectId, $campaignId, $effectDefinitionRef, " +
+                    "$mechanicsSourceDefinitionRef, $mechanicsDefinitionSnapshotVersion, $mechanicsContentType, $mechanicsPayload, " +
+                    "$sourceKind, $sourceItemRefKind, $sourceItemRefId, " +
+                    "$targetKind, $targetCharacterId, $targetItemInstanceId, " +
+                    "$status, $stackCount, $appliedByUserId, $appliedAt, $expiresAt, $revision, $updatedAt, $lastCommandId, " +
+                    "$combatEncounterId, $combatSourceCombatantId, $combatTargetCombatantId, $combatAppliedRoundOrdinal, $combatAppliedLifecycleEventId, $combatRequiredCount, " +
+                    "$raisedAt, 'Pending', NULL, NULL, NULL);";
+                insert.Parameters.AddWithValue("$commandId", raisingCommandId.ToString());
+                insert.Parameters.AddWithValue("$conflictingActiveEffectId", conflict.ConflictingActiveEffectId.ToString());
+                SqliteActiveEffectRepository.AddParameters(insert, conflict.CandidateApplication, now);
+                insert.Parameters.AddWithValue("$lastCommandId", raisingCommandId.ToString());
+                insert.Parameters.AddWithValue("$raisedAt", conflict.RaisedAt.ToString());
+                insert.ExecuteNonQuery();
+            }
+
+            // Governing ТЗ section 2 decision 4: a new, distinct DomainEvent
+            // type for the raise side, in addition to the triggering
+            // ResolveAttack/ResolveAttackIntervention command's own
+            // attack_outcome_recorded/resolved event -- appended directly via
+            // SqliteSavingPipeline's own internal AppendDomainEvent (ODY-S04-107's
+            // own "more than one event per transaction" precedent), inside this
+            // SAME transaction, not a separate commit.
+            var payload = new JObject
+            {
+                ["raisingCommandId"] = raisingCommandId.ToString(),
+                ["conflictingActiveEffectId"] = conflict.ConflictingActiveEffectId.ToString(),
+                ["targetRef"] = conflict.CandidateApplication.Effect.TargetRef.Kind.ToString(),
+            };
+            SqliteSavingPipeline.AppendDomainEvent(connection, transaction, campaignId, raisingCommandId, "odyssey.persistence.combat_stack_conflict_raised", payload.ToString(Newtonsoft.Json.Formatting.None), now);
+        }
+
+        private static CombatStackConflictRecord? ReadStackConflict(SqliteConnection connection, SqliteTransaction? transaction, CommandId raisingCommandId, ActiveEffectId conflictingActiveEffectId)
+        {
+            using var select = connection.CreateCommand();
+            select.Transaction = transaction;
+            select.CommandText = SqliteActiveEffectRepository.SelectColumns +
+                ", RaisedAt, ConflictStatus, ResolvedAt, ResolvedByCommandId, Resolution FROM CombatStackConflict WHERE CommandId = $commandId AND ConflictingActiveEffectId = $conflictingActiveEffectId LIMIT 1;";
+            select.Parameters.AddWithValue("$commandId", raisingCommandId.ToString());
+            select.Parameters.AddWithValue("$conflictingActiveEffectId", conflictingActiveEffectId.ToString());
+            using SqliteDataReader reader = select.ExecuteReader();
+            if (!reader.Read())
+            {
+                return null;
+            }
+
+            ActiveEffectRecord candidate = SqliteActiveEffectRepository.ReadRecord(reader);
+            UtcInstant raisedAt = UtcInstant.Parse(reader.GetString(25));
+            bool isResolved = reader.GetString(26) == "Resolved";
+            UtcInstant? resolvedAt = reader.IsDBNull(27) ? (UtcInstant?)null : UtcInstant.Parse(reader.GetString(27));
+            CommandId? resolvedByCommandId = reader.IsDBNull(28) ? (CommandId?)null : CommandId.Parse(reader.GetString(28));
+            ActiveEffectStackConflictResolution? resolution = reader.IsDBNull(29) ? (ActiveEffectStackConflictResolution?)null : Enum.Parse<ActiveEffectStackConflictResolution>(reader.GetString(29));
+            return new CombatStackConflictRecord(raisingCommandId, candidate.CampaignId, candidate, conflictingActiveEffectId, raisedAt, isResolved, resolvedAt, resolvedByCommandId, resolution);
+        }
+
+        /// <summary>
+        /// ODY-S05-610: `ADR-028` §7 rule 7's own resolution root command --
+        /// by direct structural analogy to `ResolveAttackIntervention`
+        /// (`ODY-S05-604`): MainGM-only gate as this method's own first
+        /// statement, a CAS guard against resolving the same pending conflict
+        /// twice, and a brand-new `SqliteSavingPipeline.Execute` call/
+        /// transaction -- never a reopening of the original triggering
+        /// attack's own transaction, which has long since committed by the
+        /// time a MainGM resolves this. Reuses the existing, unmodified
+        /// `ActiveEffectStackingRules.ResolveActiveEffectStackConflict` and
+        /// `ApplyStackDecisionMutation` (this same class) to apply the
+        /// result -- never a duplicated create/replace/ignore implementation,
+        /// and never the public `IActiveEffectRepository.CreateActiveEffect`.
+        /// </summary>
+        public Result<CombatStackConflictRecord> ResolveStackConflict(CampaignHandle campaign, CommandId raisingCommandId, ActiveEffectId conflictingActiveEffectId, ActiveEffectStackConflictResolution resolution, UserId actorUserId, bool actorIsMainGm, CommandId commandId, CorrelationId correlationId)
+        {
+            if (campaign == null) throw new ArgumentNullException(nameof(campaign));
+            if (!raisingCommandId.IsValid) throw new ArgumentException("RaisingCommandId is required.", nameof(raisingCommandId));
+            if (!conflictingActiveEffectId.IsValid) throw new ArgumentException("ConflictingActiveEffectId is required.", nameof(conflictingActiveEffectId));
+            if (!actorUserId.IsValid) throw new ArgumentException("ActorUserId is required.", nameof(actorUserId));
+            if (!commandId.IsValid) throw new ArgumentException("CommandId is required.", nameof(commandId));
+
+            // ADR-028 section 7 rule 7: a MainGM resolves a pending stacking
+            // conflict -- checked as this method's own first statement,
+            // mirroring ResolveAttackIntervention's exact placement.
+            if (!actorIsMainGm)
+            {
+                return Result<CombatStackConflictRecord>.Failure(PersistenceFailures.CombatStackConflictOperationDenied(correlationId));
+            }
+
+            try
+            {
+                using SqliteConnection connection = OpenConnection(campaign.RootPath);
+                EnsureAttackApplyTables(connection);
+                SqliteActiveEffectRepository.EnsureActiveEffectTables(connection);
+
+                return _pipeline.Execute(
+                    connection,
+                    campaign.CampaignId,
+                    commandId,
+                    correlationId,
+                    tryReplay: transaction => ReplayStackConflictResolution(connection, transaction, commandId, correlationId),
+                    apply: transaction =>
+                    {
+                        CombatStackConflictRecord? pending = ReadStackConflict(connection, transaction, raisingCommandId, conflictingActiveEffectId);
+                        if (pending == null)
+                        {
+                            return Result<PipelineWrite<CombatStackConflictRecord>>.Failure(PersistenceFailures.CombatStackConflictNotFound(correlationId));
+                        }
+
+                        if (pending.IsResolved)
+                        {
+                            // CAS guard: an already-resolved conflict is a typed conflict,
+                            // not a silent no-op.
+                            return Result<PipelineWrite<CombatStackConflictRecord>>.Failure(PersistenceFailures.CombatStackConflictAlreadyResolved(correlationId));
+                        }
+
+                        UtcInstant now = _clock.GetUtcNow();
+                        using (var update = connection.CreateCommand())
+                        {
+                            update.Transaction = transaction;
+                            update.CommandText =
+                                "UPDATE CombatStackConflict SET ConflictStatus='Resolved', ResolvedAt=$resolvedAt, ResolvedByCommandId=$resolvedBy, Resolution=$resolution " +
+                                "WHERE CommandId=$raisingCommandId AND ConflictingActiveEffectId=$conflictingActiveEffectId AND ConflictStatus='Pending';";
+                            update.Parameters.AddWithValue("$resolvedAt", now.ToString());
+                            update.Parameters.AddWithValue("$resolvedBy", commandId.ToString());
+                            update.Parameters.AddWithValue("$resolution", resolution.ToString());
+                            update.Parameters.AddWithValue("$raisingCommandId", raisingCommandId.ToString());
+                            update.Parameters.AddWithValue("$conflictingActiveEffectId", conflictingActiveEffectId.ToString());
+                            if (update.ExecuteNonQuery() != 1)
+                            {
+                                // Lost a race against a concurrent resolution between the
+                                // read above and this guarded UPDATE.
+                                return Result<PipelineWrite<CombatStackConflictRecord>>.Failure(PersistenceFailures.CombatStackConflictAlreadyResolved(correlationId));
+                            }
+                        }
+
+                        var conflict = new ActiveEffectStackConflict(pending.CandidateApplication, conflictingActiveEffectId, pending.RaisedAt);
+                        ActiveEffectStackDecision decision = ActiveEffectStackingRules.ResolveActiveEffectStackConflict(conflict, resolution);
+                        ApplyStackDecisionMutation(connection, transaction, decision, commandId, now);
+
+                        var resolvedRecord = new CombatStackConflictRecord(raisingCommandId, pending.CampaignId, pending.CandidateApplication, conflictingActiveEffectId, pending.RaisedAt, isResolved: true, now, commandId, resolution);
+                        var payload = new JObject
+                        {
+                            ["raisingCommandId"] = raisingCommandId.ToString(),
+                            ["conflictingActiveEffectId"] = conflictingActiveEffectId.ToString(),
+                            ["resolution"] = resolution.ToString(),
+                            ["actorUserId"] = actorUserId.ToString(),
+                        };
+
+                        string aggregateId = raisingCommandId + ":" + conflictingActiveEffectId;
+                        return Result<PipelineWrite<CombatStackConflictRecord>>.Success(new PipelineWrite<CombatStackConflictRecord>(
+                            resolvedRecord, "odyssey.persistence.combat_stack_conflict_resolved", payload.ToString(Newtonsoft.Json.Formatting.None), aggregateId,
+                            aggregateType: "combat_stack_conflict", aggregateId: aggregateId, aggregateRevision: 2));
+                    });
+            }
+            catch (Exception ex) when (ex is IOException || ex is UnauthorizedAccessException || ex is SqliteException)
+            {
+                return Result<CombatStackConflictRecord>.Failure(PersistenceFailures.CombatStackConflictIoFailed(correlationId));
+            }
+        }
+
+        private static Result<CombatStackConflictRecord> ReplayStackConflictResolution(SqliteConnection connection, SqliteTransaction transaction, CommandId commandId, CorrelationId correlationId)
+        {
+            using var select = connection.CreateCommand();
+            select.Transaction = transaction;
+            select.CommandText = "SELECT PayloadJson FROM DomainEvents WHERE CommandId = $commandId AND EventType = 'odyssey.persistence.combat_stack_conflict_resolved' LIMIT 1;";
+            select.Parameters.AddWithValue("$commandId", commandId.ToString());
+            using SqliteDataReader reader = select.ExecuteReader();
+            if (!reader.Read())
+            {
+                return Result<CombatStackConflictRecord>.Failure(PersistenceFailures.CommandReplayFailed(correlationId));
+            }
+
+            var payload = JObject.Parse(reader.GetString(0));
+            CommandId raisingCommandId = CommandId.Parse((string)payload["raisingCommandId"]!);
+            ActiveEffectId conflictingActiveEffectId = ActiveEffectId.Parse((string)payload["conflictingActiveEffectId"]!);
+            CombatStackConflictRecord? resolved = ReadStackConflict(connection, transaction, raisingCommandId, conflictingActiveEffectId);
+            return resolved == null
+                ? Result<CombatStackConflictRecord>.Failure(PersistenceFailures.CommandReplayFailed(correlationId))
+                : Result<CombatStackConflictRecord>.Success(resolved);
         }
 
         private static ActiveEffectRecord? FindConflictingActiveEffect(SqliteConnection connection, SqliteTransaction transaction, CampaignId campaignId, ActiveEffectTargetRef targetRef, ContentDefinitionRef effectDefinitionRef)
@@ -1133,7 +1365,45 @@ CREATE TABLE IF NOT EXISTS GameLogEntries (
     CreatedAt TEXT NOT NULL,
     AuthoritativeSequence INTEGER NOT NULL,
     LastCommandId TEXT NOT NULL
-);";
+);
+CREATE TABLE IF NOT EXISTS CombatStackConflict (
+    CommandId TEXT NOT NULL,
+    ConflictingActiveEffectId TEXT NOT NULL,
+    ActiveEffectId TEXT NOT NULL,
+    CampaignId TEXT NOT NULL,
+    EffectDefinitionRef TEXT NOT NULL,
+    MechanicsSourceDefinitionRef TEXT NOT NULL,
+    MechanicsDefinitionSnapshotVersion INTEGER NOT NULL,
+    MechanicsContentType TEXT NOT NULL,
+    MechanicsPayload TEXT NOT NULL,
+    SourceKind TEXT NOT NULL,
+    SourceItemRefKind TEXT,
+    SourceItemRefId TEXT,
+    TargetKind TEXT NOT NULL,
+    TargetCharacterId TEXT,
+    TargetItemInstanceId TEXT,
+    Status TEXT NOT NULL,
+    StackCount INTEGER NOT NULL,
+    AppliedByUserId TEXT NOT NULL,
+    AppliedAt TEXT NOT NULL,
+    ExpiresAt TEXT,
+    Revision INTEGER NOT NULL,
+    UpdatedAt TEXT NOT NULL,
+    LastCommandId TEXT NOT NULL,
+    CombatEncounterId TEXT,
+    CombatSourceCombatantId TEXT,
+    CombatTargetCombatantId TEXT,
+    CombatAppliedRoundOrdinal INTEGER,
+    CombatAppliedLifecycleEventId INTEGER,
+    CombatRequiredCount INTEGER,
+    RaisedAt TEXT NOT NULL,
+    ConflictStatus TEXT NOT NULL,
+    ResolvedAt TEXT,
+    ResolvedByCommandId TEXT,
+    Resolution TEXT,
+    PRIMARY KEY (CommandId, ConflictingActiveEffectId)
+);
+CREATE INDEX IF NOT EXISTS IX_CombatStackConflict_CampaignId ON CombatStackConflict(CampaignId);";
             command.ExecuteNonQuery();
         }
     }

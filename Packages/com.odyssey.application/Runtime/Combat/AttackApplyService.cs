@@ -1,10 +1,12 @@
 using System;
 using System.Linq;
 using Odyssey.Application.Commands;
+using Odyssey.Application.Effects;
 using Odyssey.Application.Persistence;
 using Odyssey.Application.Random;
 using Odyssey.Application.Results;
 using Odyssey.Domain.Combat;
+using Odyssey.Domain.Effects;
 using Odyssey.Domain.Identity;
 using Odyssey.Rules.Combat;
 
@@ -82,6 +84,18 @@ namespace Odyssey.Application.Combat
         {
             if (apply == null) throw new ArgumentNullException(nameof(apply));
             return apply.CompensateAttackOutcome(campaign, resolveAttackCommandId, reasonCode, correctedSummaryPayload, actorUserId, actorIsMainGm, commandId, correlationId);
+        }
+
+        /// <summary>
+        /// ODY-S05-610: `ResolveStackConflict` -- a fourth independent root
+        /// command, not a nested call into any of the three above. Delegates
+        /// directly to <see cref="IAttackApplyRepository.ResolveStackConflict"/>;
+        /// this method never touches <see cref="IAuthoritativeRandomStreamFactory"/>.
+        /// </summary>
+        public static Result<CombatStackConflictRecord> ResolveStackConflict(IAttackApplyRepository apply, CampaignHandle campaign, CommandId raisingCommandId, ActiveEffectId conflictingActiveEffectId, ActiveEffectStackConflictResolution resolution, UserId actorUserId, bool actorIsMainGm, CommandId commandId, CorrelationId correlationId)
+        {
+            if (apply == null) throw new ArgumentNullException(nameof(apply));
+            return apply.ResolveStackConflict(campaign, raisingCommandId, conflictingActiveEffectId, resolution, actorUserId, actorIsMainGm, commandId, correlationId);
         }
     }
 }
