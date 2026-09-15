@@ -1,7 +1,7 @@
 # ODY-S05-611 — Combat Duration Expiry Automatic Trigger Wiring
 
 ## 1. Task identity
-`ODY-S05-611`; status: In Review (Draft PR, see the backlog row for the link once opened). Final task of the full attack pipeline block (`ADR-029`).
+`ODY-S05-611`; status: In Review (Draft PR https://github.com/odyssey-services/Odyssey_VTT/pull/155). Final task of the full attack pipeline block (`ADR-029`).
 
 ## 2. Goal
 Give `ODY-S05-605`'s own `CombatEffectExpiryService.EvaluateAndExpireIfDue` a real, automatic production call site, so a combat-duration-bound `ActiveEffect` genuinely expires as encounters are played, closing the gap `605` itself disclosed, `606` did not pick up, and `608` independently reconfirmed still open.
