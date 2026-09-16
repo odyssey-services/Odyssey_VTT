@@ -10,10 +10,32 @@ namespace Odyssey.Domain.Combat
 {
     public enum EffectApplicationDecision { Apply = 1, DoNotApply = 2, RequiresIntervention = 3 }
 
+    /// <summary>
+    /// ODY-S06-105: extended from a single <see cref="Value"/> int to an ordered <see cref="Values"/> list --
+    /// a multi-dice-term formula (e.g. "2d6+3") needs more than one independent random draw, which a single
+    /// int could never represent. <see cref="Value"/> is preserved unchanged (now <c>Values[0]</c>) so every
+    /// pre-existing caller outside this task's own allowed paths (`SqliteAttackApplyRepository.cs`'s own
+    /// `randomSample.Value` read, forbidden to touch here) keeps compiling and keeps its existing meaning --
+    /// the single "headline" roll recorded for Game Log/audit purposes.
+    /// </summary>
     public readonly struct AttackRandomSample
     {
-        public AttackRandomSample(int value) { Value = value; }
-        public int Value { get; }
+        public AttackRandomSample(int value) : this(new[] { value }) { }
+
+        public AttackRandomSample(IReadOnlyList<int> values)
+        {
+            if (values == null) throw new ArgumentNullException(nameof(values));
+            if (values.Count == 0) throw new ArgumentException("At least one random value is required.", nameof(values));
+            int[] copy = new int[values.Count];
+            for (int index = 0; index < copy.Length; index++) copy[index] = values[index];
+            Values = Array.AsReadOnly(copy);
+        }
+
+        /// <summary>The first/primary draw -- preserved for every pre-existing caller that only ever needed one value.</summary>
+        public int Value => Values[0];
+
+        /// <summary>Every independent draw, in order, for a multi-dice-term formula's own sequential consumption.</summary>
+        public IReadOnlyList<int> Values { get; }
     }
 
     public enum AttackInputAvailability { Available = 1, UnavailableNotBound = 2 }
@@ -269,10 +291,30 @@ namespace Odyssey.Domain.Combat
     public sealed class AttackEvaluationSnapshot
     {
         public AttackEvaluationSnapshot(string fingerprint, string rulesetId, string rulesetVersion, long encounterRevision, ContentDefinitionRef actionSourceRef, ItemMechanicsSnapshot actionMechanics, AttackParticipantState actor, IReadOnlyList<AttackParticipantState> targets, AttackTopologyInput topology, AttackArmorInput armorAndEffects)
+            : this(fingerprint, rulesetId, rulesetVersion, encounterRevision, actionSourceRef, actionMechanics, actor, targets, topology, armorAndEffects, null)
+        {
+        }
+
+        /// <summary>
+        /// ODY-S06-105: <paramref name="actionWeapon"/> is the action item's own already-decoded
+        /// <see cref="WeaponDefinition"/>, when its `ActionMechanics` is Weapon-shaped and decodes
+        /// successfully -- null otherwise (a non-weapon action item, or a decode failure). Populated by
+        /// `AttackEvaluationService` (Application layer, where `TypedDefinitionCodec` lives) BEFORE the
+        /// snapshot reaches `Odyssey.Rules`, since `Odyssey.Rules` cannot reference `Odyssey.Application`
+        /// (ADR-001 section 6.2's own dependency matrix -- confirmed by direct `.csproj`/`.asmdef` read: it
+        /// references only `Odyssey.Domain`). This is a required, technically necessary extension the real
+        /// `IAttackRulesEvaluator` implementation (`ODY-S06-105`) could not avoid without either violating
+        /// that boundary or duplicating `TypedDefinitionCodec`'s own decode logic inside `Odyssey.Rules`.
+        /// The original 10-argument constructor is preserved unchanged (defaulting this to null) for
+        /// `SqliteAttackStateReader.Read` (forbidden to modify by this task) and every pre-existing test
+        /// fixture that constructs a snapshot directly -- armor (`ArmorDefinition`, `ODY-S06-103`) needed no
+        /// equivalent extension, since it is already decoded by the time it reaches this type.
+        /// </summary>
+        public AttackEvaluationSnapshot(string fingerprint, string rulesetId, string rulesetVersion, long encounterRevision, ContentDefinitionRef actionSourceRef, ItemMechanicsSnapshot actionMechanics, AttackParticipantState actor, IReadOnlyList<AttackParticipantState> targets, AttackTopologyInput topology, AttackArmorInput armorAndEffects, WeaponDefinition? actionWeapon)
         {
             if (string.IsNullOrWhiteSpace(fingerprint) || string.IsNullOrWhiteSpace(rulesetId) || string.IsNullOrWhiteSpace(rulesetVersion) || encounterRevision < 1 || !actionSourceRef.IsValid || !actionMechanics.SourceDefinitionRef.Equals(actionSourceRef)) throw new ArgumentException("Snapshot values are required.");
             if (actor.CharacterId == default || targets == null || topology == null || armorAndEffects == null) throw new ArgumentException("Read participant state is required.");
-            Fingerprint = fingerprint; RulesetId = rulesetId; RulesetVersion = rulesetVersion; EncounterRevision = encounterRevision; ActionSourceRef = actionSourceRef; ActionMechanics = actionMechanics; Actor = actor; Targets = Copy(targets, nameof(targets)); Topology = topology; ArmorAndEffects = armorAndEffects;
+            Fingerprint = fingerprint; RulesetId = rulesetId; RulesetVersion = rulesetVersion; EncounterRevision = encounterRevision; ActionSourceRef = actionSourceRef; ActionMechanics = actionMechanics; Actor = actor; Targets = Copy(targets, nameof(targets)); Topology = topology; ArmorAndEffects = armorAndEffects; ActionWeapon = actionWeapon;
         }
         public string Fingerprint { get; }
         public string RulesetId { get; }
@@ -284,6 +326,7 @@ namespace Odyssey.Domain.Combat
         public IReadOnlyList<AttackParticipantState> Targets { get; }
         public AttackTopologyInput Topology { get; }
         public AttackArmorInput ArmorAndEffects { get; }
+        public WeaponDefinition? ActionWeapon { get; }
         private static IReadOnlyList<T> Copy<T>(IReadOnlyList<T> source, string name) { T[] copy = new T[source.Count]; for (int index = 0; index < copy.Length; index++) copy[index] = source[index]; return Array.AsReadOnly(copy); }
     }
 
