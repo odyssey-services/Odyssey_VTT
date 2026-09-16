@@ -7,11 +7,13 @@ using System.Text;
 using Microsoft.Data.Sqlite;
 using Newtonsoft.Json.Linq;
 using Odyssey.Application.Commands;
+using Odyssey.Application.Effects;
 using Odyssey.Application.Persistence;
 using Odyssey.Application.Results;
 using Odyssey.Application.Time;
 using Odyssey.Domain.Combat;
 using Odyssey.Domain.Content;
+using Odyssey.Domain.Effects;
 using Odyssey.Domain.Identity;
 using Odyssey.Domain.Time;
 
@@ -47,10 +49,20 @@ namespace Odyssey.Persistence.Sqlite
     {
         private readonly IWallClock _clock;
         private readonly SqliteSavingPipeline _pipeline;
+        private readonly IActiveEffectRepository _effects;
 
-        public SqliteActivateAbilityRepository(IWallClock clock)
+        /// <summary>
+        /// ODY-S06-106 doработка (second fix): takes <paramref name="effects"/> so
+        /// <see cref="CompensateAbilityActivation"/> can genuinely remove already-created `ActiveEffect`
+        /// rows via the existing, unmodified <see cref="IActiveEffectRepository.RemoveActiveEffect"/> --
+        /// not an additive overload, since this class's own constructor has no other caller anywhere yet
+        /// (this feature is still unmerged), so widening the required constructor signature directly is the
+        /// minimal change.
+        /// </summary>
+        public SqliteActivateAbilityRepository(IWallClock clock, IActiveEffectRepository effects)
         {
             _clock = clock ?? throw new ArgumentNullException(nameof(clock));
+            _effects = effects ?? throw new ArgumentNullException(nameof(effects));
             _pipeline = new SqliteSavingPipeline(clock);
         }
 
@@ -158,17 +170,21 @@ namespace Odyssey.Persistence.Sqlite
         }
 
         /// <summary>
-        /// ODY-S06-106 doработка (product-owner-ordered fix for the disclosed `ApplyEffect`
-        /// cross-repository-atomicity gap): reverses <paramref name="originalCommandId"/>'s own already
-        /// durable <see cref="AbilityActivationRecord.ResourceDeltas"/> by re-applying each one negated,
-        /// atomically, in one NEW SQLite transaction, then marks the original row's own `CompensatedAt`
-        /// column. Idempotent by construction: a second call reads `CompensatedAt` already non-null and
-        /// returns the already-compensated record as a no-op success -- never a double reversal.
+        /// ODY-S06-106 doработка (second fix, after independent verification found the first compensation
+        /// fix still left already-created `ActiveEffect` rows behind on a later-effect/later-target
+        /// failure): removes every entry in <paramref name="createdEffectIds"/> first (see below), THEN
+        /// reverses <paramref name="originalCommandId"/>'s own already durable
+        /// <see cref="AbilityActivationRecord.ResourceDeltas"/> by re-applying each one negated, atomically,
+        /// in one NEW SQLite transaction, then marks the original row's own `CompensatedAt` column.
+        /// Idempotent by construction: a second call reads `CompensatedAt` already non-null and returns the
+        /// already-compensated record as a no-op success -- never a double reversal, never a second removal
+        /// attempt.
         /// </summary>
-        public Result<AbilityActivationRecord> CompensateAbilityActivation(CampaignHandle campaign, CommandId originalCommandId, CorrelationId correlationId)
+        public Result<AbilityActivationRecord> CompensateAbilityActivation(CampaignHandle campaign, CommandId originalCommandId, IReadOnlyList<ActiveEffectId> createdEffectIds, UserId actorUserId, CorrelationId correlationId)
         {
             if (campaign == null) throw new ArgumentNullException(nameof(campaign));
             if (!originalCommandId.IsValid) throw new ArgumentException("CommandId is required.", nameof(originalCommandId));
+            if (createdEffectIds == null) throw new ArgumentNullException(nameof(createdEffectIds));
 
             try
             {
@@ -184,6 +200,30 @@ namespace Odyssey.Persistence.Sqlite
                 if (existing.CompensatedAt != null)
                 {
                     return Result<AbilityActivationRecord>.Success(existing);
+                }
+
+                // ODY-S06-106 doработка (second fix, after independent verification found the first
+                // compensation fix still left already-created ActiveEffect rows behind on a later
+                // effect/target failure): every already-created ActiveEffect for THIS activation attempt is
+                // removed BEFORE any resource reversal is even attempted, via the existing, unmodified
+                // IActiveEffectRepository.RemoveActiveEffect. actorIsMainGm: true regardless of the original
+                // activation actor's own permission level -- an internal system rollback of this same
+                // failed attempt, not a new capability granted to them (mirrors ApplyCharacterResourceDelta's
+                // own established precedent of internal writes bypassing the public command's own
+                // authorization). Each removal uses its own deterministic sub-CommandId, distinct from the
+                // creation-time one, so RemoveActiveEffect's own idempotency ledger entry never collides
+                // with CreateActiveEffect's own (a collision would make SqliteSavingPipeline treat the
+                // removal as a replay of the CREATE command and silently no-op). If any single removal
+                // fails, return immediately -- resource reversal/CompensatedAt are untouched, retryable
+                // later since every removal attempted so far is itself already idempotent.
+                foreach (ActiveEffectId effectId in createdEffectIds)
+                {
+                    CommandId removalCommandId = StableEffectRemovalCommandId(originalCommandId, effectId);
+                    Result<ActiveEffectRecord> removed = _effects.RemoveActiveEffect(campaign, campaign.CampaignId, effectId, actorUserId, actorIsMainGm: true, expectedRevision: 1, removalCommandId, correlationId);
+                    if (removed.IsFailure)
+                    {
+                        return Result<AbilityActivationRecord>.Failure(removed.Error);
+                    }
                 }
 
                 CommandId compensationCommandId = StableCompensationCommandId(originalCommandId);
@@ -240,6 +280,24 @@ namespace Odyssey.Persistence.Sqlite
         {
             using var sha = SHA256.Create();
             byte[] hash = sha.ComputeHash(Encoding.UTF8.GetBytes("ody-s06-106/compensate/v1/" + originalCommandId));
+            var text = new StringBuilder(32);
+            for (int i = 0; i < 16; i++) text.Append(hash[i].ToString("x2", CultureInfo.InvariantCulture));
+            return CommandId.Parse("cmd_" + text);
+        }
+
+        /// <summary>
+        /// ODY-S06-106 doработка (second fix): a deterministic `CommandId` for removing one specific
+        /// already-created `ActiveEffect`, derived from its own `ActiveEffectId` -- deliberately a DIFFERENT
+        /// hash input (a distinct prefix) than `ActivateAbilityService.StableSubCommandId`'s own creation-time
+        /// derivation, so `RemoveActiveEffect`'s own idempotency-ledger entry can never collide with
+        /// `CreateActiveEffect`'s own entry for the same effect (a collision would make `SqliteSavingPipeline`
+        /// treat the removal call as a replay of the CREATE command and silently no-op instead of actually
+        /// removing anything).
+        /// </summary>
+        private static CommandId StableEffectRemovalCommandId(CommandId originalCommandId, ActiveEffectId activeEffectId)
+        {
+            using var sha = SHA256.Create();
+            byte[] hash = sha.ComputeHash(Encoding.UTF8.GetBytes("ody-s06-106/compensate-effect/v1/" + originalCommandId + "/" + activeEffectId));
             var text = new StringBuilder(32);
             for (int i = 0; i < 16; i++) text.Append(hash[i].ToString("x2", CultureInfo.InvariantCulture));
             return CommandId.Parse("cmd_" + text);

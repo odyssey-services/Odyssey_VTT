@@ -125,6 +125,13 @@ namespace Odyssey.Application.Persistence
             // application below fails, the resource deltas RecordAbilityActivation just committed are
             // genuinely reversed via CompensateAbilityActivation -- a real saga/compensation fix, not a
             // silent success and not merely a disclosed limitation.
+            //
+            // ODY-S06-106 doработка (SECOND fix, after independent verification found this first fix still
+            // left already-created ActiveEffect rows behind on a later-effect/later-target failure):
+            // createdEffectIds tracks every ActiveEffectId this loop's own CreateActiveEffect call already
+            // succeeded on, BEFORE the failure point -- passed to CompensateAbilityActivation so it can
+            // remove every one of them too, not just the resource deltas.
+            var createdEffectIds = new List<ActiveEffectId>();
             for (int effectIndex = 0; effectIndex < interpreted.EffectsToApply.Count; effectIndex++)
             {
                 ContentDefinitionRef effectRef = interpreted.EffectsToApply[effectIndex];
@@ -134,11 +141,13 @@ namespace Odyssey.Application.Persistence
                     Result<ActiveEffectRecord> applied = ApplyEffect(catalog, effects, clock, campaign, effectRef, targetId, request.ActorUserId, StableSubCommandId(request.CommandId, effectIndex, targetIndex), request.CorrelationId);
                     if (applied.IsFailure)
                     {
-                        Result<AbilityActivationRecord> compensated = apply.CompensateAbilityActivation(campaign, request.CommandId, request.CorrelationId);
+                        Result<AbilityActivationRecord> compensated = apply.CompensateAbilityActivation(campaign, request.CommandId, createdEffectIds, request.ActorUserId, request.CorrelationId);
                         return compensated.IsFailure
                             ? Result<AbilityActivationRecord>.Failure(compensated.Error)
                             : Result<AbilityActivationRecord>.Failure(applied.Error);
                     }
+
+                    createdEffectIds.Add(applied.Value.Effect.ActiveEffectId);
                 }
             }
 

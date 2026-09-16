@@ -55,7 +55,7 @@ namespace Odyssey.Tests.Persistence
             _catalog = new SqliteContentCatalogRepository(_clock);
             _effects = new SqliteActiveEffectRepository(_clock);
             _reader = new SqliteActivateAbilityStateReader(_characters, _catalog, _clock);
-            _apply = new SqliteActivateAbilityRepository(_clock);
+            _apply = new SqliteActivateAbilityRepository(_clock, _effects);
         }
 
         [Test] // TC-ABILITY-001
@@ -284,6 +284,44 @@ namespace Odyssey.Tests.Persistence
             Assert.That(CurrentValue(actor, Health), Is.EqualTo(6));
         }
 
+        /// <summary>
+        /// ODY-S06-106 doработка (second fix, product-owner-ordered after independent verification found
+        /// the first compensation fix still left already-created ActiveEffect rows behind on a
+        /// later-effect/later-target failure): two ApplyEffectPrimitives on one self-targeted ability -- the
+        /// FIRST effect applies successfully (a real ActiveEffect row is created), the SECOND fails (its own
+        /// EffectDefinitionRef is archived before activation, a real, natural rejection, not a fake test
+        /// double). Proves the already-created ActiveEffect from the first effect is genuinely removed too,
+        /// not just the resource deltas.
+        /// </summary>
+        [Test] // TC-ABILITY-013
+        public void ActivateAbility_SecondApplyEffectFailsAfterFirstSucceeds_AlreadyCreatedEffectIsCompensatedToo()
+        {
+            CharacterId actor = Active("actor");
+            InitResource(actor, Mana);
+            ContentDefinitionRecord firstEffect = PublishFixtureEffect();
+            ContentDefinitionRecord secondEffect = PublishFixtureEffect();
+            var firstEffectRef = new ContentDefinitionRef(firstEffect.ContentDefinitionId, firstEffect.Version);
+            var secondEffectRef = new ContentDefinitionRef(secondEffect.ContentDefinitionId, secondEffect.Version);
+            ContentDefinitionRecord published = PublishAbilityWithTwoApplyEffects(costMana: 3, firstEffectRef, secondEffectRef);
+            CharacterAbility ability = GrantActivatableAbility(actor, published);
+
+            Result<ContentDefinitionRecord> archived = ContentCatalogLifecycleService.ArchiveDefinition(_catalog, new ArchiveDefinitionRequest(_campaign, secondEffect.ContentDefinitionId, "test archive", actorIsMainGm: true, Command(), Corr));
+            Assert.That(archived.IsSuccess, Is.True, archived.IsFailure ? archived.Error.Code.ToString() : string.Empty);
+
+            ActivateAbilityRequest request = Request(actor, ability.CharacterAbilityId, actor);
+            Result<AbilityActivationRecord> result = ActivateAbilityService.ActivateAbility(_reader, _apply, _catalog, _effects, new ThrowingRandomFactory(), _clock, _campaign, Epoch, request);
+
+            Assert.That(result.IsFailure, Is.True, "The second, archived ApplyEffect must fail the whole activation.");
+            Assert.That(CurrentValue(actor, Mana), Is.EqualTo(10), "The cost charge must be reversed.");
+
+            Assert.That(CountStillAttached(actor), Is.EqualTo(0), "The FIRST effect, already successfully created before the second one failed, must be removed too -- not left attached (ADR-012's append-only history keeps the row itself, transitioned to Status=Removed, not physically deleted).");
+
+            Result<AbilityActivationRecord> retried = ActivateAbilityService.ActivateAbility(_reader, _apply, _catalog, _effects, new ThrowingRandomFactory(), _clock, _campaign, Epoch, request);
+            Assert.That(retried.IsFailure, Is.True, "A retry of a compensated CommandId must remain a permanent failure -- never a silent success, and never a second removal/creation attempt.");
+            Assert.That(CurrentValue(actor, Mana), Is.EqualTo(10));
+            Assert.That(CountStillAttached(actor), Is.EqualTo(0));
+        }
+
         // ---- helpers ----
 
         private ContentDefinitionRecord AuthorDraft(ContentDefinitionType type, string name, string propertiesJson, System.Collections.Generic.IReadOnlyList<ContentDefinitionRef>? dependencyRefs = null)
@@ -333,6 +371,16 @@ namespace Odyssey.Tests.Persistence
             var targetRule = new ContentTargetRule(ContentTargetSource.ActingCharacter, 1, 1, true);
             var ability = new AbilityDefinition(AbilityEntryPointType.ActiveAction, "OnUse", actionCost: 0, Array.Empty<AbilityResourceCost>(), targetRule, MechanicsPayloadCodec.EncodePrimitives(envelope));
             return PublishFixture(AuthorDraft(ContentDefinitionType.Ability, "Test Ability " + Guid.NewGuid().ToString("N"), TypedDefinitionCodec.EncodeAbility(ability), dependencyRefs: new[] { effectRef }));
+        }
+
+        /// <summary>ODY-S06-106 doработка (second fix, TC-ABILITY-013): two `ApplyEffectPrimitive`s on one self-targeted ability -- the SECOND one is meant to be archived by the caller before activation, so the loop succeeds on the first effect (a real ActiveEffect gets created) before failing on the second.</summary>
+        private ContentDefinitionRecord PublishAbilityWithTwoApplyEffects(long costMana, ContentDefinitionRef firstEffectRef, ContentDefinitionRef secondEffectRef)
+        {
+            var envelope = new MechanicsPrimitiveEnvelope(1, new MechanicsPrimitive[] { new ApplyEffectPrimitive(firstEffectRef), new ApplyEffectPrimitive(secondEffectRef) });
+            System.Collections.Generic.IReadOnlyList<AbilityResourceCost> costs = costMana > 0 ? new[] { new AbilityResourceCost(Mana, costMana) } : Array.Empty<AbilityResourceCost>();
+            var targetRule = new ContentTargetRule(ContentTargetSource.ActingCharacter, 1, 1, true);
+            var ability = new AbilityDefinition(AbilityEntryPointType.ActiveAction, "OnUse", actionCost: 0, costs, targetRule, MechanicsPayloadCodec.EncodePrimitives(envelope));
+            return PublishFixture(AuthorDraft(ContentDefinitionType.Ability, "Test Ability " + Guid.NewGuid().ToString("N"), TypedDefinitionCodec.EncodeAbility(ability), dependencyRefs: new[] { firstEffectRef, secondEffectRef }));
         }
 
         /// <summary>
@@ -394,6 +442,20 @@ namespace Odyssey.Tests.Persistence
 
             Assert.Fail("Resource " + resourceKind + " not found on " + characterId + ".");
             return -1;
+        }
+
+        /// <summary>ODY-S06-106 doработка (second fix, TC-ABILITY-013): `ListActiveEffectsByTarget` returns every row regardless of `Status` (ADR-012's append-only history keeps a `Removed` row, never physically deletes it) -- this counts only `Active`/`Suspended` rows, i.e. effects genuinely still affecting the target.</summary>
+        private long CountStillAttached(CharacterId characterId)
+        {
+            Result<System.Collections.Generic.IReadOnlyList<ActiveEffectRecord>> onTarget = _effects.ListActiveEffectsByTarget(_campaign, _campaign.CampaignId, ActiveEffectTargetRef.ForCharacter(characterId), Corr);
+            Assert.That(onTarget.IsSuccess, Is.True);
+            long count = 0;
+            foreach (ActiveEffectRecord record in onTarget.Value)
+            {
+                if (record.Effect.Status == ActiveEffectStatus.Active || record.Effect.Status == ActiveEffectStatus.Suspended) count++;
+            }
+
+            return count;
         }
 
         private CharacterRecord GrantAttribute(CharacterId characterId, string attributeName, long value)

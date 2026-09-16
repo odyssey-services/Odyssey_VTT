@@ -5,6 +5,7 @@ using Odyssey.Application.Results;
 using Odyssey.Domain.Character;
 using Odyssey.Domain.Combat;
 using Odyssey.Domain.Content;
+using Odyssey.Domain.Effects;
 using Odyssey.Domain.Identity;
 using Odyssey.Domain.Time;
 
@@ -183,17 +184,33 @@ namespace Odyssey.Application.Persistence
 
         /// <summary>
         /// ODY-S06-106 doработка (product-owner-ordered fix for the `ApplyEffect` cross-repository-
-        /// atomicity gap): reverses -- in one new SQLite transaction, atomically -- every `ResourceDeltas`
-        /// entry an already-recorded `AbilityActivationRecord` (identified by its own original
-        /// <paramref name="originalCommandId"/>) applied, by re-applying each one negated through the same
-        /// `SqliteAttackApplyRepository.ApplyAttackDelta`. Called only when at least one `ApplyEffect`
-        /// primitive fails to apply after `RecordAbilityActivation` already committed -- `IActiveEffectRepository.
-        /// CreateActiveEffect` manages its own separate connection/transaction and genuinely cannot join
-        /// that commit (this task's own governing ТЗ forbids modifying that repository), so this is the real
-        /// fix for the disclosed atomicity gap, not a textual reformulation of it. Idempotent: a second call
-        /// for an already-compensated activation is a no-op success (checked via the durable row's own
-        /// `CompensatedAt` column), so a retried compensation attempt never double-reverses.
+        /// atomicity gap, extended by a SECOND доработка after independent verification found the first fix
+        /// still left already-created `ActiveEffect` rows behind on a later-effect/later-target failure):
+        /// reverses EVERYTHING an already-recorded `AbilityActivationRecord` (identified by its own original
+        /// <paramref name="originalCommandId"/>) genuinely applied before the failure point --
+        /// <paramref name="createdEffectIds"/> (every `ActiveEffectId` the caller's own `ApplyEffect` loop
+        /// actually succeeded in creating before hitting the failure, passed in by `ActivateAbilityService`
+        /// since only it tracks that in-flight list) are each removed via the existing, unmodified
+        /// `IActiveEffectRepository.RemoveActiveEffect` FIRST; only once every removal succeeds does this
+        /// method reverse `ResourceDeltas` -- in one new SQLite transaction, atomically -- by re-applying each
+        /// one negated through the same `SqliteAttackApplyRepository.ApplyAttackDelta`, then marks
+        /// `CompensatedAt`. `RemoveActiveEffect` uses `actorIsMainGm: true` regardless of the original
+        /// activation actor's own permission level -- this is an internal system rollback of the SAME
+        /// activation attempt that actor themselves initiated and which failed, not a new capability granted
+        /// to them (the same "internal operations bypass the public command's own user-facing authorization"
+        /// precedent `SqliteAttackApplyRepository.ApplyCharacterResourceDelta` already established by writing
+        /// directly to `Character.ResourcesJson` rather than through `SetResourceCurrentValue`). Each removal
+        /// uses its own deterministic sub-`CommandId`, distinct from the creation-time one (a different hash
+        /// input), so `RemoveActiveEffect`'s own idempotency ledger entry never collides with `CreateActiveEffect`'s
+        /// own -- a same-`CommandId` collision would make `SqliteSavingPipeline` treat the removal as a replay
+        /// of the CREATE command and silently no-op instead of actually removing anything. Idempotent overall:
+        /// a second call for an already-compensated activation is a no-op success (checked via the durable
+        /// row's own `CompensatedAt` column) and a second removal call for an already-`Removed` effect is
+        /// itself a safe, idempotent no-further-op via `RemoveActiveEffect`'s own `CommandId`-keyed replay.
+        /// If ANY effect removal fails, this method returns that failure immediately WITHOUT attempting
+        /// resource reversal or setting `CompensatedAt` -- retryable later, since every removal attempted so
+        /// far is itself already idempotent.
         /// </summary>
-        Result<AbilityActivationRecord> CompensateAbilityActivation(CampaignHandle campaign, CommandId originalCommandId, CorrelationId correlationId);
+        Result<AbilityActivationRecord> CompensateAbilityActivation(CampaignHandle campaign, CommandId originalCommandId, IReadOnlyList<ActiveEffectId> createdEffectIds, UserId actorUserId, CorrelationId correlationId);
     }
 }
