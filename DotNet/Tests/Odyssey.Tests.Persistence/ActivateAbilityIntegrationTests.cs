@@ -132,7 +132,9 @@ namespace Odyssey.Tests.Persistence
             InitResource(actor, Health);
             ContentDefinitionRecord published = PublishAbilityWithAdjustResource(costMana: 0, resourceKind: Health, amountFormula: "5");
             CharacterAbility ability = GrantActivatableAbility(actor, published);
-            var request = new ActivateAbilityRequest(new ActivateAbilityIntent(actor, ability.CharacterAbilityId, new[] { actor }), User(), actorIsMainGm: false, Command(), Corr);
+            CharacterRecord current = _characters.GetCharacter(_campaign, actor, Corr).Value;
+            var intent = new ActivateAbilityIntent(actor, ability.CharacterAbilityId, new[] { actor }, current.Revisions.CharacterAbilitiesRevision, current.Revisions.CharacterResourcesRevision);
+            var request = new ActivateAbilityRequest(intent, User(), actorIsMainGm: false, Command(), Corr);
 
             Result<AbilityActivationRecord> result = ActivateAbilityService.ActivateAbility(_reader, _apply, _catalog, _effects, new ThrowingRandomFactory(), _clock, _campaign, Epoch, request);
 
@@ -194,6 +196,94 @@ namespace Odyssey.Tests.Persistence
             Assert.That(CurrentValue(actor, Health), Is.EqualTo(7));
         }
 
+        /// <summary>
+        /// ODY-S06-106 doработка (product-owner-ordered fix, item 1): a real, injected failure -- the
+        /// ApplyEffect primitive's own EffectDefinitionRef is archived BEFORE activation, a real, natural
+        /// `Status != Published` rejection through the existing, unmodified catalog/decode path -- proves
+        /// the previously-committed resource-delta transaction (cost charge + AdjustResource) is genuinely
+        /// reversed, not left partially applied, and that the overall command reports honest failure, never
+        /// a silent success.
+        /// </summary>
+        [Test] // TC-ABILITY-010
+        public void ActivateAbility_ApplyEffectFailsAfterResourceCommit_ResourceDeltasAreCompensated_NotPartiallyApplied()
+        {
+            CharacterId actor = Active("actor");
+            InitResource(actor, Mana);
+            InitResource(actor, Health);
+            ContentDefinitionRecord effect = PublishFixtureEffect();
+            var effectRef = new ContentDefinitionRef(effect.ContentDefinitionId, effect.Version);
+            ContentDefinitionRecord published = PublishAbilityWithAdjustResourceAndApplyEffect(costMana: 3, resourceKind: Health, amountFormula: "-5", effectRef: effectRef);
+            CharacterAbility ability = GrantActivatableAbility(actor, published);
+
+            Result<ContentDefinitionRecord> archived = ContentCatalogLifecycleService.ArchiveDefinition(_catalog, new ArchiveDefinitionRequest(_campaign, effect.ContentDefinitionId, "test archive", actorIsMainGm: true, Command(), Corr));
+            Assert.That(archived.IsSuccess, Is.True, archived.IsFailure ? archived.Error.Code.ToString() : string.Empty);
+
+            ActivateAbilityRequest request = Request(actor, ability.CharacterAbilityId, actor);
+            Result<AbilityActivationRecord> result = ActivateAbilityService.ActivateAbility(_reader, _apply, _catalog, _effects, new ThrowingRandomFactory(), _clock, _campaign, Epoch, request);
+
+            Assert.That(result.IsFailure, Is.True, "An archived EffectDefinitionRef must fail the whole activation, not silently succeed.");
+            Assert.That(CurrentValue(actor, Mana), Is.EqualTo(10), "The cost charge must be reversed after the downstream ApplyEffect failure.");
+            Assert.That(CurrentValue(actor, Health), Is.EqualTo(10), "The AdjustResource delta must be reversed after the downstream ApplyEffect failure.");
+
+            Result<AbilityActivationRecord> retried = ActivateAbilityService.ActivateAbility(_reader, _apply, _catalog, _effects, new ThrowingRandomFactory(), _clock, _campaign, Epoch, request);
+            Assert.That(retried.IsFailure, Is.True, "A retry of a compensated CommandId must remain a permanent failure -- never a silent success on replay.");
+            Assert.That(CurrentValue(actor, Mana), Is.EqualTo(10), "A retry must not re-apply or double-compensate.");
+            Assert.That(CurrentValue(actor, Health), Is.EqualTo(10), "A retry must not re-apply or double-compensate.");
+        }
+
+        /// <summary>
+        /// ODY-S06-106 doработка (product-owner-ordered fix, item 3): the character's own `CharacterAbilities`
+        /// revision changes (a second, unrelated ability is granted) AFTER the caller captured its own
+        /// `ExpectedCharacterAbilitiesRevision` but BEFORE `RecordAbilityActivation`'s own transaction commits
+        /// -- the stale value must be rejected, not silently applied over newer state.
+        /// </summary>
+        [Test] // TC-ABILITY-011
+        public void ActivateAbility_StaleExpectedCharacterAbilitiesRevision_RejectedNotAppliedOverStaleState()
+        {
+            CharacterId actor = Active("actor");
+            InitResource(actor, Health);
+            ContentDefinitionRecord published = PublishAbilityWithAdjustResource(costMana: 0, resourceKind: Health, amountFormula: "-3");
+            CharacterAbility ability = GrantActivatableAbility(actor, published);
+
+            CharacterRecord staleState = _characters.GetCharacter(_campaign, actor, Corr).Value;
+            var staleIntent = new ActivateAbilityIntent(actor, ability.CharacterAbilityId, new[] { actor }, staleState.Revisions.CharacterAbilitiesRevision, staleState.Revisions.CharacterResourcesRevision);
+            var staleRequest = new ActivateAbilityRequest(staleIntent, User(), actorIsMainGm: true, Command(), Corr);
+
+            // Concurrent mutation: an unrelated ability is granted to the same character, bumping
+            // CharacterAbilitiesRevision past what staleIntent already captured.
+            Result<CharacterRecord> concurrentGrant = _characters.AcquireAbility(_campaign, actor, AbilityDefinitionId.Parse("OtherAbility"), SourceKind.GMGrant, null, RankMode.None, null, null, "{}", User(), actorIsMainGm: true, null, staleState.Revisions.CharacterAbilitiesRevision, Command(), Corr);
+            Assert.That(concurrentGrant.IsSuccess, Is.True);
+
+            Result<AbilityActivationRecord> result = ActivateAbilityService.ActivateAbility(_reader, _apply, _catalog, _effects, new ThrowingRandomFactory(), _clock, _campaign, Epoch, staleRequest);
+
+            Assert.That(result.IsFailure, Is.True, "A stale ExpectedCharacterAbilitiesRevision must be rejected, not applied over newer state.");
+            Assert.That(CurrentValue(actor, Health), Is.EqualTo(10), "Nothing must be applied when the revision check fails.");
+        }
+
+        /// <summary>
+        /// ODY-S06-106 doработка (product-owner-ordered fix, item 2): `CharacterAbility.SourceRef`'s own
+        /// documented contract (provenance only, null for `GMGrant`/`ProgressionPurchase`) must remain
+        /// genuinely intact for an ability that is nonetheless fully activatable through the SEPARATE
+        /// `ActivationDefinitionRef` bridge.
+        /// </summary>
+        [Test] // TC-ABILITY-012
+        public void ActivateAbility_SourceRefBridgeReplaced_SourceRefContractPreserved()
+        {
+            CharacterId actor = Active("actor");
+            InitResource(actor, Health);
+            ContentDefinitionRecord published = PublishAbilityWithAdjustResource(costMana: 0, resourceKind: Health, amountFormula: "-4");
+            CharacterAbility ability = GrantActivatableAbility(actor, published);
+
+            Assert.That(ability.SourceRef, Is.Null, "SourceRef must stay null for a GMGrant ability -- never repurposed as the activation bridge.");
+            Assert.That(ability.ActivationDefinitionRef, Is.Not.Null);
+            Assert.That(ability.ActivationDefinitionRef!.Value.Equals(new ContentDefinitionRef(published.ContentDefinitionId, published.Version)), Is.True);
+
+            Result<AbilityActivationRecord> result = ActivateAbilityService.ActivateAbility(_reader, _apply, _catalog, _effects, new ThrowingRandomFactory(), _clock, _campaign, Epoch, Request(actor, ability.CharacterAbilityId, actor));
+
+            Assert.That(result.IsSuccess, Is.True, result.IsFailure ? result.Error.Code.ToString() : string.Empty);
+            Assert.That(CurrentValue(actor, Health), Is.EqualTo(6));
+        }
+
         // ---- helpers ----
 
         private ContentDefinitionRecord AuthorDraft(ContentDefinitionType type, string name, string propertiesJson, System.Collections.Generic.IReadOnlyList<ContentDefinitionRef>? dependencyRefs = null)
@@ -228,6 +318,15 @@ namespace Odyssey.Tests.Persistence
             return PublishFixture(AuthorDraft(ContentDefinitionType.Ability, "Test Ability " + Guid.NewGuid().ToString("N"), TypedDefinitionCodec.EncodeAbility(ability)));
         }
 
+        private ContentDefinitionRecord PublishAbilityWithAdjustResourceAndApplyEffect(long costMana, ResourceDefinitionId resourceKind, string amountFormula, ContentDefinitionRef effectRef)
+        {
+            var envelope = new MechanicsPrimitiveEnvelope(1, new MechanicsPrimitive[] { new AdjustResourcePrimitive(resourceKind, amountFormula), new ApplyEffectPrimitive(effectRef) });
+            System.Collections.Generic.IReadOnlyList<AbilityResourceCost> costs = costMana > 0 ? new[] { new AbilityResourceCost(Mana, costMana) } : Array.Empty<AbilityResourceCost>();
+            var targetRule = new ContentTargetRule(ContentTargetSource.ActingCharacter, 1, 1, true);
+            var ability = new AbilityDefinition(AbilityEntryPointType.ActiveAction, "OnUse", actionCost: 0, costs, targetRule, MechanicsPayloadCodec.EncodePrimitives(envelope));
+            return PublishFixture(AuthorDraft(ContentDefinitionType.Ability, "Test Ability " + Guid.NewGuid().ToString("N"), TypedDefinitionCodec.EncodeAbility(ability), dependencyRefs: new[] { effectRef }));
+        }
+
         private ContentDefinitionRecord PublishAbilityWithApplyEffect(ContentDefinitionRef effectRef)
         {
             var envelope = new MechanicsPrimitiveEnvelope(1, new MechanicsPrimitive[] { new ApplyEffectPrimitive(effectRef) });
@@ -236,23 +335,47 @@ namespace Odyssey.Tests.Persistence
             return PublishFixture(AuthorDraft(ContentDefinitionType.Ability, "Test Ability " + Guid.NewGuid().ToString("N"), TypedDefinitionCodec.EncodeAbility(ability), dependencyRefs: new[] { effectRef }));
         }
 
+        /// <summary>
+        /// ODY-S06-106 doработка (product-owner-ordered fix): grants the ability with `sourceRef: null`
+        /// (SourceKind.GMGrant's own documented default -- provenance, not activation, per `Ability.cs`'s
+        /// own doc comment), then links activation eligibility via the SEPARATE, additive
+        /// `ICharacterRepository.LinkAbilityActivationSource` command -- never repurposing `SourceRef`.
+        /// </summary>
         private CharacterAbility GrantActivatableAbility(CharacterId characterId, ContentDefinitionRecord published)
         {
             CharacterRecord current = _characters.GetCharacter(_campaign, characterId, Corr).Value;
-            string sourceRef = new ContentDefinitionRef(published.ContentDefinitionId, published.Version).ToString();
-            Result<CharacterRecord> acquired = _characters.AcquireAbility(_campaign, characterId, TestAbilityKey, SourceKind.GMGrant, sourceRef, RankMode.None, null, null, "{}", User(), actorIsMainGm: true, null, current.Revisions.CharacterAbilitiesRevision, Command(), Corr);
+            Result<CharacterRecord> acquired = _characters.AcquireAbility(_campaign, characterId, TestAbilityKey, SourceKind.GMGrant, null, RankMode.None, null, null, "{}", User(), actorIsMainGm: true, null, current.Revisions.CharacterAbilitiesRevision, Command(), Corr);
             Assert.That(acquired.IsSuccess, Is.True);
+            CharacterAbility? granted = null;
             foreach (CharacterAbility candidate in acquired.Value.Abilities)
             {
-                if (candidate.SourceRef == sourceRef) return candidate;
+                if (candidate.AbilityDefinitionId.Equals(TestAbilityKey) && candidate.SourceRef == null) { granted = candidate; break; }
             }
 
-            Assert.Fail("Granted ability not found on the reloaded CharacterRecord.");
+            if (granted == null)
+            {
+                Assert.Fail("Granted ability not found on the reloaded CharacterRecord.");
+                return null!;
+            }
+
+            var activationRef = new ContentDefinitionRef(published.ContentDefinitionId, published.Version);
+            Result<CharacterRecord> linked = _characters.LinkAbilityActivationSource(_campaign, characterId, granted.CharacterAbilityId, activationRef, User(), actorIsMainGm: true, acquired.Value.Revisions.CharacterAbilitiesRevision, Command(), Corr);
+            Assert.That(linked.IsSuccess, Is.True, linked.IsFailure ? linked.Error.Code.ToString() : string.Empty);
+            foreach (CharacterAbility candidate in linked.Value.Abilities)
+            {
+                if (candidate.CharacterAbilityId.Equals(granted.CharacterAbilityId)) return candidate;
+            }
+
+            Assert.Fail("Linked ability not found on the reloaded CharacterRecord.");
             return null!;
         }
 
-        private static ActivateAbilityRequest Request(CharacterId actor, CharacterAbilityId characterAbilityId, params CharacterId[] targets)
-            => new ActivateAbilityRequest(new ActivateAbilityIntent(actor, characterAbilityId, targets), User(), actorIsMainGm: true, Command(), Corr);
+        private ActivateAbilityRequest Request(CharacterId actor, CharacterAbilityId characterAbilityId, params CharacterId[] targets)
+        {
+            CharacterRecord current = _characters.GetCharacter(_campaign, actor, Corr).Value;
+            var intent = new ActivateAbilityIntent(actor, characterAbilityId, targets, current.Revisions.CharacterAbilitiesRevision, current.Revisions.CharacterResourcesRevision);
+            return new ActivateAbilityRequest(intent, User(), actorIsMainGm: true, Command(), Corr);
+        }
 
         private void InitResource(CharacterId characterId, ResourceDefinitionId resourceKind)
         {

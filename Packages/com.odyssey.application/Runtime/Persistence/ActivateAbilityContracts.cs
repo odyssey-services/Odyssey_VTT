@@ -28,11 +28,24 @@ namespace Odyssey.Application.Persistence
     /// </summary>
     public sealed class ActivateAbilityIntent
     {
-        public ActivateAbilityIntent(CharacterId actorId, CharacterAbilityId characterAbilityId, IReadOnlyList<CharacterId> targetIds)
+        /// <summary>
+        /// ODY-S06-106 doработка (product-owner-ordered fix): <paramref name="expectedCharacterAbilitiesRevision"/>/
+        /// <paramref name="expectedCharacterResourcesRevision"/> are `ADR-022` §5 rule 2's own required
+        /// optimistic-concurrency declaration, by direct precedent of `AcquireAbilityViaProgressionPurchase`'s
+        /// own `expectedMechanicsRevision`/`expectedCharacterAbilitiesRevision` pair -- both sections
+        /// `ActivateAbility` actually reads/mutates (`CharacterAbilities` for the ability being activated,
+        /// `CharacterResources` for the cost charge/`AdjustResource` deltas) must be declared and re-checked
+        /// fresh inside `SqliteActivateAbilityRepository.RecordAbilityActivation`'s own transaction -- a
+        /// stale caller-declared value is a real, honest `Result` rejection, not a silent apply over
+        /// out-of-date state.
+        /// </summary>
+        public ActivateAbilityIntent(CharacterId actorId, CharacterAbilityId characterAbilityId, IReadOnlyList<CharacterId> targetIds, long expectedCharacterAbilitiesRevision, long expectedCharacterResourcesRevision)
         {
             if (!actorId.IsValid) throw new ArgumentException("ActorId is required.", nameof(actorId));
             if (!characterAbilityId.IsValid) throw new ArgumentException("CharacterAbilityId is required.", nameof(characterAbilityId));
             if (targetIds == null || targetIds.Count == 0) throw new ArgumentException("At least one target is required.", nameof(targetIds));
+            if (expectedCharacterAbilitiesRevision < 1) throw new ArgumentOutOfRangeException(nameof(expectedCharacterAbilitiesRevision));
+            if (expectedCharacterResourcesRevision < 1) throw new ArgumentOutOfRangeException(nameof(expectedCharacterResourcesRevision));
             CharacterId[] copy = new CharacterId[targetIds.Count];
             for (int index = 0; index < targetIds.Count; index++)
             {
@@ -43,11 +56,15 @@ namespace Odyssey.Application.Persistence
             ActorId = actorId;
             CharacterAbilityId = characterAbilityId;
             TargetIds = Array.AsReadOnly(copy);
+            ExpectedCharacterAbilitiesRevision = expectedCharacterAbilitiesRevision;
+            ExpectedCharacterResourcesRevision = expectedCharacterResourcesRevision;
         }
 
         public CharacterId ActorId { get; }
         public CharacterAbilityId CharacterAbilityId { get; }
         public IReadOnlyList<CharacterId> TargetIds { get; }
+        public long ExpectedCharacterAbilitiesRevision { get; }
+        public long ExpectedCharacterResourcesRevision { get; }
     }
 
     /// <summary>
@@ -94,7 +111,7 @@ namespace Odyssey.Application.Persistence
     /// </summary>
     public sealed class AbilityActivationRecord
     {
-        public AbilityActivationRecord(CommandId commandId, CampaignId campaignId, CharacterId actorId, CharacterAbilityId characterAbilityId, IReadOnlyList<CharacterId> targetIds, IReadOnlyList<AttackDelta> resourceDeltas, IReadOnlyList<ContentDefinitionRef> appliedEffectRefs, UtcInstant occurredAt)
+        public AbilityActivationRecord(CommandId commandId, CampaignId campaignId, CharacterId actorId, CharacterAbilityId characterAbilityId, IReadOnlyList<CharacterId> targetIds, IReadOnlyList<AttackDelta> resourceDeltas, IReadOnlyList<ContentDefinitionRef> appliedEffectRefs, UtcInstant occurredAt, UtcInstant? compensatedAt)
         {
             if (!commandId.IsValid) throw new ArgumentException("CommandId is required.", nameof(commandId));
             if (!campaignId.IsValid) throw new ArgumentException("CampaignId is required.", nameof(campaignId));
@@ -109,6 +126,7 @@ namespace Odyssey.Application.Persistence
             ResourceDeltas = Copy(resourceDeltas ?? throw new ArgumentNullException(nameof(resourceDeltas)));
             AppliedEffectRefs = Copy(appliedEffectRefs ?? throw new ArgumentNullException(nameof(appliedEffectRefs)));
             OccurredAt = occurredAt;
+            CompensatedAt = compensatedAt;
         }
 
         public CommandId CommandId { get; }
@@ -119,6 +137,18 @@ namespace Odyssey.Application.Persistence
         public IReadOnlyList<AttackDelta> ResourceDeltas { get; }
         public IReadOnlyList<ContentDefinitionRef> AppliedEffectRefs { get; }
         public UtcInstant OccurredAt { get; }
+
+        /// <summary>
+        /// ODY-S06-106 doработка (product-owner-ordered fix for the disclosed `ApplyEffect`
+        /// cross-repository-atomicity gap independent verification rejected as an unfixed "accepted design
+        /// decision"): non-null means this activation's own `ResourceDeltas` were genuinely reversed after
+        /// at least one `ApplyEffect` primitive failed to apply -- the activation as a whole did NOT
+        /// succeed, and this is never a silent success. A replay of the same `CommandId` after compensation
+        /// permanently returns failure (see `ActivateAbilityService`'s own idempotency-check step) --
+        /// exactly like the `AppliedCommands` ledger's own "a `CommandId`'s outcome is fixed forever" rule,
+        /// just with a compensated/failed outcome instead of a successful one.
+        /// </summary>
+        public UtcInstant? CompensatedAt { get; }
 
         private static IReadOnlyList<T> Copy<T>(IReadOnlyList<T> source) { T[] copy = new T[source.Count]; for (int index = 0; index < copy.Length; index++) copy[index] = source[index]; return Array.AsReadOnly(copy); }
     }
@@ -138,13 +168,32 @@ namespace Odyssey.Application.Persistence
         /// `AdjustResource` primitive's own resolved amount) in one SQLite transaction -- all or nothing,
         /// reusing `SqliteAttackApplyRepository`'s own already-accepted `ApplyAttackDelta`/
         /// `ApplyCharacterResourceDelta` logic verbatim (`ODY-S05-609`, made `internal` for this reuse, not
-        /// modified). Only once every delta succeeds does this method record the durable
-        /// `AbilityActivationRecord` and return success -- `effectsToApply` travels through unapplied; the
-        /// caller (`ActivateAbilityService`) applies each one afterward via the existing, unmodified
-        /// `IActiveEffectRepository.CreateActiveEffect` (a separate repository with its own separate
-        /// transaction lifecycle -- see this method's own task contract §18 for the disclosed limit on
-        /// cross-repository atomicity this implies).
+        /// modified). The SAME transaction also re-checks <paramref name="expectedCharacterAbilitiesRevision"/>/
+        /// <paramref name="expectedCharacterResourcesRevision"/> against a fresh read of the actor's own
+        /// `Character` row (`ADR-022` §5 rule 2, ODY-S06-106 doработка) -- a stale value rejects the whole
+        /// command before any delta is applied. Only once every delta succeeds does this method record the
+        /// durable `AbilityActivationRecord` and return success -- `effectsToApply` travels through
+        /// unapplied; the caller (`ActivateAbilityService`) applies each one afterward via the existing,
+        /// unmodified `IActiveEffectRepository.CreateActiveEffect` (a separate repository with its own
+        /// separate transaction lifecycle). If any one of those applications fails, the caller invokes
+        /// <see cref="CompensateAbilityActivation"/> to reverse this method's own already-committed deltas --
+        /// see that method's own doc comment.
         /// </summary>
-        Result<AbilityActivationRecord> RecordAbilityActivation(CampaignHandle campaign, CharacterId actorId, CharacterAbilityId characterAbilityId, IReadOnlyList<CharacterId> targetIds, IReadOnlyList<AttackDelta> resourceDeltas, IReadOnlyList<ContentDefinitionRef> effectsToApply, CommandId commandId, CorrelationId correlationId);
+        Result<AbilityActivationRecord> RecordAbilityActivation(CampaignHandle campaign, CharacterId actorId, CharacterAbilityId characterAbilityId, IReadOnlyList<CharacterId> targetIds, IReadOnlyList<AttackDelta> resourceDeltas, IReadOnlyList<ContentDefinitionRef> effectsToApply, long expectedCharacterAbilitiesRevision, long expectedCharacterResourcesRevision, CommandId commandId, CorrelationId correlationId);
+
+        /// <summary>
+        /// ODY-S06-106 doработка (product-owner-ordered fix for the `ApplyEffect` cross-repository-
+        /// atomicity gap): reverses -- in one new SQLite transaction, atomically -- every `ResourceDeltas`
+        /// entry an already-recorded `AbilityActivationRecord` (identified by its own original
+        /// <paramref name="originalCommandId"/>) applied, by re-applying each one negated through the same
+        /// `SqliteAttackApplyRepository.ApplyAttackDelta`. Called only when at least one `ApplyEffect`
+        /// primitive fails to apply after `RecordAbilityActivation` already committed -- `IActiveEffectRepository.
+        /// CreateActiveEffect` manages its own separate connection/transaction and genuinely cannot join
+        /// that commit (this task's own governing ТЗ forbids modifying that repository), so this is the real
+        /// fix for the disclosed atomicity gap, not a textual reformulation of it. Idempotent: a second call
+        /// for an already-compensated activation is a no-op success (checked via the durable row's own
+        /// `CompensatedAt` column), so a retried compensation attempt never double-reverses.
+        /// </summary>
+        Result<AbilityActivationRecord> CompensateAbilityActivation(CampaignHandle campaign, CommandId originalCommandId, CorrelationId correlationId);
     }
 }

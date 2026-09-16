@@ -8,6 +8,7 @@ using Odyssey.Application.Persistence;
 using Odyssey.Application.Results;
 using Odyssey.Application.Time;
 using Odyssey.Domain.Character;
+using Odyssey.Domain.Content;
 using Odyssey.Domain.Identity;
 using Odyssey.Domain.Time;
 using Odyssey.Rules.Character;
@@ -3621,6 +3622,61 @@ namespace Odyssey.Persistence.Sqlite
         }
 
         /// <summary>
+        /// ODY-S06-106 doработка (product-owner-ordered fix, after independent verification rejected PR
+        /// #162's own use of <see cref="CharacterAbility.SourceRef"/> as the <see cref="AbilityDefinitionId"/>
+        /// -to-<see cref="ContentDefinitionRef"/> activation bridge -- <c>SourceRef</c>'s own documented
+        /// contract, provenance only, null for <see cref="SourceKind.GMGrant"/>/<see cref="SourceKind.ProgressionPurchase"/>,
+        /// is left fully intact by this method). A new, standalone, additive command -- it does not touch
+        /// <see cref="AcquireAbility"/>/<see cref="AcquireAbilityViaProgressionPurchase"/>'s own bodies at
+        /// all (both remain forbidden to modify), reusing the same <see cref="MutateAbilities"/> helper
+        /// <see cref="RemoveAbility"/> already reuses. MainGM-only, mirroring <see cref="RemoveAbility"/>'s
+        /// own permission gate exactly -- linking an ability's own mechanics-execution identity is at least
+        /// as sensitive as removing the ability outright.
+        /// </summary>
+        public Result<CharacterRecord> LinkAbilityActivationSource(CampaignHandle campaign, CharacterId characterId, CharacterAbilityId characterAbilityId, ContentDefinitionRef activationDefinitionRef, UserId actorUserId, bool actorIsMainGm, long expectedCharacterAbilitiesRevision, CommandId commandId, CorrelationId correlationId)
+        {
+            if (!characterAbilityId.IsValid) throw new ArgumentException("CharacterAbilityId is required.", nameof(characterAbilityId));
+            if (!activationDefinitionRef.IsValid) throw new ArgumentException("ActivationDefinitionRef is required.", nameof(activationDefinitionRef));
+            if (!actorUserId.IsValid) throw new ArgumentException("ActorUserId is required.", nameof(actorUserId));
+
+            if (!actorIsMainGm)
+            {
+                return Result<CharacterRecord>.Failure(PersistenceFailures.CharacterAbilityGrantDenied(correlationId));
+            }
+
+            return MutateAbilities(campaign, characterId, expectedCharacterAbilitiesRevision, commandId, correlationId, (current, connection, transaction) =>
+            {
+                CharacterAbility? existing = null;
+                foreach (CharacterAbility candidate in current.Abilities)
+                {
+                    if (candidate.CharacterAbilityId.Equals(characterAbilityId)) { existing = candidate; break; }
+                }
+
+                if (existing == null)
+                {
+                    return Result<AbilitiesMutation>.Failure(PersistenceFailures.CharacterAbilityNotFound(correlationId));
+                }
+
+                var updated = new CharacterAbility(existing.CharacterAbilityId, existing.AbilityDefinitionId, existing.SourceKind, existing.SourceRef, existing.AcquiredAt, existing.RankMode, existing.NumericRank, existing.NamedRankKey, existing.IsEnabled, existing.Configuration, existing.UsesState, existing.Revision + 1, activationDefinitionRef);
+
+                var newAbilities = new List<CharacterAbility>(current.Abilities.Count);
+                foreach (CharacterAbility candidate in current.Abilities)
+                {
+                    newAbilities.Add(candidate.CharacterAbilityId.Equals(characterAbilityId) ? updated : candidate);
+                }
+
+                var payload = new JObject
+                {
+                    ["characterAbilityId"] = characterAbilityId.ToString(),
+                    ["activationDefinitionRef"] = activationDefinitionRef.ToString(),
+                    ["actorUserId"] = actorUserId.ToString(),
+                };
+
+                return Result<AbilitiesMutation>.Success(new AbilitiesMutation(newAbilities, "odyssey.persistence.character_ability_activation_source_linked", payload));
+            });
+        }
+
+        /// <summary>
         /// ODY-S04-108 section 1.1: the first real, incrementing
         /// <c>CharacterAbilities</c>-section helper -- mirrors
         /// <see cref="MutateMechanics"/>'s exact gate/load/callback/commit
@@ -5663,6 +5719,7 @@ namespace Odyssey.Persistence.Sqlite
                     ["configuration"] = ability.Configuration,
                     ["usesState"] = ability.UsesState,
                     ["revision"] = ability.Revision,
+                    ["activationDefinitionRef"] = ability.ActivationDefinitionRef?.ToString(),
                 });
             }
 
@@ -5687,7 +5744,12 @@ namespace Odyssey.Persistence.Sqlite
                 string configuration = (string)token["configuration"]!;
                 string? usesState = (string?)token["usesState"];
                 long revision = (long)token["revision"]!;
-                list.Add(new CharacterAbility(characterAbilityId, abilityDefinitionId, sourceKind, sourceRef, acquiredAt, rankMode, numericRank, namedRankKey, isEnabled, configuration, usesState, revision));
+                // ODY-S06-106 doработка: an older row (or one predating this field) simply has no
+                // "activationDefinitionRef" JSON property -- (string?)token[...] on a missing key is null,
+                // which round-trips to "not activatable," never a decode failure.
+                string? activationDefinitionRefText = (string?)token["activationDefinitionRef"];
+                ContentDefinitionRef? activationDefinitionRef = activationDefinitionRefText != null ? ContentDefinitionRef.Parse(activationDefinitionRefText) : (ContentDefinitionRef?)null;
+                list.Add(new CharacterAbility(characterAbilityId, abilityDefinitionId, sourceKind, sourceRef, acquiredAt, rankMode, numericRank, namedRankKey, isEnabled, configuration, usesState, revision, activationDefinitionRef));
             }
 
             return list;

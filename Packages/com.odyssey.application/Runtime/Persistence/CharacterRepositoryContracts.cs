@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using Odyssey.Application.Commands;
 using Odyssey.Application.Results;
 using Odyssey.Domain.Character;
+using Odyssey.Domain.Content;
 using Odyssey.Domain.Identity;
 using Odyssey.Domain.Time;
 
@@ -408,6 +409,17 @@ namespace Odyssey.Application.Persistence
         /// section, gated by <paramref name="expectedCharacterAbilitiesRevision"/>.
         /// </summary>
         Result<CharacterRecord> RemoveAbility(CampaignHandle campaign, CharacterId characterId, CharacterAbilityId characterAbilityId, UserId actorUserId, bool actorIsMainGm, long expectedCharacterAbilitiesRevision, CommandId commandId, CorrelationId correlationId);
+
+        /// <summary>
+        /// ODY-S06-106 doработка (product-owner-ordered fix): the real <see cref="AbilityDefinitionId"/>-to-
+        /// <see cref="ContentDefinitionRef"/> activation bridge, a standalone command entirely separate from
+        /// <see cref="CharacterAbility.SourceRef"/> (whose own documented contract -- provenance only, null
+        /// for <see cref="SourceKind.GMGrant"/>/<see cref="SourceKind.ProgressionPurchase"/> -- is left fully
+        /// intact by this method, and by <see cref="AcquireAbility"/>/<c>AcquireAbilityViaProgressionPurchase</c>,
+        /// neither of which this method touches). MainGM-only. Touches only the <c>CharacterAbilities</c>
+        /// section, gated by <paramref name="expectedCharacterAbilitiesRevision"/>.
+        /// </summary>
+        Result<CharacterRecord> LinkAbilityActivationSource(CampaignHandle campaign, CharacterId characterId, CharacterAbilityId characterAbilityId, ContentDefinitionRef activationDefinitionRef, UserId actorUserId, bool actorIsMainGm, long expectedCharacterAbilitiesRevision, CommandId commandId, CorrelationId correlationId);
 
         /// <summary>
         /// ODY-S04-109: product section 17. MainGM-only. Initializes a new

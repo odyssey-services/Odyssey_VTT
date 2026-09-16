@@ -51,8 +51,19 @@ namespace Odyssey.Application.Persistence
 
             // ADR-008 rule 14: a retry never re-queries the authoritative random stream -- checked BEFORE
             // any RNG derivation, mirroring AttackApplyService.ResolveAttack's own identical ordering.
+            //
+            // ODY-S06-106 doработка (product-owner-ordered fix for the `ApplyEffect` atomicity gap): a
+            // CommandId whose own AbilityActivationRecord was already compensated (CompensatedAt != null)
+            // is a PERMANENT failure, never replayed as success -- that activation genuinely did not
+            // succeed (its own resource deltas were reversed after a downstream ApplyEffect failure), so
+            // returning it as a success here would be exactly the silent-success the product owner rejected.
             Result<AbilityActivationRecord> existing = apply.GetActivation(campaign, request.CommandId, request.CorrelationId);
-            if (existing.IsSuccess) return existing;
+            if (existing.IsSuccess)
+            {
+                return existing.Value.CompensatedAt != null
+                    ? Result<AbilityActivationRecord>.Failure(PreviouslyCompensated(request.CorrelationId))
+                    : existing;
+            }
 
             Result<bool> authorized = Authorize(reader, campaign, request);
             if (authorized.IsFailure) return Result<AbilityActivationRecord>.Failure(authorized.Error);
@@ -104,16 +115,16 @@ namespace Odyssey.Application.Persistence
                 }
             }
 
-            Result<AbilityActivationRecord> recorded = apply.RecordAbilityActivation(campaign, request.Intent.ActorId, request.Intent.CharacterAbilityId, request.Intent.TargetIds, deltas, interpreted.EffectsToApply, request.CommandId, request.CorrelationId);
+            Result<AbilityActivationRecord> recorded = apply.RecordAbilityActivation(campaign, request.Intent.ActorId, request.Intent.CharacterAbilityId, request.Intent.TargetIds, deltas, interpreted.EffectsToApply, request.Intent.ExpectedCharacterAbilitiesRevision, request.Intent.ExpectedCharacterResourcesRevision, request.CommandId, request.CorrelationId);
             if (recorded.IsFailure) return recorded;
 
-            // ODY-S06-106's own disclosed limit (task contract §18): IActiveEffectRepository.
-            // CreateActiveEffect manages its own separate SQLite transaction -- it cannot be modified to
-            // join the transaction above (this task's own governing ТЗ requires it stay unmodified), so
-            // the resource-delta commit above is genuinely atomic on its own, but not further atomic WITH
-            // these effect applications. Each is independently idempotent (a stable, deterministic
-            // sub-CommandId derived from the root CommandId), so a retry after a partial failure here
-            // re-applies only what did not already succeed.
+            // ODY-S06-106 doработка (product-owner-ordered fix, after independent verification rejected
+            // this gap as an unfixed "accepted design decision"): IActiveEffectRepository.CreateActiveEffect
+            // manages its own separate SQLite transaction -- it cannot be modified to join the transaction
+            // above (this task's own governing ТЗ requires it stay unmodified). If ANY ApplyEffect
+            // application below fails, the resource deltas RecordAbilityActivation just committed are
+            // genuinely reversed via CompensateAbilityActivation -- a real saga/compensation fix, not a
+            // silent success and not merely a disclosed limitation.
             for (int effectIndex = 0; effectIndex < interpreted.EffectsToApply.Count; effectIndex++)
             {
                 ContentDefinitionRef effectRef = interpreted.EffectsToApply[effectIndex];
@@ -121,7 +132,13 @@ namespace Odyssey.Application.Persistence
                 {
                     CharacterId targetId = request.Intent.TargetIds[targetIndex];
                     Result<ActiveEffectRecord> applied = ApplyEffect(catalog, effects, clock, campaign, effectRef, targetId, request.ActorUserId, StableSubCommandId(request.CommandId, effectIndex, targetIndex), request.CorrelationId);
-                    if (applied.IsFailure) return Result<AbilityActivationRecord>.Failure(applied.Error);
+                    if (applied.IsFailure)
+                    {
+                        Result<AbilityActivationRecord> compensated = apply.CompensateAbilityActivation(campaign, request.CommandId, request.CorrelationId);
+                        return compensated.IsFailure
+                            ? Result<AbilityActivationRecord>.Failure(compensated.Error)
+                            : Result<AbilityActivationRecord>.Failure(applied.Error);
+                    }
                 }
             }
 
@@ -228,5 +245,8 @@ namespace Odyssey.Application.Persistence
 
         private static Error Denied(CorrelationId id) => Error.Create(ErrorCodes.ApplicationValidationInvalid, ErrorCategory.Authorization, SafeReasonCode.PermissionDenied, UserMessageKey.Parse("errors.ability.denied"), RetryDirective.DoNotRetry, id);
         private static Error InvalidTarget(CorrelationId id) => Error.Create(ErrorCodes.ApplicationValidationInvalid, ErrorCategory.Validation, SafeReasonCode.InvalidRequest, UserMessageKey.Parse("errors.ability.invalid_target"), RetryDirective.DoNotRetry, id);
+
+        /// <summary>ODY-S06-106 doработка: this exact `CommandId` already ran, failed downstream (an `ApplyEffect` application failed), and had its own resource deltas genuinely reversed -- a permanent, honest failure on replay, never a silent success.</summary>
+        private static Error PreviouslyCompensated(CorrelationId id) => Error.Create(ErrorCodes.ApplicationValidationInvalid, ErrorCategory.Precondition, SafeReasonCode.ActionNotAllowed, UserMessageKey.Parse("errors.ability.previously_compensated"), RetryDirective.DoNotRetry, id);
     }
 }

@@ -13,17 +13,21 @@ namespace Odyssey.Persistence.Sqlite
     /// ODY-S06-106: read-only composition of existing SQLite-backed authoritative stores for ability
     /// activation -- the exact same shape `SqliteAttackStateReader` (`ODY-S05-603`) already established.
     ///
-    /// Resolves `AbilityDefinitionId -> real AbilityDefinition` through `CharacterAbility.SourceRef`, NOT
-    /// through `AbilityDefinitionId` itself -- a genuine architecture gap this task found and had to
-    /// resolve (task contract §18): `AbilityDefinitionId` (`ODY-S04-108`) is a lightweight, fixture-only
-    /// Ruleset key with no real backing catalog table anywhere in this codebase (confirmed by its own doc
-    /// comment and by direct code read of every `IContentCatalogRepository` query method -- none accept
-    /// anything but the real content catalog's own opaque `ContentDefinitionId`). `CharacterAbility.
-    /// SourceRef` (`ODY-S04-108`'s own generic "provenance" string, e.g. "the item/effect instance id this
-    /// ability came from") is reused, additively, to also carry a real `ContentDefinitionRef` string when
-    /// an ability is meant to be activatable -- a usage convention, not a schema/type change; an ability
-    /// acquired without one (e.g. `SourceKind.GMGrant` with no `sourceRef`, the pre-existing default) simply
-    /// cannot be activated, an honest rejection, not a crash.
+    /// Resolves `AbilityDefinitionId -> real AbilityDefinition` through `CharacterAbility.
+    /// ActivationDefinitionRef` (`ODY-S06-106` doработка, product-owner-ordered after independent
+    /// verification rejected PR #162's own original bridge -- reusing `SourceRef` for this purpose, which
+    /// violated that field's own documented provenance-only contract). `AbilityDefinitionId` (`ODY-S04-108`)
+    /// remains a genuine architecture gap this task found: it is a lightweight, fixture-only Ruleset key
+    /// with no real backing catalog table anywhere in this codebase (confirmed by its own doc comment and
+    /// by direct code read of every `IContentCatalogRepository` query method -- none accept anything but the
+    /// real content catalog's own opaque `ContentDefinitionId`), and the real content catalog's own
+    /// `ContentDefinition` table has no indexed human-key column either (confirmed by direct schema read --
+    /// `Name` is a free-text display string, not a validated/unique key). The fix keeps `CharacterAbility.
+    /// SourceRef`'s own contract (provenance only, null for `GMGrant`/`ProgressionPurchase`) fully intact
+    /// and introduces a genuinely separate, additive `ActivationDefinitionRef` field instead, set only via
+    /// `ICharacterRepository.LinkAbilityActivationSource` (MainGM-only). An ability with no
+    /// `ActivationDefinitionRef` set (e.g. any ability acquired the ordinary way and never linked) simply
+    /// cannot be activated -- an honest rejection, not a crash.
     /// </summary>
     public sealed class SqliteActivateAbilityStateReader : IActivateAbilityStateReader
     {
@@ -52,11 +56,12 @@ namespace Odyssey.Persistence.Sqlite
             if (ability == null) return Result<ActivateAbilityState>.Failure(Rejected(correlationId));
             if (!ability.IsEnabled) return Result<ActivateAbilityState>.Failure(Rejected(correlationId));
 
-            if (!ContentDefinitionRef.TryParse(ability.SourceRef, out ContentDefinitionRef definitionRef))
+            if (ability.ActivationDefinitionRef == null || !ability.ActivationDefinitionRef.Value.IsValid)
             {
                 return Result<ActivateAbilityState>.Failure(Rejected(correlationId));
             }
 
+            ContentDefinitionRef definitionRef = ability.ActivationDefinitionRef.Value;
             Result<ContentDefinitionRecord> fetched = _catalog.GetContentDefinition(campaign, definitionRef.DefinitionId, correlationId);
             if (fetched.IsFailure) return Result<ActivateAbilityState>.Failure(fetched.Error);
             ContentDefinitionRecord content = fetched.Value;
