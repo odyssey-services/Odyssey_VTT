@@ -998,7 +998,11 @@ namespace Odyssey.Persistence.Sqlite
         /// itself is never recomputed, chosen, or clamped upward/downward by
         /// any Ruleset formula here.
         /// </summary>
-        private static Result ApplyAttackDelta(SqliteConnection connection, SqliteTransaction transaction, AttackDelta delta, CommandId commandId, UtcInstant now, CorrelationId correlationId)
+        // ODY-S06-106: internal (not private) so SqliteActivateAbilityRepository -- a different
+        // repository in the same Odyssey.Persistence assembly -- can reuse this exact TargetRef-parsing/
+        // dispatch/clamping logic verbatim for ability-activation resource deltas, rather than duplicating
+        // it. Logic unchanged; visibility only.
+        internal static Result ApplyAttackDelta(SqliteConnection connection, SqliteTransaction transaction, AttackDelta delta, CommandId commandId, UtcInstant now, CorrelationId correlationId)
         {
             string[] segments = delta.TargetRef.Split(':');
             if (segments.Length != 3)
