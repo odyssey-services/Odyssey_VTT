@@ -923,6 +923,192 @@ namespace Odyssey.Persistence.Sqlite
             }
         }
 
+        /// <summary>
+        /// ODY-S06-107: public, standalone entry point (own connection/transaction, own idempotency ledger)
+        /// -- lets this primitive be exercised directly (`TC-INVENTORY-193`+) independent of `UseItem`.
+        /// Idempotency cannot use the usual re-select-based `TryReplay&lt;TRecord&gt;` pattern this file already
+        /// established elsewhere, since a fully-consumed row may no longer exist to re-select -- a small,
+        /// dedicated `ItemConsumptionLedger` records the outcome itself, read back directly on replay.
+        /// </summary>
+        public Result<ConsumeItemUnitOutcome> ConsumeItemUnit(CampaignHandle campaign, InventoryItemRef item, UserId actorUserId, bool actorIsMainGm, long expectedRevision, CommandId commandId, CorrelationId correlationId)
+        {
+            if (campaign == null) throw new ArgumentNullException(nameof(campaign));
+            if (!item.IsValid) throw new ArgumentException("Item reference is required.", nameof(item));
+            if (!actorUserId.IsValid) throw new ArgumentException("ActorUserId is required.", nameof(actorUserId));
+            if (!commandId.IsValid) throw new ArgumentException("CommandId is required.", nameof(commandId));
+            if (expectedRevision < 1) throw new ArgumentOutOfRangeException(nameof(expectedRevision));
+
+            try
+            {
+                using SqliteConnection connection = OpenConnection(campaign.RootPath);
+                EnsureInventoryTables(connection);
+                using SqliteTransaction transaction = connection.BeginTransaction();
+
+                ConsumeItemUnitOutcome? replayed = ReadConsumptionLedger(connection, transaction, commandId);
+                if (replayed != null)
+                {
+                    transaction.Commit();
+                    return Result<ConsumeItemUnitOutcome>.Success(replayed);
+                }
+
+                Result<ConsumedItemUnit> consumed = ConsumeItemUnitInTransaction(connection, transaction, item, expectedRevision, _clock.GetUtcNow(), correlationId);
+                if (consumed.IsFailure)
+                {
+                    transaction.Rollback();
+                    return Result<ConsumeItemUnitOutcome>.Failure(consumed.Error);
+                }
+
+                var outcome = new ConsumeItemUnitOutcome(item, consumed.Value.WasDeleted, consumed.Value.WasDeleted ? (long?)null : consumed.Value.PriorStack!.Quantity.Value - 1);
+                InsertConsumptionLedger(connection, transaction, commandId, outcome, _clock.GetUtcNow());
+                transaction.Commit();
+                return Result<ConsumeItemUnitOutcome>.Success(outcome);
+            }
+            catch (Exception ex) when (ex is IOException || ex is UnauthorizedAccessException || ex is SqliteException)
+            {
+                return Result<ConsumeItemUnitOutcome>.Failure(PersistenceFailures.InventoryIoFailed(correlationId));
+            }
+        }
+
+        private static ConsumeItemUnitOutcome? ReadConsumptionLedger(SqliteConnection connection, SqliteTransaction transaction, CommandId commandId)
+        {
+            using var select = connection.CreateCommand();
+            select.Transaction = transaction;
+            select.CommandText = "SELECT ItemRefKind, ItemRefId, WasFullyConsumed, RemainingQuantity FROM ItemConsumptionLedger WHERE CommandId = $commandId LIMIT 1;";
+            select.Parameters.AddWithValue("$commandId", commandId.ToString());
+            using SqliteDataReader reader = select.ExecuteReader();
+            if (!reader.Read()) return null;
+
+            var kind = (InventoryItemRefKind)Enum.Parse(typeof(InventoryItemRefKind), reader.GetString(0));
+            InventoryItemRef item = kind == InventoryItemRefKind.ItemStack
+                ? InventoryItemRef.ForStack(ItemStackId.Parse(reader.GetString(1)))
+                : InventoryItemRef.ForInstance(ItemInstanceId.Parse(reader.GetString(1)));
+            return new ConsumeItemUnitOutcome(item, reader.GetInt64(2) != 0, reader.IsDBNull(3) ? (long?)null : reader.GetInt64(3));
+        }
+
+        private static void InsertConsumptionLedger(SqliteConnection connection, SqliteTransaction transaction, CommandId commandId, ConsumeItemUnitOutcome outcome, UtcInstant now)
+        {
+            using var insert = connection.CreateCommand();
+            insert.Transaction = transaction;
+            insert.CommandText = "INSERT INTO ItemConsumptionLedger (CommandId, ItemRefKind, ItemRefId, WasFullyConsumed, RemainingQuantity, CreatedAt) VALUES ($commandId, $itemRefKind, $itemRefId, $wasFullyConsumed, $remainingQuantity, $createdAt);";
+            insert.Parameters.AddWithValue("$commandId", commandId.ToString());
+            insert.Parameters.AddWithValue("$itemRefKind", outcome.Item.Kind.ToString());
+            insert.Parameters.AddWithValue("$itemRefId", outcome.Item.Kind == InventoryItemRefKind.ItemStack ? outcome.Item.ItemStackId.ToString() : outcome.Item.ItemInstanceId.ToString());
+            insert.Parameters.AddWithValue("$wasFullyConsumed", outcome.WasFullyConsumed ? 1 : 0);
+            insert.Parameters.AddWithValue("$remainingQuantity", (object?)outcome.RemainingQuantity ?? DBNull.Value);
+            insert.Parameters.AddWithValue("$createdAt", now.ToString());
+            insert.ExecuteNonQuery();
+        }
+
+        /// <summary>
+        /// ODY-S06-107: internal (not private) so `SqliteUseItemRepository` -- a different repository in the
+        /// same `Odyssey.Persistence` assembly -- can reuse this exact consumption logic verbatim inside its
+        /// own atomic transaction (the same cross-repository reuse precedent `ODY-S06-106` already
+        /// established for `SqliteAttackApplyRepository.ApplyAttackDelta`). Decrements a stack's own
+        /// `Quantity` by 1, deleting the row entirely if that would leave 0 (`ItemStackQuantity` cannot
+        /// represent zero), or deletes a non-stackable instance outright (a single use consumes the whole
+        /// item -- `HasCharges`-bearing items are rejected upstream, before this method is ever called, so
+        /// no partial-charge case exists here). Captures the FULL prior record so a later compensating
+        /// `RestoreConsumedItemUnitInTransaction` call can recreate it exactly.
+        /// </summary>
+        internal static Result<ConsumedItemUnit> ConsumeItemUnitInTransaction(SqliteConnection connection, SqliteTransaction transaction, InventoryItemRef item, long expectedItemRevision, UtcInstant now, CorrelationId correlationId)
+        {
+            if (item.Kind == InventoryItemRefKind.ItemStack)
+            {
+                ItemStackRecord? stack = SelectItemStack(connection, transaction, item.ItemStackId.ToString());
+                if (stack == null) return Result<ConsumedItemUnit>.Failure(PersistenceFailures.ItemStackNotFound(correlationId));
+                if (stack.Revision != expectedItemRevision) return Result<ConsumedItemUnit>.Failure(InventoryMovementFailures.ItemRevisionConflict(correlationId));
+
+                if (stack.Quantity.Value <= 1)
+                {
+                    using var delete = connection.CreateCommand();
+                    delete.Transaction = transaction;
+                    delete.CommandText = "DELETE FROM ItemStack WHERE ItemStackId = $id AND Revision = $expectedRevision;";
+                    delete.Parameters.AddWithValue("$id", stack.ItemStackId.ToString());
+                    delete.Parameters.AddWithValue("$expectedRevision", expectedItemRevision);
+                    if (delete.ExecuteNonQuery() != 1) return Result<ConsumedItemUnit>.Failure(InventoryMovementFailures.ItemRevisionConflict(correlationId));
+                    return Result<ConsumedItemUnit>.Success(ConsumedItemUnit.ForDeletedStack(item, stack));
+                }
+
+                using (var update = connection.CreateCommand())
+                {
+                    update.Transaction = transaction;
+                    update.CommandText = "UPDATE ItemStack SET Quantity = $quantity, Revision = Revision + 1, UpdatedAt = $updatedAt WHERE ItemStackId = $id AND Revision = $expectedRevision;";
+                    update.Parameters.AddWithValue("$quantity", stack.Quantity.Value - 1);
+                    update.Parameters.AddWithValue("$updatedAt", now.ToString());
+                    update.Parameters.AddWithValue("$id", stack.ItemStackId.ToString());
+                    update.Parameters.AddWithValue("$expectedRevision", expectedItemRevision);
+                    if (update.ExecuteNonQuery() != 1) return Result<ConsumedItemUnit>.Failure(InventoryMovementFailures.ItemRevisionConflict(correlationId));
+                }
+
+                return Result<ConsumedItemUnit>.Success(ConsumedItemUnit.ForDecrementedStack(item, stack));
+            }
+
+            ItemInstanceRecord? instance = SelectItemInstance(connection, transaction, item.ItemInstanceId.ToString());
+            if (instance == null) return Result<ConsumedItemUnit>.Failure(PersistenceFailures.ItemInstanceNotFound(correlationId));
+            if (instance.Revision != expectedItemRevision) return Result<ConsumedItemUnit>.Failure(InventoryMovementFailures.ItemRevisionConflict(correlationId));
+
+            using (var delete = connection.CreateCommand())
+            {
+                delete.Transaction = transaction;
+                delete.CommandText = "DELETE FROM ItemInstance WHERE ItemInstanceId = $id AND Revision = $expectedRevision;";
+                delete.Parameters.AddWithValue("$id", instance.ItemInstanceId.ToString());
+                delete.Parameters.AddWithValue("$expectedRevision", expectedItemRevision);
+                if (delete.ExecuteNonQuery() != 1) return Result<ConsumedItemUnit>.Failure(InventoryMovementFailures.ItemRevisionConflict(correlationId));
+            }
+
+            return Result<ConsumedItemUnit>.Success(ConsumedItemUnit.ForDeletedInstance(item, instance));
+        }
+
+        /// <summary>
+        /// ODY-S06-107: reverses <see cref="ConsumeItemUnitInTransaction"/> -- re-inserts the exact prior row
+        /// (same id, same every field) when it was deleted, or increments a still-live stack's own `Quantity`
+        /// back by 1 (CAS-guarded against the revision `ConsumeItemUnitInTransaction`'s own decrement left
+        /// behind) otherwise. Restoring by re-insert rather than "create a new stack with the same quantity"
+        /// keeps the row's own identity (`ItemStackId`/`ItemInstanceId`) and every other field identical to
+        /// its pre-consumption state, per this task's own governing ТЗ §2.6 -- after full compensation, the
+        /// inventory is indistinguishable from before `UseItem` was ever called.
+        /// </summary>
+        internal static Result RestoreConsumedItemUnitInTransaction(SqliteConnection connection, SqliteTransaction transaction, ConsumedItemUnit consumed, UtcInstant now, CorrelationId correlationId)
+        {
+            if (consumed.WasDeleted)
+            {
+                if (consumed.PriorStack != null)
+                {
+                    ItemStackRecord prior = consumed.PriorStack;
+                    using var insert = connection.CreateCommand();
+                    insert.Transaction = transaction;
+                    insert.CommandText = "INSERT INTO ItemStack (ItemStackId, CampaignId, InventoryId, OwnerKind, OwnerTargetRef, OwnerLocationKey, LocationKind, LocationTargetRef, LocationDetailRef, SourceItemDefinitionRef, MechanicsSourceDefinitionRef, MechanicsDefinitionSnapshotVersion, MechanicsContentType, MechanicsPayload, Quantity, StackState, Revision, CreatedAt, UpdatedAt) VALUES ($itemStackId, $campaignId, $inventoryId, $ownerKind, $ownerTargetRef, $ownerLocationKey, $locationKind, $locationTargetRef, $locationDetailRef, $sourceItemDefinitionRef, $mechanicsSourceDefinitionRef, $mechanicsDefinitionSnapshotVersion, $mechanicsContentType, $mechanicsPayload, $quantity, $stackState, $revision, $createdAt, $updatedAt);";
+                    AddItemCommonParameters(insert, prior.CampaignId, prior.InventoryId, prior.OwnerRef, prior.LocationRef, prior.SourceItemDefinitionRef, prior.MechanicsSnapshot, prior.Revision, prior.CreatedAt, now);
+                    insert.Parameters.AddWithValue("$itemStackId", prior.ItemStackId.ToString());
+                    insert.Parameters.AddWithValue("$quantity", prior.Quantity.Value);
+                    insert.Parameters.AddWithValue("$stackState", prior.StackState);
+                    insert.ExecuteNonQuery();
+                    return Result.Success();
+                }
+
+                ItemInstanceRecord priorInstance = consumed.PriorInstance!;
+                using (var insert = connection.CreateCommand())
+                {
+                    insert.Transaction = transaction;
+                    insert.CommandText = "INSERT INTO ItemInstance (ItemInstanceId, CampaignId, InventoryId, OwnerKind, OwnerTargetRef, OwnerLocationKey, LocationKind, LocationTargetRef, LocationDetailRef, SourceItemDefinitionRef, MechanicsSourceDefinitionRef, MechanicsDefinitionSnapshotVersion, MechanicsContentType, MechanicsPayload, RuntimeState, Revision, CreatedAt, UpdatedAt) VALUES ($itemInstanceId, $campaignId, $inventoryId, $ownerKind, $ownerTargetRef, $ownerLocationKey, $locationKind, $locationTargetRef, $locationDetailRef, $sourceItemDefinitionRef, $mechanicsSourceDefinitionRef, $mechanicsDefinitionSnapshotVersion, $mechanicsContentType, $mechanicsPayload, $runtimeState, $revision, $createdAt, $updatedAt);";
+                    AddItemCommonParameters(insert, priorInstance.CampaignId, priorInstance.InventoryId, priorInstance.OwnerRef, priorInstance.LocationRef, priorInstance.SourceItemDefinitionRef, priorInstance.MechanicsSnapshot, priorInstance.Revision, priorInstance.CreatedAt, now);
+                    insert.Parameters.AddWithValue("$itemInstanceId", priorInstance.ItemInstanceId.ToString());
+                    insert.Parameters.AddWithValue("$runtimeState", priorInstance.RuntimeState);
+                    insert.ExecuteNonQuery();
+                }
+
+                return Result.Success();
+            }
+
+            using var update = connection.CreateCommand();
+            update.Transaction = transaction;
+            update.CommandText = "UPDATE ItemStack SET Quantity = Quantity + 1, Revision = Revision + 1, UpdatedAt = $updatedAt WHERE ItemStackId = $id AND Revision = $expectedRevision;";
+            update.Parameters.AddWithValue("$updatedAt", now.ToString());
+            update.Parameters.AddWithValue("$id", consumed.Item.ItemStackId.ToString());
+            update.Parameters.AddWithValue("$expectedRevision", consumed.RevisionAfterConsumption);
+            return update.ExecuteNonQuery() == 1 ? Result.Success() : Result.Failure(InventoryMovementFailures.ItemRevisionConflict(correlationId));
+        }
+
         private static string EscapeLike(string value)
         {
             return value
@@ -1995,7 +2181,11 @@ namespace Odyssey.Persistence.Sqlite
             insert.ExecuteNonQuery();
         }
 
-        private static void AddItemCommonParameters(
+        // ODY-S06-107: internal (not private) so SqliteUseItemRepository -- a different repository in the
+        // same Odyssey.Persistence assembly -- can reuse this exact parameter-binding logic verbatim inside
+        // its own atomic transaction (the same internal-visibility-for-cross-repository-reuse precedent
+        // ODY-S06-106 already established for SqliteAttackApplyRepository.ApplyAttackDelta). Logic unchanged.
+        internal static void AddItemCommonParameters(
             SqliteCommand command,
             CampaignId campaignId,
             InventoryId inventoryId,
@@ -2025,7 +2215,8 @@ namespace Odyssey.Persistence.Sqlite
             command.Parameters.AddWithValue("$updatedAt", updatedAt.ToString());
         }
 
-        private static InventoryRecord? SelectInventory(SqliteConnection connection, SqliteTransaction? transaction, string inventoryId)
+        // ODY-S06-107: internal (not private), same cross-repository reuse reason as AddItemCommonParameters above.
+        internal static InventoryRecord? SelectInventory(SqliteConnection connection, SqliteTransaction? transaction, string inventoryId)
         {
             using var select = connection.CreateCommand();
             select.Transaction = transaction;
@@ -2035,7 +2226,8 @@ namespace Odyssey.Persistence.Sqlite
             return reader.Read() ? ReadInventory(reader) : null;
         }
 
-        private static ItemInstanceRecord? SelectItemInstance(SqliteConnection connection, SqliteTransaction? transaction, string itemInstanceId)
+        // ODY-S06-107: internal (not private), same cross-repository reuse reason as AddItemCommonParameters above.
+        internal static ItemInstanceRecord? SelectItemInstance(SqliteConnection connection, SqliteTransaction? transaction, string itemInstanceId)
         {
             using var select = connection.CreateCommand();
             select.Transaction = transaction;
@@ -2045,7 +2237,8 @@ namespace Odyssey.Persistence.Sqlite
             return reader.Read() ? ReadItemInstance(reader) : null;
         }
 
-        private static ItemStackRecord? SelectItemStack(SqliteConnection connection, SqliteTransaction? transaction, string itemStackId)
+        // ODY-S06-107: internal (not private), same cross-repository reuse reason as AddItemCommonParameters above.
+        internal static ItemStackRecord? SelectItemStack(SqliteConnection connection, SqliteTransaction? transaction, string itemStackId)
         {
             using var select = connection.CreateCommand();
             select.Transaction = transaction;
@@ -2278,10 +2471,47 @@ CREATE TABLE IF NOT EXISTS ItemDefinitionMigrationCommandLedger (
     StackCount INTEGER NOT NULL CHECK (StackCount >= 0),
     AppliedAt TEXT NOT NULL
 );
+CREATE TABLE IF NOT EXISTS ItemConsumptionLedger (
+    CommandId TEXT PRIMARY KEY,
+    ItemRefKind TEXT NOT NULL,
+    ItemRefId TEXT NOT NULL,
+    WasFullyConsumed INTEGER NOT NULL,
+    RemainingQuantity INTEGER,
+    CreatedAt TEXT NOT NULL
+);
 CREATE INDEX IF NOT EXISTS IX_ItemInstance_Campaign_Inventory ON ItemInstance (CampaignId, InventoryId);
 CREATE INDEX IF NOT EXISTS IX_ItemStack_Campaign_Inventory ON ItemStack (CampaignId, InventoryId);
 CREATE INDEX IF NOT EXISTS IX_EquippedEntry_Campaign_Inventory ON EquippedEntry (CampaignId, InventoryId);";
             command.ExecuteNonQuery();
         }
+    }
+
+    /// <summary>
+    /// ODY-S06-107: `ConsumeItemUnitInTransaction`'s own captured "what happened" record -- durable enough
+    /// (via the caller's own JSON serialization into `ItemUsage.ConsumedItemUnitJson`) that a LATER,
+    /// separate call can fully reverse it via `RestoreConsumedItemUnitInTransaction`, without needing the
+    /// original in-memory objects. Internal (not private to any one class) since both `SqliteInventoryRepository`
+    /// and `SqliteUseItemRepository` construct/consume it, same assembly.
+    /// </summary>
+    internal sealed class ConsumedItemUnit
+    {
+        private ConsumedItemUnit(InventoryItemRef item, bool wasDeleted, long revisionAfterConsumption, ItemStackRecord? priorStack, ItemInstanceRecord? priorInstance)
+        {
+            Item = item;
+            WasDeleted = wasDeleted;
+            RevisionAfterConsumption = revisionAfterConsumption;
+            PriorStack = priorStack;
+            PriorInstance = priorInstance;
+        }
+
+        public InventoryItemRef Item { get; }
+        public bool WasDeleted { get; }
+        public long RevisionAfterConsumption { get; }
+        public ItemStackRecord? PriorStack { get; }
+        public ItemInstanceRecord? PriorInstance { get; }
+
+        public static ConsumedItemUnit ForDeletedStack(InventoryItemRef item, ItemStackRecord prior) => new ConsumedItemUnit(item, true, 0, prior, null);
+        public static ConsumedItemUnit ForDecrementedStack(InventoryItemRef item, ItemStackRecord prior) => new ConsumedItemUnit(item, false, prior.Revision + 1, prior, null);
+        public static ConsumedItemUnit ForDeletedInstance(InventoryItemRef item, ItemInstanceRecord prior) => new ConsumedItemUnit(item, true, 0, null, prior);
     }
 }

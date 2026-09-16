@@ -421,6 +421,73 @@ namespace Odyssey.Tests.Persistence
             Assert.That(TableExists("ContentDefinition"), Is.False, "Inventory persistence must not create or inspect the catalog table");
         }
 
+        [Test] // TC-INVENTORY-193
+        public void ConsumeItemUnit_StackWithQuantityGreaterThanOne_DecrementsByOne()
+        {
+            InventoryRecord inventory = CreateInventory();
+            ItemStackRecord stack = CreateItemStack(inventory, "main");
+            Assert.That(stack.Quantity.Value, Is.EqualTo(4));
+
+            Result<ConsumeItemUnitOutcome> result = _inventoryRepository.ConsumeItemUnit(_campaign, InventoryItemRef.ForStack(stack.ItemStackId), UserId.Parse("user_" + Guid.NewGuid().ToString("N")), true, stack.Revision, NewCommandId(), TestCorrelationId);
+
+            Assert.That(result.IsSuccess, Is.True);
+            Assert.That(result.Value.WasFullyConsumed, Is.False);
+            Assert.That(result.Value.RemainingQuantity, Is.EqualTo(3));
+            Result<ItemStackRecord> reread = _inventoryRepository.GetItemStack(_campaign, stack.ItemStackId, TestCorrelationId);
+            Assert.That(reread.IsSuccess, Is.True);
+            Assert.That(reread.Value.Quantity.Value, Is.EqualTo(3));
+            Assert.That(reread.Value.Revision, Is.EqualTo(stack.Revision + 1));
+        }
+
+        [Test] // TC-INVENTORY-194
+        public void ConsumeItemUnit_StackWithQuantityOne_DeletesTheRowEntirely()
+        {
+            InventoryRecord inventory = CreateInventory();
+            ItemStackRecord stack = CreateItemStackWithDefinition(inventory, new ContentDefinitionRef(ContentDefinitionId.NewId(Clock.GetUtcNow()), 1));
+            Assert.That(stack.Quantity.Value, Is.EqualTo(1));
+
+            Result<ConsumeItemUnitOutcome> result = _inventoryRepository.ConsumeItemUnit(_campaign, InventoryItemRef.ForStack(stack.ItemStackId), UserId.Parse("user_" + Guid.NewGuid().ToString("N")), true, stack.Revision, NewCommandId(), TestCorrelationId);
+
+            Assert.That(result.IsSuccess, Is.True);
+            Assert.That(result.Value.WasFullyConsumed, Is.True);
+            Assert.That(result.Value.RemainingQuantity, Is.Null);
+            Result<ItemStackRecord> reread = _inventoryRepository.GetItemStack(_campaign, stack.ItemStackId, TestCorrelationId);
+            Assert.That(reread.IsFailure, Is.True, "ItemStackQuantity cannot represent zero -- the last unit's own consumption must delete the row.");
+        }
+
+        [Test] // TC-INVENTORY-195
+        public void ConsumeItemUnit_Instance_DeletesTheRowEntirely()
+        {
+            InventoryRecord inventory = CreateInventory();
+            ItemInstanceRecord instance = CreateItemInstance(inventory, "main");
+
+            Result<ConsumeItemUnitOutcome> result = _inventoryRepository.ConsumeItemUnit(_campaign, InventoryItemRef.ForInstance(instance.ItemInstanceId), UserId.Parse("user_" + Guid.NewGuid().ToString("N")), true, instance.Revision, NewCommandId(), TestCorrelationId);
+
+            Assert.That(result.IsSuccess, Is.True);
+            Assert.That(result.Value.WasFullyConsumed, Is.True);
+            Result<ItemInstanceRecord> reread = _inventoryRepository.GetItemInstance(_campaign, instance.ItemInstanceId, TestCorrelationId);
+            Assert.That(reread.IsFailure, Is.True, "A single use of a non-stackable instance consumes the whole item.");
+        }
+
+        [Test] // TC-INVENTORY-196
+        public void ConsumeItemUnit_RetryWithSameCommandId_IsIdempotent_NoDoubleConsumption()
+        {
+            InventoryRecord inventory = CreateInventory();
+            ItemStackRecord stack = CreateItemStack(inventory, "main");
+            CommandId commandId = NewCommandId();
+            UserId user = UserId.Parse("user_" + Guid.NewGuid().ToString("N"));
+
+            Result<ConsumeItemUnitOutcome> first = _inventoryRepository.ConsumeItemUnit(_campaign, InventoryItemRef.ForStack(stack.ItemStackId), user, true, stack.Revision, commandId, TestCorrelationId);
+            Result<ConsumeItemUnitOutcome> second = _inventoryRepository.ConsumeItemUnit(_campaign, InventoryItemRef.ForStack(stack.ItemStackId), user, true, stack.Revision, commandId, TestCorrelationId);
+
+            Assert.That(first.IsSuccess, Is.True);
+            Assert.That(second.IsSuccess, Is.True);
+            Assert.That(second.Value.RemainingQuantity, Is.EqualTo(first.Value.RemainingQuantity));
+            Result<ItemStackRecord> reread = _inventoryRepository.GetItemStack(_campaign, stack.ItemStackId, TestCorrelationId);
+            Assert.That(reread.IsSuccess, Is.True);
+            Assert.That(reread.Value.Quantity.Value, Is.EqualTo(3), "A replayed CommandId must not consume a second unit.");
+        }
+
         private InventoryRecord CreateInventory()
         {
             InventoryRecord record = NewInventoryRecord();

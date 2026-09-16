@@ -6,6 +6,7 @@ using System.Text;
 using Odyssey.Application.Commands;
 using Odyssey.Application.Content;
 using Odyssey.Application.Effects;
+using Odyssey.Application.Mechanics;
 using Odyssey.Application.Random;
 using Odyssey.Application.Results;
 using Odyssey.Application.Time;
@@ -35,6 +36,11 @@ namespace Odyssey.Application.Persistence
     /// as the one wildcard-allowed Application directory and does not separately name a location for this
     /// orchestrating service -- an omission, not a deliberate exclusion (§2.5 explicitly requires building
     /// it) -- recorded explicitly here and in this task's own contract §18, not a silent deviation.
+    ///
+    /// ODY-S06-107: `ApplyEffect` was extracted verbatim into `Odyssey.Application.Mechanics.EffectApplicationHelper`
+    /// so `UseItemService` can reuse the exact same catalog-resolve/decode/`CreateActiveEffect` step instead
+    /// of duplicating code this class's own history (`ODY-S06-106`'s three doработка rounds) already proved
+    /// easy to get subtly wrong. No behavior change -- every `TC-ABILITY-*` test is unaffected.
     /// </summary>
     public static class ActivateAbilityService
     {
@@ -156,7 +162,7 @@ namespace Odyssey.Application.Persistence
                 for (int targetIndex = 0; targetIndex < request.Intent.TargetIds.Count; targetIndex++)
                 {
                     CharacterId targetId = request.Intent.TargetIds[targetIndex];
-                    Result<ActiveEffectRecord> applied = ApplyEffect(catalog, effects, clock, campaign, effectRef, targetId, request.ActorUserId, StableSubCommandId(request.CommandId, effectIndex, targetIndex), request.CorrelationId);
+                    Result<ActiveEffectRecord> applied = EffectApplicationHelper.ApplyEffect(catalog, effects, clock, campaign, effectRef, targetId, request.ActorUserId, StableSubCommandId(request.CommandId, effectIndex, targetIndex), request.CorrelationId);
                     if (applied.IsFailure)
                     {
                         Result<AbilityActivationRecord> compensated = apply.CompensateAbilityActivation(campaign, request.CommandId, createdEffectIds, request.ActorUserId, request.CorrelationId);
@@ -224,38 +230,6 @@ namespace Odyssey.Application.Persistence
             var values = new Dictionary<AttributeDefinitionId, long>(actor.Attributes.Count);
             foreach (AttributeValue attribute in actor.Attributes) values[attribute.AttributeDefinitionId] = attribute.EffectiveValue;
             return values;
-        }
-
-        /// <summary>Mirrors `ItemEffectLifecycleService`'s own established "resolve id through the catalog, do not trust a cache" pattern verbatim: `GetContentDefinition` by the ref's own `DefinitionId`, then validate `Version`/`Status`/`DefinitionType` before decoding, before ever constructing a real `ActiveEffect`.</summary>
-        private static Result<ActiveEffectRecord> ApplyEffect(IContentCatalogRepository catalog, IActiveEffectRepository effects, IWallClock clock, CampaignHandle campaign, ContentDefinitionRef effectRef, CharacterId targetId, UserId appliedByUserId, CommandId commandId, CorrelationId correlationId)
-        {
-            Result<ContentDefinitionRecord> fetched = catalog.GetContentDefinition(campaign, effectRef.DefinitionId, correlationId);
-            if (fetched.IsFailure) return Result<ActiveEffectRecord>.Failure(fetched.Error);
-            ContentDefinitionRecord content = fetched.Value;
-            if (content.Version != effectRef.Version || content.Status != ContentDefinitionStatus.Published || content.DefinitionType != ContentDefinitionType.Effect)
-            {
-                return Result<ActiveEffectRecord>.Failure(InvalidTarget(correlationId));
-            }
-
-            Result<EffectDefinition> decoded = TypedDefinitionCodec.DecodeEffect(content.DefinitionType, content.PropertiesJson, correlationId);
-            if (decoded.IsFailure) return Result<ActiveEffectRecord>.Failure(decoded.Error);
-
-            UtcInstant now = clock.GetUtcNow();
-            var mechanicsSnapshot = new EffectMechanicsSnapshot(effectRef, content.Version, content.DefinitionType, content.PropertiesJson);
-            var activeEffect = new ActiveEffect(
-                ActiveEffectId.NewId(now),
-                effectRef,
-                mechanicsSnapshot,
-                ActiveEffectSourceRef.ForAction(),
-                ActiveEffectTargetRef.ForCharacter(targetId),
-                ActiveEffectStatus.Active,
-                stackCount: 1,
-                appliedByUserId,
-                now,
-                expiresAt: null,
-                revision: 1);
-            var record = new ActiveEffectRecord(campaign.CampaignId, activeEffect);
-            return effects.CreateActiveEffect(campaign, record, commandId, correlationId);
         }
 
         private static string TargetRef(CharacterId characterId, ResourceDefinitionId resourceKind) => "character:" + characterId + ":" + resourceKind;

@@ -518,6 +518,7 @@ namespace Odyssey.Tests.Persistence
             public Result<bool> UnequipItem(CampaignHandle campaign, UnequipTransition transition, CorrelationId correlationId) => throw Reached();
             public Result<bool> HasAnyEquippedEntryReferencingBodyPart(CampaignHandle campaign, CampaignId campaignId, CharacterId characterId, BodyPartId bodyPartId, CorrelationId correlationId) => throw Reached();
             public Result<IReadOnlyList<EquippedEntryRecord>> ListEquippedEntriesByCharacter(CampaignHandle campaign, CampaignId campaignId, CharacterId characterId, CorrelationId correlationId) => throw Reached();
+            public Result<ConsumeItemUnitOutcome> ConsumeItemUnit(CampaignHandle campaign, InventoryItemRef item, UserId actorUserId, bool actorIsMainGm, long expectedRevision, CommandId commandId, CorrelationId correlationId) => throw Reached();
         }
     }
 }
