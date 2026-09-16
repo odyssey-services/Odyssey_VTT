@@ -57,12 +57,30 @@ namespace Odyssey.Application.Persistence
             // is a PERMANENT failure, never replayed as success -- that activation genuinely did not
             // succeed (its own resource deltas were reversed after a downstream ApplyEffect failure), so
             // returning it as a success here would be exactly the silent-success the product owner rejected.
+            //
+            // ODY-S06-106 doработка (THIRD fix, after independent verification found a retry after an
+            // INCOMPLETE compensation attempt -- CompensateAbilityActivation itself failing partway through,
+            // e.g. one effect removal succeeding and the next failing -- was silently reported as Success
+            // here, since CompensatedAt == null alone cannot distinguish "compensation never attempted" (a
+            // genuinely successful activation) from "compensation attempted but did not finish"):
+            // CompensationStartedAt (set durably, unconditionally, the FIRST time CompensateAbilityActivation
+            // ever runs for this CommandId, before any removal/reversal is attempted) now tells the two
+            // states apart. If it is non-null but CompensatedAt is still null, this activation is KNOWN to
+            // have failed and its own compensation is incomplete -- resume it (CompensateAbilityActivation
+            // itself reads its own durable created-effect-id list back, so the empty list passed here is
+            // safely ignored on a resume) and report failure regardless of whether the resumed attempt now
+            // finishes or fails again -- never Success, since the original activation never truly succeeded.
             Result<AbilityActivationRecord> existing = apply.GetActivation(campaign, request.CommandId, request.CorrelationId);
             if (existing.IsSuccess)
             {
-                return existing.Value.CompensatedAt != null
-                    ? Result<AbilityActivationRecord>.Failure(PreviouslyCompensated(request.CorrelationId))
-                    : existing;
+                if (existing.Value.CompensatedAt != null) return Result<AbilityActivationRecord>.Failure(PreviouslyCompensated(request.CorrelationId));
+                if (existing.Value.CompensationStartedAt != null)
+                {
+                    Result<AbilityActivationRecord> resumed = apply.CompensateAbilityActivation(campaign, request.CommandId, Array.Empty<ActiveEffectId>(), request.ActorUserId, request.CorrelationId);
+                    return Result<AbilityActivationRecord>.Failure(resumed.IsFailure ? resumed.Error : PreviouslyCompensated(request.CorrelationId));
+                }
+
+                return existing;
             }
 
             Result<bool> authorized = Authorize(reader, campaign, request);

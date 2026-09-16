@@ -322,6 +322,56 @@ namespace Odyssey.Tests.Persistence
             Assert.That(CountStillAttached(actor), Is.EqualTo(0));
         }
 
+        /// <summary>
+        /// ODY-S06-106 doработка (THIRD fix, product-owner-ordered after independent verification found a
+        /// retry after an INCOMPLETE compensation attempt was silently reported as `Success`): injects a
+        /// real failure INSIDE `CompensateAbilityActivation`'s own removal loop itself (not inside the
+        /// original `ApplyEffect` application, which `TC-ABILITY-010`/`013` already cover) -- three
+        /// `ApplyEffectPrimitive`s, the first two create real `ActiveEffect`s, the third fails (archived
+        /// ref), triggering compensation of the first two; a decorator wrapping the real
+        /// `IActiveEffectRepository` fails only the SECOND `RemoveActiveEffect` call (a real, distinct
+        /// `Result.Failure`, not a crash) while the first genuinely succeeds against the real database.
+        /// </summary>
+        [Test] // TC-ABILITY-014
+        public void ActivateAbility_CompensationItselfFailsPartway_RetryDoesNotSilentlySucceed()
+        {
+            CharacterId actor = Active("actor");
+            InitResource(actor, Mana);
+            ContentDefinitionRecord firstEffect = PublishFixtureEffect();
+            ContentDefinitionRecord secondEffect = PublishFixtureEffect();
+            ContentDefinitionRecord thirdEffect = PublishFixtureEffect();
+            var firstEffectRef = new ContentDefinitionRef(firstEffect.ContentDefinitionId, firstEffect.Version);
+            var secondEffectRef = new ContentDefinitionRef(secondEffect.ContentDefinitionId, secondEffect.Version);
+            var thirdEffectRef = new ContentDefinitionRef(thirdEffect.ContentDefinitionId, thirdEffect.Version);
+            ContentDefinitionRecord published = PublishAbilityWithThreeApplyEffects(costMana: 3, firstEffectRef, secondEffectRef, thirdEffectRef);
+            CharacterAbility ability = GrantActivatableAbility(actor, published);
+
+            Result<ContentDefinitionRecord> archived = ContentCatalogLifecycleService.ArchiveDefinition(_catalog, new ArchiveDefinitionRequest(_campaign, thirdEffect.ContentDefinitionId, "test archive", actorIsMainGm: true, Command(), Corr));
+            Assert.That(archived.IsSuccess, Is.True, archived.IsFailure ? archived.Error.Code.ToString() : string.Empty);
+
+            ActivateAbilityRequest request = Request(actor, ability.CharacterAbilityId, actor);
+
+            // First call: compensation removes the FIRST already-created effect for real, then fails on the
+            // SECOND removal (a real, distinct Result.Failure from the decorator, not a crash) -- before
+            // resource reversal or CompensatedAt is ever reached.
+            var failingEffects = new FailsNthRemovalActiveEffectRepository(_effects, failOnCallNumber: 2);
+            var apply1 = new SqliteActivateAbilityRepository(_clock, failingEffects);
+            Result<AbilityActivationRecord> first = ActivateAbilityService.ActivateAbility(_reader, apply1, _catalog, _effects, new ThrowingRandomFactory(), _clock, _campaign, Epoch, request);
+            Assert.That(first.IsFailure, Is.True, "The third, archived ApplyEffect must fail the whole activation.");
+            Assert.That(CurrentValue(actor, Mana), Is.EqualTo(7), "Compensation itself failed on the second effect removal before ever reaching resource reversal -- the cost charge is still applied, not yet reversed.");
+            Assert.That(CountStillAttached(actor), Is.EqualTo(1), "Exactly one of the two already-created effects (the second) must still be attached -- the first was genuinely removed before the injected failure.");
+
+            // Retry with the SAME CommandId, this time through a repository whose own IActiveEffectRepository
+            // is the real, undecorated one -- proving CompensateAbilityActivation genuinely finishes the SAME
+            // durable removal set the first attempt started (not a fresh, possibly-different one), and that
+            // the overall retry call NEVER reports Success even though the resumed compensation now completes.
+            var apply2 = new SqliteActivateAbilityRepository(_clock, _effects);
+            Result<AbilityActivationRecord> retried = ActivateAbilityService.ActivateAbility(_reader, apply2, _catalog, _effects, new ThrowingRandomFactory(), _clock, _campaign, Epoch, request);
+            Assert.That(retried.IsFailure, Is.True, "A retry after an incomplete compensation attempt must never be reported as Success, even once the resumed compensation now genuinely finishes.");
+            Assert.That(CurrentValue(actor, Mana), Is.EqualTo(10), "The resumed compensation call must finish reversing the cost charge.");
+            Assert.That(CountStillAttached(actor), Is.EqualTo(0), "The resumed compensation call must finish removing the second effect too -- consistent final state, not a state frozen halfway and masked as success.");
+        }
+
         // ---- helpers ----
 
         private ContentDefinitionRecord AuthorDraft(ContentDefinitionType type, string name, string propertiesJson, System.Collections.Generic.IReadOnlyList<ContentDefinitionRef>? dependencyRefs = null)
@@ -381,6 +431,16 @@ namespace Odyssey.Tests.Persistence
             var targetRule = new ContentTargetRule(ContentTargetSource.ActingCharacter, 1, 1, true);
             var ability = new AbilityDefinition(AbilityEntryPointType.ActiveAction, "OnUse", actionCost: 0, costs, targetRule, MechanicsPayloadCodec.EncodePrimitives(envelope));
             return PublishFixture(AuthorDraft(ContentDefinitionType.Ability, "Test Ability " + Guid.NewGuid().ToString("N"), TypedDefinitionCodec.EncodeAbility(ability), dependencyRefs: new[] { firstEffectRef, secondEffectRef }));
+        }
+
+        /// <summary>ODY-S06-106 doработка (third fix, TC-ABILITY-014): THREE `ApplyEffectPrimitive`s -- the first two are meant to stay Published (both real `ActiveEffect`s get created), the third is meant to be archived by the caller before activation, so compensation has TWO already-created effects to remove.</summary>
+        private ContentDefinitionRecord PublishAbilityWithThreeApplyEffects(long costMana, ContentDefinitionRef firstEffectRef, ContentDefinitionRef secondEffectRef, ContentDefinitionRef thirdEffectRef)
+        {
+            var envelope = new MechanicsPrimitiveEnvelope(1, new MechanicsPrimitive[] { new ApplyEffectPrimitive(firstEffectRef), new ApplyEffectPrimitive(secondEffectRef), new ApplyEffectPrimitive(thirdEffectRef) });
+            System.Collections.Generic.IReadOnlyList<AbilityResourceCost> costs = costMana > 0 ? new[] { new AbilityResourceCost(Mana, costMana) } : Array.Empty<AbilityResourceCost>();
+            var targetRule = new ContentTargetRule(ContentTargetSource.ActingCharacter, 1, 1, true);
+            var ability = new AbilityDefinition(AbilityEntryPointType.ActiveAction, "OnUse", actionCost: 0, costs, targetRule, MechanicsPayloadCodec.EncodePrimitives(envelope));
+            return PublishFixture(AuthorDraft(ContentDefinitionType.Ability, "Test Ability " + Guid.NewGuid().ToString("N"), TypedDefinitionCodec.EncodeAbility(ability), dependencyRefs: new[] { firstEffectRef, secondEffectRef, thirdEffectRef }));
         }
 
         /// <summary>
@@ -503,6 +563,48 @@ namespace Odyssey.Tests.Persistence
             private readonly IAuthoritativeRandomStreamFactory _inner = new DeterministicRandomStreamFactory(CampaignRngKey.FromBytes(new byte[32] { 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1 }));
             public int CreateCalls;
             public Result<IAuthoritativeRandomStream> Create(RandomDecisionContext context) { CreateCalls++; return _inner.Create(context); }
+        }
+
+        /// <summary>
+        /// ODY-S06-106 doработка (THIRD fix, TC-ABILITY-014): a real `IActiveEffectRepository`, forwarding
+        /// every call to the real, unmodified `_inner` implementation except that the `failOnCallNumber`-th
+        /// call to `RemoveActiveEffect` (across the whole repository, 1-based) returns a real, distinct
+        /// `Result.Failure` instead of touching the database at all -- models a genuine transient removal
+        /// failure (e.g. a real IO hiccup `SqliteActiveEffectRepository`'s own catch block would itself
+        /// produce), mirroring this same test file's own established precedent of small, real interface
+        /// implementations controlling one specific, deterministic behavior (`ThrowingRandomFactory`/
+        /// `FixedRandomStreamFactory`/`CountingRandomFactory` above) -- not a mocking framework, not bypassing
+        /// any real logic for calls it does not intercept.
+        /// </summary>
+        private sealed class FailsNthRemovalActiveEffectRepository : IActiveEffectRepository
+        {
+            private readonly IActiveEffectRepository _inner;
+            private readonly int _failOnCallNumber;
+            private int _removeCallCount;
+
+            public FailsNthRemovalActiveEffectRepository(IActiveEffectRepository inner, int failOnCallNumber)
+            {
+                _inner = inner;
+                _failOnCallNumber = failOnCallNumber;
+            }
+
+            public Result<ActiveEffectRecord> CreateActiveEffect(CampaignHandle campaign, ActiveEffectRecord record, CommandId commandId, CorrelationId correlationId) => _inner.CreateActiveEffect(campaign, record, commandId, correlationId);
+            public Result<ActiveEffectRecord> GetActiveEffect(CampaignHandle campaign, ActiveEffectId activeEffectId, CorrelationId correlationId) => _inner.GetActiveEffect(campaign, activeEffectId, correlationId);
+            public Result<System.Collections.Generic.IReadOnlyList<ActiveEffectRecord>> ListActiveEffectsByTarget(CampaignHandle campaign, CampaignId campaignId, ActiveEffectTargetRef targetRef, CorrelationId correlationId) => _inner.ListActiveEffectsByTarget(campaign, campaignId, targetRef, correlationId);
+            public Result<System.Collections.Generic.IReadOnlyList<ActiveEffectRecord>> ListActiveEffectsBySource(CampaignHandle campaign, CampaignId campaignId, ActiveEffectSourceRef sourceRef, CorrelationId correlationId) => _inner.ListActiveEffectsBySource(campaign, campaignId, sourceRef, correlationId);
+            public Result<ActiveEffectRecord> ExpireActiveEffect(CampaignHandle campaign, CampaignId campaignId, ActiveEffectId activeEffectId, long expectedRevision, CommandId commandId, CorrelationId correlationId) => _inner.ExpireActiveEffect(campaign, campaignId, activeEffectId, expectedRevision, commandId, correlationId);
+            public Result<long> SetItemEffectEquipped(CampaignHandle campaign, CampaignId campaignId, ActiveEffectId activeEffectId, bool equipped, long expectedRevision, UserId actorUserId, CommandId commandId, CorrelationId correlationId) => _inner.SetItemEffectEquipped(campaign, campaignId, activeEffectId, equipped, expectedRevision, actorUserId, commandId, correlationId);
+
+            public Result<ActiveEffectRecord> RemoveActiveEffect(CampaignHandle campaign, CampaignId campaignId, ActiveEffectId activeEffectId, UserId actorUserId, bool actorIsMainGm, long expectedRevision, CommandId commandId, CorrelationId correlationId)
+            {
+                _removeCallCount++;
+                if (_removeCallCount == _failOnCallNumber)
+                {
+                    return Result<ActiveEffectRecord>.Failure(PersistenceFailures.ActiveEffectIoFailed(correlationId));
+                }
+
+                return _inner.RemoveActiveEffect(campaign, campaignId, activeEffectId, actorUserId, actorIsMainGm, expectedRevision, commandId, correlationId);
+            }
         }
     }
 }

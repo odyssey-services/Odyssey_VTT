@@ -139,13 +139,13 @@ namespace Odyssey.Persistence.Sqlite
                             }
                         }
 
-                        var record = new AbilityActivationRecord(commandId, campaign.CampaignId, actorId, characterAbilityId, targetIds, resourceDeltas, effectsToApply, now, compensatedAt: null);
+                        var record = new AbilityActivationRecord(commandId, campaign.CampaignId, actorId, characterAbilityId, targetIds, resourceDeltas, effectsToApply, now, compensatedAt: null, compensationStartedAt: null);
 
                         using (var insert = connection.CreateCommand())
                         {
                             insert.Transaction = transaction;
-                            insert.CommandText = "INSERT INTO AbilityActivation (CommandId, CampaignId, ActorId, CharacterAbilityId, TargetIdsJson, ResourceDeltasJson, AppliedEffectRefsJson, CreatedAt, CompensatedAt) " +
-                                                  "VALUES ($commandId, $campaignId, $actorId, $characterAbilityId, $targetIdsJson, $resourceDeltasJson, $appliedEffectRefsJson, $createdAt, NULL);";
+                            insert.CommandText = "INSERT INTO AbilityActivation (CommandId, CampaignId, ActorId, CharacterAbilityId, TargetIdsJson, ResourceDeltasJson, AppliedEffectRefsJson, CreatedAt, CompensatedAt, CompensationStartedAt, CreatedEffectIdsJson) " +
+                                                  "VALUES ($commandId, $campaignId, $actorId, $characterAbilityId, $targetIdsJson, $resourceDeltasJson, $appliedEffectRefsJson, $createdAt, NULL, NULL, NULL);";
                             insert.Parameters.AddWithValue("$commandId", commandId.ToString());
                             insert.Parameters.AddWithValue("$campaignId", campaign.CampaignId.ToString());
                             insert.Parameters.AddWithValue("$actorId", actorId.ToString());
@@ -172,13 +172,30 @@ namespace Odyssey.Persistence.Sqlite
         /// <summary>
         /// ODY-S06-106 doработка (second fix, after independent verification found the first compensation
         /// fix still left already-created `ActiveEffect` rows behind on a later-effect/later-target
-        /// failure): removes every entry in <paramref name="createdEffectIds"/> first (see below), THEN
-        /// reverses <paramref name="originalCommandId"/>'s own already durable
+        /// failure): removes every already-created `ActiveEffect` first (see below), THEN reverses
+        /// <paramref name="originalCommandId"/>'s own already durable
         /// <see cref="AbilityActivationRecord.ResourceDeltas"/> by re-applying each one negated, atomically,
         /// in one NEW SQLite transaction, then marks the original row's own `CompensatedAt` column.
         /// Idempotent by construction: a second call reads `CompensatedAt` already non-null and returns the
         /// already-compensated record as a no-op success -- never a double reversal, never a second removal
         /// attempt.
+        ///
+        /// ODY-S06-106 doработка (THIRD fix, after independent verification found a retry after an
+        /// INCOMPLETE compensation attempt -- this method itself failing partway through, e.g. one effect
+        /// removal succeeding and the next one failing -- could be silently reported as `Success` by
+        /// `ActivateAbilityService`'s own top-of-method idempotency check, since `CompensatedAt == null`
+        /// alone cannot tell "never attempted" apart from "attempted, didn't finish"): the FIRST time this
+        /// method runs for a given <paramref name="originalCommandId"/>, it durably persists
+        /// <paramref name="createdEffectIds"/> into a new `CreatedEffectIdsJson` column and marks a new
+        /// `CompensationStartedAt` column, unconditionally, BEFORE attempting any removal (`EnsureCompensationStarted`,
+        /// a plain, self-guarded `UPDATE ... WHERE CompensationStartedAt IS NULL` -- idempotent by its own
+        /// `WHERE` clause, no separate `CommandId`-ledger entry needed since it never mutates game state, only
+        /// this method's own bookkeeping row). A LATER retry of this same method reads that DURABLE list back
+        /// (`ReadDurableCreatedEffectIds`) and finishes removing THAT list, ignoring whatever
+        /// <paramref name="createdEffectIds"/> the resuming caller happens to pass (typically empty, since
+        /// `ActivateAbilityService`'s own in-memory list from the original, now-abandoned attempt no longer
+        /// exists by the time a retry runs) -- so a resumed compensation call genuinely finishes the SAME
+        /// removal set the original attempt started, not a possibly-different, incomplete one.
         /// </summary>
         public Result<AbilityActivationRecord> CompensateAbilityActivation(CampaignHandle campaign, CommandId originalCommandId, IReadOnlyList<ActiveEffectId> createdEffectIds, UserId actorUserId, CorrelationId correlationId)
         {
@@ -202,6 +219,14 @@ namespace Odyssey.Persistence.Sqlite
                     return Result<AbilityActivationRecord>.Success(existing);
                 }
 
+                // ODY-S06-106 doработка (third fix): mark CompensationStartedAt and persist the effect-id
+                // list durably on the FIRST call only (the WHERE clause makes this a no-op on a retry); then
+                // always read the DURABLE list back, so a resumed call finishes the SAME set the original
+                // attempt started, never a possibly-different one built from a resuming caller's own
+                // (typically empty) in-memory list.
+                EnsureCompensationStarted(connection, originalCommandId, createdEffectIds, _clock.GetUtcNow());
+                IReadOnlyList<ActiveEffectId> effectIdsToRemove = ReadDurableCreatedEffectIds(connection, originalCommandId);
+
                 // ODY-S06-106 doработка (second fix, after independent verification found the first
                 // compensation fix still left already-created ActiveEffect rows behind on a later
                 // effect/target failure): every already-created ActiveEffect for THIS activation attempt is
@@ -215,8 +240,9 @@ namespace Odyssey.Persistence.Sqlite
                 // with CreateActiveEffect's own (a collision would make SqliteSavingPipeline treat the
                 // removal as a replay of the CREATE command and silently no-op). If any single removal
                 // fails, return immediately -- resource reversal/CompensatedAt are untouched, retryable
-                // later since every removal attempted so far is itself already idempotent.
-                foreach (ActiveEffectId effectId in createdEffectIds)
+                // later since every removal attempted so far is itself already idempotent, and
+                // CompensationStartedAt already durably marks this as "in progress, not a fresh success."
+                foreach (ActiveEffectId effectId in effectIdsToRemove)
                 {
                     CommandId removalCommandId = StableEffectRemovalCommandId(originalCommandId, effectId);
                     Result<ActiveEffectRecord> removed = _effects.RemoveActiveEffect(campaign, campaign.CampaignId, effectId, actorUserId, actorIsMainGm: true, expectedRevision: 1, removalCommandId, correlationId);
@@ -262,7 +288,7 @@ namespace Odyssey.Persistence.Sqlite
                             update.ExecuteNonQuery();
                         }
 
-                        var compensated = new AbilityActivationRecord(existing.CommandId, existing.CampaignId, existing.ActorId, existing.CharacterAbilityId, existing.TargetIds, existing.ResourceDeltas, existing.AppliedEffectRefs, existing.OccurredAt, compensatedAt: now);
+                        var compensated = new AbilityActivationRecord(existing.CommandId, existing.CampaignId, existing.ActorId, existing.CharacterAbilityId, existing.TargetIds, existing.ResourceDeltas, existing.AppliedEffectRefs, existing.OccurredAt, compensatedAt: now, compensationStartedAt: existing.CompensationStartedAt ?? now);
                         string payloadJson = "{\"originalCommandId\":\"" + originalCommandId + "\"}";
                         return Result<PipelineWrite<AbilityActivationRecord>>.Success(new PipelineWrite<AbilityActivationRecord>(
                             compensated, "odyssey.persistence.ability_activation_compensated", payloadJson, compensationCommandId.ToString(),
@@ -303,6 +329,49 @@ namespace Odyssey.Persistence.Sqlite
             return CommandId.Parse("cmd_" + text);
         }
 
+        /// <summary>
+        /// ODY-S06-106 doработка (third fix): durably marks `CompensationStartedAt`/`CreatedEffectIdsJson`
+        /// the FIRST time compensation is attempted for a given `CommandId` -- the `WHERE CompensationStartedAt
+        /// IS NULL` guard makes this a safe no-op on every subsequent (retry) call, so it never overwrites an
+        /// already-durable list with a possibly-different one a resuming caller happens to pass. Deliberately
+        /// NOT routed through `SqliteSavingPipeline`/`AppliedCommands` -- this is bookkeeping for THIS
+        /// method's own resumability, not a game-state mutation needing its own idempotency-ledger entry.
+        /// </summary>
+        private static void EnsureCompensationStarted(SqliteConnection connection, CommandId originalCommandId, IReadOnlyList<ActiveEffectId> createdEffectIds, UtcInstant now)
+        {
+            using var update = connection.CreateCommand();
+            update.CommandText = "UPDATE AbilityActivation SET CompensationStartedAt = $startedAt, CreatedEffectIdsJson = $effectIdsJson WHERE CommandId = $commandId AND CompensationStartedAt IS NULL;";
+            update.Parameters.AddWithValue("$startedAt", now.ToString());
+            update.Parameters.AddWithValue("$effectIdsJson", SerializeActiveEffectIds(createdEffectIds));
+            update.Parameters.AddWithValue("$commandId", originalCommandId.ToString());
+            update.ExecuteNonQuery();
+        }
+
+        /// <summary>ODY-S06-106 doработка (third fix): reads the durable `CreatedEffectIdsJson` column back -- the authoritative list a resumed `CompensateAbilityActivation` call finishes removing, regardless of what its own caller passed in.</summary>
+        private static IReadOnlyList<ActiveEffectId> ReadDurableCreatedEffectIds(SqliteConnection connection, CommandId originalCommandId)
+        {
+            using var select = connection.CreateCommand();
+            select.CommandText = "SELECT CreatedEffectIdsJson FROM AbilityActivation WHERE CommandId = $commandId LIMIT 1;";
+            select.Parameters.AddWithValue("$commandId", originalCommandId.ToString());
+            object? result = select.ExecuteScalar();
+            return result == null || result == DBNull.Value ? Array.Empty<ActiveEffectId>() : DeserializeActiveEffectIds((string)result);
+        }
+
+        private static string SerializeActiveEffectIds(IReadOnlyList<ActiveEffectId> ids)
+        {
+            var array = new JArray();
+            foreach (ActiveEffectId id in ids) array.Add(id.ToString());
+            return array.ToString(Newtonsoft.Json.Formatting.None);
+        }
+
+        private static IReadOnlyList<ActiveEffectId> DeserializeActiveEffectIds(string json)
+        {
+            var array = JArray.Parse(json);
+            var result = new List<ActiveEffectId>(array.Count);
+            foreach (JToken token in array) result.Add(ActiveEffectId.Parse((string)token!));
+            return result;
+        }
+
         /// <summary>ADR-022 section 5 rule 2's own fresh-read requirement -- reads straight from the `Character` row, not from any already-loaded `CharacterRecord`, so a concurrent mutation between `ActivateAbilityService`'s own read step and this commit is genuinely caught.</summary>
         private static Result<(long AbilitiesRevision, long ResourcesRevision)> ReadCharacterSectionRevisions(SqliteConnection connection, SqliteTransaction transaction, CharacterId characterId, CorrelationId correlationId)
         {
@@ -323,7 +392,7 @@ namespace Odyssey.Persistence.Sqlite
         {
             using var select = connection.CreateCommand();
             select.Transaction = transaction;
-            select.CommandText = "SELECT CommandId, CampaignId, ActorId, CharacterAbilityId, TargetIdsJson, ResourceDeltasJson, AppliedEffectRefsJson, CreatedAt, CompensatedAt FROM AbilityActivation WHERE CommandId = $commandId LIMIT 1;";
+            select.CommandText = "SELECT CommandId, CampaignId, ActorId, CharacterAbilityId, TargetIdsJson, ResourceDeltasJson, AppliedEffectRefsJson, CreatedAt, CompensatedAt, CompensationStartedAt FROM AbilityActivation WHERE CommandId = $commandId LIMIT 1;";
             select.Parameters.AddWithValue("$commandId", commandId.ToString());
             using SqliteDataReader reader = select.ExecuteReader();
             if (!reader.Read()) return null;
@@ -337,7 +406,8 @@ namespace Odyssey.Persistence.Sqlite
                 DeserializeDeltas(reader.GetString(5)),
                 DeserializeEffectRefs(reader.GetString(6)),
                 UtcInstant.Parse(reader.GetString(7)),
-                reader.IsDBNull(8) ? (UtcInstant?)null : UtcInstant.Parse(reader.GetString(8)));
+                reader.IsDBNull(8) ? (UtcInstant?)null : UtcInstant.Parse(reader.GetString(8)),
+                reader.IsDBNull(9) ? (UtcInstant?)null : UtcInstant.Parse(reader.GetString(9)));
         }
 
         private static string SerializeCharacterIds(IReadOnlyList<CharacterId> ids)
@@ -416,7 +486,9 @@ CREATE TABLE IF NOT EXISTS AbilityActivation (
     ResourceDeltasJson TEXT NOT NULL,
     AppliedEffectRefsJson TEXT NOT NULL,
     CreatedAt TEXT NOT NULL,
-    CompensatedAt TEXT
+    CompensatedAt TEXT,
+    CompensationStartedAt TEXT,
+    CreatedEffectIdsJson TEXT
 );
 CREATE INDEX IF NOT EXISTS IX_AbilityActivation_CampaignId ON AbilityActivation(CampaignId);";
             command.ExecuteNonQuery();

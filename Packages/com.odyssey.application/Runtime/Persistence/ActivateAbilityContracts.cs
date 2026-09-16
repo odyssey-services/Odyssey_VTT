@@ -112,7 +112,7 @@ namespace Odyssey.Application.Persistence
     /// </summary>
     public sealed class AbilityActivationRecord
     {
-        public AbilityActivationRecord(CommandId commandId, CampaignId campaignId, CharacterId actorId, CharacterAbilityId characterAbilityId, IReadOnlyList<CharacterId> targetIds, IReadOnlyList<AttackDelta> resourceDeltas, IReadOnlyList<ContentDefinitionRef> appliedEffectRefs, UtcInstant occurredAt, UtcInstant? compensatedAt)
+        public AbilityActivationRecord(CommandId commandId, CampaignId campaignId, CharacterId actorId, CharacterAbilityId characterAbilityId, IReadOnlyList<CharacterId> targetIds, IReadOnlyList<AttackDelta> resourceDeltas, IReadOnlyList<ContentDefinitionRef> appliedEffectRefs, UtcInstant occurredAt, UtcInstant? compensatedAt, UtcInstant? compensationStartedAt)
         {
             if (!commandId.IsValid) throw new ArgumentException("CommandId is required.", nameof(commandId));
             if (!campaignId.IsValid) throw new ArgumentException("CampaignId is required.", nameof(campaignId));
@@ -128,6 +128,7 @@ namespace Odyssey.Application.Persistence
             AppliedEffectRefs = Copy(appliedEffectRefs ?? throw new ArgumentNullException(nameof(appliedEffectRefs)));
             OccurredAt = occurredAt;
             CompensatedAt = compensatedAt;
+            CompensationStartedAt = compensationStartedAt;
         }
 
         public CommandId CommandId { get; }
@@ -150,6 +151,20 @@ namespace Odyssey.Application.Persistence
         /// just with a compensated/failed outcome instead of a successful one.
         /// </summary>
         public UtcInstant? CompensatedAt { get; }
+
+        /// <summary>
+        /// ODY-S06-106 doработка (third fix, after independent verification found a retry after an
+        /// INCOMPLETE compensation attempt -- `CompensateAbilityActivation` itself failing partway through --
+        /// was silently reported as `Success` by the top-of-method idempotency check, since `CompensatedAt`
+        /// alone cannot distinguish "compensation never attempted" (a genuinely successful activation) from
+        /// "compensation attempted but did not finish" -- both look identical as `CompensatedAt == null`).
+        /// Non-null means at least one compensation attempt has genuinely begun for this activation (set
+        /// durably, unconditionally, the FIRST time `CompensateAbilityActivation` runs, before any removal or
+        /// reversal is attempted) -- `ActivateAbilityService`'s own idempotency check now uses this to tell
+        /// the two states apart and never returns `Success` once it is non-null, even if `CompensatedAt`
+        /// itself is still null.
+        /// </summary>
+        public UtcInstant? CompensationStartedAt { get; }
 
         private static IReadOnlyList<T> Copy<T>(IReadOnlyList<T> source) { T[] copy = new T[source.Count]; for (int index = 0; index < copy.Length; index++) copy[index] = source[index]; return Array.AsReadOnly(copy); }
     }
@@ -210,6 +225,17 @@ namespace Odyssey.Application.Persistence
         /// If ANY effect removal fails, this method returns that failure immediately WITHOUT attempting
         /// resource reversal or setting `CompensatedAt` -- retryable later, since every removal attempted so
         /// far is itself already idempotent.
+        ///
+        /// ODY-S06-106 doработка (THIRD fix, after independent verification found a retry after an
+        /// incomplete compensation attempt could be silently reported as `Success`): the FIRST time this
+        /// method runs for a given <paramref name="originalCommandId"/>, it durably persists
+        /// <paramref name="createdEffectIds"/> and marks `CompensationStartedAt`, unconditionally, before
+        /// attempting any removal -- so a LATER retry (which cannot reconstruct the caller's own in-memory
+        /// list, since that list only ever exists during the original, now-abandoned `ActivateAbility` call)
+        /// reads the DURABLE list back and finishes the SAME removal set, ignoring whatever
+        /// <paramref name="createdEffectIds"/> a later caller happens to pass (typically empty, since a
+        /// resuming caller has no in-memory list of its own). This makes a resumed compensation call
+        /// genuinely complete the original work, not merely re-attempt a possibly-different, incomplete one.
         /// </summary>
         Result<AbilityActivationRecord> CompensateAbilityActivation(CampaignHandle campaign, CommandId originalCommandId, IReadOnlyList<ActiveEffectId> createdEffectIds, UserId actorUserId, CorrelationId correlationId);
     }
