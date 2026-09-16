@@ -1,7 +1,7 @@
 # ODY-S06-106 — `ActivateAbility` Root Command (Mechanics-Primitive Interpreter, First Implementation)
 
 ## 1. Task identity
-`ODY-S06-106`; status: In Review (branch `feat/ody-s06-106-activate-ability`, Draft PR to be opened, merge left to the product owner). Sixth task of `SLICE-06`, the first real command mutating character state through `ADR-030` §7's mechanics-primitive schema.
+`ODY-S06-106`; status: In Review (Draft PR [#162](https://github.com/odyssey-services/Odyssey_VTT/pull/162), CI green, merge left to the product owner). Sixth task of `SLICE-06`, the first real command mutating character state through `ADR-030` §7's mechanics-primitive schema.
 
 ## 2. Goal
 Build `ActivateAbility`, a standalone root command letting a character with an activatable `CharacterAbility` spend its resource cost, interpret its `AbilityDefinition.MechanicsPayloadRef` through a real, first-ever `MechanicsPrimitiveEnvelope`/`MechanicsPrimitiveInterpreter` (`ADR-030` §7), and apply the resulting `AdjustResource`/`ApplyEffect` outcomes atomically -- independent of any `CombatEncounter` (`ADR-030` §9.3).
