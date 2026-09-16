@@ -1,5 +1,6 @@
 using System;
 using System.Text.RegularExpressions;
+using Odyssey.Domain.Content;
 using Odyssey.Domain.Identity;
 using Odyssey.Domain.Time;
 
@@ -140,13 +141,48 @@ namespace Odyssey.Domain.Character
             Configuration = configuration;
             UsesState = usesState;
             Revision = revision;
+            ActivationDefinitionRef = null;
+        }
+
+        /// <summary>
+        /// ODY-S06-106 doработка (product-owner-ordered, after independent verification rejected the
+        /// original PR #162's own use of <see cref="SourceRef"/> as the bridge): an additive overload
+        /// carrying <paramref name="activationDefinitionRef"/> -- a SEPARATE field from
+        /// <see cref="SourceRef"/>, not a repurposing of it. <see cref="SourceRef"/>'s own documented
+        /// contract (provenance only, null for <see cref="Character.SourceKind.ProgressionPurchase"/>/
+        /// <see cref="Character.SourceKind.GMGrant"/>) is left fully intact and enforced nowhere near this
+        /// field. This is the real <see cref="AbilityDefinitionId"/> (a fixture-only Ruleset key, `ODY-S04-108`,
+        /// with no real backing catalog table) to <see cref="ContentDefinitionRef"/> (the real content
+        /// catalog's own opaque key, `ODY-S05-101`+) bridge: null means "not activatable" (an ability
+        /// acquired the ordinary way, e.g. via <c>AcquireAbility</c>, has no real catalog-backed mechanics
+        /// payload linked yet); a real value means an authoring-time (`ICharacterRepository.
+        /// LinkAbilityActivationSource`, MainGM-only) decision that this specific `CharacterAbility`
+        /// instance's own mechanics are resolved through that exact published `ContentDefinition`.
+        /// </summary>
+        public CharacterAbility(
+            CharacterAbilityId characterAbilityId,
+            AbilityDefinitionId abilityDefinitionId,
+            SourceKind sourceKind,
+            string? sourceRef,
+            UtcInstant acquiredAt,
+            RankMode rankMode,
+            long? numericRank,
+            string? namedRankKey,
+            bool isEnabled,
+            string configuration,
+            string? usesState,
+            long revision,
+            ContentDefinitionRef? activationDefinitionRef)
+            : this(characterAbilityId, abilityDefinitionId, sourceKind, sourceRef, acquiredAt, rankMode, numericRank, namedRankKey, isEnabled, configuration, usesState, revision)
+        {
+            ActivationDefinitionRef = activationDefinitionRef;
         }
 
         public CharacterAbilityId CharacterAbilityId { get; }
         public AbilityDefinitionId AbilityDefinitionId { get; }
         public SourceKind SourceKind { get; }
 
-        /// <summary>Provenance only -- e.g. the item/effect instance id this ability came from. Null for <see cref="Character.SourceKind.ProgressionPurchase"/>/<see cref="Character.SourceKind.GMGrant"/>.</summary>
+        /// <summary>Provenance only -- e.g. the item/effect instance id this ability came from. Null for <see cref="Character.SourceKind.ProgressionPurchase"/>/<see cref="Character.SourceKind.GMGrant"/>. Never repurposed as an activation-catalog bridge -- see <see cref="ActivationDefinitionRef"/>.</summary>
         public string? SourceRef { get; }
         public UtcInstant AcquiredAt { get; }
         public RankMode RankMode { get; }
@@ -160,5 +196,13 @@ namespace Odyssey.Domain.Character
 
         /// <summary>ADR-022 section 6's entry-level revision for the <c>CharacterAbility:&lt;CharacterAbilityId&gt;</c> lock key -- independent of the section-wide <c>CharacterAbilitiesRevision</c>.</summary>
         public long Revision { get; }
+
+        /// <summary>
+        /// ODY-S06-106 doработка: the real <see cref="AbilityDefinitionId"/>-to-<see cref="ContentDefinitionRef"/>
+        /// activation bridge, entirely separate from <see cref="SourceRef"/>. Null means this ability
+        /// instance is not activatable via <c>ActivateAbility</c> (its own mechanics have not been linked to
+        /// a real catalog-published definition). Set only via <c>ICharacterRepository.LinkAbilityActivationSource</c>.
+        /// </summary>
+        public ContentDefinitionRef? ActivationDefinitionRef { get; }
     }
 }
