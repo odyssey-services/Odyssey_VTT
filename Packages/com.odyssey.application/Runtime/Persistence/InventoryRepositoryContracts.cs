@@ -163,6 +163,41 @@ namespace Odyssey.Application.Persistence
         /// snapshot (`ADR-030`), without introducing a broader "inventory by character" abstraction.
         /// </summary>
         Result<IReadOnlyList<EquippedEntryRecord>> ListEquippedEntriesByCharacter(CampaignHandle campaign, CampaignId campaignId, CharacterId characterId, CorrelationId correlationId);
+
+        /// <summary>
+        /// ODY-S06-107: consumes exactly one unit of a stackable/single-use item -- `UseItem`'s own
+        /// resource-cost analogue, by the same narrow-addition precedent <see cref="ListEquippedEntriesByCharacter"/>
+        /// already established for this port (a purpose-specific primitive, not a broader "adjust any
+        /// quantity by any amount" abstraction nothing in this codebase has asked for yet). For a stack
+        /// (<see cref="ItemStackRecord"/>), decrements <c>Quantity</c> by 1, or deletes the row entirely if
+        /// that would leave 0 (<see cref="Odyssey.Domain.Inventory.ItemStackQuantity"/> cannot represent
+        /// zero -- confirmed by direct code read before designing this method). For a non-stackable
+        /// <see cref="ItemInstanceRecord"/>, deletes it outright -- a single use consumes the whole item.
+        /// This port's own class doc comment ("deliberately does not... check permissions") is honored: this
+        /// method accepts <paramref name="actorUserId"/>/<paramref name="actorIsMainGm"/> for interface parity
+        /// with every other actor-carrying command in this codebase, but performs no permission gate itself
+        /// -- the caller (`UseItemService`) is responsible for authorization before ever reaching this call.
+        /// CAS-guarded against <paramref name="expectedRevision"/> (the stack/instance row's own `Revision`),
+        /// idempotent by <paramref name="commandId"/> via a dedicated ledger (a re-select-based replay is not
+        /// possible here, since a fully-consumed row's own record may no longer exist to re-select).
+        /// </summary>
+        Result<ConsumeItemUnitOutcome> ConsumeItemUnit(CampaignHandle campaign, InventoryItemRef item, UserId actorUserId, bool actorIsMainGm, long expectedRevision, CommandId commandId, CorrelationId correlationId);
+    }
+
+    /// <summary>ODY-S06-107: `IInventoryRepository.ConsumeItemUnit`'s own outcome -- <see cref="RemainingQuantity"/> is null when the row was deleted entirely (a non-stackable instance, or a stack's own last unit).</summary>
+    public sealed class ConsumeItemUnitOutcome
+    {
+        public ConsumeItemUnitOutcome(InventoryItemRef item, bool wasFullyConsumed, long? remainingQuantity)
+        {
+            if (!item.IsValid) throw new ArgumentException("Item reference is required.", nameof(item));
+            Item = item;
+            WasFullyConsumed = wasFullyConsumed;
+            RemainingQuantity = remainingQuantity;
+        }
+
+        public InventoryItemRef Item { get; }
+        public bool WasFullyConsumed { get; }
+        public long? RemainingQuantity { get; }
     }
 
     public sealed class InventoryCreateReplay<TRecord>
