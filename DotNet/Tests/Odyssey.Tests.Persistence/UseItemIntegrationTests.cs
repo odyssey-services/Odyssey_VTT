@@ -192,6 +192,85 @@ namespace Odyssey.Tests.Persistence
             Assert.That(final.Value.Quantity.Value, Is.EqualTo(2), "The resumed compensation must finish restoring the consumed unit too.");
         }
 
+        /// <summary>
+        /// ODY-S06-107 doработка (product-owner-ordered, after independent verification found the
+        /// delete-and-reinsert restore branch of `RestoreConsumedItemUnitInTransaction` had zero test
+        /// coverage): a stack with quantity 1 -- consumption physically deletes the row (`ItemStackQuantity`
+        /// cannot represent zero), so compensation must go through the delete-and-reinsert branch, not the
+        /// decrement/increment branch `TC-USEITEM-005`/`006` already cover. Verifies the restored row's own
+        /// `Revision` equals the PRE-consumption value exactly (`prior.Revision`, no artificial advance) --
+        /// unlike the decrement branch, which legitimately advances by 2 across a full round trip.
+        /// </summary>
+        [Test] // TC-USEITEM-011
+        public void UseItem_FullyConsumedStack_CompensationRestoresExactPriorRecord_RevisionUnchanged()
+        {
+            CharacterId actor = Active("actor");
+            InventoryRecord inventory = CreateInventory(actor);
+            ContentDefinitionRecord firstApplied = PublishFixtureAppliedEffect();
+            ContentDefinitionRecord secondApplied = PublishFixtureAppliedEffect();
+            ContentDefinitionRecord itemEffect1 = PublishApplyEffectEffect(firstApplied);
+            ContentDefinitionRecord itemEffect2 = PublishApplyEffectEffect(secondApplied);
+            ItemStackRecord stack = CreateStack(inventory, quantity: 1, itemEffect1, itemEffect2);
+
+            Result<ContentDefinitionRecord> archived = ContentCatalogLifecycleService.ArchiveDefinition(_catalog, new ArchiveDefinitionRequest(_campaign, secondApplied.ContentDefinitionId, "test archive", actorIsMainGm: true, Command(), Corr));
+            Assert.That(archived.IsSuccess, Is.True, archived.IsFailure ? archived.Error.Code.ToString() : string.Empty);
+
+            UseItemRequest request = Request(actor, InventoryItemRef.ForStack(stack.ItemStackId), stack.Revision, inventory.Revision);
+            Result<ItemUsageRecord> result = UseItemService.UseItem(_reader, _apply, _catalog, _effects, new ThrowingRandomFactory(), _clock, _campaign, Epoch, request);
+
+            Assert.That(result.IsFailure, Is.True, "The second, archived ApplyEffect must fail the whole use.");
+            Result<ItemStackRecord> reread = _inventory.GetItemStack(_campaign, stack.ItemStackId, Corr);
+            Assert.That(reread.IsSuccess, Is.True, "The deleted stack row must be re-inserted by compensation.");
+            Assert.That(reread.Value.ItemStackId, Is.EqualTo(stack.ItemStackId));
+            Assert.That(reread.Value.InventoryId, Is.EqualTo(stack.InventoryId));
+            Assert.That(reread.Value.OwnerRef, Is.EqualTo(stack.OwnerRef));
+            Assert.That(reread.Value.Quantity.Value, Is.EqualTo(1), "The exact prior quantity must be restored.");
+            Assert.That(reread.Value.Revision, Is.EqualTo(stack.Revision), "The delete-and-reinsert restore branch writes back prior.Revision exactly -- unlike the decrement/increment branch (TC-USEITEM-005/006), which legitimately advances by 2, this branch never artificially advances the revision at all.");
+            Assert.That(CountStillAttached(actor), Is.EqualTo(0), "The already-created first effect must be removed too.");
+
+            Result<ItemUsageRecord> retried = UseItemService.UseItem(_reader, _apply, _catalog, _effects, new ThrowingRandomFactory(), _clock, _campaign, Epoch, request);
+            Assert.That(retried.IsFailure, Is.True, "A retry of a compensated CommandId must remain a permanent failure -- never a silent success.");
+        }
+
+        /// <summary>
+        /// ODY-S06-107 doработка (product-owner-ordered, same finding as `TC-USEITEM-011`): a non-stackable
+        /// `ItemInstanceRecord` (no `HasCharges`) -- consumption always deletes the instance outright (a
+        /// single use consumes the whole item), so compensation always goes through the delete-and-reinsert
+        /// branch for instances. Verifies the restored instance is the exact prior record, including its own
+        /// unchanged `Revision`.
+        /// </summary>
+        [Test] // TC-USEITEM-012
+        public void UseItem_NonStackableInstance_CompensationRestoresExactPriorRecord_RevisionUnchanged()
+        {
+            CharacterId actor = Active("actor");
+            InventoryRecord inventory = CreateInventory(actor);
+            ContentDefinitionRecord firstApplied = PublishFixtureAppliedEffect();
+            ContentDefinitionRecord secondApplied = PublishFixtureAppliedEffect();
+            ContentDefinitionRecord itemEffect1 = PublishApplyEffectEffect(firstApplied);
+            ContentDefinitionRecord itemEffect2 = PublishApplyEffectEffect(secondApplied);
+            var effectRefs = new[] { new ContentDefinitionRef(itemEffect1.ContentDefinitionId, itemEffect1.Version), new ContentDefinitionRef(itemEffect2.ContentDefinitionId, itemEffect2.Version) };
+            var itemDefinition = new ItemDefinition(ItemCategory.Consumable, false, null, 1, false, null, false, null, Array.Empty<ContentDefinitionRef>(), effectRefs);
+            ItemInstanceRecord instance = CreateInstance(inventory, itemDefinition);
+
+            Result<ContentDefinitionRecord> archived = ContentCatalogLifecycleService.ArchiveDefinition(_catalog, new ArchiveDefinitionRequest(_campaign, secondApplied.ContentDefinitionId, "test archive", actorIsMainGm: true, Command(), Corr));
+            Assert.That(archived.IsSuccess, Is.True, archived.IsFailure ? archived.Error.Code.ToString() : string.Empty);
+
+            UseItemRequest request = Request(actor, InventoryItemRef.ForInstance(instance.ItemInstanceId), instance.Revision, inventory.Revision);
+            Result<ItemUsageRecord> result = UseItemService.UseItem(_reader, _apply, _catalog, _effects, new ThrowingRandomFactory(), _clock, _campaign, Epoch, request);
+
+            Assert.That(result.IsFailure, Is.True, "The second, archived ApplyEffect must fail the whole use.");
+            Result<ItemInstanceRecord> reread = _inventory.GetItemInstance(_campaign, instance.ItemInstanceId, Corr);
+            Assert.That(reread.IsSuccess, Is.True, "The deleted instance must be re-inserted by compensation.");
+            Assert.That(reread.Value.ItemInstanceId, Is.EqualTo(instance.ItemInstanceId));
+            Assert.That(reread.Value.InventoryId, Is.EqualTo(instance.InventoryId));
+            Assert.That(reread.Value.OwnerRef, Is.EqualTo(instance.OwnerRef));
+            Assert.That(reread.Value.Revision, Is.EqualTo(instance.Revision), "The delete-and-reinsert restore branch writes back prior.Revision exactly for instances too.");
+            Assert.That(CountStillAttached(actor), Is.EqualTo(0), "The already-created first effect must be removed too.");
+
+            Result<ItemUsageRecord> retried = UseItemService.UseItem(_reader, _apply, _catalog, _effects, new ThrowingRandomFactory(), _clock, _campaign, Epoch, request);
+            Assert.That(retried.IsFailure, Is.True, "A retry of a compensated CommandId must remain a permanent failure -- never a silent success.");
+        }
+
         [Test] // TC-USEITEM-007
         public void UseItem_ItemWithHasCharges_HonestRejection_NotACrash()
         {
