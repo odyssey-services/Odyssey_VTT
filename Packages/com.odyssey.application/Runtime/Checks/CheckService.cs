@@ -51,10 +51,18 @@ namespace Odyssey.Application.Checks
             // itself performs no CommandId-keyed replay (confirmed by direct code read -- there is no
             // AppliedCommands-style check anywhere inside it), so THIS check is the only thing standing
             // between a retried CommandId and a second real dice roll. It must run before anything else.
+            //
+            // ODY-S07-102 doработка (product-owner-ordered fix, after independent verification found a real
+            // RollId desynchronization): this is NOT a plain early-return. RecordCheckOutcome now durably
+            // commits BEFORE RecordCriticalSuccessEvidence is ever called (see below), so an already-found
+            // record may still have an unresolved RecordCriticalSuccessEvidence obligation left over from an
+            // interrupted prior attempt -- ResumeCriticalSuccessEvidenceIfNeeded re-attempts exactly that
+            // (idempotently, via the same deterministic sub-CommandId), never re-deriving RNG, since
+            // SubmitRoll is never reached on this path at all.
             Result<CheckOutcomeRecord> existing = apply.GetCheckOutcome(campaign, request.CommandId, request.CorrelationId);
             if (existing.IsSuccess)
             {
-                return existing;
+                return ResumeCriticalSuccessEvidenceIfNeeded(characters, campaign, request, existing.Value);
             }
 
             Result<CheckParticipantState> state = reader.Read(campaign, request.Intent.ActorId, request.CorrelationId);
@@ -107,14 +115,53 @@ namespace Odyssey.Application.Checks
 
             CheckOutcome outcome = evaluator.Evaluate(resolution, dieValues, dieSides, roll.FinalTotal, request.Intent.DifficultyClass);
 
+            // ODY-S07-102 doработка: RecordCheckOutcome commits FIRST, durably fixing which DiceRoll this
+            // check's own outcome is permanently tied to -- BEFORE RecordCriticalSuccessEvidence is ever
+            // called. RecordCriticalSuccessEvidence is then always given the DiceRollId read back from that
+            // just-committed record (never the local `roll` variable), so whichever DiceRoll actually ends
+            // up durable in CheckOutcomeRecord is unconditionally the one evidence references too -- the
+            // desynchronization independent verification found (SubmitRoll re-rolling on a retry inside the
+            // old evidence-before-outcome window, leaving the two durable records pointing at two different
+            // DiceRoll ids) is now structurally impossible, not merely less likely.
+            Result<CheckOutcomeRecord> recorded = apply.RecordCheckOutcome(
+                campaign, request.Intent.ActorId, request.Intent.Formula, request.Intent.DifficultyClass,
+                roll.RollId, outcome.Result, outcome.IsNaturalMaximum, resolution.ResolvedSkillId,
+                request.CommandId, request.CorrelationId);
+            if (recorded.IsFailure)
+            {
+                return recorded;
+            }
+
+            return ResumeCriticalSuccessEvidenceIfNeeded(characters, campaign, request, recorded.Value);
+        }
+
+        /// <summary>
+        /// ODY-S07-102 doработка: called both on the fresh-success path (right after `RecordCheckOutcome`
+        /// just committed) and on the idempotency-replay path (when `GetCheckOutcome` found an
+        /// already-committed record from a prior, possibly interrupted attempt). Either way, the
+        /// `sourceDiceRollId` passed to `RecordCriticalSuccessEvidence` is read from the DURABLE
+        /// `CheckOutcomeRecord.DiceRollId`, never from a local `DiceRoll` variable belonging to whichever
+        /// call happened to reach this point -- the one change that makes the two durable records
+        /// structurally unable to disagree about which roll produced the natural maximum. A failure here
+        /// (e.g. a transient I/O error) returns `Result.Failure`, never a silent success -- `CheckOutcomeRecord`
+        /// is already durable at this point, so a retry of the same `CommandId` finds it via `GetCheckOutcome`
+        /// and re-enters this exact method again, safely: `RecordCriticalSuccessEvidence`'s own deterministic
+        /// sub-`CommandId` (`StableSubCommandId`) makes a repeated call to it idempotent through
+        /// `ICharacterRepository`'s own existing ledger, and repeating THIS method itself on a further retry
+        /// (a "retry of the retry") is equally safe by the same reasoning -- there is no additional state
+        /// this method itself accumulates beyond what `RecordCriticalSuccessEvidence`'s own idempotent write
+        /// already guards.
+        /// </summary>
+        private static Result<CheckOutcomeRecord> ResumeCriticalSuccessEvidenceIfNeeded(ICharacterRepository characters, CampaignHandle campaign, CheckRequest request, CheckOutcomeRecord record)
+        {
             // ADR-031 section 10: real critical success on a real skill check calls RecordCriticalSuccessEvidence
             // with the real DiceRoll.RollId -- never a synthetic value, and never for an attribute-only check
-            // (section 10's own explicit scope limit -- ResolvedSkillId is null for those).
-            if (outcome.IsNaturalMaximum && resolution.ResolvedSkillId.HasValue)
+            // (section 10's own explicit scope limit -- ResolvedSkill is null for those).
+            if (record.IsNaturalMaximum && record.ResolvedSkill.HasValue)
             {
                 Result<CriticalSuccessEvidenceRecord> evidence = characters.RecordCriticalSuccessEvidence(
-                    campaign, request.Intent.ActorId, resolution.ResolvedSkillId.Value,
-                    sourceDiceRollId: roll.RollId, sourceActionId: request.CommandId.ToString(),
+                    campaign, request.Intent.ActorId, record.ResolvedSkill.Value,
+                    sourceDiceRollId: record.DiceRollId, sourceActionId: request.CommandId.ToString(),
                     StableSubCommandId(request.CommandId), request.CorrelationId);
                 if (evidence.IsFailure)
                 {
@@ -122,10 +169,7 @@ namespace Odyssey.Application.Checks
                 }
             }
 
-            return apply.RecordCheckOutcome(
-                campaign, request.Intent.ActorId, request.Intent.Formula, request.Intent.DifficultyClass,
-                roll.RollId, outcome.Result, outcome.IsNaturalMaximum, resolution.ResolvedSkillId,
-                request.CommandId, request.CorrelationId);
+            return Result<CheckOutcomeRecord>.Success(record);
         }
 
         /// <summary>Mirrors `ActivateAbilityService.StableSubCommandId`'s own established pattern for deriving a deterministic sub-`CommandId` from a root `CommandId` plus a stable purpose string -- lets a retry of a check whose `RecordCriticalSuccessEvidence` call already succeeded replay idempotently through `ICharacterRepository`'s own existing ledger, even in the narrow window before this command's own `RecordCheckOutcome` has durably landed.</summary>
