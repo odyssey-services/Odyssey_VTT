@@ -100,13 +100,17 @@ namespace Odyssey.Application.Content
                 case ContentDefinitionType.Effect:
                     ValidateEffect(record, request.CorrelationId, issues);
                     break;
+                case ContentDefinitionType.Skill:
+                    ValidateSkill(record, request.CorrelationId, issues);
+                    break;
                 default:
                     // ODY-S05-105 gave a real typed shape only to these 6
-                    // ContentDefinitionType values. Perk/Action/Mechanic/
-                    // Attribute/Skill/BodyPart/Resource/NpcTemplateData have
-                    // no TypedDefinitionCodec path yet -- validated at the
-                    // generic envelope/reference level only (below), an
-                    // explicitly recorded MVP boundary, not an oversight.
+                    // ContentDefinitionType values, and ODY-S07-103 added a
+                    // 7th (Skill). Perk/Action/Mechanic/Attribute/BodyPart/
+                    // Resource/NpcTemplateData have no TypedDefinitionCodec
+                    // path yet -- validated at the generic envelope/reference
+                    // level only (below), an explicitly recorded MVP
+                    // boundary, not an oversight.
                     break;
             }
 
@@ -348,6 +352,22 @@ namespace Odyssey.Application.Content
             // Target rule / duration type+value pairing / stacking policy
             // are already ctor-guaranteed by ContentTargetRule/
             // EffectDefinition themselves (ODY-S05-105).
+        }
+
+        private static void ValidateSkill(ContentDefinitionRecord record, CorrelationId correlationId, List<CatalogValidationIssue> issues)
+        {
+            Result<SkillDefinition> decoded = TypedDefinitionCodec.DecodeSkill(record.DefinitionType, record.PropertiesJson, correlationId);
+            if (decoded.IsFailure)
+            {
+                AddCodecFailureIssue(decoded.Error, "properties", issues);
+                return;
+            }
+
+            // SkillDefinition (ODY-S07-103) carries no fields beyond the
+            // generic envelope -- no MechanicsPayloadRef (never executed as
+            // a mechanic) and no governing-attribute link (no consumer
+            // reads one, see this task's own contract section 1).
+            // Decodability above is the only skill-specific check.
         }
 
         /// <summary>

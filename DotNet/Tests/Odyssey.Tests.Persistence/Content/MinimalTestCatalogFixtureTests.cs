@@ -133,6 +133,8 @@ namespace Odyssey.Tests.Persistence.Content
             return TypedDefinitionCodec.EncodeArmor(armor);
         }
 
+        private static string EncodeSkill() => TypedDefinitionCodec.EncodeSkill(new SkillDefinition());
+
         private CatalogValidationResult Validate(ContentDefinitionId id)
         {
             Result<CatalogValidationResult> result = CatalogValidationService.ValidateDraftForPublish(_catalogRepository, new ValidateContentDefinitionRequest(_campaign, id, TestCorrelationId));
@@ -169,6 +171,22 @@ namespace Odyssey.Tests.Persistence.Content
                 Assert.That(published.Status, Is.EqualTo(ContentDefinitionStatus.Published), $"{published.Name} must have published successfully");
                 Assert.That(published.Version, Is.EqualTo(1));
             }
+        }
+
+        // ---- 1b. ODY-S07-103: SkillDefinition publishes end-to-end through the same unmodified pipeline ----
+
+        [Test]
+        public void SkillFixture_PublishesEndToEnd_ThroughAuthoringValidationAndLifecycle()
+        {
+            ContentDefinitionRecord skillDraft = AuthorDraft(ContentDefinitionType.Skill, "Lockpicking", EncodeSkill());
+
+            CatalogValidationResult validation = Validate(skillDraft.ContentDefinitionId);
+            Assert.That(validation.IsValid, Is.True, string.Join(", ", validation.Issues.Select(i => i.IssueCode)));
+
+            ContentDefinitionRecord skillPublished = PublishFixture(skillDraft);
+
+            Assert.That(skillPublished.Status, Is.EqualTo(ContentDefinitionStatus.Published));
+            Assert.That(skillPublished.Version, Is.EqualTo(1));
         }
 
         // ---- 2/3. Weapon-ammo applicability ----
