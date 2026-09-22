@@ -1,0 +1,97 @@
+# Odyssey VTT — SLICE-07 Check/Contest Resolution and Gap-Closure Implementation Backlog
+
+**Status:** Implementation revision — OPEN. This document reserves five blocks (check/contest resolution, skill catalog, body-part catalog, scene background/map, token/character portraits), all named, none decomposed beyond this document's own first task (`ODY-S07-101`).
+**Slice:** `SLICE-07 — Check/Contest resolution and the four smaller content/asset gaps found alongside it (architecture + backlog)`
+**Parent task:** `docs/tasks/active/ODY-S07-101_ADR031_Check_Contest_Resolution_Architecture.md`
+**Predecessor backlog:** None -- see section 1's own explicit process simplification (the same one this slice's own `SLICE-06` precedent already established).
+**ExecPlan:** Not required for this document itself (brief plan for the backlog document; each child task chooses its own planning mode).
+**Created:** 2026-09-22
+**Last updated:** 2026-09-22 UTC -- initial creation, `ODY-S07-101` (row 1) added and moved to `In Review`.
+
+## 1. Purpose and explicit process simplification
+
+This backlog exists because a direct product-owner question about the platform's real capabilities -- independently verified, not assumed -- found five gaps: a check/contest (attribute/skill roll vs. difficulty) resolution system that does not exist anywhere in this codebase, in code or in any prior ADR; a publishable skill catalog (`ContentDefinitionType.Skill` exists only as a bare enum value); a publishable body-part/anatomy catalog (`AnatomyInitializationRules.DefaultHumanoidBodyParts` is a hardcoded, test-fixture-labeled list); a scene background/map field (`SceneRecord` carries no such field, and `RegisterAsset` is not linked to any scene); and token/character portrait wiring (`TokenRecord` carries no image field at all, and `CharacterRecord.PortraitReference` -- which DOES already exist, a correction to an initial assumption checked directly against the tracked repository before this document was written -- is an unvalidated, unlinked opaque string with no wiring to the asset-registration system). The product owner decided to formalize closing all five as a new slice, `SLICE-07`, by the exact `SLICE-05`/`SLICE-06` precedent: its own ID prefix (`ODY-S07-NNN`), its own backlog document, checks resolved first because it is architecturally the largest of the five (zero production code exists for it today, unlike the other four, each of which already has a partial real foundation to extend).
+
+**Explicit simplification, following `ODY-S06-101`'s own already-accepted precedent for `SLICE-06`:** this slice does not use `SLICE-05`'s own two-phase process (a separate prerequisite `SLICE-05_BACKLOG.md` proposing an ADR, a distinct approval cycle, only then an implementation backlog). `ODY-S07-101`'s own governing ТЗ explicitly authorizes creating both `ADR-031` and this implementation backlog in the same task/PR, the same simplification `ODY-S06-101` already used and the product owner explicitly re-authorized here. **There is no separate `SLICE-07_BACKLOG.md` prerequisite document, and none is planned** -- this file is the only backlog document for this slice.
+
+This backlog does **not** itself implement anything. It decomposes the slice into ordered child tasks, each its own separate task contract and pull request, activated one at a time. No child task contract file beyond `ODY-S07-101`'s own (already created by this same task) is created by this document; it only reserves numbers, titles, and boundaries.
+
+Its sources of scope are, exclusively:
+
+- `docs/adr/ADR-031_Check_Contest_Resolution_Architecture_v1.0.md` (`Accepted`) -- the check/contest resolution architecture: the `DiceRollService` substrate, the reused `AttackDamageFormulaParser` grammar, the attribute+skill check snapshot, the pass/fail evaluator, the `CombatEncounter`-unbound command shape, and the real `RecordCriticalSuccessEvidence` wiring.
+- The product owner's own direct confirmation of the four smaller gaps (section 3), each reserved here as a named, not-yet-scoped block, in the same priority order the product owner gave (checks first, as the largest and most foundational).
+- Every already-`Accepted`/merged `SLICE-05`/`SLICE-06` ADR and implementation, reused as fixed, unmodified prerequisite infrastructure -- this backlog does not reopen any of it.
+
+No child task in this backlog reopens any decision `ADR-001`-`ADR-030` already made; each builds directly on those contracts as fixed, and `ADR-031` itself extends them only by reference (its own §18).
+
+## 2. Exit criteria for this revision
+
+- `ADR-031` is `Accepted` (this task).
+- All five blocks (section 3) are named and reserved -- not scoped, not detailed, per the same "named, not scoped" convention `SLICE-05`/`SLICE-06` section 8 already established for their own future blocks.
+- The check/contest block is recorded as the priority-first block for decomposition, per the product owner's own explicit ordering.
+
+## 3. Roadmap block mapping
+
+The product owner's own gap-closure request decomposes into five blocks; none is decomposed into numbered implementation tasks by this revision beyond `ODY-S07-101` itself (the ADR + this backlog).
+
+| Order | Block | Status |
+|---:|---|---|
+| 1 | Check/contest resolution (`ADR-031`: `DiceRollService`-substrate roll, reused formula grammar, attribute+skill snapshot, pass/fail evaluator, standalone command, real `RecordCriticalSuccessEvidence` wiring) | Architecture decomposed by this revision (`ADR-031`); implementation named, reserved (section 8) |
+| 2 | Skill catalog (`SkillDefinition` as publishable content: `EncodeSkill`/`DecodeSkill`, using the already-reserved `ContentDefinitionType.Skill` enum value) | Named, reserved (section 8) |
+| 3 | Body-part/anatomy catalog (`BodyPartDefinition`/`AnatomyProfileDefinition` as publishable content, replacing today's hardcoded `AnatomyInitializationRules.DefaultHumanoidBodyParts()`) | Named, reserved (section 8) |
+| 4 | Scene background/map (a new field on `SceneRecord`, and a real link from `RegisterAsset`'s own asset-manifest output to a scene) | Named, reserved (section 8) |
+| 5 | Token/character portraits (a new image field on `TokenRecord`; real validation/asset-registration wiring for `CharacterRecord`'s own already-existing but unwired `PortraitReference`) | Named, reserved (section 8) |
+
+This priority order is the product owner's own explicit instruction (`ODY-S07-101`'s own governing ТЗ §0: "Порядок: сначала система проверок... архитектурно самый значимый пробел") -- checks first because it is the only one of the five with zero production code today; the other four each already have a real, partial foundation this backlog's own future decomposition tasks extend rather than build from nothing.
+
+## 4. Global non-goals (this revision)
+
+- Implementing the check/contest command, evaluator, snapshot, or `RecordCriticalSuccessEvidence` wiring -- `ADR-031` is architecture only, exactly `ODY-S06-101`'s own precedent for `ADR-030`; implementation is a future, not-yet-numbered task under block 1 (section 8).
+- Implementing any of blocks 2-5 -- named and reserved only, per section 3.
+- A full, balanced, shippable game system's worth of skills, body parts, or check content -- only the architecture (`ADR-031`) and, eventually, the minimum real content each future block's own task needs.
+- A playable Unity UI for any block -- not addressed by this revision.
+- Reopening any `SLICE-05`/`SLICE-06` decision, or any ADR `ADR-001`-`ADR-030` -- all are reused as fixed prerequisite infrastructure only, extended by `ADR-031` strictly by reference.
+- Degrees of success, advantage/disadvantage, or a dedicated opposed-contest command -- `ADR-031` §8.2/§8.3 names both as explicit, product-confirmation-pending non-goals for the check/contest block's own first implementation task, not resolved here.
+
+## 5. No new prerequisite ADR-proposal backlog needed
+
+Unlike `SLICE-05`'s own two-phase process, `SLICE-07` opens directly with this single implementation backlog, because `ADR-031` itself is proposed and accepted within the very first task of this backlog (`ODY-S07-101`), by explicit product-owner authorization recorded in that task's own contract -- the identical simplification `SLICE-06` already used and this document's own section 1 restates. This section exists only to make the absence of a separate prerequisite backlog document a conscious, documented choice, not a silent gap a future reader might mistake for an oversight.
+
+## 6. Scope decisions requiring explicit justification
+
+1. **One ADR covers only the check/contest block, not all five blocks.** The other four blocks (skill catalog, body-part catalog, scene background, portraits) are each a comparatively narrow, additive content/schema extension to an already-existing, already-accepted mechanism (the `SLICE-05` catalog-authoring pipeline for the first two; `SceneRecord`/`TokenRecord`/`CharacterRecord`'s own existing shapes for the latter two) -- none of them raises an architectural question of the size `ADR-031` resolves for checks (a wholly new RNG-substrate/formula-resolution/evaluator/critical-success-wiring decision). Each of blocks 2-5 gets its own, much smaller task contract when its own turn for decomposition comes, following whichever of `SLICE-05`'s or `SLICE-06`'s own precedent fits its own size -- not a shared ADR forced to cover five unrelated questions at once.
+2. **Checks are decomposed first, ahead of the four smaller blocks, per explicit product-owner priority.** Architecturally the largest gap (zero existing production code, versus a real partial foundation for each of the other four) and the most foundational (a mechanic other future content -- skills, body parts -- may itself want to reference, e.g. a body part's own damage-limit check, or a skill's own use in a check formula, `ADR-031` §6). Building it first avoids a later block accidentally re-deciding part of the check architecture in isolation.
+3. **The product owner's own offer of a body-part-modularity reference/example (an Owlbear-extension precedent) is recorded here as a future inspiration source, not a binding technical input.** When block 3 (body-part/anatomy catalog) is eventually decomposed, its own task contract may consult that reference for design ideas, but is not obligated to match it structurally -- this codebase's own existing `BodyPart`/`AnatomyProfileDefinitionId` shapes (`AnatomyInitializationRules.cs`) remain the actual starting point, since they are the accepted, code-verified baseline; an external reference is a suggestion, not a specification.
+
+## 7. Dependency rules
+
+- `ODY-S07-101` has no dependency -- it is the foundational architecture (`ADR-031`) for block 1 of this slice. It depends on, and does not reopen, `ADR-001`-`ADR-030` and the completed `SLICE-05`/`SLICE-06`.
+- Block 1's own future implementation task(s) depend on `ODY-S07-101` (`ADR-031`'s own architecture) and, transitively, on `ADR-030`'s own `AttackDamageFormulaParser` (reused verbatim) and `ODY-S03-005`'s own `DiceRollService` (reused as the roll substrate) -- both already-accepted, unmodified prerequisites.
+- Blocks 2-5 are not yet decomposed into numbered tasks; each future decomposition task records its own dependency chain against `ODY-S07-101`/block 1 and the rest of this codebase at that time. None of blocks 2-5 is currently known to depend on block 1's own implementation landing first -- each extends a structurally independent, already-existing mechanism (the catalog pipeline for 2/3; `SceneRecord`/`TokenRecord`/`CharacterRecord`'s own persistence shape for 4/5) -- but this backlog does not commit to a specific relative order among 2-5 beyond the product-owner priority section 3 already records for block 1 specifically.
+
+## 8. Reserved future blocks (named, not scoped)
+
+- **Block 1 -- Check/contest resolution.** Architecture `Accepted` (`ADR-031`, this task). Implementation (the check command, `Odyssey.Rules` evaluator, `CheckParticipantState` snapshot, `DiceRollService`-substrate wiring, real `RecordCriticalSuccessEvidence` trigger) is named, reserved -- a future decomposition task (`ODY-S07-102`+) builds it directly against `ADR-031`'s own fixed decisions, resolving `ADR-031` §17's own two open product questions (degrees of success; advantage/disadvantage and dedicated contest support) with the product owner before or during that task, not silently.
+- **Block 2 -- Skill catalog.** Named by this task; not scoped. A future decomposition task adds a typed `SkillDefinition` (mirroring `WeaponDefinition`/`ArmorDefinition`/`AbilityDefinition`/`EffectDefinition`'s own established shape, `ODY-S05-105`) plus `TypedDefinitionCodec.EncodeSkill`/`DecodeSkill`, making `ContentDefinitionType.Skill` (already a reserved enum value, `ContentCatalog.cs`) a real, publishable content type through the already-existing, unmodified `SLICE-05` catalog-authoring/validation/publish pipeline -- the same reuse discipline `ODY-S06-108`'s own real-content task already established for weapons/armor/abilities/effects/items.
+- **Block 3 -- Body-part/anatomy catalog.** Named by this task; not scoped. A future decomposition task adds a typed `BodyPartDefinition`/`AnatomyProfileDefinition` publishable-content pair, replacing today's hardcoded, test-fixture-labeled `AnatomyInitializationRules.DefaultHumanoidBodyParts()` with real, catalog-authored anatomy content. The product owner separately offered a reference/example of body-part modularity (an extension built for a different product, "Owlbear") as a possible source of design inspiration for this block's own future detailed decomposition -- recorded here as an inspiration source only, not a binding technical specification (section 6 point 3).
+- **Block 4 -- Scene background/map.** Named by this task; not scoped. A future decomposition task adds a background/map field to `SceneRecord` (which today carries no such field at all) and links it to `RegisterAsset`'s own already-existing asset-manifest registration (`RegisterAsset` exists today but is not linked to any scene, confirmed by direct signature read for `ADR-031`'s own research).
+- **Block 5 -- Token/character portraits.** Named by this task; not scoped. A future decomposition task adds an image field to `TokenRecord` (which today carries none at all) and wires real asset-registration validation/linking for `CharacterRecord`'s own already-existing `PortraitReference` field (an unvalidated, unlinked opaque `string?` today -- a correction recorded here against an initial assumption that no such field existed on `CharacterRecord` at all; it does, it is simply not wired to anything).
+
+None of these five blocks is decomposed into a numbered implementation task by this revision -- decomposing any of them is a future backlog revision, per the same "named, not scoped" rule `SLICE-05`/`SLICE-06` section 8 each already established and this document reuses verbatim.
+
+## 9. Ordered backlog
+
+| Order | Task ID | Status | Roadmap/product source | Title | Depends on | Planning mode | Primary result |
+|---:|---|---|---|---|---|---|---|
+| 1 | `ODY-S07-101` | In Review | Product-owner platform-capability review (block 1, section 3) | ADR-031 — Check/Contest Resolution Architecture + `SLICE-07` Backlog | None (first task of `SLICE-07`) | ExecPlan | `ADR-031`, deciding the check/contest resolution architecture: `DiceRollService.SubmitRoll` as the dice substrate (with the required dice/attribute formula-split), `AttackDamageFormulaParser` reused verbatim for the formula grammar, a new `CheckParticipantState` snapshot carrying both attribute and skill values, a new standalone `Odyssey.Rules` pass/fail evaluator not bound to `CombatEncounter`, and the real wiring of `RecordCriticalSuccessEvidence` with a genuine `DiceRoll.RollId`. Degrees of success and advantage/disadvantage/contests are explicit, product-confirmation-pending non-goals for the first implementation. No production code. Creates this backlog document, reserving four further named, not-yet-scoped blocks (skill catalog, body-part catalog, scene background, portraits). |
+
+## 10. Backlog change control
+
+- New work requires a task contract; this document reserves `ODY-S07-101` for the architecture task that created it, and will reserve further numbers as each of the five blocks (section 3/8) is activated for detailed decomposition, following the exact numbering convention `SLICE-05`/`SLICE-06` already established.
+- All five blocks (section 8) are named, not scoped -- decomposing any of them into real task IDs is a future backlog revision, not an implicit extension of this one, per the same rule `SLICE-05`/`SLICE-06` section 8 each already established.
+- The check/contest block (block 1) is decomposed architecturally by `ADR-031` but not implemented by this revision -- its own future implementation task(s) must resolve `ADR-031` §17's own two open product questions with the product owner, recording the resolution in that task's own contract, not silently assuming either answer.
+- A task may be split before implementation by updating this backlog, following the same rule prior backlog revisions in this repository already use.
+- A task may not be merged with unrelated cleanup merely to reduce task count.
+- Completed task files move to `docs/tasks/completed/` only after required review, per the established convention in this repository.
+- This backlog does not replace any task's own acceptance criteria or `ADR-031`'s content; it does not itself decide any technical question beyond the three explicit scope decisions in section 6.
+- If this document's own section 6 narrowing decisions are later found incorrect, that is a new task/backlog-revision decision, not a silent edit to this document's already-recorded reasoning -- this document would gain an explicit amendment note, not a rewritten section 6, mirroring `SLICE-05`/`SLICE-06`'s own established convention for this exact situation.
