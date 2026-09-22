@@ -173,5 +173,11 @@ namespace Odyssey.Application.Results
         public static readonly ErrorCode PersistenceCombatStackConflictNotFound = ErrorCode.Parse("persistence.combat_stack_conflict.not_found");
         public static readonly ErrorCode PersistenceCombatStackConflictAlreadyResolved = ErrorCode.Parse("persistence.combat_stack_conflict.already_resolved");
         public static readonly ErrorCode PersistenceCombatStackConflictIoFailed = ErrorCode.Parse("persistence.combat_stack_conflict.io_failed");
+
+        public static readonly ErrorCode CheckFormulaInvalid = ErrorCode.Parse("check.formula.invalid");
+        public static readonly ErrorCode CheckFormulaRequiresExactlyOneDiceGroup = ErrorCode.Parse("check.formula.requires_exactly_one_dice_group");
+        public static readonly ErrorCode CheckFormulaRequiresAtMostOneAttributeReference = ErrorCode.Parse("check.formula.requires_at_most_one_attribute_reference");
+        public static readonly ErrorCode CheckFormulaAmbiguousReference = ErrorCode.Parse("check.formula.ambiguous_reference");
+        public static readonly ErrorCode CheckFormulaUnresolvedReference = ErrorCode.Parse("check.formula.unresolved_reference");
     }
 }
