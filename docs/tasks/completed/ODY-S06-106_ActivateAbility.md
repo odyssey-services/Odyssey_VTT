@@ -1,7 +1,7 @@
 # ODY-S06-106 — `ActivateAbility` Root Command (Mechanics-Primitive Interpreter, First Implementation)
 
 ## 1. Task identity
-`ODY-S06-106`; status: In Review (Draft PR [#162](https://github.com/odyssey-services/Odyssey_VTT/pull/162), CI green, merge left to the product owner). Sixth task of `SLICE-06`, the first real command mutating character state through `ADR-030` §7's mechanics-primitive schema.
+`ODY-S06-106`; status: Done (PR #162, merged into main). Sixth task of `SLICE-06`, the first real command mutating character state through `ADR-030` §7's mechanics-primitive schema.
 
 **Доработка (product-owner-ordered, after independent verification of the original PR #162):** three findings were returned for a real fix, not a textual reformulation -- (1) `ApplyEffect`'s own disclosed cross-repository-atomicity gap left the resource-delta commit genuinely unprotected against a downstream effect-application failure; (2) `CharacterAbility.SourceRef` was repurposed as the `AbilityDefinitionId`→`ContentDefinitionRef` activation bridge, violating that field's own documented provenance-only contract; (3) `ActivateAbilityRequest`/`RecordAbilityActivation` carried no expected-revision optimistic-concurrency parameters at all, contradicting both the governing ТЗ and this contract's own (incorrect) §7 claim that `ActivateAbilityRequest` "mirrors `AttackRequest`'s own shape... expected revisions." All three are now genuinely fixed -- see §18's own "Доработка" subsection for the full decision log.
 

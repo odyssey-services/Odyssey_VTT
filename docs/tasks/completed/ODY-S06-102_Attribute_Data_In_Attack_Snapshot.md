@@ -1,7 +1,7 @@
 # ODY-S06-102 — Attribute Data in Attack Snapshot
 
 ## 1. Task identity
-`ODY-S06-102`; status: In Review (Draft PR [#158](https://github.com/odyssey-services/Odyssey_VTT/pull/158), CI green, merge left to the product owner). Second task of `SLICE-06`, first of the block-A reordering this task itself performs.
+`ODY-S06-102`; status: Done (PR #158, merged into main). Second task of `SLICE-06`, first of the block-A reordering this task itself performs.
 
 ## 2. Goal
 Make `AttackParticipantState` carry the acting/target character's own real, already-purchased attribute `EffectiveValue` readings, so `ADR-030` §6.2's `attributeReference` formula term (`1d6+STR`) has real data to resolve against once a future task (`ODY-S06-105`) implements the real `IAttackRulesEvaluator`. Today `AttackParticipantState` carries only `CharacterId`/`LifecycleStatus`/`ApprovalState` -- no attribute value at all -- even though `SqliteAttackStateReader.Read` already loads the full `CharacterRecord` (attributes included) for every actor/target. This task closes that gap; it does not interpret formulas or implement the evaluator.

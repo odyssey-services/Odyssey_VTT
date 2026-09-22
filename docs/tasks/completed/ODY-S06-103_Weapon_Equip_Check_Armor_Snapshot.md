@@ -1,7 +1,7 @@
 # ODY-S06-103 — Weapon Equip-Status Check + Armor Wiring Into Attack Snapshot
 
 ## 1. Task identity
-`ODY-S06-103`; status: In Review (Draft PR [#159](https://github.com/odyssey-services/Odyssey_VTT/pull/159), CI green, merge left to the product owner). Third task of `SLICE-06`, second of the block-A data-wiring sequence `ODY-S06-102` reordered.
+`ODY-S06-103`; status: Done (PR #159, merged into main). Third task of `SLICE-06`, second of the block-A data-wiring sequence `ODY-S06-102` reordered.
 
 ## 2. Goal
 Close two of the three remaining data gaps `ODY-S06-105` (the real `IAttackRulesEvaluator`) will need: (1) an action weapon that is merely owned but not currently `Equipped` must no longer be usable in an attack -- a deliberate, disclosed behavior change, not an oversight; (2) each target's own currently-equipped armor must reach the attack snapshot as a real, decoded `ArmorDefinition`, not a structurally-data-incapable placeholder. This task supplies data and a gate; it does not implement the evaluator or decide which armor a real hit consults.

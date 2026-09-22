@@ -1,7 +1,7 @@
 # ODY-S06-104 — Character↔Token Link + Attack Participant Position/Distance Wiring
 
 ## 1. Task identity
-`ODY-S06-104`; status: In Review (Draft PR [#160](https://github.com/odyssey-services/Odyssey_VTT/pull/160), CI green, merge left to the product owner). Fourth task of `SLICE-06`, third and final of the block-A data-wiring sequence `ODY-S06-102` reordered.
+`ODY-S06-104`; status: Done (PR #160, merged into main). Fourth task of `SLICE-06`, third and final of the block-A data-wiring sequence `ODY-S06-102` reordered.
 
 ## 2. Goal
 Close the third and final data gap `ODY-S06-105` (the real `IAttackRulesEvaluator`) will need: `WeaponDefinition.Range`-style range checks require real position/distance data, which today does not exist anywhere in the codebase (`TokenRecord` has no `CharacterId`, and `CombatEncounter` is scene-agnostic). This task links a token to a Character at creation time, resolves an attack participant's position through that link, and computes each target's real distance from the actor -- passed through `AttackEvaluationSnapshot.Topology` as raw data, not a final range verdict. This task supplies data; it does not implement the evaluator or decide what counts as "in range."

@@ -1,7 +1,7 @@
 # ODY-S06-107 — `UseItem` Root Command (Item `Instant`-Effect Application, Block D)
 
 ## 1. Task identity
-`ODY-S06-107`; status: In Review (branch `feat/ody-s06-107-use-item`, Draft PR to be opened, merge left to the product owner). Seventh task of `SLICE-06`, roadmap block D ("using one active item once"). Built from the start to `ODY-S06-106`'s FINAL, thrice-revised idempotency/compensation rigor (full atomicity, full compensation of every side-effect category, resumable-after-partial-compensation-failure) -- not a simpler first pass deferred to a later доработка round, per this task's own governing ТЗ §0's explicit instruction.
+`ODY-S06-107`; status: Done (PR #163, merged into main). Seventh task of `SLICE-06`, roadmap block D ("using one active item once"). Built from the start to `ODY-S06-106`'s FINAL, thrice-revised idempotency/compensation rigor (full atomicity, full compensation of every side-effect category, resumable-after-partial-compensation-failure) -- not a simpler first pass deferred to a later доработка round, per this task's own governing ТЗ §0's explicit instruction.
 
 ## 2. Goal
 Build `UseItem`, a standalone root command letting a character consume exactly one unit of an inventory item (a stack unit, or a whole non-stackable instance) and apply every `Instant`-duration built-in effect it declares, atomically, with the same idempotency/compensation guarantees `ActivateAbility` reached only after three independent-verification rounds.

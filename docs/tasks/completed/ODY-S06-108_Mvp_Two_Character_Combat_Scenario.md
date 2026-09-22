@@ -1,7 +1,7 @@
 # ODY-S06-108 — Real MVP Content + End-to-End Two-Character Combat Scenario (Blocks E+F, MVP Finale)
 
 ## 1. Task identity
-`ODY-S06-108`; status: In Review (branch `feat/ody-s06-108-mvp-e2e-scenario`, Draft PR to be opened, merge left to the product owner). Eighth task of `SLICE-06`, and the last task of the original MVP scenario named by the product owner ("create two characters, add abilities/skills, armor/weapons and a couple of active items, attack one with the other, cross a distance, attack again"). Combines roadmap blocks E ("real MVP content") and F ("end-to-end MVP scenario test/harness") into one task, per this task's own governing ТЗ §0's explicit product-owner decision.
+`ODY-S06-108`; status: Done (PR #164, merged into main). Eighth task of `SLICE-06`, and the last task of the original MVP scenario named by the product owner ("create two characters, add abilities/skills, armor/weapons and a couple of active items, attack one with the other, cross a distance, attack again"). Combines roadmap blocks E ("real MVP content") and F ("end-to-end MVP scenario test/harness") into one task, per this task's own governing ТЗ §0's explicit product-owner decision.
 
 ## 2. Goal
 Prove the whole MVP path really works, end-to-end, through nothing but already-accepted public production services: real catalog content (weapon, armor, ability, effect, consumable item) authored and published through the existing, unmodified `SLICE-05` catalog pipeline; two full characters; real inventory/equipment; a real ability activation and a real item use; a real attack; a real token move; and a second real attack whose outcome the move alone decides.
