@@ -1,7 +1,7 @@
 # ODY-S07-102 — Check/Contest Resolution Implementation (Block 1)
 
 ## 1. Task identity
-`ODY-S07-102`; status: In Review (Draft PR to be opened, merge left to the product owner). Second task of `SLICE-07`, the first real implementation of `ADR-031`.
+`ODY-S07-102`; status: Done (PR #166, merged into main). Second task of `SLICE-07`, the first real implementation of `ADR-031`.
 
 ## 2. Goal
 Build the check/contest command `ADR-031` specifies: a new `Odyssey.Domain.Checks`/`Odyssey.Rules.Checks`/`Odyssey.Application.Checks`/`Odyssey.Persistence.Sqlite` stack that resolves an attribute/skill formula (`ADR-030`'s own shared grammar, reused verbatim), rolls through the real, unmodified `DiceRollService.SubmitRoll`, judges pass/fail, and closes the long-disclosed `RecordCriticalSuccessEvidence` trigger gap (`ODY-S04-106`/`114`) for real.

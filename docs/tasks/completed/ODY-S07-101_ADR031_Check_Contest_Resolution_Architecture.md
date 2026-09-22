@@ -1,7 +1,7 @@
 # ODY-S07-101 — ADR-031: Check / Contest Resolution Architecture
 
 ## 1. Task identity
-`ODY-S07-101`; status: In Review (Draft PR [#165](https://github.com/odyssey-services/Odyssey_VTT/pull/165), merge left to the product owner). First task of `SLICE-07`.
+`ODY-S07-101`; status: Done (PR #165, merged into main). First task of `SLICE-07`.
 
 **Доработка (product-owner-confirmed, after PR #165's own independent verification):** `ADR-031` §17 originally left two decisions explicitly open for product-owner confirmation -- whether degrees of success, and advantage/disadvantage/dedicated contest support, are in or out of scope for the first check/contest implementation. The product owner has confirmed both are OUT of scope for v1. `ADR-031` §1 decision 6, §8.2, §8.3, §16.4, §17, and the Non-goals list (§13) are updated from "flagged for product-owner confirmation" to "confirmed non-goal for v1," dated 2026-09-22 -- both remain disclosed, revisitable non-goals (a future task may still add either on top of this same architecture), not architectural prohibitions. No other content changed.
 
