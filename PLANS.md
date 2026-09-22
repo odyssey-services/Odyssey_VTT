@@ -358,3 +358,23 @@ This decision is recorded architecturally in `ADR-030 — Rules Engine / Mechani
 6. The full, polished UI/UX pass — unchanged, still Roadmap Stage 11.
 
 This amendment does not reopen or invalidate any decision recorded in section 13 or 13.1's own original text; it records why `SLICE-06` was inserted and where, per this document's own convention of an explicit amendment note rather than a silent rewrite.
+
+### 13.3 Amendment (2026-09-22) — SLICE-07 inserted after SLICE-06
+
+`SLICE-06` (step 3 of section 13.2's own amended order) is code-complete: all eight tasks (`ODY-S06-101`-`108`) are merged into `main`, proving the full MVP scenario end-to-end (`ODY-S06-108`'s own sequential integration test). The task files themselves remain in `docs/tasks/active/` rather than `docs/tasks/completed/`, a separate, non-blocking housekeeping matter unrelated to this amendment.
+
+A direct product-owner question about the platform's real, current capabilities -- independently verified for `ODY-S07-101`, not assumed -- found that an attribute/skill check (roll + modifier vs. a target difficulty) exists nowhere in this codebase, in code or in any prior ADR: `ADR-030` itself never addresses it (its own §16 "Открытые вопросы" reads "None"), and the only mention of a "contest" anywhere in the tracked source is `CoreAttackRulesEvaluator.cs`'s own comment documenting its own absence. The same review independently confirmed four smaller, related gaps: a publishable skill catalog (`ContentDefinitionType.Skill` exists only as a bare enum value), a publishable body-part/anatomy catalog (today a hardcoded, test-fixture-labeled list), a scene background/map field (`SceneRecord` carries none), and token/character portrait wiring (`TokenRecord` carries no image field at all; `CharacterRecord`'s own existing `PortraitReference` field is unvalidated and unlinked to asset registration). The product owner decided to insert a new slice, `SLICE-07`, to close all five gaps, checks first as the architecturally largest and most foundational.
+
+This decision is recorded architecturally in `ADR-031 — Check / Contest Resolution Architecture` (Accepted, 2026-09-22) and decomposed into `docs/tasks/SLICE-07_IMPLEMENTATION_BACKLOG.md` (created 2026-09-22, in the same task/PR as `ADR-031` itself -- see that backlog's own section 1 for the explicit, product-owner-authorized simplification of skipping a separate propose-then-decompose process for this one-ADR slice, the identical simplification `SLICE-06` already used).
+
+**Amended order for this segment**, superseding step 4 of section 13.2's own amended list (steps 1-3 of that list are unchanged; steps 5 and 6 are unchanged and renumbered here as 6 and 7):
+
+1. `SLICE-04` — Done (unchanged).
+2. `SLICE-05` — Done (unchanged): Content Catalog, Inventory, Items, Abilities, Effects, and Full Attack, merged into `main`.
+3. `SLICE-06` — Done (unchanged): Rules Engine, Mechanics Execution, and the two-character MVP scenario, merged into `main`.
+4. `SLICE-07` — Check/contest resolution and four smaller content/asset gaps (`ADR-031`; `docs/tasks/SLICE-07_IMPLEMENTATION_BACKLOG.md`), decomposed and executed block by block as that backlog's own section 8/9 define, check/contest resolution first. This step did not exist in section 13.2's own amended order; it is inserted here by explicit owner decision, before the temporary verification UI, so that UI (once built) exercises a real check/contest mechanic rather than a platform that still cannot resolve one of the most foundational tabletop mechanics at all.
+5. Temporary verification UI (`SLICE-UI-02` or equivalent, following the `SLICE-UI-01` precedent) — deferred until `SLICE-07` (or whichever of its blocks the product owner judges sufficient) closes.
+6. .NET SDK / build-and-test infrastructure hardening — unchanged from the original order (still after the verification UI).
+7. The full, polished UI/UX pass — unchanged, still Roadmap Stage 11.
+
+This amendment does not reopen or invalidate any decision recorded in section 13, 13.1, or 13.2's own original text; it records why `SLICE-07` was inserted and where, per this document's own convention of an explicit amendment note rather than a silent rewrite.
