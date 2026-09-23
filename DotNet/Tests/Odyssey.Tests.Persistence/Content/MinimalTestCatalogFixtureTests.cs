@@ -135,6 +135,11 @@ namespace Odyssey.Tests.Persistence.Content
 
         private static string EncodeSkill() => TypedDefinitionCodec.EncodeSkill(new SkillDefinition());
 
+        private static string EncodeBodyPart(string name = "Torso", long damageLimit = 10) => TypedDefinitionCodec.EncodeBodyPart(new BodyPartDefinition(name, damageLimit, properties: "{}"));
+
+        private static string EncodeAnatomyProfile(ContentDefinitionRef bodyPartRef) =>
+            TypedDefinitionCodec.EncodeAnatomyProfile(new AnatomyProfileDefinition(new[] { new AnatomyProfileBodyPartRef(bodyPartRef, attachedToIndex: null) }));
+
         private CatalogValidationResult Validate(ContentDefinitionId id)
         {
             Result<CatalogValidationResult> result = CatalogValidationService.ValidateDraftForPublish(_catalogRepository, new ValidateContentDefinitionRequest(_campaign, id, TestCorrelationId));
@@ -187,6 +192,82 @@ namespace Odyssey.Tests.Persistence.Content
 
             Assert.That(skillPublished.Status, Is.EqualTo(ContentDefinitionStatus.Published));
             Assert.That(skillPublished.Version, Is.EqualTo(1));
+        }
+
+        // ---- 1c. ODY-S07-104: BodyPartDefinition/AnatomyProfileDefinition publish end-to-end, and AnatomyProfile references are checked by the real ValidateReferencesAndCycles ----
+
+        [Test]
+        public void BodyPartFixture_PublishesEndToEnd_ThroughAuthoringValidationAndLifecycle()
+        {
+            ContentDefinitionRecord bodyPartDraft = AuthorDraft(ContentDefinitionType.BodyPart, "Torso", EncodeBodyPart());
+
+            CatalogValidationResult validation = Validate(bodyPartDraft.ContentDefinitionId);
+            Assert.That(validation.IsValid, Is.True, string.Join(", ", validation.Issues.Select(i => i.IssueCode)));
+
+            ContentDefinitionRecord bodyPartPublished = PublishFixture(bodyPartDraft);
+
+            Assert.That(bodyPartPublished.Status, Is.EqualTo(ContentDefinitionStatus.Published));
+            Assert.That(bodyPartPublished.Version, Is.EqualTo(1));
+        }
+
+        [Test]
+        public void AnatomyProfileFixture_ReferencingPublishedBodyPart_PublishesEndToEnd()
+        {
+            ContentDefinitionRecord bodyPartPublished = PublishFixture(AuthorDraft(ContentDefinitionType.BodyPart, "Torso", EncodeBodyPart()));
+            var bodyPartRef = new ContentDefinitionRef(bodyPartPublished.ContentDefinitionId, bodyPartPublished.Version);
+
+            ContentDefinitionRecord anatomyProfileDraft = AuthorDraft(ContentDefinitionType.AnatomyProfile, "Humanoid", EncodeAnatomyProfile(bodyPartRef));
+
+            CatalogValidationResult validation = Validate(anatomyProfileDraft.ContentDefinitionId);
+            Assert.That(validation.IsValid, Is.True, string.Join(", ", validation.Issues.Select(i => i.IssueCode)));
+
+            ContentDefinitionRecord anatomyProfilePublished = PublishFixture(anatomyProfileDraft);
+
+            Assert.That(anatomyProfilePublished.Status, Is.EqualTo(ContentDefinitionStatus.Published));
+            Assert.That(anatomyProfilePublished.Version, Is.EqualTo(1));
+        }
+
+        [Test]
+        public void AnatomyProfileFixture_ReferencingMissingBodyPart_FailsValidation_ReferenceMissing()
+        {
+            var missingBodyPartRef = new ContentDefinitionRef(ContentDefinitionId.NewId(UtcInstant.Parse("2026-09-04T00:00:00.0000000Z")), 1);
+            ContentDefinitionRecord anatomyProfileDraft = AuthorDraft(ContentDefinitionType.AnatomyProfile, "Broken Humanoid", EncodeAnatomyProfile(missingBodyPartRef));
+
+            CatalogValidationResult validation = Validate(anatomyProfileDraft.ContentDefinitionId);
+
+            Assert.That(validation.IsValid, Is.False);
+            Assert.That(validation.Issues.Any(i => i.IssueCode == CatalogValidationIssueCode.ReferenceMissing), Is.True);
+        }
+
+        [Test]
+        public void AnatomyProfileFixture_ReferencingBodyPartAtWrongVersion_FailsValidation_ReferenceVersionMismatch()
+        {
+            ContentDefinitionRecord bodyPartPublished = PublishFixture(AuthorDraft(ContentDefinitionType.BodyPart, "Torso", EncodeBodyPart()));
+            var refAtWrongVersion = new ContentDefinitionRef(bodyPartPublished.ContentDefinitionId, bodyPartPublished.Version + 1);
+
+            ContentDefinitionRecord anatomyProfileDraft = AuthorDraft(ContentDefinitionType.AnatomyProfile, "Humanoid", EncodeAnatomyProfile(refAtWrongVersion));
+
+            CatalogValidationResult validation = Validate(anatomyProfileDraft.ContentDefinitionId);
+
+            Assert.That(validation.IsValid, Is.False);
+            Assert.That(validation.Issues.Any(i => i.IssueCode == CatalogValidationIssueCode.ReferenceVersionMismatch), Is.True);
+        }
+
+        [Test]
+        public void AnatomyProfileFixture_ReferencingDefinitionOfWrongType_FailsValidation_ReferenceWrongType()
+        {
+            // Publish a real Effect (not a BodyPart) at version 1, then have
+            // an AnatomyProfile's own BodyPartRefs point at it -- exists,
+            // exact version matches, but is the wrong DefinitionType.
+            ContentDefinitionRecord effectPublished = PublishFixture(AuthorDraft(ContentDefinitionType.Effect, "Bleeding", EncodeEffect()));
+            var wrongTypeRef = new ContentDefinitionRef(effectPublished.ContentDefinitionId, effectPublished.Version);
+
+            ContentDefinitionRecord anatomyProfileDraft = AuthorDraft(ContentDefinitionType.AnatomyProfile, "Humanoid", EncodeAnatomyProfile(wrongTypeRef));
+
+            CatalogValidationResult validation = Validate(anatomyProfileDraft.ContentDefinitionId);
+
+            Assert.That(validation.IsValid, Is.False);
+            Assert.That(validation.Issues.Any(i => i.IssueCode == CatalogValidationIssueCode.ReferenceWrongType), Is.True);
         }
 
         // ---- 2/3. Weapon-ammo applicability ----

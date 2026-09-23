@@ -186,6 +186,78 @@ namespace Odyssey.Tests.Unit.Content
             Assert.That(decoded.Value, Is.Not.Null);
         }
 
+        // ---- BodyPartDefinition -----------------------------------------------------
+
+        [Test]
+        public void BodyPartDefinition_RoundTrips()
+        {
+            var bodyPart = new BodyPartDefinition("Left Wing", damageLimit: 12, properties: "{\"flightCapable\":true}");
+
+            string json = TypedDefinitionCodec.EncodeBodyPart(bodyPart);
+            Result<BodyPartDefinition> decoded = TypedDefinitionCodec.DecodeBodyPart(ContentDefinitionType.BodyPart, json, TestCorrelationId);
+
+            Assert.That(decoded.IsSuccess, Is.True);
+            Assert.That(decoded.Value.Name, Is.EqualTo("Left Wing"));
+            Assert.That(decoded.Value.DamageLimit, Is.EqualTo(12));
+            Assert.That(decoded.Value.Properties, Is.EqualTo("{\"flightCapable\":true}"));
+        }
+
+        // ---- AnatomyProfileDefinition -------------------------------------------------
+
+        [Test]
+        public void AnatomyProfileDefinition_RoundTripsWithAttachedToIndex()
+        {
+            var torsoRef = NewRef();
+            var armRef = NewRef(2);
+            var anatomyProfile = new AnatomyProfileDefinition(new[]
+            {
+                new AnatomyProfileBodyPartRef(torsoRef, attachedToIndex: null),
+                new AnatomyProfileBodyPartRef(armRef, attachedToIndex: 0),
+            });
+
+            string json = TypedDefinitionCodec.EncodeAnatomyProfile(anatomyProfile);
+            Result<AnatomyProfileDefinition> decoded = TypedDefinitionCodec.DecodeAnatomyProfile(ContentDefinitionType.AnatomyProfile, json, TestCorrelationId);
+
+            Assert.That(decoded.IsSuccess, Is.True);
+            Assert.That(decoded.Value.BodyPartRefs.Count, Is.EqualTo(2));
+            Assert.That(decoded.Value.BodyPartRefs[0].BodyPartRef, Is.EqualTo(torsoRef));
+            Assert.That(decoded.Value.BodyPartRefs[0].AttachedToIndex, Is.Null);
+            Assert.That(decoded.Value.BodyPartRefs[1].BodyPartRef, Is.EqualTo(armRef));
+            Assert.That(decoded.Value.BodyPartRefs[1].AttachedToIndex, Is.EqualTo(0));
+        }
+
+        [Test]
+        public void AnatomyProfileDefinition_RejectsEmptyBodyPartRefs()
+        {
+            Assert.Throws<System.ArgumentException>(new System.Action(() => new AnatomyProfileDefinition(System.Array.Empty<AnatomyProfileBodyPartRef>())));
+        }
+
+        [Test]
+        public void AnatomyProfileDefinition_RejectsSelfReferencingAttachedToIndex()
+        {
+            var refs = new[] { new AnatomyProfileBodyPartRef(NewRef(), attachedToIndex: 0) };
+            Assert.Throws<System.ArgumentException>(new System.Action(() => new AnatomyProfileDefinition(refs)));
+        }
+
+        [Test]
+        public void AnatomyProfileDefinition_RejectsOutOfRangeAttachedToIndex()
+        {
+            var refs = new[] { new AnatomyProfileBodyPartRef(NewRef(), attachedToIndex: 5) };
+            Assert.Throws<System.ArgumentOutOfRangeException>(new System.Action(() => new AnatomyProfileDefinition(refs)));
+        }
+
+        [Test]
+        public void AnatomyProfileDefinition_RejectsAttachedToIndexCycle()
+        {
+            var refs = new[]
+            {
+                new AnatomyProfileBodyPartRef(NewRef(), attachedToIndex: 1),
+                new AnatomyProfileBodyPartRef(NewRef(2), attachedToIndex: 0),
+            };
+
+            Assert.Throws<System.ArgumentException>(new System.Action(() => new AnatomyProfileDefinition(refs)));
+        }
+
         // ---- Wrong ContentDefinitionType cannot be decoded ----------------------
 
         [Test]
@@ -226,6 +298,30 @@ namespace Odyssey.Tests.Unit.Content
             Assert.That(decoded.Error.Code, Is.EqualTo(ErrorCodes.ContentCatalogTypedDefinitionWrongType));
         }
 
+        [Test]
+        public void DecodeBodyPart_AgainstEffectDefinitionType_IsRejected()
+        {
+            var bodyPart = new BodyPartDefinition("Torso", damageLimit: 10, properties: "{}");
+            string json = TypedDefinitionCodec.EncodeBodyPart(bodyPart);
+
+            Result<BodyPartDefinition> decoded = TypedDefinitionCodec.DecodeBodyPart(ContentDefinitionType.Effect, json, TestCorrelationId);
+
+            Assert.That(decoded.IsFailure, Is.True);
+            Assert.That(decoded.Error.Code, Is.EqualTo(ErrorCodes.ContentCatalogTypedDefinitionWrongType));
+        }
+
+        [Test]
+        public void DecodeAnatomyProfile_AgainstEffectDefinitionType_IsRejected()
+        {
+            var anatomyProfile = new AnatomyProfileDefinition(new[] { new AnatomyProfileBodyPartRef(NewRef(), attachedToIndex: null) });
+            string json = TypedDefinitionCodec.EncodeAnatomyProfile(anatomyProfile);
+
+            Result<AnatomyProfileDefinition> decoded = TypedDefinitionCodec.DecodeAnatomyProfile(ContentDefinitionType.Effect, json, TestCorrelationId);
+
+            Assert.That(decoded.IsFailure, Is.True);
+            Assert.That(decoded.Error.Code, Is.EqualTo(ErrorCodes.ContentCatalogTypedDefinitionWrongType));
+        }
+
         // ---- Malformed JSON returns a safe failure, not a raw exception ----------
 
         [TestCase("{ this is not valid json")]
@@ -233,6 +329,29 @@ namespace Odyssey.Tests.Unit.Content
         public void DecodeSkill_OnMalformedJson_ReturnsSafeFailure_NotRawException(string malformedJson)
         {
             Result<SkillDefinition> decoded = TypedDefinitionCodec.DecodeSkill(ContentDefinitionType.Skill, malformedJson, TestCorrelationId);
+
+            Assert.That(decoded.IsFailure, Is.True);
+            Assert.That(decoded.Error.Code, Is.EqualTo(ErrorCodes.ContentCatalogTypedDefinitionMalformedPayload));
+        }
+
+        [TestCase("{ this is not valid json")]
+        [TestCase("null")]
+        [TestCase("{}")]
+        public void DecodeBodyPart_OnMalformedJson_ReturnsSafeFailure_NotRawException(string malformedJson)
+        {
+            Result<BodyPartDefinition> decoded = TypedDefinitionCodec.DecodeBodyPart(ContentDefinitionType.BodyPart, malformedJson, TestCorrelationId);
+
+            Assert.That(decoded.IsFailure, Is.True);
+            Assert.That(decoded.Error.Code, Is.EqualTo(ErrorCodes.ContentCatalogTypedDefinitionMalformedPayload));
+        }
+
+        [TestCase("{ this is not valid json")]
+        [TestCase("null")]
+        [TestCase("{}")]
+        [TestCase("{\"schemaVersion\":1,\"bodyPartRefs\":[]}")]
+        public void DecodeAnatomyProfile_OnMalformedJson_ReturnsSafeFailure_NotRawException(string malformedJson)
+        {
+            Result<AnatomyProfileDefinition> decoded = TypedDefinitionCodec.DecodeAnatomyProfile(ContentDefinitionType.AnatomyProfile, malformedJson, TestCorrelationId);
 
             Assert.That(decoded.IsFailure, Is.True);
             Assert.That(decoded.Error.Code, Is.EqualTo(ErrorCodes.ContentCatalogTypedDefinitionMalformedPayload));
@@ -356,6 +475,68 @@ namespace Odyssey.Tests.Unit.Content
             withBadSchemaVersion["schemaVersion"] = Newtonsoft.Json.Linq.JToken.Parse(schemaVersionLiteral);
 
             Result<SkillDefinition> decoded = TypedDefinitionCodec.DecodeSkill(ContentDefinitionType.Skill, withBadSchemaVersion.ToString(), TestCorrelationId);
+
+            Assert.That(decoded.IsFailure, Is.True);
+            Assert.That(decoded.Error.Code, Is.EqualTo(ErrorCodes.ContentCatalogTypedDefinitionMalformedPayload));
+        }
+
+        [Test]
+        public void DecodeBodyPart_OnPayloadMissingSchemaVersion_ReturnsSafeFailure()
+        {
+            var bodyPart = new BodyPartDefinition("Torso", damageLimit: 10, properties: "{}");
+            string json = TypedDefinitionCodec.EncodeBodyPart(bodyPart);
+            var withoutSchemaVersion = Newtonsoft.Json.Linq.JObject.Parse(json);
+            withoutSchemaVersion.Remove("schemaVersion");
+
+            Result<BodyPartDefinition> decoded = TypedDefinitionCodec.DecodeBodyPart(ContentDefinitionType.BodyPart, withoutSchemaVersion.ToString(), TestCorrelationId);
+
+            Assert.That(decoded.IsFailure, Is.True);
+            Assert.That(decoded.Error.Code, Is.EqualTo(ErrorCodes.ContentCatalogTypedDefinitionMalformedPayload));
+        }
+
+        [TestCase("0")]
+        [TestCase("2")]
+        [TestCase("\"1\"")]
+        [TestCase("null")]
+        public void DecodeBodyPart_OnPayloadWithUnsupportedSchemaVersion_ReturnsSafeFailure(string schemaVersionLiteral)
+        {
+            var bodyPart = new BodyPartDefinition("Torso", damageLimit: 10, properties: "{}");
+            string json = TypedDefinitionCodec.EncodeBodyPart(bodyPart);
+            var withBadSchemaVersion = Newtonsoft.Json.Linq.JObject.Parse(json);
+            withBadSchemaVersion["schemaVersion"] = Newtonsoft.Json.Linq.JToken.Parse(schemaVersionLiteral);
+
+            Result<BodyPartDefinition> decoded = TypedDefinitionCodec.DecodeBodyPart(ContentDefinitionType.BodyPart, withBadSchemaVersion.ToString(), TestCorrelationId);
+
+            Assert.That(decoded.IsFailure, Is.True);
+            Assert.That(decoded.Error.Code, Is.EqualTo(ErrorCodes.ContentCatalogTypedDefinitionMalformedPayload));
+        }
+
+        [Test]
+        public void DecodeAnatomyProfile_OnPayloadMissingSchemaVersion_ReturnsSafeFailure()
+        {
+            var anatomyProfile = new AnatomyProfileDefinition(new[] { new AnatomyProfileBodyPartRef(NewRef(), attachedToIndex: null) });
+            string json = TypedDefinitionCodec.EncodeAnatomyProfile(anatomyProfile);
+            var withoutSchemaVersion = Newtonsoft.Json.Linq.JObject.Parse(json);
+            withoutSchemaVersion.Remove("schemaVersion");
+
+            Result<AnatomyProfileDefinition> decoded = TypedDefinitionCodec.DecodeAnatomyProfile(ContentDefinitionType.AnatomyProfile, withoutSchemaVersion.ToString(), TestCorrelationId);
+
+            Assert.That(decoded.IsFailure, Is.True);
+            Assert.That(decoded.Error.Code, Is.EqualTo(ErrorCodes.ContentCatalogTypedDefinitionMalformedPayload));
+        }
+
+        [TestCase("0")]
+        [TestCase("2")]
+        [TestCase("\"1\"")]
+        [TestCase("null")]
+        public void DecodeAnatomyProfile_OnPayloadWithUnsupportedSchemaVersion_ReturnsSafeFailure(string schemaVersionLiteral)
+        {
+            var anatomyProfile = new AnatomyProfileDefinition(new[] { new AnatomyProfileBodyPartRef(NewRef(), attachedToIndex: null) });
+            string json = TypedDefinitionCodec.EncodeAnatomyProfile(anatomyProfile);
+            var withBadSchemaVersion = Newtonsoft.Json.Linq.JObject.Parse(json);
+            withBadSchemaVersion["schemaVersion"] = Newtonsoft.Json.Linq.JToken.Parse(schemaVersionLiteral);
+
+            Result<AnatomyProfileDefinition> decoded = TypedDefinitionCodec.DecodeAnatomyProfile(ContentDefinitionType.AnatomyProfile, withBadSchemaVersion.ToString(), TestCorrelationId);
 
             Assert.That(decoded.IsFailure, Is.True);
             Assert.That(decoded.Error.Code, Is.EqualTo(ErrorCodes.ContentCatalogTypedDefinitionMalformedPayload));

@@ -4345,6 +4345,70 @@
                           "check":  "TypedDefinitionCodec.DecodeSkill rejects a payload with a missing schemaVersion, and rejects every unsupported schemaVersion literal (0, 2, the string \"1\", null), both as ContentCatalogTypedDefinitionMalformedPayload"
                       },
                       {
+                          "testCaseId":  "TC-CATALOG-117",
+                          "taskId":  "ODY-S07-104",
+                          "authority":  "ODY-S07-104 test list item 1",
+                          "runner":  "dotnet test",
+                          "path":  "DotNet/Tests/Odyssey.Tests.Persistence/Content/MinimalTestCatalogFixtureTests.cs",
+                          "check":  "A BodyPart-typed ContentDefinition Draft published end-to-end through the real, unmodified ContentCatalogAuthoringService/CatalogValidationService.ValidateDraftForPublish/ContentCatalogLifecycleService.PublishDefinition pipeline succeeds and reaches Published status at version 1"
+                      },
+                      {
+                          "testCaseId":  "TC-CATALOG-118",
+                          "taskId":  "ODY-S07-104",
+                          "authority":  "ODY-S07-104 test list item 2",
+                          "runner":  "dotnet test",
+                          "path":  "DotNet/Tests/Odyssey.Tests.Unit/Content/TypedDefinitionCodecTests.cs",
+                          "check":  "TypedDefinitionCodec.EncodeBodyPart/DecodeBodyPart round-trip a BodyPartDefinition through PropertiesJson symmetrically; DecodeBodyPart rejects a wrong actualType, malformed JSON, and an unsupported/missing schemaVersion"
+                      },
+                      {
+                          "testCaseId":  "TC-CATALOG-119",
+                          "taskId":  "ODY-S07-104",
+                          "authority":  "ODY-S07-104 test list item 3",
+                          "runner":  "dotnet test",
+                          "path":  "DotNet/Tests/Odyssey.Tests.Persistence/Content/MinimalTestCatalogFixtureTests.cs",
+                          "check":  "An AnatomyProfile-typed ContentDefinition referencing a real, published BodyPartDefinition by exact-version ContentDefinitionRef publishes end-to-end through the real, unmodified authoring/validation/lifecycle pipeline"
+                      },
+                      {
+                          "testCaseId":  "TC-CATALOG-120",
+                          "taskId":  "ODY-S07-104",
+                          "authority":  "ODY-S07-104 test list item 4",
+                          "runner":  "dotnet test",
+                          "path":  "DotNet/Tests/Odyssey.Tests.Persistence/Content/MinimalTestCatalogFixtureTests.cs",
+                          "check":  "An AnatomyProfile referencing a non-existent BodyPartDefinition ContentDefinitionId fails CatalogValidationService.ValidateDraftForPublish with ReferenceMissing, through the existing, unmodified ValidateReferencesAndCycles mechanism (a new CollectOutgoingRefs branch, not a separate validation path)"
+                      },
+                      {
+                          "testCaseId":  "TC-CATALOG-121",
+                          "taskId":  "ODY-S07-104",
+                          "authority":  "ODY-S07-104 test list item 5",
+                          "runner":  "dotnet test",
+                          "path":  "DotNet/Tests/Odyssey.Tests.Persistence/Content/MinimalTestCatalogFixtureTests.cs",
+                          "check":  "An AnatomyProfile referencing a real, published BodyPartDefinition at the wrong exact version fails CatalogValidationService.ValidateDraftForPublish with ReferenceVersionMismatch"
+                      },
+                      {
+                          "testCaseId":  "TC-CATALOG-122",
+                          "taskId":  "ODY-S07-104",
+                          "authority":  "ODY-S07-104 test list item 6",
+                          "runner":  "dotnet test",
+                          "path":  "DotNet/Tests/Odyssey.Tests.Persistence/Content/MinimalTestCatalogFixtureTests.cs",
+                          "check":  "An AnatomyProfile's own BodyPartRefs pointing at a real, published definition of the wrong ContentDefinitionType (an Effect, not a BodyPart) fails CatalogValidationService.ValidateDraftForPublish with ReferenceWrongType"
+                      },
+                      {
+                          "testCaseId":  "TC-CATALOG-123",
+                          "taskId":  "ODY-S07-104",
+                          "authority":  "ODY-S07-104 test list item 7",
+                          "runner":  "dotnet test",
+                          "path":  "DotNet/Tests/Odyssey.Tests.Unit/Content/TypedDefinitionCodecTests.cs",
+                          "check":  "AnatomyProfileDefinition's own constructor rejects an empty BodyPartRefs list, a self-referencing AttachedToIndex, an out-of-range AttachedToIndex, and an AttachedToIndex chain that forms a cycle"
+                      },
+                      {
+                          "testCaseId":  "TC-CATALOG-124",
+                          "taskId":  "ODY-S07-104",
+                          "authority":  "ODY-S07-104 test list item 8",
+                          "runner":  "dotnet test",
+                          "path":  "DotNet/Tests/Odyssey.Tests.Unit/Content/TypedDefinitionCodecTests.cs",
+                          "check":  "TypedDefinitionCodec.EncodeAnatomyProfile/DecodeAnatomyProfile round-trip an AnatomyProfileDefinition through PropertiesJson symmetrically, including a non-empty BodyPartRefs list with a non-null AttachedToIndex; DecodeAnatomyProfile rejects a wrong actualType, malformed JSON, and an unsupported/missing schemaVersion"
+                      },
+                      {
                           "testCaseId":  "TC-INVENTORY-001",
                           "taskId":  "ODY-S05-201",
                           "authority":  "ODY-S05-201 acceptance criterion 1",
