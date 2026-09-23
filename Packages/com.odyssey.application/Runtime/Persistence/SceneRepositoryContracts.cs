@@ -65,6 +65,26 @@ namespace Odyssey.Application.Persistence
         /// </summary>
         Result<IReadOnlyList<TokenRecord>> ListTokensByCharacter(CampaignHandle campaign, CharacterId characterId, CorrelationId correlationId);
         Result<AssetManifestEntryRecord> RegisterAsset(CampaignHandle campaign, string sourceFilePath, CommandId commandId, CorrelationId correlationId);
+
+        /// <summary>
+        /// ODY-S07-105: sets or clears a Scene's background/map, the first
+        /// mutation of <see cref="SceneRecord"/> since <see cref="CreateScene"/>
+        /// itself. <paramref name="backgroundAssetId"/> is <c>null</c> to clear
+        /// an existing background -- a Scene with no background is a valid
+        /// state, not an error. Fail-closed against a non-null
+        /// <paramref name="backgroundAssetId"/> that does not exist in this same
+        /// campaign's own `AssetManifestEntries` (each campaign owns a separate
+        /// database file, so "exists in this campaign" and "exists at all,
+        /// scoped to this campaign" are the same lookup) -- deliberately not the
+        /// unvalidated, unlinked-to-any-registry antipattern `CharacterRecord.PortraitReference`
+        /// already is. By exact precedent of <see cref="MoveToken"/>: takes
+        /// <paramref name="expectedRevision"/> (optimistic concurrency, checked
+        /// atomically inside the same transaction as the update) and
+        /// <paramref name="commandId"/> (idempotent replay through the same
+        /// <c>SqliteSavingPipeline</c> journal-projection transaction every other
+        /// mutating method here already uses).
+        /// </summary>
+        Result<SceneRecord> SetSceneBackground(CampaignHandle campaign, SceneId sceneId, AssetId? backgroundAssetId, long expectedRevision, CommandId commandId, CorrelationId correlationId);
     }
 
     public readonly struct TokenPosition : IEquatable<TokenPosition>
@@ -84,13 +104,14 @@ namespace Odyssey.Application.Persistence
 
     public sealed class SceneRecord
     {
-        public SceneRecord(SceneId sceneId, CampaignId campaignId, string name, string status, long revision, UtcInstant createdAt, UtcInstant updatedAt)
+        public SceneRecord(SceneId sceneId, CampaignId campaignId, string name, string status, long revision, UtcInstant createdAt, UtcInstant updatedAt, AssetId? backgroundAssetId = null)
         {
             if (!sceneId.IsValid) throw new ArgumentException("SceneId is required.", nameof(sceneId));
             if (!campaignId.IsValid) throw new ArgumentException("CampaignId is required.", nameof(campaignId));
             if (string.IsNullOrWhiteSpace(name) || name.Length > 128) throw new ArgumentException("Name is not safe.", nameof(name));
             if (string.IsNullOrWhiteSpace(status)) throw new ArgumentException("Status is required.", nameof(status));
             if (revision < 1) throw new ArgumentOutOfRangeException(nameof(revision));
+            if (backgroundAssetId.HasValue && !backgroundAssetId.Value.IsValid) throw new ArgumentException("BackgroundAssetId must be valid when supplied.", nameof(backgroundAssetId));
 
             SceneId = sceneId;
             CampaignId = campaignId;
@@ -99,6 +120,7 @@ namespace Odyssey.Application.Persistence
             Revision = revision;
             CreatedAt = createdAt;
             UpdatedAt = updatedAt;
+            BackgroundAssetId = backgroundAssetId;
         }
 
         public SceneId SceneId { get; }
@@ -108,6 +130,9 @@ namespace Odyssey.Application.Persistence
         public long Revision { get; }
         public UtcInstant CreatedAt { get; }
         public UtcInstant UpdatedAt { get; }
+
+        /// <summary>ODY-S07-105: the Scene's own background/map -- a real, validated exact-reference to an already-registered `AssetManifestEntries` row (set via <see cref="ISceneRepository.SetSceneBackground"/>), or `null` for a Scene with no background (a valid, non-error state). No origin/scale/placement metadata -- an explicit non-goal, see that method's own doc comment.</summary>
+        public AssetId? BackgroundAssetId { get; }
     }
 
     public sealed class TokenRecord

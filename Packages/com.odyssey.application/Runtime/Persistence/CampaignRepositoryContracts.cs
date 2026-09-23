@@ -132,6 +132,15 @@ namespace Odyssey.Application.Persistence
             RetryDirective.DoNotRetry,
             correlationId);
 
+        /// <summary>ODY-S07-105: `SqliteSceneRepository.SetSceneBackground` failure when the caller-supplied non-null `AssetId` does not exist in this campaign's own `AssetManifestEntries` -- including an `AssetId` registered under a different campaign entirely, since each campaign owns a separate database file and this lookup is scoped to it (fail-closed, not the unvalidated `CharacterRecord.PortraitReference` antipattern).</summary>
+        public static Error AssetNotFound(CorrelationId correlationId) => Error.Create(
+            ErrorCodes.PersistenceAssetNotFound,
+            ErrorCategory.NotFound,
+            SafeReasonCode.TargetUnavailable,
+            UserMessageKey.Parse("errors.persistence.asset_not_found"),
+            RetryDirective.DoNotRetry,
+            correlationId);
+
         public static Error ActiveEffectNotFound(CorrelationId correlationId) => Error.Create(
             ErrorCodes.PersistenceActiveEffectNotFound,
             ErrorCategory.NotFound,
@@ -199,6 +208,15 @@ namespace Odyssey.Application.Persistence
             ErrorCategory.Conflict,
             SafeReasonCode.StateChanged,
             UserMessageKey.Parse("errors.persistence.token_revision_conflict"),
+            RetryDirective.DoNotRetry,
+            correlationId);
+
+        /// <summary>ODY-S07-105: `SqliteSceneRepository.SetSceneBackground`'s own atomic optimistic-concurrency guard, mirroring <see cref="TokenRevisionConflict"/>'s exact convention -- enforced inside the same transaction as the update, independent of any Application-layer pre-check.</summary>
+        public static Error SceneRevisionConflict(CorrelationId correlationId) => Error.Create(
+            ErrorCodes.PersistenceSceneRevisionConflict,
+            ErrorCategory.Conflict,
+            SafeReasonCode.StateChanged,
+            UserMessageKey.Parse("errors.persistence.scene_revision_conflict"),
             RetryDirective.DoNotRetry,
             correlationId);
 
