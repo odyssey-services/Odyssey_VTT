@@ -417,4 +417,24 @@ namespace Odyssey.Domain.Content
         public EffectStackPolicy StackPolicy { get; }
         public string? MechanicsPayloadRef { get; }
     }
+
+    /// <summary>
+    /// ODY-S07-103: typed properties for a Skill-shaped `ContentDefinition`.
+    /// Finding, not an oversight: <see cref="SkillDefinition"/> carries no
+    /// domain-specific fields beyond the generic `ContentDefinitionRecord`
+    /// envelope (Name/Description/Tags/RulesetCompatibility already cover
+    /// it). Unlike <see cref="AbilityDefinition"/>/<see cref="EffectDefinition"/>
+    /// it has no `MechanicsPayloadRef` -- a skill is never executed as a
+    /// mechanic, the check-resolution system (`ODY-S07-102`) reads it as a
+    /// bare named modifier -- and no governing-attribute link, since no
+    /// existing consumer (`CheckParticipantState`/`CoreCheckRulesEvaluator`/
+    /// `CharacterSkill`) reads such a relationship. Both omissions are this
+    /// task's own explicit decision, not a silent gap. This type exists to
+    /// give `ContentDefinitionType.Skill` a real `TypedDefinitionCodec`
+    /// Encode/Decode/Validate path through the unmodified SLICE-05
+    /// authoring/validation/publish pipeline.
+    /// </summary>
+    public sealed class SkillDefinition
+    {
+    }
 }

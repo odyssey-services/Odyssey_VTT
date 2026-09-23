@@ -172,6 +172,20 @@ namespace Odyssey.Tests.Unit.Content
             Assert.That(decoded.Value.MechanicsPayloadRef, Is.Null);
         }
 
+        // ---- SkillDefinition --------------------------------------------------------
+
+        [Test]
+        public void SkillDefinition_RoundTrips()
+        {
+            var skill = new SkillDefinition();
+
+            string json = TypedDefinitionCodec.EncodeSkill(skill);
+            Result<SkillDefinition> decoded = TypedDefinitionCodec.DecodeSkill(ContentDefinitionType.Skill, json, TestCorrelationId);
+
+            Assert.That(decoded.IsSuccess, Is.True);
+            Assert.That(decoded.Value, Is.Not.Null);
+        }
+
         // ---- Wrong ContentDefinitionType cannot be decoded ----------------------
 
         [Test]
@@ -200,7 +214,29 @@ namespace Odyssey.Tests.Unit.Content
             Assert.That(decoded.Error.Code, Is.EqualTo(ErrorCodes.ContentCatalogTypedDefinitionWrongType));
         }
 
+        [Test]
+        public void DecodeSkill_AgainstEffectDefinitionType_IsRejected()
+        {
+            var skill = new SkillDefinition();
+            string json = TypedDefinitionCodec.EncodeSkill(skill);
+
+            Result<SkillDefinition> decoded = TypedDefinitionCodec.DecodeSkill(ContentDefinitionType.Effect, json, TestCorrelationId);
+
+            Assert.That(decoded.IsFailure, Is.True);
+            Assert.That(decoded.Error.Code, Is.EqualTo(ErrorCodes.ContentCatalogTypedDefinitionWrongType));
+        }
+
         // ---- Malformed JSON returns a safe failure, not a raw exception ----------
+
+        [TestCase("{ this is not valid json")]
+        [TestCase("null")]
+        public void DecodeSkill_OnMalformedJson_ReturnsSafeFailure_NotRawException(string malformedJson)
+        {
+            Result<SkillDefinition> decoded = TypedDefinitionCodec.DecodeSkill(ContentDefinitionType.Skill, malformedJson, TestCorrelationId);
+
+            Assert.That(decoded.IsFailure, Is.True);
+            Assert.That(decoded.Error.Code, Is.EqualTo(ErrorCodes.ContentCatalogTypedDefinitionMalformedPayload));
+        }
 
         [TestCase("{ this is not valid json")]
         [TestCase("null")]
@@ -289,6 +325,37 @@ namespace Odyssey.Tests.Unit.Content
             withBadSchemaVersion["schemaVersion"] = Newtonsoft.Json.Linq.JToken.Parse(schemaVersionLiteral);
 
             Result<AbilityDefinition> decoded = TypedDefinitionCodec.DecodeAbility(ContentDefinitionType.Ability, withBadSchemaVersion.ToString(), TestCorrelationId);
+
+            Assert.That(decoded.IsFailure, Is.True);
+            Assert.That(decoded.Error.Code, Is.EqualTo(ErrorCodes.ContentCatalogTypedDefinitionMalformedPayload));
+        }
+
+        [Test]
+        public void DecodeSkill_OnPayloadMissingSchemaVersion_ReturnsSafeFailure()
+        {
+            var skill = new SkillDefinition();
+            string json = TypedDefinitionCodec.EncodeSkill(skill);
+            var withoutSchemaVersion = Newtonsoft.Json.Linq.JObject.Parse(json);
+            withoutSchemaVersion.Remove("schemaVersion");
+
+            Result<SkillDefinition> decoded = TypedDefinitionCodec.DecodeSkill(ContentDefinitionType.Skill, withoutSchemaVersion.ToString(), TestCorrelationId);
+
+            Assert.That(decoded.IsFailure, Is.True);
+            Assert.That(decoded.Error.Code, Is.EqualTo(ErrorCodes.ContentCatalogTypedDefinitionMalformedPayload));
+        }
+
+        [TestCase("0")]
+        [TestCase("2")]
+        [TestCase("\"1\"")]
+        [TestCase("null")]
+        public void DecodeSkill_OnPayloadWithUnsupportedSchemaVersion_ReturnsSafeFailure(string schemaVersionLiteral)
+        {
+            var skill = new SkillDefinition();
+            string json = TypedDefinitionCodec.EncodeSkill(skill);
+            var withBadSchemaVersion = Newtonsoft.Json.Linq.JObject.Parse(json);
+            withBadSchemaVersion["schemaVersion"] = Newtonsoft.Json.Linq.JToken.Parse(schemaVersionLiteral);
+
+            Result<SkillDefinition> decoded = TypedDefinitionCodec.DecodeSkill(ContentDefinitionType.Skill, withBadSchemaVersion.ToString(), TestCorrelationId);
 
             Assert.That(decoded.IsFailure, Is.True);
             Assert.That(decoded.Error.Code, Is.EqualTo(ErrorCodes.ContentCatalogTypedDefinitionMalformedPayload));

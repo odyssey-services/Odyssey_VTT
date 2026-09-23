@@ -300,6 +300,43 @@ namespace Odyssey.Application.Content
         }
 
         /// <summary>
+        /// ODY-S07-103: <see cref="SkillDefinition"/> carries no
+        /// domain-specific fields (see its own doc comment), so the encoded
+        /// payload is just the shared `schemaVersion` envelope -- there is
+        /// nothing else to write.
+        /// </summary>
+        public static string EncodeSkill(SkillDefinition skill)
+        {
+            if (skill == null) throw new ArgumentNullException(nameof(skill));
+
+            var root = new JObject
+            {
+                ["schemaVersion"] = SchemaVersion,
+            };
+
+            return root.ToString(Formatting.None);
+        }
+
+        public static Result<SkillDefinition> DecodeSkill(ContentDefinitionType actualType, string propertiesJson, CorrelationId correlationId)
+        {
+            if (actualType != ContentDefinitionType.Skill)
+            {
+                return Result<SkillDefinition>.Failure(TypedDefinitionCodecFailures.WrongDefinitionType(correlationId));
+            }
+
+            try
+            {
+                JObject root = JObject.Parse(propertiesJson);
+                RequireSupportedSchemaVersion(root);
+                return Result<SkillDefinition>.Success(new SkillDefinition());
+            }
+            catch (Exception ex) when (IsMalformedPayloadException(ex))
+            {
+                return Result<SkillDefinition>.Failure(TypedDefinitionCodecFailures.MalformedPayload(correlationId));
+            }
+        }
+
+        /// <summary>
         /// ODY-S05-105 amendment: every decode path must reject a payload
         /// whose `schemaVersion` is missing, `null`, not an integer, or an
         /// integer other than the one currently supported (`1`) -- before

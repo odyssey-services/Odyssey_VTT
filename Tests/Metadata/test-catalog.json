@@ -4305,6 +4305,46 @@
                           "check":  "The campaign.db schema after fixture authoring contains no Inventory/ItemInstance/ItemStack/Equipment/ActiveEffect table -- ODY-S05-106 introduces no new persistence table"
                       },
                       {
+                          "testCaseId":  "TC-CATALOG-112",
+                          "taskId":  "ODY-S07-103",
+                          "authority":  "ODY-S07-103 test list item 1",
+                          "runner":  "dotnet test",
+                          "path":  "DotNet/Tests/Odyssey.Tests.Persistence/Content/MinimalTestCatalogFixtureTests.cs",
+                          "check":  "A Skill-typed ContentDefinition Draft published end-to-end through the real, unmodified ContentCatalogAuthoringService/CatalogValidationService.ValidateDraftForPublish/ContentCatalogLifecycleService.PublishDefinition pipeline succeeds and reaches Published status at version 1"
+                      },
+                      {
+                          "testCaseId":  "TC-CATALOG-113",
+                          "taskId":  "ODY-S07-103",
+                          "authority":  "ODY-S07-103 test list item 2",
+                          "runner":  "dotnet test",
+                          "path":  "DotNet/Tests/Odyssey.Tests.Unit/Content/TypedDefinitionCodecTests.cs",
+                          "check":  "TypedDefinitionCodec.EncodeSkill/DecodeSkill round-trip a SkillDefinition through PropertiesJson symmetrically"
+                      },
+                      {
+                          "testCaseId":  "TC-CATALOG-114",
+                          "taskId":  "ODY-S07-103",
+                          "authority":  "ODY-S07-103 test list item 3",
+                          "runner":  "dotnet test",
+                          "path":  "DotNet/Tests/Odyssey.Tests.Unit/Content/TypedDefinitionCodecTests.cs",
+                          "check":  "TypedDefinitionCodec.DecodeSkill against a payload whose actualType is ContentDefinitionType.Effect (not Skill) is rejected with ContentCatalogTypedDefinitionWrongType"
+                      },
+                      {
+                          "testCaseId":  "TC-CATALOG-115",
+                          "taskId":  "ODY-S07-103",
+                          "authority":  "ODY-S07-103 test list item 4",
+                          "runner":  "dotnet test",
+                          "path":  "DotNet/Tests/Odyssey.Tests.Unit/Content/TypedDefinitionCodecTests.cs",
+                          "check":  "TypedDefinitionCodec.DecodeSkill against malformed JSON (syntactically invalid, or the literal null) returns a safe ContentCatalogTypedDefinitionMalformedPayload failure, never a raw exception"
+                      },
+                      {
+                          "testCaseId":  "TC-CATALOG-116",
+                          "taskId":  "ODY-S07-103",
+                          "authority":  "ODY-S07-103 test list item 5",
+                          "runner":  "dotnet test",
+                          "path":  "DotNet/Tests/Odyssey.Tests.Unit/Content/TypedDefinitionCodecTests.cs",
+                          "check":  "TypedDefinitionCodec.DecodeSkill rejects a payload with a missing schemaVersion, and rejects every unsupported schemaVersion literal (0, 2, the string \"1\", null), both as ContentCatalogTypedDefinitionMalformedPayload"
+                      },
+                      {
                           "testCaseId":  "TC-INVENTORY-001",
                           "taskId":  "ODY-S05-201",
                           "authority":  "ODY-S05-201 acceptance criterion 1",
