@@ -4409,6 +4409,14 @@
                           "check":  "TypedDefinitionCodec.EncodeAnatomyProfile/DecodeAnatomyProfile round-trip an AnatomyProfileDefinition through PropertiesJson symmetrically, including a non-empty BodyPartRefs list with a non-null AttachedToIndex; DecodeAnatomyProfile rejects a wrong actualType, malformed JSON, and an unsupported/missing schemaVersion"
                       },
                       {
+                          "testCaseId":  "TC-CATALOG-125",
+                          "taskId":  "ODY-S07-104",
+                          "authority":  "ODY-S07-104 доработка (PR #169): AttachedToIndex cycle detection must be proven for a longer, non-trivial cycle, not only the 2-element/self-reference cases",
+                          "runner":  "dotnet test",
+                          "path":  "DotNet/Tests/Odyssey.Tests.Unit/Content/TypedDefinitionCodecTests.cs",
+                          "check":  "AnatomyProfileDefinition_RejectsAttachedToIndexLongerCycle: a 3-element AttachedToIndex cycle (0->1->2->0), with no directly mutual pair, is rejected by the constructor's own graph-walk"
+                      },
+                      {
                           "testCaseId":  "TC-INVENTORY-001",
                           "taskId":  "ODY-S05-201",
                           "authority":  "ODY-S05-201 acceptance criterion 1",

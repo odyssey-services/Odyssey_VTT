@@ -258,6 +258,24 @@ namespace Odyssey.Tests.Unit.Content
             Assert.Throws<System.ArgumentException>(new System.Action(() => new AnatomyProfileDefinition(refs)));
         }
 
+        [Test]
+        public void AnatomyProfileDefinition_RejectsAttachedToIndexLongerCycle()
+        {
+            // A 3-element cycle (0 -> 1 -> 2 -> 0) -- no pair is a direct
+            // mutual reference like the 2-element case above; the cycle only
+            // closes after the full three-hop chain, proving the
+            // constructor's own graph-walk (not a shortcut check for the
+            // trivial 2-element/self-reference cases) actually detects it.
+            var refs = new[]
+            {
+                new AnatomyProfileBodyPartRef(NewRef(), attachedToIndex: 1),
+                new AnatomyProfileBodyPartRef(NewRef(2), attachedToIndex: 2),
+                new AnatomyProfileBodyPartRef(NewRef(3), attachedToIndex: 0),
+            };
+
+            Assert.Throws<System.ArgumentException>(new System.Action(() => new AnatomyProfileDefinition(refs)));
+        }
+
         // ---- Wrong ContentDefinitionType cannot be decoded ----------------------
 
         [Test]
