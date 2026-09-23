@@ -1721,6 +1721,78 @@
                           "check":  "Replacing a scene's background with a different AssetId removes the old AssetReferences row and leaves exactly one current row for that scene -- no duplicate accumulation across repeated background changes"
                       },
                       {
+                          "testCaseId":  "TC-BOARD-024",
+                          "taskId":  "ODY-S07-106",
+                          "authority":  "ODY-S07-106 test list item 1",
+                          "runner":  "dotnet test",
+                          "path":  "DotNet/Tests/Odyssey.Tests.Persistence/SqliteSceneRepositoryTests.cs",
+                          "check":  "SetTokenPortrait with a valid AssetId already registered in the same campaign succeeds, TokenRecord.PortraitAssetId is set, Revision is incremented, and a subsequent MoveToken carries the portrait in its returned record and leaves it in the database"
+                      },
+                      {
+                          "testCaseId":  "TC-BOARD-025",
+                          "taskId":  "ODY-S07-106",
+                          "authority":  "ODY-S07-106 test list item 2",
+                          "runner":  "dotnet test",
+                          "path":  "DotNet/Tests/Odyssey.Tests.Persistence/SqliteSceneRepositoryTests.cs",
+                          "check":  "SetTokenPortrait with an AssetId that does not exist in this campaign's AssetManifestEntries fails with the typed persistence.asset.not_found error and leaves the token unchanged"
+                      },
+                      {
+                          "testCaseId":  "TC-BOARD-026",
+                          "taskId":  "ODY-S07-106",
+                          "authority":  "ODY-S07-106 test list item 3",
+                          "runner":  "dotnet test",
+                          "path":  "DotNet/Tests/Odyssey.Tests.Persistence/SqliteSceneRepositoryTests.cs",
+                          "check":  "SetTokenPortrait with an AssetId registered under a genuinely separate campaign (its own database file) fails closed with persistence.asset.not_found -- a cross-campaign leak is rejected"
+                      },
+                      {
+                          "testCaseId":  "TC-BOARD-027",
+                          "taskId":  "ODY-S07-106",
+                          "authority":  "ODY-S07-106 test list item 4",
+                          "runner":  "dotnet test",
+                          "path":  "DotNet/Tests/Odyssey.Tests.Persistence/SqliteSceneRepositoryTests.cs",
+                          "check":  "SetTokenPortrait(portraitAssetId: null) after a portrait was previously set really clears PortraitAssetId, in the returned record, the database, and the AssetReferences table"
+                      },
+                      {
+                          "testCaseId":  "TC-BOARD-028",
+                          "taskId":  "ODY-S07-106",
+                          "authority":  "ODY-S07-106 test list item 5",
+                          "runner":  "dotnet test",
+                          "path":  "DotNet/Tests/Odyssey.Tests.Persistence/SqliteSceneRepositoryTests.cs",
+                          "check":  "SetTokenPortrait with a mismatched expectedRevision is rejected with the existing typed persistence.token.revision_conflict error and leaves PortraitAssetId unchanged"
+                      },
+                      {
+                          "testCaseId":  "TC-BOARD-029",
+                          "taskId":  "ODY-S07-106",
+                          "authority":  "ODY-S07-106 test list item 6",
+                          "runner":  "dotnet test",
+                          "path":  "DotNet/Tests/Odyssey.Tests.Persistence/SqliteSceneRepositoryTests.cs",
+                          "check":  "Retrying SetTokenPortrait with the same CommandId replays the stored outcome -- Revision does not advance a second time and AssetReferences gains no second row"
+                      },
+                      {
+                          "testCaseId":  "TC-BOARD-030",
+                          "taskId":  "ODY-S07-106",
+                          "authority":  "ODY-S07-106 test list item 7",
+                          "runner":  "dotnet test",
+                          "path":  "DotNet/Tests/Odyssey.Tests.Persistence/SqliteSceneRepositoryTests.cs",
+                          "check":  "After a successful SetTokenPortrait, a direct read of the AssetReferences table confirms the (AssetId, 'Token', TokenId) row really exists"
+                      },
+                      {
+                          "testCaseId":  "TC-BOARD-031",
+                          "taskId":  "ODY-S07-106",
+                          "authority":  "ODY-S07-106 test list item 8",
+                          "runner":  "dotnet test",
+                          "path":  "DotNet/Tests/Odyssey.Tests.Persistence/SqliteSceneRepositoryTests.cs",
+                          "check":  "Replacing a token's portrait with a different AssetId removes the old AssetReferences row and leaves exactly one current 'Token' row for that token -- no duplicate accumulation"
+                      },
+                      {
+                          "testCaseId":  "TC-BOARD-032",
+                          "taskId":  "ODY-S07-106",
+                          "authority":  "ODY-S07-106 test list item 9",
+                          "runner":  "dotnet test",
+                          "path":  "DotNet/Tests/Odyssey.Tests.Persistence/SqliteSceneRepositoryTests.cs",
+                          "check":  "A token linked (CharacterId) to a Character that has its own PortraitAssetId does not inherit it -- the token's PortraitAssetId stays null; a token portrait is an independent field, never auto-derived"
+                      },
+                      {
                           "testCaseId":  "TC-DICE-001",
                           "taskId":  "ODY-S03-005",
                           "authority":  "09_Dice_And_Game_Log section 7.1; ODY-S03-005",
@@ -3479,6 +3551,70 @@
                           "runner":  "dotnet test",
                           "path":  "DotNet/Tests/Odyssey.Tests.Persistence/CharacterSkillPurchaseCriticalEvidenceTests.cs",
                           "check":  "GetCharacterHistory succeeds (no IntegrityCheckFailed) and surfaces character_advancement_recommendation_resolved (the dismiss/release branch of ResolveAdvancementRecommendation) with a non-null DisplayNameSnapshot, distinct from the approve/spend branch's own character_skill_level_purchased (TC-CHAR-167)"
+                      },
+                      {
+                          "testCaseId":  "TC-CHAR-173",
+                          "taskId":  "ODY-S07-106",
+                          "authority":  "ODY-S07-106 test list item 1",
+                          "runner":  "dotnet test",
+                          "path":  "DotNet/Tests/Odyssey.Tests.Persistence/SqliteCharacterRepositoryTests.cs",
+                          "check":  "SetCharacterPortrait with a valid AssetId already registered in the same campaign succeeds, CharacterRecord.PortraitAssetId is set, the Presentation and Character revisions are incremented, the opaque PortraitReference string is left untouched, and a subsequent UpdatePresentation neither clobbers PortraitAssetId in its returned record nor in the database"
+                      },
+                      {
+                          "testCaseId":  "TC-CHAR-174",
+                          "taskId":  "ODY-S07-106",
+                          "authority":  "ODY-S07-106 test list item 2",
+                          "runner":  "dotnet test",
+                          "path":  "DotNet/Tests/Odyssey.Tests.Persistence/SqliteCharacterRepositoryTests.cs",
+                          "check":  "SetCharacterPortrait with an AssetId that does not exist in this campaign's AssetManifestEntries fails with the typed persistence.asset.not_found error and leaves the Character (PortraitAssetId and Presentation revision) unchanged"
+                      },
+                      {
+                          "testCaseId":  "TC-CHAR-175",
+                          "taskId":  "ODY-S07-106",
+                          "authority":  "ODY-S07-106 test list item 3",
+                          "runner":  "dotnet test",
+                          "path":  "DotNet/Tests/Odyssey.Tests.Persistence/SqliteCharacterRepositoryTests.cs",
+                          "check":  "SetCharacterPortrait with an AssetId registered under a genuinely separate campaign (its own database file) fails closed with persistence.asset.not_found -- a cross-campaign leak is rejected"
+                      },
+                      {
+                          "testCaseId":  "TC-CHAR-176",
+                          "taskId":  "ODY-S07-106",
+                          "authority":  "ODY-S07-106 test list item 4",
+                          "runner":  "dotnet test",
+                          "path":  "DotNet/Tests/Odyssey.Tests.Persistence/SqliteCharacterRepositoryTests.cs",
+                          "check":  "SetCharacterPortrait(portraitAssetId: null) after a portrait was previously set really clears PortraitAssetId, in the returned record, the database, and the AssetReferences table"
+                      },
+                      {
+                          "testCaseId":  "TC-CHAR-177",
+                          "taskId":  "ODY-S07-106",
+                          "authority":  "ODY-S07-106 test list item 5",
+                          "runner":  "dotnet test",
+                          "path":  "DotNet/Tests/Odyssey.Tests.Persistence/SqliteCharacterRepositoryTests.cs",
+                          "check":  "SetCharacterPortrait with a mismatched expectedPresentationRevision is rejected with the existing typed persistence.character.revision_conflict error and leaves PortraitAssetId unchanged"
+                      },
+                      {
+                          "testCaseId":  "TC-CHAR-178",
+                          "taskId":  "ODY-S07-106",
+                          "authority":  "ODY-S07-106 test list item 6",
+                          "runner":  "dotnet test",
+                          "path":  "DotNet/Tests/Odyssey.Tests.Persistence/SqliteCharacterRepositoryTests.cs",
+                          "check":  "Retrying SetCharacterPortrait with the same CommandId replays the stored outcome -- the Presentation revision does not advance a second time and AssetReferences gains no second row"
+                      },
+                      {
+                          "testCaseId":  "TC-CHAR-179",
+                          "taskId":  "ODY-S07-106",
+                          "authority":  "ODY-S07-106 test list item 7",
+                          "runner":  "dotnet test",
+                          "path":  "DotNet/Tests/Odyssey.Tests.Persistence/SqliteCharacterRepositoryTests.cs",
+                          "check":  "After a successful SetCharacterPortrait, a direct read of the AssetReferences table confirms the (AssetId, 'Character', CharacterId) row really exists"
+                      },
+                      {
+                          "testCaseId":  "TC-CHAR-180",
+                          "taskId":  "ODY-S07-106",
+                          "authority":  "ODY-S07-106 test list item 8",
+                          "runner":  "dotnet test",
+                          "path":  "DotNet/Tests/Odyssey.Tests.Persistence/SqliteCharacterRepositoryTests.cs",
+                          "check":  "Replacing a Character's portrait with a different AssetId removes the old AssetReferences row and leaves exactly one current 'Character' row for that character -- no duplicate accumulation"
                       },
                       {
                           "testCaseId":  "TC-CATALOG-001",
