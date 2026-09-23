@@ -1793,6 +1793,126 @@
                           "check":  "A token linked (CharacterId) to a Character that has its own PortraitAssetId does not inherit it -- the token's PortraitAssetId stays null; a token portrait is an independent field, never auto-derived"
                       },
                       {
+                          "testCaseId":  "TC-BOARD-033",
+                          "taskId":  "ODY-S08-101",
+                          "authority":  "ODY-S08-101 test list item 1",
+                          "runner":  "dotnet test",
+                          "path":  "DotNet/Tests/Odyssey.Tests.Persistence/SqliteSceneRepositoryTests.cs",
+                          "check":  "ReadAssetContent with a registered AssetId of the same campaign returns exactly the bytes written at RegisterAsset, and their SHA-256 equals the hash stored at registration"
+                      },
+                      {
+                          "testCaseId":  "TC-BOARD-034",
+                          "taskId":  "ODY-S08-101",
+                          "authority":  "ODY-S08-101 test list item 2",
+                          "runner":  "dotnet test",
+                          "path":  "DotNet/Tests/Odyssey.Tests.Persistence/SqliteSceneRepositoryTests.cs",
+                          "check":  "ReadAssetContent with an AssetId absent from this campaign's AssetManifestEntries fails with the reused typed persistence.asset.not_found error"
+                      },
+                      {
+                          "testCaseId":  "TC-BOARD-035",
+                          "taskId":  "ODY-S08-101",
+                          "authority":  "ODY-S08-101 test list item 3",
+                          "runner":  "dotnet test",
+                          "path":  "DotNet/Tests/Odyssey.Tests.Persistence/SqliteSceneRepositoryTests.cs",
+                          "check":  "ReadAssetContent with an AssetId registered under a genuinely separate campaign (its own database file) fails closed with persistence.asset.not_found, while remaining readable in its own campaign"
+                      },
+                      {
+                          "testCaseId":  "TC-BOARD-036",
+                          "taskId":  "ODY-S08-101",
+                          "authority":  "ODY-S08-101 test list item 4",
+                          "runner":  "dotnet test",
+                          "path":  "DotNet/Tests/Odyssey.Tests.Persistence/SqliteSceneRepositoryTests.cs",
+                          "check":  "ReadAssetContent fails with the typed persistence.asset.file_missing error when the manifest row exists but the file was really deleted from disk"
+                      },
+                      {
+                          "testCaseId":  "TC-BOARD-037",
+                          "taskId":  "ODY-S08-101",
+                          "authority":  "ODY-S08-101 test list item 5",
+                          "runner":  "dotnet test",
+                          "path":  "DotNet/Tests/Odyssey.Tests.Persistence/SqliteSceneRepositoryTests.cs",
+                          "check":  "ReadAssetContent fails with the typed persistence.asset.integrity_failed error when the bytes on disk were replaced so they no longer match the stored SHA-256"
+                      },
+                      {
+                          "testCaseId":  "TC-BOARD-038",
+                          "taskId":  "ODY-S08-101",
+                          "authority":  "ODY-S08-101 test list item 5",
+                          "runner":  "dotnet test",
+                          "path":  "DotNet/Tests/Odyssey.Tests.Persistence/SqliteSceneRepositoryTests.cs",
+                          "check":  "ReadAssetContent rejects a manifest RelativePath that escapes Assets/Objects (../..) with persistence.asset.integrity_failed even when a byte-identical file outside would satisfy the hash -- only the path-confinement check can reject it"
+                      },
+                      {
+                          "testCaseId":  "TC-BOARD-039",
+                          "taskId":  "ODY-S08-101",
+                          "authority":  "ODY-S08-101 additional coverage (finding-driven, see task contract section 18)",
+                          "runner":  "dotnet test",
+                          "path":  "DotNet/Tests/Odyssey.Tests.Persistence/SqliteSceneRepositoryTests.cs",
+                          "check":  "The new ISceneRepository.GetScene returns the stored scene with and without BackgroundAssetId (revision reflecting SetSceneBackground) and the existing typed persistence.scene.not_found for an unknown scene"
+                      },
+                      {
+                          "testCaseId":  "TC-BOARD-040",
+                          "taskId":  "ODY-S08-101",
+                          "authority":  "ODY-S08-101 test list item 6",
+                          "runner":  "Unity EditMode",
+                          "path":  "Assets/Odyssey/Client/Tests/EditMode/BoardScreenPresenterTests.cs",
+                          "check":  "BoardScreenPresenter: after Initialize, a scene with BackgroundAssetId has board-area style.backgroundImage set to the decoded registered texture (verified by its 4px width), not a solid fill"
+                      },
+                      {
+                          "testCaseId":  "TC-BOARD-041",
+                          "taskId":  "ODY-S08-101",
+                          "authority":  "ODY-S08-101 test list item 7",
+                          "runner":  "Unity EditMode",
+                          "path":  "Assets/Odyssey/Client/Tests/EditMode/BoardScreenPresenterTests.cs",
+                          "check":  "BoardScreenPresenter: a scene without BackgroundAssetId leaves board-area with no inline background image and the unchanged solid fill color (fallback regression test)"
+                      },
+                      {
+                          "testCaseId":  "TC-BOARD-042",
+                          "taskId":  "ODY-S08-101",
+                          "authority":  "ODY-S08-101 test list item 8",
+                          "runner":  "Unity EditMode",
+                          "path":  "Assets/Odyssey/Client/Tests/EditMode/BoardScreenPresenterTests.cs",
+                          "check":  "BoardScreenPresenter: a token with PortraitAssetId shows the decoded registered texture (8px width) and not the ownership color"
+                      },
+                      {
+                          "testCaseId":  "TC-BOARD-043",
+                          "taskId":  "ODY-S08-101",
+                          "authority":  "ODY-S08-101 test list item 9",
+                          "runner":  "Unity EditMode",
+                          "path":  "Assets/Odyssey/Client/Tests/EditMode/BoardScreenPresenterTests.cs",
+                          "check":  "BoardScreenPresenter: a token without PortraitAssetId stays the ownership-colored square with no image style (fallback regression test)"
+                      },
+                      {
+                          "testCaseId":  "TC-BOARD-044",
+                          "taskId":  "ODY-S08-101",
+                          "authority":  "ODY-S08-101 test list item 10",
+                          "runner":  "Unity EditMode",
+                          "path":  "Assets/Odyssey/Client/Tests/EditMode/BoardScreenPresenterTests.cs",
+                          "check":  "BoardScreenPresenter texture cache: with one AssetId used as both scene background and token portrait, Initialize + two Refresh + a select-and-move perform exactly one ReadAssetContent call (counting ISceneRepository decorator), and the portrait survives the re-render after the move"
+                      },
+                      {
+                          "testCaseId":  "TC-BOARD-045",
+                          "taskId":  "ODY-S08-101",
+                          "authority":  "ODY-S08-101 additional coverage (finding-driven, see task contract section 18)",
+                          "runner":  "Unity EditMode",
+                          "path":  "Assets/Odyssey/Client/Tests/EditMode/BoardScreenPresenterTests.cs",
+                          "check":  "BoardScreenPresenter: when the asset file is missing on disk, Refresh still renders the tokens with ownership-colored fallback and no background image, and reports the typed persistence.asset.file_missing error"
+                      },
+                      {
+                          "testCaseId":  "TC-BOARD-046",
+                          "taskId":  "ODY-S08-101",
+                          "authority":  "ODY-S08-101 additional coverage (finding-driven, see task contract section 18)",
+                          "runner":  "Unity EditMode",
+                          "path":  "Assets/Odyssey/Client/Tests/EditMode/BoardScreenPresenterTests.cs",
+                          "check":  "BoardScreenPresenter: hash-consistent bytes that are not a decodable image produce the typed errors.board_screen.texture_decode_failed error and the solid-fill fallback"
+                      },
+                      {
+                          "testCaseId":  "TC-BOARD-047",
+                          "taskId":  "ODY-S08-101",
+                          "authority":  "ODY-S08-101 additional coverage (finding-driven, see task contract section 18)",
+                          "runner":  "Unity EditMode",
+                          "path":  "Assets/Odyssey/Client/Tests/EditMode/BoardScreenPresenterTests.cs",
+                          "check":  "BoardScreenPresenter: after a background texture was shown, clearing the scene's BackgroundAssetId (SetSceneBackground null) removes the board image on the next Refresh and leaves the solid fill color"
+                      },
+                      {
                           "testCaseId":  "TC-DICE-001",
                           "taskId":  "ODY-S03-005",
                           "authority":  "09_Dice_And_Game_Log section 7.1; ODY-S03-005",

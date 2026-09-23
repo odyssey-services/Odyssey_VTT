@@ -29,6 +29,8 @@ namespace Odyssey.Application.Results
         public static readonly ErrorCode PersistenceTokenRevisionConflict = ErrorCode.Parse("persistence.token.revision_conflict");
         public static readonly ErrorCode PersistenceSceneRevisionConflict = ErrorCode.Parse("persistence.scene.revision_conflict");
         public static readonly ErrorCode PersistenceAssetNotFound = ErrorCode.Parse("persistence.asset.not_found");
+        public static readonly ErrorCode PersistenceAssetFileMissing = ErrorCode.Parse("persistence.asset.file_missing");
+        public static readonly ErrorCode PersistenceAssetIntegrityFailed = ErrorCode.Parse("persistence.asset.integrity_failed");
         public static readonly ErrorCode PersistenceActiveEffectNotFound = ErrorCode.Parse("persistence.active_effect.not_found");
         public static readonly ErrorCode PersistenceActiveEffectIoFailed = ErrorCode.Parse("persistence.active_effect.io_failed");
         public static readonly ErrorCode PersistenceActiveEffectCampaignMismatch = ErrorCode.Parse("persistence.active_effect.campaign_mismatch");

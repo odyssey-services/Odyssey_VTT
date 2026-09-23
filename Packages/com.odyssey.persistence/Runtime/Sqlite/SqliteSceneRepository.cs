@@ -159,6 +159,36 @@ namespace Odyssey.Persistence.Sqlite
             }
         }
 
+        public Result<SceneRecord> GetScene(CampaignHandle campaign, SceneId sceneId, CorrelationId correlationId)
+        {
+            if (campaign == null) throw new ArgumentNullException(nameof(campaign));
+            if (!sceneId.IsValid) throw new ArgumentException("SceneId is required.", nameof(sceneId));
+
+            try
+            {
+                using SqliteConnection connection = OpenConnection(campaign.RootPath);
+                EnsureSceneTokenTables(connection);
+
+                using var select = connection.CreateCommand();
+                select.CommandText = "SELECT SceneId, Name, Status, Revision, CreatedAt, UpdatedAt, BackgroundAssetId FROM Scene WHERE SceneId = $sceneId LIMIT 1;";
+                select.Parameters.AddWithValue("$sceneId", sceneId.ToString());
+                using SqliteDataReader reader = select.ExecuteReader();
+                if (!reader.Read())
+                {
+                    return Result<SceneRecord>.Failure(PersistenceFailures.SceneNotFound(correlationId));
+                }
+
+                AssetId? backgroundAssetId = reader.IsDBNull(6) ? (AssetId?)null : AssetId.Parse(reader.GetString(6));
+                return Result<SceneRecord>.Success(new SceneRecord(
+                    SceneId.Parse(reader.GetString(0)), campaign.CampaignId, reader.GetString(1), reader.GetString(2), reader.GetInt64(3),
+                    UtcInstant.Parse(reader.GetString(4)), UtcInstant.Parse(reader.GetString(5)), backgroundAssetId));
+            }
+            catch (Exception ex) when (ex is IOException || ex is UnauthorizedAccessException || ex is SqliteException)
+            {
+                return Result<SceneRecord>.Failure(PersistenceFailures.SceneIoFailed(correlationId));
+            }
+        }
+
         public Result<TokenRecord> GetToken(CampaignHandle campaign, TokenId tokenId, CorrelationId correlationId)
         {
             if (campaign == null) throw new ArgumentNullException(nameof(campaign));
@@ -645,6 +675,69 @@ namespace Odyssey.Persistence.Sqlite
             catch (Exception ex) when (ex is IOException || ex is UnauthorizedAccessException || ex is SqliteException)
             {
                 return Result<AssetManifestEntryRecord>.Failure(PersistenceFailures.SceneIoFailed(correlationId));
+            }
+        }
+
+        public Result<byte[]> ReadAssetContent(CampaignHandle campaign, AssetId assetId, CorrelationId correlationId)
+        {
+            if (campaign == null) throw new ArgumentNullException(nameof(campaign));
+            if (!assetId.IsValid) throw new ArgumentException("AssetId is required.", nameof(assetId));
+
+            try
+            {
+                using SqliteConnection connection = OpenConnection(campaign.RootPath);
+
+                string relativePath;
+                string? storedHash;
+                using (var select = connection.CreateCommand())
+                {
+                    select.CommandText = "SELECT RelativePath, Hash FROM AssetManifestEntries WHERE AssetId = $assetId LIMIT 1;";
+                    select.Parameters.AddWithValue("$assetId", assetId.ToString());
+                    using SqliteDataReader reader = select.ExecuteReader();
+                    if (!reader.Read())
+                    {
+                        // Each campaign owns a separate database file, so a single
+                        // lookup here is also the cross-campaign check.
+                        return Result<byte[]>.Failure(PersistenceFailures.AssetNotFound(correlationId));
+                    }
+
+                    relativePath = reader.GetString(0);
+                    storedHash = reader.IsDBNull(1) ? null : reader.GetString(1);
+                }
+
+                // Defense in depth: the manifest is data in a local database file; never
+                // let a tampered RelativePath (e.g. "../..") read outside the campaign's
+                // own asset object directory.
+                string objectsRoot = Path.GetFullPath(Path.Combine(campaign.RootPath, AssetsObjectsRelativeDirectory.Replace('/', Path.DirectorySeparatorChar)));
+                string fullPath = Path.GetFullPath(Path.Combine(campaign.RootPath, relativePath.Replace('/', Path.DirectorySeparatorChar)));
+                if (!fullPath.StartsWith(objectsRoot + Path.DirectorySeparatorChar, StringComparison.Ordinal))
+                {
+                    return Result<byte[]>.Failure(PersistenceFailures.AssetIntegrityFailed(correlationId));
+                }
+
+                if (!File.Exists(fullPath))
+                {
+                    return Result<byte[]>.Failure(PersistenceFailures.AssetFileMissing(correlationId));
+                }
+
+                byte[] content = File.ReadAllBytes(fullPath);
+
+                string actualHash;
+                using (var sha = SHA256.Create())
+                {
+                    actualHash = ToLowerHex(sha.ComputeHash(content));
+                }
+
+                if (storedHash == null || !string.Equals(actualHash, storedHash, StringComparison.OrdinalIgnoreCase))
+                {
+                    return Result<byte[]>.Failure(PersistenceFailures.AssetIntegrityFailed(correlationId));
+                }
+
+                return Result<byte[]>.Success(content);
+            }
+            catch (Exception ex) when (ex is IOException || ex is UnauthorizedAccessException || ex is SqliteException)
+            {
+                return Result<byte[]>.Failure(PersistenceFailures.SceneIoFailed(correlationId));
             }
         }
 

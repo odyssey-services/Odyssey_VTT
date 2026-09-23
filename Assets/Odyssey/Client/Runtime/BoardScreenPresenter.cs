@@ -54,6 +54,12 @@ namespace Odyssey.Unity.Client
         private readonly SceneId _sceneId;
         private readonly bool _includeRoleSelector;
         private readonly Dictionary<string, VisualElement> _tokenElementsByTokenId = new Dictionary<string, VisualElement>(StringComparer.Ordinal);
+        // ODY-S08-101: decoded textures for the presenter's lifetime, keyed by AssetId. AssetId is
+        // minted fresh by every RegisterAsset (AssetId.NewId), so an id never changes content and no
+        // revision-based invalidation is needed. Only successful loads are cached; a failed load is
+        // retried on the next Refresh.
+        private readonly Dictionary<string, Texture2D> _textureCache = new Dictionary<string, Texture2D>(StringComparer.Ordinal);
+        private bool _boardBackgroundApplied;
         private readonly RoleSelection? _roleSelection;
         private readonly PresentationRuntime? _presentationRuntime;
         private IDisposable? _roleSubscription;
@@ -115,6 +121,8 @@ namespace Odyssey.Unity.Client
             if (_disposed) return;
             _roleSelectorPresenter?.Dispose();
             _roleSubscription?.Dispose();
+            foreach (Texture2D texture in _textureCache.Values) DestroyTexture(texture);
+            _textureCache.Clear();
             _disposed = true;
         }
 
@@ -156,8 +164,102 @@ namespace Odyssey.Unity.Client
                 return Result.Failure(tokens.Error);
             }
 
-            RenderTokens(tokens.Value);
+            Error? backgroundError = ApplySceneBackground();
+            Error? tokenAssetError = RenderTokens(tokens.Value);
+
+            // Image assets are presentation: a missing/corrupt/undecodable one never stops the
+            // board from rendering (fallback visuals are drawn), but the first failure is reported.
+            Error? assetError = backgroundError ?? tokenAssetError;
+            if (assetError != null)
+            {
+                SetStatus("Asset load failed: " + assetError.SafeReasonCode);
+                return Result.Failure(assetError);
+            }
+
             return Result.Success();
+        }
+
+        private Error? ApplySceneBackground()
+        {
+            if (_boardArea == null) return null;
+
+            Result<SceneRecord> scene = _sceneRepository.GetScene(_campaign, _sceneId, NewCorrelationId());
+            if (scene.IsFailure)
+            {
+                ClearBoardBackground();
+                // An unknown scene has always rendered as an empty board; keep that unchanged.
+                return scene.Error.Code.Equals(ErrorCodes.PersistenceSceneNotFound) ? null : scene.Error;
+            }
+
+            if (!scene.Value.BackgroundAssetId.HasValue)
+            {
+                ClearBoardBackground();
+                return null;
+            }
+
+            Result<Texture2D> texture = LoadTexture(scene.Value.BackgroundAssetId.Value);
+            if (texture.IsFailure)
+            {
+                ClearBoardBackground();
+                return texture.Error;
+            }
+
+            ApplyTexture(_boardArea, texture.Value);
+            _boardBackgroundApplied = true;
+            return null;
+        }
+
+        // Only undo what this presenter itself applied, so a board that never had a
+        // background gets no inline image style written at all (identical to before).
+        private void ClearBoardBackground()
+        {
+            if (_boardArea == null || !_boardBackgroundApplied) return;
+            ClearBackground(_boardArea);
+            _boardBackgroundApplied = false;
+        }
+
+        private Result<Texture2D> LoadTexture(AssetId assetId)
+        {
+            string key = assetId.ToString();
+            if (_textureCache.TryGetValue(key, out Texture2D? cached) && cached != null)
+            {
+                return Result<Texture2D>.Success(cached);
+            }
+
+            Result<byte[]> content = _sceneRepository.ReadAssetContent(_campaign, assetId, NewCorrelationId());
+            if (content.IsFailure)
+            {
+                return Result<Texture2D>.Failure(content.Error);
+            }
+
+            var texture = new Texture2D(2, 2, TextureFormat.RGBA32, false);
+            if (!ImageConversion.LoadImage(texture, content.Value))
+            {
+                DestroyTexture(texture);
+                return Result<Texture2D>.Failure(BoardScreenErrors.TextureDecodeFailed());
+            }
+
+            _textureCache[key] = texture;
+            return Result<Texture2D>.Success(texture);
+        }
+
+        private static void ApplyTexture(VisualElement element, Texture2D texture)
+        {
+            element.style.backgroundImage = new StyleBackground(texture);
+            element.style.backgroundSize = new BackgroundSize(BackgroundSizeType.Cover);
+        }
+
+        private static void ClearBackground(VisualElement element)
+        {
+            element.style.backgroundImage = StyleKeyword.Null;
+            element.style.backgroundSize = StyleKeyword.Null;
+        }
+
+        private static void DestroyTexture(Texture2D texture)
+        {
+            if (texture == null) return;
+            if (UnityEngine.Application.isPlaying) UnityEngine.Object.Destroy(texture);
+            else UnityEngine.Object.DestroyImmediate(texture);
         }
 
         private void ApplyRoleSelection(RoleSelectionSnapshot snapshot, bool refresh)
@@ -167,11 +269,12 @@ namespace Odyssey.Unity.Client
             if (refresh) Refresh();
         }
 
-        private void RenderTokens(IReadOnlyList<TokenRecord> tokens)
+        private Error? RenderTokens(IReadOnlyList<TokenRecord> tokens)
         {
-            if (_boardArea == null) return;
+            if (_boardArea == null) return null;
             _boardArea.Clear();
             _tokenElementsByTokenId.Clear();
+            Error? firstAssetError = null;
 
             foreach (TokenRecord token in tokens)
             {
@@ -182,7 +285,27 @@ namespace Odyssey.Unity.Client
                 tokenElement.style.height = (float)TokenSizePixels;
                 tokenElement.style.left = ToPixels(token.Position.X);
                 tokenElement.style.top = ToPixels(token.Position.Y);
-                tokenElement.style.backgroundColor = new StyleColor(TokenColor(token, out _));
+                bool hasPortraitTexture = false;
+                if (token.PortraitAssetId.HasValue)
+                {
+                    Result<Texture2D> portrait = LoadTexture(token.PortraitAssetId.Value);
+                    if (portrait.IsSuccess)
+                    {
+                        ApplyTexture(tokenElement, portrait.Value);
+                        hasPortraitTexture = true;
+                    }
+                    else if (firstAssetError == null)
+                    {
+                        firstAssetError = portrait.Error;
+                    }
+                }
+
+                // Solid ownership-colored fill exactly as before, unless a portrait texture is shown.
+                if (!hasPortraitTexture)
+                {
+                    tokenElement.style.backgroundColor = new StyleColor(TokenColor(token, out _));
+                }
+
                 bool isSelected = _selectedTokenId.HasValue && _selectedTokenId.Value.Equals(token.TokenId);
                 tokenElement.style.borderTopWidth = isSelected ? 3 : 1;
                 tokenElement.style.borderBottomWidth = isSelected ? 3 : 1;
@@ -199,6 +322,8 @@ namespace Odyssey.Unity.Client
                 _boardArea.Add(tokenElement);
                 _tokenElementsByTokenId[token.TokenId.ToString()] = tokenElement;
             }
+
+            return firstAssetError;
         }
 
         private Color TokenColor(TokenRecord token, out bool isLocalActorControlled)
@@ -309,6 +434,15 @@ namespace Odyssey.Unity.Client
             ErrorCategory.Internal,
             SafeReasonCode.UnexpectedError,
             UserMessageKey.Parse("errors.board_screen.render_failed"),
+            RetryDirective.DoNotRetry,
+            PlaceholderCorrelationId);
+
+        /// <summary>ODY-S08-101: the asset bytes passed the persistence-layer integrity check but Unity's own ImageConversion.LoadImage could not decode them.</summary>
+        internal static Error TextureDecodeFailed() => Error.Create(
+            ErrorCodes.ApplicationValidationInvalid,
+            ErrorCategory.Integrity,
+            SafeReasonCode.DataCorrupted,
+            UserMessageKey.Parse("errors.board_screen.texture_decode_failed"),
             RetryDirective.DoNotRetry,
             PlaceholderCorrelationId);
 

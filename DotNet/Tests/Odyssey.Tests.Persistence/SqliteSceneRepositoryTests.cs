@@ -542,5 +542,154 @@ namespace Odyssey.Tests.Persistence
             Assert.That(token.PortraitAssetId, Is.Null);
             Assert.That(sceneRepository.GetToken(_campaign, token.TokenId, TestCorrelationId).Value.PortraitAssetId, Is.Null);
         }
+
+        // ---- ODY-S08-101: ReadAssetContent / GetScene ------------------------------
+
+        private AssetManifestEntryRecord RegisterAssetWithContent(CampaignHandle campaign, SqliteSceneRepository repository, byte[] content)
+        {
+            string sourceFile = Path.Combine(Path.GetTempPath(), "ody-s08-101-source-" + Guid.NewGuid().ToString("N") + ".png");
+            File.WriteAllBytes(sourceFile, content);
+            try
+            {
+                Result<AssetManifestEntryRecord> registered = repository.RegisterAsset(campaign, sourceFile, NewCommandId(), TestCorrelationId);
+                Assert.That(registered.IsSuccess, Is.True, "test fixture asset registration must itself succeed");
+                return registered.Value;
+            }
+            finally
+            {
+                File.Delete(sourceFile);
+            }
+        }
+
+        private static string AbsoluteAssetPath(CampaignHandle campaign, AssetManifestEntryRecord entry) =>
+            Path.Combine(campaign.RootPath, entry.RelativePath.Replace('/', Path.DirectorySeparatorChar));
+
+        [Test] // TC-BOARD-033
+        public void ReadAssetContent_WithRegisteredAssetId_ReturnsTheExactBytes_MatchingTheStoredHash()
+        {
+            var repository = new SqliteSceneRepository(Clock);
+            byte[] content = System.Text.Encoding.UTF8.GetBytes("synthetic image bytes " + Guid.NewGuid().ToString("N"));
+            AssetManifestEntryRecord entry = RegisterAssetWithContent(_campaign, repository, content);
+
+            Result<byte[]> result = repository.ReadAssetContent(_campaign, entry.AssetId, TestCorrelationId);
+
+            Assert.That(result.IsSuccess, Is.True);
+            Assert.That(result.Value, Is.EqualTo(content));
+            using var sha = System.Security.Cryptography.SHA256.Create();
+            Assert.That(BitConverter.ToString(sha.ComputeHash(result.Value)).Replace("-", string.Empty).ToLowerInvariant(), Is.EqualTo(entry.Sha256Hash));
+        }
+
+        [Test] // TC-BOARD-034
+        public void ReadAssetContent_WithNonExistentAssetId_ReturnsTypedAssetNotFound()
+        {
+            var repository = new SqliteSceneRepository(Clock);
+
+            Result<byte[]> result = repository.ReadAssetContent(_campaign, AssetId.NewId(Clock.GetUtcNow()), TestCorrelationId);
+
+            Assert.That(result.IsFailure, Is.True);
+            Assert.That(result.Error.Code, Is.EqualTo(ErrorCodes.PersistenceAssetNotFound));
+        }
+
+        [Test] // TC-BOARD-035
+        public void ReadAssetContent_WithAssetIdRegisteredUnderADifferentCampaign_ReturnsTypedAssetNotFound()
+        {
+            string otherWorkDir = Path.Combine(Path.GetTempPath(), "ody-s08-101-other-" + Guid.NewGuid().ToString("N"));
+            var otherCampaignRepository = new SqliteCampaignRepository(Clock);
+            Result<CampaignHandle> otherCreated = otherCampaignRepository.Create(new CreateCampaignRequest(otherWorkDir, "Other Campaign", "ruleset.core", "1.0.0", "0.1.0"), NewCommandId(), TestCorrelationId);
+            Assert.That(otherCreated.IsSuccess, Is.True);
+
+            try
+            {
+                var repository = new SqliteSceneRepository(Clock);
+                AssetManifestEntryRecord foreign = RegisterAssetWithContent(otherCreated.Value, repository, System.Text.Encoding.UTF8.GetBytes("foreign campaign bytes"));
+
+                Assert.That(repository.ReadAssetContent(otherCreated.Value, foreign.AssetId, TestCorrelationId).IsSuccess, Is.True, "sanity: readable in its own campaign");
+                Result<byte[]> result = repository.ReadAssetContent(_campaign, foreign.AssetId, TestCorrelationId);
+
+                Assert.That(result.IsFailure, Is.True);
+                Assert.That(result.Error.Code, Is.EqualTo(ErrorCodes.PersistenceAssetNotFound));
+            }
+            finally
+            {
+                try { otherCampaignRepository.Close(otherCreated.Value, TestCorrelationId); } catch (IOException) { }
+                try { if (Directory.Exists(otherWorkDir)) Directory.Delete(otherWorkDir, recursive: true); } catch (IOException) { }
+            }
+        }
+
+        [Test] // TC-BOARD-036
+        public void ReadAssetContent_WhenManifestRowExistsButFileIsMissingOnDisk_ReturnsTypedFileMissing()
+        {
+            var repository = new SqliteSceneRepository(Clock);
+            AssetManifestEntryRecord entry = RegisterAssetWithContent(_campaign, repository, System.Text.Encoding.UTF8.GetBytes("about to vanish " + Guid.NewGuid().ToString("N")));
+            File.Delete(AbsoluteAssetPath(_campaign, entry));
+
+            Result<byte[]> result = repository.ReadAssetContent(_campaign, entry.AssetId, TestCorrelationId);
+
+            Assert.That(result.IsFailure, Is.True);
+            Assert.That(result.Error.Code, Is.EqualTo(ErrorCodes.PersistenceAssetFileMissing));
+        }
+
+        [Test] // TC-BOARD-037
+        public void ReadAssetContent_WhenBytesOnDiskNoLongerMatchTheStoredHash_ReturnsTypedIntegrityFailure()
+        {
+            var repository = new SqliteSceneRepository(Clock);
+            AssetManifestEntryRecord entry = RegisterAssetWithContent(_campaign, repository, System.Text.Encoding.UTF8.GetBytes("original bytes " + Guid.NewGuid().ToString("N")));
+            File.WriteAllBytes(AbsoluteAssetPath(_campaign, entry), System.Text.Encoding.UTF8.GetBytes("tampered bytes"));
+
+            Result<byte[]> result = repository.ReadAssetContent(_campaign, entry.AssetId, TestCorrelationId);
+
+            Assert.That(result.IsFailure, Is.True);
+            Assert.That(result.Error.Code, Is.EqualTo(ErrorCodes.PersistenceAssetIntegrityFailed));
+        }
+
+        [Test] // TC-BOARD-038
+        public void ReadAssetContent_WhenManifestPathEscapesTheCampaignAssetDirectory_IsRejected_EvenIfTheHashWouldMatch()
+        {
+            var repository = new SqliteSceneRepository(Clock);
+            byte[] content = System.Text.Encoding.UTF8.GetBytes("outside bytes " + Guid.NewGuid().ToString("N"));
+            AssetManifestEntryRecord entry = RegisterAssetWithContent(_campaign, repository, content);
+
+            // A byte-identical copy OUTSIDE Assets/Objects: the stored hash would match it,
+            // so only the path-confinement check can reject this read.
+            string outsideFile = Path.Combine(_workDir, "outside-" + Guid.NewGuid().ToString("N") + ".bin");
+            File.WriteAllBytes(outsideFile, content);
+            using (var connection = new SqliteConnection("Data Source=" + Path.Combine(_campaign.RootPath, "campaign.db")))
+            {
+                connection.Open();
+                using var update = connection.CreateCommand();
+                update.CommandText = "UPDATE AssetManifestEntries SET RelativePath = $path WHERE AssetId = $id;";
+                update.Parameters.AddWithValue("$path", "Assets/Objects/../../" + Path.GetFileName(outsideFile));
+                update.Parameters.AddWithValue("$id", entry.AssetId.ToString());
+                update.ExecuteNonQuery();
+            }
+
+            Result<byte[]> result = repository.ReadAssetContent(_campaign, entry.AssetId, TestCorrelationId);
+
+            Assert.That(result.IsFailure, Is.True);
+            Assert.That(result.Error.Code, Is.EqualTo(ErrorCodes.PersistenceAssetIntegrityFailed));
+        }
+
+        [Test] // TC-BOARD-039
+        public void GetScene_ReturnsTheStoredScene_WithAndWithoutBackground_AndTypedNotFoundForUnknownScene()
+        {
+            var repository = new SqliteSceneRepository(Clock);
+            SceneRecord scene = repository.CreateScene(_campaign, "Battle Map", NewCommandId(), TestCorrelationId).Value;
+
+            Result<SceneRecord> withoutBackground = repository.GetScene(_campaign, scene.SceneId, TestCorrelationId);
+            Assert.That(withoutBackground.IsSuccess, Is.True);
+            Assert.That(withoutBackground.Value.BackgroundAssetId, Is.Null);
+            Assert.That(withoutBackground.Value.Name, Is.EqualTo("Battle Map"));
+
+            AssetId assetId = RegisterTestAsset(_campaign, repository);
+            Assert.That(repository.SetSceneBackground(_campaign, scene.SceneId, assetId, scene.Revision, NewCommandId(), TestCorrelationId).IsSuccess, Is.True);
+
+            Result<SceneRecord> withBackground = repository.GetScene(_campaign, scene.SceneId, TestCorrelationId);
+            Assert.That(withBackground.Value.BackgroundAssetId, Is.EqualTo(assetId));
+            Assert.That(withBackground.Value.Revision, Is.EqualTo(scene.Revision + 1));
+
+            Result<SceneRecord> unknown = repository.GetScene(_campaign, SceneId.NewId(Clock.GetUtcNow()), TestCorrelationId);
+            Assert.That(unknown.IsFailure, Is.True);
+            Assert.That(unknown.Error.Code, Is.EqualTo(ErrorCodes.PersistenceSceneNotFound));
+        }
     }
 }
