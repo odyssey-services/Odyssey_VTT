@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.IO;
+using Microsoft.Data.Sqlite;
 using NUnit.Framework;
 using Odyssey.Application.Commands;
 using Odyssey.Application.Persistence;
@@ -197,6 +198,176 @@ namespace Odyssey.Tests.Persistence
             }
 
             throw new InvalidOperationException("Token not found in list.");
+        }
+
+        // ---- ODY-S07-105: SetSceneBackground ---------------------------------------
+
+        private AssetId RegisterTestAsset(CampaignHandle campaign, SqliteSceneRepository repository)
+        {
+            string sourceFile = Path.Combine(Path.GetTempPath(), "ody-s07-105-source-" + Guid.NewGuid().ToString("N") + ".png");
+            File.WriteAllBytes(sourceFile, System.Text.Encoding.UTF8.GetBytes("synthetic background map"));
+            try
+            {
+                Result<AssetManifestEntryRecord> registered = repository.RegisterAsset(campaign, sourceFile, NewCommandId(), TestCorrelationId);
+                Assert.That(registered.IsSuccess, Is.True, "test fixture asset registration must itself succeed");
+                return registered.Value.AssetId;
+            }
+            finally
+            {
+                File.Delete(sourceFile);
+            }
+        }
+
+        private int CountAssetReferences(CampaignHandle campaign, AssetId assetId, SceneId sceneId)
+        {
+            using var connection = new SqliteConnection("Data Source=" + Path.Combine(campaign.RootPath, "campaign.db"));
+            connection.Open();
+            using var command = connection.CreateCommand();
+            command.CommandText = "SELECT COUNT(*) FROM AssetReferences WHERE AssetId = $assetId AND ReferencedByType = 'Scene' AND ReferencedById = $sceneId;";
+            command.Parameters.AddWithValue("$assetId", assetId.ToString());
+            command.Parameters.AddWithValue("$sceneId", sceneId.ToString());
+            return Convert.ToInt32(command.ExecuteScalar());
+        }
+
+        private int CountAssetReferencesForScene(CampaignHandle campaign, SceneId sceneId)
+        {
+            using var connection = new SqliteConnection("Data Source=" + Path.Combine(campaign.RootPath, "campaign.db"));
+            connection.Open();
+            using var command = connection.CreateCommand();
+            command.CommandText = "SELECT COUNT(*) FROM AssetReferences WHERE ReferencedByType = 'Scene' AND ReferencedById = $sceneId;";
+            command.Parameters.AddWithValue("$sceneId", sceneId.ToString());
+            return Convert.ToInt32(command.ExecuteScalar());
+        }
+
+        [Test] // TC-BOARD-016
+        public void SetSceneBackground_WithValidAssetId_UpdatesRecordAndIncrementsRevision()
+        {
+            var repository = new SqliteSceneRepository(Clock);
+            SceneRecord scene = repository.CreateScene(_campaign, "Battle Map", NewCommandId(), TestCorrelationId).Value;
+            AssetId assetId = RegisterTestAsset(_campaign, repository);
+
+            Result<SceneRecord> result = repository.SetSceneBackground(_campaign, scene.SceneId, assetId, scene.Revision, NewCommandId(), TestCorrelationId);
+
+            Assert.That(result.IsSuccess, Is.True);
+            Assert.That(result.Value.BackgroundAssetId, Is.EqualTo(assetId));
+            Assert.That(result.Value.Revision, Is.EqualTo(scene.Revision + 1));
+        }
+
+        [Test] // TC-BOARD-017
+        public void SetSceneBackground_WithNonExistentAssetId_ReturnsTypedError_SceneUnchanged()
+        {
+            var repository = new SqliteSceneRepository(Clock);
+            SceneRecord scene = repository.CreateScene(_campaign, "Battle Map", NewCommandId(), TestCorrelationId).Value;
+            AssetId phantomAsset = AssetId.NewId(Clock.GetUtcNow());
+
+            Result<SceneRecord> result = repository.SetSceneBackground(_campaign, scene.SceneId, phantomAsset, scene.Revision, NewCommandId(), TestCorrelationId);
+
+            Assert.That(result.IsFailure, Is.True);
+            Assert.That(result.Error.Code, Is.EqualTo(ErrorCodes.PersistenceAssetNotFound));
+        }
+
+        [Test] // TC-BOARD-018
+        public void SetSceneBackground_WithAssetIdRegisteredUnderADifferentCampaign_ReturnsTypedError()
+        {
+            string otherWorkDir = Path.Combine(Path.GetTempPath(), "ody-s07-105-other-" + Guid.NewGuid().ToString("N"));
+            var otherCampaignRepository = new SqliteCampaignRepository(Clock);
+            var otherRequest = new CreateCampaignRequest(otherWorkDir, "Other Campaign", "ruleset.core", "1.0.0", "0.1.0");
+            Result<CampaignHandle> otherCreated = otherCampaignRepository.Create(otherRequest, NewCommandId(), TestCorrelationId);
+            Assert.That(otherCreated.IsSuccess, Is.True);
+            CampaignHandle otherCampaign = otherCreated.Value;
+
+            try
+            {
+                var repository = new SqliteSceneRepository(Clock);
+                AssetId foreignAssetId = RegisterTestAsset(otherCampaign, repository);
+                SceneRecord scene = repository.CreateScene(_campaign, "Battle Map", NewCommandId(), TestCorrelationId).Value;
+
+                Result<SceneRecord> result = repository.SetSceneBackground(_campaign, scene.SceneId, foreignAssetId, scene.Revision, NewCommandId(), TestCorrelationId);
+
+                Assert.That(result.IsFailure, Is.True);
+                Assert.That(result.Error.Code, Is.EqualTo(ErrorCodes.PersistenceAssetNotFound));
+            }
+            finally
+            {
+                try { otherCampaignRepository.Close(otherCampaign, TestCorrelationId); } catch (IOException) { }
+                try { if (Directory.Exists(otherWorkDir)) Directory.Delete(otherWorkDir, recursive: true); } catch (IOException) { }
+            }
+        }
+
+        [Test] // TC-BOARD-019
+        public void SetSceneBackground_WithNull_AfterPreviouslySet_ClearsBackground()
+        {
+            var repository = new SqliteSceneRepository(Clock);
+            SceneRecord scene = repository.CreateScene(_campaign, "Battle Map", NewCommandId(), TestCorrelationId).Value;
+            AssetId assetId = RegisterTestAsset(_campaign, repository);
+            SceneRecord withBackground = repository.SetSceneBackground(_campaign, scene.SceneId, assetId, scene.Revision, NewCommandId(), TestCorrelationId).Value;
+
+            Result<SceneRecord> cleared = repository.SetSceneBackground(_campaign, scene.SceneId, null, withBackground.Revision, NewCommandId(), TestCorrelationId);
+
+            Assert.That(cleared.IsSuccess, Is.True);
+            Assert.That(cleared.Value.BackgroundAssetId, Is.Null);
+            Assert.That(cleared.Value.Revision, Is.EqualTo(withBackground.Revision + 1));
+        }
+
+        [Test] // TC-BOARD-020
+        public void SetSceneBackground_WithMismatchedExpectedRevision_ReturnsTypedConflict()
+        {
+            var repository = new SqliteSceneRepository(Clock);
+            SceneRecord scene = repository.CreateScene(_campaign, "Battle Map", NewCommandId(), TestCorrelationId).Value;
+            AssetId assetId = RegisterTestAsset(_campaign, repository);
+
+            Result<SceneRecord> result = repository.SetSceneBackground(_campaign, scene.SceneId, assetId, scene.Revision + 1, NewCommandId(), TestCorrelationId);
+
+            Assert.That(result.IsFailure, Is.True);
+            Assert.That(result.Error.Code, Is.EqualTo(ErrorCodes.PersistenceSceneRevisionConflict));
+        }
+
+        [Test] // TC-BOARD-021
+        public void SetSceneBackground_RetriedWithSameCommandId_ReplaysIdempotently_NoDoubleWrite()
+        {
+            var repository = new SqliteSceneRepository(Clock);
+            SceneRecord scene = repository.CreateScene(_campaign, "Battle Map", NewCommandId(), TestCorrelationId).Value;
+            AssetId assetId = RegisterTestAsset(_campaign, repository);
+            CommandId commandId = NewCommandId();
+
+            Result<SceneRecord> first = repository.SetSceneBackground(_campaign, scene.SceneId, assetId, scene.Revision, commandId, TestCorrelationId);
+            Result<SceneRecord> replay = repository.SetSceneBackground(_campaign, scene.SceneId, assetId, scene.Revision, commandId, TestCorrelationId);
+
+            Assert.That(first.IsSuccess, Is.True);
+            Assert.That(replay.IsSuccess, Is.True);
+            Assert.That(replay.Value.Revision, Is.EqualTo(first.Value.Revision), "a replayed command must not apply the effect a second time");
+            Assert.That(CountAssetReferences(_campaign, assetId, scene.SceneId), Is.EqualTo(1), "replay must not insert a second AssetReferences row");
+        }
+
+        [Test] // TC-BOARD-022
+        public void SetSceneBackground_OnSuccess_WritesAssetReferenceRow()
+        {
+            var repository = new SqliteSceneRepository(Clock);
+            SceneRecord scene = repository.CreateScene(_campaign, "Battle Map", NewCommandId(), TestCorrelationId).Value;
+            AssetId assetId = RegisterTestAsset(_campaign, repository);
+
+            Result<SceneRecord> result = repository.SetSceneBackground(_campaign, scene.SceneId, assetId, scene.Revision, NewCommandId(), TestCorrelationId);
+
+            Assert.That(result.IsSuccess, Is.True);
+            Assert.That(CountAssetReferences(_campaign, assetId, scene.SceneId), Is.EqualTo(1));
+        }
+
+        [Test] // TC-BOARD-023
+        public void SetSceneBackground_ReplacingBackground_ReplacesAssetReferenceRow_NoDuplicate()
+        {
+            var repository = new SqliteSceneRepository(Clock);
+            SceneRecord scene = repository.CreateScene(_campaign, "Battle Map", NewCommandId(), TestCorrelationId).Value;
+            AssetId firstAssetId = RegisterTestAsset(_campaign, repository);
+            AssetId secondAssetId = RegisterTestAsset(_campaign, repository);
+
+            SceneRecord withFirst = repository.SetSceneBackground(_campaign, scene.SceneId, firstAssetId, scene.Revision, NewCommandId(), TestCorrelationId).Value;
+            Result<SceneRecord> withSecond = repository.SetSceneBackground(_campaign, scene.SceneId, secondAssetId, withFirst.Revision, NewCommandId(), TestCorrelationId);
+
+            Assert.That(withSecond.IsSuccess, Is.True);
+            Assert.That(withSecond.Value.BackgroundAssetId, Is.EqualTo(secondAssetId));
+            Assert.That(CountAssetReferences(_campaign, firstAssetId, scene.SceneId), Is.EqualTo(0), "the old AssetReferences row must not remain");
+            Assert.That(CountAssetReferences(_campaign, secondAssetId, scene.SceneId), Is.EqualTo(1));
+            Assert.That(CountAssetReferencesForScene(_campaign, scene.SceneId), Is.EqualTo(1), "exactly one current AssetReferences row for this scene, never accumulating");
         }
     }
 }

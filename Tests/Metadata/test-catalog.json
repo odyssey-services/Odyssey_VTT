@@ -1657,6 +1657,70 @@
                           "check":  "CreateToken without a CharacterId defaults to no link (null) -- the pre-existing prop/marker-token creation path is unchanged"
                       },
                       {
+                          "testCaseId":  "TC-BOARD-016",
+                          "taskId":  "ODY-S07-105",
+                          "authority":  "ODY-S07-105 test list item 1",
+                          "runner":  "dotnet test",
+                          "path":  "DotNet/Tests/Odyssey.Tests.Persistence/SqliteSceneRepositoryTests.cs",
+                          "check":  "SetSceneBackground with a valid AssetId already registered in the same campaign succeeds, SceneRecord.BackgroundAssetId is updated, and Revision is incremented"
+                      },
+                      {
+                          "testCaseId":  "TC-BOARD-017",
+                          "taskId":  "ODY-S07-105",
+                          "authority":  "ODY-S07-105 test list item 2",
+                          "runner":  "dotnet test",
+                          "path":  "DotNet/Tests/Odyssey.Tests.Persistence/SqliteSceneRepositoryTests.cs",
+                          "check":  "SetSceneBackground with an AssetId that does not exist anywhere in this campaign's own AssetManifestEntries fails with the typed persistence.asset.not_found error"
+                      },
+                      {
+                          "testCaseId":  "TC-BOARD-018",
+                          "taskId":  "ODY-S07-105",
+                          "authority":  "ODY-S07-105 test list item 3",
+                          "runner":  "dotnet test",
+                          "path":  "DotNet/Tests/Odyssey.Tests.Persistence/SqliteSceneRepositoryTests.cs",
+                          "check":  "SetSceneBackground with an AssetId registered under a different campaign's own database file fails closed with the same typed persistence.asset.not_found error -- a cross-campaign leak is rejected"
+                      },
+                      {
+                          "testCaseId":  "TC-BOARD-019",
+                          "taskId":  "ODY-S07-105",
+                          "authority":  "ODY-S07-105 test list item 4",
+                          "runner":  "dotnet test",
+                          "path":  "DotNet/Tests/Odyssey.Tests.Persistence/SqliteSceneRepositoryTests.cs",
+                          "check":  "SetSceneBackground(backgroundAssetId: null) after a background was previously set really clears SceneRecord.BackgroundAssetId back to null"
+                      },
+                      {
+                          "testCaseId":  "TC-BOARD-020",
+                          "taskId":  "ODY-S07-105",
+                          "authority":  "ODY-S07-105 test list item 5",
+                          "runner":  "dotnet test",
+                          "path":  "DotNet/Tests/Odyssey.Tests.Persistence/SqliteSceneRepositoryTests.cs",
+                          "check":  "SetSceneBackground with a mismatched expectedRevision is rejected with the typed persistence.scene.revision_conflict error, by the same atomic-inside-transaction precedent as MoveToken's own optimistic-concurrency guard"
+                      },
+                      {
+                          "testCaseId":  "TC-BOARD-021",
+                          "taskId":  "ODY-S07-105",
+                          "authority":  "ODY-S07-105 test list item 6",
+                          "runner":  "dotnet test",
+                          "path":  "DotNet/Tests/Odyssey.Tests.Persistence/SqliteSceneRepositoryTests.cs",
+                          "check":  "Retrying SetSceneBackground with the same CommandId replays the stored outcome instead of re-applying the effect -- the returned Revision does not advance a second time and AssetReferences gains no second row"
+                      },
+                      {
+                          "testCaseId":  "TC-BOARD-022",
+                          "taskId":  "ODY-S07-105",
+                          "authority":  "ODY-S07-105 test list item 7",
+                          "runner":  "dotnet test",
+                          "path":  "DotNet/Tests/Odyssey.Tests.Persistence/SqliteSceneRepositoryTests.cs",
+                          "check":  "After a successful SetSceneBackground, a direct read of the AssetReferences table confirms the (AssetId, 'Scene', SceneId) row really exists -- the first real production consumer of this previously-reserved-but-unused table"
+                      },
+                      {
+                          "testCaseId":  "TC-BOARD-023",
+                          "taskId":  "ODY-S07-105",
+                          "authority":  "ODY-S07-105 test list item 8",
+                          "runner":  "dotnet test",
+                          "path":  "DotNet/Tests/Odyssey.Tests.Persistence/SqliteSceneRepositoryTests.cs",
+                          "check":  "Replacing a scene's background with a different AssetId removes the old AssetReferences row and leaves exactly one current row for that scene -- no duplicate accumulation across repeated background changes"
+                      },
+                      {
                           "testCaseId":  "TC-DICE-001",
                           "taskId":  "ODY-S03-005",
                           "authority":  "09_Dice_And_Game_Log section 7.1; ODY-S03-005",

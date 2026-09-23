@@ -273,6 +273,129 @@ namespace Odyssey.Persistence.Sqlite
             }
         }
 
+        public Result<SceneRecord> SetSceneBackground(CampaignHandle campaign, SceneId sceneId, AssetId? backgroundAssetId, long expectedRevision, CommandId commandId, CorrelationId correlationId)
+        {
+            if (campaign == null) throw new ArgumentNullException(nameof(campaign));
+            if (!sceneId.IsValid) throw new ArgumentException("SceneId is required.", nameof(sceneId));
+            if (expectedRevision < 1) throw new ArgumentOutOfRangeException(nameof(expectedRevision));
+            if (!commandId.IsValid) throw new ArgumentException("CommandId is required.", nameof(commandId));
+            if (backgroundAssetId.HasValue && !backgroundAssetId.Value.IsValid) throw new ArgumentException("BackgroundAssetId must be valid when supplied.", nameof(backgroundAssetId));
+
+            try
+            {
+                using SqliteConnection connection = OpenConnection(campaign.RootPath);
+                EnsureSceneTokenTables(connection);
+
+                return _pipeline.Execute(
+                    connection,
+                    campaign.CampaignId,
+                    commandId,
+                    correlationId,
+                    tryReplay: transaction => ReplayScene(connection, transaction, campaign.CampaignId, commandId, correlationId),
+                    apply: transaction =>
+                    {
+                        string name;
+                        string status;
+                        long previousRevision;
+                        UtcInstant createdAt;
+                        using (var select = connection.CreateCommand())
+                        {
+                            select.Transaction = transaction;
+                            select.CommandText = "SELECT Name, Status, Revision, CreatedAt FROM Scene WHERE SceneId = $sceneId LIMIT 1;";
+                            select.Parameters.AddWithValue("$sceneId", sceneId.ToString());
+                            using SqliteDataReader reader = select.ExecuteReader();
+                            if (!reader.Read())
+                            {
+                                return Result<PipelineWrite<SceneRecord>>.Failure(PersistenceFailures.SceneNotFound(correlationId));
+                            }
+
+                            name = reader.GetString(0);
+                            status = reader.GetString(1);
+                            previousRevision = reader.GetInt64(2);
+                            createdAt = UtcInstant.Parse(reader.GetString(3));
+                        }
+
+                        // ADR-002 section 10.2's atomic optimistic-concurrency
+                        // guard, by exact precedent of MoveToken above --
+                        // independent of any Application-layer pre-check.
+                        if (previousRevision != expectedRevision)
+                        {
+                            return Result<PipelineWrite<SceneRecord>>.Failure(PersistenceFailures.SceneRevisionConflict(correlationId));
+                        }
+
+                        if (backgroundAssetId.HasValue)
+                        {
+                            using var assetCheck = connection.CreateCommand();
+                            assetCheck.Transaction = transaction;
+                            assetCheck.CommandText = "SELECT 1 FROM AssetManifestEntries WHERE AssetId = $assetId LIMIT 1;";
+                            assetCheck.Parameters.AddWithValue("$assetId", backgroundAssetId.Value.ToString());
+                            object? found = assetCheck.ExecuteScalar();
+                            if (found == null)
+                            {
+                                // Fail-closed: an AssetId that does not exist in
+                                // THIS campaign's own AssetManifestEntries is
+                                // rejected the same way whether it never existed
+                                // anywhere or was registered under a different
+                                // campaign entirely -- each campaign owns a
+                                // separate database file, so this single lookup
+                                // already is the cross-campaign check.
+                                return Result<PipelineWrite<SceneRecord>>.Failure(PersistenceFailures.AssetNotFound(correlationId));
+                            }
+                        }
+
+                        UtcInstant now = _clock.GetUtcNow();
+                        long newRevision = previousRevision + 1;
+
+                        using (var update = connection.CreateCommand())
+                        {
+                            update.Transaction = transaction;
+                            update.CommandText = "UPDATE Scene SET BackgroundAssetId = $backgroundAssetId, Revision = $revision, UpdatedAt = $updatedAt, LastCommandId = $lastCommandId WHERE SceneId = $sceneId;";
+                            update.Parameters.AddWithValue("$backgroundAssetId", backgroundAssetId.HasValue ? (object)backgroundAssetId.Value.ToString() : DBNull.Value);
+                            update.Parameters.AddWithValue("$revision", newRevision);
+                            update.Parameters.AddWithValue("$updatedAt", now.ToString());
+                            update.Parameters.AddWithValue("$lastCommandId", commandId.ToString());
+                            update.Parameters.AddWithValue("$sceneId", sceneId.ToString());
+                            update.ExecuteNonQuery();
+                        }
+
+                        // AssetReferences (reserved, previously unused by any
+                        // production code) is the polymorphic "who references
+                        // this asset" table -- delete-then-optionally-reinsert
+                        // keeps it a single current row per (AssetId type,
+                        // Scene), never accumulating a stale/duplicate entry
+                        // across repeated background changes or a reset to null.
+                        using (var deleteRef = connection.CreateCommand())
+                        {
+                            deleteRef.Transaction = transaction;
+                            deleteRef.CommandText = "DELETE FROM AssetReferences WHERE ReferencedByType = 'Scene' AND ReferencedById = $sceneId;";
+                            deleteRef.Parameters.AddWithValue("$sceneId", sceneId.ToString());
+                            deleteRef.ExecuteNonQuery();
+                        }
+
+                        if (backgroundAssetId.HasValue)
+                        {
+                            using var insertRef = connection.CreateCommand();
+                            insertRef.Transaction = transaction;
+                            insertRef.CommandText = "INSERT INTO AssetReferences (AssetId, ReferencedByType, ReferencedById) VALUES ($assetId, 'Scene', $sceneId);";
+                            insertRef.Parameters.AddWithValue("$assetId", backgroundAssetId.Value.ToString());
+                            insertRef.Parameters.AddWithValue("$sceneId", sceneId.ToString());
+                            insertRef.ExecuteNonQuery();
+                        }
+
+                        var record = new SceneRecord(sceneId, campaign.CampaignId, name, status, newRevision, createdAt, now, backgroundAssetId);
+                        string payloadJson = "{\"sceneId\":\"" + sceneId + "\",\"backgroundAssetId\":" +
+                                              (backgroundAssetId.HasValue ? JsonString(backgroundAssetId.Value.ToString()) : "null") + "}";
+                        return Result<PipelineWrite<SceneRecord>>.Success(new PipelineWrite<SceneRecord>(
+                            record, "odyssey.persistence.scene_background_set", payloadJson, sceneId.ToString(),
+                            aggregateType: "scene", aggregateId: sceneId.ToString(), aggregateRevision: newRevision));
+                    });
+            }
+            catch (Exception ex) when (ex is IOException || ex is UnauthorizedAccessException || ex is SqliteException)
+            {
+                return Result<SceneRecord>.Failure(PersistenceFailures.SceneIoFailed(correlationId));
+            }
+        }
+
         public Result<IReadOnlyList<TokenRecord>> ListTokens(CampaignHandle campaign, SceneId sceneId, CorrelationId correlationId)
         {
             if (campaign == null) throw new ArgumentNullException(nameof(campaign));
@@ -425,7 +548,7 @@ namespace Odyssey.Persistence.Sqlite
         {
             using var select = connection.CreateCommand();
             select.Transaction = transaction;
-            select.CommandText = "SELECT SceneId, Name, Status, Revision, CreatedAt, UpdatedAt FROM Scene WHERE LastCommandId = $commandId LIMIT 1;";
+            select.CommandText = "SELECT SceneId, Name, Status, Revision, CreatedAt, UpdatedAt, BackgroundAssetId FROM Scene WHERE LastCommandId = $commandId LIMIT 1;";
             select.Parameters.AddWithValue("$commandId", commandId.ToString());
             using SqliteDataReader reader = select.ExecuteReader();
             if (!reader.Read())
@@ -434,9 +557,10 @@ namespace Odyssey.Persistence.Sqlite
             }
 
             SceneId sceneId = SceneId.Parse(reader.GetString(0));
+            AssetId? backgroundAssetId = reader.IsDBNull(6) ? (AssetId?)null : AssetId.Parse(reader.GetString(6));
             return Result<SceneRecord>.Success(new SceneRecord(
                 sceneId, campaignId, reader.GetString(1), reader.GetString(2), reader.GetInt64(3),
-                UtcInstant.Parse(reader.GetString(4)), UtcInstant.Parse(reader.GetString(5))));
+                UtcInstant.Parse(reader.GetString(4)), UtcInstant.Parse(reader.GetString(5)), backgroundAssetId));
         }
 
         private static Result<TokenRecord> ReplayToken(SqliteConnection connection, SqliteTransaction transaction, string whereClause, CampaignId campaignId, CommandId commandId, CorrelationId correlationId, TokenId? knownTokenId = null)
@@ -529,7 +653,8 @@ CREATE TABLE IF NOT EXISTS Scene (
     Revision INTEGER NOT NULL,
     CreatedAt TEXT NOT NULL,
     UpdatedAt TEXT NOT NULL,
-    LastCommandId TEXT NOT NULL
+    LastCommandId TEXT NOT NULL,
+    BackgroundAssetId TEXT
 );
 CREATE TABLE IF NOT EXISTS Token (
     TokenId TEXT PRIMARY KEY,
