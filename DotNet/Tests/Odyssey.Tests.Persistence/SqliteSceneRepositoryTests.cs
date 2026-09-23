@@ -369,5 +369,178 @@ namespace Odyssey.Tests.Persistence
             Assert.That(CountAssetReferences(_campaign, secondAssetId, scene.SceneId), Is.EqualTo(1));
             Assert.That(CountAssetReferencesForScene(_campaign, scene.SceneId), Is.EqualTo(1), "exactly one current AssetReferences row for this scene, never accumulating");
         }
+
+        // ---- ODY-S07-106: SetTokenPortrait -----------------------------------------
+
+        private int CountTokenAssetReferences(CampaignHandle campaign, TokenId tokenId, AssetId? assetId = null)
+        {
+            using var connection = new SqliteConnection("Data Source=" + Path.Combine(campaign.RootPath, "campaign.db"));
+            connection.Open();
+            using var command = connection.CreateCommand();
+            command.CommandText = "SELECT COUNT(*) FROM AssetReferences WHERE ReferencedByType = 'Token' AND ReferencedById = $id" + (assetId.HasValue ? " AND AssetId = $asset" : string.Empty) + ";";
+            command.Parameters.AddWithValue("$id", tokenId.ToString());
+            if (assetId.HasValue) command.Parameters.AddWithValue("$asset", assetId.Value.ToString());
+            return Convert.ToInt32(command.ExecuteScalar());
+        }
+
+        private TokenRecord CreatePortraitTestToken(SqliteSceneRepository repository, CharacterId? characterId = null)
+        {
+            SceneId sceneId = repository.CreateScene(_campaign, "Battle Map", NewCommandId(), TestCorrelationId).Value.SceneId;
+            Result<TokenRecord> created = repository.CreateToken(_campaign, sceneId, new TokenPosition(1, 1), NewUserId(), NewCommandId(), TestCorrelationId, characterId);
+            Assert.That(created.IsSuccess, Is.True);
+            return created.Value;
+        }
+
+        [Test] // TC-BOARD-024
+        public void SetTokenPortrait_WithValidAssetId_SetsIt_IncrementsRevision_AndSurvivesMoveToken()
+        {
+            var repository = new SqliteSceneRepository(Clock);
+            TokenRecord token = CreatePortraitTestToken(repository);
+            AssetId assetId = RegisterTestAsset(_campaign, repository);
+
+            Result<TokenRecord> result = repository.SetTokenPortrait(_campaign, token.TokenId, assetId, token.Revision, NewCommandId(), TestCorrelationId);
+
+            Assert.That(result.IsSuccess, Is.True);
+            Assert.That(result.Value.PortraitAssetId, Is.EqualTo(assetId));
+            Assert.That(result.Value.Revision, Is.EqualTo(token.Revision + 1));
+
+            Result<TokenRecord> moved = repository.MoveToken(_campaign, token.TokenId, new TokenPosition(9, 9), result.Value.Revision, NewCommandId(), TestCorrelationId);
+            Assert.That(moved.IsSuccess, Is.True);
+            Assert.That(moved.Value.PortraitAssetId, Is.EqualTo(assetId), "MoveToken's returned record must carry the portrait");
+            Assert.That(repository.GetToken(_campaign, token.TokenId, TestCorrelationId).Value.PortraitAssetId, Is.EqualTo(assetId), "and the database must still hold it");
+        }
+
+        [Test] // TC-BOARD-025
+        public void SetTokenPortrait_WithNonExistentAssetId_ReturnsTypedError_TokenUnchanged()
+        {
+            var repository = new SqliteSceneRepository(Clock);
+            TokenRecord token = CreatePortraitTestToken(repository);
+
+            Result<TokenRecord> result = repository.SetTokenPortrait(_campaign, token.TokenId, AssetId.NewId(Clock.GetUtcNow()), token.Revision, NewCommandId(), TestCorrelationId);
+
+            Assert.That(result.IsFailure, Is.True);
+            Assert.That(result.Error.Code, Is.EqualTo(ErrorCodes.PersistenceAssetNotFound));
+            TokenRecord reread = repository.GetToken(_campaign, token.TokenId, TestCorrelationId).Value;
+            Assert.That(reread.PortraitAssetId, Is.Null);
+            Assert.That(reread.Revision, Is.EqualTo(token.Revision));
+        }
+
+        [Test] // TC-BOARD-026
+        public void SetTokenPortrait_WithAssetIdRegisteredUnderADifferentCampaign_ReturnsTypedError()
+        {
+            string otherWorkDir = Path.Combine(Path.GetTempPath(), "ody-s07-106-other-" + Guid.NewGuid().ToString("N"));
+            var otherCampaignRepository = new SqliteCampaignRepository(Clock);
+            Result<CampaignHandle> otherCreated = otherCampaignRepository.Create(new CreateCampaignRequest(otherWorkDir, "Other Campaign", "ruleset.core", "1.0.0", "0.1.0"), NewCommandId(), TestCorrelationId);
+            Assert.That(otherCreated.IsSuccess, Is.True);
+
+            try
+            {
+                var repository = new SqliteSceneRepository(Clock);
+                AssetId foreignAssetId = RegisterTestAsset(otherCreated.Value, repository);
+                TokenRecord token = CreatePortraitTestToken(repository);
+
+                Result<TokenRecord> result = repository.SetTokenPortrait(_campaign, token.TokenId, foreignAssetId, token.Revision, NewCommandId(), TestCorrelationId);
+
+                Assert.That(result.IsFailure, Is.True);
+                Assert.That(result.Error.Code, Is.EqualTo(ErrorCodes.PersistenceAssetNotFound));
+            }
+            finally
+            {
+                try { otherCampaignRepository.Close(otherCreated.Value, TestCorrelationId); } catch (IOException) { }
+                try { if (Directory.Exists(otherWorkDir)) Directory.Delete(otherWorkDir, recursive: true); } catch (IOException) { }
+            }
+        }
+
+        [Test] // TC-BOARD-027
+        public void SetTokenPortrait_WithNull_AfterPreviouslySet_ClearsPortrait()
+        {
+            var repository = new SqliteSceneRepository(Clock);
+            TokenRecord token = CreatePortraitTestToken(repository);
+            TokenRecord withPortrait = repository.SetTokenPortrait(_campaign, token.TokenId, RegisterTestAsset(_campaign, repository), token.Revision, NewCommandId(), TestCorrelationId).Value;
+
+            Result<TokenRecord> cleared = repository.SetTokenPortrait(_campaign, token.TokenId, null, withPortrait.Revision, NewCommandId(), TestCorrelationId);
+
+            Assert.That(cleared.IsSuccess, Is.True);
+            Assert.That(cleared.Value.PortraitAssetId, Is.Null);
+            Assert.That(repository.GetToken(_campaign, token.TokenId, TestCorrelationId).Value.PortraitAssetId, Is.Null);
+            Assert.That(CountTokenAssetReferences(_campaign, token.TokenId), Is.EqualTo(0), "clearing must also remove the AssetReferences row");
+        }
+
+        [Test] // TC-BOARD-028
+        public void SetTokenPortrait_WithMismatchedExpectedRevision_ReturnsTypedConflict()
+        {
+            var repository = new SqliteSceneRepository(Clock);
+            TokenRecord token = CreatePortraitTestToken(repository);
+            AssetId assetId = RegisterTestAsset(_campaign, repository);
+
+            Result<TokenRecord> result = repository.SetTokenPortrait(_campaign, token.TokenId, assetId, token.Revision + 1, NewCommandId(), TestCorrelationId);
+
+            Assert.That(result.IsFailure, Is.True);
+            Assert.That(result.Error.Code, Is.EqualTo(ErrorCodes.PersistenceTokenRevisionConflict));
+            Assert.That(repository.GetToken(_campaign, token.TokenId, TestCorrelationId).Value.PortraitAssetId, Is.Null);
+        }
+
+        [Test] // TC-BOARD-029
+        public void SetTokenPortrait_RetriedWithSameCommandId_ReplaysIdempotently_NoDoubleWrite()
+        {
+            var repository = new SqliteSceneRepository(Clock);
+            TokenRecord token = CreatePortraitTestToken(repository);
+            AssetId assetId = RegisterTestAsset(_campaign, repository);
+            CommandId commandId = NewCommandId();
+
+            Result<TokenRecord> first = repository.SetTokenPortrait(_campaign, token.TokenId, assetId, token.Revision, commandId, TestCorrelationId);
+            Result<TokenRecord> replay = repository.SetTokenPortrait(_campaign, token.TokenId, assetId, token.Revision, commandId, TestCorrelationId);
+
+            Assert.That(first.IsSuccess, Is.True);
+            Assert.That(replay.IsSuccess, Is.True);
+            Assert.That(replay.Value.Revision, Is.EqualTo(first.Value.Revision), "a replay must not advance the revision a second time");
+            Assert.That(CountTokenAssetReferences(_campaign, token.TokenId), Is.EqualTo(1));
+        }
+
+        [Test] // TC-BOARD-030
+        public void SetTokenPortrait_OnSuccess_WritesAssetReferenceRow()
+        {
+            var repository = new SqliteSceneRepository(Clock);
+            TokenRecord token = CreatePortraitTestToken(repository);
+            AssetId assetId = RegisterTestAsset(_campaign, repository);
+
+            Assert.That(repository.SetTokenPortrait(_campaign, token.TokenId, assetId, token.Revision, NewCommandId(), TestCorrelationId).IsSuccess, Is.True);
+
+            Assert.That(CountTokenAssetReferences(_campaign, token.TokenId, assetId), Is.EqualTo(1));
+        }
+
+        [Test] // TC-BOARD-031
+        public void SetTokenPortrait_ReplacingPortrait_ReplacesAssetReferenceRow_NoDuplicate()
+        {
+            var repository = new SqliteSceneRepository(Clock);
+            TokenRecord token = CreatePortraitTestToken(repository);
+            AssetId firstAsset = RegisterTestAsset(_campaign, repository);
+            AssetId secondAsset = RegisterTestAsset(_campaign, repository);
+            TokenRecord withFirst = repository.SetTokenPortrait(_campaign, token.TokenId, firstAsset, token.Revision, NewCommandId(), TestCorrelationId).Value;
+
+            Result<TokenRecord> withSecond = repository.SetTokenPortrait(_campaign, token.TokenId, secondAsset, withFirst.Revision, NewCommandId(), TestCorrelationId);
+
+            Assert.That(withSecond.IsSuccess, Is.True);
+            Assert.That(withSecond.Value.PortraitAssetId, Is.EqualTo(secondAsset));
+            Assert.That(CountTokenAssetReferences(_campaign, token.TokenId, firstAsset), Is.EqualTo(0), "the old row must not remain");
+            Assert.That(CountTokenAssetReferences(_campaign, token.TokenId), Is.EqualTo(1), "exactly one current row, never accumulating");
+        }
+
+        [Test] // TC-BOARD-032
+        public void CreateToken_LinkedToCharacterWithPortrait_DoesNotInheritCharacterPortrait()
+        {
+            // A token's portrait is an independent field: linking a token to a
+            // Character that has its own PortraitAssetId must not copy it.
+            var sceneRepository = new SqliteSceneRepository(Clock);
+            var characterRepository = new SqliteCharacterRepository(Clock);
+            CharacterRecord character = characterRepository.CreateCharacter(new CreateCharacterRequest(_campaign, Odyssey.Domain.Character.CharacterKind.PlayerCharacter, "Hero"), NewCommandId(), TestCorrelationId).Value;
+            characterRepository.SetCharacterPortrait(_campaign, character.CharacterId, RegisterTestAsset(_campaign, sceneRepository), character.Revisions.PresentationRevision, NewCommandId(), TestCorrelationId);
+
+            TokenRecord token = CreatePortraitTestToken(sceneRepository, character.CharacterId);
+
+            Assert.That(token.CharacterId, Is.EqualTo(character.CharacterId));
+            Assert.That(token.PortraitAssetId, Is.Null);
+            Assert.That(sceneRepository.GetToken(_campaign, token.TokenId, TestCorrelationId).Value.PortraitAssetId, Is.Null);
+        }
     }
 }

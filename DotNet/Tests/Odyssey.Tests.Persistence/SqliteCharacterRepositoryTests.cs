@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.IO;
+using Microsoft.Data.Sqlite;
 using NUnit.Framework;
 using Odyssey.Application.Commands;
 using Odyssey.Application.Persistence;
@@ -530,6 +531,178 @@ namespace Odyssey.Tests.Persistence
 
             Result<IReadOnlyList<CharacterHistoryEntry>> history = repository.GetCharacterHistory(_campaign, first.Value.CharacterId, TestCorrelationId);
             Assert.That(history.Value.Count, Is.EqualTo(1), "a replayed duplicate command must not append a second character_created event");
+        }
+
+        // ---- ODY-S07-106: SetCharacterPortrait -------------------------------------
+
+        private AssetId RegisterTestAsset(CampaignHandle campaign)
+        {
+            string sourceFile = Path.Combine(Path.GetTempPath(), "ody-s07-106-source-" + Guid.NewGuid().ToString("N") + ".png");
+            File.WriteAllBytes(sourceFile, System.Text.Encoding.UTF8.GetBytes("synthetic portrait " + Guid.NewGuid().ToString("N")));
+            try
+            {
+                Result<AssetManifestEntryRecord> registered = new SqliteSceneRepository(Clock).RegisterAsset(campaign, sourceFile, NewCommandId(), TestCorrelationId);
+                Assert.That(registered.IsSuccess, Is.True, "test fixture asset registration must itself succeed");
+                return registered.Value.AssetId;
+            }
+            finally
+            {
+                File.Delete(sourceFile);
+            }
+        }
+
+        private static int CountAssetReferences(CampaignHandle campaign, string whereClause, params (string Name, string Value)[] parameters)
+        {
+            using var connection = new SqliteConnection("Data Source=" + Path.Combine(campaign.RootPath, "campaign.db"));
+            connection.Open();
+            using var command = connection.CreateCommand();
+            command.CommandText = "SELECT COUNT(*) FROM AssetReferences WHERE " + whereClause + ";";
+            foreach ((string name, string value) in parameters) command.Parameters.AddWithValue(name, value);
+            return Convert.ToInt32(command.ExecuteScalar());
+        }
+
+        private CharacterRecord CreatePortraitTestCharacter(SqliteCharacterRepository repository)
+        {
+            Result<CharacterRecord> created = repository.CreateCharacter(new CreateCharacterRequest(_campaign, CharacterKind.PlayerCharacter, "Portrait Test"), NewCommandId(), TestCorrelationId);
+            Assert.That(created.IsSuccess, Is.True);
+            return created.Value;
+        }
+
+        [Test] // TC-CHAR-173
+        public void SetCharacterPortrait_WithValidAssetId_SetsIt_IncrementsRevisions_LeavesPortraitReferenceUntouched_AndSurvivesUpdatePresentation()
+        {
+            var repository = new SqliteCharacterRepository(Clock);
+            CharacterRecord character = CreatePortraitTestCharacter(repository);
+            AssetId assetId = RegisterTestAsset(_campaign);
+            CharacterRecord withReference = repository.UpdatePresentation(_campaign, character.CharacterId, "portrait://legacy.png", character.Revisions.PresentationRevision, NewCommandId(), TestCorrelationId).Value;
+
+            Result<CharacterRecord> result = repository.SetCharacterPortrait(_campaign, character.CharacterId, assetId, withReference.Revisions.PresentationRevision, NewCommandId(), TestCorrelationId);
+
+            Assert.That(result.IsSuccess, Is.True);
+            Assert.That(result.Value.PortraitAssetId, Is.EqualTo(assetId));
+            Assert.That(result.Value.Revisions.PresentationRevision, Is.EqualTo(withReference.Revisions.PresentationRevision + 1));
+            Assert.That(result.Value.PortraitReference, Is.EqualTo("portrait://legacy.png"), "the opaque legacy string is a separate field and must be untouched");
+
+            Result<CharacterRecord> afterPresentation = repository.UpdatePresentation(_campaign, character.CharacterId, "portrait://renamed.png", result.Value.Revisions.PresentationRevision, NewCommandId(), TestCorrelationId);
+            Assert.That(afterPresentation.IsSuccess, Is.True);
+            Assert.That(afterPresentation.Value.PortraitAssetId, Is.EqualTo(assetId), "UpdatePresentation must not clobber PortraitAssetId in its returned record");
+            Assert.That(repository.GetCharacter(_campaign, character.CharacterId, TestCorrelationId).Value.PortraitAssetId, Is.EqualTo(assetId), "nor in the database");
+        }
+
+        [Test] // TC-CHAR-174
+        public void SetCharacterPortrait_WithNonExistentAssetId_ReturnsTypedError_CharacterUnchanged()
+        {
+            var repository = new SqliteCharacterRepository(Clock);
+            CharacterRecord character = CreatePortraitTestCharacter(repository);
+
+            Result<CharacterRecord> result = repository.SetCharacterPortrait(_campaign, character.CharacterId, AssetId.NewId(Clock.GetUtcNow()), character.Revisions.PresentationRevision, NewCommandId(), TestCorrelationId);
+
+            Assert.That(result.IsFailure, Is.True);
+            Assert.That(result.Error.Code, Is.EqualTo(ErrorCodes.PersistenceAssetNotFound));
+            CharacterRecord reread = repository.GetCharacter(_campaign, character.CharacterId, TestCorrelationId).Value;
+            Assert.That(reread.PortraitAssetId, Is.Null);
+            Assert.That(reread.Revisions.PresentationRevision, Is.EqualTo(character.Revisions.PresentationRevision));
+        }
+
+        [Test] // TC-CHAR-175
+        public void SetCharacterPortrait_WithAssetIdRegisteredUnderADifferentCampaign_ReturnsTypedError()
+        {
+            string otherWorkDir = Path.Combine(Path.GetTempPath(), "ody-s07-106-other-" + Guid.NewGuid().ToString("N"));
+            var otherCampaignRepository = new SqliteCampaignRepository(Clock);
+            Result<CampaignHandle> otherCreated = otherCampaignRepository.Create(new CreateCampaignRequest(otherWorkDir, "Other Campaign", "ruleset.core", "1.0.0", "0.1.0"), NewCommandId(), TestCorrelationId);
+            Assert.That(otherCreated.IsSuccess, Is.True);
+
+            try
+            {
+                var repository = new SqliteCharacterRepository(Clock);
+                AssetId foreignAssetId = RegisterTestAsset(otherCreated.Value);
+                CharacterRecord character = CreatePortraitTestCharacter(repository);
+
+                Result<CharacterRecord> result = repository.SetCharacterPortrait(_campaign, character.CharacterId, foreignAssetId, character.Revisions.PresentationRevision, NewCommandId(), TestCorrelationId);
+
+                Assert.That(result.IsFailure, Is.True);
+                Assert.That(result.Error.Code, Is.EqualTo(ErrorCodes.PersistenceAssetNotFound));
+            }
+            finally
+            {
+                try { otherCampaignRepository.Close(otherCreated.Value, TestCorrelationId); } catch (IOException) { }
+                try { if (Directory.Exists(otherWorkDir)) Directory.Delete(otherWorkDir, recursive: true); } catch (IOException) { }
+            }
+        }
+
+        [Test] // TC-CHAR-176
+        public void SetCharacterPortrait_WithNull_AfterPreviouslySet_ClearsPortrait()
+        {
+            var repository = new SqliteCharacterRepository(Clock);
+            CharacterRecord character = CreatePortraitTestCharacter(repository);
+            CharacterRecord withPortrait = repository.SetCharacterPortrait(_campaign, character.CharacterId, RegisterTestAsset(_campaign), character.Revisions.PresentationRevision, NewCommandId(), TestCorrelationId).Value;
+
+            Result<CharacterRecord> cleared = repository.SetCharacterPortrait(_campaign, character.CharacterId, null, withPortrait.Revisions.PresentationRevision, NewCommandId(), TestCorrelationId);
+
+            Assert.That(cleared.IsSuccess, Is.True);
+            Assert.That(cleared.Value.PortraitAssetId, Is.Null);
+            Assert.That(repository.GetCharacter(_campaign, character.CharacterId, TestCorrelationId).Value.PortraitAssetId, Is.Null);
+            Assert.That(CountAssetReferences(_campaign, "ReferencedByType = 'Character' AND ReferencedById = $id", ("$id", character.CharacterId.ToString())), Is.EqualTo(0), "clearing must also remove the AssetReferences row");
+        }
+
+        [Test] // TC-CHAR-177
+        public void SetCharacterPortrait_WithMismatchedExpectedPresentationRevision_ReturnsTypedConflict()
+        {
+            var repository = new SqliteCharacterRepository(Clock);
+            CharacterRecord character = CreatePortraitTestCharacter(repository);
+            AssetId assetId = RegisterTestAsset(_campaign);
+
+            Result<CharacterRecord> result = repository.SetCharacterPortrait(_campaign, character.CharacterId, assetId, character.Revisions.PresentationRevision + 1, NewCommandId(), TestCorrelationId);
+
+            Assert.That(result.IsFailure, Is.True);
+            Assert.That(result.Error.Code, Is.EqualTo(ErrorCodes.PersistenceCharacterRevisionConflict));
+            Assert.That(repository.GetCharacter(_campaign, character.CharacterId, TestCorrelationId).Value.PortraitAssetId, Is.Null);
+        }
+
+        [Test] // TC-CHAR-178
+        public void SetCharacterPortrait_RetriedWithSameCommandId_ReplaysIdempotently_NoDoubleWrite()
+        {
+            var repository = new SqliteCharacterRepository(Clock);
+            CharacterRecord character = CreatePortraitTestCharacter(repository);
+            AssetId assetId = RegisterTestAsset(_campaign);
+            CommandId commandId = NewCommandId();
+
+            Result<CharacterRecord> first = repository.SetCharacterPortrait(_campaign, character.CharacterId, assetId, character.Revisions.PresentationRevision, commandId, TestCorrelationId);
+            Result<CharacterRecord> replay = repository.SetCharacterPortrait(_campaign, character.CharacterId, assetId, character.Revisions.PresentationRevision, commandId, TestCorrelationId);
+
+            Assert.That(first.IsSuccess, Is.True);
+            Assert.That(replay.IsSuccess, Is.True);
+            Assert.That(replay.Value.Revisions.PresentationRevision, Is.EqualTo(first.Value.Revisions.PresentationRevision), "a replay must not advance the revision a second time");
+            Assert.That(CountAssetReferences(_campaign, "ReferencedByType = 'Character' AND ReferencedById = $id", ("$id", character.CharacterId.ToString())), Is.EqualTo(1));
+        }
+
+        [Test] // TC-CHAR-179
+        public void SetCharacterPortrait_OnSuccess_WritesAssetReferenceRow()
+        {
+            var repository = new SqliteCharacterRepository(Clock);
+            CharacterRecord character = CreatePortraitTestCharacter(repository);
+            AssetId assetId = RegisterTestAsset(_campaign);
+
+            Assert.That(repository.SetCharacterPortrait(_campaign, character.CharacterId, assetId, character.Revisions.PresentationRevision, NewCommandId(), TestCorrelationId).IsSuccess, Is.True);
+
+            Assert.That(CountAssetReferences(_campaign, "AssetId = $asset AND ReferencedByType = 'Character' AND ReferencedById = $id", ("$asset", assetId.ToString()), ("$id", character.CharacterId.ToString())), Is.EqualTo(1));
+        }
+
+        [Test] // TC-CHAR-180
+        public void SetCharacterPortrait_ReplacingPortrait_ReplacesAssetReferenceRow_NoDuplicate()
+        {
+            var repository = new SqliteCharacterRepository(Clock);
+            CharacterRecord character = CreatePortraitTestCharacter(repository);
+            AssetId firstAsset = RegisterTestAsset(_campaign);
+            AssetId secondAsset = RegisterTestAsset(_campaign);
+            CharacterRecord withFirst = repository.SetCharacterPortrait(_campaign, character.CharacterId, firstAsset, character.Revisions.PresentationRevision, NewCommandId(), TestCorrelationId).Value;
+
+            Result<CharacterRecord> withSecond = repository.SetCharacterPortrait(_campaign, character.CharacterId, secondAsset, withFirst.Revisions.PresentationRevision, NewCommandId(), TestCorrelationId);
+
+            Assert.That(withSecond.IsSuccess, Is.True);
+            Assert.That(withSecond.Value.PortraitAssetId, Is.EqualTo(secondAsset));
+            Assert.That(CountAssetReferences(_campaign, "AssetId = $asset AND ReferencedByType = 'Character' AND ReferencedById = $id", ("$asset", firstAsset.ToString()), ("$id", character.CharacterId.ToString())), Is.EqualTo(0), "the old row must not remain");
+            Assert.That(CountAssetReferences(_campaign, "ReferencedByType = 'Character' AND ReferencedById = $id", ("$id", character.CharacterId.ToString())), Is.EqualTo(1), "exactly one current row, never accumulating");
         }
     }
 }

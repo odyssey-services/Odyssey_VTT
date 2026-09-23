@@ -46,6 +46,22 @@ namespace Odyssey.Application.Persistence
         Result<CharacterRecord> UpdatePresentation(CampaignHandle campaign, CharacterId characterId, string? portraitReference, long expectedPresentationRevision, CommandId commandId, CorrelationId correlationId);
 
         /// <summary>
+        /// ODY-S07-106: sets or clears this Character's real, validated portrait
+        /// (<see cref="CharacterRecord.PortraitAssetId"/>) -- a separate method,
+        /// not an overload of <see cref="UpdatePresentation"/>, because the
+        /// opaque <see cref="CharacterRecord.PortraitReference"/> string that
+        /// method writes is part of the portable export contract and the
+        /// ADR-022 section 7 event snapshot and stays untouched. Same
+        /// Presentation-section revision gate as <see cref="UpdatePresentation"/>;
+        /// <paramref name="portraitAssetId"/> <c>null</c> clears; a non-null
+        /// value is fail-closed validated against this campaign's own
+        /// `AssetManifestEntries`, and `AssetReferences` (`ReferencedByType`
+        /// = "Character") is kept to one current row in the same transaction,
+        /// by exact precedent of <see cref="ISceneRepository.SetSceneBackground"/>.
+        /// </summary>
+        Result<CharacterRecord> SetCharacterPortrait(CampaignHandle campaign, CharacterId characterId, AssetId? portraitAssetId, long expectedPresentationRevision, CommandId commandId, CorrelationId correlationId);
+
+        /// <summary>
         /// ADR-022 section 8: rebuilds this Character's history purely from
         /// the append-only <c>DomainEvents</c> journal -- never from a
         /// separately-maintained, independently mutable history table. Called
@@ -1142,10 +1158,12 @@ namespace Odyssey.Application.Persistence
             IReadOnlyList<CharacterResource> resources,
             CharacterAnatomy? anatomy,
             UtcInstant createdAt,
-            UtcInstant updatedAt)
+            UtcInstant updatedAt,
+            AssetId? portraitAssetId = null)
         {
             if (!characterId.IsValid) throw new ArgumentException("CharacterId is required.", nameof(characterId));
             if (!campaignId.IsValid) throw new ArgumentException("CampaignId is required.", nameof(campaignId));
+            if (portraitAssetId.HasValue && !portraitAssetId.Value.IsValid) throw new ArgumentException("PortraitAssetId must be valid when supplied.", nameof(portraitAssetId));
             if (!Enum.IsDefined(typeof(CharacterKind), characterKind)) throw new ArgumentOutOfRangeException(nameof(characterKind));
             if (!Enum.IsDefined(typeof(CharacterLifecycleStatus), lifecycleStatus)) throw new ArgumentOutOfRangeException(nameof(lifecycleStatus));
             if (!Enum.IsDefined(typeof(CharacterApprovalState), approvalState)) throw new ArgumentOutOfRangeException(nameof(approvalState));
@@ -1175,6 +1193,7 @@ namespace Odyssey.Application.Persistence
             Anatomy = anatomy;
             CreatedAt = createdAt;
             UpdatedAt = updatedAt;
+            PortraitAssetId = portraitAssetId;
         }
 
         public CharacterId CharacterId { get; }
@@ -1184,6 +1203,9 @@ namespace Odyssey.Application.Persistence
         public CharacterApprovalState ApprovalState { get; }
         public string DisplayName { get; }
         public string? PortraitReference { get; }
+
+        /// <summary>ODY-S07-106: a real, campaign-scoped, fail-closed-validated reference to a registered `AssetManifestEntries` row (set via <see cref="ICharacterRepository.SetCharacterPortrait"/>), or `null`. Independent of <see cref="PortraitReference"/> -- that opaque string stays untouched because it is part of the portable export contract and the ADR-022 `PortraitReferenceSnapshot` event payload, and an `AssetId` is not portable across campaigns.</summary>
+        public AssetId? PortraitAssetId { get; }
 
         /// <summary>ODY-S04-102: ADR-022's already-reserved <c>Ownership</c> section content -- see <see cref="CharacterSectionRevisions.OwnershipRevision"/> for its revision counter.</summary>
         public CharacterOwnership Ownership { get; }

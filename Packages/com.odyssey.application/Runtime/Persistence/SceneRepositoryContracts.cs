@@ -85,6 +85,18 @@ namespace Odyssey.Application.Persistence
         /// mutating method here already uses).
         /// </summary>
         Result<SceneRecord> SetSceneBackground(CampaignHandle campaign, SceneId sceneId, AssetId? backgroundAssetId, long expectedRevision, CommandId commandId, CorrelationId correlationId);
+
+        /// <summary>
+        /// ODY-S07-106: sets or clears a token's own portrait
+        /// (<see cref="TokenRecord.PortraitAssetId"/>), by exact precedent of
+        /// <see cref="SetSceneBackground"/> (single record revision,
+        /// fail-closed against this campaign's own `AssetManifestEntries`,
+        /// `AssetReferences` `ReferencedByType` = "Token" kept to one current row).
+        /// A token's portrait is an independent field -- it is NOT inherited
+        /// from the linked Character's portrait, and no such inheritance is
+        /// introduced.
+        /// </summary>
+        Result<TokenRecord> SetTokenPortrait(CampaignHandle campaign, TokenId tokenId, AssetId? portraitAssetId, long expectedRevision, CommandId commandId, CorrelationId correlationId);
     }
 
     public readonly struct TokenPosition : IEquatable<TokenPosition>
@@ -137,9 +149,10 @@ namespace Odyssey.Application.Persistence
 
     public sealed class TokenRecord
     {
-        public TokenRecord(TokenId tokenId, SceneId sceneId, CampaignId campaignId, TokenPosition position, UserId controllerUserId, long revision, UtcInstant createdAt, UtcInstant updatedAt, CharacterId? characterId = null)
+        public TokenRecord(TokenId tokenId, SceneId sceneId, CampaignId campaignId, TokenPosition position, UserId controllerUserId, long revision, UtcInstant createdAt, UtcInstant updatedAt, CharacterId? characterId = null, AssetId? portraitAssetId = null)
         {
             if (!tokenId.IsValid) throw new ArgumentException("TokenId is required.", nameof(tokenId));
+            if (portraitAssetId.HasValue && !portraitAssetId.Value.IsValid) throw new ArgumentException("PortraitAssetId must be valid when supplied.", nameof(portraitAssetId));
             if (!sceneId.IsValid) throw new ArgumentException("SceneId is required.", nameof(sceneId));
             if (!campaignId.IsValid) throw new ArgumentException("CampaignId is required.", nameof(campaignId));
             if (!controllerUserId.IsValid) throw new ArgumentException("ControllerUserId is required.", nameof(controllerUserId));
@@ -155,6 +168,7 @@ namespace Odyssey.Application.Persistence
             CreatedAt = createdAt;
             UpdatedAt = updatedAt;
             CharacterId = characterId;
+            PortraitAssetId = portraitAssetId;
         }
 
         public TokenId TokenId { get; }
@@ -175,6 +189,9 @@ namespace Odyssey.Application.Persistence
 
         /// <summary>ODY-S06-104: the optional "one token = one Character" link -- null for a prop/marker token with no Character behind it.</summary>
         public CharacterId? CharacterId { get; }
+
+        /// <summary>ODY-S07-106: the token's own validated portrait (set via <see cref="ISceneRepository.SetTokenPortrait"/>), or `null`. Independent of the linked Character's portrait -- never auto-inherited.</summary>
+        public AssetId? PortraitAssetId { get; }
     }
 
     public sealed class AssetManifestEntryRecord

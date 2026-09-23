@@ -400,7 +400,7 @@ namespace Odyssey.Persistence.Sqlite
                         }
 
                         CharacterSectionRevisions newRevisions = WithRevisions(current.Revisions, characterRevision: newCharacterRevision, lifecycleRevision: newLifecycleRevision);
-                        var record = new CharacterRecord(characterId, campaign.CampaignId, current.CharacterKind, current.LifecycleStatus, current.ApprovalState, current.DisplayName, current.PortraitReference, current.Ownership, newRevisions, current.RulesetVersion, current.AnatomyProfileRef, current.TemplateId, current.TemplateVersionAtCopyTime, current.SeedCopy, now, current.DevelopmentPool, current.Attributes, current.Skills, current.Abilities, current.Resources, current.Anatomy, current.CreatedAt, now);
+                        var record = new CharacterRecord(characterId, campaign.CampaignId, current.CharacterKind, current.LifecycleStatus, current.ApprovalState, current.DisplayName, current.PortraitReference, current.Ownership, newRevisions, current.RulesetVersion, current.AnatomyProfileRef, current.TemplateId, current.TemplateVersionAtCopyTime, current.SeedCopy, now, current.DevelopmentPool, current.Attributes, current.Skills, current.Abilities, current.Resources, current.Anatomy, current.CreatedAt, now, current.PortraitAssetId);
 
                         var payload = new JObject
                         {
@@ -575,7 +575,7 @@ namespace Odyssey.Persistence.Sqlite
                         }
 
                         CharacterSectionRevisions newRevisions = WithRevisions(current.Revisions, characterRevision: newCharacterRevision, lifecycleRevision: newLifecycleRevision);
-                        var record = new CharacterRecord(characterId, campaign.CampaignId, current.CharacterKind, newLifecycleStatus, newApprovalState, current.DisplayName, current.PortraitReference, current.Ownership, newRevisions, current.RulesetVersion, current.AnatomyProfileRef, current.TemplateId, current.TemplateVersionAtCopyTime, current.SeedCopy, current.SubmittedAt, current.DevelopmentPool, current.Attributes, current.Skills, current.Abilities, current.Resources, current.Anatomy, current.CreatedAt, now);
+                        var record = new CharacterRecord(characterId, campaign.CampaignId, current.CharacterKind, newLifecycleStatus, newApprovalState, current.DisplayName, current.PortraitReference, current.Ownership, newRevisions, current.RulesetVersion, current.AnatomyProfileRef, current.TemplateId, current.TemplateVersionAtCopyTime, current.SeedCopy, current.SubmittedAt, current.DevelopmentPool, current.Attributes, current.Skills, current.Abilities, current.Resources, current.Anatomy, current.CreatedAt, now, current.PortraitAssetId);
 
                         var payload = new JObject
                         {
@@ -675,7 +675,7 @@ namespace Odyssey.Persistence.Sqlite
                         }
 
                         CharacterSectionRevisions newRevisions = WithRevisions(current.Revisions, characterRevision: newCharacterRevision, lifecycleRevision: newLifecycleRevision);
-                        var record = new CharacterRecord(characterId, campaign.CampaignId, current.CharacterKind, CharacterLifecycleStatus.Archived, current.ApprovalState, current.DisplayName, current.PortraitReference, current.Ownership, newRevisions, current.RulesetVersion, current.AnatomyProfileRef, current.TemplateId, current.TemplateVersionAtCopyTime, current.SeedCopy, current.SubmittedAt, current.DevelopmentPool, current.Attributes, current.Skills, current.Abilities, current.Resources, current.Anatomy, current.CreatedAt, now);
+                        var record = new CharacterRecord(characterId, campaign.CampaignId, current.CharacterKind, CharacterLifecycleStatus.Archived, current.ApprovalState, current.DisplayName, current.PortraitReference, current.Ownership, newRevisions, current.RulesetVersion, current.AnatomyProfileRef, current.TemplateId, current.TemplateVersionAtCopyTime, current.SeedCopy, current.SubmittedAt, current.DevelopmentPool, current.Attributes, current.Skills, current.Abilities, current.Resources, current.Anatomy, current.CreatedAt, now, current.PortraitAssetId);
 
                         var payload = new JObject
                         {
@@ -983,7 +983,7 @@ namespace Odyssey.Persistence.Sqlite
                         }
 
                         CharacterSectionRevisions newRevisions = WithRevisions(current.Revisions, characterRevision: newCharacterRevision, lifecycleRevision: newLifecycleRevision);
-                        var record = new CharacterRecord(characterId, campaign.CampaignId, current.CharacterKind, CharacterLifecycleStatus.Dead, current.ApprovalState, current.DisplayName, current.PortraitReference, current.Ownership, newRevisions, current.RulesetVersion, current.AnatomyProfileRef, current.TemplateId, current.TemplateVersionAtCopyTime, current.SeedCopy, current.SubmittedAt, current.DevelopmentPool, current.Attributes, current.Skills, current.Abilities, current.Resources, current.Anatomy, current.CreatedAt, now);
+                        var record = new CharacterRecord(characterId, campaign.CampaignId, current.CharacterKind, CharacterLifecycleStatus.Dead, current.ApprovalState, current.DisplayName, current.PortraitReference, current.Ownership, newRevisions, current.RulesetVersion, current.AnatomyProfileRef, current.TemplateId, current.TemplateVersionAtCopyTime, current.SeedCopy, current.SubmittedAt, current.DevelopmentPool, current.Attributes, current.Skills, current.Abilities, current.Resources, current.Anatomy, current.CreatedAt, now, current.PortraitAssetId);
 
                         var payload = new JObject
                         {
@@ -1178,7 +1178,7 @@ namespace Odyssey.Persistence.Sqlite
                         }
 
                         CharacterSectionRevisions newRevisions = WithRevisions(current.Revisions, characterRevision: newCharacterRevision, lifecycleRevision: newLifecycleRevision, characterAnatomyRevision: newAnatomyRevisionColumn, characterResourcesRevision: touchesResources ? newResourcesRevision : (long?)null);
-                        var record = new CharacterRecord(characterId, campaign.CampaignId, current.CharacterKind, request.NewLifecycleStatus, current.ApprovalState, current.DisplayName, current.PortraitReference, current.Ownership, newRevisions, current.RulesetVersion, current.AnatomyProfileRef, current.TemplateId, current.TemplateVersionAtCopyTime, current.SeedCopy, current.SubmittedAt, current.DevelopmentPool, current.Attributes, current.Skills, current.Abilities, newResources, newAnatomy, current.CreatedAt, now);
+                        var record = new CharacterRecord(characterId, campaign.CampaignId, current.CharacterKind, request.NewLifecycleStatus, current.ApprovalState, current.DisplayName, current.PortraitReference, current.Ownership, newRevisions, current.RulesetVersion, current.AnatomyProfileRef, current.TemplateId, current.TemplateVersionAtCopyTime, current.SeedCopy, current.SubmittedAt, current.DevelopmentPool, current.Attributes, current.Skills, current.Abilities, newResources, newAnatomy, current.CreatedAt, now, current.PortraitAssetId);
 
                         // Section 1.3 of this task's own ТЗ: an ordinary
                         // FORWARD event -- no originalEventId/compensationGroupId/
@@ -1514,7 +1514,7 @@ namespace Odyssey.Persistence.Sqlite
                         }
 
                         CharacterSectionRevisions newRevisions = WithRevisions(current.Revisions, characterRevision: newCharacterRevision);
-                        var record = new CharacterRecord(characterId, campaign.CampaignId, current.CharacterKind, current.LifecycleStatus, current.ApprovalState, current.DisplayName, current.PortraitReference, current.Ownership, newRevisions, plan.TargetRulesetVersion, current.AnatomyProfileRef, current.TemplateId, current.TemplateVersionAtCopyTime, current.SeedCopy, current.SubmittedAt, current.DevelopmentPool, current.Attributes, current.Skills, current.Abilities, current.Resources, current.Anatomy, current.CreatedAt, now);
+                        var record = new CharacterRecord(characterId, campaign.CampaignId, current.CharacterKind, current.LifecycleStatus, current.ApprovalState, current.DisplayName, current.PortraitReference, current.Ownership, newRevisions, plan.TargetRulesetVersion, current.AnatomyProfileRef, current.TemplateId, current.TemplateVersionAtCopyTime, current.SeedCopy, current.SubmittedAt, current.DevelopmentPool, current.Attributes, current.Skills, current.Abilities, current.Resources, current.Anatomy, current.CreatedAt, now, current.PortraitAssetId);
 
                         var eventPayload = new JObject
                         {
@@ -1623,7 +1623,7 @@ namespace Odyssey.Persistence.Sqlite
                         }
 
                         CharacterSectionRevisions newRevisions = WithRevisions(current.Revisions, characterRevision: newCharacterRevision);
-                        var record = new CharacterRecord(characterId, campaign.CampaignId, current.CharacterKind, current.LifecycleStatus, current.ApprovalState, current.DisplayName, current.PortraitReference, current.Ownership, newRevisions, migration.Value.sourceRulesetVersion, current.AnatomyProfileRef, current.TemplateId, current.TemplateVersionAtCopyTime, current.SeedCopy, current.SubmittedAt, current.DevelopmentPool, current.Attributes, current.Skills, current.Abilities, current.Resources, current.Anatomy, current.CreatedAt, now);
+                        var record = new CharacterRecord(characterId, campaign.CampaignId, current.CharacterKind, current.LifecycleStatus, current.ApprovalState, current.DisplayName, current.PortraitReference, current.Ownership, newRevisions, migration.Value.sourceRulesetVersion, current.AnatomyProfileRef, current.TemplateId, current.TemplateVersionAtCopyTime, current.SeedCopy, current.SubmittedAt, current.DevelopmentPool, current.Attributes, current.Skills, current.Abilities, current.Resources, current.Anatomy, current.CreatedAt, now, current.PortraitAssetId);
 
                         var payload = new JObject
                         {
@@ -1833,7 +1833,7 @@ namespace Odyssey.Persistence.Sqlite
                             characterResourcesRevision: payload.Resources.Count > 0 ? newResourcesRevision : (long?)null,
                             characterAnatomyRevision: payload.Anatomy != null ? newAnatomyRevision : (long?)null);
 
-                        var record = new CharacterRecord(characterId, campaign.CampaignId, current.CharacterKind, current.LifecycleStatus, current.ApprovalState, current.DisplayName, current.PortraitReference, current.Ownership, newRevisions, current.RulesetVersion, current.AnatomyProfileRef, current.TemplateId, current.TemplateVersionAtCopyTime, current.SeedCopy, current.SubmittedAt, newPool, newAttributes, newSkills, newAbilities, newResources, newAnatomy, current.CreatedAt, now);
+                        var record = new CharacterRecord(characterId, campaign.CampaignId, current.CharacterKind, current.LifecycleStatus, current.ApprovalState, current.DisplayName, current.PortraitReference, current.Ownership, newRevisions, current.RulesetVersion, current.AnatomyProfileRef, current.TemplateId, current.TemplateVersionAtCopyTime, current.SeedCopy, current.SubmittedAt, newPool, newAttributes, newSkills, newAbilities, newResources, newAnatomy, current.CreatedAt, now, current.PortraitAssetId);
 
                         var eventPayload = new JObject
                         {
@@ -3320,7 +3320,7 @@ namespace Odyssey.Persistence.Sqlite
                         }
 
                         CharacterSectionRevisions newRevisions = WithRevisions(current.Revisions, characterRevision: newCharacterRevision, mechanicsRevision: newMechanicsRevision);
-                        var record = new CharacterRecord(characterId, campaign.CampaignId, current.CharacterKind, current.LifecycleStatus, current.ApprovalState, current.DisplayName, current.PortraitReference, current.Ownership, newRevisions, current.RulesetVersion, current.AnatomyProfileRef, current.TemplateId, current.TemplateVersionAtCopyTime, current.SeedCopy, current.SubmittedAt, newPool, newAttributes, newSkills, current.Abilities, current.Resources, current.Anatomy, current.CreatedAt, now);
+                        var record = new CharacterRecord(characterId, campaign.CampaignId, current.CharacterKind, current.LifecycleStatus, current.ApprovalState, current.DisplayName, current.PortraitReference, current.Ownership, newRevisions, current.RulesetVersion, current.AnatomyProfileRef, current.TemplateId, current.TemplateVersionAtCopyTime, current.SeedCopy, current.SubmittedAt, newPool, newAttributes, newSkills, current.Abilities, current.Resources, current.Anatomy, current.CreatedAt, now, current.PortraitAssetId);
 
                         var completedPayload = new JObject
                         {
@@ -3538,7 +3538,7 @@ namespace Odyssey.Persistence.Sqlite
                         }
 
                         CharacterSectionRevisions newRevisions = WithRevisions(current.Revisions, characterRevision: newCharacterRevision, mechanicsRevision: newMechanicsRevision, characterAbilitiesRevision: newAbilitiesRevision);
-                        var record = new CharacterRecord(characterId, campaign.CampaignId, current.CharacterKind, current.LifecycleStatus, current.ApprovalState, current.DisplayName, current.PortraitReference, current.Ownership, newRevisions, current.RulesetVersion, current.AnatomyProfileRef, current.TemplateId, current.TemplateVersionAtCopyTime, current.SeedCopy, current.SubmittedAt, newPool, current.Attributes, current.Skills, newAbilities, current.Resources, current.Anatomy, current.CreatedAt, now);
+                        var record = new CharacterRecord(characterId, campaign.CampaignId, current.CharacterKind, current.LifecycleStatus, current.ApprovalState, current.DisplayName, current.PortraitReference, current.Ownership, newRevisions, current.RulesetVersion, current.AnatomyProfileRef, current.TemplateId, current.TemplateVersionAtCopyTime, current.SeedCopy, current.SubmittedAt, newPool, current.Attributes, current.Skills, newAbilities, current.Resources, current.Anatomy, current.CreatedAt, now, current.PortraitAssetId);
 
                         var payload = new JObject
                         {
@@ -3751,7 +3751,7 @@ namespace Odyssey.Persistence.Sqlite
                         }
 
                         CharacterSectionRevisions newRevisions = WithRevisions(current.Revisions, characterRevision: newCharacterRevision, characterAbilitiesRevision: newAbilitiesRevision);
-                        var record = new CharacterRecord(characterId, campaign.CampaignId, current.CharacterKind, current.LifecycleStatus, current.ApprovalState, current.DisplayName, current.PortraitReference, current.Ownership, newRevisions, current.RulesetVersion, current.AnatomyProfileRef, current.TemplateId, current.TemplateVersionAtCopyTime, current.SeedCopy, current.SubmittedAt, current.DevelopmentPool, current.Attributes, current.Skills, mutation.NewAbilities, current.Resources, current.Anatomy, current.CreatedAt, now);
+                        var record = new CharacterRecord(characterId, campaign.CampaignId, current.CharacterKind, current.LifecycleStatus, current.ApprovalState, current.DisplayName, current.PortraitReference, current.Ownership, newRevisions, current.RulesetVersion, current.AnatomyProfileRef, current.TemplateId, current.TemplateVersionAtCopyTime, current.SeedCopy, current.SubmittedAt, current.DevelopmentPool, current.Attributes, current.Skills, mutation.NewAbilities, current.Resources, current.Anatomy, current.CreatedAt, now, current.PortraitAssetId);
 
                         mutation.PayloadExtra["characterId"] = characterId.ToString();
                         mutation.PayloadExtra["displayNameSnapshot"] = current.DisplayName;
@@ -3987,7 +3987,7 @@ namespace Odyssey.Persistence.Sqlite
                         }
 
                         CharacterSectionRevisions newRevisions = WithRevisions(current.Revisions, characterRevision: newCharacterRevision, characterResourcesRevision: newResourcesRevision);
-                        var record = new CharacterRecord(characterId, campaign.CampaignId, current.CharacterKind, current.LifecycleStatus, current.ApprovalState, current.DisplayName, current.PortraitReference, current.Ownership, newRevisions, current.RulesetVersion, current.AnatomyProfileRef, current.TemplateId, current.TemplateVersionAtCopyTime, current.SeedCopy, current.SubmittedAt, current.DevelopmentPool, current.Attributes, current.Skills, current.Abilities, mutation.NewResources, current.Anatomy, current.CreatedAt, now);
+                        var record = new CharacterRecord(characterId, campaign.CampaignId, current.CharacterKind, current.LifecycleStatus, current.ApprovalState, current.DisplayName, current.PortraitReference, current.Ownership, newRevisions, current.RulesetVersion, current.AnatomyProfileRef, current.TemplateId, current.TemplateVersionAtCopyTime, current.SeedCopy, current.SubmittedAt, current.DevelopmentPool, current.Attributes, current.Skills, current.Abilities, mutation.NewResources, current.Anatomy, current.CreatedAt, now, current.PortraitAssetId);
 
                         mutation.PayloadExtra["characterId"] = characterId.ToString();
                         mutation.PayloadExtra["displayNameSnapshot"] = current.DisplayName;
@@ -4430,7 +4430,7 @@ namespace Odyssey.Persistence.Sqlite
                         }
 
                         CharacterSectionRevisions newRevisions = WithRevisions(current.Revisions, characterRevision: newCharacterRevision, characterAnatomyRevision: newAnatomyRevision);
-                        var record = new CharacterRecord(characterId, campaign.CampaignId, current.CharacterKind, current.LifecycleStatus, current.ApprovalState, current.DisplayName, current.PortraitReference, current.Ownership, newRevisions, current.RulesetVersion, current.AnatomyProfileRef, current.TemplateId, current.TemplateVersionAtCopyTime, current.SeedCopy, current.SubmittedAt, current.DevelopmentPool, current.Attributes, current.Skills, current.Abilities, current.Resources, mutation.NewAnatomy, current.CreatedAt, now);
+                        var record = new CharacterRecord(characterId, campaign.CampaignId, current.CharacterKind, current.LifecycleStatus, current.ApprovalState, current.DisplayName, current.PortraitReference, current.Ownership, newRevisions, current.RulesetVersion, current.AnatomyProfileRef, current.TemplateId, current.TemplateVersionAtCopyTime, current.SeedCopy, current.SubmittedAt, current.DevelopmentPool, current.Attributes, current.Skills, current.Abilities, current.Resources, mutation.NewAnatomy, current.CreatedAt, now, current.PortraitAssetId);
 
                         mutation.PayloadExtra["characterId"] = characterId.ToString();
                         mutation.PayloadExtra["displayNameSnapshot"] = current.DisplayName;
@@ -4862,7 +4862,7 @@ namespace Odyssey.Persistence.Sqlite
                         }
 
                         CharacterSectionRevisions newRevisions = WithRevisions(current.Revisions, characterRevision: newCharacterRevision, mechanicsRevision: newMechanicsRevision);
-                        var record = new CharacterRecord(characterId, campaign.CampaignId, current.CharacterKind, current.LifecycleStatus, current.ApprovalState, current.DisplayName, current.PortraitReference, current.Ownership, newRevisions, current.RulesetVersion, current.AnatomyProfileRef, current.TemplateId, current.TemplateVersionAtCopyTime, current.SeedCopy, current.SubmittedAt, mutation.NewPool, mutation.NewAttributes, mutation.NewSkills, current.Abilities, current.Resources, current.Anatomy, current.CreatedAt, now);
+                        var record = new CharacterRecord(characterId, campaign.CampaignId, current.CharacterKind, current.LifecycleStatus, current.ApprovalState, current.DisplayName, current.PortraitReference, current.Ownership, newRevisions, current.RulesetVersion, current.AnatomyProfileRef, current.TemplateId, current.TemplateVersionAtCopyTime, current.SeedCopy, current.SubmittedAt, mutation.NewPool, mutation.NewAttributes, mutation.NewSkills, current.Abilities, current.Resources, current.Anatomy, current.CreatedAt, now, current.PortraitAssetId);
 
                         mutation.PayloadExtra["characterId"] = characterId.ToString();
                         mutation.PayloadExtra["displayNameSnapshot"] = current.DisplayName;
@@ -5024,7 +5024,7 @@ namespace Odyssey.Persistence.Sqlite
                         }
 
                         CharacterSectionRevisions newRevisions = WithRevisions(current.Revisions, characterRevision: newCharacterRevision, identityRevision: newIdentityRevision);
-                        var record = new CharacterRecord(characterId, campaign.CampaignId, current.CharacterKind, current.LifecycleStatus, current.ApprovalState, newDisplayName, current.PortraitReference, current.Ownership, newRevisions, current.RulesetVersion, current.AnatomyProfileRef, current.TemplateId, current.TemplateVersionAtCopyTime, current.SeedCopy, current.SubmittedAt, current.DevelopmentPool, current.Attributes, current.Skills, current.Abilities, current.Resources, current.Anatomy, current.CreatedAt, now);
+                        var record = new CharacterRecord(characterId, campaign.CampaignId, current.CharacterKind, current.LifecycleStatus, current.ApprovalState, newDisplayName, current.PortraitReference, current.Ownership, newRevisions, current.RulesetVersion, current.AnatomyProfileRef, current.TemplateId, current.TemplateVersionAtCopyTime, current.SeedCopy, current.SubmittedAt, current.DevelopmentPool, current.Attributes, current.Skills, current.Abilities, current.Resources, current.Anatomy, current.CreatedAt, now, current.PortraitAssetId);
 
                         var payload = new JObject
                         {
@@ -5097,7 +5097,7 @@ namespace Odyssey.Persistence.Sqlite
                         }
 
                         CharacterSectionRevisions newRevisions = WithRevisions(current.Revisions, characterRevision: newCharacterRevision, presentationRevision: newPresentationRevision);
-                        var record = new CharacterRecord(characterId, campaign.CampaignId, current.CharacterKind, current.LifecycleStatus, current.ApprovalState, current.DisplayName, portraitReference, current.Ownership, newRevisions, current.RulesetVersion, current.AnatomyProfileRef, current.TemplateId, current.TemplateVersionAtCopyTime, current.SeedCopy, current.SubmittedAt, current.DevelopmentPool, current.Attributes, current.Skills, current.Abilities, current.Resources, current.Anatomy, current.CreatedAt, now);
+                        var record = new CharacterRecord(characterId, campaign.CampaignId, current.CharacterKind, current.LifecycleStatus, current.ApprovalState, current.DisplayName, portraitReference, current.Ownership, newRevisions, current.RulesetVersion, current.AnatomyProfileRef, current.TemplateId, current.TemplateVersionAtCopyTime, current.SeedCopy, current.SubmittedAt, current.DevelopmentPool, current.Attributes, current.Skills, current.Abilities, current.Resources, current.Anatomy, current.CreatedAt, now, current.PortraitAssetId);
 
                         var payload = new JObject
                         {
@@ -5110,6 +5110,109 @@ namespace Odyssey.Persistence.Sqlite
 
                         return Result<PipelineWrite<CharacterRecord>>.Success(new PipelineWrite<CharacterRecord>(
                             record, "odyssey.persistence.character_presentation_updated", payload.ToString(Newtonsoft.Json.Formatting.None), characterId.ToString(),
+                            aggregateType: "character", aggregateId: characterId.ToString(), aggregateRevision: newCharacterRevision));
+                    });
+            }
+            catch (Exception ex) when (ex is IOException || ex is UnauthorizedAccessException || ex is SqliteException)
+            {
+                return Result<CharacterRecord>.Failure(PersistenceFailures.CharacterIoFailed(correlationId));
+            }
+        }
+
+        public Result<CharacterRecord> SetCharacterPortrait(CampaignHandle campaign, CharacterId characterId, AssetId? portraitAssetId, long expectedPresentationRevision, CommandId commandId, CorrelationId correlationId)
+        {
+            if (campaign == null) throw new ArgumentNullException(nameof(campaign));
+            if (!characterId.IsValid) throw new ArgumentException("CharacterId is required.", nameof(characterId));
+            if (expectedPresentationRevision < 1) throw new ArgumentOutOfRangeException(nameof(expectedPresentationRevision));
+            if (!commandId.IsValid) throw new ArgumentException("CommandId is required.", nameof(commandId));
+            if (portraitAssetId.HasValue && !portraitAssetId.Value.IsValid) throw new ArgumentException("PortraitAssetId must be valid when supplied.", nameof(portraitAssetId));
+
+            try
+            {
+                using SqliteConnection connection = OpenConnection(campaign.RootPath);
+                EnsureCharacterTables(connection);
+
+                return _pipeline.Execute(
+                    connection,
+                    campaign.CampaignId,
+                    commandId,
+                    correlationId,
+                    tryReplay: transaction => ReplayCharacter(connection, transaction, campaign.CampaignId, "CharacterId = $characterId AND LastCommandId = $commandId", commandId, correlationId, characterId),
+                    apply: transaction =>
+                    {
+                        CharacterRecord? current = SelectForUpdate(connection, transaction, characterId);
+                        if (current == null)
+                        {
+                            return Result<PipelineWrite<CharacterRecord>>.Failure(PersistenceFailures.CharacterNotFound(correlationId));
+                        }
+
+                        if (current.Revisions.PresentationRevision != expectedPresentationRevision)
+                        {
+                            return Result<PipelineWrite<CharacterRecord>>.Failure(PersistenceFailures.CharacterRevisionConflict(correlationId));
+                        }
+
+                        if (portraitAssetId.HasValue)
+                        {
+                            using var assetCheck = connection.CreateCommand();
+                            assetCheck.Transaction = transaction;
+                            assetCheck.CommandText = "SELECT 1 FROM AssetManifestEntries WHERE AssetId = $assetId LIMIT 1;";
+                            assetCheck.Parameters.AddWithValue("$assetId", portraitAssetId.Value.ToString());
+                            if (assetCheck.ExecuteScalar() == null)
+                            {
+                                // Campaigns are isolated by separate SQLite files, so this
+                                // single lookup is also the cross-campaign check.
+                                return Result<PipelineWrite<CharacterRecord>>.Failure(PersistenceFailures.AssetNotFound(correlationId));
+                            }
+                        }
+
+                        UtcInstant now = _clock.GetUtcNow();
+                        long newPresentationRevision = current.Revisions.PresentationRevision + 1;
+                        long newCharacterRevision = current.Revisions.CharacterRevision + 1;
+
+                        using (var update = connection.CreateCommand())
+                        {
+                            update.Transaction = transaction;
+                            update.CommandText = "UPDATE Character SET PortraitAssetId = $portraitAssetId, PresentationRevision = $presentationRevision, CharacterRevision = $characterRevision, UpdatedAt = $updatedAt, LastCommandId = $lastCommandId WHERE CharacterId = $characterId;";
+                            update.Parameters.AddWithValue("$portraitAssetId", portraitAssetId.HasValue ? (object)portraitAssetId.Value.ToString() : DBNull.Value);
+                            update.Parameters.AddWithValue("$presentationRevision", newPresentationRevision);
+                            update.Parameters.AddWithValue("$characterRevision", newCharacterRevision);
+                            update.Parameters.AddWithValue("$updatedAt", now.ToString());
+                            update.Parameters.AddWithValue("$lastCommandId", commandId.ToString());
+                            update.Parameters.AddWithValue("$characterId", characterId.ToString());
+                            update.ExecuteNonQuery();
+                        }
+
+                        using (var deleteRef = connection.CreateCommand())
+                        {
+                            deleteRef.Transaction = transaction;
+                            deleteRef.CommandText = "DELETE FROM AssetReferences WHERE ReferencedByType = 'Character' AND ReferencedById = $characterId;";
+                            deleteRef.Parameters.AddWithValue("$characterId", characterId.ToString());
+                            deleteRef.ExecuteNonQuery();
+                        }
+
+                        if (portraitAssetId.HasValue)
+                        {
+                            using var insertRef = connection.CreateCommand();
+                            insertRef.Transaction = transaction;
+                            insertRef.CommandText = "INSERT INTO AssetReferences (AssetId, ReferencedByType, ReferencedById) VALUES ($assetId, 'Character', $characterId);";
+                            insertRef.Parameters.AddWithValue("$assetId", portraitAssetId.Value.ToString());
+                            insertRef.Parameters.AddWithValue("$characterId", characterId.ToString());
+                            insertRef.ExecuteNonQuery();
+                        }
+
+                        CharacterSectionRevisions newRevisions = WithRevisions(current.Revisions, characterRevision: newCharacterRevision, presentationRevision: newPresentationRevision);
+                        var record = new CharacterRecord(characterId, campaign.CampaignId, current.CharacterKind, current.LifecycleStatus, current.ApprovalState, current.DisplayName, current.PortraitReference, current.Ownership, newRevisions, current.RulesetVersion, current.AnatomyProfileRef, current.TemplateId, current.TemplateVersionAtCopyTime, current.SeedCopy, current.SubmittedAt, current.DevelopmentPool, current.Attributes, current.Skills, current.Abilities, current.Resources, current.Anatomy, current.CreatedAt, now, portraitAssetId);
+
+                        var payload = new JObject
+                        {
+                            ["characterId"] = characterId.ToString(),
+                            ["portraitAssetId"] = portraitAssetId.HasValue ? portraitAssetId.Value.ToString() : null,
+                            ["newPresentationRevision"] = newPresentationRevision,
+                            ["newCharacterRevision"] = newCharacterRevision,
+                        };
+
+                        return Result<PipelineWrite<CharacterRecord>>.Success(new PipelineWrite<CharacterRecord>(
+                            record, "odyssey.persistence.character_portrait_set", payload.ToString(Newtonsoft.Json.Formatting.None), characterId.ToString(),
                             aggregateType: "character", aggregateId: characterId.ToString(), aggregateRevision: newCharacterRevision));
                     });
             }
@@ -5190,7 +5293,7 @@ namespace Odyssey.Persistence.Sqlite
                         }
 
                         CharacterSectionRevisions newRevisions = WithRevisions(current.Revisions, characterRevision: newCharacterRevision, ownershipRevision: newOwnershipRevision);
-                        var record = new CharacterRecord(characterId, campaign.CampaignId, current.CharacterKind, current.LifecycleStatus, current.ApprovalState, current.DisplayName, current.PortraitReference, newOwnership, newRevisions, current.RulesetVersion, current.AnatomyProfileRef, current.TemplateId, current.TemplateVersionAtCopyTime, current.SeedCopy, current.SubmittedAt, current.DevelopmentPool, current.Attributes, current.Skills, current.Abilities, current.Resources, current.Anatomy, current.CreatedAt, now);
+                        var record = new CharacterRecord(characterId, campaign.CampaignId, current.CharacterKind, current.LifecycleStatus, current.ApprovalState, current.DisplayName, current.PortraitReference, newOwnership, newRevisions, current.RulesetVersion, current.AnatomyProfileRef, current.TemplateId, current.TemplateVersionAtCopyTime, current.SeedCopy, current.SubmittedAt, current.DevelopmentPool, current.Attributes, current.Skills, current.Abilities, current.Resources, current.Anatomy, current.CreatedAt, now, current.PortraitAssetId);
 
                         var payload = new JObject
                         {
@@ -5399,7 +5502,7 @@ namespace Odyssey.Persistence.Sqlite
                         }
 
                         CharacterSectionRevisions newRevisions = WithRevisions(current.Revisions, characterRevision: newCharacterRevision, ownershipRevision: newOwnershipRevision);
-                        var record = new CharacterRecord(characterId, campaign.CampaignId, current.CharacterKind, current.LifecycleStatus, current.ApprovalState, current.DisplayName, current.PortraitReference, newOwnership, newRevisions, current.RulesetVersion, current.AnatomyProfileRef, current.TemplateId, current.TemplateVersionAtCopyTime, current.SeedCopy, current.SubmittedAt, current.DevelopmentPool, current.Attributes, current.Skills, current.Abilities, current.Resources, current.Anatomy, current.CreatedAt, now);
+                        var record = new CharacterRecord(characterId, campaign.CampaignId, current.CharacterKind, current.LifecycleStatus, current.ApprovalState, current.DisplayName, current.PortraitReference, newOwnership, newRevisions, current.RulesetVersion, current.AnatomyProfileRef, current.TemplateId, current.TemplateVersionAtCopyTime, current.SeedCopy, current.SubmittedAt, current.DevelopmentPool, current.Attributes, current.Skills, current.Abilities, current.Resources, current.Anatomy, current.CreatedAt, now, current.PortraitAssetId);
 
                         payloadExtra["characterId"] = characterId.ToString();
                         payloadExtra["displayNameSnapshot"] = current.DisplayName;
@@ -5524,7 +5627,7 @@ namespace Odyssey.Persistence.Sqlite
             "AttributeValuesRevision, CharacterSkillsRevision, CharacterAbilitiesRevision, CharacterResourcesRevision, " +
             "CharacterAnatomyRevision, OwnershipRevision, LifecycleRevision, RuntimeStateRevision, " +
             "RulesetVersion, AnatomyProfileRef, TemplateId, TemplateVersionAtCopyTime, SeedCopyJson, SubmittedAt, " +
-            "PoolEarned, PoolSpent, PoolReserved, AttributesJson, SkillsJson, AbilitiesJson, ResourcesJson, AnatomyJson, CreatedAt, UpdatedAt";
+            "PoolEarned, PoolSpent, PoolReserved, AttributesJson, SkillsJson, AbilitiesJson, ResourcesJson, AnatomyJson, CreatedAt, UpdatedAt, PortraitAssetId";
 
         /// <summary>
         /// ODY-S04-101/102: shared column-order contract for every SELECT
@@ -5576,8 +5679,9 @@ namespace Odyssey.Persistence.Sqlite
             CharacterAnatomy? anatomy = reader.IsDBNull(37) ? null : DeserializeAnatomy(reader.GetString(37));
             UtcInstant createdAt = UtcInstant.Parse(reader.GetString(38));
             UtcInstant updatedAt = UtcInstant.Parse(reader.GetString(39));
+            AssetId? portraitAssetId = reader.IsDBNull(40) ? (AssetId?)null : AssetId.Parse(reader.GetString(40));
 
-            return new CharacterRecord(characterId, campaignId, characterKind, lifecycleStatus, approvalState, displayName, portraitReference, ownership, revisions, rulesetVersion, anatomyProfileRef, templateId, templateVersionAtCopyTime, seedCopy, submittedAt, developmentPool, attributes, skills, abilities, resources, anatomy, createdAt, updatedAt);
+            return new CharacterRecord(characterId, campaignId, characterKind, lifecycleStatus, approvalState, displayName, portraitReference, ownership, revisions, rulesetVersion, anatomyProfileRef, templateId, templateVersionAtCopyTime, seedCopy, submittedAt, developmentPool, attributes, skills, abilities, resources, anatomy, createdAt, updatedAt, portraitAssetId);
         }
 
         private static void AddRevisionParameters(SqliteCommand command, CharacterSectionRevisions revisions)
@@ -6032,7 +6136,8 @@ CREATE TABLE IF NOT EXISTS Character (
     AnatomyJson TEXT,
     CreatedAt TEXT NOT NULL,
     UpdatedAt TEXT NOT NULL,
-    LastCommandId TEXT NOT NULL
+    LastCommandId TEXT NOT NULL,
+    PortraitAssetId TEXT
 );";
             command.ExecuteNonQuery();
 
