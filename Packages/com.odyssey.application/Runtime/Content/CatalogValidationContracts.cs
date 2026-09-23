@@ -103,14 +103,21 @@ namespace Odyssey.Application.Content
                 case ContentDefinitionType.Skill:
                     ValidateSkill(record, request.CorrelationId, issues);
                     break;
+                case ContentDefinitionType.BodyPart:
+                    ValidateBodyPart(record, request.CorrelationId, issues);
+                    break;
+                case ContentDefinitionType.AnatomyProfile:
+                    ValidateAnatomyProfile(record, request.CorrelationId, issues);
+                    break;
                 default:
                     // ODY-S05-105 gave a real typed shape only to these 6
-                    // ContentDefinitionType values, and ODY-S07-103 added a
-                    // 7th (Skill). Perk/Action/Mechanic/Attribute/BodyPart/
-                    // Resource/NpcTemplateData have no TypedDefinitionCodec
-                    // path yet -- validated at the generic envelope/reference
-                    // level only (below), an explicitly recorded MVP
-                    // boundary, not an oversight.
+                    // ContentDefinitionType values, ODY-S07-103 added a 7th
+                    // (Skill), and ODY-S07-104 added an 8th and 9th
+                    // (BodyPart, AnatomyProfile). Perk/Action/Mechanic/
+                    // Attribute/Resource/NpcTemplateData have no
+                    // TypedDefinitionCodec path yet -- validated at the
+                    // generic envelope/reference level only (below), an
+                    // explicitly recorded MVP boundary, not an oversight.
                     break;
             }
 
@@ -370,6 +377,41 @@ namespace Odyssey.Application.Content
             // Decodability above is the only skill-specific check.
         }
 
+        private static void ValidateBodyPart(ContentDefinitionRecord record, CorrelationId correlationId, List<CatalogValidationIssue> issues)
+        {
+            Result<BodyPartDefinition> decoded = TypedDefinitionCodec.DecodeBodyPart(record.DefinitionType, record.PropertiesJson, correlationId);
+            if (decoded.IsFailure)
+            {
+                AddCodecFailureIssue(decoded.Error, "properties", issues);
+                return;
+            }
+
+            // BodyPartDefinition (ODY-S07-104) carries only Name/DamageLimit/
+            // Properties, each already ctor-guaranteed. No current
+            // HP/armor/attack-penalty/targeting-visibility field exists
+            // (this task's own explicit non-goal, see its own contract
+            // section 6) -- decodability above is the only check.
+        }
+
+        private static void ValidateAnatomyProfile(ContentDefinitionRecord record, CorrelationId correlationId, List<CatalogValidationIssue> issues)
+        {
+            Result<AnatomyProfileDefinition> decoded = TypedDefinitionCodec.DecodeAnatomyProfile(record.DefinitionType, record.PropertiesJson, correlationId);
+            if (decoded.IsFailure)
+            {
+                AddCodecFailureIssue(decoded.Error, "properties", issues);
+                return;
+            }
+
+            // BodyPartRefs' internal shape (non-empty, no self-referencing
+            // or out-of-range AttachedToIndex) is already
+            // ctor-guaranteed by AnatomyProfileDefinition itself. Each
+            // BodyPartRef's own existence/exact-version/target-type/
+            // ruleset-compatibility correctness is checked by
+            // ValidateReferencesAndCycles below, through the new
+            // CollectOutgoingRefs branch for AnatomyProfile -- not
+            // duplicated here.
+        }
+
         /// <summary>
         /// ContentBlock/mechanics payload MVP boundary: `MechanicsPayloadRef`
         /// is a deliberately opaque placeholder (`ODY-S05-105`'s own design
@@ -602,12 +644,33 @@ namespace Odyssey.Application.Content
                         break;
                     }
 
-                    // Ability/Effect (ODY-S05-105) carry no ContentDefinitionRef
-                    // fields of their own -- AbilityResourceCost uses the
-                    // unrelated ResourceDefinitionId, and neither type embeds an
-                    // ItemDefinition. Any cross-reference for these two kinds
-                    // can only come through the generic DependencyRefs field
-                    // already added above.
+                // Ability/Effect (ODY-S05-105) carry no ContentDefinitionRef
+                // fields of their own -- AbilityResourceCost uses the
+                // unrelated ResourceDefinitionId, and neither type embeds an
+                // ItemDefinition. Any cross-reference for these two kinds
+                // can only come through the generic DependencyRefs field
+                // already added above.
+
+                case ContentDefinitionType.AnatomyProfile:
+                    {
+                        Result<AnatomyProfileDefinition> decoded = TypedDefinitionCodec.DecodeAnatomyProfile(record.DefinitionType, record.PropertiesJson, correlationId);
+                        if (decoded.IsSuccess)
+                        {
+                            IReadOnlyList<AnatomyProfileBodyPartRef> bodyPartRefs = decoded.Value.BodyPartRefs;
+                            for (int i = 0; i < bodyPartRefs.Count; i++)
+                            {
+                                refs.Add((bodyPartRefs[i].BodyPartRef, ContentDefinitionType.BodyPart, "properties.bodyPartRefs[" + i + "]"));
+                            }
+                        }
+
+                        break;
+                    }
+
+                    // BodyPart (ODY-S07-104) carries no ContentDefinitionRef
+                    // fields of its own -- it is the referenced leaf, never a
+                    // referencer. Any cross-reference for it can only come
+                    // through the generic DependencyRefs field already added
+                    // above.
             }
 
             return refs;

@@ -437,4 +437,108 @@ namespace Odyssey.Domain.Content
     public sealed class SkillDefinition
     {
     }
+
+    /// <summary>
+    /// ODY-S07-104: typed properties for a BodyPart-shaped `ContentDefinition`
+    /// -- a reusable, named part (Head/Torso/Wing/Tail/etc.) a published
+    /// `AnatomyProfileDefinition` can reference by exact-version
+    /// `ContentDefinitionRef`. Fields mirror the personal-character
+    /// `Odyssey.Domain.Character.BodyPart`'s own Name/DamageLimit/Properties
+    /// exactly -- no current HP, armor, attack-penalty, or
+    /// targeting-visibility field, since none of these exist anywhere else
+    /// in this codebase for a body part today (armor protection lives on
+    /// `ArmorDefinition.Protection`/`CoveredBodyPartIds`, not the part
+    /// itself); adding any of them is a deliberate non-goal of this task,
+    /// not an oversight -- see this task's own contract section 6.
+    /// </summary>
+    public sealed class BodyPartDefinition
+    {
+        public BodyPartDefinition(string name, long damageLimit, string properties)
+        {
+            if (string.IsNullOrWhiteSpace(name) || name.Length > 128) throw new ArgumentException("Name is not safe.", nameof(name));
+            if (damageLimit <= 0) throw new ArgumentOutOfRangeException(nameof(damageLimit));
+            if (properties == null) throw new ArgumentNullException(nameof(properties));
+
+            Name = name;
+            DamageLimit = damageLimit;
+            Properties = properties;
+        }
+
+        public string Name { get; }
+        public long DamageLimit { get; }
+        public string Properties { get; }
+    }
+
+    /// <summary>
+    /// ODY-S07-104: one entry of an <see cref="AnatomyProfileDefinition"/>'s
+    /// own `BodyPartRefs` list. <see cref="AttachedToIndex"/> is a positional
+    /// index into that same list, not a `BodyPartId` -- at authoring time no
+    /// per-character `BodyPartId` exists yet for the part being referenced,
+    /// only its exact-version `ContentDefinitionRef` into the catalog; this
+    /// task's own explicit decision (its own contract section 6), not left
+    /// to be discovered during implementation.
+    /// </summary>
+    public sealed class AnatomyProfileBodyPartRef
+    {
+        public AnatomyProfileBodyPartRef(ContentDefinitionRef bodyPartRef, int? attachedToIndex)
+        {
+            if (attachedToIndex.HasValue && attachedToIndex.Value < 0) throw new ArgumentOutOfRangeException(nameof(attachedToIndex));
+
+            BodyPartRef = bodyPartRef;
+            AttachedToIndex = attachedToIndex;
+        }
+
+        public ContentDefinitionRef BodyPartRef { get; }
+
+        /// <summary>Index into the owning `AnatomyProfileDefinition.BodyPartRefs` list, or `null` for a root part attached to nothing (e.g. Torso).</summary>
+        public int? AttachedToIndex { get; }
+    }
+
+    /// <summary>
+    /// ODY-S07-104: typed properties for an AnatomyProfile-shaped
+    /// `ContentDefinition` -- a bundle referencing a specific published set
+    /// of <see cref="BodyPartDefinition"/>s by exact-version
+    /// `ContentDefinitionRef`, the real catalog counterpart of today's
+    /// hardcoded, test-fixture-only `AnatomyInitializationRules.DefaultHumanoidBodyParts()`.
+    /// This task builds only the catalog/authoring side -- `InitializeCharacterAnatomy`
+    /// is not wired to resolve an `AnatomyProfileDefinitionId` against this
+    /// type; the fixture remains the only real data source for new
+    /// characters until a separate, future task does that wiring (this
+    /// task's own contract section 1, decision on scope).
+    /// </summary>
+    public sealed class AnatomyProfileDefinition
+    {
+        public AnatomyProfileDefinition(IReadOnlyList<AnatomyProfileBodyPartRef> bodyPartRefs)
+        {
+            if (bodyPartRefs == null) throw new ArgumentNullException(nameof(bodyPartRefs));
+            if (bodyPartRefs.Count == 0) throw new ArgumentException("BodyPartRefs must not be empty.", nameof(bodyPartRefs));
+
+            for (int i = 0; i < bodyPartRefs.Count; i++)
+            {
+                int? attachedToIndex = bodyPartRefs[i].AttachedToIndex;
+                if (!attachedToIndex.HasValue)
+                {
+                    continue;
+                }
+
+                if (attachedToIndex.Value == i) throw new ArgumentException("A body part cannot be attached to itself.", nameof(bodyPartRefs));
+                if (attachedToIndex.Value < 0 || attachedToIndex.Value >= bodyPartRefs.Count) throw new ArgumentOutOfRangeException(nameof(bodyPartRefs), "AttachedToIndex is out of range.");
+            }
+
+            for (int i = 0; i < bodyPartRefs.Count; i++)
+            {
+                var onChain = new HashSet<int> { i };
+                int? next = bodyPartRefs[i].AttachedToIndex;
+                while (next.HasValue)
+                {
+                    if (!onChain.Add(next.Value)) throw new ArgumentException("BodyPartRefs' AttachedToIndex chain contains a cycle.", nameof(bodyPartRefs));
+                    next = bodyPartRefs[next.Value].AttachedToIndex;
+                }
+            }
+
+            BodyPartRefs = bodyPartRefs;
+        }
+
+        public IReadOnlyList<AnatomyProfileBodyPartRef> BodyPartRefs { get; }
+    }
 }

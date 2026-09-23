@@ -96,7 +96,12 @@ namespace Odyssey.Domain.Content
         Skill = 11,
         BodyPart = 12,
         Resource = 13,
-        NpcTemplateData = 14
+        NpcTemplateData = 14,
+
+        // ODY-S07-104: first new value added since the original ODY-S05-101
+        // set above -- a bundle referencing a specific published set of
+        // BodyPart definitions by exact-version ContentDefinitionRef.
+        AnatomyProfile = 15
     }
 
     /// <summary>

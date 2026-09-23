@@ -336,6 +336,98 @@ namespace Odyssey.Application.Content
             }
         }
 
+        public static string EncodeBodyPart(BodyPartDefinition bodyPart)
+        {
+            if (bodyPart == null) throw new ArgumentNullException(nameof(bodyPart));
+
+            var root = new JObject
+            {
+                ["schemaVersion"] = SchemaVersion,
+                ["name"] = bodyPart.Name,
+                ["damageLimit"] = bodyPart.DamageLimit,
+                ["properties"] = bodyPart.Properties,
+            };
+
+            return root.ToString(Formatting.None);
+        }
+
+        public static Result<BodyPartDefinition> DecodeBodyPart(ContentDefinitionType actualType, string propertiesJson, CorrelationId correlationId)
+        {
+            if (actualType != ContentDefinitionType.BodyPart)
+            {
+                return Result<BodyPartDefinition>.Failure(TypedDefinitionCodecFailures.WrongDefinitionType(correlationId));
+            }
+
+            try
+            {
+                JObject root = JObject.Parse(propertiesJson);
+                RequireSupportedSchemaVersion(root);
+                string name = (string)root["name"]!;
+                long damageLimit = (long)root["damageLimit"]!;
+                string properties = (string)root["properties"]!;
+
+                var bodyPart = new BodyPartDefinition(name, damageLimit, properties);
+                return Result<BodyPartDefinition>.Success(bodyPart);
+            }
+            catch (Exception ex) when (IsMalformedPayloadException(ex))
+            {
+                return Result<BodyPartDefinition>.Failure(TypedDefinitionCodecFailures.MalformedPayload(correlationId));
+            }
+        }
+
+        public static string EncodeAnatomyProfile(AnatomyProfileDefinition anatomyProfile)
+        {
+            if (anatomyProfile == null) throw new ArgumentNullException(nameof(anatomyProfile));
+
+            var bodyPartRefs = new JArray();
+            foreach (AnatomyProfileBodyPartRef bodyPartRef in anatomyProfile.BodyPartRefs)
+            {
+                bodyPartRefs.Add(new JObject
+                {
+                    ["bodyPartRef"] = bodyPartRef.BodyPartRef.ToString(),
+                    ["attachedToIndex"] = bodyPartRef.AttachedToIndex.HasValue ? (JToken)bodyPartRef.AttachedToIndex.Value : JValue.CreateNull(),
+                });
+            }
+
+            var root = new JObject
+            {
+                ["schemaVersion"] = SchemaVersion,
+                ["bodyPartRefs"] = bodyPartRefs,
+            };
+
+            return root.ToString(Formatting.None);
+        }
+
+        public static Result<AnatomyProfileDefinition> DecodeAnatomyProfile(ContentDefinitionType actualType, string propertiesJson, CorrelationId correlationId)
+        {
+            if (actualType != ContentDefinitionType.AnatomyProfile)
+            {
+                return Result<AnatomyProfileDefinition>.Failure(TypedDefinitionCodecFailures.WrongDefinitionType(correlationId));
+            }
+
+            try
+            {
+                JObject root = JObject.Parse(propertiesJson);
+                RequireSupportedSchemaVersion(root);
+
+                var bodyPartRefs = new List<AnatomyProfileBodyPartRef>();
+                foreach (JToken token in (JArray)root["bodyPartRefs"]!)
+                {
+                    var entry = (JObject)token;
+                    ContentDefinitionRef bodyPartRef = ContentDefinitionRef.Parse((string)entry["bodyPartRef"]!);
+                    int? attachedToIndex = entry["attachedToIndex"] == null || entry["attachedToIndex"]!.Type == JTokenType.Null ? (int?)null : (int)entry["attachedToIndex"]!;
+                    bodyPartRefs.Add(new AnatomyProfileBodyPartRef(bodyPartRef, attachedToIndex));
+                }
+
+                var anatomyProfile = new AnatomyProfileDefinition(bodyPartRefs);
+                return Result<AnatomyProfileDefinition>.Success(anatomyProfile);
+            }
+            catch (Exception ex) when (IsMalformedPayloadException(ex))
+            {
+                return Result<AnatomyProfileDefinition>.Failure(TypedDefinitionCodecFailures.MalformedPayload(correlationId));
+            }
+        }
+
         /// <summary>
         /// ODY-S05-105 amendment: every decode path must reject a payload
         /// whose `schemaVersion` is missing, `null`, not an integer, or an
