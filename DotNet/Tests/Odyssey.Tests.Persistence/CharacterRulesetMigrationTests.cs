@@ -86,7 +86,7 @@ namespace Odyssey.Tests.Persistence
             CharacterRecord character = CreateCharacterWithAttribute();
             long revisionBefore = character.Revisions.CharacterRevision;
 
-            Result<CharacterRulesetMigrationPlan> preview = _characterRepository.PreviewCharacterRulesetMigration(_campaign, character.CharacterId, "ruleset.core", "1.1.0", FullyCompatibleCatalog(), TestCorrelationId);
+            Result<CharacterRulesetMigrationPlan> preview = CharacterAdvancementService.PreviewCharacterRulesetMigration(_characterRepository, _campaign, character.CharacterId, "ruleset.core", "1.1.0", FullyCompatibleCatalog(), TestCorrelationId);
 
             Assert.That(preview.IsSuccess, Is.True);
             Assert.That(preview.Value.HasUnresolvedDecisions, Is.False);
@@ -110,7 +110,7 @@ namespace Odyssey.Tests.Persistence
         {
             CharacterRecord character = CreateCharacterWithAttribute();
 
-            Result<CharacterRulesetMigrationPlan> preview = _characterRepository.PreviewCharacterRulesetMigration(_campaign, character.CharacterId, "ruleset.core", "2.0.0", IncompatibleCatalog(), TestCorrelationId);
+            Result<CharacterRulesetMigrationPlan> preview = CharacterAdvancementService.PreviewCharacterRulesetMigration(_characterRepository, _campaign, character.CharacterId, "ruleset.core", "2.0.0", IncompatibleCatalog(), TestCorrelationId);
 
             Assert.That(preview.IsSuccess, Is.True);
             Assert.That(preview.Value.HasUnresolvedDecisions, Is.True);
@@ -126,10 +126,10 @@ namespace Odyssey.Tests.Persistence
         {
             CharacterRecord character = CreateCharacterWithAttribute();
             RulesetDefinitionCatalog catalog = FullyCompatibleCatalog();
-            Result<CharacterRulesetMigrationPlan> preview = _characterRepository.PreviewCharacterRulesetMigration(_campaign, character.CharacterId, "ruleset.core", "1.1.0", catalog, TestCorrelationId);
+            Result<CharacterRulesetMigrationPlan> preview = CharacterAdvancementService.PreviewCharacterRulesetMigration(_characterRepository, _campaign, character.CharacterId, "ruleset.core", "1.1.0", catalog, TestCorrelationId);
             Assert.That(preview.IsSuccess, Is.True);
 
-            Result<CharacterRecord> applied = _characterRepository.ApplyCharacterRulesetMigration(_campaign, character.CharacterId, preview.Value, catalog, NewUserId(), actorIsMainGm: true, NewCommandId(), TestCorrelationId);
+            Result<CharacterRecord> applied = CharacterAdvancementService.ApplyCharacterRulesetMigration(_characterRepository, _campaign, character.CharacterId, preview.Value.TargetRulesetId, preview.Value.TargetRulesetVersion, catalog, NewUserId(), actorIsMainGm: true, NewCommandId(), TestCorrelationId);
 
             Assert.That(applied.IsSuccess, Is.True);
             Assert.That(applied.Value.RulesetVersion, Is.EqualTo("1.1.0"));
@@ -141,11 +141,11 @@ namespace Odyssey.Tests.Persistence
         {
             CharacterRecord character = CreateCharacterWithAttribute();
             RulesetDefinitionCatalog catalog = IncompatibleCatalog();
-            Result<CharacterRulesetMigrationPlan> preview = _characterRepository.PreviewCharacterRulesetMigration(_campaign, character.CharacterId, "ruleset.core", "2.0.0", catalog, TestCorrelationId);
+            Result<CharacterRulesetMigrationPlan> preview = CharacterAdvancementService.PreviewCharacterRulesetMigration(_characterRepository, _campaign, character.CharacterId, "ruleset.core", "2.0.0", catalog, TestCorrelationId);
             Assert.That(preview.IsSuccess, Is.True);
             Assert.That(preview.Value.HasUnresolvedDecisions, Is.True);
 
-            Result<CharacterRecord> applied = _characterRepository.ApplyCharacterRulesetMigration(_campaign, character.CharacterId, preview.Value, catalog, NewUserId(), actorIsMainGm: true, NewCommandId(), TestCorrelationId);
+            Result<CharacterRecord> applied = CharacterAdvancementService.ApplyCharacterRulesetMigration(_characterRepository, _campaign, character.CharacterId, preview.Value.TargetRulesetId, preview.Value.TargetRulesetVersion, catalog, NewUserId(), actorIsMainGm: true, NewCommandId(), TestCorrelationId);
 
             Assert.That(applied.IsFailure, Is.True);
             Assert.That(applied.Error.Code, Is.EqualTo(ErrorCodes.PersistenceCharacterRulesetMigrationHasUnresolvedDecisions));
@@ -156,9 +156,9 @@ namespace Odyssey.Tests.Persistence
         {
             CharacterRecord character = CreateCharacterWithAttribute();
             RulesetDefinitionCatalog catalog = FullyCompatibleCatalog();
-            Result<CharacterRulesetMigrationPlan> preview = _characterRepository.PreviewCharacterRulesetMigration(_campaign, character.CharacterId, "ruleset.core", "1.1.0", catalog, TestCorrelationId);
+            Result<CharacterRulesetMigrationPlan> preview = CharacterAdvancementService.PreviewCharacterRulesetMigration(_characterRepository, _campaign, character.CharacterId, "ruleset.core", "1.1.0", catalog, TestCorrelationId);
 
-            Result<CharacterRecord> applied = _characterRepository.ApplyCharacterRulesetMigration(_campaign, character.CharacterId, preview.Value, catalog, NewUserId(), actorIsMainGm: false, NewCommandId(), TestCorrelationId);
+            Result<CharacterRecord> applied = CharacterAdvancementService.ApplyCharacterRulesetMigration(_characterRepository, _campaign, character.CharacterId, preview.Value.TargetRulesetId, preview.Value.TargetRulesetVersion, catalog, NewUserId(), actorIsMainGm: false, NewCommandId(), TestCorrelationId);
 
             Assert.That(applied.IsFailure, Is.True);
             Assert.That(applied.Error.Code, Is.EqualTo(ErrorCodes.PersistenceCharacterRulesetMigrationDenied));
@@ -172,14 +172,16 @@ namespace Odyssey.Tests.Persistence
         {
             CharacterRecord character = CreateCharacterWithAttribute();
             RulesetDefinitionCatalog catalog = FullyCompatibleCatalog();
-            Result<CharacterRulesetMigrationPlan> preview = _characterRepository.PreviewCharacterRulesetMigration(_campaign, character.CharacterId, "ruleset.core", "1.1.0", catalog, TestCorrelationId);
+            Result<CharacterRulesetMigrationPlan> preview = CharacterAdvancementService.PreviewCharacterRulesetMigration(_characterRepository, _campaign, character.CharacterId, "ruleset.core", "1.1.0", catalog, TestCorrelationId);
             Assert.That(preview.IsSuccess, Is.True);
 
-            // Character mutated after preview was built -- the cached plan is now stale.
+            // Character mutated after the plan was built -- the plan is now stale. The service never accepts a caller's
+            // plan (it always rebuilds from a fresh read), so the stale plan is committed directly to the repository,
+            // with the state it was built from, exactly as the service would have had it in a real race.
             Result<CharacterRecord> secondPurchase = CharacterAdvancementService.PurchaseAttributeIncrease(_characterRepository, _campaign, character.CharacterId, AttributeDefinitionId.Parse("Dexterity"), toValue: 1, NewUserId(), actorIsMainGm: true, character.Revisions.MechanicsRevision, expectedAttributeRevision: 0, NewCommandId(), TestCorrelationId);
             Assert.That(secondPurchase.IsSuccess, Is.True);
 
-            Result<CharacterRecord> applied = _characterRepository.ApplyCharacterRulesetMigration(_campaign, character.CharacterId, preview.Value, catalog, NewUserId(), actorIsMainGm: true, NewCommandId(), TestCorrelationId);
+            Result<CharacterRecord> applied = _characterRepository.ApplyCharacterRulesetMigration(_campaign, character.CharacterId, preview.Value.TargetRulesetVersion, preview.Value.SourceRulesetVersion, preview.Value.ExpectedMechanicsRevision, preview.Value.ExpectedCharacterAbilitiesRevision, preview.Value.ExpectedCharacterResourcesRevision, preview.Value.HasUnresolvedDecisions, preview.Value.DefinitionMappings.Count, NewUserId(), actorIsMainGm: true, NewCommandId(), TestCorrelationId);
 
             Assert.That(applied.IsFailure, Is.True);
             Assert.That(applied.Error.Code, Is.EqualTo(ErrorCodes.PersistenceCharacterRulesetMigrationStalePlan));
@@ -193,13 +195,13 @@ namespace Odyssey.Tests.Persistence
         {
             CharacterRecord character = CreateCharacterWithAttribute();
             RulesetDefinitionCatalog catalog = FullyCompatibleCatalog();
-            Result<CharacterRulesetMigrationPlan> preview = _characterRepository.PreviewCharacterRulesetMigration(_campaign, character.CharacterId, "ruleset.core", "1.1.0", catalog, TestCorrelationId);
+            Result<CharacterRulesetMigrationPlan> preview = CharacterAdvancementService.PreviewCharacterRulesetMigration(_characterRepository, _campaign, character.CharacterId, "ruleset.core", "1.1.0", catalog, TestCorrelationId);
             CommandId commandId = NewCommandId();
 
-            Result<CharacterRecord> first = _characterRepository.ApplyCharacterRulesetMigration(_campaign, character.CharacterId, preview.Value, catalog, NewUserId(), actorIsMainGm: true, commandId, TestCorrelationId);
+            Result<CharacterRecord> first = CharacterAdvancementService.ApplyCharacterRulesetMigration(_characterRepository, _campaign, character.CharacterId, preview.Value.TargetRulesetId, preview.Value.TargetRulesetVersion, catalog, NewUserId(), actorIsMainGm: true, commandId, TestCorrelationId);
             Assert.That(first.IsSuccess, Is.True);
 
-            Result<CharacterRecord> replay = _characterRepository.ApplyCharacterRulesetMigration(_campaign, character.CharacterId, preview.Value, catalog, NewUserId(), actorIsMainGm: true, commandId, TestCorrelationId);
+            Result<CharacterRecord> replay = CharacterAdvancementService.ApplyCharacterRulesetMigration(_characterRepository, _campaign, character.CharacterId, preview.Value.TargetRulesetId, preview.Value.TargetRulesetVersion, catalog, NewUserId(), actorIsMainGm: true, commandId, TestCorrelationId);
             Assert.That(replay.IsSuccess, Is.True);
             Assert.That(replay.Value.RulesetVersion, Is.EqualTo("1.1.0"));
 
@@ -212,9 +214,9 @@ namespace Odyssey.Tests.Persistence
         {
             CharacterRecord character = CreateCharacterWithAttribute();
             RulesetDefinitionCatalog catalog = FullyCompatibleCatalog();
-            Result<CharacterRulesetMigrationPlan> preview = _characterRepository.PreviewCharacterRulesetMigration(_campaign, character.CharacterId, "ruleset.core", "1.1.0", catalog, TestCorrelationId);
+            Result<CharacterRulesetMigrationPlan> preview = CharacterAdvancementService.PreviewCharacterRulesetMigration(_characterRepository, _campaign, character.CharacterId, "ruleset.core", "1.1.0", catalog, TestCorrelationId);
             CommandId migrationCommandId = NewCommandId();
-            Result<CharacterRecord> applied = _characterRepository.ApplyCharacterRulesetMigration(_campaign, character.CharacterId, preview.Value, catalog, NewUserId(), actorIsMainGm: true, migrationCommandId, TestCorrelationId);
+            Result<CharacterRecord> applied = CharacterAdvancementService.ApplyCharacterRulesetMigration(_characterRepository, _campaign, character.CharacterId, preview.Value.TargetRulesetId, preview.Value.TargetRulesetVersion, catalog, NewUserId(), actorIsMainGm: true, migrationCommandId, TestCorrelationId);
             Assert.That(applied.IsSuccess, Is.True);
             Assert.That(applied.Value.RulesetVersion, Is.EqualTo("1.1.0"));
 
@@ -239,9 +241,9 @@ namespace Odyssey.Tests.Persistence
         {
             CharacterRecord character = CreateCharacterWithAttribute();
             RulesetDefinitionCatalog catalog = FullyCompatibleCatalog();
-            Result<CharacterRulesetMigrationPlan> preview = _characterRepository.PreviewCharacterRulesetMigration(_campaign, character.CharacterId, "ruleset.core", "1.1.0", catalog, TestCorrelationId);
+            Result<CharacterRulesetMigrationPlan> preview = CharacterAdvancementService.PreviewCharacterRulesetMigration(_characterRepository, _campaign, character.CharacterId, "ruleset.core", "1.1.0", catalog, TestCorrelationId);
             CommandId migrationCommandId = NewCommandId();
-            Result<CharacterRecord> applied = _characterRepository.ApplyCharacterRulesetMigration(_campaign, character.CharacterId, preview.Value, catalog, NewUserId(), actorIsMainGm: true, migrationCommandId, TestCorrelationId);
+            Result<CharacterRecord> applied = CharacterAdvancementService.ApplyCharacterRulesetMigration(_characterRepository, _campaign, character.CharacterId, preview.Value.TargetRulesetId, preview.Value.TargetRulesetVersion, catalog, NewUserId(), actorIsMainGm: true, migrationCommandId, TestCorrelationId);
             Assert.That(applied.IsSuccess, Is.True);
 
             Result<CharacterRecord> firstRevert = _characterRepository.RevertCharacterRulesetMigration(_campaign, character.CharacterId, migrationCommandId, "undo once", NewUserId(), actorIsMainGm: true, applied.Value.Revisions.CharacterRevision, NewCommandId(), TestCorrelationId);
@@ -258,9 +260,9 @@ namespace Odyssey.Tests.Persistence
         {
             CharacterRecord character = CreateCharacterWithAttribute();
             RulesetDefinitionCatalog catalog = FullyCompatibleCatalog();
-            Result<CharacterRulesetMigrationPlan> preview = _characterRepository.PreviewCharacterRulesetMigration(_campaign, character.CharacterId, "ruleset.core", "1.1.0", catalog, TestCorrelationId);
+            Result<CharacterRulesetMigrationPlan> preview = CharacterAdvancementService.PreviewCharacterRulesetMigration(_characterRepository, _campaign, character.CharacterId, "ruleset.core", "1.1.0", catalog, TestCorrelationId);
             CommandId migrationCommandId = NewCommandId();
-            Result<CharacterRecord> applied = _characterRepository.ApplyCharacterRulesetMigration(_campaign, character.CharacterId, preview.Value, catalog, NewUserId(), actorIsMainGm: true, migrationCommandId, TestCorrelationId);
+            Result<CharacterRecord> applied = CharacterAdvancementService.ApplyCharacterRulesetMigration(_characterRepository, _campaign, character.CharacterId, preview.Value.TargetRulesetId, preview.Value.TargetRulesetVersion, catalog, NewUserId(), actorIsMainGm: true, migrationCommandId, TestCorrelationId);
 
             Result<CharacterRecord> reverted = _characterRepository.RevertCharacterRulesetMigration(_campaign, character.CharacterId, migrationCommandId, "", NewUserId(), actorIsMainGm: true, applied.Value.Revisions.CharacterRevision, NewCommandId(), TestCorrelationId);
 
@@ -290,14 +292,14 @@ namespace Odyssey.Tests.Persistence
             RulesetDefinitionCatalog catalog = FullyCompatibleCatalog();
 
             CharacterRecord characterA = CreateCharacterWithAttribute();
-            Result<CharacterRulesetMigrationPlan> previewA = _characterRepository.PreviewCharacterRulesetMigration(_campaign, characterA.CharacterId, "ruleset.core", "1.1.0", catalog, TestCorrelationId);
-            Result<CharacterRecord> appliedA = _characterRepository.ApplyCharacterRulesetMigration(_campaign, characterA.CharacterId, previewA.Value, catalog, NewUserId(), actorIsMainGm: true, NewCommandId(), TestCorrelationId);
+            Result<CharacterRulesetMigrationPlan> previewA = CharacterAdvancementService.PreviewCharacterRulesetMigration(_characterRepository, _campaign, characterA.CharacterId, "ruleset.core", "1.1.0", catalog, TestCorrelationId);
+            Result<CharacterRecord> appliedA = CharacterAdvancementService.ApplyCharacterRulesetMigration(_characterRepository, _campaign, characterA.CharacterId, previewA.Value.TargetRulesetId, previewA.Value.TargetRulesetVersion, catalog, NewUserId(), actorIsMainGm: true, NewCommandId(), TestCorrelationId);
             Assert.That(appliedA.IsSuccess, Is.True);
 
             CharacterRecord characterB = CreateCharacterWithAttribute();
-            Result<CharacterRulesetMigrationPlan> previewB = _characterRepository.PreviewCharacterRulesetMigration(_campaign, characterB.CharacterId, "ruleset.core", "1.1.0", catalog, TestCorrelationId);
+            Result<CharacterRulesetMigrationPlan> previewB = CharacterAdvancementService.PreviewCharacterRulesetMigration(_characterRepository, _campaign, characterB.CharacterId, "ruleset.core", "1.1.0", catalog, TestCorrelationId);
             CommandId migrationCommandIdB = NewCommandId();
-            Result<CharacterRecord> appliedB = _characterRepository.ApplyCharacterRulesetMigration(_campaign, characterB.CharacterId, previewB.Value, catalog, NewUserId(), actorIsMainGm: true, migrationCommandIdB, TestCorrelationId);
+            Result<CharacterRecord> appliedB = CharacterAdvancementService.ApplyCharacterRulesetMigration(_characterRepository, _campaign, characterB.CharacterId, previewB.Value.TargetRulesetId, previewB.Value.TargetRulesetVersion, catalog, NewUserId(), actorIsMainGm: true, migrationCommandIdB, TestCorrelationId);
             Assert.That(appliedB.IsSuccess, Is.True);
 
             // Character A attempts to revert using Character B's own migration CommandId.
@@ -332,8 +334,8 @@ namespace Odyssey.Tests.Persistence
             // changes the campaign's own DatabaseSchemaVersion.
             CharacterRecord character = CreateCharacterWithAttribute();
             RulesetDefinitionCatalog catalog = FullyCompatibleCatalog();
-            Result<CharacterRulesetMigrationPlan> preview = _characterRepository.PreviewCharacterRulesetMigration(_campaign, character.CharacterId, "ruleset.core", "1.1.0", catalog, TestCorrelationId);
-            Result<CharacterRecord> applied = _characterRepository.ApplyCharacterRulesetMigration(_campaign, character.CharacterId, preview.Value, catalog, NewUserId(), actorIsMainGm: true, NewCommandId(), TestCorrelationId);
+            Result<CharacterRulesetMigrationPlan> preview = CharacterAdvancementService.PreviewCharacterRulesetMigration(_characterRepository, _campaign, character.CharacterId, "ruleset.core", "1.1.0", catalog, TestCorrelationId);
+            Result<CharacterRecord> applied = CharacterAdvancementService.ApplyCharacterRulesetMigration(_characterRepository, _campaign, character.CharacterId, preview.Value.TargetRulesetId, preview.Value.TargetRulesetVersion, catalog, NewUserId(), actorIsMainGm: true, NewCommandId(), TestCorrelationId);
             Assert.That(applied.IsSuccess, Is.True);
 
             Result<CampaignHandle> reopened = _campaignRepository.Open(_campaignDir, TestCorrelationId);

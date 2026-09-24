@@ -708,27 +708,27 @@ namespace Odyssey.Application.Persistence
         Result<CharacterRecord> ImportCharacter(ImportCharacterRequest request, CommandId bindCommandId, CommandId applyStateCommandId, CorrelationId correlationId);
 
         /// <summary>
-        /// ODY-S04-113: ADR-025 section 7.2. A read-only ADR-002 section 4.2
-        /// Query -- no `CommandId`, no event, no mutation. Builds a
-        /// `RulesetMigrationRules.BuildPlan` result from the live
-        /// `CharacterRecord`'s own current Attributes/Skills/Abilities/
-        /// Resources and the caller-supplied <paramref name="targetCatalog"/>.
+        /// ODY-S04-113: ADR-025 section 7.3. Commits a ruleset migration in one transaction: <c>RulesetVersion</c> set to
+        /// <paramref name="targetRulesetVersion"/>, <c>CharacterRevision</c> bumped, one forward <c>CharacterRulesetMigrated</c>
+        /// event. Since this task's own <c>ValueChanges</c> is always empty, no Mechanics/Ability/Resource column is ever
+        /// touched here. MainGM-only; rejected before the database is touched if <paramref name="hasUnresolvedDecisions"/>.
+        /// <para>
+        /// ODY-S09-104: this method no longer receives a plan, a catalog or a hash, and holds no <c>Odyssey.Rules</c>
+        /// reference (ADR-001 section 5). <c>Odyssey.Application.CharacterAdvancement.CharacterAdvancementService</c> reads the
+        /// Character, builds the plan with <c>RulesetMigrationRules.BuildPlan</c> from that fresh read on every call (it takes no
+        /// plan from the caller -- CAP-INV-004), and passes in only what the write needs: the target version, whether the plan
+        /// has unresolved decisions, the number of definition mappings (recorded in the event), and the state the plan was
+        /// built from -- <paramref name="decidedSourceRulesetVersion"/> and the three section revisions
+        /// (<paramref name="decidedMechanicsRevision"/>, <paramref name="decidedCharacterAbilitiesRevision"/>,
+        /// <paramref name="decidedCharacterResourcesRevision"/>). Those are exactly the inputs the former
+        /// <c>PreviewHash</c> covered besides constants, so under the transaction lock the locked values must still equal them,
+        /// otherwise <c>CharacterRulesetMigrationStalePlan</c> -- the same effect as the former hash comparison, without
+        /// Persistence recomputing a plan. The migration plan's <c>PreviewHash</c> is therefore no longer used by Persistence.
+        /// Preview is a pure read and lives entirely in the service (<c>CharacterAdvancementService.PreviewCharacterRulesetMigration</c>);
+        /// it no longer has a repository method.
+        /// </para>
         /// </summary>
-        Result<Odyssey.Rules.Character.CharacterRulesetMigrationPlan> PreviewCharacterRulesetMigration(CampaignHandle campaign, CharacterId characterId, string targetRulesetId, string targetRulesetVersion, Odyssey.Rules.Character.RulesetDefinitionCatalog targetCatalog, CorrelationId correlationId);
-
-        /// <summary>
-        /// ODY-S04-113: ADR-025 section 7.3, CAP-INV-004. Re-derives the plan
-        /// fresh from live state using the SAME <paramref name="targetCatalog"/>
-        /// and compares the freshly-computed PreviewHash against
-        /// <paramref name="plan"/>'s own -- a mismatch (stale or tampered
-        /// plan) is rejected before any write. Rejects if
-        /// `UnresolvedDecisions` is non-empty. Commits in one transaction:
-        /// `RulesetVersion` set to the plan's own `TargetRulesetVersion`,
-        /// `CharacterRevision` bumped, one forward `CharacterRulesetMigrated`
-        /// event. Since this task's own `ValueChanges` is always empty, no
-        /// Mechanics/Ability/Resource column is ever touched here.
-        /// </summary>
-        Result<CharacterRecord> ApplyCharacterRulesetMigration(CampaignHandle campaign, CharacterId characterId, Odyssey.Rules.Character.CharacterRulesetMigrationPlan plan, Odyssey.Rules.Character.RulesetDefinitionCatalog targetCatalog, UserId actorUserId, bool actorIsMainGm, CommandId commandId, CorrelationId correlationId);
+        Result<CharacterRecord> ApplyCharacterRulesetMigration(CampaignHandle campaign, CharacterId characterId, string targetRulesetVersion, string decidedSourceRulesetVersion, long decidedMechanicsRevision, long decidedCharacterAbilitiesRevision, long decidedCharacterResourcesRevision, bool hasUnresolvedDecisions, int definitionMappingCount, UserId actorUserId, bool actorIsMainGm, CommandId commandId, CorrelationId correlationId);
 
         /// <summary>
         /// ODY-S04-113: ADR-024 section 7.2/7.4's exact compensating-batch

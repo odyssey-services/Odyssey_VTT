@@ -3798,7 +3798,7 @@
                           "authority":  "ODY-S09-101 test list item 4",
                           "runner":  "dotnet test",
                           "path":  "DotNet/Tests/Odyssey.Tests.Persistence/CharacterResourceAnatomyTests.cs",
-                          "check":  "CharacterAdvancementService lives in the Odyssey.Application assembly, whose referenced assemblies do not include Odyssey.Persistence, exposes only its public wrapper methods (the two initializers from ODY-S09-101, the four cost commands from ODY-S09-102 and the two respec methods from ODY-S09-103), and takes the ICharacterRepository abstraction (not a concrete repository) as its first parameter"
+                          "check":  "CharacterAdvancementService lives in the Odyssey.Application assembly, whose referenced assemblies do not include Odyssey.Persistence, exposes only its public wrapper methods (the two initializers from ODY-S09-101, the four cost commands from ODY-S09-102 the two respec methods from ODY-S09-103 and the two ruleset migration methods from ODY-S09-104), and takes the ICharacterRepository abstraction (not a concrete repository) as its first parameter"
                       },
                       {
                           "testCaseId":  "TC-CHAR-189",
@@ -3967,6 +3967,62 @@
                           "runner":  "dotnet test",
                           "path":  "DotNet/Tests/Odyssey.Tests.Persistence/CharacterAdvancementRespecServiceTests.cs",
                           "check":  "The respec methods of CharacterAdvancementService use only the ICharacterRepository port (interception double): Apply reads the character, then the purchases, then always calls ApplyCharacterRespec with the plan decided by the service (returned 16, spent 17), the revision it was read at and the reason passed through; an unsupported kind still reaches the repository with an empty plan, a missing character with revision 0; invalid input throws before any repository call; a null repository is rejected"
+                      },
+                      {
+                          "testCaseId":  "TC-CHAR-210",
+                          "taskId":  "ODY-S09-104",
+                          "authority":  "ODY-S09-104 test list item 1",
+                          "runner":  "dotnet test",
+                          "path":  "DotNet/Tests/Odyssey.Tests.Persistence/CharacterAdvancementRulesetMigrationServiceTests.cs",
+                          "check":  "PreviewCharacterRulesetMigration through CharacterAdvancementService returns the exact plan for a character with attribute Strength and skill Tactics against a catalog recognizing only Strength: source ruleset and version, target 2.0.0, mapping Attribute Strength->Strength, unresolved Skill Tactics, the three section revisions the plan was built at, a non-empty hash; it is a pure read (only GetCharacter reaches the repository, the character snapshot is unchanged)"
+                      },
+                      {
+                          "testCaseId":  "TC-CHAR-211",
+                          "taskId":  "ODY-S09-104",
+                          "authority":  "ODY-S09-104 test list item 2",
+                          "runner":  "dotnet test",
+                          "path":  "DotNet/Tests/Odyssey.Tests.Persistence/CharacterAdvancementRulesetMigrationServiceTests.cs",
+                          "check":  "ApplyCharacterRulesetMigration with a fully resolved plan pins RulesetVersion 2.0.0, bumps only CharacterRevision (Mechanics, Abilities and Resources revisions, attributes, skills and pool unchanged) and writes exactly one character_ruleset_migrated event"
+                      },
+                      {
+                          "testCaseId":  "TC-CHAR-212",
+                          "taskId":  "ODY-S09-104",
+                          "authority":  "ODY-S09-104 test list item 3",
+                          "runner":  "dotnet test",
+                          "path":  "DotNet/Tests/Odyssey.Tests.Persistence/CharacterAdvancementRulesetMigrationServiceTests.cs",
+                          "check":  "ApplyCharacterRulesetMigration rejected cases -- unresolved decisions (HasUnresolvedDecisions), non-MainGM (Denied, reported ahead of unresolved decisions), missing character (Denied for non-MainGM, NotFound for MainGM) -- write nothing"
+                      },
+                      {
+                          "testCaseId":  "TC-CHAR-213",
+                          "taskId":  "ODY-S09-104",
+                          "authority":  "ODY-S09-104 test list item 4",
+                          "runner":  "dotnet test",
+                          "path":  "DotNet/Tests/Odyssey.Tests.Persistence/CharacterAdvancementRulesetMigrationServiceTests.cs",
+                          "check":  "ApplyCharacterRulesetMigration race: a competing purchase of a skill the target does not recognize lands between the service's read and its commit; the plan built from the stale read is fully resolved but the real state is not -- rejected with CharacterRulesetMigrationStalePlan, nothing written, and a retry recomputes and reports the real unresolved decision"
+                      },
+                      {
+                          "testCaseId":  "TC-CHAR-214",
+                          "taskId":  "ODY-S09-104",
+                          "authority":  "ODY-S09-104 test list item 4",
+                          "runner":  "dotnet test",
+                          "path":  "DotNet/Tests/Odyssey.Tests.Persistence/CharacterAdvancementRulesetMigrationServiceTests.cs",
+                          "check":  "ApplyCharacterRulesetMigration race: a competing migration (1.5.0) commits between the service's read and its commit; the three section revisions do not move on a migration, so only the source RulesetVersion the plan was built from reveals staleness -- rejected with CharacterRulesetMigrationStalePlan, the competitor's migration stands"
+                      },
+                      {
+                          "testCaseId":  "TC-CHAR-215",
+                          "taskId":  "ODY-S09-104",
+                          "authority":  "ODY-S09-104 test list item 6",
+                          "runner":  "dotnet test",
+                          "path":  "DotNet/Tests/Odyssey.Tests.Persistence/CharacterAdvancementRulesetMigrationServiceTests.cs",
+                          "check":  "The repository needs no plan, catalog or hash: flat values plus the state they were built from suffice for a direct commit; and a change the former PreviewHash never covered (a rename between read and commit) still does not make a plan stale"
+                      },
+                      {
+                          "testCaseId":  "TC-CHAR-216",
+                          "taskId":  "ODY-S09-104",
+                          "authority":  "ODY-S09-104 test list item 5",
+                          "runner":  "dotnet test",
+                          "path":  "DotNet/Tests/Odyssey.Tests.Persistence/CharacterAdvancementRulesetMigrationServiceTests.cs",
+                          "check":  "The migration methods of CharacterAdvancementService use only the ICharacterRepository port (interception double): Apply reads the character then always calls ApplyCharacterRulesetMigration with the target version, source version, three section revisions, hasUnresolvedDecisions and mapping count decided by the service; a failed read still reaches the repository with an empty basis; invalid input throws before any repository call; a null repository is rejected"
                       },
                       {
                           "testCaseId":  "TC-CATALOG-001",

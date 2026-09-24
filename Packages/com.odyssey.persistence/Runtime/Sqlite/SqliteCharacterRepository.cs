@@ -11,7 +11,6 @@ using Odyssey.Domain.Character;
 using Odyssey.Domain.Content;
 using Odyssey.Domain.Identity;
 using Odyssey.Domain.Time;
-using Odyssey.Rules.Character;
 
 namespace Odyssey.Persistence.Sqlite
 {
@@ -1381,61 +1380,24 @@ namespace Odyssey.Persistence.Sqlite
         }
 
         /// <summary>
-        /// ODY-S04-113: ADR-025 section 7.2. Read-only ADR-002 section 4.2
-        /// Query -- no CommandId, no event, no mutation.
+        /// ODY-S04-113: ADR-025 section 7.3, CAP-INV-004. ODY-S09-104: the
+        /// plan is no longer recomputed or hash-compared here. The Application
+        /// layer builds it fresh (<c>CharacterAdvancementService</c>) and passes
+        /// what the write needs together with the state it was built from
+        /// (source RulesetVersion and the three section revisions); under the
+        /// transaction lock those must still match, otherwise the plan is
+        /// stale and rejected before any write.
         /// </summary>
-        public Result<CharacterRulesetMigrationPlan> PreviewCharacterRulesetMigration(CampaignHandle campaign, CharacterId characterId, string targetRulesetId, string targetRulesetVersion, RulesetDefinitionCatalog targetCatalog, CorrelationId correlationId)
+        public Result<CharacterRecord> ApplyCharacterRulesetMigration(CampaignHandle campaign, CharacterId characterId, string targetRulesetVersion, string decidedSourceRulesetVersion, long decidedMechanicsRevision, long decidedCharacterAbilitiesRevision, long decidedCharacterResourcesRevision, bool hasUnresolvedDecisions, int definitionMappingCount, UserId actorUserId, bool actorIsMainGm, CommandId commandId, CorrelationId correlationId)
         {
             if (campaign == null) throw new ArgumentNullException(nameof(campaign));
             if (!characterId.IsValid) throw new ArgumentException("CharacterId is required.", nameof(characterId));
-            if (string.IsNullOrWhiteSpace(targetRulesetId)) throw new ArgumentException("TargetRulesetId is required.", nameof(targetRulesetId));
             if (string.IsNullOrWhiteSpace(targetRulesetVersion)) throw new ArgumentException("TargetRulesetVersion is required.", nameof(targetRulesetVersion));
-            if (targetCatalog == null) throw new ArgumentNullException(nameof(targetCatalog));
-
-            try
-            {
-                using SqliteConnection connection = OpenConnection(campaign.RootPath);
-                EnsureCharacterTables(connection);
-
-                using var select = connection.CreateCommand();
-                select.CommandText = SelectColumns + " FROM Character WHERE CharacterId = $characterId LIMIT 1;";
-                select.Parameters.AddWithValue("$characterId", characterId.ToString());
-                CharacterRecord? current;
-                using (SqliteDataReader reader = select.ExecuteReader())
-                {
-                    current = reader.Read() ? ReadCharacterRecord(reader) : null;
-                }
-
-                if (current == null)
-                {
-                    return Result<CharacterRulesetMigrationPlan>.Failure(PersistenceFailures.CharacterNotFound(correlationId));
-                }
-
-                CharacterRulesetMigrationPlan plan = RulesetMigrationRules.BuildPlan(
-                    characterId, campaign.Manifest.RulesetId, current.RulesetVersion, targetRulesetId, targetRulesetVersion,
-                    current.Attributes, current.Skills, current.Abilities, current.Resources, targetCatalog,
-                    current.Revisions.MechanicsRevision, current.Revisions.CharacterAbilitiesRevision, current.Revisions.CharacterResourcesRevision);
-
-                return Result<CharacterRulesetMigrationPlan>.Success(plan);
-            }
-            catch (Exception ex) when (ex is IOException || ex is UnauthorizedAccessException || ex is SqliteException)
-            {
-                return Result<CharacterRulesetMigrationPlan>.Failure(PersistenceFailures.CharacterIoFailed(correlationId));
-            }
-        }
-
-        /// <summary>
-        /// ODY-S04-113: ADR-025 section 7.3, CAP-INV-004. Re-derives the plan
-        /// fresh from live state inside the transaction and compares its own
-        /// freshly-computed PreviewHash against <paramref name="plan"/>'s own
-        /// -- a mismatch is rejected before any write.
-        /// </summary>
-        public Result<CharacterRecord> ApplyCharacterRulesetMigration(CampaignHandle campaign, CharacterId characterId, CharacterRulesetMigrationPlan plan, RulesetDefinitionCatalog targetCatalog, UserId actorUserId, bool actorIsMainGm, CommandId commandId, CorrelationId correlationId)
-        {
-            if (campaign == null) throw new ArgumentNullException(nameof(campaign));
-            if (!characterId.IsValid) throw new ArgumentException("CharacterId is required.", nameof(characterId));
-            if (plan == null) throw new ArgumentNullException(nameof(plan));
-            if (targetCatalog == null) throw new ArgumentNullException(nameof(targetCatalog));
+            if (decidedSourceRulesetVersion == null) throw new ArgumentNullException(nameof(decidedSourceRulesetVersion));
+            if (decidedMechanicsRevision < 0) throw new ArgumentOutOfRangeException(nameof(decidedMechanicsRevision));
+            if (decidedCharacterAbilitiesRevision < 0) throw new ArgumentOutOfRangeException(nameof(decidedCharacterAbilitiesRevision));
+            if (decidedCharacterResourcesRevision < 0) throw new ArgumentOutOfRangeException(nameof(decidedCharacterResourcesRevision));
+            if (definitionMappingCount < 0) throw new ArgumentOutOfRangeException(nameof(definitionMappingCount));
             if (!actorUserId.IsValid) throw new ArgumentException("ActorUserId is required.", nameof(actorUserId));
             if (!commandId.IsValid) throw new ArgumentException("CommandId is required.", nameof(commandId));
 
@@ -1445,7 +1407,7 @@ namespace Odyssey.Persistence.Sqlite
                 return Result<CharacterRecord>.Failure(PersistenceFailures.CharacterRulesetMigrationDenied(correlationId));
             }
 
-            if (plan.HasUnresolvedDecisions)
+            if (hasUnresolvedDecisions)
             {
                 return Result<CharacterRecord>.Failure(PersistenceFailures.CharacterRulesetMigrationHasUnresolvedDecisions(correlationId));
             }
@@ -1469,22 +1431,18 @@ namespace Odyssey.Persistence.Sqlite
                             return Result<PipelineWrite<CharacterRecord>>.Failure(PersistenceFailures.CharacterNotFound(correlationId));
                         }
 
-                        // CAP-INV-004: never trust the client-supplied plan --
-                        // recompute fresh from the just-locked live state
-                        // using the same target catalog, and compare hashes.
-                        CharacterRulesetMigrationPlan freshPlan = RulesetMigrationRules.BuildPlan(
-                            characterId, campaign.Manifest.RulesetId, current.RulesetVersion, plan.TargetRulesetId, plan.TargetRulesetVersion,
-                            current.Attributes, current.Skills, current.Abilities, current.Resources, targetCatalog,
-                            current.Revisions.MechanicsRevision, current.Revisions.CharacterAbilitiesRevision, current.Revisions.CharacterResourcesRevision);
-
-                        if (!string.Equals(freshPlan.PreviewHash, plan.PreviewHash, StringComparison.Ordinal))
+                        // CAP-INV-004, ODY-S09-104: the plan was built by the
+                        // Application layer from a read of the source
+                        // RulesetVersion and the three section revisions. If any
+                        // of them has moved, the plan no longer describes this
+                        // Character and is rejected. (The former PreviewHash
+                        // covered exactly these inputs plus constants.)
+                        if (!string.Equals(current.RulesetVersion, decidedSourceRulesetVersion, StringComparison.Ordinal)
+                            || current.Revisions.MechanicsRevision != decidedMechanicsRevision
+                            || current.Revisions.CharacterAbilitiesRevision != decidedCharacterAbilitiesRevision
+                            || current.Revisions.CharacterResourcesRevision != decidedCharacterResourcesRevision)
                         {
                             return Result<PipelineWrite<CharacterRecord>>.Failure(PersistenceFailures.CharacterRulesetMigrationStalePlan(correlationId));
-                        }
-
-                        if (freshPlan.HasUnresolvedDecisions)
-                        {
-                            return Result<PipelineWrite<CharacterRecord>>.Failure(PersistenceFailures.CharacterRulesetMigrationHasUnresolvedDecisions(correlationId));
                         }
 
                         UtcInstant now = _clock.GetUtcNow();
@@ -1500,7 +1458,7 @@ namespace Odyssey.Persistence.Sqlite
                         {
                             update.Transaction = transaction;
                             update.CommandText = "UPDATE Character SET RulesetVersion = $rulesetVersion, CharacterRevision = $characterRevision, UpdatedAt = $updatedAt, LastCommandId = $lastCommandId WHERE CharacterId = $characterId;";
-                            update.Parameters.AddWithValue("$rulesetVersion", plan.TargetRulesetVersion);
+                            update.Parameters.AddWithValue("$rulesetVersion", targetRulesetVersion);
                             update.Parameters.AddWithValue("$characterRevision", newCharacterRevision);
                             update.Parameters.AddWithValue("$updatedAt", now.ToString());
                             update.Parameters.AddWithValue("$lastCommandId", commandId.ToString());
@@ -1509,16 +1467,16 @@ namespace Odyssey.Persistence.Sqlite
                         }
 
                         CharacterSectionRevisions newRevisions = WithRevisions(current.Revisions, characterRevision: newCharacterRevision);
-                        var record = new CharacterRecord(characterId, campaign.CampaignId, current.CharacterKind, current.LifecycleStatus, current.ApprovalState, current.DisplayName, current.PortraitReference, current.Ownership, newRevisions, plan.TargetRulesetVersion, current.AnatomyProfileRef, current.TemplateId, current.TemplateVersionAtCopyTime, current.SeedCopy, current.SubmittedAt, current.DevelopmentPool, current.Attributes, current.Skills, current.Abilities, current.Resources, current.Anatomy, current.CreatedAt, now, current.PortraitAssetId);
+                        var record = new CharacterRecord(characterId, campaign.CampaignId, current.CharacterKind, current.LifecycleStatus, current.ApprovalState, current.DisplayName, current.PortraitReference, current.Ownership, newRevisions, targetRulesetVersion, current.AnatomyProfileRef, current.TemplateId, current.TemplateVersionAtCopyTime, current.SeedCopy, current.SubmittedAt, current.DevelopmentPool, current.Attributes, current.Skills, current.Abilities, current.Resources, current.Anatomy, current.CreatedAt, now, current.PortraitAssetId);
 
                         var eventPayload = new JObject
                         {
                             ["characterId"] = characterId.ToString(),
                             ["displayNameSnapshot"] = current.DisplayName,
                             ["sourceRulesetVersion"] = current.RulesetVersion,
-                            ["targetRulesetVersion"] = plan.TargetRulesetVersion,
+                            ["targetRulesetVersion"] = targetRulesetVersion,
                             ["actorUserId"] = actorUserId.ToString(),
-                            ["definitionMappingCount"] = freshPlan.DefinitionMappings.Count,
+                            ["definitionMappingCount"] = definitionMappingCount,
                             ["newCharacterRevision"] = newCharacterRevision,
                         };
 
