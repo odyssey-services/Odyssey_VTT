@@ -3,6 +3,7 @@ using System.IO;
 using System.Linq;
 using Microsoft.Data.Sqlite;
 using NUnit.Framework;
+using Odyssey.Application.CharacterAdvancement;
 using Odyssey.Application.Commands;
 using Odyssey.Application.Persistence;
 using Odyssey.Application.Results;
@@ -256,9 +257,9 @@ namespace Odyssey.Tests.Persistence
         public void RestoreDeadCharacter_WithExplicitAnatomyAndResourceChanges_UpdatesValues_AndOnlyThoseRevisionsIncrease()
         {
             CharacterRecord character = ActivateCharacter(CreateCharacter());
-            Result<CharacterRecord> withAnatomy = _characterRepository.InitializeCharacterAnatomy(_campaign, character.CharacterId, Humanoid, NewUserId(), actorIsMainGm: true, character.Revisions.CharacterAnatomyRevision, NewCommandId(), TestCorrelationId);
+            Result<CharacterRecord> withAnatomy = CharacterAdvancementService.InitializeAnatomyWithDefaults(_characterRepository, _campaign, character.CharacterId, Humanoid, NewUserId(), actorIsMainGm: true, character.Revisions.CharacterAnatomyRevision, NewCommandId(), TestCorrelationId);
             Assert.That(withAnatomy.IsSuccess, Is.True);
-            Result<CharacterRecord> withResource = _characterRepository.InitializeCharacterResource(_campaign, character.CharacterId, Health, NewUserId(), actorIsMainGm: true, withAnatomy.Value.Revisions.CharacterResourcesRevision, NewCommandId(), TestCorrelationId);
+            Result<CharacterRecord> withResource = CharacterAdvancementService.InitializeResourceWithDefaults(_characterRepository, _campaign, character.CharacterId, Health, NewUserId(), actorIsMainGm: true, withAnatomy.Value.Revisions.CharacterResourcesRevision, NewCommandId(), TestCorrelationId);
             Assert.That(withResource.IsSuccess, Is.True);
 
             CharacterRecord dead = KillCharacter(withResource.Value);
@@ -289,8 +290,8 @@ namespace Odyssey.Tests.Persistence
         public void RestoreDeadCharacter_WithoutTouchingAnatomyOrResources_LeavesThoseRevisionsUnchanged()
         {
             CharacterRecord character = ActivateCharacter(CreateCharacter());
-            Result<CharacterRecord> withAnatomy = _characterRepository.InitializeCharacterAnatomy(_campaign, character.CharacterId, Humanoid, NewUserId(), actorIsMainGm: true, character.Revisions.CharacterAnatomyRevision, NewCommandId(), TestCorrelationId);
-            Result<CharacterRecord> withResource = _characterRepository.InitializeCharacterResource(_campaign, character.CharacterId, Health, NewUserId(), actorIsMainGm: true, withAnatomy.Value.Revisions.CharacterResourcesRevision, NewCommandId(), TestCorrelationId);
+            Result<CharacterRecord> withAnatomy = CharacterAdvancementService.InitializeAnatomyWithDefaults(_characterRepository, _campaign, character.CharacterId, Humanoid, NewUserId(), actorIsMainGm: true, character.Revisions.CharacterAnatomyRevision, NewCommandId(), TestCorrelationId);
+            Result<CharacterRecord> withResource = CharacterAdvancementService.InitializeResourceWithDefaults(_characterRepository, _campaign, character.CharacterId, Health, NewUserId(), actorIsMainGm: true, withAnatomy.Value.Revisions.CharacterResourcesRevision, NewCommandId(), TestCorrelationId);
             CharacterRecord dead = KillCharacter(withResource.Value);
             long anatomyRevisionBefore = dead.Revisions.CharacterAnatomyRevision;
             long resourcesRevisionBefore = dead.Revisions.CharacterResourcesRevision;

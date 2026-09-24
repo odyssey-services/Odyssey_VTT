@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.IO;
 using Microsoft.Data.Sqlite;
 using NUnit.Framework;
+using Odyssey.Application.CharacterAdvancement;
 using Odyssey.Application.Combat;
 using Odyssey.Application.Commands;
 using Odyssey.Application.Inventory;
@@ -270,7 +271,7 @@ namespace Odyssey.Tests.Persistence
         private void InitResource(CharacterId characterId, ResourceDefinitionId resourceKind)
         {
             CharacterRecord current = _characters.GetCharacter(_campaign, characterId, Corr).Value;
-            Result<CharacterRecord> result = _characters.InitializeCharacterResource(_campaign, characterId, resourceKind, User(), true, current.Revisions.CharacterResourcesRevision, Command(), Corr);
+            Result<CharacterRecord> result = CharacterAdvancementService.InitializeResourceWithDefaults(_characters, _campaign, characterId, resourceKind, User(), true, current.Revisions.CharacterResourcesRevision, Command(), Corr);
             Assert.That(result.IsSuccess, Is.True);
         }
 

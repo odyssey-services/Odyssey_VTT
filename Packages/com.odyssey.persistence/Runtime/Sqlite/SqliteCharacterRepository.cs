@@ -15,8 +15,6 @@ using Odyssey.Rules.Character;
 using RulesAttributeCostRules = Odyssey.Rules.Character.AttributeCostRules;
 using RulesSkillCostRules = Odyssey.Rules.Character.SkillCostRules;
 using RulesAbilityCostRules = Odyssey.Rules.Character.AbilityCostRules;
-using RulesResourceInitializationRules = Odyssey.Rules.Character.ResourceInitializationRules;
-using RulesAnatomyInitializationRules = Odyssey.Rules.Character.AnatomyInitializationRules;
 
 namespace Odyssey.Persistence.Sqlite
 {
@@ -3786,10 +3784,15 @@ namespace Odyssey.Persistence.Sqlite
 
         // ==================== ODY-S04-109: CharacterResource ====================
 
-        public Result<CharacterRecord> InitializeCharacterResource(CampaignHandle campaign, CharacterId characterId, ResourceDefinitionId resourceDefinitionId, UserId actorUserId, bool actorIsMainGm, long expectedCharacterResourcesRevision, CommandId commandId, CorrelationId correlationId)
+        public Result<CharacterRecord> InitializeCharacterResource(CampaignHandle campaign, CharacterId characterId, ResourceDefinitionId resourceDefinitionId, long baseMaximum, long minimumValue, RecoveryRule recoveryRule, UserId actorUserId, bool actorIsMainGm, long expectedCharacterResourcesRevision, CommandId commandId, CorrelationId correlationId)
         {
             if (!resourceDefinitionId.IsValid) throw new ArgumentException("ResourceDefinitionId is required.", nameof(resourceDefinitionId));
             if (!actorUserId.IsValid) throw new ArgumentException("ActorUserId is required.", nameof(actorUserId));
+
+            // ODY-S09-101: the initial values are caller-supplied now; reject anything CharacterResource's own
+            // constructor would reject (it also enforces this) up front, before any database access.
+            if (!Enum.IsDefined(typeof(RecoveryRule), recoveryRule)) throw new ArgumentOutOfRangeException(nameof(recoveryRule));
+            if (baseMaximum < minimumValue) throw new ArgumentException("BaseMaximum must be >= MinimumValue.", nameof(baseMaximum));
 
             if (!actorIsMainGm)
             {
@@ -3801,8 +3804,9 @@ namespace Odyssey.Persistence.Sqlite
                 UtcInstant now = _clock.GetUtcNow();
                 CharacterResourceId newResourceId = CharacterResourceId.NewId(now);
 
-                // RulesResourceInitializationRules: TEST FIXTURE ONLY -- see that class's own doc comment. No ResourceDefinition catalog exists yet.
-                var newResource = new CharacterResource(newResourceId, resourceDefinitionId, RulesResourceInitializationRules.DefaultBaseMaximum, RulesResourceInitializationRules.DefaultBaseMaximum, 0, RulesResourceInitializationRules.DefaultMinimumValue, RulesResourceInitializationRules.DefaultRecoveryRule, 1);
+                // Starts full (CurrentValue == BaseMaximum) with no permanent adjustment, exactly as before; the values
+                // themselves are supplied by the caller (ODY-S09-101); see CharacterAdvancementService.
+                var newResource = new CharacterResource(newResourceId, resourceDefinitionId, baseMaximum, baseMaximum, 0, minimumValue, recoveryRule, 1);
 
                 var newResources = new List<CharacterResource>(current.Resources.Count + 1);
                 newResources.AddRange(current.Resources);
@@ -4022,10 +4026,12 @@ namespace Odyssey.Persistence.Sqlite
 
         // ==================== ODY-S04-109: CharacterAnatomy ====================
 
-        public Result<CharacterRecord> InitializeCharacterAnatomy(CampaignHandle campaign, CharacterId characterId, AnatomyProfileDefinitionId anatomyProfileDefinitionId, UserId actorUserId, bool actorIsMainGm, long expectedCharacterAnatomyRevision, CommandId commandId, CorrelationId correlationId)
+        public Result<CharacterRecord> InitializeCharacterAnatomy(CampaignHandle campaign, CharacterId characterId, AnatomyProfileDefinitionId anatomyProfileDefinitionId, string anatomyProfileVersion, IReadOnlyList<BodyPart> bodyParts, UserId actorUserId, bool actorIsMainGm, long expectedCharacterAnatomyRevision, CommandId commandId, CorrelationId correlationId)
         {
             if (!anatomyProfileDefinitionId.IsValid) throw new ArgumentException("AnatomyProfileDefinitionId is required.", nameof(anatomyProfileDefinitionId));
             if (!actorUserId.IsValid) throw new ArgumentException("ActorUserId is required.", nameof(actorUserId));
+            if (string.IsNullOrWhiteSpace(anatomyProfileVersion)) throw new ArgumentException("AnatomyProfileVersion is required.", nameof(anatomyProfileVersion));
+            if (bodyParts == null) throw new ArgumentNullException(nameof(bodyParts));
 
             return MutateAnatomy(campaign, characterId, actorIsMainGm, expectedCharacterAnatomyRevision, commandId, correlationId, (current, connection, transaction) =>
             {
@@ -4036,11 +4042,12 @@ namespace Odyssey.Persistence.Sqlite
 
                 UtcInstant now = _clock.GetUtcNow();
 
-                // RulesAnatomyInitializationRules: TEST FIXTURE ONLY -- see that class's own doc comment. No AnatomyProfileDefinition catalog exists yet.
+                // The profile version and body parts are supplied by the caller (ODY-S09-101); see CharacterAdvancementService. The
+                // history text keeps its original wording so the persisted MigrationHistory is unchanged.
                 var newAnatomy = new Odyssey.Domain.Character.CharacterAnatomy(
                     anatomyProfileDefinitionId,
-                    RulesAnatomyInitializationRules.DefaultAnatomyProfileVersion,
-                    RulesAnatomyInitializationRules.DefaultHumanoidBodyParts(),
+                    anatomyProfileVersion,
+                    bodyParts,
                     Array.Empty<PermanentModification>(),
                     new[] { new AnatomyMigrationEntry("Initialized", "CharacterAnatomy initialized from fixture " + anatomyProfileDefinitionId, now) },
                     1);

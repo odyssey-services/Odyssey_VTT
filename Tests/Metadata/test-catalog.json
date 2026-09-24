@@ -3737,6 +3737,70 @@
                           "check":  "Replacing a Character's portrait with a different AssetId removes the old AssetReferences row and leaves exactly one current 'Character' row for that character -- no duplicate accumulation"
                       },
                       {
+                          "testCaseId":  "TC-CHAR-181",
+                          "taskId":  "ODY-S09-101",
+                          "authority":  "ODY-S09-101 test list item 1",
+                          "runner":  "dotnet test",
+                          "path":  "DotNet/Tests/Odyssey.Tests.Persistence/CharacterResourceAnatomyTests.cs",
+                          "check":  "CharacterAdvancementService.InitializeResourceWithDefaults produces a resource identical to the pre-ODY-S09-101 repository behavior: BaseMaximum 10, CurrentValue 10, no permanent adjustment, MinimumValue 0, RecoveryRule Manual, Revision 1 -- literal values, and equal to the Rules constants the service reads"
+                      },
+                      {
+                          "testCaseId":  "TC-CHAR-182",
+                          "taskId":  "ODY-S09-101",
+                          "authority":  "ODY-S09-101 test list item 2",
+                          "runner":  "dotnet test",
+                          "path":  "DotNet/Tests/Odyssey.Tests.Persistence/CharacterResourceAnatomyTests.cs",
+                          "check":  "CharacterAdvancementService.InitializeAnatomyWithDefaults produces an anatomy identical to the pre-ODY-S09-101 repository behavior: version 0.1.0-fixture, the four fixture body parts (Head, Torso, LeftArm and RightArm attached to Torso, with their damage limits), Initialized history text, revision 1 -- literal values, and equal to what Rules' fixture functions return"
+                      },
+                      {
+                          "testCaseId":  "TC-CHAR-183",
+                          "taskId":  "ODY-S09-101",
+                          "authority":  "ODY-S09-101 test list item 3",
+                          "runner":  "dotnet test",
+                          "path":  "DotNet/Tests/Odyssey.Tests.Persistence/CharacterResourceAnatomyTests.cs",
+                          "check":  "SqliteCharacterRepository.InitializeCharacterResource stores exactly the caller-supplied baseMaximum/minimumValue/recoveryRule (25/-3/OnRest, starting full) -- the repository holds no hidden default and does not read Rules"
+                      },
+                      {
+                          "testCaseId":  "TC-CHAR-184",
+                          "taskId":  "ODY-S09-101",
+                          "authority":  "ODY-S09-101 test list item 3",
+                          "runner":  "dotnet test",
+                          "path":  "DotNet/Tests/Odyssey.Tests.Persistence/CharacterResourceAnatomyTests.cs",
+                          "check":  "SqliteCharacterRepository.InitializeCharacterAnatomy stores exactly the caller-supplied profile version and body parts (a custom Tail part, version 9.9.9-custom) -- the repository holds no hidden default and does not read Rules"
+                      },
+                      {
+                          "testCaseId":  "TC-CHAR-185",
+                          "taskId":  "ODY-S09-101",
+                          "authority":  "ODY-S09-101 test list item 3",
+                          "runner":  "dotnet test",
+                          "path":  "DotNet/Tests/Odyssey.Tests.Persistence/CharacterResourceAnatomyTests.cs",
+                          "check":  "InitializeCharacterResource rejects baseMaximum below minimumValue and an undefined RecoveryRule with argument exceptions before any database access; no resource or revision change results"
+                      },
+                      {
+                          "testCaseId":  "TC-CHAR-186",
+                          "taskId":  "ODY-S09-101",
+                          "authority":  "ODY-S09-101 test list item 3",
+                          "runner":  "dotnet test",
+                          "path":  "DotNet/Tests/Odyssey.Tests.Persistence/CharacterResourceAnatomyTests.cs",
+                          "check":  "InitializeCharacterAnatomy rejects a blank profile version and a null body-part list with argument exceptions before any database access; no anatomy or revision change results"
+                      },
+                      {
+                          "testCaseId":  "TC-CHAR-187",
+                          "taskId":  "ODY-S09-101",
+                          "authority":  "ODY-S09-101 test list item 4",
+                          "runner":  "dotnet test",
+                          "path":  "DotNet/Tests/Odyssey.Tests.Persistence/CharacterResourceAnatomyTests.cs",
+                          "check":  "CharacterAdvancementService called with a recording ICharacterRepository decorator passes exactly the Rules defaults (resource 10/0/Manual; anatomy fixture version and four parts) and every other argument (campaign, ids, actor, main-GM flag, expected revision, command id, correlation id) through unchanged, returns the repository result, and rejects a null repository"
+                      },
+                      {
+                          "testCaseId":  "TC-CHAR-188",
+                          "taskId":  "ODY-S09-101",
+                          "authority":  "ODY-S09-101 test list item 4",
+                          "runner":  "dotnet test",
+                          "path":  "DotNet/Tests/Odyssey.Tests.Persistence/CharacterResourceAnatomyTests.cs",
+                          "check":  "CharacterAdvancementService lives in the Odyssey.Application assembly, whose referenced assemblies do not include Odyssey.Persistence, exposes only the two wrapper methods, and takes the ICharacterRepository abstraction (not a concrete repository) as its first parameter"
+                      },
+                      {
                           "testCaseId":  "TC-CATALOG-001",
                           "taskId":  "ODY-S05-101",
                           "authority":  "ADR-027 section 4; 11_Content_Block_System section 5.3/6.1",

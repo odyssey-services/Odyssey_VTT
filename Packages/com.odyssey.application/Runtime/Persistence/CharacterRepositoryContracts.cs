@@ -439,14 +439,24 @@ namespace Odyssey.Application.Persistence
 
         /// <summary>
         /// ODY-S04-109: product section 17. MainGM-only. Initializes a new
-        /// <c>CharacterResource</c> from <see cref="Odyssey.Rules.Character.ResourceInitializationRules"/>'s
-        /// own explicitly-flagged test fixture (no <c>ResourceDefinition</c>
-        /// catalog exists yet). Touches only the <c>CharacterResources</c>
+        /// <c>CharacterResource</c>. Touches only the <c>CharacterResources</c>
         /// section, gated by <paramref name="expectedCharacterResourcesRevision"/>
         /// (section-wide -- see <see cref="CharacterRecord.Resources"/>'s own
         /// doc comment for why no entry-level gate is checked).
+        ///
+        /// ODY-S09-101: the initial values are now supplied by the caller
+        /// (<paramref name="baseMaximum"/>, <paramref name="minimumValue"/>,
+        /// <paramref name="recoveryRule"/>; the new resource starts at
+        /// <c>CurrentValue == baseMaximum</c> with no permanent adjustment) instead of
+        /// being read from `Odyssey.Rules` inside the repository -- Persistence
+        /// must not reference Rules (`ADR-001` section 5). The Rules-backed defaults
+        /// (`ODY-S04-109`'s explicitly-flagged test fixture -- no
+        /// <c>ResourceDefinition</c> catalog exists yet) are applied by
+        /// <c>Odyssey.Application.CharacterAdvancement.CharacterAdvancementService.InitializeResourceWithDefaults</c>.
+        /// Invalid values (<paramref name="baseMaximum"/> below <paramref name="minimumValue"/>,
+        /// an undefined <paramref name="recoveryRule"/>) are rejected before any database access.
         /// </summary>
-        Result<CharacterRecord> InitializeCharacterResource(CampaignHandle campaign, CharacterId characterId, ResourceDefinitionId resourceDefinitionId, UserId actorUserId, bool actorIsMainGm, long expectedCharacterResourcesRevision, CommandId commandId, CorrelationId correlationId);
+        Result<CharacterRecord> InitializeCharacterResource(CampaignHandle campaign, CharacterId characterId, ResourceDefinitionId resourceDefinitionId, long baseMaximum, long minimumValue, RecoveryRule recoveryRule, UserId actorUserId, bool actorIsMainGm, long expectedCharacterResourcesRevision, CommandId commandId, CorrelationId correlationId);
 
         /// <summary>
         /// ODY-S04-109: product section 17.2/requirement 46 -- the ONE
@@ -482,16 +492,24 @@ namespace Odyssey.Application.Persistence
 
         /// <summary>
         /// ODY-S04-109 (section 1.2): product section 18. MainGM-only.
-        /// Initializes the SINGLE <c>CharacterAnatomy</c> snapshot from
-        /// <see cref="Odyssey.Rules.Character.AnatomyInitializationRules"/>'s
-        /// own explicitly-flagged test fixture (no <c>AnatomyProfileDefinition</c>
-        /// catalog exists yet), pinning <c>AnatomyProfileVersion</c> at this
-        /// moment (requirement 49 -- never re-read from the fixture
-        /// afterward). Rejected with <c>CharacterAnatomyAlreadyInitialized</c>
-        /// if one already exists. Gated by the single, un-parameterized
-        /// <c>CharacterAnatomy</c> lock key (<paramref name="expectedCharacterAnatomyRevision"/>).
+        /// Initializes the SINGLE <c>CharacterAnatomy</c> snapshot, pinning
+        /// <paramref name="anatomyProfileVersion"/> at this moment (requirement 49 --
+        /// never re-read from its source afterward). Rejected with
+        /// <c>CharacterAnatomyAlreadyInitialized</c> if one already exists. Gated by
+        /// the single, un-parameterized <c>CharacterAnatomy</c> lock key
+        /// (<paramref name="expectedCharacterAnatomyRevision"/>).
+        ///
+        /// ODY-S09-101: the profile version and body parts are now supplied by the
+        /// caller instead of being read from `Odyssey.Rules` inside the repository --
+        /// Persistence must not reference Rules (`ADR-001` section 5). The Rules-backed
+        /// defaults (`ODY-S04-109`'s explicitly-flagged test fixture -- no
+        /// <c>AnatomyProfileDefinition</c> catalog is wired to this command yet) are
+        /// applied by
+        /// <c>Odyssey.Application.CharacterAdvancement.CharacterAdvancementService.InitializeAnatomyWithDefaults</c>.
+        /// A blank <paramref name="anatomyProfileVersion"/> or a <c>null</c>
+        /// <paramref name="bodyParts"/> is rejected before any database access.
         /// </summary>
-        Result<CharacterRecord> InitializeCharacterAnatomy(CampaignHandle campaign, CharacterId characterId, AnatomyProfileDefinitionId anatomyProfileDefinitionId, UserId actorUserId, bool actorIsMainGm, long expectedCharacterAnatomyRevision, CommandId commandId, CorrelationId correlationId);
+        Result<CharacterRecord> InitializeCharacterAnatomy(CampaignHandle campaign, CharacterId characterId, AnatomyProfileDefinitionId anatomyProfileDefinitionId, string anatomyProfileVersion, IReadOnlyList<BodyPart> bodyParts, UserId actorUserId, bool actorIsMainGm, long expectedCharacterAnatomyRevision, CommandId commandId, CorrelationId correlationId);
 
         /// <summary>ODY-S04-109: product section 18 -- "добавить... часть тела." MainGM-only. Appends one <see cref="AnatomyMigrationEntry"/>. Rejected with <c>CharacterAnatomyNotInitialized</c> if no anatomy exists yet.</summary>
         Result<CharacterRecord> AddBodyPart(CampaignHandle campaign, CharacterId characterId, BodyPartId bodyPartId, string name, long damageLimit, BodyPartId? attachedToBodyPartId, string properties, UserId actorUserId, bool actorIsMainGm, long expectedCharacterAnatomyRevision, CommandId commandId, CorrelationId correlationId);

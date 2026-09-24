@@ -2,6 +2,7 @@ using System;
 using System.IO;
 using System.Linq;
 using NUnit.Framework;
+using Odyssey.Application.CharacterAdvancement;
 using Odyssey.Application.Commands;
 using Odyssey.Application.Persistence;
 using Odyssey.Application.Results;
@@ -226,14 +227,14 @@ namespace Odyssey.Tests.Persistence
             Result<CharacterRecord> abilityResult = _characterRepository.AcquireAbility(_sourceCampaign, character.CharacterId, fireball, SourceKind.GMGrant, null, RankMode.None, null, null, "{}", NewUserId(), actorIsMainGm: true, skillResult.Value.Revisions.MechanicsRevision, skillResult.Value.Revisions.CharacterAbilitiesRevision, NewCommandId(), TestCorrelationId);
             Assert.That(abilityResult.IsSuccess, Is.True);
 
-            Result<CharacterRecord> resourceResult = _characterRepository.InitializeCharacterResource(_sourceCampaign, character.CharacterId, Health, NewUserId(), actorIsMainGm: true, abilityResult.Value.Revisions.CharacterResourcesRevision, NewCommandId(), TestCorrelationId);
+            Result<CharacterRecord> resourceResult = CharacterAdvancementService.InitializeResourceWithDefaults(_characterRepository, _sourceCampaign, character.CharacterId, Health, NewUserId(), actorIsMainGm: true, abilityResult.Value.Revisions.CharacterResourcesRevision, NewCommandId(), TestCorrelationId);
             Assert.That(resourceResult.IsSuccess, Is.True);
             CharacterResource sourceResource = resourceResult.Value.Resources[0];
             long damagedValue = sourceResource.MinimumValue + 1;
             Result<CharacterRecord> damagedResult = _characterRepository.SetResourceCurrentValue(_sourceCampaign, character.CharacterId, sourceResource.CharacterResourceId, damagedValue, NewUserId(), actorIsMainGm: true, resourceResult.Value.Revisions.CharacterResourcesRevision, NewCommandId(), TestCorrelationId);
             Assert.That(damagedResult.IsSuccess, Is.True);
 
-            Result<CharacterRecord> anatomyResult = _characterRepository.InitializeCharacterAnatomy(_sourceCampaign, character.CharacterId, Humanoid, NewUserId(), actorIsMainGm: true, damagedResult.Value.Revisions.CharacterAnatomyRevision, NewCommandId(), TestCorrelationId);
+            Result<CharacterRecord> anatomyResult = CharacterAdvancementService.InitializeAnatomyWithDefaults(_characterRepository, _sourceCampaign, character.CharacterId, Humanoid, NewUserId(), actorIsMainGm: true, damagedResult.Value.Revisions.CharacterAnatomyRevision, NewCommandId(), TestCorrelationId);
             Assert.That(anatomyResult.IsSuccess, Is.True);
 
             Result<CharacterRecord> reRead = _characterRepository.GetCharacter(_sourceCampaign, character.CharacterId, TestCorrelationId);

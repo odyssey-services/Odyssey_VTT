@@ -3,6 +3,7 @@ using System.IO;
 using System.Linq;
 using Microsoft.Data.Sqlite;
 using NUnit.Framework;
+using Odyssey.Application.CharacterAdvancement;
 using Odyssey.Application.Commands;
 using Odyssey.Application.Content;
 using Odyssey.Application.Inventory;
@@ -278,7 +279,7 @@ namespace Odyssey.Tests.Persistence.Integration
         {
             Result<CharacterRecord> created = _characters.CreateCharacter(new CreateCharacterRequest(_campaign, CharacterKind.PlayerCharacter, "Migration Integration Fixture Character"), NewCommandId(), Corr);
             Assert.That(created.IsSuccess, Is.True);
-            Result<CharacterRecord> initialized = _characters.InitializeCharacterAnatomy(_campaign, created.Value.CharacterId, Humanoid, NewUserId(), actorIsMainGm: true, created.Value.Revisions.CharacterAnatomyRevision, NewCommandId(), Corr);
+            Result<CharacterRecord> initialized = CharacterAdvancementService.InitializeAnatomyWithDefaults(_characters, _campaign, created.Value.CharacterId, Humanoid, NewUserId(), actorIsMainGm: true, created.Value.Revisions.CharacterAnatomyRevision, NewCommandId(), Corr);
             Assert.That(initialized.IsSuccess, Is.True);
             return initialized.Value;
         }
