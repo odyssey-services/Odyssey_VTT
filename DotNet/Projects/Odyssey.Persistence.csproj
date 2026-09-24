@@ -4,6 +4,7 @@
     <AssemblyName>Odyssey.Persistence</AssemblyName>
     <RootNamespace>Odyssey.Persistence</RootNamespace>
     <EnableDefaultCompileItems>false</EnableDefaultCompileItems>
+    <DisableTransitiveProjectReferences>true</DisableTransitiveProjectReferences>
   </PropertyGroup>
 
   <ItemGroup>

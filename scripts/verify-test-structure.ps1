@@ -443,6 +443,17 @@ function Test-Cycles([hashtable] $Graph, [System.Collections.Generic.List[string
     }
 }
 
+# ODY-S09-105: a plain `dotnet build` resolves project references transitively, a Unity asmdef does not, so a
+# dependency that ADR-001 section 5 forbids (e.g. Persistence -> Rules through Application) compiles under dotnet and
+# breaks only Unity. DisableTransitiveProjectReferences makes dotnet require every used reference to be declared, i.e.
+# see the same closure Unity sees. Losing the property silently reopens that hole.
+function Test-TransitiveReferencesDisabled([System.Collections.Generic.List[string]] $Errors, [string] $ProjectName, $Xml) {
+    $disableTransitive = $Xml.SelectSingleNode('//PropertyGroup/DisableTransitiveProjectReferences')
+    if ($null -eq $disableTransitive -or $disableTransitive.InnerText.Trim() -ne 'true') {
+        $Errors.Add("$ProjectName must set <DisableTransitiveProjectReferences>true</DisableTransitiveProjectReferences> so that dotnet build sees the same reference closure as Unity (ADR-001 section 5, ODY-S09-105).")
+    }
+}
+
 function Test-BridgeProject([System.Collections.Generic.List[string]] $Errors, [string] $Module, [hashtable] $CsprojGraph) {
     $projectName = "$Module.csproj"
     $projectPath = Join-Path $RootPath "DotNet/Projects/$projectName"
@@ -453,6 +464,8 @@ function Test-BridgeProject([System.Collections.Generic.List[string]] $Errors, [
         if ($targetFramework -ne 'netstandard2.1') {
             $Errors.Add("$projectName target framework is $targetFramework, expected netstandard2.1.")
         }
+
+        Test-TransitiveReferencesDisabled $Errors $projectName $xml
 
         $packageRefs = @($xml.SelectNodes('//PackageReference'))
         $approvedPackages = @{}
@@ -987,6 +1000,20 @@ function Test-RepositoryStructure {
         Test-BridgeProject $errors $module $csprojGraph
     }
 
+    # Persistence and Networking are not bridge modules (their csproj graph is checked elsewhere), but they are the
+    # projects where the transitive-reference hole mattered most, so the same property is required on them.
+    foreach ($module in @('Odyssey.Persistence', 'Odyssey.Networking')) {
+        $moduleProject = Join-Path $RootPath "DotNet/Projects/$module.csproj"
+        if (Test-Path -LiteralPath $moduleProject) {
+            try {
+                Test-TransitiveReferencesDisabled $errors "$module.csproj" (Read-XmlFile $moduleProject)
+            }
+            catch {
+                $errors.Add($_.Exception.Message)
+            }
+        }
+    }
+
     # Odyssey.Persistence.csproj was created by ODY-S01-007 (SLICE-01 Campaign
     # Storage Foundation) -- ADR-006 section 24 expects it at this vertical slice.
     # Odyssey.Networking.csproj was created by ODY-S02-001 (SLICE-02 Transport
@@ -1189,6 +1216,7 @@ $($referenceLines -join "`n")
     <AssemblyName>$Module</AssemblyName>
     <RootNamespace>$Module</RootNamespace>
     <EnableDefaultCompileItems>false</EnableDefaultCompileItems>
+    <DisableTransitiveProjectReferences>true</DisableTransitiveProjectReferences>
   </PropertyGroup>$referenceBlock$packageReferenceBlock
 
   <ItemGroup>
@@ -1365,6 +1393,13 @@ function Set-FixturePackageVersionMismatch([string] $FixtureRoot) {
     Write-Utf8NoBom $packagePath ($json | ConvertTo-Json -Depth 10)
 }
 
+function Set-FixtureTransitiveReferencesEnabled([string] $FixtureRoot) {
+    $projectPath = Join-Path $FixtureRoot 'DotNet/Projects/Odyssey.Domain.csproj'
+    $text = [System.IO.File]::ReadAllText($projectPath)
+    $text = $text -replace '\s*<DisableTransitiveProjectReferences>true</DisableTransitiveProjectReferences>', ''
+    Write-Utf8NoBom $projectPath $text
+}
+
 function Set-FixtureDuplicateCatalogOwnership([string] $FixtureRoot) {
     $catalogPath = Join-Path $FixtureRoot 'Tests/Metadata/test-catalog.json'
     $json = Read-JsonFile $catalogPath
@@ -1469,6 +1504,17 @@ if (-not $SkipNegativeFixture) {
             exit 1
         }
         Write-Host "TC-ARCH-002 PASS controlled package version mismatch rejected with exit code $($versionResult.ExitCode)"
+
+        Remove-Item -LiteralPath $fixtureRoot -Recurse -Force
+        New-SyntheticFixture $fixtureRoot $false
+        Set-FixtureTransitiveReferencesEnabled $fixtureRoot
+        $transitiveResult = Invoke-GuardFixture $fixtureRoot
+        if ($transitiveResult.ExitCode -eq 0 -or $transitiveResult.Text -notmatch 'Odyssey\.Domain\.csproj must set <DisableTransitiveProjectReferences>') {
+            Write-Host 'TC-ARCH-002 FAIL controlled removal of DisableTransitiveProjectReferences was not rejected for expected reason'
+            $transitiveResult.Output | ForEach-Object { Write-Host $_ }
+            exit 1
+        }
+        Write-Host "TC-ARCH-002 PASS controlled removal of DisableTransitiveProjectReferences rejected with exit code $($transitiveResult.ExitCode)"
 
         Remove-Item -LiteralPath $fixtureRoot -Recurse -Force
         New-SyntheticFixture $fixtureRoot $false

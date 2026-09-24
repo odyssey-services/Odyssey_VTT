@@ -4,6 +4,7 @@
     <AssemblyName>Odyssey.Domain</AssemblyName>
     <RootNamespace>Odyssey.Domain</RootNamespace>
     <EnableDefaultCompileItems>false</EnableDefaultCompileItems>
+    <DisableTransitiveProjectReferences>true</DisableTransitiveProjectReferences>
   </PropertyGroup>
 
   <ItemGroup>

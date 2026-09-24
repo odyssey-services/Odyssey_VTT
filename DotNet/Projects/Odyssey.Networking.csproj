@@ -4,6 +4,7 @@
     <AssemblyName>Odyssey.Networking</AssemblyName>
     <RootNamespace>Odyssey.Networking</RootNamespace>
     <EnableDefaultCompileItems>false</EnableDefaultCompileItems>
+    <DisableTransitiveProjectReferences>true</DisableTransitiveProjectReferences>
   </PropertyGroup>
 
   <ItemGroup>
