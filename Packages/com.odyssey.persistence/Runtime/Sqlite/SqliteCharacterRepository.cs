@@ -14,7 +14,6 @@ using Odyssey.Domain.Time;
 using Odyssey.Rules.Character;
 using RulesAttributeCostRules = Odyssey.Rules.Character.AttributeCostRules;
 using RulesSkillCostRules = Odyssey.Rules.Character.SkillCostRules;
-using RulesAbilityCostRules = Odyssey.Rules.Character.AbilityCostRules;
 
 namespace Odyssey.Persistence.Sqlite
 {
@@ -2168,12 +2167,13 @@ namespace Odyssey.Persistence.Sqlite
             });
         }
 
-        public Result<CharacterRecord> PurchaseAttributeIncrease(CampaignHandle campaign, CharacterId characterId, AttributeDefinitionId attributeDefinitionId, long toValue, UserId actorUserId, bool actorIsMainGm, long expectedMechanicsRevision, long expectedAttributeRevision, CommandId commandId, CorrelationId correlationId)
+        public Result<CharacterRecord> PurchaseAttributeIncrease(CampaignHandle campaign, CharacterId characterId, AttributeDefinitionId attributeDefinitionId, long toValue, long decidedFromValue, bool exceedsNormalCap, long decidedCost, UserId actorUserId, bool actorIsMainGm, long expectedMechanicsRevision, long expectedAttributeRevision, CommandId commandId, CorrelationId correlationId)
         {
             if (!attributeDefinitionId.IsValid) throw new ArgumentException("AttributeDefinitionId is required.", nameof(attributeDefinitionId));
             if (toValue < 0) throw new ArgumentOutOfRangeException(nameof(toValue));
             if (!actorUserId.IsValid) throw new ArgumentException("ActorUserId is required.", nameof(actorUserId));
             if (expectedAttributeRevision < 0) throw new ArgumentOutOfRangeException(nameof(expectedAttributeRevision));
+            if (decidedCost < 0) throw new ArgumentOutOfRangeException(nameof(decidedCost));
 
             return MutateMechanics(campaign, characterId, expectedMechanicsRevision, commandId, correlationId, (current, connection, transaction) =>
             {
@@ -2206,21 +2206,28 @@ namespace Odyssey.Persistence.Sqlite
                     return Result<MechanicsMutation>.Failure(PersistenceFailures.CharacterRevisionConflict(correlationId));
                 }
 
+                // ODY-S09-102: the decision (cap, cost) was taken by the
+                // Application layer from the BaseValue it read; if the
+                // locked value has moved since, that decision is stale.
+                if (fromValue != decidedFromValue)
+                {
+                    return Result<MechanicsMutation>.Failure(PersistenceFailures.CharacterRevisionConflict(correlationId));
+                }
+
                 if (toValue <= fromValue)
                 {
                     throw new ArgumentOutOfRangeException(nameof(toValue), "ToValue must exceed the attribute's current BaseValue for an increase.");
                 }
 
-                // Product section 11.3 / RulesAttributeCostRules: TEST
-                // FIXTURE cost/cap -- see that class's own doc comment. No
-                // Ruleset-catalog cost table exists yet anywhere in this
-                // codebase.
-                if (RulesAttributeCostRules.ExceedsNormalCap(toValue))
+                // Product section 11.3: cap and cost are decided by the
+                // Application layer (CharacterAdvancementService) and
+                // arrive here already decided.
+                if (exceedsNormalCap)
                 {
                     return Result<MechanicsMutation>.Failure(PersistenceFailures.CharacterAttributeCapExceeded(correlationId));
                 }
 
-                long cost = RulesAttributeCostRules.CostForIncrease(fromValue, toValue);
+                long cost = decidedCost;
                 if (cost > current.DevelopmentPool.Available)
                 {
                     return Result<MechanicsMutation>.Failure(PersistenceFailures.CharacterDevelopmentInsufficientBalance(correlationId));
@@ -2307,12 +2314,13 @@ namespace Odyssey.Persistence.Sqlite
             }
         }
 
-        public Result<CharacterRecord> PurchaseSkillLevel(CampaignHandle campaign, CharacterId characterId, SkillDefinitionId skillDefinitionId, long toLevel, UserId actorUserId, bool actorIsMainGm, long expectedMechanicsRevision, long expectedSkillRevision, CommandId commandId, CorrelationId correlationId)
+        public Result<CharacterRecord> PurchaseSkillLevel(CampaignHandle campaign, CharacterId characterId, SkillDefinitionId skillDefinitionId, long toLevel, long decidedFromLevel, bool requiresRecommendation, long decidedCost, UserId actorUserId, bool actorIsMainGm, long expectedMechanicsRevision, long expectedSkillRevision, CommandId commandId, CorrelationId correlationId)
         {
             if (!skillDefinitionId.IsValid) throw new ArgumentException("SkillDefinitionId is required.", nameof(skillDefinitionId));
             if (toLevel < 0) throw new ArgumentOutOfRangeException(nameof(toLevel));
             if (!actorUserId.IsValid) throw new ArgumentException("ActorUserId is required.", nameof(actorUserId));
             if (expectedSkillRevision < 0) throw new ArgumentOutOfRangeException(nameof(expectedSkillRevision));
+            if (decidedCost < 0) throw new ArgumentOutOfRangeException(nameof(decidedCost));
 
             return MutateMechanics(campaign, characterId, expectedMechanicsRevision, commandId, correlationId, (current, connection, transaction) =>
             {
@@ -2327,8 +2335,9 @@ namespace Odyssey.Persistence.Sqlite
 
                 // Product sections 14.2/14.3: level 5+ is the recommendation/
                 // reservation pipeline's own job, never this ordinary
-                // immediate-purchase command's.
-                if (RulesSkillCostRules.RequiresRecommendation(toLevel))
+                // immediate-purchase command's. (ODY-S09-102: decided by
+                // the Application layer.)
+                if (requiresRecommendation)
                 {
                     return Result<MechanicsMutation>.Failure(PersistenceFailures.CharacterSkillLevelRequiresRecommendation(correlationId));
                 }
@@ -2351,12 +2360,18 @@ namespace Odyssey.Persistence.Sqlite
                     return Result<MechanicsMutation>.Failure(PersistenceFailures.CharacterRevisionConflict(correlationId));
                 }
 
+                // ODY-S09-102: stale decision -- see PurchaseAttributeIncrease.
+                if (fromLevel != decidedFromLevel)
+                {
+                    return Result<MechanicsMutation>.Failure(PersistenceFailures.CharacterRevisionConflict(correlationId));
+                }
+
                 if (toLevel <= fromLevel)
                 {
                     throw new ArgumentOutOfRangeException(nameof(toLevel), "ToLevel must exceed the skill's current Level for an increase.");
                 }
 
-                long cost = RulesSkillCostRules.CostForIncrease(fromLevel, toLevel);
+                long cost = decidedCost;
                 if (cost > current.DevelopmentPool.Available)
                 {
                     return Result<MechanicsMutation>.Failure(PersistenceFailures.CharacterDevelopmentInsufficientBalance(correlationId));
@@ -2508,12 +2523,13 @@ namespace Odyssey.Persistence.Sqlite
             }
         }
 
-        public Result<AdvancementRecommendationRecord> RequestSkillAdvancedRecommendation(CampaignHandle campaign, CharacterId characterId, SkillDefinitionId skillDefinitionId, long targetLevel, IReadOnlyList<CriticalSuccessEvidenceId> evidenceIds, UserId actorUserId, bool actorIsMainGm, long expectedMechanicsRevision, CommandId commandId, CorrelationId correlationId)
+        public Result<AdvancementRecommendationRecord> RequestSkillAdvancedRecommendation(CampaignHandle campaign, CharacterId characterId, SkillDefinitionId skillDefinitionId, long targetLevel, long decidedFromLevel, long decidedReservedAmount, IReadOnlyList<CriticalSuccessEvidenceId> evidenceIds, UserId actorUserId, bool actorIsMainGm, long expectedMechanicsRevision, CommandId commandId, CorrelationId correlationId)
         {
             if (!skillDefinitionId.IsValid) throw new ArgumentException("SkillDefinitionId is required.", nameof(skillDefinitionId));
             if (targetLevel < 1) throw new ArgumentOutOfRangeException(nameof(targetLevel));
             if (evidenceIds == null) throw new ArgumentNullException(nameof(evidenceIds));
             if (!actorUserId.IsValid) throw new ArgumentException("ActorUserId is required.", nameof(actorUserId));
+            if (decidedReservedAmount < 0) throw new ArgumentOutOfRangeException(nameof(decidedReservedAmount));
 
             AdvancementRecommendationRecord? createdRecord = null;
 
@@ -2533,12 +2549,19 @@ namespace Odyssey.Persistence.Sqlite
                 }
 
                 long fromLevel = existing?.Level ?? 0;
+
+                // ODY-S09-102: stale decision -- see PurchaseAttributeIncrease.
+                if (fromLevel != decidedFromLevel)
+                {
+                    return Result<MechanicsMutation>.Failure(PersistenceFailures.CharacterRevisionConflict(correlationId));
+                }
+
                 if (targetLevel <= fromLevel)
                 {
                     throw new ArgumentOutOfRangeException(nameof(targetLevel), "TargetLevel must exceed the skill's current Level.");
                 }
 
-                long reservedAmount = RulesSkillCostRules.CostForIncrease(fromLevel, targetLevel);
+                long reservedAmount = decidedReservedAmount;
                 if (reservedAmount > current.DevelopmentPool.Available)
                 {
                     return Result<MechanicsMutation>.Failure(PersistenceFailures.CharacterDevelopmentInsufficientBalance(correlationId));
@@ -3379,7 +3402,7 @@ namespace Odyssey.Persistence.Sqlite
         /// actually built, rather than shipping an undecided/ungated
         /// permission surface today.
         /// </summary>
-        public Result<CharacterRecord> AcquireAbility(CampaignHandle campaign, CharacterId characterId, AbilityDefinitionId abilityDefinitionId, SourceKind sourceKind, string? sourceRef, RankMode rankMode, long? numericRank, string? namedRankKey, string configuration, UserId actorUserId, bool actorIsMainGm, long? expectedMechanicsRevision, long expectedCharacterAbilitiesRevision, CommandId commandId, CorrelationId correlationId)
+        public Result<CharacterRecord> AcquireAbility(CampaignHandle campaign, CharacterId characterId, AbilityDefinitionId abilityDefinitionId, SourceKind sourceKind, string? sourceRef, RankMode rankMode, long? numericRank, string? namedRankKey, string configuration, long progressionPurchaseCost, UserId actorUserId, bool actorIsMainGm, long? expectedMechanicsRevision, long expectedCharacterAbilitiesRevision, CommandId commandId, CorrelationId correlationId)
         {
             if (!abilityDefinitionId.IsValid) throw new ArgumentException("AbilityDefinitionId is required.", nameof(abilityDefinitionId));
             if (!Enum.IsDefined(typeof(SourceKind), sourceKind)) throw new ArgumentOutOfRangeException(nameof(sourceKind));
@@ -3394,7 +3417,9 @@ namespace Odyssey.Persistence.Sqlite
                     throw new ArgumentException("ExpectedMechanicsRevision is required for SourceKind.ProgressionPurchase.", nameof(expectedMechanicsRevision));
                 }
 
-                return AcquireAbilityViaProgressionPurchase(campaign, characterId, abilityDefinitionId, sourceRef, rankMode, numericRank, namedRankKey, configuration, actorUserId, actorIsMainGm, expectedMechanicsRevision.Value, expectedCharacterAbilitiesRevision, commandId, correlationId);
+                if (progressionPurchaseCost < 0) throw new ArgumentOutOfRangeException(nameof(progressionPurchaseCost));
+
+                return AcquireAbilityViaProgressionPurchase(campaign, characterId, abilityDefinitionId, sourceRef, rankMode, numericRank, namedRankKey, configuration, progressionPurchaseCost, actorUserId, actorIsMainGm, expectedMechanicsRevision.Value, expectedCharacterAbilitiesRevision, commandId, correlationId);
             }
 
             if (!actorIsMainGm)
@@ -3438,7 +3463,7 @@ namespace Odyssey.Persistence.Sqlite
         /// ADR-024 section 9's own module-boundary list naming
         /// <c>AcquireAbility</c> alongside them).
         /// </summary>
-        private Result<CharacterRecord> AcquireAbilityViaProgressionPurchase(CampaignHandle campaign, CharacterId characterId, AbilityDefinitionId abilityDefinitionId, string? sourceRef, RankMode rankMode, long? numericRank, string? namedRankKey, string configuration, UserId actorUserId, bool actorIsMainGm, long expectedMechanicsRevision, long expectedCharacterAbilitiesRevision, CommandId commandId, CorrelationId correlationId)
+        private Result<CharacterRecord> AcquireAbilityViaProgressionPurchase(CampaignHandle campaign, CharacterId characterId, AbilityDefinitionId abilityDefinitionId, string? sourceRef, RankMode rankMode, long? numericRank, string? namedRankKey, string configuration, long progressionPurchaseCost, UserId actorUserId, bool actorIsMainGm, long expectedMechanicsRevision, long expectedCharacterAbilitiesRevision, CommandId commandId, CorrelationId correlationId)
         {
             if (campaign == null) throw new ArgumentNullException(nameof(campaign));
             if (!characterId.IsValid) throw new ArgumentException("CharacterId is required.", nameof(characterId));
@@ -3486,7 +3511,7 @@ namespace Odyssey.Persistence.Sqlite
                             return Result<PipelineWrite<CharacterRecord>>.Failure(PersistenceFailures.CharacterDevelopmentPurchaseDenied(correlationId));
                         }
 
-                        long cost = RulesAbilityCostRules.CostForAcquisition();
+                        long cost = progressionPurchaseCost;
                         if (cost > current.DevelopmentPool.Available)
                         {
                             return Result<PipelineWrite<CharacterRecord>>.Failure(PersistenceFailures.CharacterDevelopmentInsufficientBalance(correlationId));

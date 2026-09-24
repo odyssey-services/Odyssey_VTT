@@ -3798,7 +3798,119 @@
                           "authority":  "ODY-S09-101 test list item 4",
                           "runner":  "dotnet test",
                           "path":  "DotNet/Tests/Odyssey.Tests.Persistence/CharacterResourceAnatomyTests.cs",
-                          "check":  "CharacterAdvancementService lives in the Odyssey.Application assembly, whose referenced assemblies do not include Odyssey.Persistence, exposes only the two wrapper methods, and takes the ICharacterRepository abstraction (not a concrete repository) as its first parameter"
+                          "check":  "CharacterAdvancementService lives in the Odyssey.Application assembly, whose referenced assemblies do not include Odyssey.Persistence, exposes only its public wrapper methods (the two initializers from ODY-S09-101 and the four cost commands from ODY-S09-102), and takes the ICharacterRepository abstraction (not a concrete repository) as its first parameter"
+                      },
+                      {
+                          "testCaseId":  "TC-CHAR-189",
+                          "taskId":  "ODY-S09-102",
+                          "authority":  "ODY-S09-102 test list item 1",
+                          "runner":  "dotnet test",
+                          "path":  "DotNet/Tests/Odyssey.Tests.Persistence/CharacterAdvancementCostServiceTests.cs",
+                          "check":  "PurchaseAttributeIncrease through CharacterAdvancementService, legal: 0 -> 3 costs 6 (Spent 6, Available 14 of 20, BaseValue 3, attribute revision 1), then 3 -> 5 costs 4 more (Spent 10); the two AdvancementPurchase rows carry costs 6 and 4"
+                      },
+                      {
+                          "testCaseId":  "TC-CHAR-190",
+                          "taskId":  "ODY-S09-102",
+                          "authority":  "ODY-S09-102 test list item 2",
+                          "runner":  "dotnet test",
+                          "path":  "DotNet/Tests/Odyssey.Tests.Persistence/CharacterAdvancementCostServiceTests.cs",
+                          "check":  "PurchaseAttributeIncrease illegal cases -- toValue 16 above the cap of 15, cost 6 above an available balance of 5, and an unauthorized actor (refused before the cap is reported) -- are rejected with the same typed errors as before and the full character snapshot (pool, attributes, revisions, ledger, purchases) is identical before and after"
+                      },
+                      {
+                          "testCaseId":  "TC-CHAR-191",
+                          "taskId":  "ODY-S09-102",
+                          "authority":  "ODY-S09-102 test list item 3",
+                          "runner":  "dotnet test",
+                          "path":  "DotNet/Tests/Odyssey.Tests.Persistence/CharacterAdvancementCostServiceTests.cs",
+                          "check":  "PurchaseAttributeIncrease decision made on stale state: after a competing purchase the repository is called directly with the stale decision (decidedFromValue 0) and the current revisions, so every revision gate passes; it is rejected with CharacterRevisionConflict and the competitor's state is untouched"
+                      },
+                      {
+                          "testCaseId":  "TC-CHAR-192",
+                          "taskId":  "ODY-S09-102",
+                          "authority":  "ODY-S09-102 test list item 3",
+                          "runner":  "dotnet test",
+                          "path":  "DotNet/Tests/Odyssey.Tests.Persistence/CharacterAdvancementCostServiceTests.cs",
+                          "check":  "PurchaseAttributeIncrease through the service with a real race injected between the service's read and its commit (the read returns the pre-competitor snapshot): rejected with CharacterRevisionConflict both when the caller holds the start revisions (revision gate) and when it holds the fresh ones (only the decision-basis re-check stands in the way); no write either time"
+                      },
+                      {
+                          "testCaseId":  "TC-CHAR-193",
+                          "taskId":  "ODY-S09-102",
+                          "authority":  "ODY-S09-102 test list item 1",
+                          "runner":  "dotnet test",
+                          "path":  "DotNet/Tests/Odyssey.Tests.Persistence/CharacterAdvancementCostServiceTests.cs",
+                          "check":  "PurchaseSkillLevel through the service, legal: 0 -> 2 costs 6, then 2 -> 4 costs 6 more (Spent 12, Available 18 of 30, Level 4, SpentDevelopmentPoints 12, skill revision 2)"
+                      },
+                      {
+                          "testCaseId":  "TC-CHAR-194",
+                          "taskId":  "ODY-S09-102",
+                          "authority":  "ODY-S09-102 test list item 2",
+                          "runner":  "dotnet test",
+                          "path":  "DotNet/Tests/Odyssey.Tests.Persistence/CharacterAdvancementCostServiceTests.cs",
+                          "check":  "PurchaseSkillLevel illegal cases -- level 5 (recommendation pipeline's) and cost 6 above an available balance of 5 -- are rejected with CharacterSkillLevelRequiresRecommendation / CharacterDevelopmentInsufficientBalance and the full character snapshot is identical before and after"
+                      },
+                      {
+                          "testCaseId":  "TC-CHAR-195",
+                          "taskId":  "ODY-S09-102",
+                          "authority":  "ODY-S09-102 test list item 3",
+                          "runner":  "dotnet test",
+                          "path":  "DotNet/Tests/Odyssey.Tests.Persistence/CharacterAdvancementCostServiceTests.cs",
+                          "check":  "PurchaseSkillLevel decision made on stale state is rejected with CharacterRevisionConflict both when the repository is called directly with current revisions and stale decidedFromLevel, and through the service when its read is stale; no write"
+                      },
+                      {
+                          "testCaseId":  "TC-CHAR-196",
+                          "taskId":  "ODY-S09-102",
+                          "authority":  "ODY-S09-102 test list item 1",
+                          "runner":  "dotnet test",
+                          "path":  "DotNet/Tests/Odyssey.Tests.Persistence/CharacterAdvancementCostServiceTests.cs",
+                          "check":  "RequestSkillAdvancedRecommendation through the service, legal: from current level 2 to 5 reserves 9 (Reserved 9, Spent 6, Available 15 of 30), recommendation Pending with ReservedAmount 9"
+                      },
+                      {
+                          "testCaseId":  "TC-CHAR-197",
+                          "taskId":  "ODY-S09-102",
+                          "authority":  "ODY-S09-102 test list item 2",
+                          "runner":  "dotnet test",
+                          "path":  "DotNet/Tests/Odyssey.Tests.Persistence/CharacterAdvancementCostServiceTests.cs",
+                          "check":  "RequestSkillAdvancedRecommendation illegal cases -- reserve 9 above an available balance of 8 (CharacterDevelopmentInsufficientBalance) and a target not above the current level (ArgumentOutOfRangeException) -- leave the full character snapshot identical before and after"
+                      },
+                      {
+                          "testCaseId":  "TC-CHAR-198",
+                          "taskId":  "ODY-S09-102",
+                          "authority":  "ODY-S09-102 test list item 3",
+                          "runner":  "dotnet test",
+                          "path":  "DotNet/Tests/Odyssey.Tests.Persistence/CharacterAdvancementCostServiceTests.cs",
+                          "check":  "RequestSkillAdvancedRecommendation decision made on stale state is rejected with CharacterRevisionConflict both directly at the repository (stale decidedFromLevel, current revision) and through the service when its read is stale; no reservation is created"
+                      },
+                      {
+                          "testCaseId":  "TC-CHAR-199",
+                          "taskId":  "ODY-S09-102",
+                          "authority":  "ODY-S09-102 test list item 1",
+                          "runner":  "dotnet test",
+                          "path":  "DotNet/Tests/Odyssey.Tests.Persistence/CharacterAdvancementCostServiceTests.cs",
+                          "check":  "AcquireAbility (ProgressionPurchase) through the service, legal: costs 5 (Spent 5, Available 7 of 12), one CharacterAbility, one AdvancementPurchase with cost 5"
+                      },
+                      {
+                          "testCaseId":  "TC-CHAR-200",
+                          "taskId":  "ODY-S09-102",
+                          "authority":  "ODY-S09-102 test list item 2",
+                          "runner":  "dotnet test",
+                          "path":  "DotNet/Tests/Odyssey.Tests.Persistence/CharacterAdvancementCostServiceTests.cs",
+                          "check":  "AcquireAbility (ProgressionPurchase) with an available balance of 4 is rejected with CharacterDevelopmentInsufficientBalance (cost 5) and the full character snapshot is identical before and after"
+                      },
+                      {
+                          "testCaseId":  "TC-CHAR-201",
+                          "taskId":  "ODY-S09-102",
+                          "authority":  "ODY-S09-102 test list item 3",
+                          "runner":  "dotnet test",
+                          "path":  "DotNet/Tests/Odyssey.Tests.Persistence/CharacterAdvancementCostServiceTests.cs",
+                          "check":  "AcquireAbility stale revisions after a competing acquisition are rejected with CharacterRevisionConflict and change nothing; a GMGrant charges nothing whatever cost argument reaches the repository; a negative progressionPurchaseCost is rejected with ArgumentOutOfRangeException"
+                      },
+                      {
+                          "testCaseId":  "TC-CHAR-202",
+                          "taskId":  "ODY-S09-102",
+                          "authority":  "ODY-S09-102 test list item 4",
+                          "runner":  "dotnet test",
+                          "path":  "DotNet/Tests/Odyssey.Tests.Persistence/CharacterAdvancementCostServiceTests.cs",
+                          "check":  "The cost methods of CharacterAdvancementService use only the ICharacterRepository port (an interception double over the real repository records the calls): Rules decisions reach the repository as attribute 20 -> from 0, cap exceeded, cost 40; skill level 5 -> requiresRecommendation, cost 0; ability ProgressionPurchase cost 5 and GMGrant cost 0; recommendation 0 -> 3 reserves 9; invalid input throws before any repository call including the read; a null repository is rejected"
                       },
                       {
                           "testCaseId":  "TC-CATALOG-001",

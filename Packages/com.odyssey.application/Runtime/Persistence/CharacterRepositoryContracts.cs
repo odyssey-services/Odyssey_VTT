@@ -200,8 +200,19 @@ namespace Odyssey.Application.Persistence
         /// co-committed <c>DevelopmentTransaction</c> (<c>Kind=Spend</c>)
         /// ledger row in one transaction -- <see cref="CommandId"/>/
         /// <c>AppliedCommands</c> are the sole duplicate-spend guard.
+        /// <para>
+        /// ODY-S09-102: this method no longer decides legality or computes cost -- <c>Persistence</c> may not
+        /// reference <c>Odyssey.Rules</c> (ADR-001 section 5; ADR-024/025: Persistence does not decide whether a
+        /// purchase is legal). <c>Odyssey.Application.CharacterAdvancement.CharacterAdvancementService</c> reads the
+        /// Character, applies <c>AttributeCostRules</c>, and passes the decision in: <paramref name="decidedFromValue"/>
+        /// (the BaseValue the decision was based on), <paramref name="exceedsNormalCap"/> and <paramref name="decidedCost"/>.
+        /// Under the transaction lock this method re-checks that the locked BaseValue still equals
+        /// <paramref name="decidedFromValue"/> (otherwise <c>CharacterRevisionConflict</c> -- the decision is stale), and
+        /// then reports the failures in the same order as before: permission, entry-level revision, stale basis,
+        /// non-increase (argument error), cap, balance.
+        /// </para>
         /// </summary>
-        Result<CharacterRecord> PurchaseAttributeIncrease(CampaignHandle campaign, CharacterId characterId, AttributeDefinitionId attributeDefinitionId, long toValue, UserId actorUserId, bool actorIsMainGm, long expectedMechanicsRevision, long expectedAttributeRevision, CommandId commandId, CorrelationId correlationId);
+        Result<CharacterRecord> PurchaseAttributeIncrease(CampaignHandle campaign, CharacterId characterId, AttributeDefinitionId attributeDefinitionId, long toValue, long decidedFromValue, bool exceedsNormalCap, long decidedCost, UserId actorUserId, bool actorIsMainGm, long expectedMechanicsRevision, long expectedAttributeRevision, CommandId commandId, CorrelationId correlationId);
 
         /// <summary>ODY-S04-105: reads the full development ledger for one Character, ordered by <see cref="DevelopmentTransactionRecord.CreatedAt"/> -- matching <see cref="IGameLogRepository.ListGameLog"/>'s own "Persistence stores everything" convention. Rebuildable from <c>DomainEvents</c> if ever lost (ADR-024 section 4.3); this method reads the co-committed ledger table directly, the same way <see cref="GetCharacter"/> reads current state directly rather than rebuilding it from events on every call.</summary>
         Result<IReadOnlyList<DevelopmentTransactionRecord>> GetDevelopmentLedger(CampaignHandle campaign, CharacterId characterId, CorrelationId correlationId);
@@ -216,8 +227,15 @@ namespace Odyssey.Application.Persistence
         /// <see cref="RequestSkillAdvancedRecommendation"/>'s own job, never
         /// this command's. Cost comes from <see cref="Odyssey.Rules.Character.SkillCostRules"/>,
         /// this task's own explicitly-flagged test fixture.
+        /// <para>
+        /// ODY-S09-102: legality and cost now arrive decided by <c>CharacterAdvancementService</c>
+        /// (<paramref name="requiresRecommendation"/>, <paramref name="decidedFromLevel"/>, <paramref name="decidedCost"/>);
+        /// Persistence holds no Rules reference. The locked Level must still equal <paramref name="decidedFromLevel"/>,
+        /// otherwise <c>CharacterRevisionConflict</c>. Failure order is unchanged: permission, recommendation required,
+        /// entry-level revision, stale basis, non-increase (argument error), balance.
+        /// </para>
         /// </summary>
-        Result<CharacterRecord> PurchaseSkillLevel(CampaignHandle campaign, CharacterId characterId, SkillDefinitionId skillDefinitionId, long toLevel, UserId actorUserId, bool actorIsMainGm, long expectedMechanicsRevision, long expectedSkillRevision, CommandId commandId, CorrelationId correlationId);
+        Result<CharacterRecord> PurchaseSkillLevel(CampaignHandle campaign, CharacterId characterId, SkillDefinitionId skillDefinitionId, long toLevel, long decidedFromLevel, bool requiresRecommendation, long decidedCost, UserId actorUserId, bool actorIsMainGm, long expectedMechanicsRevision, long expectedSkillRevision, CommandId commandId, CorrelationId correlationId);
 
         /// <summary>
         /// ODY-S04-106: ADR-024 section 3.5/7.1, product section 14.4 --
@@ -261,8 +279,14 @@ namespace Odyssey.Application.Persistence
         /// (<c>UsedByAdvancementId</c> untouched) until
         /// <see cref="ResolveAdvancementRecommendation"/> actually approves
         /// with spend (ADR-024 section 7.1).
+        /// <para>
+        /// ODY-S09-102: the reserved amount is decided by <c>CharacterAdvancementService</c>
+        /// (<paramref name="decidedReservedAmount"/>, computed from <paramref name="decidedFromLevel"/>); Persistence
+        /// holds no Rules reference and re-checks under the lock that the skill's Level still equals
+        /// <paramref name="decidedFromLevel"/> (otherwise <c>CharacterRevisionConflict</c>).
+        /// </para>
         /// </summary>
-        Result<AdvancementRecommendationRecord> RequestSkillAdvancedRecommendation(CampaignHandle campaign, CharacterId characterId, SkillDefinitionId skillDefinitionId, long targetLevel, IReadOnlyList<CriticalSuccessEvidenceId> evidenceIds, UserId actorUserId, bool actorIsMainGm, long expectedMechanicsRevision, CommandId commandId, CorrelationId correlationId);
+        Result<AdvancementRecommendationRecord> RequestSkillAdvancedRecommendation(CampaignHandle campaign, CharacterId characterId, SkillDefinitionId skillDefinitionId, long targetLevel, long decidedFromLevel, long decidedReservedAmount, IReadOnlyList<CriticalSuccessEvidenceId> evidenceIds, UserId actorUserId, bool actorIsMainGm, long expectedMechanicsRevision, CommandId commandId, CorrelationId correlationId);
 
         /// <summary>
         /// ODY-S04-106: ADR-024 section 6.1 step 2, MainGM-only (product
@@ -407,8 +431,13 @@ namespace Odyssey.Application.Persistence
         /// route through <c>MechanicsRevision</c> instead, per ADR-024
         /// section 4.2's own justification for pool ledger data -- a
         /// justification that does not extend to abilities).
+        /// <para>
+        /// ODY-S09-102: for <see cref="SourceKind.ProgressionPurchase"/> the cost is decided by
+        /// <c>CharacterAdvancementService</c> and passed as <paramref name="progressionPurchaseCost"/>; Persistence holds
+        /// no Rules reference. The value is ignored for every other <see cref="SourceKind"/>.
+        /// </para>
         /// </summary>
-        Result<CharacterRecord> AcquireAbility(CampaignHandle campaign, CharacterId characterId, AbilityDefinitionId abilityDefinitionId, SourceKind sourceKind, string? sourceRef, RankMode rankMode, long? numericRank, string? namedRankKey, string configuration, UserId actorUserId, bool actorIsMainGm, long? expectedMechanicsRevision, long expectedCharacterAbilitiesRevision, CommandId commandId, CorrelationId correlationId);
+        Result<CharacterRecord> AcquireAbility(CampaignHandle campaign, CharacterId characterId, AbilityDefinitionId abilityDefinitionId, SourceKind sourceKind, string? sourceRef, RankMode rankMode, long? numericRank, string? namedRankKey, string configuration, long progressionPurchaseCost, UserId actorUserId, bool actorIsMainGm, long? expectedMechanicsRevision, long expectedCharacterAbilitiesRevision, CommandId commandId, CorrelationId correlationId);
 
         /// <summary>
         /// ODY-S04-108: product section 16 -- "способность предмета или

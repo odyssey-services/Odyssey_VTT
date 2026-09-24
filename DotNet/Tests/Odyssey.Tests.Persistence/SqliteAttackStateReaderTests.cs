@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.IO;
 using Microsoft.Data.Sqlite;
 using NUnit.Framework;
+using Odyssey.Application.CharacterAdvancement;
 using Odyssey.Application.Combat;
 using Odyssey.Application.Commands;
 using Odyssey.Application.Content;
@@ -452,7 +453,7 @@ namespace Odyssey.Tests.Persistence
             CharacterRecord current = _characters.GetCharacter(_campaign, characterId, Corr).Value;
             Result<CharacterRecord> granted = _characters.GrantDevelopmentPoints(_campaign, characterId, 100, "test", User(), actorIsMainGm: true, current.Revisions.MechanicsRevision, Command(), Corr);
             Assert.That(granted.IsSuccess, Is.True);
-            Result<CharacterRecord> purchased = _characters.PurchaseAttributeIncrease(_campaign, characterId, AttributeDefinitionId.Parse(attributeName), value, User(), actorIsMainGm: true, granted.Value.Revisions.MechanicsRevision, expectedAttributeRevision: 0, Command(), Corr);
+            Result<CharacterRecord> purchased = CharacterAdvancementService.PurchaseAttributeIncrease(_characters, _campaign, characterId, AttributeDefinitionId.Parse(attributeName), value, User(), actorIsMainGm: true, granted.Value.Revisions.MechanicsRevision, expectedAttributeRevision: 0, Command(), Corr);
             Assert.That(purchased.IsSuccess, Is.True);
             return purchased.Value;
         }

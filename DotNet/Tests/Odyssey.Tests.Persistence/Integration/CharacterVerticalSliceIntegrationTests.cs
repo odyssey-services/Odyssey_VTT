@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using NUnit.Framework;
+using Odyssey.Application.CharacterAdvancement;
 using Odyssey.Application.Commands;
 using Odyssey.Application.Persistence;
 using Odyssey.Application.Results;
@@ -171,13 +172,13 @@ namespace Odyssey.Tests.Persistence.Integration
             // ---- Step 7: Player purchases an attribute immediately, no GM-approval step. ----
             var strength = AttributeDefinitionId.Parse("Strength");
             CommandId purchaseCommandId = NewCommandId();
-            Result<CharacterRecord> purchased = characterRepository.PurchaseAttributeIncrease(campaign, characterId, strength, toValue: 2, player, actorIsMainGm: false, granted.Value.Revisions.MechanicsRevision, expectedAttributeRevision: 0, purchaseCommandId, TestCorrelationId);
+            Result<CharacterRecord> purchased = CharacterAdvancementService.PurchaseAttributeIncrease(characterRepository, campaign, characterId, strength, toValue: 2, player, actorIsMainGm: false, granted.Value.Revisions.MechanicsRevision, expectedAttributeRevision: 0, purchaseCommandId, TestCorrelationId);
             Assert.That(purchased.IsSuccess, Is.True, "step 7: an ordinary valid purchase by the owner must succeed without a separate GM-approval step (roadmap section 13.9)");
             long spentAfterFirstPurchase = purchased.Value.DevelopmentPool.Spent;
 
             // Roadmap section 13.9's own "duplicate command does not spend
             // twice" exit criterion, using the SAME CommandId again.
-            Result<CharacterRecord> duplicatePurchase = characterRepository.PurchaseAttributeIncrease(campaign, characterId, strength, toValue: 2, player, actorIsMainGm: false, granted.Value.Revisions.MechanicsRevision, expectedAttributeRevision: 0, purchaseCommandId, TestCorrelationId);
+            Result<CharacterRecord> duplicatePurchase = CharacterAdvancementService.PurchaseAttributeIncrease(characterRepository, campaign, characterId, strength, toValue: 2, player, actorIsMainGm: false, granted.Value.Revisions.MechanicsRevision, expectedAttributeRevision: 0, purchaseCommandId, TestCorrelationId);
             Assert.That(duplicatePurchase.IsSuccess, Is.True);
             Assert.That(duplicatePurchase.Value.DevelopmentPool.Spent, Is.EqualTo(spentAfterFirstPurchase), "step 7: a replayed duplicate CommandId must not spend a second time");
 
@@ -189,7 +190,7 @@ namespace Odyssey.Tests.Persistence.Integration
 
             // ---- Step 9: GM resolves a skill 5+ recommendation, consuming the evidence. ----
             Result<CharacterRecord> beforeRecommendation = characterRepository.GetCharacter(campaign, characterId, TestCorrelationId);
-            Result<AdvancementRecommendationRecord> recommendation = characterRepository.RequestSkillAdvancedRecommendation(campaign, characterId, stealth, targetLevel: 5, new[] { evidence.Value.EvidenceId }, mainGm, actorIsMainGm: true, beforeRecommendation.Value.Revisions.MechanicsRevision, NewCommandId(), TestCorrelationId);
+            Result<AdvancementRecommendationRecord> recommendation = CharacterAdvancementService.RequestSkillAdvancedRecommendation(characterRepository, campaign, characterId, stealth, targetLevel: 5, new[] { evidence.Value.EvidenceId }, mainGm, actorIsMainGm: true, beforeRecommendation.Value.Revisions.MechanicsRevision, NewCommandId(), TestCorrelationId);
             Assert.That(recommendation.IsSuccess, Is.True, "step 9: requesting the skill 5+ recommendation must succeed and reserve points");
 
             Result<CharacterRecord> afterRequest = characterRepository.GetCharacter(campaign, characterId, TestCorrelationId);
@@ -209,7 +210,7 @@ namespace Odyssey.Tests.Persistence.Integration
             // the request itself is accepted as a candidate reference; the
             // resolve is where reuse is actually rejected).
             var otherSkill = SkillDefinitionId.Parse("Perception");
-            Result<AdvancementRecommendationRecord> reuseRequest = characterRepository.RequestSkillAdvancedRecommendation(campaign, characterId, otherSkill, targetLevel: 5, new[] { evidence.Value.EvidenceId }, mainGm, actorIsMainGm: true, resolved.Value.Revisions.MechanicsRevision, NewCommandId(), TestCorrelationId);
+            Result<AdvancementRecommendationRecord> reuseRequest = CharacterAdvancementService.RequestSkillAdvancedRecommendation(characterRepository, campaign, characterId, otherSkill, targetLevel: 5, new[] { evidence.Value.EvidenceId }, mainGm, actorIsMainGm: true, resolved.Value.Revisions.MechanicsRevision, NewCommandId(), TestCorrelationId);
             Assert.That(reuseRequest.IsSuccess, Is.True);
             Result<CharacterRecord> afterReuseRequest = characterRepository.GetCharacter(campaign, characterId, TestCorrelationId);
             Result<CharacterRecord> reuseResolve = characterRepository.ResolveAdvancementRecommendation(campaign, characterId, reuseRequest.Value.RecommendationId, approve: true, spendReservedPoints: true, mainGm, actorIsMainGm: true, afterReuseRequest.Value.Revisions.MechanicsRevision, reuseRequest.Value.Revision, NewCommandId(), TestCorrelationId);
