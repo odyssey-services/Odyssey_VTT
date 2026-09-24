@@ -97,6 +97,29 @@ namespace Odyssey.Application.Persistence
         /// introduced.
         /// </summary>
         Result<TokenRecord> SetTokenPortrait(CampaignHandle campaign, TokenId tokenId, AssetId? portraitAssetId, long expectedRevision, CommandId commandId, CorrelationId correlationId);
+
+        /// <summary>
+        /// ODY-S08-101: read-only lookup of one Scene by id -- the counterpart of
+        /// <see cref="GetToken"/> that did not exist until now. Needed so a client
+        /// can read <see cref="SceneRecord.BackgroundAssetId"/> (there was no other
+        /// way to read a Scene back after <see cref="CreateScene"/>/<see cref="SetSceneBackground"/>).
+        /// </summary>
+        Result<SceneRecord> GetScene(CampaignHandle campaign, SceneId sceneId, CorrelationId correlationId);
+
+        /// <summary>
+        /// ODY-S08-101: the read-side counterpart of <see cref="RegisterAsset"/>, which
+        /// until now had no paired read -- nothing in the codebase could return an
+        /// asset's bytes. Returns the whole file as a <c>byte[]</c> (the only current
+        /// consumer is small images; a stream abstraction would have no consumer).
+        /// Fail-closed: an <paramref name="assetId"/> absent from this campaign's own
+        /// `AssetManifestEntries` (campaigns are separate database files, so this single
+        /// lookup is also the cross-campaign check) fails with `AssetNotFound`; a
+        /// manifest row whose file is missing on disk fails with `AssetFileMissing`; a
+        /// stored SHA-256 that does not match the bytes actually read, or a manifest path
+        /// that does not resolve inside the campaign's own `Assets/Objects` directory,
+        /// fails with `AssetIntegrityFailed`.
+        /// </summary>
+        Result<byte[]> ReadAssetContent(CampaignHandle campaign, AssetId assetId, CorrelationId correlationId);
     }
 
     public readonly struct TokenPosition : IEquatable<TokenPosition>

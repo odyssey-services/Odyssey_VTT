@@ -211,6 +211,24 @@ namespace Odyssey.Application.Persistence
             RetryDirective.DoNotRetry,
             correlationId);
 
+        /// <summary>ODY-S08-101: `SqliteSceneRepository.ReadAssetContent` failure when an `AssetManifestEntries` row exists but the file it points at is missing on disk -- a damaged campaign, not a caller error, so it is not folded into <see cref="AssetNotFound"/> or the generic I/O wrapper.</summary>
+        public static Error AssetFileMissing(CorrelationId correlationId) => Error.Create(
+            ErrorCodes.PersistenceAssetFileMissing,
+            ErrorCategory.Integrity,
+            SafeReasonCode.DataCorrupted,
+            UserMessageKey.Parse("errors.persistence.asset_file_missing"),
+            RetryDirective.ManualRecoveryRequired,
+            correlationId);
+
+        /// <summary>ODY-S08-101: `SqliteSceneRepository.ReadAssetContent` failure when the bytes on disk do not match the SHA-256 recorded at registration (file corrupted or replaced), the stored hash is absent, or the manifest path does not resolve inside the campaign's own `Assets/Objects` directory.</summary>
+        public static Error AssetIntegrityFailed(CorrelationId correlationId) => Error.Create(
+            ErrorCodes.PersistenceAssetIntegrityFailed,
+            ErrorCategory.Integrity,
+            SafeReasonCode.DataCorrupted,
+            UserMessageKey.Parse("errors.persistence.asset_integrity_failed"),
+            RetryDirective.ManualRecoveryRequired,
+            correlationId);
+
         /// <summary>ODY-S07-105: `SqliteSceneRepository.SetSceneBackground`'s own atomic optimistic-concurrency guard, mirroring <see cref="TokenRevisionConflict"/>'s exact convention -- enforced inside the same transaction as the update, independent of any Application-layer pre-check.</summary>
         public static Error SceneRevisionConflict(CorrelationId correlationId) => Error.Create(
             ErrorCodes.PersistenceSceneRevisionConflict,
