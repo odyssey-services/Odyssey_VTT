@@ -574,7 +574,8 @@ Persistence и Networking могут подключаться в отдельн�
 - conditional compilation не меняет бизнес-поведение;
 - Core не требует Unity defines;
 - Unity и .NET build используют совместимый language/API baseline;
-- расхождение результатов одинакового Core test считается defect.
+- расхождение результатов одинакового Core test считается defect;
+- каждый production `.csproj` в `DotNet/Projects` задаёт `<DisableTransitiveProjectReferences>true</DisableTransitiveProjectReferences>`: `dotnet build` тогда требует объявленной ссылки на каждый используемый project, то есть видит то же замыкание ссылок, что и Unity assembly definitions, у которых references не транзитивны. Без этого запрещённая матрицей §5 зависимость, достижимая через разрешённую (например, `Odyssey.Persistence` → `Odyssey.Rules` через `Odyssey.Application`), компилируется в .NET и ломает только Unity (`ODY-S09-105`).
 
 ---
 
@@ -592,7 +593,8 @@ CI обязан проверять границы автоматически.
 6. production assemblies не ссылаются на test assemblies;
 7. dependency graph ацикличен;
 8. pure .NET Core solution компилируется;
-9. запрещённые references блокируют pull request.
+9. запрещённые references блокируют pull request;
+10. каждый production `.csproj` в `DotNet/Projects` задаёт `DisableTransitiveProjectReferences=true` (правило §12), а его набор `ProjectReference`, `PackageReference` и `Compile` включает совпадает с этим ADR (`scripts/verify-test-structure.ps1`).
 
 Architecture check должен выдавать:
 
