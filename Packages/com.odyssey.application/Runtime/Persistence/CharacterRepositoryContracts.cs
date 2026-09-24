@@ -347,26 +347,9 @@ namespace Odyssey.Application.Persistence
         Result<CharacterRecord> RevertAdvancementPurchase(CampaignHandle campaign, CharacterId characterId, AdvancementPurchaseId purchaseId, string reasonCode, UserId actorUserId, bool actorIsMainGm, long expectedMechanicsRevision, CommandId commandId, CorrelationId correlationId);
 
         /// <summary>
-        /// ODY-S04-107: ADR-024 section 7.2, product section 13.5 steps 1-3 --
-        /// a read-only Query (ADR-002 section 4.2): no events, no state
-        /// change (verified directly by tests: <c>MechanicsRevision</c>/pool
-        /// balance identical before and after the call). Computes what would
-        /// be returned (every currently-<c>Applied</c> purchase for each
-        /// addressed target) and what would be newly purchased (one fresh
-        /// purchase per target whose <see cref="CharacterRespecTarget.DesiredValue"/>
-        /// exceeds zero), for client preview only -- <see cref="ApplyCharacterRespec"/>
-        /// never trusts this result back (CAP-INV-004); it recomputes the
-        /// identical plan itself, from scratch, inside its own transaction.
-        /// </summary>
-        Result<CharacterRespecPreview> PreviewCharacterRespec(CampaignHandle campaign, CharacterId characterId, IReadOnlyList<CharacterRespecTarget> targets, CorrelationId correlationId);
-
-        /// <summary>
         /// ODY-S04-107: ADR-024 section 7.2, product section 13.5 steps 4-8 --
         /// one compensating+forward batch, MainGM-only, <paramref name="reasonCode"/>
-        /// required. Recomputes the plan server-side from scratch inside its
-        /// own transaction (CAP-INV-004: never trusts a client-supplied
-        /// preview snapshot -- there is no such parameter on this method at
-        /// all). For each undone purchase: a compensating event
+        /// required. For each undone purchase: a compensating event
         /// (<c>IsCompensating=true</c>) plus <c>DevelopmentTransaction.Kind=RespecReturn</c>,
         /// <c>AdvancementPurchase.Status=SupersededByRespec</c>. For each new
         /// purchase: an ordinary forward event plus
@@ -385,8 +368,24 @@ namespace Odyssey.Application.Persistence
         /// <see cref="CommandId"/>/<c>AppliedCommands</c> remain the sole
         /// idempotency mechanism -- a duplicate <c>commandId</c> replays the
         /// stored result and does not re-apply the batch.
+        /// <para>
+        /// ODY-S09-103: this method no longer computes the plan -- Persistence may not reference <c>Odyssey.Rules</c>
+        /// (ADR-001 section 5; ADR-024/025: Persistence does not decide legality or cost), and the only Rules use in
+        /// the old computation was the cost of each fresh purchase. <c>Odyssey.Application.CharacterAdvancement.CharacterAdvancementService</c>
+        /// builds the whole plan (which purchases are returned, what is spent, at what cost) from a fresh read of the
+        /// Character and its purchase history and passes it in as <paramref name="decidedPlan"/>, together with
+        /// <paramref name="decidedMechanicsRevision"/> -- the <c>MechanicsRevision</c> that read was made at. Under the
+        /// transaction lock this method (1) rejects a target kind it does not support, (2) requires the locked
+        /// <c>MechanicsRevision</c> to still equal <paramref name="decidedMechanicsRevision"/> (every purchase, revert,
+        /// resolution and respec bumps it, so an equal revision means the plan was computed from exactly the state
+        /// being written to; otherwise <c>CharacterRevisionConflict</c>), and (3) checks that every entry of the plan
+        /// matches the locked state (a Return entry must name an Applied purchase of the same target and cost). It
+        /// never consults a client-supplied preview: the plan always comes from the Application service's own fresh
+        /// computation (CAP-INV-004). Preview is a pure read and lives entirely in the service
+        /// (<c>CharacterAdvancementService.PreviewCharacterRespec</c>); it no longer has a repository method.
+        /// </para>
         /// </summary>
-        Result<CharacterRecord> ApplyCharacterRespec(CampaignHandle campaign, CharacterId characterId, IReadOnlyList<CharacterRespecTarget> targets, string reasonCode, UserId actorUserId, bool actorIsMainGm, long expectedMechanicsRevision, CommandId commandId, CorrelationId correlationId);
+        Result<CharacterRecord> ApplyCharacterRespec(CampaignHandle campaign, CharacterId characterId, IReadOnlyList<CharacterRespecTarget> targets, CharacterRespecPreview decidedPlan, long decidedMechanicsRevision, string reasonCode, UserId actorUserId, bool actorIsMainGm, long expectedMechanicsRevision, CommandId commandId, CorrelationId correlationId);
 
         /// <summary>
         /// ODY-S04-108: product section 16, ADR-024 section 5.1/9 -- one
@@ -936,7 +935,7 @@ namespace Odyssey.Application.Persistence
         public AdvancementPurchaseId? SourcePurchaseId { get; }
     }
 
-    /// <summary>ODY-S04-107: <see cref="ICharacterRepository.PreviewCharacterRespec"/>'s computed result -- the same shape <see cref="ICharacterRepository.ApplyCharacterRespec"/> recomputes for itself server-side.</summary>
+    /// <summary>ODY-S04-107: the computed respec plan. ODY-S09-103: built by <c>CharacterAdvancementService</c> (the result of its <c>PreviewCharacterRespec</c>, and the plan it hands to <see cref="ICharacterRepository.ApplyCharacterRespec"/>).</summary>
     public sealed class CharacterRespecPreview
     {
         public CharacterRespecPreview(IReadOnlyList<CharacterRespecPlanEntry> entries, long totalReturned, long totalSpent)

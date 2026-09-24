@@ -290,5 +290,161 @@ namespace Odyssey.Application.CharacterAdvancement
 
             return 0;
         }
+
+        // ---------------------------------------------------------------------------------------------------
+        // ODY-S09-103: respec. The plan (which purchases are returned, what is repurchased and at what cost) used to be
+        // computed inside SqliteCharacterRepository; its only Rules use was the cost of each fresh purchase. The whole
+        // computation now lives here, unchanged in outcome. Preview is a pure read and never touches a revision gate;
+        // Apply recomputes the plan from a fresh read on every call (it takes no preview from the caller, so there is
+        // nothing stale to trust -- CAP-INV-004) and hands it to the repository together with the MechanicsRevision the
+        // read was made at. The repository re-checks that revision (and the plan against the locked purchase history)
+        // under its transaction lock, so a change made between this read and the commit is rejected, not overwritten.
+        // ---------------------------------------------------------------------------------------------------
+
+        /// <summary>
+        /// Read-only respec preview: reads the Character and its purchase history and computes the plan. No write, no
+        /// revision argument -- the same semantics the repository query had. The two reads are not one transaction
+        /// (they were two autocommit SELECTs before too); the result is advisory and <see cref="ApplyCharacterRespec"/>
+        /// never uses it.
+        /// </summary>
+        public static Result<CharacterRespecPreview> PreviewCharacterRespec(
+            ICharacterRepository characters,
+            CampaignHandle campaign,
+            CharacterId characterId,
+            IReadOnlyList<CharacterRespecTarget> targets,
+            CorrelationId correlationId)
+        {
+            if (characters == null) throw new ArgumentNullException(nameof(characters));
+            if (campaign == null) throw new ArgumentNullException(nameof(campaign));
+            if (!characterId.IsValid) throw new ArgumentException("CharacterId is required.", nameof(characterId));
+            if (targets == null || targets.Count == 0) throw new ArgumentException("At least one target is required.", nameof(targets));
+
+            Result<CharacterRecord> character = characters.GetCharacter(campaign, characterId, correlationId);
+            if (character.IsFailure) return Result<CharacterRespecPreview>.Failure(character.Error);
+
+            Result<IReadOnlyList<AdvancementPurchase>> purchases = characters.GetAdvancementPurchases(campaign, characterId, correlationId);
+            if (purchases.IsFailure) return Result<CharacterRespecPreview>.Failure(purchases.Error);
+
+            return ComputeRespecPlan(character.Value, purchases.Value, targets, correlationId);
+        }
+
+        /// <summary>
+        /// Applies a respec: builds the plan from a fresh read (character first, then purchase history, so any mutation
+        /// in between bumps the revision the plan is tagged with), then always calls
+        /// <see cref="ICharacterRepository.ApplyCharacterRespec"/>. Nothing here short-circuits: reason / permission /
+        /// not-found / unsupported-kind / revision failures are all reported by the repository in the same order as
+        /// before. If a read fails, or the plan cannot be built (an unsupported target kind), the repository is still
+        /// called -- with an empty plan and, for a failed read, a revision no Character can have (0) -- and produces the
+        /// failure the old single-method implementation produced.
+        /// </summary>
+        public static Result<CharacterRecord> ApplyCharacterRespec(
+            ICharacterRepository characters,
+            CampaignHandle campaign,
+            CharacterId characterId,
+            IReadOnlyList<CharacterRespecTarget> targets,
+            string reasonCode,
+            UserId actorUserId,
+            bool actorIsMainGm,
+            long expectedMechanicsRevision,
+            CommandId commandId,
+            CorrelationId correlationId)
+        {
+            if (characters == null) throw new ArgumentNullException(nameof(characters));
+            if (campaign == null) throw new ArgumentNullException(nameof(campaign));
+            if (!characterId.IsValid) throw new ArgumentException("CharacterId is required.", nameof(characterId));
+            if (targets == null || targets.Count == 0) throw new ArgumentException("At least one target is required.", nameof(targets));
+            if (!actorUserId.IsValid) throw new ArgumentException("ActorUserId is required.", nameof(actorUserId));
+            if (!commandId.IsValid) throw new ArgumentException("CommandId is required.", nameof(commandId));
+            if (expectedMechanicsRevision < 1) throw new ArgumentOutOfRangeException(nameof(expectedMechanicsRevision));
+
+            var emptyPlan = new CharacterRespecPreview(new List<CharacterRespecPlanEntry>(), 0, 0);
+            CharacterRespecPreview plan = emptyPlan;
+            long decidedMechanicsRevision = 0;
+
+            Result<CharacterRecord> character = characters.GetCharacter(campaign, characterId, correlationId);
+            if (character.IsSuccess)
+            {
+                Result<IReadOnlyList<AdvancementPurchase>> purchases = characters.GetAdvancementPurchases(campaign, characterId, correlationId);
+                if (purchases.IsSuccess)
+                {
+                    decidedMechanicsRevision = character.Value.Revisions.MechanicsRevision;
+                    Result<CharacterRespecPreview> computed = ComputeRespecPlan(character.Value, purchases.Value, targets, correlationId);
+                    if (computed.IsSuccess) plan = computed.Value;
+                }
+            }
+
+            return characters.ApplyCharacterRespec(
+                campaign, characterId, targets, plan, decidedMechanicsRevision, reasonCode,
+                actorUserId, actorIsMainGm, expectedMechanicsRevision, commandId, correlationId);
+        }
+
+        /// <summary>
+        /// The respec plan: reads each addressed target's authoritative CURRENT value from the Character's own
+        /// Attributes / Skills (never from the purchase history), returns every currently-Applied purchase of an
+        /// addressed target as a Return entry, and adds one Spend entry per target whose DesiredValue exceeds zero,
+        /// priced from zero with the attribute / skill cost rules. Moved verbatim from the repository
+        /// (ODY-S04-107); an AbilityAcquisition target is rejected (ODY-S04-108 section 1.3).
+        /// </summary>
+        private static Result<CharacterRespecPreview> ComputeRespecPlan(CharacterRecord current, IReadOnlyList<AdvancementPurchase> allPurchases, IReadOnlyList<CharacterRespecTarget> targets, CorrelationId correlationId)
+        {
+            var entries = new List<CharacterRespecPlanEntry>();
+            long totalReturned = 0;
+            long totalSpent = 0;
+
+            foreach (CharacterRespecTarget target in targets)
+            {
+                long currentValue;
+                if (target.OperationKind == AdvancementOperationKind.AttributeIncrease)
+                {
+                    AttributeDefinitionId targetId = AttributeDefinitionId.Parse(target.TargetDefinitionId);
+                    AttributeValue? existing = null;
+                    foreach (AttributeValue candidate in current.Attributes)
+                    {
+                        if (candidate.AttributeDefinitionId.Equals(targetId)) { existing = candidate; break; }
+                    }
+
+                    currentValue = existing?.BaseValue ?? 0;
+                }
+                else if (target.OperationKind == AdvancementOperationKind.SkillLevelPurchase)
+                {
+                    SkillDefinitionId targetId = SkillDefinitionId.Parse(target.TargetDefinitionId);
+                    CharacterSkill? existing = null;
+                    foreach (CharacterSkill candidate in current.Skills)
+                    {
+                        if (candidate.SkillDefinitionId.Equals(targetId)) { existing = candidate; break; }
+                    }
+
+                    currentValue = existing?.Level ?? 0;
+                }
+                else
+                {
+                    return Result<CharacterRespecPreview>.Failure(PersistenceFailures.CharacterAdvancementOperationKindNotSupported(correlationId));
+                }
+
+                if (currentValue == target.DesiredValue) continue;
+
+                foreach (AdvancementPurchase purchase in allPurchases)
+                {
+                    if (purchase.Status != AdvancementPurchaseStatus.Applied) continue;
+                    if (purchase.OperationKind != target.OperationKind) continue;
+                    if (!string.Equals(purchase.TargetDefinitionId, target.TargetDefinitionId, StringComparison.Ordinal)) continue;
+
+                    entries.Add(new CharacterRespecPlanEntry(CharacterRespecPlanAction.Return, target.OperationKind, target.TargetDefinitionId, purchase.Cost, purchase.PurchaseId));
+                    totalReturned += purchase.Cost;
+                }
+
+                if (target.DesiredValue > 0)
+                {
+                    long cost = target.OperationKind == AdvancementOperationKind.AttributeIncrease
+                        ? RulesAttributeCostRules.CostForIncrease(0, target.DesiredValue)
+                        : RulesSkillCostRules.CostForIncrease(0, target.DesiredValue);
+
+                    entries.Add(new CharacterRespecPlanEntry(CharacterRespecPlanAction.Spend, target.OperationKind, target.TargetDefinitionId, cost, null));
+                    totalSpent += cost;
+                }
+            }
+
+            return Result<CharacterRespecPreview>.Success(new CharacterRespecPreview(entries, totalReturned, totalSpent));
+        }
     }
 }

@@ -371,11 +371,11 @@ namespace Odyssey.Tests.Persistence
 
             var targets = new[] { new CharacterRespecTarget(AdvancementOperationKind.AbilityAcquisition, Fireball.ToString(), desiredValue: 0) };
 
-            Result<CharacterRespecPreview> preview = _characterRepository.PreviewCharacterRespec(_campaign, character.CharacterId, targets, TestCorrelationId);
+            Result<CharacterRespecPreview> preview = CharacterAdvancementService.PreviewCharacterRespec(_characterRepository, _campaign, character.CharacterId, targets, TestCorrelationId);
             Assert.That(preview.IsFailure, Is.True);
             Assert.That(preview.Error.Code, Is.EqualTo(ErrorCodes.PersistenceCharacterAdvancementOperationKindNotSupported));
 
-            Result<CharacterRecord> applied = _characterRepository.ApplyCharacterRespec(_campaign, character.CharacterId, targets, "test", NewUserId(), actorIsMainGm: true, acquired.Value.Revisions.MechanicsRevision, NewCommandId(), TestCorrelationId);
+            Result<CharacterRecord> applied = CharacterAdvancementService.ApplyCharacterRespec(_characterRepository, _campaign, character.CharacterId, targets, "test", NewUserId(), actorIsMainGm: true, acquired.Value.Revisions.MechanicsRevision, NewCommandId(), TestCorrelationId);
             Assert.That(applied.IsFailure, Is.True);
             Assert.That(applied.Error.Code, Is.EqualTo(ErrorCodes.PersistenceCharacterAdvancementOperationKindNotSupported));
 
