@@ -8,7 +8,10 @@ using Odyssey.Domain.Identity;
 using RulesAbilityCostRules = Odyssey.Rules.Character.AbilityCostRules;
 using RulesAnatomyInitializationRules = Odyssey.Rules.Character.AnatomyInitializationRules;
 using RulesAttributeCostRules = Odyssey.Rules.Character.AttributeCostRules;
+using RulesCharacterRulesetMigrationPlan = Odyssey.Rules.Character.CharacterRulesetMigrationPlan;
 using RulesResourceInitializationRules = Odyssey.Rules.Character.ResourceInitializationRules;
+using RulesRulesetDefinitionCatalog = Odyssey.Rules.Character.RulesetDefinitionCatalog;
+using RulesRulesetMigrationRules = Odyssey.Rules.Character.RulesetMigrationRules;
 using RulesSkillCostRules = Odyssey.Rules.Character.SkillCostRules;
 
 namespace Odyssey.Application.CharacterAdvancement
@@ -445,6 +448,103 @@ namespace Odyssey.Application.CharacterAdvancement
             }
 
             return Result<CharacterRespecPreview>.Success(new CharacterRespecPreview(entries, totalReturned, totalSpent));
+        }
+
+        // ---------------------------------------------------------------------------------------------------
+        // ODY-S09-104: ruleset migration. The plan (definition mappings and unresolved decisions) used to be built, and
+        // compared by hash against a caller-supplied plan, inside SqliteCharacterRepository. Both now live here, in a
+        // simpler form: the service never accepts a plan from the caller. Preview is a pure read; Apply reads the
+        // Character, builds the plan from that read, and hands the repository only what the write needs plus the state
+        // the plan was built from (source RulesetVersion and the three section revisions -- exactly the variable inputs
+        // the former PreviewHash covered). The repository re-checks that state under its transaction lock and rejects a
+        // stale plan (CharacterRulesetMigrationStalePlan), so a change between this read and the commit is rejected, and a
+        // plan cached by the caller cannot exist any more.
+        // ---------------------------------------------------------------------------------------------------
+
+        /// <summary>
+        /// Read-only migration preview: reads the Character and builds the plan with <c>RulesetMigrationRules.BuildPlan</c>
+        /// (mappings, unresolved decisions, the revisions and hash it was computed at). No write, no revision gate.
+        /// </summary>
+        public static Result<RulesCharacterRulesetMigrationPlan> PreviewCharacterRulesetMigration(
+            ICharacterRepository characters,
+            CampaignHandle campaign,
+            CharacterId characterId,
+            string targetRulesetId,
+            string targetRulesetVersion,
+            RulesRulesetDefinitionCatalog targetCatalog,
+            CorrelationId correlationId)
+        {
+            if (characters == null) throw new ArgumentNullException(nameof(characters));
+            if (campaign == null) throw new ArgumentNullException(nameof(campaign));
+            if (!characterId.IsValid) throw new ArgumentException("CharacterId is required.", nameof(characterId));
+            if (string.IsNullOrWhiteSpace(targetRulesetId)) throw new ArgumentException("TargetRulesetId is required.", nameof(targetRulesetId));
+            if (string.IsNullOrWhiteSpace(targetRulesetVersion)) throw new ArgumentException("TargetRulesetVersion is required.", nameof(targetRulesetVersion));
+            if (targetCatalog == null) throw new ArgumentNullException(nameof(targetCatalog));
+
+            Result<CharacterRecord> read = characters.GetCharacter(campaign, characterId, correlationId);
+            if (read.IsFailure) return Result<RulesCharacterRulesetMigrationPlan>.Failure(read.Error);
+
+            return Result<RulesCharacterRulesetMigrationPlan>.Success(BuildMigrationPlan(campaign, read.Value, targetRulesetId, targetRulesetVersion, targetCatalog));
+        }
+
+        /// <summary>
+        /// Applies a ruleset migration: builds the plan fresh from one read and always calls
+        /// <see cref="ICharacterRepository.ApplyCharacterRulesetMigration"/>. Nothing short-circuits here, so an
+        /// unauthorized actor is still told "denied" before "unresolved decisions", and a missing character is still
+        /// reported by the repository, exactly as before. If the read fails the repository is called with an empty basis
+        /// (empty source version, revisions 0) and reports the failure the old single-method implementation reported.
+        /// </summary>
+        public static Result<CharacterRecord> ApplyCharacterRulesetMigration(
+            ICharacterRepository characters,
+            CampaignHandle campaign,
+            CharacterId characterId,
+            string targetRulesetId,
+            string targetRulesetVersion,
+            RulesRulesetDefinitionCatalog targetCatalog,
+            UserId actorUserId,
+            bool actorIsMainGm,
+            CommandId commandId,
+            CorrelationId correlationId)
+        {
+            if (characters == null) throw new ArgumentNullException(nameof(characters));
+            if (campaign == null) throw new ArgumentNullException(nameof(campaign));
+            if (!characterId.IsValid) throw new ArgumentException("CharacterId is required.", nameof(characterId));
+            if (string.IsNullOrWhiteSpace(targetRulesetId)) throw new ArgumentException("TargetRulesetId is required.", nameof(targetRulesetId));
+            if (string.IsNullOrWhiteSpace(targetRulesetVersion)) throw new ArgumentException("TargetRulesetVersion is required.", nameof(targetRulesetVersion));
+            if (targetCatalog == null) throw new ArgumentNullException(nameof(targetCatalog));
+            if (!actorUserId.IsValid) throw new ArgumentException("ActorUserId is required.", nameof(actorUserId));
+            if (!commandId.IsValid) throw new ArgumentException("CommandId is required.", nameof(commandId));
+
+            string sourceVersion = string.Empty;
+            long mechanicsRevision = 0;
+            long abilitiesRevision = 0;
+            long resourcesRevision = 0;
+            bool hasUnresolved = false;
+            int mappingCount = 0;
+
+            Result<CharacterRecord> read = characters.GetCharacter(campaign, characterId, correlationId);
+            if (read.IsSuccess)
+            {
+                RulesCharacterRulesetMigrationPlan plan = BuildMigrationPlan(campaign, read.Value, targetRulesetId, targetRulesetVersion, targetCatalog);
+                sourceVersion = read.Value.RulesetVersion;
+                mechanicsRevision = plan.ExpectedMechanicsRevision;
+                abilitiesRevision = plan.ExpectedCharacterAbilitiesRevision;
+                resourcesRevision = plan.ExpectedCharacterResourcesRevision;
+                hasUnresolved = plan.HasUnresolvedDecisions;
+                mappingCount = plan.DefinitionMappings.Count;
+            }
+
+            return characters.ApplyCharacterRulesetMigration(
+                campaign, characterId, targetRulesetVersion, sourceVersion, mechanicsRevision, abilitiesRevision, resourcesRevision,
+                hasUnresolved, mappingCount, actorUserId, actorIsMainGm, commandId, correlationId);
+        }
+
+        private static RulesCharacterRulesetMigrationPlan BuildMigrationPlan(CampaignHandle campaign, CharacterRecord current, string targetRulesetId, string targetRulesetVersion, RulesRulesetDefinitionCatalog targetCatalog)
+        {
+            return RulesRulesetMigrationRules.BuildPlan(
+                current.CharacterId, campaign.Manifest.RulesetId, current.RulesetVersion, targetRulesetId, targetRulesetVersion,
+                current.Attributes, current.Skills, current.Abilities, current.Resources, targetCatalog,
+                current.Revisions.MechanicsRevision, current.Revisions.CharacterAbilitiesRevision, current.Revisions.CharacterResourcesRevision);
         }
     }
 }
