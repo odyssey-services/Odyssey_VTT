@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using NUnit.Framework;
+using Odyssey.Application.CharacterAdvancement;
 using Odyssey.Application.Commands;
 using Odyssey.Application.Persistence;
 using Odyssey.Application.Results;
@@ -95,7 +96,7 @@ namespace Odyssey.Tests.Persistence
             CharacterRecord granted = GrantPoints(character, 10);
             Assert.That(granted.Skills, Is.Empty);
 
-            Result<CharacterRecord> purchased = _characterRepository.PurchaseSkillLevel(_campaign, character.CharacterId, Stealth, toLevel: 1, NewUserId(), actorIsMainGm: true, granted.Revisions.MechanicsRevision, expectedSkillRevision: 0, NewCommandId(), TestCorrelationId);
+            Result<CharacterRecord> purchased = CharacterAdvancementService.PurchaseSkillLevel(_characterRepository, _campaign, character.CharacterId, Stealth, toLevel: 1, NewUserId(), actorIsMainGm: true, granted.Revisions.MechanicsRevision, expectedSkillRevision: 0, NewCommandId(), TestCorrelationId);
 
             Assert.That(purchased.IsSuccess, Is.True);
             CharacterSkill skill = purchased.Value.Skills.Single(s => s.SkillDefinitionId.Equals(Stealth));
@@ -111,7 +112,7 @@ namespace Odyssey.Tests.Persistence
             CharacterRecord character = CreateCharacter();
             CharacterRecord granted = GrantPoints(character, 10);
 
-            Result<CharacterRecord> purchased = _characterRepository.PurchaseSkillLevel(_campaign, character.CharacterId, Stealth, toLevel: 2, NewUserId(), actorIsMainGm: true, granted.Revisions.MechanicsRevision, expectedSkillRevision: 0, NewCommandId(), TestCorrelationId);
+            Result<CharacterRecord> purchased = CharacterAdvancementService.PurchaseSkillLevel(_characterRepository, _campaign, character.CharacterId, Stealth, toLevel: 2, NewUserId(), actorIsMainGm: true, granted.Revisions.MechanicsRevision, expectedSkillRevision: 0, NewCommandId(), TestCorrelationId);
 
             Assert.That(purchased.IsSuccess, Is.True);
             // Fixture cost: 3 dev points per skill point (SkillCostRules.CostPerSkillPoint).
@@ -125,7 +126,7 @@ namespace Odyssey.Tests.Persistence
             CharacterRecord character = CreateCharacter();
             CharacterRecord granted = GrantPoints(character, 1);
 
-            Result<CharacterRecord> purchased = _characterRepository.PurchaseSkillLevel(_campaign, character.CharacterId, Stealth, toLevel: 2, NewUserId(), actorIsMainGm: true, granted.Revisions.MechanicsRevision, expectedSkillRevision: 0, NewCommandId(), TestCorrelationId);
+            Result<CharacterRecord> purchased = CharacterAdvancementService.PurchaseSkillLevel(_characterRepository, _campaign, character.CharacterId, Stealth, toLevel: 2, NewUserId(), actorIsMainGm: true, granted.Revisions.MechanicsRevision, expectedSkillRevision: 0, NewCommandId(), TestCorrelationId);
 
             Assert.That(purchased.IsFailure, Is.True);
             Assert.That(purchased.Error.Code, Is.EqualTo(ErrorCodes.PersistenceCharacterDevelopmentInsufficientBalance));
@@ -144,7 +145,7 @@ namespace Odyssey.Tests.Persistence
             CharacterRecord character = CreateCharacter();
             CharacterRecord granted = GrantPoints(character, 1000);
 
-            Result<CharacterRecord> purchased = _characterRepository.PurchaseSkillLevel(_campaign, character.CharacterId, Stealth, toLevel: 5, NewUserId(), actorIsMainGm: true, granted.Revisions.MechanicsRevision, expectedSkillRevision: 0, NewCommandId(), TestCorrelationId);
+            Result<CharacterRecord> purchased = CharacterAdvancementService.PurchaseSkillLevel(_characterRepository, _campaign, character.CharacterId, Stealth, toLevel: 5, NewUserId(), actorIsMainGm: true, granted.Revisions.MechanicsRevision, expectedSkillRevision: 0, NewCommandId(), TestCorrelationId);
 
             Assert.That(purchased.IsFailure, Is.True);
             Assert.That(purchased.Error.Code, Is.EqualTo(ErrorCodes.PersistenceCharacterSkillLevelRequiresRecommendation));
@@ -161,7 +162,7 @@ namespace Odyssey.Tests.Persistence
             Result<CriticalSuccessEvidenceRecord> evidence = _characterRepository.RecordCriticalSuccessEvidence(_campaign, character.CharacterId, Stealth, "roll_1", null, NewCommandId(), TestCorrelationId);
             Assert.That(evidence.IsSuccess, Is.True);
 
-            Result<AdvancementRecommendationRecord> requested = _characterRepository.RequestSkillAdvancedRecommendation(_campaign, character.CharacterId, Stealth, targetLevel: 5, new[] { evidence.Value.EvidenceId }, NewUserId(), actorIsMainGm: true, granted.Revisions.MechanicsRevision, NewCommandId(), TestCorrelationId);
+            Result<AdvancementRecommendationRecord> requested = CharacterAdvancementService.RequestSkillAdvancedRecommendation(_characterRepository, _campaign, character.CharacterId, Stealth, targetLevel: 5, new[] { evidence.Value.EvidenceId }, NewUserId(), actorIsMainGm: true, granted.Revisions.MechanicsRevision, NewCommandId(), TestCorrelationId);
 
             Assert.That(requested.IsSuccess, Is.True);
             Assert.That(requested.Value.Status, Is.EqualTo(AdvancementRecommendationStatus.Pending));
@@ -185,7 +186,7 @@ namespace Odyssey.Tests.Persistence
             CharacterRecord granted = GrantPoints(character, 20);
             Result<CriticalSuccessEvidenceRecord> evidence = _characterRepository.RecordCriticalSuccessEvidence(_campaign, character.CharacterId, Stealth, "roll_1", null, NewCommandId(), TestCorrelationId);
             Assert.That(evidence.IsSuccess, Is.True);
-            Result<AdvancementRecommendationRecord> requested = _characterRepository.RequestSkillAdvancedRecommendation(_campaign, character.CharacterId, Stealth, targetLevel: 5, new[] { evidence.Value.EvidenceId }, NewUserId(), actorIsMainGm: true, granted.Revisions.MechanicsRevision, NewCommandId(), TestCorrelationId);
+            Result<AdvancementRecommendationRecord> requested = CharacterAdvancementService.RequestSkillAdvancedRecommendation(_characterRepository, _campaign, character.CharacterId, Stealth, targetLevel: 5, new[] { evidence.Value.EvidenceId }, NewUserId(), actorIsMainGm: true, granted.Revisions.MechanicsRevision, NewCommandId(), TestCorrelationId);
             Assert.That(requested.IsSuccess, Is.True);
             Result<CharacterRecord> afterRequest = _characterRepository.GetCharacter(_campaign, character.CharacterId, TestCorrelationId);
             Assert.That(afterRequest.IsSuccess, Is.True);
@@ -218,7 +219,7 @@ namespace Odyssey.Tests.Persistence
             CharacterRecord granted = GrantPoints(character, 20);
             Result<CriticalSuccessEvidenceRecord> evidence = _characterRepository.RecordCriticalSuccessEvidence(_campaign, character.CharacterId, Stealth, "roll_1", null, NewCommandId(), TestCorrelationId);
             Assert.That(evidence.IsSuccess, Is.True);
-            Result<AdvancementRecommendationRecord> requested = _characterRepository.RequestSkillAdvancedRecommendation(_campaign, character.CharacterId, Stealth, targetLevel: 5, new[] { evidence.Value.EvidenceId }, NewUserId(), actorIsMainGm: true, granted.Revisions.MechanicsRevision, NewCommandId(), TestCorrelationId);
+            Result<AdvancementRecommendationRecord> requested = CharacterAdvancementService.RequestSkillAdvancedRecommendation(_characterRepository, _campaign, character.CharacterId, Stealth, targetLevel: 5, new[] { evidence.Value.EvidenceId }, NewUserId(), actorIsMainGm: true, granted.Revisions.MechanicsRevision, NewCommandId(), TestCorrelationId);
             Assert.That(requested.IsSuccess, Is.True);
             Result<CharacterRecord> afterRequest = _characterRepository.GetCharacter(_campaign, character.CharacterId, TestCorrelationId);
 
@@ -246,7 +247,7 @@ namespace Odyssey.Tests.Persistence
             Result<CriticalSuccessEvidenceRecord> evidence = _characterRepository.RecordCriticalSuccessEvidence(_campaign, character.CharacterId, Stealth, "roll_1", null, NewCommandId(), TestCorrelationId);
             Assert.That(evidence.IsSuccess, Is.True);
 
-            Result<AdvancementRecommendationRecord> firstRequest = _characterRepository.RequestSkillAdvancedRecommendation(_campaign, character.CharacterId, Stealth, targetLevel: 5, new[] { evidence.Value.EvidenceId }, NewUserId(), actorIsMainGm: true, granted.Revisions.MechanicsRevision, NewCommandId(), TestCorrelationId);
+            Result<AdvancementRecommendationRecord> firstRequest = CharacterAdvancementService.RequestSkillAdvancedRecommendation(_characterRepository, _campaign, character.CharacterId, Stealth, targetLevel: 5, new[] { evidence.Value.EvidenceId }, NewUserId(), actorIsMainGm: true, granted.Revisions.MechanicsRevision, NewCommandId(), TestCorrelationId);
             Assert.That(firstRequest.IsSuccess, Is.True);
             Result<CharacterRecord> afterFirstRequest = _characterRepository.GetCharacter(_campaign, character.CharacterId, TestCorrelationId);
             Result<CharacterRecord> firstResolve = _characterRepository.ResolveAdvancementRecommendation(_campaign, character.CharacterId, firstRequest.Value.RecommendationId, approve: true, spendReservedPoints: true, NewUserId(), actorIsMainGm: true, afterFirstRequest.Value.Revisions.MechanicsRevision, firstRequest.Value.Revision, NewCommandId(), TestCorrelationId);
@@ -255,7 +256,7 @@ namespace Odyssey.Tests.Persistence
             // A second recommendation, on a different skill, referencing the
             // SAME already-consumed evidence.
             var otherSkill = SkillDefinitionId.Parse("Perception");
-            Result<AdvancementRecommendationRecord> secondRequest = _characterRepository.RequestSkillAdvancedRecommendation(_campaign, character.CharacterId, otherSkill, targetLevel: 5, new[] { evidence.Value.EvidenceId }, NewUserId(), actorIsMainGm: true, firstResolve.Value.Revisions.MechanicsRevision, NewCommandId(), TestCorrelationId);
+            Result<AdvancementRecommendationRecord> secondRequest = CharacterAdvancementService.RequestSkillAdvancedRecommendation(_characterRepository, _campaign, character.CharacterId, otherSkill, targetLevel: 5, new[] { evidence.Value.EvidenceId }, NewUserId(), actorIsMainGm: true, firstResolve.Value.Revisions.MechanicsRevision, NewCommandId(), TestCorrelationId);
             Assert.That(secondRequest.IsSuccess, Is.True);
             Result<CharacterRecord> afterSecondRequest = _characterRepository.GetCharacter(_campaign, character.CharacterId, TestCorrelationId);
 
@@ -282,9 +283,9 @@ namespace Odyssey.Tests.Persistence
             CharacterRecord granted = GrantPoints(character, 10);
             CommandId commandId = NewCommandId();
 
-            Result<CharacterRecord> first = _characterRepository.PurchaseSkillLevel(_campaign, character.CharacterId, Stealth, toLevel: 2, NewUserId(), actorIsMainGm: true, granted.Revisions.MechanicsRevision, expectedSkillRevision: 0, commandId, TestCorrelationId);
+            Result<CharacterRecord> first = CharacterAdvancementService.PurchaseSkillLevel(_characterRepository, _campaign, character.CharacterId, Stealth, toLevel: 2, NewUserId(), actorIsMainGm: true, granted.Revisions.MechanicsRevision, expectedSkillRevision: 0, commandId, TestCorrelationId);
             Assert.That(first.IsSuccess, Is.True);
-            Result<CharacterRecord> second = _characterRepository.PurchaseSkillLevel(_campaign, character.CharacterId, Stealth, toLevel: 2, NewUserId(), actorIsMainGm: true, granted.Revisions.MechanicsRevision, expectedSkillRevision: 0, commandId, TestCorrelationId);
+            Result<CharacterRecord> second = CharacterAdvancementService.PurchaseSkillLevel(_characterRepository, _campaign, character.CharacterId, Stealth, toLevel: 2, NewUserId(), actorIsMainGm: true, granted.Revisions.MechanicsRevision, expectedSkillRevision: 0, commandId, TestCorrelationId);
             Assert.That(second.IsSuccess, Is.True);
 
             Result<CharacterRecord> reRead = _characterRepository.GetCharacter(_campaign, character.CharacterId, TestCorrelationId);
@@ -301,9 +302,9 @@ namespace Odyssey.Tests.Persistence
             Result<CriticalSuccessEvidenceRecord> evidence = _characterRepository.RecordCriticalSuccessEvidence(_campaign, character.CharacterId, Stealth, "roll_1", null, NewCommandId(), TestCorrelationId);
             CommandId commandId = NewCommandId();
 
-            Result<AdvancementRecommendationRecord> first = _characterRepository.RequestSkillAdvancedRecommendation(_campaign, character.CharacterId, Stealth, targetLevel: 5, new[] { evidence.Value.EvidenceId }, NewUserId(), actorIsMainGm: true, granted.Revisions.MechanicsRevision, commandId, TestCorrelationId);
+            Result<AdvancementRecommendationRecord> first = CharacterAdvancementService.RequestSkillAdvancedRecommendation(_characterRepository, _campaign, character.CharacterId, Stealth, targetLevel: 5, new[] { evidence.Value.EvidenceId }, NewUserId(), actorIsMainGm: true, granted.Revisions.MechanicsRevision, commandId, TestCorrelationId);
             Assert.That(first.IsSuccess, Is.True);
-            Result<AdvancementRecommendationRecord> second = _characterRepository.RequestSkillAdvancedRecommendation(_campaign, character.CharacterId, Stealth, targetLevel: 5, new[] { evidence.Value.EvidenceId }, NewUserId(), actorIsMainGm: true, granted.Revisions.MechanicsRevision, commandId, TestCorrelationId);
+            Result<AdvancementRecommendationRecord> second = CharacterAdvancementService.RequestSkillAdvancedRecommendation(_characterRepository, _campaign, character.CharacterId, Stealth, targetLevel: 5, new[] { evidence.Value.EvidenceId }, NewUserId(), actorIsMainGm: true, granted.Revisions.MechanicsRevision, commandId, TestCorrelationId);
             Assert.That(second.IsSuccess, Is.True);
             Assert.That(second.Value.RecommendationId, Is.EqualTo(first.Value.RecommendationId));
 
@@ -319,7 +320,7 @@ namespace Odyssey.Tests.Persistence
             CharacterRecord character = CreateCharacter();
             CharacterRecord granted = GrantPoints(character, 20);
             Result<CriticalSuccessEvidenceRecord> evidence = _characterRepository.RecordCriticalSuccessEvidence(_campaign, character.CharacterId, Stealth, "roll_1", null, NewCommandId(), TestCorrelationId);
-            Result<AdvancementRecommendationRecord> requested = _characterRepository.RequestSkillAdvancedRecommendation(_campaign, character.CharacterId, Stealth, targetLevel: 5, new[] { evidence.Value.EvidenceId }, NewUserId(), actorIsMainGm: true, granted.Revisions.MechanicsRevision, NewCommandId(), TestCorrelationId);
+            Result<AdvancementRecommendationRecord> requested = CharacterAdvancementService.RequestSkillAdvancedRecommendation(_characterRepository, _campaign, character.CharacterId, Stealth, targetLevel: 5, new[] { evidence.Value.EvidenceId }, NewUserId(), actorIsMainGm: true, granted.Revisions.MechanicsRevision, NewCommandId(), TestCorrelationId);
             Result<CharacterRecord> afterRequest = _characterRepository.GetCharacter(_campaign, character.CharacterId, TestCorrelationId);
             CommandId commandId = NewCommandId();
 
@@ -342,7 +343,7 @@ namespace Odyssey.Tests.Persistence
             CharacterRecord character = CreateCharacter();
             CharacterRecord granted = GrantPoints(character, 10);
 
-            Result<CharacterRecord> purchaseResult = _characterRepository.PurchaseSkillLevel(_campaign, character.CharacterId, Stealth, toLevel: 1, NewUserId(), actorIsMainGm: true, granted.Revisions.MechanicsRevision, expectedSkillRevision: 0, NewCommandId(), TestCorrelationId);
+            Result<CharacterRecord> purchaseResult = CharacterAdvancementService.PurchaseSkillLevel(_characterRepository, _campaign, character.CharacterId, Stealth, toLevel: 1, NewUserId(), actorIsMainGm: true, granted.Revisions.MechanicsRevision, expectedSkillRevision: 0, NewCommandId(), TestCorrelationId);
             Result<CharacterRecord> identityResult = _characterRepository.UpdateIdentity(_campaign, character.CharacterId, "Renamed Skill Character", character.Revisions.IdentityRevision, NewCommandId(), TestCorrelationId);
 
             Assert.That(purchaseResult.IsSuccess, Is.True);
@@ -367,7 +368,7 @@ namespace Odyssey.Tests.Persistence
             CharacterRecord granted = GrantPoints(character, 20);
             Result<CriticalSuccessEvidenceRecord> evidence = _characterRepository.RecordCriticalSuccessEvidence(_campaign, character.CharacterId, Stealth, "roll_1", null, NewCommandId(), TestCorrelationId);
             Assert.That(evidence.IsSuccess, Is.True);
-            Result<AdvancementRecommendationRecord> requested = _characterRepository.RequestSkillAdvancedRecommendation(_campaign, character.CharacterId, Stealth, targetLevel: 5, new[] { evidence.Value.EvidenceId }, NewUserId(), actorIsMainGm: true, granted.Revisions.MechanicsRevision, NewCommandId(), TestCorrelationId);
+            Result<AdvancementRecommendationRecord> requested = CharacterAdvancementService.RequestSkillAdvancedRecommendation(_characterRepository, _campaign, character.CharacterId, Stealth, targetLevel: 5, new[] { evidence.Value.EvidenceId }, NewUserId(), actorIsMainGm: true, granted.Revisions.MechanicsRevision, NewCommandId(), TestCorrelationId);
             Assert.That(requested.IsSuccess, Is.True);
             Result<CharacterRecord> afterRequest = _characterRepository.GetCharacter(_campaign, character.CharacterId, TestCorrelationId);
             Result<CharacterRecord> resolved = _characterRepository.ResolveAdvancementRecommendation(_campaign, character.CharacterId, requested.Value.RecommendationId, approve: true, spendReservedPoints: true, NewUserId(), actorIsMainGm: true, afterRequest.Value.Revisions.MechanicsRevision, requested.Value.Revision, NewCommandId(), TestCorrelationId);
@@ -394,7 +395,7 @@ namespace Odyssey.Tests.Persistence
             CharacterRecord granted = GrantPoints(character, 20);
             Result<CriticalSuccessEvidenceRecord> evidence = _characterRepository.RecordCriticalSuccessEvidence(_campaign, character.CharacterId, Stealth, "roll_1", null, NewCommandId(), TestCorrelationId);
             Assert.That(evidence.IsSuccess, Is.True);
-            Result<AdvancementRecommendationRecord> requested = _characterRepository.RequestSkillAdvancedRecommendation(_campaign, character.CharacterId, Stealth, targetLevel: 5, new[] { evidence.Value.EvidenceId }, NewUserId(), actorIsMainGm: true, granted.Revisions.MechanicsRevision, NewCommandId(), TestCorrelationId);
+            Result<AdvancementRecommendationRecord> requested = CharacterAdvancementService.RequestSkillAdvancedRecommendation(_characterRepository, _campaign, character.CharacterId, Stealth, targetLevel: 5, new[] { evidence.Value.EvidenceId }, NewUserId(), actorIsMainGm: true, granted.Revisions.MechanicsRevision, NewCommandId(), TestCorrelationId);
             Assert.That(requested.IsSuccess, Is.True);
             Result<CharacterRecord> afterRequest = _characterRepository.GetCharacter(_campaign, character.CharacterId, TestCorrelationId);
             Result<CharacterRecord> dismissed = _characterRepository.ResolveAdvancementRecommendation(_campaign, character.CharacterId, requested.Value.RecommendationId, approve: false, spendReservedPoints: false, NewUserId(), actorIsMainGm: true, afterRequest.Value.Revisions.MechanicsRevision, requested.Value.Revision, NewCommandId(), TestCorrelationId);

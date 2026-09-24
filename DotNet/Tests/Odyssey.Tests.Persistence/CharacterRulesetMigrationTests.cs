@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.IO;
 using NUnit.Framework;
+using Odyssey.Application.CharacterAdvancement;
 using Odyssey.Application.Commands;
 using Odyssey.Application.Persistence;
 using Odyssey.Application.Results;
@@ -66,7 +67,7 @@ namespace Odyssey.Tests.Persistence
             Result<CharacterRecord> granted = _characterRepository.GrantDevelopmentPoints(_campaign, bound.Value.CharacterId, 10, "fixture grant", NewUserId(), actorIsMainGm: true, bound.Value.Revisions.MechanicsRevision, NewCommandId(), TestCorrelationId);
             Assert.That(granted.IsSuccess, Is.True);
 
-            Result<CharacterRecord> purchased = _characterRepository.PurchaseAttributeIncrease(_campaign, bound.Value.CharacterId, Strength, toValue: 2, NewUserId(), actorIsMainGm: true, granted.Value.Revisions.MechanicsRevision, expectedAttributeRevision: 0, NewCommandId(), TestCorrelationId);
+            Result<CharacterRecord> purchased = CharacterAdvancementService.PurchaseAttributeIncrease(_characterRepository, _campaign, bound.Value.CharacterId, Strength, toValue: 2, NewUserId(), actorIsMainGm: true, granted.Value.Revisions.MechanicsRevision, expectedAttributeRevision: 0, NewCommandId(), TestCorrelationId);
             Assert.That(purchased.IsSuccess, Is.True);
             return purchased.Value;
         }
@@ -175,7 +176,7 @@ namespace Odyssey.Tests.Persistence
             Assert.That(preview.IsSuccess, Is.True);
 
             // Character mutated after preview was built -- the cached plan is now stale.
-            Result<CharacterRecord> secondPurchase = _characterRepository.PurchaseAttributeIncrease(_campaign, character.CharacterId, AttributeDefinitionId.Parse("Dexterity"), toValue: 1, NewUserId(), actorIsMainGm: true, character.Revisions.MechanicsRevision, expectedAttributeRevision: 0, NewCommandId(), TestCorrelationId);
+            Result<CharacterRecord> secondPurchase = CharacterAdvancementService.PurchaseAttributeIncrease(_characterRepository, _campaign, character.CharacterId, AttributeDefinitionId.Parse("Dexterity"), toValue: 1, NewUserId(), actorIsMainGm: true, character.Revisions.MechanicsRevision, expectedAttributeRevision: 0, NewCommandId(), TestCorrelationId);
             Assert.That(secondPurchase.IsSuccess, Is.True);
 
             Result<CharacterRecord> applied = _characterRepository.ApplyCharacterRulesetMigration(_campaign, character.CharacterId, preview.Value, catalog, NewUserId(), actorIsMainGm: true, NewCommandId(), TestCorrelationId);

@@ -2,6 +2,7 @@ using System;
 using System.IO;
 using System.Linq;
 using NUnit.Framework;
+using Odyssey.Application.CharacterAdvancement;
 using Odyssey.Application.Commands;
 using Odyssey.Application.Persistence;
 using Odyssey.Application.Results;
@@ -116,7 +117,7 @@ namespace Odyssey.Tests.Persistence
             Result<CharacterRecord> granted = _characterRepository.GrantDevelopmentPoints(_campaign, character.CharacterId, 10, "Initial grant", NewUserId(), actorIsMainGm: true, character.Revisions.MechanicsRevision, NewCommandId(), TestCorrelationId);
             Assert.That(granted.IsSuccess, Is.True);
 
-            Result<CharacterRecord> purchased = _characterRepository.PurchaseAttributeIncrease(_campaign, character.CharacterId, Strength, toValue: 2, owner, actorIsMainGm: true, granted.Value.Revisions.MechanicsRevision, expectedAttributeRevision: 0, NewCommandId(), TestCorrelationId);
+            Result<CharacterRecord> purchased = CharacterAdvancementService.PurchaseAttributeIncrease(_characterRepository, _campaign, character.CharacterId, Strength, toValue: 2, owner, actorIsMainGm: true, granted.Value.Revisions.MechanicsRevision, expectedAttributeRevision: 0, NewCommandId(), TestCorrelationId);
 
             Assert.That(purchased.IsSuccess, Is.True);
             // Fixture cost: 2 dev points per attribute point (AttributeCostRules.CostPerAttributePoint).
@@ -137,7 +138,7 @@ namespace Odyssey.Tests.Persistence
             Result<CharacterRecord> granted = _characterRepository.GrantDevelopmentPoints(_campaign, character.CharacterId, 1, "Small grant", NewUserId(), actorIsMainGm: true, character.Revisions.MechanicsRevision, NewCommandId(), TestCorrelationId);
             Assert.That(granted.IsSuccess, Is.True);
 
-            Result<CharacterRecord> purchased = _characterRepository.PurchaseAttributeIncrease(_campaign, character.CharacterId, Strength, toValue: 2, NewUserId(), actorIsMainGm: true, granted.Value.Revisions.MechanicsRevision, expectedAttributeRevision: 0, NewCommandId(), TestCorrelationId);
+            Result<CharacterRecord> purchased = CharacterAdvancementService.PurchaseAttributeIncrease(_characterRepository, _campaign, character.CharacterId, Strength, toValue: 2, NewUserId(), actorIsMainGm: true, granted.Value.Revisions.MechanicsRevision, expectedAttributeRevision: 0, NewCommandId(), TestCorrelationId);
 
             Assert.That(purchased.IsFailure, Is.True);
             Assert.That(purchased.Error.Code, Is.EqualTo(ErrorCodes.PersistenceCharacterDevelopmentInsufficientBalance));
@@ -158,7 +159,7 @@ namespace Odyssey.Tests.Persistence
             Assert.That(granted.IsSuccess, Is.True);
 
             // AttributeCostRules.NormalDevelopmentCap == 15 (test fixture).
-            Result<CharacterRecord> purchased = _characterRepository.PurchaseAttributeIncrease(_campaign, character.CharacterId, Strength, toValue: 16, NewUserId(), actorIsMainGm: true, granted.Value.Revisions.MechanicsRevision, expectedAttributeRevision: 0, NewCommandId(), TestCorrelationId);
+            Result<CharacterRecord> purchased = CharacterAdvancementService.PurchaseAttributeIncrease(_characterRepository, _campaign, character.CharacterId, Strength, toValue: 16, NewUserId(), actorIsMainGm: true, granted.Value.Revisions.MechanicsRevision, expectedAttributeRevision: 0, NewCommandId(), TestCorrelationId);
 
             Assert.That(purchased.IsFailure, Is.True);
             Assert.That(purchased.Error.Code, Is.EqualTo(ErrorCodes.PersistenceCharacterAttributeCapExceeded));
@@ -175,9 +176,9 @@ namespace Odyssey.Tests.Persistence
             Assert.That(granted.IsSuccess, Is.True);
             CommandId commandId = NewCommandId();
 
-            Result<CharacterRecord> first = _characterRepository.PurchaseAttributeIncrease(_campaign, character.CharacterId, Strength, toValue: 2, NewUserId(), actorIsMainGm: true, granted.Value.Revisions.MechanicsRevision, expectedAttributeRevision: 0, commandId, TestCorrelationId);
+            Result<CharacterRecord> first = CharacterAdvancementService.PurchaseAttributeIncrease(_characterRepository, _campaign, character.CharacterId, Strength, toValue: 2, NewUserId(), actorIsMainGm: true, granted.Value.Revisions.MechanicsRevision, expectedAttributeRevision: 0, commandId, TestCorrelationId);
             Assert.That(first.IsSuccess, Is.True);
-            Result<CharacterRecord> second = _characterRepository.PurchaseAttributeIncrease(_campaign, character.CharacterId, Strength, toValue: 2, NewUserId(), actorIsMainGm: true, granted.Value.Revisions.MechanicsRevision, expectedAttributeRevision: 0, commandId, TestCorrelationId);
+            Result<CharacterRecord> second = CharacterAdvancementService.PurchaseAttributeIncrease(_characterRepository, _campaign, character.CharacterId, Strength, toValue: 2, NewUserId(), actorIsMainGm: true, granted.Value.Revisions.MechanicsRevision, expectedAttributeRevision: 0, commandId, TestCorrelationId);
 
             Assert.That(second.IsSuccess, Is.True);
             Assert.That(second.Value.DevelopmentPool.Spent, Is.EqualTo(first.Value.DevelopmentPool.Spent));
@@ -237,7 +238,7 @@ namespace Odyssey.Tests.Persistence
             UserId actor = NewUserId();
             Result<CharacterRecord> granted = _characterRepository.GrantDevelopmentPoints(_campaign, character.CharacterId, 10, "Session reward", actor, actorIsMainGm: true, character.Revisions.MechanicsRevision, NewCommandId(), TestCorrelationId);
             Assert.That(granted.IsSuccess, Is.True);
-            Result<CharacterRecord> purchased = _characterRepository.PurchaseAttributeIncrease(_campaign, character.CharacterId, Strength, toValue: 3, actor, actorIsMainGm: true, granted.Value.Revisions.MechanicsRevision, expectedAttributeRevision: 0, NewCommandId(), TestCorrelationId);
+            Result<CharacterRecord> purchased = CharacterAdvancementService.PurchaseAttributeIncrease(_characterRepository, _campaign, character.CharacterId, Strength, toValue: 3, actor, actorIsMainGm: true, granted.Value.Revisions.MechanicsRevision, expectedAttributeRevision: 0, NewCommandId(), TestCorrelationId);
             Assert.That(purchased.IsSuccess, Is.True);
 
             Result<System.Collections.Generic.IReadOnlyList<DevelopmentTransactionRecord>> ledger = _characterRepository.GetDevelopmentLedger(_campaign, character.CharacterId, TestCorrelationId);
@@ -263,7 +264,7 @@ namespace Odyssey.Tests.Persistence
             Result<CharacterRecord> granted = _characterRepository.GrantDevelopmentPoints(_campaign, character.CharacterId, 10, "Grant", NewUserId(), actorIsMainGm: true, character.Revisions.MechanicsRevision, NewCommandId(), TestCorrelationId);
             Assert.That(granted.IsSuccess, Is.True);
 
-            Result<CharacterRecord> purchased = _characterRepository.PurchaseAttributeIncrease(_campaign, character.CharacterId, Strength, toValue: 2, NewUserId(), actorIsMainGm: false, granted.Value.Revisions.MechanicsRevision, expectedAttributeRevision: 0, NewCommandId(), TestCorrelationId);
+            Result<CharacterRecord> purchased = CharacterAdvancementService.PurchaseAttributeIncrease(_characterRepository, _campaign, character.CharacterId, Strength, toValue: 2, NewUserId(), actorIsMainGm: false, granted.Value.Revisions.MechanicsRevision, expectedAttributeRevision: 0, NewCommandId(), TestCorrelationId);
 
             Assert.That(purchased.IsFailure, Is.True);
             Assert.That(purchased.Error.Code, Is.EqualTo(ErrorCodes.PersistenceCharacterDevelopmentPurchaseDenied));
@@ -282,7 +283,7 @@ namespace Odyssey.Tests.Persistence
             Result<CharacterRecord> granted = _characterRepository.GrantDevelopmentPoints(_campaign, character.CharacterId, 10, "Grant", NewUserId(), actorIsMainGm: true, ownerAssigned.Value.Revisions.MechanicsRevision, NewCommandId(), TestCorrelationId);
             Assert.That(granted.IsSuccess, Is.True);
 
-            Result<CharacterRecord> purchased = _characterRepository.PurchaseAttributeIncrease(_campaign, character.CharacterId, Strength, toValue: 2, owner, actorIsMainGm: false, granted.Value.Revisions.MechanicsRevision, expectedAttributeRevision: 0, NewCommandId(), TestCorrelationId);
+            Result<CharacterRecord> purchased = CharacterAdvancementService.PurchaseAttributeIncrease(_characterRepository, _campaign, character.CharacterId, Strength, toValue: 2, owner, actorIsMainGm: false, granted.Value.Revisions.MechanicsRevision, expectedAttributeRevision: 0, NewCommandId(), TestCorrelationId);
 
             Assert.That(purchased.IsSuccess, Is.True);
         }
@@ -296,12 +297,12 @@ namespace Odyssey.Tests.Persistence
             CharacterRecord character = CreateCharacter();
             Result<CharacterRecord> granted = _characterRepository.GrantDevelopmentPoints(_campaign, character.CharacterId, 20, "Grant", NewUserId(), actorIsMainGm: true, character.Revisions.MechanicsRevision, NewCommandId(), TestCorrelationId);
             Assert.That(granted.IsSuccess, Is.True);
-            Result<CharacterRecord> firstPurchase = _characterRepository.PurchaseAttributeIncrease(_campaign, character.CharacterId, Strength, toValue: 2, NewUserId(), actorIsMainGm: true, granted.Value.Revisions.MechanicsRevision, expectedAttributeRevision: 0, NewCommandId(), TestCorrelationId);
+            Result<CharacterRecord> firstPurchase = CharacterAdvancementService.PurchaseAttributeIncrease(_characterRepository, _campaign, character.CharacterId, Strength, toValue: 2, NewUserId(), actorIsMainGm: true, granted.Value.Revisions.MechanicsRevision, expectedAttributeRevision: 0, NewCommandId(), TestCorrelationId);
             Assert.That(firstPurchase.IsSuccess, Is.True);
 
             // expectedAttributeRevision is now stale (0, but the attribute's
             // own revision advanced to 1 after the first purchase).
-            Result<CharacterRecord> secondPurchase = _characterRepository.PurchaseAttributeIncrease(_campaign, character.CharacterId, Strength, toValue: 3, NewUserId(), actorIsMainGm: true, firstPurchase.Value.Revisions.MechanicsRevision, expectedAttributeRevision: 0, NewCommandId(), TestCorrelationId);
+            Result<CharacterRecord> secondPurchase = CharacterAdvancementService.PurchaseAttributeIncrease(_characterRepository, _campaign, character.CharacterId, Strength, toValue: 3, NewUserId(), actorIsMainGm: true, firstPurchase.Value.Revisions.MechanicsRevision, expectedAttributeRevision: 0, NewCommandId(), TestCorrelationId);
 
             Assert.That(secondPurchase.IsFailure, Is.True);
             Assert.That(secondPurchase.Error.Code, Is.EqualTo(ErrorCodes.PersistenceCharacterRevisionConflict));

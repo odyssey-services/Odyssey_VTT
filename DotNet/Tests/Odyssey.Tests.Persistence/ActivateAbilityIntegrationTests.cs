@@ -252,7 +252,7 @@ namespace Odyssey.Tests.Persistence
 
             // Concurrent mutation: an unrelated ability is granted to the same character, bumping
             // CharacterAbilitiesRevision past what staleIntent already captured.
-            Result<CharacterRecord> concurrentGrant = _characters.AcquireAbility(_campaign, actor, AbilityDefinitionId.Parse("OtherAbility"), SourceKind.GMGrant, null, RankMode.None, null, null, "{}", User(), actorIsMainGm: true, null, staleState.Revisions.CharacterAbilitiesRevision, Command(), Corr);
+            Result<CharacterRecord> concurrentGrant = CharacterAdvancementService.AcquireAbility(_characters, _campaign, actor, AbilityDefinitionId.Parse("OtherAbility"), SourceKind.GMGrant, null, RankMode.None, null, null, "{}", User(), actorIsMainGm: true, null, staleState.Revisions.CharacterAbilitiesRevision, Command(), Corr);
             Assert.That(concurrentGrant.IsSuccess, Is.True);
 
             Result<AbilityActivationRecord> result = ActivateAbilityService.ActivateAbility(_reader, _apply, _catalog, _effects, new ThrowingRandomFactory(), _clock, _campaign, Epoch, staleRequest);
@@ -453,7 +453,7 @@ namespace Odyssey.Tests.Persistence
         private CharacterAbility GrantActivatableAbility(CharacterId characterId, ContentDefinitionRecord published)
         {
             CharacterRecord current = _characters.GetCharacter(_campaign, characterId, Corr).Value;
-            Result<CharacterRecord> acquired = _characters.AcquireAbility(_campaign, characterId, TestAbilityKey, SourceKind.GMGrant, null, RankMode.None, null, null, "{}", User(), actorIsMainGm: true, null, current.Revisions.CharacterAbilitiesRevision, Command(), Corr);
+            Result<CharacterRecord> acquired = CharacterAdvancementService.AcquireAbility(_characters, _campaign, characterId, TestAbilityKey, SourceKind.GMGrant, null, RankMode.None, null, null, "{}", User(), actorIsMainGm: true, null, current.Revisions.CharacterAbilitiesRevision, Command(), Corr);
             Assert.That(acquired.IsSuccess, Is.True);
             CharacterAbility? granted = null;
             foreach (CharacterAbility candidate in acquired.Value.Abilities)
@@ -524,7 +524,7 @@ namespace Odyssey.Tests.Persistence
             CharacterRecord current = _characters.GetCharacter(_campaign, characterId, Corr).Value;
             Result<CharacterRecord> granted = _characters.GrantDevelopmentPoints(_campaign, characterId, 100, "test", User(), actorIsMainGm: true, current.Revisions.MechanicsRevision, Command(), Corr);
             Assert.That(granted.IsSuccess, Is.True);
-            Result<CharacterRecord> purchased = _characters.PurchaseAttributeIncrease(_campaign, characterId, AttributeDefinitionId.Parse(attributeName), value, User(), actorIsMainGm: true, granted.Value.Revisions.MechanicsRevision, expectedAttributeRevision: 0, Command(), Corr);
+            Result<CharacterRecord> purchased = CharacterAdvancementService.PurchaseAttributeIncrease(_characters, _campaign, characterId, AttributeDefinitionId.Parse(attributeName), value, User(), actorIsMainGm: true, granted.Value.Revisions.MechanicsRevision, expectedAttributeRevision: 0, Command(), Corr);
             Assert.That(purchased.IsSuccess, Is.True);
             return purchased.Value;
         }

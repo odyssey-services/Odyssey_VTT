@@ -216,15 +216,15 @@ namespace Odyssey.Tests.Persistence
             Assert.That(granted.IsSuccess, Is.True);
 
             var strength = AttributeDefinitionId.Parse("Strength");
-            Result<CharacterRecord> attributeResult = _characterRepository.PurchaseAttributeIncrease(_sourceCampaign, character.CharacterId, strength, toValue: 2, NewUserId(), actorIsMainGm: true, granted.Value.Revisions.MechanicsRevision, expectedAttributeRevision: 0, NewCommandId(), TestCorrelationId);
+            Result<CharacterRecord> attributeResult = CharacterAdvancementService.PurchaseAttributeIncrease(_characterRepository, _sourceCampaign, character.CharacterId, strength, toValue: 2, NewUserId(), actorIsMainGm: true, granted.Value.Revisions.MechanicsRevision, expectedAttributeRevision: 0, NewCommandId(), TestCorrelationId);
             Assert.That(attributeResult.IsSuccess, Is.True);
 
             var lockpicking = SkillDefinitionId.Parse("Lockpicking");
-            Result<CharacterRecord> skillResult = _characterRepository.PurchaseSkillLevel(_sourceCampaign, character.CharacterId, lockpicking, toLevel: 1, NewUserId(), actorIsMainGm: true, attributeResult.Value.Revisions.MechanicsRevision, expectedSkillRevision: 0, NewCommandId(), TestCorrelationId);
+            Result<CharacterRecord> skillResult = CharacterAdvancementService.PurchaseSkillLevel(_characterRepository, _sourceCampaign, character.CharacterId, lockpicking, toLevel: 1, NewUserId(), actorIsMainGm: true, attributeResult.Value.Revisions.MechanicsRevision, expectedSkillRevision: 0, NewCommandId(), TestCorrelationId);
             Assert.That(skillResult.IsSuccess, Is.True);
 
             var fireball = AbilityDefinitionId.Parse("Fireball");
-            Result<CharacterRecord> abilityResult = _characterRepository.AcquireAbility(_sourceCampaign, character.CharacterId, fireball, SourceKind.GMGrant, null, RankMode.None, null, null, "{}", NewUserId(), actorIsMainGm: true, skillResult.Value.Revisions.MechanicsRevision, skillResult.Value.Revisions.CharacterAbilitiesRevision, NewCommandId(), TestCorrelationId);
+            Result<CharacterRecord> abilityResult = CharacterAdvancementService.AcquireAbility(_characterRepository, _sourceCampaign, character.CharacterId, fireball, SourceKind.GMGrant, null, RankMode.None, null, null, "{}", NewUserId(), actorIsMainGm: true, skillResult.Value.Revisions.MechanicsRevision, skillResult.Value.Revisions.CharacterAbilitiesRevision, NewCommandId(), TestCorrelationId);
             Assert.That(abilityResult.IsSuccess, Is.True);
 
             Result<CharacterRecord> resourceResult = CharacterAdvancementService.InitializeResourceWithDefaults(_characterRepository, _sourceCampaign, character.CharacterId, Health, NewUserId(), actorIsMainGm: true, abilityResult.Value.Revisions.CharacterResourcesRevision, NewCommandId(), TestCorrelationId);
