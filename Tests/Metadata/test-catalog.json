@@ -3798,7 +3798,7 @@
                           "authority":  "ODY-S09-101 test list item 4",
                           "runner":  "dotnet test",
                           "path":  "DotNet/Tests/Odyssey.Tests.Persistence/CharacterResourceAnatomyTests.cs",
-                          "check":  "CharacterAdvancementService lives in the Odyssey.Application assembly, whose referenced assemblies do not include Odyssey.Persistence, exposes only its public wrapper methods (the two initializers from ODY-S09-101 and the four cost commands from ODY-S09-102), and takes the ICharacterRepository abstraction (not a concrete repository) as its first parameter"
+                          "check":  "CharacterAdvancementService lives in the Odyssey.Application assembly, whose referenced assemblies do not include Odyssey.Persistence, exposes only its public wrapper methods (the two initializers from ODY-S09-101, the four cost commands from ODY-S09-102 and the two respec methods from ODY-S09-103), and takes the ICharacterRepository abstraction (not a concrete repository) as its first parameter"
                       },
                       {
                           "testCaseId":  "TC-CHAR-189",
@@ -3911,6 +3911,62 @@
                           "runner":  "dotnet test",
                           "path":  "DotNet/Tests/Odyssey.Tests.Persistence/CharacterAdvancementCostServiceTests.cs",
                           "check":  "The cost methods of CharacterAdvancementService use only the ICharacterRepository port (an interception double over the real repository records the calls): Rules decisions reach the repository as attribute 20 -> from 0, cap exceeded, cost 40; skill level 5 -> requiresRecommendation, cost 0; ability ProgressionPurchase cost 5 and GMGrant cost 0; recommendation 0 -> 3 reserves 9; invalid input throws before any repository call including the read; a null repository is rejected"
+                      },
+                      {
+                          "testCaseId":  "TC-CHAR-203",
+                          "taskId":  "ODY-S09-103",
+                          "authority":  "ODY-S09-103 test list item 1",
+                          "runner":  "dotnet test",
+                          "path":  "DotNet/Tests/Odyssey.Tests.Persistence/CharacterAdvancementRespecServiceTests.cs",
+                          "check":  "PreviewCharacterRespec through CharacterAdvancementService, multi-target plan: Strength (purchases 6 and 4) to 4, Tactics (purchase 6) to 3, Stealth already at its desired level -> entries Return Strength 6, Return Strength 4, Spend Strength 8, Return Tactics 6, Spend Tactics 9, nothing for Stealth; TotalReturned 16, TotalSpent 17, net -1; Return entries carry their source purchase, Spend entries do not"
+                      },
+                      {
+                          "testCaseId":  "TC-CHAR-204",
+                          "taskId":  "ODY-S09-103",
+                          "authority":  "ODY-S09-103 test list item 5",
+                          "runner":  "dotnet test",
+                          "path":  "DotNet/Tests/Odyssey.Tests.Persistence/CharacterAdvancementRespecServiceTests.cs",
+                          "check":  "PreviewCharacterRespec is a pure read: only GetCharacter and GetAdvancementPurchases reach the repository, no revision is passed or checked, two previews are identical, and pool, attributes, revisions, ledger, purchases and event history are identical before and after; a missing character and an unsupported kind keep their typed failures"
+                      },
+                      {
+                          "testCaseId":  "TC-CHAR-205",
+                          "taskId":  "ODY-S09-103",
+                          "authority":  "ODY-S09-103 test list item 2",
+                          "runner":  "dotnet test",
+                          "path":  "DotNet/Tests/Odyssey.Tests.Persistence/CharacterAdvancementRespecServiceTests.cs",
+                          "check":  "ApplyCharacterRespec, legal multi-target plan: Spent 19 -> 20 (16 returned, 17 repurchased), Available 80, Strength 4 (spent 8), Tactics 3 (spent 9), Stealth untouched; ledger RespecReturn 6/4/6 and RespecSpend 8/9; three purchases SupersededByRespec, Applied purchases Stealth 1/3, Strength 4/8, Tactics 3/9"
+                      },
+                      {
+                          "testCaseId":  "TC-CHAR-206",
+                          "taskId":  "ODY-S09-103",
+                          "authority":  "ODY-S09-103 test list item 3",
+                          "runner":  "dotnet test",
+                          "path":  "DotNet/Tests/Odyssey.Tests.Persistence/CharacterAdvancementRespecServiceTests.cs",
+                          "check":  "ApplyCharacterRespec rejected cases -- non-MainGM (OperationDenied), blank reason (ReasonRequired), AbilityAcquisition target (OperationKindNotSupported) -- write nothing, and Denied is still reported ahead of NotFound for a missing character (nothing in the service short-circuits ahead of the repository)"
+                      },
+                      {
+                          "testCaseId":  "TC-CHAR-207",
+                          "taskId":  "ODY-S09-103",
+                          "authority":  "ODY-S09-103 test list item 3",
+                          "runner":  "dotnet test",
+                          "path":  "DotNet/Tests/Odyssey.Tests.Persistence/CharacterAdvancementRespecServiceTests.cs",
+                          "check":  "ApplyCharacterRespec plan that became invalid: a stale plan submitted with the revision it was computed at after a competing purchase is rejected with CharacterRevisionConflict; the old plan resubmitted with the current revision on both sides after a legitimate respec is rejected because its Return entries name superseded purchases; nothing is written either time"
+                      },
+                      {
+                          "testCaseId":  "TC-CHAR-208",
+                          "taskId":  "ODY-S09-103",
+                          "authority":  "ODY-S09-103 test list item 3",
+                          "runner":  "dotnet test",
+                          "path":  "DotNet/Tests/Odyssey.Tests.Persistence/CharacterAdvancementRespecServiceTests.cs",
+                          "check":  "ApplyCharacterRespec race: a competing purchase (Strength 3 -> 4) lands between the service's read and its commit; rejected with CharacterRevisionConflict both when the caller holds the start revision (caller-side gate) and when it already holds the fresh one (only the revision the plan was computed at catches it -- a stale read would otherwise build an empty plan and report success); nothing is written and Strength stays at 4"
+                      },
+                      {
+                          "testCaseId":  "TC-CHAR-209",
+                          "taskId":  "ODY-S09-103",
+                          "authority":  "ODY-S09-103 test list item 6",
+                          "runner":  "dotnet test",
+                          "path":  "DotNet/Tests/Odyssey.Tests.Persistence/CharacterAdvancementRespecServiceTests.cs",
+                          "check":  "The respec methods of CharacterAdvancementService use only the ICharacterRepository port (interception double): Apply reads the character, then the purchases, then always calls ApplyCharacterRespec with the plan decided by the service (returned 16, spent 17), the revision it was read at and the reason passed through; an unsupported kind still reaches the repository with an empty plan, a missing character with revision 0; invalid input throws before any repository call; a null repository is rejected"
                       },
                       {
                           "testCaseId":  "TC-CATALOG-001",

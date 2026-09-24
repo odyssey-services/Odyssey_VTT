@@ -330,7 +330,7 @@ namespace Odyssey.Tests.Persistence
             }
 
             var targets = new[] { new CharacterRespecTarget(AdvancementOperationKind.AttributeIncrease, Strength.ToString(), desiredValue: 5) };
-            Result<CharacterRespecPreview> preview = _characterRepository.PreviewCharacterRespec(_campaign, character.CharacterId, targets, TestCorrelationId);
+            Result<CharacterRespecPreview> preview = CharacterAdvancementService.PreviewCharacterRespec(_characterRepository, _campaign, character.CharacterId, targets, TestCorrelationId);
 
             Assert.That(preview.IsSuccess, Is.True);
             Assert.That(preview.Value.TotalReturned, Is.EqualTo(6)); // returning the ToValue=3 purchase (Cost=6)
@@ -366,7 +366,7 @@ namespace Odyssey.Tests.Persistence
             };
 
             CommandId applyCommandId = NewCommandId();
-            Result<CharacterRecord> applied = _characterRepository.ApplyCharacterRespec(_campaign, character.CharacterId, targets, GmReason, NewUserId(), actorIsMainGm: true, skillPurchase.Value.Revisions.MechanicsRevision, applyCommandId, TestCorrelationId);
+            Result<CharacterRecord> applied = CharacterAdvancementService.ApplyCharacterRespec(_characterRepository, _campaign, character.CharacterId, targets, GmReason, NewUserId(), actorIsMainGm: true, skillPurchase.Value.Revisions.MechanicsRevision, applyCommandId, TestCorrelationId);
 
             Assert.That(applied.IsSuccess, Is.True);
             Assert.That(applied.Value.Attributes.Single(a => a.AttributeDefinitionId.Equals(Strength)).BaseValue, Is.EqualTo(5));
@@ -409,7 +409,7 @@ namespace Odyssey.Tests.Persistence
             // A preview taken before a further purchase -- ApplyCharacterRespec
             // takes no preview parameter at all, so it can never consult this
             // stale result; it must recompute fresh against the CURRENT state.
-            Result<CharacterRespecPreview> stalePreview = _characterRepository.PreviewCharacterRespec(_campaign, character.CharacterId, targets, TestCorrelationId);
+            Result<CharacterRespecPreview> stalePreview = CharacterAdvancementService.PreviewCharacterRespec(_characterRepository, _campaign, character.CharacterId, targets, TestCorrelationId);
             Assert.That(stalePreview.IsSuccess, Is.True);
             Assert.That(stalePreview.Value.TotalReturned, Is.EqualTo(6));
 
@@ -417,7 +417,7 @@ namespace Odyssey.Tests.Persistence
             Result<CharacterRecord> secondPurchase = CharacterAdvancementService.PurchaseAttributeIncrease(_characterRepository, _campaign, character.CharacterId, Strength, toValue: 4, NewUserId(), actorIsMainGm: true, attrPurchase.Value.Revisions.MechanicsRevision, expectedAttributeRevision: 1, NewCommandId(), TestCorrelationId);
             Assert.That(secondPurchase.IsSuccess, Is.True);
 
-            Result<CharacterRecord> applied = _characterRepository.ApplyCharacterRespec(_campaign, character.CharacterId, targets, GmReason, NewUserId(), actorIsMainGm: true, secondPurchase.Value.Revisions.MechanicsRevision, NewCommandId(), TestCorrelationId);
+            Result<CharacterRecord> applied = CharacterAdvancementService.ApplyCharacterRespec(_characterRepository, _campaign, character.CharacterId, targets, GmReason, NewUserId(), actorIsMainGm: true, secondPurchase.Value.Revisions.MechanicsRevision, NewCommandId(), TestCorrelationId);
 
             Assert.That(applied.IsSuccess, Is.True);
             Assert.That(applied.Value.Attributes.Single(a => a.AttributeDefinitionId.Equals(Strength)).BaseValue, Is.EqualTo(5));
@@ -435,10 +435,10 @@ namespace Odyssey.Tests.Persistence
             var targets = new[] { new CharacterRespecTarget(AdvancementOperationKind.AttributeIncrease, Strength.ToString(), desiredValue: 5) };
             CommandId applyCommandId = NewCommandId();
 
-            Result<CharacterRecord> first = _characterRepository.ApplyCharacterRespec(_campaign, character.CharacterId, targets, GmReason, NewUserId(), actorIsMainGm: true, attrPurchase.Value.Revisions.MechanicsRevision, applyCommandId, TestCorrelationId);
+            Result<CharacterRecord> first = CharacterAdvancementService.ApplyCharacterRespec(_characterRepository, _campaign, character.CharacterId, targets, GmReason, NewUserId(), actorIsMainGm: true, attrPurchase.Value.Revisions.MechanicsRevision, applyCommandId, TestCorrelationId);
             Assert.That(first.IsSuccess, Is.True);
 
-            Result<CharacterRecord> replay = _characterRepository.ApplyCharacterRespec(_campaign, character.CharacterId, targets, GmReason, NewUserId(), actorIsMainGm: true, attrPurchase.Value.Revisions.MechanicsRevision, applyCommandId, TestCorrelationId);
+            Result<CharacterRecord> replay = CharacterAdvancementService.ApplyCharacterRespec(_characterRepository, _campaign, character.CharacterId, targets, GmReason, NewUserId(), actorIsMainGm: true, attrPurchase.Value.Revisions.MechanicsRevision, applyCommandId, TestCorrelationId);
             Assert.That(replay.IsSuccess, Is.True);
 
             using SqliteConnection connection = OpenReadOnly();
@@ -472,7 +472,7 @@ namespace Odyssey.Tests.Persistence
                 new CharacterRespecTarget(AdvancementOperationKind.AttributeIncrease, Strength.ToString(), desiredValue: 5),
                 new CharacterRespecTarget(AdvancementOperationKind.SkillLevelPurchase, Stealth.ToString(), desiredValue: 0),
             };
-            Result<CharacterRecord> applied = _characterRepository.ApplyCharacterRespec(_campaign, character.CharacterId, targets, GmReason, NewUserId(), actorIsMainGm: true, skillPurchase.Value.Revisions.MechanicsRevision, NewCommandId(), TestCorrelationId);
+            Result<CharacterRecord> applied = CharacterAdvancementService.ApplyCharacterRespec(_characterRepository, _campaign, character.CharacterId, targets, GmReason, NewUserId(), actorIsMainGm: true, skillPurchase.Value.Revisions.MechanicsRevision, NewCommandId(), TestCorrelationId);
             Assert.That(applied.IsSuccess, Is.True);
 
             Result<IReadOnlyList<CharacterHistoryEntry>> history = _characterRepository.GetCharacterHistory(_campaign, character.CharacterId, TestCorrelationId);

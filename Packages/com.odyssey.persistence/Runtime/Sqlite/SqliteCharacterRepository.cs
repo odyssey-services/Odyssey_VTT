@@ -12,8 +12,6 @@ using Odyssey.Domain.Content;
 using Odyssey.Domain.Identity;
 using Odyssey.Domain.Time;
 using Odyssey.Rules.Character;
-using RulesAttributeCostRules = Odyssey.Rules.Character.AttributeCostRules;
-using RulesSkillCostRules = Odyssey.Rules.Character.SkillCostRules;
 
 namespace Odyssey.Persistence.Sqlite
 {
@@ -2960,131 +2958,6 @@ namespace Odyssey.Persistence.Sqlite
         }
 
         /// <summary>
-        /// ODY-S04-107: shared plan computation used identically by
-        /// <see cref="PreviewCharacterRespec"/> and, inside its own
-        /// transaction, <see cref="ApplyCharacterRespec"/> -- so Apply's
-        /// server-side recomputation can never drift from what Preview would
-        /// have shown for the same inputs (CAP-INV-004). Reads the
-        /// authoritative CURRENT value directly from
-        /// <paramref name="current"/>'s own Attributes/Skills (never derived
-        /// from the AdvancementPurchase history), and returns every
-        /// currently-Applied purchase for each addressed target as a Return
-        /// entry, plus one Spend entry per target whose DesiredValue exceeds
-        /// zero.
-        /// </summary>
-        private static Result<CharacterRespecPreview> ComputeRespecPlan(CharacterRecord current, IReadOnlyList<AdvancementPurchase> allPurchases, IReadOnlyList<CharacterRespecTarget> targets, CorrelationId correlationId)
-        {
-            var entries = new List<CharacterRespecPlanEntry>();
-            long totalReturned = 0;
-            long totalSpent = 0;
-
-            foreach (CharacterRespecTarget target in targets)
-            {
-                long currentValue;
-                if (target.OperationKind == AdvancementOperationKind.AttributeIncrease)
-                {
-                    AttributeDefinitionId targetId = AttributeDefinitionId.Parse(target.TargetDefinitionId);
-                    AttributeValue? existing = null;
-                    foreach (AttributeValue candidate in current.Attributes)
-                    {
-                        if (candidate.AttributeDefinitionId.Equals(targetId)) { existing = candidate; break; }
-                    }
-
-                    currentValue = existing?.BaseValue ?? 0;
-                }
-                else if (target.OperationKind == AdvancementOperationKind.SkillLevelPurchase)
-                {
-                    SkillDefinitionId targetId = SkillDefinitionId.Parse(target.TargetDefinitionId);
-                    CharacterSkill? existing = null;
-                    foreach (CharacterSkill candidate in current.Skills)
-                    {
-                        if (candidate.SkillDefinitionId.Equals(targetId)) { existing = candidate; break; }
-                    }
-
-                    currentValue = existing?.Level ?? 0;
-                }
-                else
-                {
-                    // ODY-S04-108 section 1.3: AbilityAcquisition respec is
-                    // explicitly out of scope -- reject explicitly rather
-                    // than mis-parsing TargetDefinitionId as the wrong id type.
-                    return Result<CharacterRespecPreview>.Failure(PersistenceFailures.CharacterAdvancementOperationKindNotSupported(correlationId));
-                }
-
-                if (currentValue == target.DesiredValue) continue;
-
-                foreach (AdvancementPurchase purchase in allPurchases)
-                {
-                    if (purchase.Status != AdvancementPurchaseStatus.Applied) continue;
-                    if (purchase.OperationKind != target.OperationKind) continue;
-                    if (!string.Equals(purchase.TargetDefinitionId, target.TargetDefinitionId, StringComparison.Ordinal)) continue;
-
-                    entries.Add(new CharacterRespecPlanEntry(CharacterRespecPlanAction.Return, target.OperationKind, target.TargetDefinitionId, purchase.Cost, purchase.PurchaseId));
-                    totalReturned += purchase.Cost;
-                }
-
-                if (target.DesiredValue > 0)
-                {
-                    long cost;
-                    if (target.OperationKind == AdvancementOperationKind.AttributeIncrease)
-                    {
-                        cost = RulesAttributeCostRules.CostForIncrease(0, target.DesiredValue);
-                    }
-                    else
-                    {
-                        // Only SkillLevelPurchase reaches here -- AbilityAcquisition already returned above.
-                        cost = RulesSkillCostRules.CostForIncrease(0, target.DesiredValue);
-                    }
-
-                    entries.Add(new CharacterRespecPlanEntry(CharacterRespecPlanAction.Spend, target.OperationKind, target.TargetDefinitionId, cost, null));
-                    totalSpent += cost;
-                }
-            }
-
-            return Result<CharacterRespecPreview>.Success(new CharacterRespecPreview(entries, totalReturned, totalSpent));
-        }
-
-        /// <summary>
-        /// ODY-S04-107: ADR-002 section 4.2 read-only Query -- no
-        /// <c>_pipeline</c> involvement at all, no events, no state change
-        /// (verified directly by tests: MechanicsRevision/pool balance
-        /// identical before and after this call).
-        /// </summary>
-        public Result<CharacterRespecPreview> PreviewCharacterRespec(CampaignHandle campaign, CharacterId characterId, IReadOnlyList<CharacterRespecTarget> targets, CorrelationId correlationId)
-        {
-            if (campaign == null) throw new ArgumentNullException(nameof(campaign));
-            if (!characterId.IsValid) throw new ArgumentException("CharacterId is required.", nameof(characterId));
-            if (targets == null || targets.Count == 0) throw new ArgumentException("At least one target is required.", nameof(targets));
-
-            try
-            {
-                using SqliteConnection connection = OpenConnection(campaign.RootPath);
-                EnsureCharacterTables(connection);
-
-                using var select = connection.CreateCommand();
-                select.CommandText = SelectColumns + " FROM Character WHERE CharacterId = $characterId LIMIT 1;";
-                select.Parameters.AddWithValue("$characterId", characterId.ToString());
-                CharacterRecord? current;
-                using (SqliteDataReader reader = select.ExecuteReader())
-                {
-                    current = reader.Read() ? ReadCharacterRecord(reader) : null;
-                }
-
-                if (current == null)
-                {
-                    return Result<CharacterRespecPreview>.Failure(PersistenceFailures.CharacterNotFound(correlationId));
-                }
-
-                IReadOnlyList<AdvancementPurchase> allPurchases = SelectAdvancementPurchasesForCharacter(connection, null, characterId);
-                return ComputeRespecPlan(current, allPurchases, targets, correlationId);
-            }
-            catch (Exception ex) when (ex is IOException || ex is UnauthorizedAccessException || ex is SqliteException)
-            {
-                return Result<CharacterRespecPreview>.Failure(PersistenceFailures.CharacterIoFailed(correlationId));
-            }
-        }
-
-        /// <summary>
         /// ODY-S04-107: ADR-024 section 7.2, product section 13.5 steps 4-8
         /// -- one compensating+forward batch in a single transaction. Unlike
         /// every other Mechanics-section command, this does not go through
@@ -3103,11 +2976,16 @@ namespace Odyssey.Persistence.Sqlite
         /// visible in <c>GetCharacterHistory</c> -- never collapsed
         /// (CAP-INV-005).
         ///
-        /// Recomputes <see cref="ComputeRespecPlan"/> fresh, inside this same
-        /// transaction, from a freshly-read <see cref="AdvancementPurchase"/>
-        /// list and the freshly-locked <see cref="CharacterRecord"/> --
-        /// there is no client-supplied preview parameter on this method at
-        /// all, so nothing to trust or distrust (CAP-INV-004).
+        /// ODY-S09-103: the plan is no longer computed here. It arrives
+        /// already decided by the Application layer
+        /// (<c>CharacterAdvancementService</c>, which applies the cost rules)
+        /// as <c>decidedPlan</c>, computed from a fresh read made at
+        /// <c>decidedMechanicsRevision</c>. Inside this transaction the
+        /// locked state is checked against it -- supported target kinds,
+        /// the locked <c>MechanicsRevision</c> equal to the one the plan was
+        /// computed at, and every plan entry matching the locked purchase
+        /// history -- and only then written. There is still no
+        /// client-supplied preview parameter (CAP-INV-004).
         ///
         /// Product section 13.5 step 5's "snapshot before operation" is
         /// realized as the before/after configuration summary embedded
@@ -3120,7 +2998,7 @@ namespace Odyssey.Persistence.Sqlite
         /// database file backup is a different, heavier mechanism this task
         /// does not invoke.
         /// </summary>
-        public Result<CharacterRecord> ApplyCharacterRespec(CampaignHandle campaign, CharacterId characterId, IReadOnlyList<CharacterRespecTarget> targets, string reasonCode, UserId actorUserId, bool actorIsMainGm, long expectedMechanicsRevision, CommandId commandId, CorrelationId correlationId)
+        public Result<CharacterRecord> ApplyCharacterRespec(CampaignHandle campaign, CharacterId characterId, IReadOnlyList<CharacterRespecTarget> targets, CharacterRespecPreview decidedPlan, long decidedMechanicsRevision, string reasonCode, UserId actorUserId, bool actorIsMainGm, long expectedMechanicsRevision, CommandId commandId, CorrelationId correlationId)
         {
             if (campaign == null) throw new ArgumentNullException(nameof(campaign));
             if (!characterId.IsValid) throw new ArgumentException("CharacterId is required.", nameof(characterId));
@@ -3128,6 +3006,8 @@ namespace Odyssey.Persistence.Sqlite
             if (!actorUserId.IsValid) throw new ArgumentException("ActorUserId is required.", nameof(actorUserId));
             if (!commandId.IsValid) throw new ArgumentException("CommandId is required.", nameof(commandId));
             if (expectedMechanicsRevision < 1) throw new ArgumentOutOfRangeException(nameof(expectedMechanicsRevision));
+            if (decidedPlan == null) throw new ArgumentNullException(nameof(decidedPlan));
+            if (decidedMechanicsRevision < 0) throw new ArgumentOutOfRangeException(nameof(decidedMechanicsRevision));
 
             if (string.IsNullOrWhiteSpace(reasonCode))
             {
@@ -3164,16 +3044,66 @@ namespace Odyssey.Persistence.Sqlite
                             return Result<PipelineWrite<CharacterRecord>>.Failure(PersistenceFailures.CharacterRevisionConflict(correlationId));
                         }
 
-                        // CAP-INV-004: fresh read inside the transaction --
-                        // never trusts a client-supplied preview.
-                        IReadOnlyList<AdvancementPurchase> allPurchases = SelectAdvancementPurchasesForCharacter(connection, transaction, characterId);
-                        Result<CharacterRespecPreview> planResult = ComputeRespecPlan(current, allPurchases, targets, correlationId);
-                        if (planResult.IsFailure)
+                        // ODY-S04-108 section 1.3: AbilityAcquisition respec is
+                        // explicitly out of scope -- reject explicitly.
+                        foreach (CharacterRespecTarget target in targets)
                         {
-                            return Result<PipelineWrite<CharacterRecord>>.Failure(planResult.Error);
+                            if (target.OperationKind != AdvancementOperationKind.AttributeIncrease && target.OperationKind != AdvancementOperationKind.SkillLevelPurchase)
+                            {
+                                return Result<PipelineWrite<CharacterRecord>>.Failure(PersistenceFailures.CharacterAdvancementOperationKindNotSupported(correlationId));
+                            }
                         }
 
-                        CharacterRespecPreview plan = planResult.Value;
+                        // ODY-S09-103: the plan was decided by the Application
+                        // layer from a read made at decidedMechanicsRevision.
+                        // Every purchase/revert/resolution/respec bumps
+                        // MechanicsRevision, so an equal locked revision means
+                        // the plan describes exactly the state written to here.
+                        if (current.Revisions.MechanicsRevision != decidedMechanicsRevision)
+                        {
+                            return Result<PipelineWrite<CharacterRecord>>.Failure(PersistenceFailures.CharacterRevisionConflict(correlationId));
+                        }
+
+                        IReadOnlyList<AdvancementPurchase> allPurchases = SelectAdvancementPurchasesForCharacter(connection, transaction, characterId);
+                        CharacterRespecPreview plan = decidedPlan;
+
+                        // Defense in depth: every plan entry must match the locked state.
+                        foreach (CharacterRespecPlanEntry entry in plan.Entries)
+                        {
+                            if (entry.Action == CharacterRespecPlanAction.Return)
+                            {
+                                AdvancementPurchase? source = null;
+                                if (entry.SourcePurchaseId.HasValue)
+                                {
+                                    foreach (AdvancementPurchase purchase in allPurchases)
+                                    {
+                                        if (purchase.PurchaseId.Equals(entry.SourcePurchaseId.Value)) { source = purchase; break; }
+                                    }
+                                }
+
+                                if (source == null
+                                    || source.Status != AdvancementPurchaseStatus.Applied
+                                    || source.OperationKind != entry.OperationKind
+                                    || !string.Equals(source.TargetDefinitionId, entry.TargetDefinitionId, StringComparison.Ordinal)
+                                    || source.Cost != entry.Amount)
+                                {
+                                    return Result<PipelineWrite<CharacterRecord>>.Failure(PersistenceFailures.CharacterRevisionConflict(correlationId));
+                                }
+                            }
+                            else
+                            {
+                                bool addressed = false;
+                                foreach (CharacterRespecTarget target in targets)
+                                {
+                                    if (target.OperationKind == entry.OperationKind && string.Equals(target.TargetDefinitionId, entry.TargetDefinitionId, StringComparison.Ordinal) && target.DesiredValue > 0) { addressed = true; break; }
+                                }
+
+                                if (!addressed || entry.SourcePurchaseId.HasValue)
+                                {
+                                    return Result<PipelineWrite<CharacterRecord>>.Failure(PersistenceFailures.CharacterRevisionConflict(correlationId));
+                                }
+                            }
+                        }
 
                         string compensationGroupId = commandId.ToString();
                         UtcInstant now = _clock.GetUtcNow();
@@ -3195,9 +3125,9 @@ namespace Odyssey.Persistence.Sqlite
                         foreach (CharacterRespecPlanEntry entry in plan.Entries)
                         {
                             // ODY-S04-108 section 1.3: defense in depth --
-                            // ComputeRespecPlan already rejects an
-                            // AbilityAcquisition target before producing any
-                            // plan entry, so this can only trip if a future
+                            // the target-kind check above already rejects an
+                            // AbilityAcquisition target before any plan entry
+                            // is used, so this can only trip if a future
                             // change adds a fourth OperationKind without
                             // updating this loop too.
                             if (entry.OperationKind != AdvancementOperationKind.AttributeIncrease && entry.OperationKind != AdvancementOperationKind.SkillLevelPurchase)
@@ -4638,7 +4568,7 @@ namespace Odyssey.Persistence.Sqlite
             return reader.Read() ? ReadAdvancementPurchase(reader) : null;
         }
 
-        /// <summary>ODY-S04-107: every <c>AdvancementPurchase</c> row for one Character, ordered oldest-first -- used both by <see cref="ICharacterRepository.GetAdvancementPurchases"/> and, inside a transaction, by <c>ComputeRespecPlan</c>'s own fresh server-side read.</summary>
+        /// <summary>ODY-S04-107: every <c>AdvancementPurchase</c> row for one Character, ordered oldest-first -- used by <see cref="ICharacterRepository.GetAdvancementPurchases"/> and, inside a transaction, by <c>ApplyCharacterRespec</c>'s locked-state check of the decided plan.</summary>
         private static IReadOnlyList<AdvancementPurchase> SelectAdvancementPurchasesForCharacter(SqliteConnection connection, SqliteTransaction? transaction, CharacterId characterId)
         {
             using var select = connection.CreateCommand();
