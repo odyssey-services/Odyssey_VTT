@@ -1,7 +1,7 @@
 # ODY-S07-105 — Scene Background/Map (`SceneRecord.BackgroundAssetId`, block 4)
 
 ## 1. Task identity
-`ODY-S07-105`; status: In Review (Draft PR, merge deferred to the product owner). Fifth task of `SLICE-07`, the first decomposition of block 4 (scene background/map).
+`ODY-S07-105`; status: Done (PR #170, merged into main). Fifth task of `SLICE-07`, the first decomposition of block 4 (scene background/map).
 
 ## 2. Goal
 Give `SceneRecord` a real, validated background/map field -- `AssetId? BackgroundAssetId` -- set/cleared through a new `SetSceneBackground` command, fail-closed against the campaign's own `AssetManifestEntries`, and put the previously-reserved-but-unused `AssetReferences` table to its first real production use. Deliberately not publishable catalog content (unlike blocks 1-3) and deliberately not the unvalidated `CharacterRecord.PortraitReference` antipattern.

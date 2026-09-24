@@ -1,7 +1,7 @@
 # ODY-S09-105 — Architecture-Check Tightening + Proof That Unity Builds (SLICE-09 block 5, last)
 
 ## 1. Task identity
-`ODY-S09-105`; status: In Review (Draft PR, merge deferred to the product owner). Block 5 -- the last -- of `SLICE-09` (`docs/tasks/SLICE-09_IMPLEMENTATION_BACKLOG.md`); follows `ODY-S09-104` (block 4, merged).
+`ODY-S09-105`; status: Done (PR #178, merged into main). Block 5 -- the last -- of `SLICE-09` (`docs/tasks/SLICE-09_IMPLEMENTATION_BACKLOG.md`); follows `ODY-S09-104` (block 4, merged).
 
 ## 2. Goal
 Close the hole that let the `Persistence -> Rules` violation live for 22 days: `dotnet build` resolves project references transitively, a Unity asmdef does not, and the repository's structure check compared only the declared graphs. Make the `dotnet build` that CI already runs see the reference closure Unity sees, make sure that setting cannot be dropped silently, and prove -- not argue -- that the original problem ("the Unity client does not compile") is gone.

@@ -1,7 +1,7 @@
 # ODY-S07-104 — Body-Part/Anatomy Catalog (`BodyPartDefinition` + `AnatomyProfileDefinition`, block 3)
 
 ## 1. Task identity
-`ODY-S07-104`; status: In Review (Draft PR, merge deferred to the product owner). Fourth task of `SLICE-07`, the first decomposition of block 3 (body-part/anatomy catalog).
+`ODY-S07-104`; status: Done (PR #169, merged into main). Fourth task of `SLICE-07`, the first decomposition of block 3 (body-part/anatomy catalog).
 
 ## 2. Goal
 Replace today's hardcoded, test-fixture-only `AnatomyInitializationRules.DefaultHumanoidBodyParts()` with two real, publishable content types -- `BodyPartDefinition` (a reusable named part) and `AnatomyProfileDefinition` (a bundle referencing a specific published set of `BodyPartDefinition`s) -- flowing Draft→Published through the already-existing, unmodified `SLICE-05` catalog pipeline. This task builds the catalog/authoring side only; `InitializeCharacterAnatomy` is not wired to the new catalog (a deliberate scope-narrowing decision, not a risk-driven deferral -- see §5/§18).

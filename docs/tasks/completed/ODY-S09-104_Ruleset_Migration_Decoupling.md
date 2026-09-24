@@ -1,7 +1,7 @@
 # ODY-S09-104 — Decoupling of Ruleset Migration from `Odyssey.Rules` (SLICE-09 block 4)
 
 ## 1. Task identity
-`ODY-S09-104`; status: In Review (Draft PR, merge deferred to the product owner). Block 4 of `SLICE-09` (`docs/tasks/SLICE-09_IMPLEMENTATION_BACKLOG.md`); follows `ODY-S09-103` (block 3, merged).
+`ODY-S09-104`; status: Done (PR #177, merged into main). Block 4 of `SLICE-09` (`docs/tasks/SLICE-09_IMPLEMENTATION_BACKLOG.md`); follows `ODY-S09-103` (block 3, merged).
 
 ## 2. Goal
 Remove the last `Odyssey.Rules` references from `SqliteCharacterRepository`: `PreviewCharacterRulesetMigration` and `ApplyCharacterRulesetMigration` (both called `RulesetMigrationRules.BuildPlan`, and both port signatures carried Rules types). After this task the whole file, and the whole `com.odyssey.persistence` package, has no `Odyssey.Rules` reference.

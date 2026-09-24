@@ -1,7 +1,7 @@
 # ODY-S09-101 — SLICE-09 Backlog + Character Advancement Service + Decoupling of the Two Light Methods (block 1)
 
 ## 1. Task identity
-`ODY-S09-101`; status: In Review (Draft PR, merge deferred to the product owner). First task of `SLICE-09`, which it creates; decomposes and implements block 1.
+`ODY-S09-101`; status: Done (PR #174, merged into main). First task of `SLICE-09`, which it creates; decomposes and implements block 1.
 
 ## 2. Goal
 Start removing the `Odyssey.Persistence -> Odyssey.Rules` violation (`ADR-001` §5) found by the PR #173 investigation. Block 1 introduces the Application-layer service that will own character-advancement decisions and uses it to decouple the two methods that only read default constants: `InitializeCharacterResource` and `InitializeCharacterAnatomy`. Also creates `docs/tasks/SLICE-09_IMPLEMENTATION_BACKLOG.md` with all five blocks.

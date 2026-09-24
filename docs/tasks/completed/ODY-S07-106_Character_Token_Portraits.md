@@ -1,7 +1,7 @@
 # ODY-S07-106 — Character and Token Portraits (`PortraitAssetId`, block 5)
 
 ## 1. Task identity
-`ODY-S07-106`; status: In Review (Draft PR, merge deferred to the product owner). Sixth task of `SLICE-07`, the decomposition of block 5 -- the last of the five originally reserved blocks.
+`ODY-S07-106`; status: Done (PR #171, merged into main). Sixth task of `SLICE-07`, the decomposition of block 5 -- the last of the five originally reserved blocks.
 
 ## 2. Goal
 Give `CharacterRecord` and `TokenRecord` each a real, validated portrait reference -- a new nullable `PortraitAssetId` (`AssetId?`) -- set/cleared through two independent commands (`ICharacterRepository.SetCharacterPortrait`, `ISceneRepository.SetTokenPortrait`), each following `ODY-S07-105`'s `SetSceneBackground` exactly: idempotent, optimistically concurrent, fail-closed against the campaign's own `AssetManifestEntries`, keeping `AssetReferences` to one current row.
