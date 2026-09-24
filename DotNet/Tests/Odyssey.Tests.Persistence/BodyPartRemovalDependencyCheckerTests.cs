@@ -2,6 +2,7 @@ using System;
 using System.IO;
 using Microsoft.Data.Sqlite;
 using NUnit.Framework;
+using Odyssey.Application.CharacterAdvancement;
 using Odyssey.Application.Commands;
 using Odyssey.Application.Inventory;
 using Odyssey.Application.Persistence;
@@ -231,7 +232,7 @@ namespace Odyssey.Tests.Persistence
             var request = new CreateCharacterRequest(_campaign, CharacterKind.PlayerCharacter, "RemoveBodyPart Dependency Test Character");
             Result<CharacterRecord> created = characters.CreateCharacter(request, NewCommandId(), TestCorrelationId);
             Assert.That(created.IsSuccess, Is.True);
-            Result<CharacterRecord> initialized = characters.InitializeCharacterAnatomy(_campaign, created.Value.CharacterId, Humanoid, NewUserId(), actorIsMainGm: true, created.Value.Revisions.CharacterAnatomyRevision, NewCommandId(), TestCorrelationId);
+            Result<CharacterRecord> initialized = CharacterAdvancementService.InitializeAnatomyWithDefaults(characters, _campaign, created.Value.CharacterId, Humanoid, NewUserId(), actorIsMainGm: true, created.Value.Revisions.CharacterAnatomyRevision, NewCommandId(), TestCorrelationId);
             Assert.That(initialized.IsSuccess, Is.True);
             return initialized.Value;
         }

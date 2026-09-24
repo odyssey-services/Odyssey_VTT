@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.IO;
 using NUnit.Framework;
 using Odyssey.Application.Board;
+using Odyssey.Application.CharacterAdvancement;
 using Odyssey.Application.Combat;
 using Odyssey.Application.Commands;
 using Odyssey.Application.Content;
@@ -271,7 +272,7 @@ namespace Odyssey.Tests.Persistence
         private void InitializeAnatomy(CharacterId characterId)
         {
             CharacterRecord current = _characters.GetCharacter(_campaign, characterId, Corr).Value;
-            Result<CharacterRecord> result = _characters.InitializeCharacterAnatomy(_campaign, characterId, Humanoid, User(), actorIsMainGm: true, current.Revisions.CharacterAnatomyRevision, Command(), Corr);
+            Result<CharacterRecord> result = CharacterAdvancementService.InitializeAnatomyWithDefaults(_characters, _campaign, characterId, Humanoid, User(), actorIsMainGm: true, current.Revisions.CharacterAnatomyRevision, Command(), Corr);
             Assert.That(result.IsSuccess, Is.True, result.IsFailure ? result.Error.Code.ToString() : string.Empty);
         }
 
@@ -337,7 +338,7 @@ namespace Odyssey.Tests.Persistence
         private void InitResource(CharacterId characterId, ResourceDefinitionId resourceKind)
         {
             CharacterRecord current = _characters.GetCharacter(_campaign, characterId, Corr).Value;
-            Result<CharacterRecord> result = _characters.InitializeCharacterResource(_campaign, characterId, resourceKind, User(), true, current.Revisions.CharacterResourcesRevision, Command(), Corr);
+            Result<CharacterRecord> result = CharacterAdvancementService.InitializeResourceWithDefaults(_characters, _campaign, characterId, resourceKind, User(), true, current.Revisions.CharacterResourcesRevision, Command(), Corr);
             Assert.That(result.IsSuccess, Is.True);
         }
 
