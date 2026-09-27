@@ -4049,6 +4049,118 @@
                           "check":  "RegisterAsset's destination RelativePath is content-addressed (Assets/Objects/<sha256 hash>.<original extension>), never derived from the caller's original file name"
                       },
                       {
+                          "testCaseId":  "TC-BOARD-051",
+                          "taskId":  "ODY-S08-102",
+                          "authority":  "ODY-S08-102 test list (task contract section 3)",
+                          "runner":  "Unity EditMode",
+                          "path":  "Assets/Odyssey/Client/Tests/EditMode/BoardCameraTests.cs",
+                          "check":  "A fresh BoardCamera reproduces the old fixed OriginOffsetPixels=220/PixelsPerUnit=40 transform exactly, before any pan or zoom"
+                      },
+                      {
+                          "testCaseId":  "TC-BOARD-052",
+                          "taskId":  "ODY-S08-102",
+                          "authority":  "ODY-S08-102 test list (task contract section 3)",
+                          "runner":  "Unity EditMode",
+                          "path":  "Assets/Odyssey/Client/Tests/EditMode/BoardCameraTests.cs",
+                          "check":  "ToPixels/FromPixels round-trip (FromPixels(ToPixels(p)) recovers p) at various world points after a pan and a zoom"
+                      },
+                      {
+                          "testCaseId":  "TC-BOARD-053",
+                          "taskId":  "ODY-S08-102",
+                          "authority":  "ODY-S08-102 test list (task contract section 3)",
+                          "runner":  "Unity EditMode",
+                          "path":  "Assets/Odyssey/Client/Tests/EditMode/BoardCameraTests.cs",
+                          "check":  "Pan shifts a fixed world point's pixel position by exactly the dragged pixel delta, and never changes Scale"
+                      },
+                      {
+                          "testCaseId":  "TC-BOARD-054",
+                          "taskId":  "ODY-S08-102",
+                          "authority":  "ODY-S08-102 test list (task contract section 3)",
+                          "runner":  "Unity EditMode",
+                          "path":  "Assets/Odyssey/Client/Tests/EditMode/BoardCameraTests.cs",
+                          "check":  "Zoom keeps the exact pixel position of the world point under the anchor fixed (direct numeric check), while the origin (a different point) moves -- zoom-to-cursor, not zoom-to-origin"
+                      },
+                      {
+                          "testCaseId":  "TC-BOARD-055",
+                          "taskId":  "ODY-S08-102",
+                          "authority":  "ODY-S08-102 test list (task contract section 3)",
+                          "runner":  "Unity EditMode",
+                          "path":  "Assets/Odyssey/Client/Tests/EditMode/BoardCameraTests.cs",
+                          "check":  "Repeated zoom-out/zoom-in clamps Scale to MinScale/MaxScale respectively without ever reaching zero or negative, and the transform stays invertible at both clamped extremes"
+                      },
+                      {
+                          "testCaseId":  "TC-BOARD-056",
+                          "taskId":  "ODY-S08-102",
+                          "authority":  "ODY-S08-102 test list (task contract section 3)",
+                          "runner":  "Unity EditMode",
+                          "path":  "Assets/Odyssey/Client/Tests/EditMode/BoardCameraTests.cs",
+                          "check":  "Zoom with a non-positive factor throws ArgumentOutOfRangeException"
+                      },
+                      {
+                          "testCaseId":  "TC-BOARD-057",
+                          "taskId":  "ODY-S08-102",
+                          "authority":  "ODY-S08-102 test list (task contract section 3)",
+                          "runner":  "Unity EditMode",
+                          "path":  "Assets/Odyssey/Client/Tests/EditMode/BoardPointerGestureTests.cs",
+                          "check":  "Movement below the 5px drag threshold is still reported as a click (End() returns true), never a drag"
+                      },
+                      {
+                          "testCaseId":  "TC-BOARD-058",
+                          "taskId":  "ODY-S08-102",
+                          "authority":  "ODY-S08-102 test list (task contract section 3)",
+                          "runner":  "Unity EditMode",
+                          "path":  "Assets/Odyssey/Client/Tests/EditMode/BoardPointerGestureTests.cs",
+                          "check":  "Movement at/above the drag threshold becomes a drag and reports pixel deltas relative to the previous move from then on"
+                      },
+                      {
+                          "testCaseId":  "TC-BOARD-059",
+                          "taskId":  "ODY-S08-102",
+                          "authority":  "ODY-S08-102 test list (task contract section 3)",
+                          "runner":  "Unity EditMode",
+                          "path":  "Assets/Odyssey/Client/Tests/EditMode/BoardPointerGestureTests.cs",
+                          "check":  "Once a gesture becomes a drag it stays a drag even if the pointer returns near the down-point"
+                      },
+                      {
+                          "testCaseId":  "TC-BOARD-060",
+                          "taskId":  "ODY-S08-102",
+                          "authority":  "ODY-S08-102 test list (task contract section 3)",
+                          "runner":  "Unity EditMode",
+                          "path":  "Assets/Odyssey/Client/Tests/EditMode/BoardPointerGestureTests.cs",
+                          "check":  "Cancel discards the gesture; End() afterwards reports neither a click nor a drag"
+                      },
+                      {
+                          "testCaseId":  "TC-BOARD-061",
+                          "taskId":  "ODY-S08-102",
+                          "authority":  "ODY-S08-102 test list (task contract section 3)",
+                          "runner":  "Unity EditMode",
+                          "path":  "Assets/Odyssey/Client/Tests/EditMode/BoardPointerGestureTests.cs",
+                          "check":  "Move/End with no active gesture are no-ops"
+                      },
+                      {
+                          "testCaseId":  "TC-BOARD-062",
+                          "taskId":  "ODY-S08-102",
+                          "authority":  "ODY-S08-102 test list (task contract section 3)",
+                          "runner":  "Unity EditMode",
+                          "path":  "Assets/Odyssey/Client/Tests/EditMode/BoardScreenPresenterTests.cs",
+                          "check":  "A board pointer gesture with movement below the drag threshold still moves the selected token to the exact expected destination (via the presenter's own camera) and clears the selection -- byte-for-byte the old ClickEvent-driven behavior, now reached through the gesture path"
+                      },
+                      {
+                          "testCaseId":  "TC-BOARD-063",
+                          "taskId":  "ODY-S08-102",
+                          "authority":  "ODY-S08-102 test list (task contract section 3)",
+                          "runner":  "Unity EditMode",
+                          "path":  "Assets/Odyssey/Client/Tests/EditMode/BoardScreenPresenterTests.cs",
+                          "check":  "A board pointer gesture with movement above the drag threshold pans the camera by exactly the dragged pixel delta and leaves both the token's persisted position and the current selection untouched"
+                      },
+                      {
+                          "testCaseId":  "TC-BOARD-064",
+                          "taskId":  "ODY-S08-102",
+                          "authority":  "ODY-S08-102 test list (task contract section 3)",
+                          "runner":  "Unity EditMode",
+                          "path":  "Assets/Odyssey/Client/Tests/EditMode/BoardScreenPresenterTests.cs",
+                          "check":  "ZoomBoard changes Camera.Scale and repositions an already-rendered token element's on-screen position without touching its persisted position"
+                      },
+                      {
                           "testCaseId":  "TC-CATALOG-001",
                           "taskId":  "ODY-S05-101",
                           "authority":  "ADR-027 section 4; 11_Content_Block_System section 5.3/6.1",

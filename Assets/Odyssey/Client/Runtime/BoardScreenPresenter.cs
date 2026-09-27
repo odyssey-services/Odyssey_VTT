@@ -44,16 +44,22 @@ namespace Odyssey.Unity.Client
     /// </summary>
     public sealed class BoardScreenPresenter : IDisposable
     {
-        private const double PixelsPerUnit = 40.0;
         private const double TokenSizePixels = 28.0;
-        private const double OriginOffsetPixels = 220.0;
 
         private readonly UIDocument _document;
         private readonly ISceneRepository _sceneRepository;
         private readonly CampaignHandle _campaign;
         private readonly SceneId _sceneId;
         private readonly bool _includeRoleSelector;
+        // ODY-S08-102: replaces the old fixed OriginOffsetPixels/PixelsPerUnit transform. Purely local,
+        // per-presenter, ephemeral state (task contract section 1.4: no persistence, no sync).
+        private readonly BoardCamera _camera = new BoardCamera();
+        private readonly BoardPointerGesture _boardPointerGesture = new BoardPointerGesture();
         private readonly Dictionary<string, VisualElement> _tokenElementsByTokenId = new Dictionary<string, VisualElement>(StringComparer.Ordinal);
+        // ODY-S08-102: the last-rendered world position of each token, so a pan/zoom can reposition
+        // already-rendered token elements without a full Refresh() (no repeated DB read/texture-cache
+        // lookups while the user is actively dragging or scrolling).
+        private readonly Dictionary<string, TokenPosition> _tokenPositionsByTokenId = new Dictionary<string, TokenPosition>(StringComparer.Ordinal);
         // ODY-S08-101: decoded textures for the presenter's lifetime, keyed by AssetId. AssetId is
         // minted fresh by every RegisterAsset (AssetId.NewId), so an id never changes content and no
         // revision-based invalidation is needed. Only successful loads are cached; a failed load is
@@ -151,7 +157,13 @@ namespace Odyssey.Unity.Client
             _boardArea.style.height = 440;
             _boardArea.style.marginTop = 8;
             _boardArea.style.backgroundColor = new StyleColor(new Color(0.12f, 0.12f, 0.14f));
-            _boardArea.RegisterCallback<ClickEvent>(OnBoardAreaClicked);
+            // ODY-S08-102: pointer-down/move/up (not ClickEvent) drives the board's own click-vs-pan
+            // disambiguation (BoardPointerGesture) -- see the class remarks and OnBoardPointerDown/Move/Up.
+            _boardArea.RegisterCallback<PointerDownEvent>(OnBoardPointerDown);
+            _boardArea.RegisterCallback<PointerMoveEvent>(OnBoardPointerMove);
+            _boardArea.RegisterCallback<PointerUpEvent>(OnBoardPointerUp);
+            _boardArea.RegisterCallback<PointerCaptureOutEvent>(OnBoardPointerCaptureOut);
+            _boardArea.RegisterCallback<WheelEvent>(OnBoardWheel);
             appRoot.Add(_boardArea);
         }
 
@@ -274,6 +286,7 @@ namespace Odyssey.Unity.Client
             if (_boardArea == null) return null;
             _boardArea.Clear();
             _tokenElementsByTokenId.Clear();
+            _tokenPositionsByTokenId.Clear();
             Error? firstAssetError = null;
 
             foreach (TokenRecord token in tokens)
@@ -283,8 +296,11 @@ namespace Odyssey.Unity.Client
                 tokenElement.style.position = Position.Absolute;
                 tokenElement.style.width = (float)TokenSizePixels;
                 tokenElement.style.height = (float)TokenSizePixels;
-                tokenElement.style.left = ToPixels(token.Position.X);
-                tokenElement.style.top = ToPixels(token.Position.Y);
+                PositionTokenElement(tokenElement, token.Position);
+                // ODY-S08-102: a pointer-down that starts on a token must never reach the board's own
+                // gesture tracking (OnBoardPointerDown) -- a token click, even with a little hand tremor,
+                // must never be interpreted as the start of a camera pan (task contract section 1.2).
+                tokenElement.RegisterCallback<PointerDownEvent>(evt => evt.StopPropagation());
                 bool hasPortraitTexture = false;
                 if (token.PortraitAssetId.HasValue)
                 {
@@ -321,6 +337,7 @@ namespace Odyssey.Unity.Client
 
                 _boardArea.Add(tokenElement);
                 _tokenElementsByTokenId[token.TokenId.ToString()] = tokenElement;
+                _tokenPositionsByTokenId[token.TokenId.ToString()] = token.Position;
             }
 
             return firstAssetError;
@@ -400,25 +417,120 @@ namespace Odyssey.Unity.Client
             return moved;
         }
 
-        private void OnBoardAreaClicked(ClickEvent evt)
+        // ---- ODY-S08-102: board camera (pan/zoom) and click-vs-drag gesture -------------------------
+        //
+        // The real UI Toolkit callbacks below are thin wrappers over BeginBoardPointerGesture/
+        // MoveBoardPointer/EndBoardPointerGesture/ZoomBoard, exactly the same "public method a test can
+        // call directly, no simulated event dispatch" shape SelectToken/TryMoveSelectedTokenTo already
+        // established (class remarks) -- BoardCamera and BoardPointerGesture are pure C# and need no
+        // simulated input at all to test either.
+
+        private void OnBoardPointerDown(PointerDownEvent evt)
         {
-            Vector2 localPosition = evt.localPosition;
-            TokenPosition destination = FromPixels(localPosition.x, localPosition.y);
-            TryMoveSelectedTokenTo(destination);
+            if (_boardArea == null) return;
+            _boardArea.CapturePointer(evt.pointerId);
+            BeginBoardPointerGesture(evt.localPosition.x, evt.localPosition.y);
         }
+
+        private void OnBoardPointerMove(PointerMoveEvent evt)
+        {
+            if (_boardArea == null || !_boardArea.HasPointerCapture(evt.pointerId)) return;
+            MoveBoardPointer(evt.localPosition.x, evt.localPosition.y);
+        }
+
+        private void OnBoardPointerUp(PointerUpEvent evt)
+        {
+            if (_boardArea == null) return;
+            if (_boardArea.HasPointerCapture(evt.pointerId)) _boardArea.ReleasePointer(evt.pointerId);
+            EndBoardPointerGesture(evt.localPosition.x, evt.localPosition.y);
+        }
+
+        private void OnBoardPointerCaptureOut(PointerCaptureOutEvent evt)
+        {
+            _boardPointerGesture.Cancel();
+        }
+
+        private void OnBoardWheel(WheelEvent evt)
+        {
+            // Scrolling "away from the user" (the standard mouse-wheel-forward notch, reported here as a
+            // negative delta.y) zooms in -- the same convention most infinite-canvas tools use (e.g. Google
+            // Maps, most browsers' own page zoom). Scrolling "towards the user" (positive delta.y) zooms out.
+            double factor = evt.delta.y < 0 ? BoardZoomStepFactor : 1.0 / BoardZoomStepFactor;
+            ZoomBoard(factor, evt.localMousePosition.x, evt.localMousePosition.y);
+            evt.StopPropagation();
+        }
+
+        /// <summary>~10% per wheel notch -- a smooth, gradual zoom step; not otherwise significant.</summary>
+        private const double BoardZoomStepFactor = 1.1;
+
+        /// <summary>
+        /// Starts tracking the board's own pointer gesture at a pixel position. Public for the same
+        /// testability reason as <see cref="SelectToken"/>: a test drives a full down/move/up sequence with
+        /// plain pixel numbers, exactly reproducing the click-vs-drag disambiguation task contract section
+        /// 1.2 requires, without simulating a single UI Toolkit event.
+        /// </summary>
+        public void BeginBoardPointerGesture(double pixelX, double pixelY) => _boardPointerGesture.Begin(pixelX, pixelY);
+
+        /// <summary>Feeds a pointer move into the board's gesture; once the drag threshold is crossed, pans the camera and repositions the already-rendered tokens. Public -- see <see cref="BeginBoardPointerGesture"/>.</summary>
+        public void MoveBoardPointer(double pixelX, double pixelY)
+        {
+            if (_boardPointerGesture.Move(pixelX, pixelY, out double deltaX, out double deltaY))
+            {
+                _camera.Pan(deltaX, deltaY);
+                RepositionTokens();
+            }
+        }
+
+        /// <summary>
+        /// Ends the board's gesture. If it never crossed the drag threshold, dispatches the pointer-up
+        /// position as an ordinary click -- <see cref="TryMoveSelectedTokenTo"/>, unchanged, exactly as
+        /// the old <c>ClickEvent</c>-driven <c>OnBoardAreaClicked</c> did. Public -- see
+        /// <see cref="BeginBoardPointerGesture"/>.
+        /// </summary>
+        public void EndBoardPointerGesture(double pixelX, double pixelY)
+        {
+            if (_boardPointerGesture.End())
+            {
+                TryMoveSelectedTokenTo(ToWorldPosition(pixelX, pixelY));
+            }
+        }
+
+        /// <summary>Zooms the camera to <paramref name="anchorPixelX"/>/<paramref name="anchorPixelY"/> and repositions the already-rendered tokens. Public -- see <see cref="BeginBoardPointerGesture"/>.</summary>
+        public void ZoomBoard(double factor, double anchorPixelX, double anchorPixelY)
+        {
+            _camera.Zoom(factor, anchorPixelX, anchorPixelY);
+            RepositionTokens();
+        }
+
+        /// <summary>The board camera's current state, exposed read-only for tests and any future caller that needs to know the current pan/zoom (task contract section 1.4: this state is never persisted or synced).</summary>
+        public BoardCamera Camera => _camera;
+
+        // Repositions the already-rendered token elements from their last-known world position (no DB
+        // read, no texture-cache lookup, no DOM teardown) -- called after every pan/zoom so dragging and
+        // scrolling stay smooth. A full Refresh() (which this deliberately is not) is still what re-reads
+        // token positions from the repository.
+        private void RepositionTokens()
+        {
+            foreach (KeyValuePair<string, TokenPosition> entry in _tokenPositionsByTokenId)
+            {
+                if (_tokenElementsByTokenId.TryGetValue(entry.Key, out VisualElement? tokenElement))
+                {
+                    PositionTokenElement(tokenElement, entry.Value);
+                }
+            }
+        }
+
+        private void PositionTokenElement(VisualElement tokenElement, TokenPosition position)
+        {
+            tokenElement.style.left = (float)(_camera.ToPixelsX(position.X) - TokenSizePixels / 2);
+            tokenElement.style.top = (float)(_camera.ToPixelsY(position.Y) - TokenSizePixels / 2);
+        }
+
+        private TokenPosition ToWorldPosition(double pixelX, double pixelY) => new TokenPosition(_camera.FromPixelsX(pixelX), _camera.FromPixelsY(pixelY));
 
         private void SetStatus(string text)
         {
             if (_statusLabel != null) _statusLabel.text = text;
-        }
-
-        private static float ToPixels(double unit) => (float)(OriginOffsetPixels + unit * PixelsPerUnit - TokenSizePixels / 2);
-
-        private static TokenPosition FromPixels(double pixelX, double pixelY)
-        {
-            double x = (pixelX - OriginOffsetPixels) / PixelsPerUnit;
-            double y = (pixelY - OriginOffsetPixels) / PixelsPerUnit;
-            return new TokenPosition(x, y);
         }
 
         private static CommandId NewCommandId() => CommandId.Parse("cmd_" + Guid.NewGuid().ToString("N"));
