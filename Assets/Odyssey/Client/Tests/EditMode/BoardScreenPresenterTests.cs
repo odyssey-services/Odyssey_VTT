@@ -191,6 +191,117 @@ namespace Odyssey.Tests.Unity.EditMode
             }
         }
 
+        // ---- ODY-S08-102: board camera (pan/zoom) + click-vs-drag gesture ----------
+
+        private BoardScreenPresenter BuildPresenterForCamera(out CampaignHandle campaign, out ISceneRepository sceneRepository, out TokenId tokenId, out UIDocument document, out GameObject gameObject, out SqliteCampaignRepository campaignRepository, out TemporaryDirectory directory)
+        {
+            directory = new TemporaryDirectory();
+            campaignRepository = new SqliteCampaignRepository(Clock);
+            campaign = campaignRepository.Create(new CreateCampaignRequest(directory.Path, "Board Camera Test Campaign", "ruleset.core", "1.0.0", "0.1.0"), NewCommandId(), TestCorrelationId).Value;
+            var sqliteSceneRepository = new SqliteSceneRepository(Clock);
+            sceneRepository = sqliteSceneRepository;
+            SceneId sceneId = sqliteSceneRepository.CreateScene(campaign, "Test Scene", NewCommandId(), TestCorrelationId).Value.SceneId;
+            UserId localActor = NewUserId();
+            TokenRecord token = sqliteSceneRepository.CreateToken(campaign, sceneId, new TokenPosition(0, 0), localActor, NewCommandId(), TestCorrelationId).Value;
+            tokenId = token.TokenId;
+
+            gameObject = new GameObject("Board Camera Document");
+            document = gameObject.AddComponent<UIDocument>();
+            var presenter = new BoardScreenPresenter(document, sceneRepository, campaign, sceneId, localActor);
+            Assert.That(presenter.Initialize().IsSuccess, Is.True);
+            return presenter;
+        }
+
+        [Test] // TC-BOARD-062
+        public void BoardPointerGesture_BelowDragThreshold_StillMovesTheSelectedToken_ExactlyLikeAnOrdinaryClick()
+        {
+            BoardScreenPresenter presenter = BuildPresenterForCamera(out CampaignHandle campaign, out ISceneRepository sceneRepository, out TokenId tokenId, out UIDocument document, out GameObject gameObject, out SqliteCampaignRepository campaignRepository, out TemporaryDirectory directory);
+            try
+            {
+                presenter.SelectToken(tokenId);
+                const double clickPixelX = 300.0;
+                const double clickPixelY = 260.0;
+
+                presenter.BeginBoardPointerGesture(clickPixelX, clickPixelY);
+                presenter.MoveBoardPointer(clickPixelX + 2.0, clickPixelY + 1.0); // 2.24px -- below the 5px drag threshold
+                presenter.EndBoardPointerGesture(clickPixelX + 2.0, clickPixelY + 1.0);
+
+                TokenPosition expectedDestination = new TokenPosition(presenter.Camera.FromPixelsX(clickPixelX + 2.0), presenter.Camera.FromPixelsY(clickPixelY + 1.0));
+                Result<TokenRecord> persisted = sceneRepository.GetToken(campaign, tokenId, TestCorrelationId);
+                Assert.That(persisted.Value.Position.X, Is.EqualTo(expectedDestination.X).Within(1e-6), "movement below the drag threshold must still move the selected token, exactly like the old ClickEvent-driven behavior");
+                Assert.That(persisted.Value.Position.Y, Is.EqualTo(expectedDestination.Y).Within(1e-6));
+                Assert.That(presenter.SelectedTokenId, Is.Null, "a click-move must clear the selection exactly as before");
+            }
+            finally
+            {
+                presenter.Dispose();
+                UnityEngine.Object.DestroyImmediate(gameObject);
+                campaignRepository.Close(campaign, TestCorrelationId);
+                directory.Dispose();
+            }
+        }
+
+        [Test] // TC-BOARD-063
+        public void BoardPointerGesture_AboveDragThreshold_PansTheCamera_AndDoesNotMoveOrDeselectTheSelectedToken()
+        {
+            BoardScreenPresenter presenter = BuildPresenterForCamera(out CampaignHandle campaign, out ISceneRepository sceneRepository, out TokenId tokenId, out UIDocument document, out GameObject gameObject, out SqliteCampaignRepository campaignRepository, out TemporaryDirectory directory);
+            try
+            {
+                presenter.SelectToken(tokenId);
+                const double startPixelX = 200.0;
+                const double startPixelY = 200.0;
+                const double deltaX = 40.0;
+                const double deltaY = -15.0;
+                double pixelXBefore = presenter.Camera.ToPixelsX(0);
+
+                presenter.BeginBoardPointerGesture(startPixelX, startPixelY);
+                presenter.MoveBoardPointer(startPixelX + deltaX, startPixelY + deltaY); // ~42.7px -- above the 5px drag threshold
+                presenter.EndBoardPointerGesture(startPixelX + deltaX, startPixelY + deltaY);
+
+                Result<TokenRecord> persisted = sceneRepository.GetToken(campaign, tokenId, TestCorrelationId);
+                Assert.That(persisted.Value.Position.X, Is.EqualTo(0), "movement above the drag threshold must NOT move the token");
+                Assert.That(persisted.Value.Position.Y, Is.EqualTo(0));
+                Assert.That(presenter.SelectedTokenId, Is.EqualTo(tokenId), "panning the camera must not disturb the current selection");
+                Assert.That(presenter.Camera.ToPixelsX(0), Is.EqualTo(pixelXBefore + deltaX).Within(1e-9), "the camera must have panned by exactly the dragged pixel delta");
+            }
+            finally
+            {
+                presenter.Dispose();
+                UnityEngine.Object.DestroyImmediate(gameObject);
+                campaignRepository.Close(campaign, TestCorrelationId);
+                directory.Dispose();
+            }
+        }
+
+        [Test] // TC-BOARD-064
+        public void ZoomBoard_ChangesTheCameraScale_AndRepositionsAlreadyRenderedTokenElements()
+        {
+            BoardScreenPresenter presenter = BuildPresenterForCamera(out CampaignHandle campaign, out ISceneRepository sceneRepository, out TokenId tokenId, out UIDocument document, out GameObject gameObject, out SqliteCampaignRepository campaignRepository, out TemporaryDirectory directory);
+            try
+            {
+                VisualElement? tokenElement = document.rootVisualElement.Q<VisualElement>("token-" + tokenId);
+                Assert.That(tokenElement, Is.Not.Null);
+                float leftBefore = tokenElement!.style.left.value.value;
+
+                // Anchored away from the token's own screen position (220, 220) -- a zoom anchored exactly
+                // on the token would correctly leave it in place, which would not test repositioning.
+                presenter.ZoomBoard(factor: 2.0, anchorPixelX: 60.0, anchorPixelY: 60.0);
+
+                Assert.That(presenter.Camera.Scale, Is.EqualTo(80.0).Within(1e-9));
+                Assert.That(tokenElement.style.left.value.value, Is.Not.EqualTo(leftBefore), "zooming must reposition the already-rendered token element (no full re-render needed)");
+
+                Result<TokenRecord> persisted = sceneRepository.GetToken(campaign, tokenId, TestCorrelationId);
+                Assert.That(persisted.Value.Position.X, Is.EqualTo(0), "zooming is purely a local view change -- it must never touch persisted state");
+            }
+            finally
+            {
+                presenter.Dispose();
+                UnityEngine.Object.DestroyImmediate(gameObject);
+                campaignRepository.Close(campaign, TestCorrelationId);
+                directory.Dispose();
+            }
+        }
+
         private sealed class TemporaryDirectory : IDisposable
         {
             public TemporaryDirectory()
