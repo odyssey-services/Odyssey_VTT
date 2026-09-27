@@ -34,6 +34,10 @@ $allowed = @{
 }
 
 $coreBridgeModules = @('Odyssey.Domain', 'Odyssey.Rules', 'Odyssey.Content', 'Odyssey.Application')
+# Every production .csproj under DotNet/Projects. Test-BridgeProject (target framework, package references, compile
+# include, ProjectReference set, DisableTransitiveProjectReferences) applies to all of them; Persistence and Networking
+# were added after SLICE-09 (housekeeping) -- until then only the four core modules had a csproj check.
+$checkedProjectModules = @('Odyssey.Domain', 'Odyssey.Rules', 'Odyssey.Content', 'Odyssey.Application', 'Odyssey.Persistence', 'Odyssey.Networking')
 $approvedExternalPackageDependencies = @{
     'com.odyssey.application' = @{
         'com.unity.nuget.newtonsoft-json' = '3.2.2'
@@ -47,6 +51,11 @@ $approvedExternalAsmdefReferences = @{
 $approvedBridgePackageReferences = @{
     'Odyssey.Application' = @{
         'Newtonsoft.Json' = '$(NewtonsoftJsonVersion)'
+    }
+    # ADR-011 v1.1 section 1: accepted SQLite provider library and the SQLitePCLRaw bundle floor.
+    'Odyssey.Persistence' = @{
+        'Microsoft.Data.Sqlite' = '9.0.10'
+        'SQLitePCLRaw.bundle_e_sqlite3' = '3.0.3'
     }
 }
 $requiredTestCaseIds = @(
@@ -996,22 +1005,8 @@ function Test-RepositoryStructure {
     Assert-SetEquals $errors 'Odyssey.Unity.Client asmdef' $asmdefGraph['Odyssey.Unity.Client'] $allowed['Odyssey.Unity.Client']
     Assert-SetEquals $errors 'Odyssey.Unity.Client.Editor asmdef' $asmdefGraph['Odyssey.Unity.Client.Editor'] $allowed['Odyssey.Unity.Client.Editor']
 
-    foreach ($module in $coreBridgeModules) {
+    foreach ($module in $checkedProjectModules) {
         Test-BridgeProject $errors $module $csprojGraph
-    }
-
-    # Persistence and Networking are not bridge modules (their csproj graph is checked elsewhere), but they are the
-    # projects where the transitive-reference hole mattered most, so the same property is required on them.
-    foreach ($module in @('Odyssey.Persistence', 'Odyssey.Networking')) {
-        $moduleProject = Join-Path $RootPath "DotNet/Projects/$module.csproj"
-        if (Test-Path -LiteralPath $moduleProject) {
-            try {
-                Test-TransitiveReferencesDisabled $errors "$module.csproj" (Read-XmlFile $moduleProject)
-            }
-            catch {
-                $errors.Add($_.Exception.Message)
-            }
-        }
     }
 
     # Odyssey.Persistence.csproj was created by ODY-S01-007 (SLICE-01 Campaign
@@ -1091,7 +1086,7 @@ function Test-RepositoryStructure {
         if ($packageGraph.ContainsKey($module) -and $asmdefGraph.ContainsKey($module)) {
             Assert-SetEquals $errors "$module package/asmdef parity" $packageGraph[$module] $asmdefGraph[$module]
         }
-        if ($module -in $coreBridgeModules -and $csprojGraph.ContainsKey($module)) {
+        if ($module -in $checkedProjectModules -and $csprojGraph.ContainsKey($module)) {
             Assert-SetEquals $errors "$module asmdef/csproj parity" $asmdefGraph[$module] $csprojGraph[$module]
         }
     }
@@ -1209,6 +1204,15 @@ $($referenceLines -join "`n")
   </ItemGroup>
 "@
     }
+    if ($Module -eq 'Odyssey.Persistence') {
+        $packageReferenceBlock = @"
+
+  <ItemGroup>
+    <PackageReference Include="Microsoft.Data.Sqlite" Version="9.0.10" />
+    <PackageReference Include="SQLitePCLRaw.bundle_e_sqlite3" Version="3.0.3" />
+  </ItemGroup>
+"@
+    }
     Write-Utf8NoBom (Join-Path $FixtureRoot "DotNet/Projects/$Module.csproj") @"
 <Project Sdk="Microsoft.NET.Sdk">
   <PropertyGroup>
@@ -1248,7 +1252,7 @@ function New-SyntheticFixture([string] $FixtureRoot, [bool] $InvalidDomainDepend
         New-FixturePackage $FixtureRoot $module $InvalidDomainDependency
     }
 
-    foreach ($module in $coreBridgeModules) {
+    foreach ($module in $checkedProjectModules) {
         New-FixtureCsproj $FixtureRoot $module $InvalidDomainDependency
     }
 
@@ -1400,6 +1404,13 @@ function Set-FixtureTransitiveReferencesEnabled([string] $FixtureRoot) {
     Write-Utf8NoBom $projectPath $text
 }
 
+function Set-FixturePersistenceRulesReference([string] $FixtureRoot) {
+    $projectPath = Join-Path $FixtureRoot 'DotNet/Projects/Odyssey.Persistence.csproj'
+    $text = [System.IO.File]::ReadAllText($projectPath)
+    $text = $text.Replace('<ProjectReference Include="Odyssey.Domain.csproj" />', '<ProjectReference Include="Odyssey.Domain.csproj" />' + "`n" + '    <ProjectReference Include="Odyssey.Rules.csproj" />')
+    Write-Utf8NoBom $projectPath $text
+}
+
 function Set-FixtureDuplicateCatalogOwnership([string] $FixtureRoot) {
     $catalogPath = Join-Path $FixtureRoot 'Tests/Metadata/test-catalog.json'
     $json = Read-JsonFile $catalogPath
@@ -1515,6 +1526,17 @@ if (-not $SkipNegativeFixture) {
             exit 1
         }
         Write-Host "TC-ARCH-002 PASS controlled removal of DisableTransitiveProjectReferences rejected with exit code $($transitiveResult.ExitCode)"
+
+        Remove-Item -LiteralPath $fixtureRoot -Recurse -Force
+        New-SyntheticFixture $fixtureRoot $false
+        Set-FixturePersistenceRulesReference $fixtureRoot
+        $persistenceResult = Invoke-GuardFixture $fixtureRoot
+        if ($persistenceResult.ExitCode -eq 0 -or $persistenceResult.Text -notmatch 'Odyssey\.Persistence csproj dependencies mismatch') {
+            Write-Host 'TC-ARCH-002 FAIL controlled Persistence->Rules ProjectReference was not rejected for expected reason'
+            $persistenceResult.Output | ForEach-Object { Write-Host $_ }
+            exit 1
+        }
+        Write-Host "TC-ARCH-002 PASS controlled Persistence->Rules ProjectReference rejected with exit code $($persistenceResult.ExitCode)"
 
         Remove-Item -LiteralPath $fixtureRoot -Recurse -Force
         New-SyntheticFixture $fixtureRoot $false

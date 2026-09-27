@@ -1,7 +1,7 @@
 # ODY-S09-103 — Decoupling of Respec from `Odyssey.Rules` (SLICE-09 block 3)
 
 ## 1. Task identity
-`ODY-S09-103`; status: In Review (Draft PR, merge deferred to the product owner). Block 3 of `SLICE-09` (`docs/tasks/SLICE-09_IMPLEMENTATION_BACKLOG.md`); follows `ODY-S09-102` (block 2, merged).
+`ODY-S09-103`; status: Done (PR #176, merged into main). Block 3 of `SLICE-09` (`docs/tasks/SLICE-09_IMPLEMENTATION_BACKLOG.md`); follows `ODY-S09-102` (block 2, merged).
 
 ## 2. Goal
 Remove the respec plan computation, and with it the last Rules use in the respec path, from `SqliteCharacterRepository`: `ComputeRespecPlan` (private helper), `PreviewCharacterRespec` and `ApplyCharacterRespec`. After this task none of the three contains an `Odyssey.Rules` reference and Persistence no longer computes the plan (`ADR-001` §5; `ADR-024`/`ADR-025`).

@@ -1,7 +1,7 @@
 # ODY-S07-103 — Skill Catalog (`SkillDefinition` as publishable content, block 2)
 
 ## 1. Task identity
-`ODY-S07-103`; status: In Review (Draft PR, merge deferred to the product owner). Third task of `SLICE-07`, the first decomposition of block 2 (skill catalog).
+`ODY-S07-103`; status: Done (PR #168, merged into main). Third task of `SLICE-07`, the first decomposition of block 2 (skill catalog).
 
 ## 2. Goal
 Give `ContentDefinitionType.Skill` (today a bare, unused enum value, `Skill = 11`) a real, publishable content type -- a typed `SkillDefinition` plus `TypedDefinitionCodec.EncodeSkill`/`DecodeSkill`/`CatalogValidationContracts.ValidateSkill` -- so it can flow Draft→Published through the already-existing, unmodified `SLICE-05` catalog-authoring/validation/publish pipeline, by the exact precedent `AbilityDefinition`/`EffectDefinition` (`ODY-S05-105`) already established.

@@ -1,7 +1,7 @@
 # ODY-S09-102 — Decoupling of the Character "Cost" Methods from `Odyssey.Rules` (SLICE-09 block 2)
 
 ## 1. Task identity
-`ODY-S09-102`; status: In Review (Draft PR, merge deferred to the product owner). Block 2 of `SLICE-09` (`docs/tasks/SLICE-09_IMPLEMENTATION_BACKLOG.md`); follows `ODY-S09-101` (block 1, merged).
+`ODY-S09-102`; status: Done (PR #175, merged into main). Block 2 of `SLICE-09` (`docs/tasks/SLICE-09_IMPLEMENTATION_BACKLOG.md`); follows `ODY-S09-101` (block 1, merged).
 
 ## 2. Goal
 Move the legality and cost decisions of four `SqliteCharacterRepository` methods out of Persistence and into `CharacterAdvancementService` (Application), which is allowed to use `Odyssey.Rules`: `PurchaseAttributeIncrease`, `PurchaseSkillLevel`, `RequestSkillAdvancedRecommendation`, and `AcquireAbility` (its private `AcquireAbilityViaProgressionPurchase`, i.e. only `SourceKind.ProgressionPurchase`). After this task those four repository methods contain no `Odyssey.Rules` reference (`ADR-001` §5; `ADR-024`/`ADR-025`: Persistence does not decide legality).

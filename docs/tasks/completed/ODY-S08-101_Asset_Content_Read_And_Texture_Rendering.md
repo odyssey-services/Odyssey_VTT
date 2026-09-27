@@ -1,7 +1,7 @@
 # ODY-S08-101 — SLICE-08 Backlog + Asset Content Read API + Minimal Texture Rendering (block 1)
 
 ## 1. Task identity
-`ODY-S08-101`; status: In Review (Draft PR, merge deferred to the product owner). First task of `SLICE-08`, which it creates; decomposes and implements block 1.
+`ODY-S08-101`; status: Done (PR #172, merged into main). First task of `SLICE-08`, which it creates; decomposes and implements block 1.
 
 ## 2. Goal
 Make the scene background and token portraits that `SLICE-07` already stores actually visible on the board. Two things were missing: an asset read API (`RegisterAsset` had no paired read; nothing in the codebase returned an asset's bytes) and texture rendering in `BoardScreenPresenter` (tokens were solid colored squares, the board a solid fill). This task adds both, and creates `docs/tasks/SLICE-08_IMPLEMENTATION_BACKLOG.md` reserving the remaining four blocks of the Owlbear-style board track.
