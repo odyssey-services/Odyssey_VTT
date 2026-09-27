@@ -4025,6 +4025,30 @@
                           "check":  "The migration methods of CharacterAdvancementService use only the ICharacterRepository port (interception double): Apply reads the character then always calls ApplyCharacterRulesetMigration with the target version, source version, three section revisions, hasUnresolvedDecisions and mapping count decided by the service; a failed read still reaches the repository with an empty basis; invalid input throws before any repository call; a null repository is rejected"
                       },
                       {
+                          "testCaseId":  "TC-BOARD-048",
+                          "taskId":  "ODY-S08-101",
+                          "authority":  "product-owner ТЗ: fix RegisterAsset same-name-collision",
+                          "runner":  "dotnet test",
+                          "path":  "DotNet/Tests/Odyssey.Tests.Persistence/SqliteSceneRepositoryTests.cs",
+                          "check":  "RegisterAsset with two different files sharing the same original file name (e.g. two maps both called map.png) registers each with its own AssetId and its own distinct destination path, and ReadAssetContent for each AssetId returns exactly that file's own bytes -- direct byte comparison proves no cross-file aliasing"
+                      },
+                      {
+                          "testCaseId":  "TC-BOARD-049",
+                          "taskId":  "ODY-S08-101",
+                          "authority":  "product-owner ТЗ: fix RegisterAsset same-name-collision",
+                          "runner":  "dotnet test",
+                          "path":  "DotNet/Tests/Odyssey.Tests.Persistence/SqliteSceneRepositoryTests.cs",
+                          "check":  "RegisterAsset with byte-identical content registered twice under two different original file names deduplicates to the same content-addressed RelativePath/hash, gets its own AssetId/manifest row, and does not write a second copy of the file to Assets/Objects on disk (direct file-count check)"
+                      },
+                      {
+                          "testCaseId":  "TC-BOARD-050",
+                          "taskId":  "ODY-S08-101",
+                          "authority":  "product-owner ТЗ: fix RegisterAsset same-name-collision",
+                          "runner":  "dotnet test",
+                          "path":  "DotNet/Tests/Odyssey.Tests.Persistence/SqliteSceneRepositoryTests.cs",
+                          "check":  "RegisterAsset's destination RelativePath is content-addressed (Assets/Objects/<sha256 hash>.<original extension>), never derived from the caller's original file name"
+                      },
+                      {
                           "testCaseId":  "TC-CATALOG-001",
                           "taskId":  "ODY-S05-101",
                           "authority":  "ADR-027 section 4; 11_Content_Block_System section 5.3/6.1",

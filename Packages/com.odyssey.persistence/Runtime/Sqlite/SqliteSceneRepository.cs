@@ -621,9 +621,35 @@ namespace Odyssey.Persistence.Sqlite
                 // section 5 journal/projection group); a redelivered RegisterAsset
                 // with the same CommandId after a first successful run is replayed
                 // from AppliedCommands without copying again.
+                //
+                // Storage is content-addressable: the on-disk file name is the SHA-256
+                // hash of its own content, not the caller's original file name. Two
+                // registrations of files that happen to share an original name (e.g. two
+                // different maps both called "map.png") therefore land on two different
+                // destination paths whenever their content differs, so the second
+                // registration can never silently alias the first one's bytes -- the
+                // collision this replaces was possible only because the original name
+                // was also the on-disk name. Two registrations of byte-identical content
+                // hash to the same destination path and safely dedupe, exactly as before.
+                // The original file name is not read back anywhere in this codebase today
+                // (confirmed by search; no asset-upload UI exists yet -- SLICE-08 block 4),
+                // so no separate field is needed to preserve it; a future uploader UI that
+                // wants to show it back can add one without touching this method's already
+                // narrow public contract.
                 string objectsDirectory = Path.Combine(campaign.RootPath, AssetsObjectsRelativeDirectory.Replace('/', Path.DirectorySeparatorChar));
                 Directory.CreateDirectory(objectsDirectory);
-                string fileName = Path.GetFileName(sourceFilePath);
+                string extension = Path.GetExtension(sourceFilePath);
+                long sourceSizeBytes;
+                string sha256Hash;
+                using (var sha = SHA256.Create())
+                using (FileStream stream = File.OpenRead(sourceFilePath))
+                {
+                    byte[] hashBytes = sha.ComputeHash(stream);
+                    sha256Hash = ToLowerHex(hashBytes);
+                    sourceSizeBytes = stream.Length;
+                }
+
+                string fileName = sha256Hash + extension;
                 string destinationPath = Path.Combine(objectsDirectory, fileName);
 
                 using SqliteConnection connection = OpenConnection(campaign.RootPath);
@@ -642,15 +668,7 @@ namespace Odyssey.Persistence.Sqlite
                             File.Copy(sourceFilePath, destinationPath, overwrite: false);
                         }
 
-                        string sha256Hash;
-                        using (var sha = SHA256.Create())
-                        using (var stream = File.OpenRead(destinationPath))
-                        {
-                            byte[] hashBytes = sha.ComputeHash(stream);
-                            sha256Hash = ToLowerHex(hashBytes);
-                        }
-
-                        long sizeBytes = new FileInfo(destinationPath).Length;
+                        long sizeBytes = sourceSizeBytes;
                         string relativePath = AssetsObjectsRelativeDirectory + "/" + fileName;
                         AssetId assetId = AssetId.NewId(now);
 

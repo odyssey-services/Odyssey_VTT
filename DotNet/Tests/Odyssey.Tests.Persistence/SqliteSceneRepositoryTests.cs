@@ -190,6 +190,110 @@ namespace Odyssey.Tests.Persistence
             Assert.That(result.Error.Code, Is.EqualTo(ErrorCodes.PersistenceSceneIoFailed));
         }
 
+        // ---- Content-addressable storage: same-original-name collision fix --------
+
+        private string WriteSourceFile(string originalFileName, byte[] content)
+        {
+            string sourceFile = Path.Combine(_workDir, Guid.NewGuid().ToString("N") + "-" + originalFileName);
+            File.WriteAllBytes(sourceFile, content);
+            return sourceFile;
+        }
+
+        [Test] // TC-BOARD-048
+        public void RegisterAsset_TwoDifferentFilesWithTheSameOriginalName_GetDifferentAssetIds_AndBothReadBackTheirOwnDistinctContent()
+        {
+            var repository = new SqliteSceneRepository(Clock);
+            byte[] contentA = System.Text.Encoding.UTF8.GetBytes("map content A " + Guid.NewGuid().ToString("N"));
+            byte[] contentB = System.Text.Encoding.UTF8.GetBytes("map content B " + Guid.NewGuid().ToString("N"));
+            string sourceA = WriteSourceFile("map.png", contentA);
+            string sourceB = WriteSourceFile("map.png", contentB);
+
+            try
+            {
+                Result<AssetManifestEntryRecord> registeredA = repository.RegisterAsset(_campaign, sourceA, NewCommandId(), TestCorrelationId);
+                Result<AssetManifestEntryRecord> registeredB = repository.RegisterAsset(_campaign, sourceB, NewCommandId(), TestCorrelationId);
+
+                Assert.That(registeredA.IsSuccess, Is.True);
+                Assert.That(registeredB.IsSuccess, Is.True);
+                Assert.That(registeredA.Value.AssetId, Is.Not.EqualTo(registeredB.Value.AssetId));
+                Assert.That(registeredA.Value.RelativePath, Is.Not.EqualTo(registeredB.Value.RelativePath), "different content under the same original name must not land on the same destination path");
+                Assert.That(registeredA.Value.Sha256Hash, Is.Not.EqualTo(registeredB.Value.Sha256Hash));
+
+                Result<byte[]> readA = repository.ReadAssetContent(_campaign, registeredA.Value.AssetId, TestCorrelationId);
+                Result<byte[]> readB = repository.ReadAssetContent(_campaign, registeredB.Value.AssetId, TestCorrelationId);
+
+                Assert.That(readA.IsSuccess, Is.True);
+                Assert.That(readB.IsSuccess, Is.True);
+                Assert.That(readA.Value, Is.EqualTo(contentA), "the first map's AssetId must read back its own bytes, not the second map's");
+                Assert.That(readB.Value, Is.EqualTo(contentB), "the second map's AssetId must read back its own bytes, not the first map's");
+                Assert.That(readA.Value, Is.Not.EqualTo(readB.Value));
+            }
+            finally
+            {
+                File.Delete(sourceA);
+                File.Delete(sourceB);
+            }
+        }
+
+        [Test] // TC-BOARD-049
+        public void RegisterAsset_ByteIdenticalContentRegisteredTwice_DoesNotCreateASecondCopyOnDisk()
+        {
+            var repository = new SqliteSceneRepository(Clock);
+            byte[] content = System.Text.Encoding.UTF8.GetBytes("identical map content " + Guid.NewGuid().ToString("N"));
+            string sourceFirst = WriteSourceFile("first-name.png", content);
+            string sourceSecond = WriteSourceFile("second-name.png", content);
+
+            try
+            {
+                Result<AssetManifestEntryRecord> first = repository.RegisterAsset(_campaign, sourceFirst, NewCommandId(), TestCorrelationId);
+                Assert.That(first.IsSuccess, Is.True);
+
+                string objectsDirectory = Path.Combine(_campaign.RootPath, "Assets", "Objects");
+                int fileCountBefore = Directory.GetFiles(objectsDirectory).Length;
+
+                Result<AssetManifestEntryRecord> second = repository.RegisterAsset(_campaign, sourceSecond, NewCommandId(), TestCorrelationId);
+
+                Assert.That(second.IsSuccess, Is.True);
+                Assert.That(second.Value.RelativePath, Is.EqualTo(first.Value.RelativePath), "byte-identical content deduplicates to the same content-addressed path regardless of the original file name");
+                Assert.That(second.Value.Sha256Hash, Is.EqualTo(first.Value.Sha256Hash));
+                Assert.That(second.Value.AssetId, Is.Not.EqualTo(first.Value.AssetId), "each registration still gets its own manifest row/AssetId");
+
+                int fileCountAfter = Directory.GetFiles(objectsDirectory).Length;
+                Assert.That(fileCountAfter, Is.EqualTo(fileCountBefore), "no second copy of the same content is written to disk");
+
+                Result<byte[]> readSecond = repository.ReadAssetContent(_campaign, second.Value.AssetId, TestCorrelationId);
+                Assert.That(readSecond.IsSuccess, Is.True);
+                Assert.That(readSecond.Value, Is.EqualTo(content));
+            }
+            finally
+            {
+                File.Delete(sourceFirst);
+                File.Delete(sourceSecond);
+            }
+        }
+
+        [Test] // TC-BOARD-050
+        public void RegisterAsset_DestinationFileName_IsContentAddressed_NotTheOriginalFileName()
+        {
+            var repository = new SqliteSceneRepository(Clock);
+            byte[] content = System.Text.Encoding.UTF8.GetBytes("addressed by hash " + Guid.NewGuid().ToString("N"));
+            string sourceFile = WriteSourceFile("original-name.png", content);
+
+            try
+            {
+                Result<AssetManifestEntryRecord> registered = repository.RegisterAsset(_campaign, sourceFile, NewCommandId(), TestCorrelationId);
+
+                Assert.That(registered.IsSuccess, Is.True);
+                string expectedRelativePath = "Assets/Objects/" + registered.Value.Sha256Hash + ".png";
+                Assert.That(registered.Value.RelativePath, Is.EqualTo(expectedRelativePath));
+                Assert.That(registered.Value.RelativePath, Does.Not.Contain("original-name"), "the on-disk name must not carry the caller's original file name");
+            }
+            finally
+            {
+                File.Delete(sourceFile);
+            }
+        }
+
         private static TokenRecord Find(IReadOnlyList<TokenRecord> tokens, TokenId id)
         {
             foreach (TokenRecord token in tokens)
