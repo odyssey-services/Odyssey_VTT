@@ -4217,6 +4217,54 @@
                           "check":  "Building the pool's view and refreshing it never itself opens the injected dialog delegate; UploadFromDialog is the only place that calls it"
                       },
                       {
+                          "testCaseId":  "TC-BOARD-072",
+                          "taskId":  "ODY-S08-104",
+                          "authority":  "ODY-S08-104 test list (task contract section 3)",
+                          "runner":  "Unity EditMode",
+                          "path":  "Assets/Odyssey/Client/Tests/EditMode/BoardScreenPresenterTests.cs",
+                          "check":  "A token pointer gesture with movement below the drag threshold selects the token (exactly like the old ClickEvent handler), leaves its position untouched, and never calls MoveToken"
+                      },
+                      {
+                          "testCaseId":  "TC-BOARD-073",
+                          "taskId":  "ODY-S08-104",
+                          "authority":  "ODY-S08-104 test list (task contract section 3)",
+                          "runner":  "Unity EditMode",
+                          "path":  "Assets/Odyssey/Client/Tests/EditMode/BoardScreenPresenterTests.cs",
+                          "check":  "A token pointer gesture with movement above the drag threshold commits exactly once (not once per move event) and updates both the persisted position and the rendered element's on-screen position"
+                      },
+                      {
+                          "testCaseId":  "TC-BOARD-074",
+                          "taskId":  "ODY-S08-104",
+                          "authority":  "ODY-S08-104 test list (task contract section 3)",
+                          "runner":  "Unity EditMode",
+                          "path":  "Assets/Odyssey/Client/Tests/EditMode/BoardScreenPresenterTests.cs",
+                          "check":  "While a token drag is in progress (before PointerUp), the visual preview follows the cursor's world position but no MoveToken call happens and the persisted position is untouched"
+                      },
+                      {
+                          "testCaseId":  "TC-BOARD-075",
+                          "taskId":  "ODY-S08-104",
+                          "authority":  "ODY-S08-104 test list (task contract section 3)",
+                          "runner":  "Unity EditMode",
+                          "path":  "Assets/Odyssey/Client/Tests/EditMode/BoardScreenPresenterTests.cs",
+                          "check":  "An unsuccessful commit (the destination is occupied by another token, BOARD-INV-009) leaves the persisted position untouched and rolls the token's visual position back to the last confirmed one, not the point where the pointer was released"
+                      },
+                      {
+                          "testCaseId":  "TC-BOARD-076",
+                          "taskId":  "ODY-S08-104",
+                          "authority":  "ODY-S08-104 test list (task contract section 3)",
+                          "runner":  "Unity EditMode",
+                          "path":  "Assets/Odyssey/Client/Tests/EditMode/BoardScreenPresenterTests.cs",
+                          "check":  "Dragging a token that was never selected still commits the move -- no prior click-to-select is required"
+                      },
+                      {
+                          "testCaseId":  "TC-BOARD-077",
+                          "taskId":  "ODY-S08-104",
+                          "authority":  "ODY-S08-104 test list (task contract section 3)",
+                          "runner":  "Unity EditMode",
+                          "path":  "Assets/Odyssey/Client/Tests/EditMode/BoardScreenPresenterTests.cs",
+                          "check":  "Regression: the pre-existing click-to-select-then-click-the-board-to-move flow (now reached through the same pointer-based gesture paths) still selects, then moves to the exact expected destination and clears the selection, calling MoveToken exactly once"
+                      },
+                      {
                           "testCaseId":  "TC-CATALOG-001",
                           "taskId":  "ODY-S05-101",
                           "authority":  "ADR-027 section 4; 11_Content_Block_System section 5.3/6.1",

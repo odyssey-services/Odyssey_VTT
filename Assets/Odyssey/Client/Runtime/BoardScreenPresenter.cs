@@ -60,6 +60,17 @@ namespace Odyssey.Unity.Client
         // already-rendered token elements without a full Refresh() (no repeated DB read/texture-cache
         // lookups while the user is actively dragging or scrolling).
         private readonly Dictionary<string, TokenPosition> _tokenPositionsByTokenId = new Dictionary<string, TokenPosition>(StringComparer.Ordinal);
+        // ODY-S08-104: one BoardPointerGesture per currently-rendered token (by exact precedent of the
+        // board's own _boardPointerGesture, ODY-S08-102) -- disambiguates a click-to-select from the start
+        // of a token drag. Recreated on every RenderTokens pass, same lifetime as the token elements
+        // themselves; a drag always completes (commit or cancel) before the next Refresh() can run, so no
+        // in-flight gesture is ever discarded.
+        private readonly Dictionary<string, BoardPointerGesture> _tokenGesturesByTokenId = new Dictionary<string, BoardPointerGesture>(StringComparer.Ordinal);
+        // The token currently being dragged, if any -- lets an unsolicited PointerCaptureOutEvent (task
+        // contract section 1.5: capture lost some other way than our own PointerUp) tell whether it needs
+        // to roll the visual position back, versus the ordinary PointerCaptureOutEvent that follows our own
+        // ReleasePointer call at the end of a normal drag (by then this is already cleared).
+        private TokenId? _draggingTokenId;
         // ODY-S08-101/ODY-S08-103: decoded textures for the presenter's lifetime, keyed by AssetId.
         // Extracted into AssetTextureCache in ODY-S08-103 so AssetPoolPresenter can reuse the exact same
         // read+decode+cache logic instead of a second, independent implementation.
@@ -256,6 +267,7 @@ namespace Odyssey.Unity.Client
             _boardArea.Clear();
             _tokenElementsByTokenId.Clear();
             _tokenPositionsByTokenId.Clear();
+            _tokenGesturesByTokenId.Clear();
             Error? firstAssetError = null;
 
             foreach (TokenRecord token in tokens)
@@ -266,10 +278,6 @@ namespace Odyssey.Unity.Client
                 tokenElement.style.width = (float)TokenSizePixels;
                 tokenElement.style.height = (float)TokenSizePixels;
                 PositionTokenElement(tokenElement, token.Position);
-                // ODY-S08-102: a pointer-down that starts on a token must never reach the board's own
-                // gesture tracking (OnBoardPointerDown) -- a token click, even with a little hand tremor,
-                // must never be interpreted as the start of a camera pan (task contract section 1.2).
-                tokenElement.RegisterCallback<PointerDownEvent>(evt => evt.StopPropagation());
                 bool hasPortraitTexture = false;
                 if (token.PortraitAssetId.HasValue)
                 {
@@ -297,12 +305,20 @@ namespace Odyssey.Unity.Client
                 tokenElement.style.borderLeftWidth = isSelected ? 3 : 1;
                 tokenElement.style.borderRightWidth = isSelected ? 3 : 1;
 
+                // ODY-S08-104: a token drags itself (PointerDown/Move/Up + CapturePointer, by exact
+                // precedent of AssetPoolPresenter.OnItemPointerDown), replacing the old ClickEvent-based
+                // selection entirely -- capturing the pointer on every PointerDown suppresses UI Toolkit's
+                // own ClickEvent for the same gesture, so a ClickEvent handler here would no longer fire
+                // reliably and is removed rather than kept as dead, misleading code. Selection now happens
+                // in EndTokenDrag, which OnTokenPointerUp calls: a click (movement under the threshold) still
+                // selects, byte-for-byte the same outcome, just reached through the pointer-up path instead.
                 TokenId capturedTokenId = token.TokenId;
-                tokenElement.RegisterCallback<ClickEvent>(evt =>
-                {
-                    SelectToken(capturedTokenId);
-                    evt.StopPropagation();
-                });
+                var tokenGesture = new BoardPointerGesture();
+                _tokenGesturesByTokenId[token.TokenId.ToString()] = tokenGesture;
+                tokenElement.RegisterCallback<PointerDownEvent>(evt => OnTokenPointerDown(evt, tokenElement, capturedTokenId));
+                tokenElement.RegisterCallback<PointerMoveEvent>(evt => OnTokenPointerMove(evt, tokenElement, capturedTokenId));
+                tokenElement.RegisterCallback<PointerUpEvent>(evt => OnTokenPointerUp(evt, tokenElement, capturedTokenId));
+                tokenElement.RegisterCallback<PointerCaptureOutEvent>(_ => OnTokenPointerCaptureOut(capturedTokenId));
 
                 _boardArea.Add(tokenElement);
                 _tokenElementsByTokenId[token.TokenId.ToString()] = tokenElement;
@@ -384,6 +400,153 @@ namespace Odyssey.Unity.Client
 
             Refresh();
             return moved;
+        }
+
+        /// <summary>
+        /// Attempts to move <paramref name="tokenId"/> to <paramref name="destination"/>, without requiring
+        /// (or touching) the current selection -- the token-drag path this task adds. Symmetric to
+        /// <see cref="TryMoveSelectedTokenTo"/>'s own error handling: the same real, committed
+        /// <see cref="BoardMovementService.MoveToken"/> call (never a preview), the same status text shape,
+        /// and <see cref="Refresh"/> called unconditionally afterwards -- which is also what rolls the
+        /// visual position back to the last confirmed one on a denied/failed move (task contract section
+        /// 1.4): nothing was persisted, so re-reading from the repository restores the pre-drag position.
+        /// Public for the same testability reason as every other method in this class.
+        /// </summary>
+        public Result<TokenRecord> TryMoveTokenTo(TokenId tokenId, TokenPosition destination)
+        {
+            Result<TokenRecord> current = _sceneRepository.GetToken(_campaign, tokenId, NewCorrelationId());
+            if (current.IsFailure)
+            {
+                SetStatus("Move failed: " + current.Error.SafeReasonCode);
+                Refresh();
+                return current;
+            }
+
+            var request = new MoveTokenRequest(_campaign, LocalActorUserId, LocalActorIsMainGm, tokenId, destination, current.Value.Revision, NewCommandId(), NewCorrelationId());
+            Result<TokenRecord> moved = BoardMovementService.MoveToken(_sceneRepository, request);
+
+            if (moved.IsFailure)
+            {
+                SetStatus("Move denied: " + moved.Error.SafeReasonCode);
+            }
+            else
+            {
+                SetStatus("Moved token " + tokenId + " to (" + moved.Value.Position.X.ToString("0.0") + ", " + moved.Value.Position.Y.ToString("0.0") + ").");
+            }
+
+            Refresh();
+            return moved;
+        }
+
+        // ---- ODY-S08-104: dragging a token across the board -----------------------------------------
+        //
+        // Real UI Toolkit callbacks are thin wrappers over BeginTokenDrag/MoveTokenDrag/EndTokenDrag, the
+        // same testable-public-method shape as the board's own camera gesture (ODY-S08-102) and the asset
+        // pool's own drag (ODY-S08-103). Coordinates are converted from panel space to board-local pixels
+        // via _boardArea.WorldToLocal -- the same conversion AssetPoolPresenter's own drop-resolution
+        // already uses -- so ToWorldPosition/BoardCamera need no second implementation.
+        //
+        // Until PointerUp, only the in-memory preview (_tokenPositionsByTokenId + PositionTokenElement,
+        // ODY-S08-102's own mechanism) is touched -- no repository call. Exactly one MoveToken call happens,
+        // at PointerUp, whether the gesture turns out to be a click (routed to SelectToken instead) or a drag.
+
+        private void OnTokenPointerDown(PointerDownEvent evt, VisualElement tokenElement, TokenId tokenId)
+        {
+            // A pointer-down that starts on a token must never reach the board's own gesture tracking
+            // (OnBoardPointerDown) -- by exact precedent of ODY-S08-102's own reasoning, now serving the
+            // token's own drag instead of merely protecting a click.
+            evt.StopPropagation();
+            if (_boardArea == null) return;
+            tokenElement.CapturePointer(evt.pointerId);
+            Vector2 boardLocal = _boardArea.WorldToLocal(evt.position);
+            BeginTokenDrag(tokenId, boardLocal.x, boardLocal.y);
+        }
+
+        private void OnTokenPointerMove(PointerMoveEvent evt, VisualElement tokenElement, TokenId tokenId)
+        {
+            if (_boardArea == null || !tokenElement.HasPointerCapture(evt.pointerId)) return;
+            Vector2 boardLocal = _boardArea.WorldToLocal(evt.position);
+            MoveTokenDrag(tokenId, boardLocal.x, boardLocal.y);
+        }
+
+        private void OnTokenPointerUp(PointerUpEvent evt, VisualElement tokenElement, TokenId tokenId)
+        {
+            if (_boardArea == null || !tokenElement.HasPointerCapture(evt.pointerId)) return;
+            Vector2 boardLocal = _boardArea.WorldToLocal(evt.position);
+            // Cleared before ReleasePointer so that whatever PointerCaptureOutEvent it produces (this
+            // codebase makes no assumption about whether that happens synchronously or not) finds
+            // _draggingTokenId already cleared and does nothing -- see OnTokenPointerCaptureOut.
+            _draggingTokenId = null;
+            tokenElement.ReleasePointer(evt.pointerId);
+            EndTokenDrag(tokenId, boardLocal.x, boardLocal.y);
+        }
+
+        private void OnTokenPointerCaptureOut(TokenId tokenId)
+        {
+            string key = tokenId.ToString();
+            if (_tokenGesturesByTokenId.TryGetValue(key, out BoardPointerGesture? gesture)) gesture.Cancel();
+
+            // Only true when capture was lost some way OTHER than our own PointerUp/ReleasePointer above
+            // (task contract section 1.5) -- an ordinary end-of-drag already cleared this. Refresh() re-reads
+            // the token's last CONFIRMED position from the repository (nothing was persisted mid-drag),
+            // which is exactly the visual rollback this case needs -- the same mechanism TryMoveTokenTo's
+            // own Refresh() already uses for a denied/failed commit.
+            if (_draggingTokenId.HasValue && _draggingTokenId.Value.Equals(tokenId))
+            {
+                _draggingTokenId = null;
+                Refresh();
+            }
+        }
+
+        /// <summary>Starts tracking a token's own drag gesture. Public -- see the class remarks on testability.</summary>
+        public void BeginTokenDrag(TokenId tokenId, double boardPixelX, double boardPixelY)
+        {
+            if (!_tokenGesturesByTokenId.TryGetValue(tokenId.ToString(), out BoardPointerGesture? gesture)) return;
+            gesture.Begin(boardPixelX, boardPixelY);
+            _draggingTokenId = tokenId;
+        }
+
+        /// <summary>
+        /// Feeds a pointer move into a token's own drag gesture. Once the drag threshold is crossed, updates
+        /// only the in-memory visual preview (never the repository) to follow the cursor's current world
+        /// position. Public -- see the class remarks on testability.
+        /// </summary>
+        public void MoveTokenDrag(TokenId tokenId, double boardPixelX, double boardPixelY)
+        {
+            string key = tokenId.ToString();
+            if (!_tokenGesturesByTokenId.TryGetValue(key, out BoardPointerGesture? gesture)) return;
+
+            if (gesture.Move(boardPixelX, boardPixelY, out _, out _) && gesture.IsDragging)
+            {
+                TokenPosition worldPosition = ToWorldPosition(boardPixelX, boardPixelY);
+                _tokenPositionsByTokenId[key] = worldPosition;
+                if (_tokenElementsByTokenId.TryGetValue(key, out VisualElement? tokenElement))
+                {
+                    PositionTokenElement(tokenElement, worldPosition);
+                }
+            }
+        }
+
+        /// <summary>
+        /// Ends a token's own drag gesture. Movement below the drag threshold is a click -- selects the
+        /// token, exactly as the old <c>ClickEvent</c> handler did, and leaves its position untouched.
+        /// Movement above the threshold commits the drag with exactly one <see cref="TryMoveTokenTo"/> call
+        /// (never one per <see cref="MoveTokenDrag"/> call). Public -- see the class remarks on testability.
+        /// </summary>
+        public void EndTokenDrag(TokenId tokenId, double boardPixelX, double boardPixelY)
+        {
+            if (!_tokenGesturesByTokenId.TryGetValue(tokenId.ToString(), out BoardPointerGesture? gesture)) return;
+            bool wasClick = gesture.End();
+            _draggingTokenId = null;
+
+            if (wasClick)
+            {
+                SelectToken(tokenId);
+                return;
+            }
+
+            TokenPosition destination = ToWorldPosition(boardPixelX, boardPixelY);
+            TryMoveTokenTo(tokenId, destination);
         }
 
         // ---- ODY-S08-102: board camera (pan/zoom) and click-vs-drag gesture -------------------------
