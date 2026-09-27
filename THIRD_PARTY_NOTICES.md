@@ -8,6 +8,7 @@ This repository is private and All Rights Reserved. The following approved third
 | com.unity.nuget.newtonsoft-json | 3.2.2 | Unity package distribution of Newtonsoft.Json 13.0.2 (`AssemblyVersion` 13.0.0.0) for explicit streaming codecs | MIT / Unity package distribution | Unity `Odyssey.Application` package | ADR-003 v1.1 / Technical Development Baseline v0.4 / ODY-S00-007 |
 | Microsoft.Data.Sqlite | 9.0.10 (approved) | The accepted SQLite provider library for Odyssey VTT persistence, per `ADR-011` v1.1 §1, closing `ADR-011` v1.0 §12.1 on the `SP-02` spike's recommendation. First referenced by real production code in `ODY-S01-007` (`Odyssey.Persistence`); also still present in the `SP-02` evidence-generation harness (`Tools/Spikes/SP-02-PersistenceReliability/`) | MIT | Production use in `DotNet/Projects/Odyssey.Persistence.csproj` (`Packages/com.odyssey.persistence`), added to `DotNet/Odyssey.Core.sln` by `ODY-S01-007`; also present in `Tools/Spikes/SP-02-PersistenceReliability/` (evidence-only, unrelated reference) | `ADR-011` v1.1 / `SP-02` report (`docs/tasks/completed/ODY-S01-005_SP-02_Persistence_Reliability_Report.md` §3) / `ODY-S01-007` |
 | SQLitePCLRaw.bundle_e_sqlite3 | >= 3.0.3 (approved, mandatory floor) | Transitive native SQLite bundle; `ADR-011` v1.1 §1 mandates this floor because `Microsoft.Data.Sqlite` 9.0.x otherwise pulls a `2.1.x` chain flagged by NuGet audit for a known high-severity vulnerability (`GHSA-2m69-gcr7-jv3q`) | MIT / Apache-2.0 | Same as above | `ADR-011` v1.1 / `SP-02` report / `ODY-S01-007` |
+| gkngkc/UnityStandaloneFileBrowser | master (no tagged release; commit vendored 2026-09-28) | Native "Open File" dialog for the Windows Standalone player (via `Ookii.Dialogs.dll`/`System.Windows.Forms.dll`) and the Unity Editor -- the project's first third-party (non-Unity-built-in) library. Confirmed via the GitHub API: license MIT, repository not archived | MIT (full text vendored, see below) | Unity client only, vendored under `Assets/Odyssey/Client/Runtime/ThirdParty/StandaloneFileBrowser/` (inside `Odyssey.Unity.Client`'s own asmdef-scoped folder -- compiles into that assembly, no new asmdef, no asmdef-reference edit); all access goes through the single wrapper `NativeFileDialog.cs`. Invisible to every `dotnet`-built production project by construction (no `.csproj` references any Unity assembly) | `ODY-S08-103` (task contract §18) |
 
 Approved tooling referenced by repository policy:
 
@@ -21,3 +22,29 @@ Approved tooling referenced by repository policy:
 | actions/upload-artifact | GitHub Actions bounded evidence upload pinned to `330a01c490aca151604b8cf639adc76d48f6c5d4` | MIT; approved by Technical Development Baseline v0.5 / ODY-S00-008 |
 
 Future dependencies must be approved by the active task or ADR and recorded here with license evidence.
+
+## gkngkc/UnityStandaloneFileBrowser license text (MIT)
+
+```
+MIT License
+
+Copyright (c) 2017 Gökhan Gökçe
+
+Permission is hereby granted, free of charge, to any person obtaining a copy
+of this software and associated documentation files (the "Software"), to deal
+in the Software without restriction, including without limitation the rights
+to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+copies of the Software, and to permit persons to whom the Software is
+furnished to do so, subject to the following conditions:
+
+The above copyright notice and this permission notice shall be included in all
+copies or substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+SOFTWARE.
+```

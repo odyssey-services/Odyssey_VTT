@@ -759,6 +759,37 @@ namespace Odyssey.Persistence.Sqlite
             }
         }
 
+        public Result<IReadOnlyList<AssetManifestEntryRecord>> ListAssets(CampaignHandle campaign, CorrelationId correlationId)
+        {
+            if (campaign == null) throw new ArgumentNullException(nameof(campaign));
+
+            try
+            {
+                using SqliteConnection connection = OpenConnection(campaign.RootPath);
+
+                var entries = new List<AssetManifestEntryRecord>();
+                using (var select = connection.CreateCommand())
+                {
+                    // rowid reflects insertion order for this ordinary (non-WITHOUT ROWID) table, oldest
+                    // first -- the table has no dedicated timestamp column, by the same "no CreatedAt"
+                    // shape RegisterAsset's own INSERT already established.
+                    select.CommandText = "SELECT AssetId, RelativePath, Hash, SizeBytes FROM AssetManifestEntries ORDER BY rowid;";
+                    using SqliteDataReader reader = select.ExecuteReader();
+                    while (reader.Read())
+                    {
+                        AssetId assetId = AssetId.Parse(reader.GetString(0));
+                        entries.Add(new AssetManifestEntryRecord(assetId, reader.GetString(1), reader.GetString(2), reader.GetInt64(3)));
+                    }
+                }
+
+                return Result<IReadOnlyList<AssetManifestEntryRecord>>.Success(entries);
+            }
+            catch (Exception ex) when (ex is IOException || ex is UnauthorizedAccessException || ex is SqliteException)
+            {
+                return Result<IReadOnlyList<AssetManifestEntryRecord>>.Failure(PersistenceFailures.SceneIoFailed(correlationId));
+            }
+        }
+
         private static Result<SceneRecord> ReplayScene(SqliteConnection connection, SqliteTransaction transaction, CampaignId campaignId, CommandId commandId, CorrelationId correlationId)
         {
             using var select = connection.CreateCommand();

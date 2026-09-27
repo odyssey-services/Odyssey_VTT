@@ -302,6 +302,113 @@ namespace Odyssey.Tests.Unity.EditMode
             }
         }
 
+        // ---- ODY-S08-103: dropping an asset-pool asset onto the board -------------
+
+        private static string WriteTempImageSource(string name, byte[] content)
+        {
+            string path = Path.Combine(Path.GetTempPath(), "ody-s08-103-" + Guid.NewGuid().ToString("N") + "-" + name);
+            File.WriteAllBytes(path, content);
+            return path;
+        }
+
+        [Test] // TC-BOARD-067
+        public void ApplyDroppedAsset_DroppedOnAToken_SetsThatTokensPortrait_WithAFreshRevision_NotAnyOtherToken()
+        {
+            BoardScreenPresenter presenter = BuildPresenterForCamera(out CampaignHandle campaign, out ISceneRepository sceneRepository, out TokenId tokenId, out UIDocument document, out GameObject gameObject, out SqliteCampaignRepository campaignRepository, out TemporaryDirectory directory);
+            string sourceFile = WriteTempImageSource("portrait.png", System.Text.Encoding.UTF8.GetBytes("portrait bytes " + Guid.NewGuid().ToString("N")));
+            try
+            {
+                // A second token, far from the first (0,0) one, so a mis-hit would be provable.
+                Result<TokenRecord> otherToken = sceneRepository.CreateToken(campaign, sceneRepository.GetToken(campaign, tokenId, TestCorrelationId).Value.SceneId, new TokenPosition(5, 5), NewUserId(), NewCommandId(), TestCorrelationId);
+                Assert.That(otherToken.IsSuccess, Is.True);
+                Assert.That(presenter.Refresh().IsSuccess, Is.True);
+
+                Result<AssetManifestEntryRecord> registered = sceneRepository.RegisterAsset(campaign, sourceFile, NewCommandId(), TestCorrelationId);
+                Assert.That(registered.IsSuccess, Is.True);
+
+                // The first token sits at world (0,0), which the default camera places at pixel (220, 220).
+                Result result = presenter.ApplyDroppedAsset(registered.Value.AssetId, presenter.Camera.ToPixelsX(0), presenter.Camera.ToPixelsY(0));
+
+                Assert.That(result.IsSuccess, Is.True);
+                Result<TokenRecord> reReadTarget = sceneRepository.GetToken(campaign, tokenId, TestCorrelationId);
+                Assert.That(reReadTarget.Value.PortraitAssetId, Is.EqualTo(registered.Value.AssetId));
+                Result<TokenRecord> reReadOther = sceneRepository.GetToken(campaign, otherToken.Value.TokenId, TestCorrelationId);
+                Assert.That(reReadOther.Value.PortraitAssetId, Is.Null, "only the token actually under the drop point may be touched");
+                Result<SceneRecord> scene = sceneRepository.GetScene(campaign, reReadTarget.Value.SceneId, TestCorrelationId);
+                Assert.That(scene.Value.BackgroundAssetId, Is.Null, "a drop on a token must not also set the scene background");
+            }
+            finally
+            {
+                File.Delete(sourceFile);
+                presenter.Dispose();
+                UnityEngine.Object.DestroyImmediate(gameObject);
+                campaignRepository.Close(campaign, TestCorrelationId);
+                directory.Dispose();
+            }
+        }
+
+        [Test] // TC-BOARD-068
+        public void ApplyDroppedAsset_DroppedOnEmptyBoardArea_SetsTheSceneBackground_AndTouchesNoToken()
+        {
+            BoardScreenPresenter presenter = BuildPresenterForCamera(out CampaignHandle campaign, out ISceneRepository sceneRepository, out TokenId tokenId, out UIDocument document, out GameObject gameObject, out SqliteCampaignRepository campaignRepository, out TemporaryDirectory directory);
+            string sourceFile = WriteTempImageSource("background.png", System.Text.Encoding.UTF8.GetBytes("background bytes " + Guid.NewGuid().ToString("N")));
+            try
+            {
+                Result<AssetManifestEntryRecord> registered = sceneRepository.RegisterAsset(campaign, sourceFile, NewCommandId(), TestCorrelationId);
+                Assert.That(registered.IsSuccess, Is.True);
+
+                // Far from the only token's pixel position (220, 220) -- an ordinary empty patch of board.
+                Result result = presenter.ApplyDroppedAsset(registered.Value.AssetId, 30.0, 30.0);
+
+                Assert.That(result.IsSuccess, Is.True);
+                Result<TokenRecord> token = sceneRepository.GetToken(campaign, tokenId, TestCorrelationId);
+                Result<SceneRecord> scene = sceneRepository.GetScene(campaign, token.Value.SceneId, TestCorrelationId);
+                Assert.That(scene.Value.BackgroundAssetId, Is.EqualTo(registered.Value.AssetId));
+                Assert.That(token.Value.PortraitAssetId, Is.Null, "a drop on the empty board must not touch any token");
+            }
+            finally
+            {
+                File.Delete(sourceFile);
+                presenter.Dispose();
+                UnityEngine.Object.DestroyImmediate(gameObject);
+                campaignRepository.Close(campaign, TestCorrelationId);
+                directory.Dispose();
+            }
+        }
+
+        [Test] // TC-BOARD-069
+        public void ApplyDroppedAsset_AlwaysReadsTheCurrentRevisionImmediatelyBeforeWriting_NeverACachedOne()
+        {
+            BoardScreenPresenter presenter = BuildPresenterForCamera(out CampaignHandle campaign, out ISceneRepository sceneRepository, out TokenId tokenId, out UIDocument document, out GameObject gameObject, out SqliteCampaignRepository campaignRepository, out TemporaryDirectory directory);
+            string sourceFile = WriteTempImageSource("first.png", System.Text.Encoding.UTF8.GetBytes("first " + Guid.NewGuid().ToString("N")));
+            string sourceFile2 = WriteTempImageSource("second.png", System.Text.Encoding.UTF8.GetBytes("second " + Guid.NewGuid().ToString("N")));
+            try
+            {
+                Result<AssetManifestEntryRecord> first = sceneRepository.RegisterAsset(campaign, sourceFile, NewCommandId(), TestCorrelationId);
+                Result<AssetManifestEntryRecord> second = sceneRepository.RegisterAsset(campaign, sourceFile2, NewCommandId(), TestCorrelationId);
+                Assert.That(first.IsSuccess && second.IsSuccess, Is.True);
+
+                // Two drops in a row onto the SAME token: if the second one relied on a revision cached from
+                // before the first drop, it would be rejected as stale instead of succeeding.
+                Result firstDrop = presenter.ApplyDroppedAsset(first.Value.AssetId, presenter.Camera.ToPixelsX(0), presenter.Camera.ToPixelsY(0));
+                Result secondDrop = presenter.ApplyDroppedAsset(second.Value.AssetId, presenter.Camera.ToPixelsX(0), presenter.Camera.ToPixelsY(0));
+
+                Assert.That(firstDrop.IsSuccess, Is.True);
+                Assert.That(secondDrop.IsSuccess, Is.True, "a second drop right after the first must not be rejected as a stale revision -- each drop must re-read the current revision");
+                Result<TokenRecord> reRead = sceneRepository.GetToken(campaign, tokenId, TestCorrelationId);
+                Assert.That(reRead.Value.PortraitAssetId, Is.EqualTo(second.Value.AssetId), "the second, later drop must win");
+            }
+            finally
+            {
+                File.Delete(sourceFile);
+                File.Delete(sourceFile2);
+                presenter.Dispose();
+                UnityEngine.Object.DestroyImmediate(gameObject);
+                campaignRepository.Close(campaign, TestCorrelationId);
+                directory.Dispose();
+            }
+        }
+
         private sealed class TemporaryDirectory : IDisposable
         {
             public TemporaryDirectory()
@@ -652,6 +759,7 @@ namespace Odyssey.Tests.Unity.EditMode
             public Result<SceneRecord> SetSceneBackground(CampaignHandle campaign, SceneId sceneId, AssetId? backgroundAssetId, long expectedRevision, CommandId commandId, CorrelationId correlationId) => _inner.SetSceneBackground(campaign, sceneId, backgroundAssetId, expectedRevision, commandId, correlationId);
             public Result<TokenRecord> SetTokenPortrait(CampaignHandle campaign, TokenId tokenId, AssetId? portraitAssetId, long expectedRevision, CommandId commandId, CorrelationId correlationId) => _inner.SetTokenPortrait(campaign, tokenId, portraitAssetId, expectedRevision, commandId, correlationId);
             public Result<SceneRecord> GetScene(CampaignHandle campaign, SceneId sceneId, CorrelationId correlationId) => _inner.GetScene(campaign, sceneId, correlationId);
+            public Result<IReadOnlyList<AssetManifestEntryRecord>> ListAssets(CampaignHandle campaign, CorrelationId correlationId) => _inner.ListAssets(campaign, correlationId);
         }
     }
 }

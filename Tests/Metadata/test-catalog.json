@@ -4161,6 +4161,62 @@
                           "check":  "ZoomBoard changes Camera.Scale and repositions an already-rendered token element's on-screen position without touching its persisted position"
                       },
                       {
+                          "testCaseId":  "TC-BOARD-065",
+                          "taskId":  "ODY-S08-103",
+                          "authority":  "ODY-S08-103 test list (task contract section 3)",
+                          "runner":  "dotnet test",
+                          "path":  "DotNet/Tests/Odyssey.Tests.Persistence/SqliteSceneRepositoryTests.cs",
+                          "check":  "ListAssets returns every asset registered for a campaign, oldest-first, and is campaign-scoped (a fresh campaign lists none of another campaign's assets) -- by exact ACL/authorization precedent of every other ISceneRepository method (none beyond campaign scoping)"
+                      },
+                      {
+                          "testCaseId":  "TC-BOARD-066",
+                          "taskId":  "ODY-S08-103",
+                          "authority":  "ODY-S08-103 test list (task contract section 3)",
+                          "runner":  "Unity EditMode",
+                          "path":  "Assets/Odyssey/Client/Tests/EditMode/AssetPoolPresenterTests.cs",
+                          "check":  "AssetPoolPresenter.UploadFromDialog with an injected dialog delegate returning a chosen file path calls RegisterAsset with that path, and the new asset appears both in the persisted manifest and as an item in the pool panel's own view"
+                      },
+                      {
+                          "testCaseId":  "TC-BOARD-067",
+                          "taskId":  "ODY-S08-103",
+                          "authority":  "ODY-S08-103 test list (task contract section 3)",
+                          "runner":  "Unity EditMode",
+                          "path":  "Assets/Odyssey/Client/Tests/EditMode/BoardScreenPresenterTests.cs",
+                          "check":  "BoardScreenPresenter.ApplyDroppedAsset with board-local pixel coordinates over a specific token calls SetTokenPortrait for exactly that token (not a second token also present on the board) and does not touch the scene background"
+                      },
+                      {
+                          "testCaseId":  "TC-BOARD-068",
+                          "taskId":  "ODY-S08-103",
+                          "authority":  "ODY-S08-103 test list (task contract section 3)",
+                          "runner":  "Unity EditMode",
+                          "path":  "Assets/Odyssey/Client/Tests/EditMode/BoardScreenPresenterTests.cs",
+                          "check":  "BoardScreenPresenter.ApplyDroppedAsset with board-local pixel coordinates over the empty board area calls SetSceneBackground and does not touch any token's portrait"
+                      },
+                      {
+                          "testCaseId":  "TC-BOARD-069",
+                          "taskId":  "ODY-S08-103",
+                          "authority":  "ODY-S08-103 test list (task contract section 3)",
+                          "runner":  "Unity EditMode",
+                          "path":  "Assets/Odyssey/Client/Tests/EditMode/BoardScreenPresenterTests.cs",
+                          "check":  "ApplyDroppedAsset always reads the current revision immediately before writing, never a cached one -- two drops onto the same token in a row both succeed (a cached revision would reject the second as stale) and the later drop wins"
+                      },
+                      {
+                          "testCaseId":  "TC-BOARD-070",
+                          "taskId":  "ODY-S08-103",
+                          "authority":  "ODY-S08-103 test list (task contract section 3)",
+                          "runner":  "Unity EditMode",
+                          "path":  "Assets/Odyssey/Client/Tests/EditMode/AssetPoolPresenterTests.cs",
+                          "check":  "AssetPoolPresenter.UploadFromDialog with an injected dialog delegate returning null (the user cancelled) returns no result at all, never calls RegisterAsset (the manifest is unchanged), and leaves the pool panel fully functional afterwards"
+                      },
+                      {
+                          "testCaseId":  "TC-BOARD-071",
+                          "taskId":  "ODY-S08-103",
+                          "authority":  "ODY-S08-103 test list (task contract section 3)",
+                          "runner":  "Unity EditMode",
+                          "path":  "Assets/Odyssey/Client/Tests/EditMode/AssetPoolPresenterTests.cs",
+                          "check":  "Building the pool's view and refreshing it never itself opens the injected dialog delegate; UploadFromDialog is the only place that calls it"
+                      },
+                      {
                           "testCaseId":  "TC-CATALOG-001",
                           "taskId":  "ODY-S05-101",
                           "authority":  "ADR-027 section 4; 11_Content_Block_System section 5.3/6.1",
