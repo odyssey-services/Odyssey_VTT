@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.IO;
+using System.Linq;
 using Microsoft.Data.Sqlite;
 using NUnit.Framework;
 using Odyssey.Application.Commands;
@@ -291,6 +292,50 @@ namespace Odyssey.Tests.Persistence
             finally
             {
                 File.Delete(sourceFile);
+            }
+        }
+
+        [Test] // TC-BOARD-065
+        public void ListAssets_ReturnsEveryAssetRegisteredForThisCampaign_OldestFirst_AndIsCampaignScoped()
+        {
+            var repository = new SqliteSceneRepository(Clock);
+            string sourceA = WriteSourceFile("a.png", System.Text.Encoding.UTF8.GetBytes("asset A " + Guid.NewGuid().ToString("N")));
+            string sourceB = WriteSourceFile("b.png", System.Text.Encoding.UTF8.GetBytes("asset B " + Guid.NewGuid().ToString("N")));
+
+            try
+            {
+                Result<AssetManifestEntryRecord> registeredA = repository.RegisterAsset(_campaign, sourceA, NewCommandId(), TestCorrelationId);
+                Result<AssetManifestEntryRecord> registeredB = repository.RegisterAsset(_campaign, sourceB, NewCommandId(), TestCorrelationId);
+                Assert.That(registeredA.IsSuccess, Is.True);
+                Assert.That(registeredB.IsSuccess, Is.True);
+
+                Result<IReadOnlyList<AssetManifestEntryRecord>> listed = repository.ListAssets(_campaign, TestCorrelationId);
+
+                Assert.That(listed.IsSuccess, Is.True);
+                Assert.That(listed.Value.Select(e => e.AssetId), Is.EqualTo(new[] { registeredA.Value.AssetId, registeredB.Value.AssetId }), "oldest-first, i.e. registration order");
+                Assert.That(listed.Value.Select(e => e.RelativePath), Is.EquivalentTo(new[] { registeredA.Value.RelativePath, registeredB.Value.RelativePath }));
+
+                string otherWorkDir = Path.Combine(Path.GetTempPath(), "ody-s08-103-other-" + Guid.NewGuid().ToString("N"));
+                var otherCampaignRepository = new SqliteCampaignRepository(Clock);
+                Result<CampaignHandle> otherCreated = otherCampaignRepository.Create(new CreateCampaignRequest(otherWorkDir, "Other Campaign", "ruleset.core", "1.0.0", "0.1.0"), NewCommandId(), TestCorrelationId);
+                Assert.That(otherCreated.IsSuccess, Is.True);
+                try
+                {
+                    Result<IReadOnlyList<AssetManifestEntryRecord>> otherListed = repository.ListAssets(otherCreated.Value, TestCorrelationId);
+                    Assert.That(otherListed.IsSuccess, Is.True);
+                    Assert.That(otherListed.Value, Is.Empty, "each campaign is a separate database file -- a fresh campaign lists none of the first one's assets");
+                }
+                finally
+                {
+                    otherCampaignRepository.Close(otherCreated.Value, TestCorrelationId);
+                    try { if (Directory.Exists(otherWorkDir)) Directory.Delete(otherWorkDir, recursive: true); }
+                    catch (IOException) { /* best-effort cleanup only, matching this file's other fixtures */ }
+                }
+            }
+            finally
+            {
+                File.Delete(sourceA);
+                File.Delete(sourceB);
             }
         }
 

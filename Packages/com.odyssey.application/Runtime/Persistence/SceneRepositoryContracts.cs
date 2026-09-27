@@ -120,6 +120,15 @@ namespace Odyssey.Application.Persistence
         /// fails with `AssetIntegrityFailed`.
         /// </summary>
         Result<byte[]> ReadAssetContent(CampaignHandle campaign, AssetId assetId, CorrelationId correlationId);
+
+        /// <summary>
+        /// ODY-S08-103: every asset registered so far in this campaign, oldest-first -- the read
+        /// <see cref="RegisterAsset"/> never had a counterpart for (only <see cref="ReadAssetContent"/>,
+        /// a by-id lookup, existed). Needed so a client can show an asset pool at all; each campaign is a
+        /// separate database file, so no further campaign-scoping check is needed beyond opening the right
+        /// one, by exact precedent of every other method here.
+        /// </summary>
+        Result<IReadOnlyList<AssetManifestEntryRecord>> ListAssets(CampaignHandle campaign, CorrelationId correlationId);
     }
 
     public readonly struct TokenPosition : IEquatable<TokenPosition>

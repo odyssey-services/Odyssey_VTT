@@ -60,11 +60,10 @@ namespace Odyssey.Unity.Client
         // already-rendered token elements without a full Refresh() (no repeated DB read/texture-cache
         // lookups while the user is actively dragging or scrolling).
         private readonly Dictionary<string, TokenPosition> _tokenPositionsByTokenId = new Dictionary<string, TokenPosition>(StringComparer.Ordinal);
-        // ODY-S08-101: decoded textures for the presenter's lifetime, keyed by AssetId. AssetId is
-        // minted fresh by every RegisterAsset (AssetId.NewId), so an id never changes content and no
-        // revision-based invalidation is needed. Only successful loads are cached; a failed load is
-        // retried on the next Refresh.
-        private readonly Dictionary<string, Texture2D> _textureCache = new Dictionary<string, Texture2D>(StringComparer.Ordinal);
+        // ODY-S08-101/ODY-S08-103: decoded textures for the presenter's lifetime, keyed by AssetId.
+        // Extracted into AssetTextureCache in ODY-S08-103 so AssetPoolPresenter can reuse the exact same
+        // read+decode+cache logic instead of a second, independent implementation.
+        private readonly AssetTextureCache _textureCache = new AssetTextureCache();
         private bool _boardBackgroundApplied;
         private readonly RoleSelection? _roleSelection;
         private readonly PresentationRuntime? _presentationRuntime;
@@ -127,8 +126,7 @@ namespace Odyssey.Unity.Client
             if (_disposed) return;
             _roleSelectorPresenter?.Dispose();
             _roleSubscription?.Dispose();
-            foreach (Texture2D texture in _textureCache.Values) DestroyTexture(texture);
-            _textureCache.Clear();
+            _textureCache.Dispose();
             _disposed = true;
         }
 
@@ -230,30 +228,7 @@ namespace Odyssey.Unity.Client
             _boardBackgroundApplied = false;
         }
 
-        private Result<Texture2D> LoadTexture(AssetId assetId)
-        {
-            string key = assetId.ToString();
-            if (_textureCache.TryGetValue(key, out Texture2D? cached) && cached != null)
-            {
-                return Result<Texture2D>.Success(cached);
-            }
-
-            Result<byte[]> content = _sceneRepository.ReadAssetContent(_campaign, assetId, NewCorrelationId());
-            if (content.IsFailure)
-            {
-                return Result<Texture2D>.Failure(content.Error);
-            }
-
-            var texture = new Texture2D(2, 2, TextureFormat.RGBA32, false);
-            if (!ImageConversion.LoadImage(texture, content.Value))
-            {
-                DestroyTexture(texture);
-                return Result<Texture2D>.Failure(BoardScreenErrors.TextureDecodeFailed());
-            }
-
-            _textureCache[key] = texture;
-            return Result<Texture2D>.Success(texture);
-        }
+        private Result<Texture2D> LoadTexture(AssetId assetId) => _textureCache.Load(_sceneRepository, _campaign, assetId, NewCorrelationId());
 
         private static void ApplyTexture(VisualElement element, Texture2D texture)
         {
@@ -267,12 +242,6 @@ namespace Odyssey.Unity.Client
             element.style.backgroundSize = StyleKeyword.Null;
         }
 
-        private static void DestroyTexture(Texture2D texture)
-        {
-            if (texture == null) return;
-            if (UnityEngine.Application.isPlaying) UnityEngine.Object.Destroy(texture);
-            else UnityEngine.Object.DestroyImmediate(texture);
-        }
 
         private void ApplyRoleSelection(RoleSelectionSnapshot snapshot, bool refresh)
         {
@@ -504,6 +473,91 @@ namespace Odyssey.Unity.Client
 
         /// <summary>The board camera's current state, exposed read-only for tests and any future caller that needs to know the current pan/zoom (task contract section 1.4: this state is never persisted or synced).</summary>
         public BoardCamera Camera => _camera;
+
+        /// <summary>
+        /// The board's own root element, exposed so <see cref="AssetPoolPresenter"/>'s real drag-and-drop
+        /// wiring can test whether a drop's panel-space position falls within the board at all (via
+        /// <c>VisualElement.WorldToLocal</c>/<c>ContainsPoint</c>) before calling <see cref="ApplyDroppedAsset"/>
+        /// with the resulting board-local pixel coordinates. Not used by this presenter's own tests, which
+        /// call <see cref="ApplyDroppedAsset"/> directly with plain numbers -- the same "real wiring
+        /// untested, pure decision logic tested directly" split every other gesture in this presenter
+        /// already uses (pointer-down/move/up, wheel).
+        /// </summary>
+        public VisualElement? BoardArea => _boardArea;
+
+        /// <summary>
+        /// ODY-S08-103: applies an asset dragged from the asset pool and dropped at a board-local pixel
+        /// position (the same coordinate space <see cref="BeginBoardPointerGesture"/> already uses -- top-left
+        /// of the board area is (0,0), unaffected by pan/zoom, which only changes what world position that
+        /// pixel maps to). If the point lands on a rendered token, sets that token's portrait
+        /// (<see cref="ISceneRepository.SetTokenPortrait"/>); otherwise sets the scene's background
+        /// (<see cref="ISceneRepository.SetSceneBackground"/>) -- task contract section 1.4. Both calls read
+        /// the current revision immediately before writing (never a cached one), the same pattern
+        /// <see cref="TryMoveSelectedTokenTo"/> already uses for <c>MoveToken</c>.
+        /// </summary>
+        public Result ApplyDroppedAsset(AssetId assetId, double boardPixelX, double boardPixelY)
+        {
+            if (!assetId.IsValid) throw new ArgumentException("AssetId is required.", nameof(assetId));
+
+            TokenId? targetTokenId = HitTestToken(boardPixelX, boardPixelY);
+            if (targetTokenId.HasValue)
+            {
+                Result<TokenRecord> current = _sceneRepository.GetToken(_campaign, targetTokenId.Value, NewCorrelationId());
+                if (current.IsFailure)
+                {
+                    SetStatus("Drop failed: " + current.Error.SafeReasonCode);
+                    return Result.Failure(current.Error);
+                }
+
+                Result<TokenRecord> updated = _sceneRepository.SetTokenPortrait(_campaign, targetTokenId.Value, assetId, current.Value.Revision, NewCommandId(), NewCorrelationId());
+                if (updated.IsFailure)
+                {
+                    SetStatus("Drop failed: " + updated.Error.SafeReasonCode);
+                    return Result.Failure(updated.Error);
+                }
+
+                SetStatus("Set token portrait.");
+                Refresh();
+                return Result.Success();
+            }
+
+            Result<SceneRecord> currentScene = _sceneRepository.GetScene(_campaign, _sceneId, NewCorrelationId());
+            if (currentScene.IsFailure)
+            {
+                SetStatus("Drop failed: " + currentScene.Error.SafeReasonCode);
+                return Result.Failure(currentScene.Error);
+            }
+
+            Result<SceneRecord> updatedScene = _sceneRepository.SetSceneBackground(_campaign, _sceneId, assetId, currentScene.Value.Revision, NewCommandId(), NewCorrelationId());
+            if (updatedScene.IsFailure)
+            {
+                SetStatus("Drop failed: " + updatedScene.Error.SafeReasonCode);
+                return Result.Failure(updatedScene.Error);
+            }
+
+            SetStatus("Set scene background.");
+            Refresh();
+            return Result.Success();
+        }
+
+        // Pure math, exactly like the camera itself: a dropped point is "on" a token when it falls inside
+        // that token's own current on-screen square (computed from the same world position and camera the
+        // renderer used), independent of UI Toolkit layout/worldBound timing.
+        private TokenId? HitTestToken(double boardPixelX, double boardPixelY)
+        {
+            double half = TokenSizePixels / 2.0;
+            foreach (KeyValuePair<string, TokenPosition> entry in _tokenPositionsByTokenId)
+            {
+                double centerX = _camera.ToPixelsX(entry.Value.X);
+                double centerY = _camera.ToPixelsY(entry.Value.Y);
+                if (boardPixelX >= centerX - half && boardPixelX <= centerX + half && boardPixelY >= centerY - half && boardPixelY <= centerY + half)
+                {
+                    return TokenId.Parse(entry.Key);
+                }
+            }
+
+            return null;
+        }
 
         // Repositions the already-rendered token elements from their last-known world position (no DB
         // read, no texture-cache lookup, no DOM teardown) -- called after every pan/zoom so dragging and

@@ -40,6 +40,7 @@ namespace Odyssey.Unity.Client
         public BoardScreenPresenter? Board { get; private set; }
         public RollPanelPresenter? RollPanel { get; private set; }
         public GameLogPresenter? GameLog { get; private set; }
+        public AssetPoolPresenter? AssetPool { get; private set; }
         public BoardScreenDemoCampaignHandle? DemoCampaign { get; private set; }
 
         public Result Initialize()
@@ -84,6 +85,9 @@ namespace Odyssey.Unity.Client
                 Result boardInitialized = board.InitializeInto(boardColumn);
                 if (boardInitialized.IsFailure) return boardInitialized;
 
+                var assetPool = new AssetPoolPresenter(_document, sceneRepository, demo.Value.Campaign, board);
+                controlsColumn.Add(assetPool.BuildView());
+
                 var rollPanel = new RollPanelPresenter(selection, _presentationRuntime, rollStore, rngFactory, _clock, groups, demo.Value.Campaign.CampaignId, TestRulesetVersion, TestEpoch, includeRoleSelector: false);
                 controlsColumn.Add(rollPanel.BuildView());
 
@@ -92,6 +96,7 @@ namespace Odyssey.Unity.Client
 
                 Selection = selection;
                 Board = board;
+                AssetPool = assetPool;
                 RollPanel = rollPanel;
                 GameLog = gameLog;
                 DemoCampaign = demo.Value;
@@ -108,6 +113,7 @@ namespace Odyssey.Unity.Client
             if (_disposed) return;
             GameLog?.Dispose();
             RollPanel?.Dispose();
+            AssetPool?.Dispose();
             Board?.Dispose();
             _roleSelectorPresenter?.Dispose();
             _disposed = true;
