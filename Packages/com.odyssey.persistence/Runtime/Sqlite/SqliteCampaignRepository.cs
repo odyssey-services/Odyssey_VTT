@@ -351,10 +351,26 @@ namespace Odyssey.Persistence.Sqlite
 
         private const string MembershipSelect = "SELECT UserId, CampaignId, Role, Revision, CreatedAt, UpdatedAt FROM CampaignMembership";
 
+        // How many times the CREATE TABLE below has actually been executed in this process. Read only by a test
+        // (through reflection) to prove the hot path -- every AddMember/ListMembers/GetMemberRole call, including the
+        // authorization lookup made from inside another repository's open transaction -- no longer re-runs the DDL.
+        private static long _membershipTableDdlExecutions;
+
         // Plain CREATE TABLE IF NOT EXISTS, by the ActiveEffect precedent -- there is no migration machinery,
         // so a campaign file created before this task simply has no membership rows (nobody is MainGM there).
+        // The project has no earlier "create only once" precedent (every other Ensure*Tables re-runs its DDL per
+        // call), so this uses the simplest stateless option: look the table up in sqlite_master first (a read) and
+        // run the DDL only when it is missing. Stateless on purpose: unlike an in-memory once-flag it stays correct
+        // if a campaign.db is replaced underneath a live repository (for example restored from a backup).
         private static void EnsureMembershipTable(SqliteConnection connection)
         {
+            using (var exists = connection.CreateCommand())
+            {
+                exists.CommandText = "SELECT 1 FROM sqlite_master WHERE type = 'table' AND name = 'CampaignMembership' LIMIT 1;";
+                if (exists.ExecuteScalar() != null) return;
+            }
+
+            System.Threading.Interlocked.Increment(ref _membershipTableDdlExecutions);
             using var command = connection.CreateCommand();
             command.CommandText = @"
 CREATE TABLE IF NOT EXISTS CampaignMembership (

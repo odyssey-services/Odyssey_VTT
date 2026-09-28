@@ -1641,6 +1641,14 @@
                           "check":  "AcquireAbility via ProgressionPurchase (owner-or-MainGM): the assigned owner succeeds without any membership lookup; a non-owner reaches the lookup and its failure is returned"
                       },
                       {
+                          "testCaseId":  "TC-PERSIST-050",
+                          "taskId":  "ODY-S10-101",
+                          "authority":  "ODY-S10-101/102 follow-up: independent review finding (membership DDL on every call)",
+                          "runner":  "dotnet test",
+                          "path":  "DotNet/Tests/Odyssey.Tests.Persistence/SqliteCampaignRepositoryTests.cs",
+                          "check":  "AddMember/ListMembers/GetMemberRole on a campaign whose CampaignMembership table exists execute the CREATE TABLE zero times (an execution counter stays unchanged over eleven calls); a dropped table is created by the first read exactly once, never again, and the read answers not-a-member instead of failing"
+                      },
+                      {
                           "testCaseId":  "TC-BOARD-001",
                           "taskId":  "ODY-S03-004",
                           "authority":  "ADR-020 section 5.1/5.3; ODY-S03-004",
