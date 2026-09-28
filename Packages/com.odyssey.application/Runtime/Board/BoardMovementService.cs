@@ -1,5 +1,6 @@
 using System.Collections.Generic;
 using Odyssey.Application.Commands;
+using Odyssey.Application.Identity;
 using Odyssey.Application.Persistence;
 using Odyssey.Application.Results;
 using Odyssey.Domain.Geometry;
@@ -31,9 +32,10 @@ namespace Odyssey.Application.Board
     /// </summary>
     public static class BoardMovementService
     {
-        public static Result<TokenRecord> MoveToken(ISceneRepository repository, MoveTokenRequest request)
+        public static Result<TokenRecord> MoveToken(ISceneRepository repository, ICampaignRepository campaignRepository, MoveTokenRequest request)
         {
             if (repository == null) throw new System.ArgumentNullException(nameof(repository));
+            if (campaignRepository == null) throw new System.ArgumentNullException(nameof(campaignRepository));
             if (request == null) throw new System.ArgumentNullException(nameof(request));
 
             if (!BoardGeometry.IsFinite(request.Destination.X, request.Destination.Y))
@@ -50,7 +52,7 @@ namespace Odyssey.Application.Board
             TokenRecord token = current.Value;
 
             // Submission-time authorization check (ADR-019 section 6.1's first point).
-            Result submissionCheck = CheckAuthorization(token, request);
+            Result submissionCheck = CheckAuthorization(campaignRepository, token, request);
             if (submissionCheck.IsFailure)
             {
                 return Result<TokenRecord>.Failure(submissionCheck.Error);
@@ -68,7 +70,7 @@ namespace Odyssey.Application.Board
             // this synchronous call has no real intervening concurrency window
             // of its own; the durable ExpectedRevision check inside
             // repository.MoveToken is the actual concurrency guard.
-            Result preCommitCheck = CheckAuthorization(token, request);
+            Result preCommitCheck = CheckAuthorization(campaignRepository, token, request);
             if (preCommitCheck.IsFailure)
             {
                 return Result<TokenRecord>.Failure(preCommitCheck.Error);
@@ -88,16 +90,25 @@ namespace Odyssey.Application.Board
         /// unauthorized/stale-revision move would be (BOARD-INV-030: committed
         /// events are never deleted, only compensated).
         /// </summary>
-        public static Result<TokenRecord> UndoMoveToken(ISceneRepository repository, MoveTokenRequest undoRequest) => MoveToken(repository, undoRequest);
+        public static Result<TokenRecord> UndoMoveToken(ISceneRepository repository, ICampaignRepository campaignRepository, MoveTokenRequest undoRequest) => MoveToken(repository, campaignRepository, undoRequest);
 
-        private static Result CheckAuthorization(TokenRecord token, MoveTokenRequest request)
+        // ODY-S10-101: the token's own controller may always move it; anyone else must be the campaign's
+        // MainGM according to the STORED membership (CampaignMembershipAuthorization) -- there is no
+        // caller-supplied "I am the MainGM" flag any more. A failed membership lookup fails closed.
+        private static Result CheckAuthorization(ICampaignRepository campaignRepository, TokenRecord token, MoveTokenRequest request)
         {
-            if (request.ActorIsMainGm)
+            if (token.ControllerUserId.Equals(request.ActorUserId))
             {
                 return Result.Success();
             }
 
-            return token.ControllerUserId.Equals(request.ActorUserId)
+            Result<bool> isMainGm = CampaignMembershipAuthorization.IsMainGm(campaignRepository, request.Campaign, request.ActorUserId, request.CorrelationId);
+            if (isMainGm.IsFailure)
+            {
+                return Result.Failure(isMainGm.Error);
+            }
+
+            return isMainGm.Value
                 ? Result.Success()
                 : Result.Failure(BoardFailures.MoveDenied(request.CorrelationId));
         }

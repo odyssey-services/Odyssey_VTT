@@ -45,7 +45,7 @@ namespace Odyssey.Tests.Persistence
         {
             _campaignDir = Path.Combine(Path.GetTempPath(), "ody-s05-305-" + Guid.NewGuid().ToString("N"));
             _campaignRepository = new SqliteCampaignRepository(Clock);
-            Result<CampaignHandle> created = _campaignRepository.Create(new CreateCampaignRequest(_campaignDir, "RemoveBodyPart Dependency Test Campaign", "ruleset.core", "1.0.0", "0.1.0"), NewCommandId(), TestCorrelationId);
+            Result<CampaignHandle> created = _campaignRepository.Create(new CreateCampaignRequest(_campaignDir, "RemoveBodyPart Dependency Test Campaign", "ruleset.core", "1.0.0", "0.1.0", global::Odyssey.Application.Identity.DevIdentityProvider.AssignHost()), NewCommandId(), TestCorrelationId);
             Assert.That(created.IsSuccess, Is.True);
             _campaign = created.Value;
             _inventoryRepository = new SqliteInventoryRepository(Clock);

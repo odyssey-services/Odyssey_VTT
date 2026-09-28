@@ -48,11 +48,11 @@ namespace Odyssey.Tests.Persistence
             _bundleDir = Path.Combine(Path.GetTempPath(), "ody-s04-112-bundle-" + Guid.NewGuid().ToString("N"));
             _campaignRepository = new SqliteCampaignRepository(Clock);
 
-            Result<CampaignHandle> source = _campaignRepository.Create(new CreateCampaignRequest(_sourceCampaignDir, "Export Source Campaign", "ruleset.core", "1.0.0", "0.1.0"), NewCommandId(), TestCorrelationId);
+            Result<CampaignHandle> source = _campaignRepository.Create(new CreateCampaignRequest(_sourceCampaignDir, "Export Source Campaign", "ruleset.core", "1.0.0", "0.1.0", global::Odyssey.Application.Identity.DevIdentityProvider.AssignHost()), NewCommandId(), TestCorrelationId);
             Assert.That(source.IsSuccess, Is.True);
             _sourceCampaign = source.Value;
 
-            Result<CampaignHandle> target = _campaignRepository.Create(new CreateCampaignRequest(_targetCampaignDir, "Import Target Campaign", "ruleset.core", "1.0.0", "0.1.0"), NewCommandId(), TestCorrelationId);
+            Result<CampaignHandle> target = _campaignRepository.Create(new CreateCampaignRequest(_targetCampaignDir, "Import Target Campaign", "ruleset.core", "1.0.0", "0.1.0", global::Odyssey.Application.Identity.DevIdentityProvider.AssignHost()), NewCommandId(), TestCorrelationId);
             Assert.That(target.IsSuccess, Is.True);
             _targetCampaign = target.Value;
 
@@ -177,7 +177,7 @@ namespace Odyssey.Tests.Persistence
             Assert.That(exported.IsSuccess, Is.True);
 
             string incompatibleDir = Path.Combine(Path.GetTempPath(), "ody-s04-112-incompat-" + Guid.NewGuid().ToString("N"));
-            Result<CampaignHandle> incompatibleCampaign = _campaignRepository.Create(new CreateCampaignRequest(incompatibleDir, "Incompatible Ruleset Campaign", "ruleset.other", "9.0.0", "0.1.0"), NewCommandId(), TestCorrelationId);
+            Result<CampaignHandle> incompatibleCampaign = _campaignRepository.Create(new CreateCampaignRequest(incompatibleDir, "Incompatible Ruleset Campaign", "ruleset.other", "9.0.0", "0.1.0", global::Odyssey.Application.Identity.DevIdentityProvider.AssignHost()), NewCommandId(), TestCorrelationId);
             Assert.That(incompatibleCampaign.IsSuccess, Is.True);
 
             try

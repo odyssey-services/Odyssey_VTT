@@ -76,7 +76,7 @@ namespace Odyssey.Tests.Persistence
             var backupRepository = new SqliteBackupRepository(clock);
 
             // Step 1: create campaign.
-            var createRequest = new CreateCampaignRequest(_workDir, "SLICE-01 Vertical Slice Campaign", "ruleset.core", "1.0.0", "0.1.0");
+            var createRequest = new CreateCampaignRequest(_workDir, "SLICE-01 Vertical Slice Campaign", "ruleset.core", "1.0.0", "0.1.0", global::Odyssey.Application.Identity.DevIdentityProvider.AssignHost());
             Result<CampaignHandle> created = campaignRepository.Create(createRequest, NewCommandId(), TestCorrelationId);
             Assert.That(created.IsSuccess, Is.True, "step 1 (create campaign) must succeed");
             CampaignHandle campaign = created.Value;

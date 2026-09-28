@@ -1,7 +1,9 @@
 using System;
+using System.Collections.Generic;
 using Odyssey.Application.Commands;
 using Odyssey.Application.Results;
 using Odyssey.Domain.Identity;
+using Odyssey.Domain.Time;
 
 namespace Odyssey.Application.Persistence
 {
@@ -20,15 +22,41 @@ namespace Odyssey.Application.Persistence
     /// </summary>
     public interface ICampaignRepository
     {
+        /// <summary>
+        /// Creates the campaign and, in the same transaction that writes the Campaign row, the host's own
+        /// <see cref="CampaignMembership"/> with role <see cref="CampaignMembershipRole.MainGm"/>
+        /// (<see cref="CreateCampaignRequest.HostUserId"/>) -- ODY-S10-101: a campaign can never exist without
+        /// its MainGM member, so the stored role check that replaces the client-supplied MainGM flag has
+        /// something to find.
+        /// </summary>
         Result<CampaignHandle> Create(CreateCampaignRequest request, CommandId commandId, CorrelationId correlationId);
         Result<CampaignHandle> Open(string campaignFolderPath, CorrelationId correlationId);
         Result Close(CampaignHandle handle, CorrelationId correlationId);
+
+        /// <summary>
+        /// ODY-S10-101: adds a participant. A <see cref="UserId"/> that already has a membership in this
+        /// campaign is rejected (<c>PersistenceCampaignMembershipAlreadyExists</c>); redelivering the same
+        /// <paramref name="commandId"/> returns the already-created membership (ADR-012 section 7). No
+        /// role change and no removal exist in this version.
+        /// </summary>
+        Result<CampaignMembership> AddMember(CampaignHandle campaign, UserId userId, CampaignMembershipRole role, CommandId commandId, CorrelationId correlationId);
+
+        /// <summary>ODY-S10-101: every member of this campaign, oldest first.</summary>
+        Result<IReadOnlyList<CampaignMembership>> ListMembers(CampaignHandle campaign, CorrelationId correlationId);
+
+        /// <summary>
+        /// ODY-S10-101: the role of one user in this campaign by a single point lookup, or "not a member" (a
+        /// success, not an error: <see cref="CampaignMemberLookup.IsMember"/> is false) when the user is not a member -- what an authorization check needs on every
+        /// call, without loading the whole member list.
+        /// </summary>
+        Result<CampaignMemberLookup> GetMemberRole(CampaignHandle campaign, UserId userId, CorrelationId correlationId);
     }
 
     public sealed class CreateCampaignRequest
     {
-        public CreateCampaignRequest(string campaignFolderPath, string campaignName, string rulesetId, string rulesetVersion, string applicationVersion)
+        public CreateCampaignRequest(string campaignFolderPath, string campaignName, string rulesetId, string rulesetVersion, string applicationVersion, UserId hostUserId)
         {
+            if (!hostUserId.IsValid) throw new ArgumentException("HostUserId is required.", nameof(hostUserId));
             if (string.IsNullOrWhiteSpace(campaignFolderPath)) throw new ArgumentException("Campaign folder path is required.", nameof(campaignFolderPath));
             if (string.IsNullOrWhiteSpace(campaignName) || campaignName.Length > 128) throw new ArgumentException("CampaignName is not safe.", nameof(campaignName));
             if (string.IsNullOrWhiteSpace(rulesetId)) throw new ArgumentException("RulesetId is required.", nameof(rulesetId));
@@ -40,6 +68,7 @@ namespace Odyssey.Application.Persistence
             RulesetId = rulesetId;
             RulesetVersion = rulesetVersion;
             ApplicationVersion = applicationVersion;
+            HostUserId = hostUserId;
         }
 
         public string CampaignFolderPath { get; }
@@ -47,6 +76,68 @@ namespace Odyssey.Application.Persistence
         public string RulesetId { get; }
         public string RulesetVersion { get; }
         public string ApplicationVersion { get; }
+
+        /// <summary>ODY-S10-101: the campaign's creator; becomes the campaign's first member, with role <see cref="CampaignMembershipRole.MainGm"/>, atomically with the campaign itself.</summary>
+        public UserId HostUserId { get; }
+    }
+
+    /// <summary>
+    /// ODY-S10-101: a participant's role in one campaign. Deliberately its own persisted vocabulary (stored as
+    /// the enum name), parallel to but not the same type as the in-memory session role
+    /// <c>Odyssey.Application.Networking.Session.BaselineRole</c>.
+    /// </summary>
+    public enum CampaignMembershipRole
+    {
+        MainGm = 1,
+        Player = 2,
+        Observer = 3
+    }
+
+    /// <summary>
+    /// ODY-S10-101: the answer of a single-user role lookup. A struct instead of <c>CampaignMembershipRole?</c>
+    /// only because <c>Result&lt;T&gt;</c> constrains <c>T</c> to <c>notnull</c>, which excludes <c>Nullable&lt;T&gt;</c>.
+    /// </summary>
+    public readonly struct CampaignMemberLookup
+    {
+        private CampaignMemberLookup(bool isMember, CampaignMembershipRole role)
+        {
+            IsMember = isMember;
+            Role = role;
+        }
+
+        public static CampaignMemberLookup NotAMember => default;
+        public static CampaignMemberLookup Member(CampaignMembershipRole role) => new CampaignMemberLookup(true, role);
+
+        public bool IsMember { get; }
+
+        /// <summary>The member's role; meaningful only when <see cref="IsMember"/> is true.</summary>
+        public CampaignMembershipRole Role { get; }
+    }
+
+    /// <summary>ODY-S10-101: one participant of one campaign -- the durable fact "this user has this role here", the source of truth for role checks (replacing a client-supplied flag).</summary>
+    public sealed class CampaignMembership
+    {
+        public CampaignMembership(UserId userId, CampaignId campaignId, CampaignMembershipRole role, long revision, UtcInstant createdAt, UtcInstant updatedAt)
+        {
+            if (!userId.IsValid) throw new ArgumentException("UserId is required.", nameof(userId));
+            if (!campaignId.IsValid) throw new ArgumentException("CampaignId is required.", nameof(campaignId));
+            if (!Enum.IsDefined(typeof(CampaignMembershipRole), role)) throw new ArgumentOutOfRangeException(nameof(role));
+            if (revision < 1) throw new ArgumentOutOfRangeException(nameof(revision));
+
+            UserId = userId;
+            CampaignId = campaignId;
+            Role = role;
+            Revision = revision;
+            CreatedAt = createdAt;
+            UpdatedAt = updatedAt;
+        }
+
+        public UserId UserId { get; }
+        public CampaignId CampaignId { get; }
+        public CampaignMembershipRole Role { get; }
+        public long Revision { get; }
+        public UtcInstant CreatedAt { get; }
+        public UtcInstant UpdatedAt { get; }
     }
 
     /// <summary>
@@ -203,6 +294,15 @@ namespace Odyssey.Application.Persistence
         /// (<c>Odyssey.Application.Board.BoardMovementService</c>) that ran
         /// outside this transaction.
         /// </summary>
+        /// <summary>ODY-S10-101: <c>AddMember</c> for a user that already has a membership in the campaign.</summary>
+        public static Error CampaignMembershipAlreadyExists(CorrelationId correlationId) => Error.Create(
+            ErrorCodes.PersistenceCampaignMembershipAlreadyExists,
+            ErrorCategory.Conflict,
+            SafeReasonCode.StateChanged,
+            UserMessageKey.Parse("errors.persistence.campaign_membership_already_exists"),
+            RetryDirective.DoNotRetry,
+            correlationId);
+
         public static Error TokenRevisionConflict(CorrelationId correlationId) => Error.Create(
             ErrorCodes.PersistenceTokenRevisionConflict,
             ErrorCategory.Conflict,

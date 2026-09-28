@@ -72,7 +72,7 @@ namespace Odyssey.Tests.Persistence.Integration
         {
             _root = Path.Combine(Path.GetTempPath(), "ody-s05-608-" + Guid.NewGuid().ToString("N"));
             _clock = new SystemWallClock();
-            Result<CampaignHandle> campaign = new SqliteCampaignRepository(_clock).Create(new CreateCampaignRequest(_root, "attack-pipeline-integration", "ruleset.core", "1.0.0", "0.1.0"), Command(), Corr);
+            Result<CampaignHandle> campaign = new SqliteCampaignRepository(_clock).Create(new CreateCampaignRequest(_root, "attack-pipeline-integration", "ruleset.core", "1.0.0", "0.1.0", global::Odyssey.Application.Identity.DevIdentityProvider.AssignHost()), Command(), Corr);
             Assert.That(campaign.IsSuccess, Is.True);
             _campaign = campaign.Value;
             _characters = new SqliteCharacterRepository(_clock);

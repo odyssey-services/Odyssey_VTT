@@ -28,7 +28,7 @@ namespace Odyssey.Tests.Persistence
         {
             _root = Path.Combine(Path.GetTempPath(), "ody-s05-602-" + Guid.NewGuid().ToString("N"));
             var clock = new SystemWallClock();
-            Result<CampaignHandle> campaign = new SqliteCampaignRepository(clock).Create(new CreateCampaignRequest(_root, "Combat", "ruleset.core", "1.0.0", "0.1.0"), Command(), Corr);
+            Result<CampaignHandle> campaign = new SqliteCampaignRepository(clock).Create(new CreateCampaignRequest(_root, "Combat", "ruleset.core", "1.0.0", "0.1.0", global::Odyssey.Application.Identity.DevIdentityProvider.AssignHost()), Command(), Corr);
             Assert.That(campaign.IsSuccess, Is.True); _campaign = campaign.Value;
             _characters = new SqliteCharacterRepository(clock); _encounters = new SqliteCombatEncounterRepository(clock);
         }
@@ -137,7 +137,7 @@ namespace Odyssey.Tests.Persistence
             using var c = new SqliteConnection("Data Source=" + Path.Combine(_root, "campaign.db")); c.Open(); using var drop = c.CreateCommand(); drop.CommandText = "DROP TRIGGER FailCombatEvent;"; drop.ExecuteNonQuery();
             CombatEncounterRecord encounter = Create(active).Value;
             string otherRoot = Path.Combine(Path.GetTempPath(), "ody-s05-602-other-" + Guid.NewGuid().ToString("N"));
-            Result<CampaignHandle> other = new SqliteCampaignRepository(new SystemWallClock()).Create(new CreateCampaignRequest(otherRoot, "Other", "ruleset.core", "1.0.0", "0.1.0"), Command(), Corr);
+            Result<CampaignHandle> other = new SqliteCampaignRepository(new SystemWallClock()).Create(new CreateCampaignRequest(otherRoot, "Other", "ruleset.core", "1.0.0", "0.1.0", global::Odyssey.Application.Identity.DevIdentityProvider.AssignHost()), Command(), Corr);
             Assert.That(_encounters.Get(other.Value, encounter.EncounterId, Corr).IsFailure, Is.True);
         }
 

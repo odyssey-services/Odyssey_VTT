@@ -40,7 +40,7 @@ namespace Odyssey.Tests.Persistence
         {
             _directory = Path.Combine(Path.GetTempPath(), "ody-s05-505-" + Guid.NewGuid().ToString("N"));
             _campaigns = new SqliteCampaignRepository(_clock);
-            var campaign = _campaigns.Create(new CreateCampaignRequest(_directory, "Item effect tests", "ruleset.core", "1.0.0", "0.1.0"), Command(), Corr);
+            var campaign = _campaigns.Create(new CreateCampaignRequest(_directory, "Item effect tests", "ruleset.core", "1.0.0", "0.1.0", global::Odyssey.Application.Identity.DevIdentityProvider.AssignHost()), Command(), Corr);
             Assert.That(campaign.IsSuccess, Is.True);
             _campaign = campaign.Value;
             _inventory = new SqliteInventoryRepository(_clock);

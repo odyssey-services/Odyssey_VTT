@@ -44,7 +44,7 @@ namespace Odyssey.Tests.Persistence
         {
             _campaignDir = Path.Combine(Path.GetTempPath(), "ody-s05-502-" + Guid.NewGuid().ToString("N"));
             _campaigns = new SqliteCampaignRepository(Clock);
-            Result<CampaignHandle> created = _campaigns.Create(new CreateCampaignRequest(_campaignDir, "ActiveEffect Persistence Test Campaign", "ruleset.core", "1.0.0", "0.1.0"), NewCommandId(), Corr);
+            Result<CampaignHandle> created = _campaigns.Create(new CreateCampaignRequest(_campaignDir, "ActiveEffect Persistence Test Campaign", "ruleset.core", "1.0.0", "0.1.0", global::Odyssey.Application.Identity.DevIdentityProvider.AssignHost()), NewCommandId(), Corr);
             Assert.That(created.IsSuccess, Is.True);
             _campaign = created.Value;
             _activeEffects = new SqliteActiveEffectRepository(Clock);
@@ -131,7 +131,7 @@ namespace Odyssey.Tests.Persistence
             string otherCampaignDir = Path.Combine(Path.GetTempPath(), "ody-s05-502-other-" + Guid.NewGuid().ToString("N"));
             try
             {
-                Result<CampaignHandle> otherCreated = _campaigns.Create(new CreateCampaignRequest(otherCampaignDir, "Other Campaign", "ruleset.core", "1.0.0", "0.1.0"), NewCommandId(), Corr);
+                Result<CampaignHandle> otherCreated = _campaigns.Create(new CreateCampaignRequest(otherCampaignDir, "Other Campaign", "ruleset.core", "1.0.0", "0.1.0", global::Odyssey.Application.Identity.DevIdentityProvider.AssignHost()), NewCommandId(), Corr);
                 Assert.That(otherCreated.IsSuccess, Is.True);
 
                 Result<ActiveEffectRecord> fetched = _activeEffects.GetActiveEffect(otherCreated.Value, record.Effect.ActiveEffectId, Corr);

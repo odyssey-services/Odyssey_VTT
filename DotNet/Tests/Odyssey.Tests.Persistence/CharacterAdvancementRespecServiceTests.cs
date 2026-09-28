@@ -44,7 +44,7 @@ namespace Odyssey.Tests.Persistence
         {
             _campaignDir = Path.Combine(Path.GetTempPath(), "ody-s09-103-" + Guid.NewGuid().ToString("N"));
             _campaignRepository = new SqliteCampaignRepository(Clock);
-            var request = new CreateCampaignRequest(_campaignDir, "Respec Service Test Campaign", "ruleset.core", "1.0.0", "0.1.0");
+            var request = new CreateCampaignRequest(_campaignDir, "Respec Service Test Campaign", "ruleset.core", "1.0.0", "0.1.0", global::Odyssey.Application.Identity.DevIdentityProvider.AssignHost());
             Result<CampaignHandle> created = _campaignRepository.Create(request, NewCommandId(), TestCorrelationId);
             Assert.That(created.IsSuccess, Is.True);
             _campaign = created.Value;

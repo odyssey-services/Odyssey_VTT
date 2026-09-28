@@ -127,7 +127,7 @@ namespace Odyssey.Tests.Unity.EditMode
                 var directory = new TemporaryDirectory();
                 var clock = new FixedClock();
                 var campaignRepository = new SqliteCampaignRepository(clock);
-                var request = new CreateCampaignRequest(directory.Path, "Game Log UI Test Campaign", "ruleset.core", "1.0.0", "0.1.0");
+                var request = new CreateCampaignRequest(directory.Path, "Game Log UI Test Campaign", "ruleset.core", "1.0.0", "0.1.0", global::Odyssey.Application.Identity.DevIdentityProvider.AssignHost());
                 CampaignHandle campaign = campaignRepository.Create(request, NewCommandId(), TestCorrelationId).Value;
                 return Create(initialRole, campaign, clock, directory, campaignRepository);
             }

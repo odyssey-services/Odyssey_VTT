@@ -81,7 +81,7 @@ namespace Odyssey.Unity.Client
                 controlsColumn.style.minWidth = 320;
                 layout.Add(controlsColumn);
 
-                var board = new BoardScreenPresenter(_document, sceneRepository, demo.Value.Campaign, demo.Value.SceneId, selection, _presentationRuntime, includeRoleSelector: false);
+                var board = new BoardScreenPresenter(_document, sceneRepository, demo.Value.Campaign, demo.Value.CampaignRepository, demo.Value.SceneId, selection, _presentationRuntime, includeRoleSelector: false);
                 Result boardInitialized = board.InitializeInto(boardColumn);
                 if (boardInitialized.IsFailure) return boardInitialized;
 

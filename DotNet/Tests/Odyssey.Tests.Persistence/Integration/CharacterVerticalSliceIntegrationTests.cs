@@ -88,7 +88,7 @@ namespace Odyssey.Tests.Persistence.Integration
         public void ElevenStepSlice_DraftThroughOdcharImport_AllStepsSucceedInOrder()
         {
             var campaignRepository = new SqliteCampaignRepository(Clock);
-            Result<CampaignHandle> created = campaignRepository.Create(new CreateCampaignRequest(_campaignDir, "SLICE-04 Vertical Slice Campaign", "ruleset.core", "1.0.0", "0.1.0"), NewCommandId(), TestCorrelationId);
+            Result<CampaignHandle> created = campaignRepository.Create(new CreateCampaignRequest(_campaignDir, "SLICE-04 Vertical Slice Campaign", "ruleset.core", "1.0.0", "0.1.0", global::Odyssey.Application.Identity.DevIdentityProvider.AssignHost()), NewCommandId(), TestCorrelationId);
             Assert.That(created.IsSuccess, Is.True, "campaign creation must succeed before the scenario begins");
             CampaignHandle campaign = created.Value;
 

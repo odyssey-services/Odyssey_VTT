@@ -1537,6 +1537,38 @@
                           "check":  "the roadmap section 12.6 ten-step scenario (player selects own token via control ownership; sends a roll intent; host validates permission; host generates a formula result via real RNG; modifiers are applied; GM overrides with a mandatory reason; only permitted participants receive the result under a nontrivial SelectedParticipants audience, with safe denial for an excluded participant; the event is persisted via real SQLite; a reopened repository restores the visible journal recomputed by CURRENT, not saved, group membership; after a full reroll the original event's own NaturalResults/FormulaOriginal/persisted row remain unchanged) runs end-to-end in one reproducible test using only already-merged ODY-S03-004..007 public APIs, with every step asserted and zero new production code"
                       },
                       {
+                          "testCaseId":  "TC-PERSIST-037",
+                          "taskId":  "ODY-S10-101",
+                          "authority":  "ODY-S10-101 test list (task contract section 9)",
+                          "runner":  "dotnet test",
+                          "path":  "DotNet/Tests/Odyssey.Tests.Persistence/SqliteCampaignRepositoryTests.cs",
+                          "check":  "AddMember/ListMembers/GetMemberRole: members are stored and listed oldest first (the host first), a user with no membership is a success with IsMember=false, a duplicate UserId is rejected with PersistenceCampaignMembershipAlreadyExists and changes nothing, redelivering the same CommandId returns the existing membership, and membership is isolated per campaign"
+                      },
+                      {
+                          "testCaseId":  "TC-PERSIST-038",
+                          "taskId":  "ODY-S10-101",
+                          "authority":  "ODY-S10-101 test list (task contract section 9)",
+                          "runner":  "dotnet test",
+                          "path":  "DotNet/Tests/Odyssey.Tests.Persistence/SqliteCampaignRepositoryTests.cs",
+                          "check":  "CreateCampaignRequest.HostUserId: Create registers the host as the campaign's MainGm in the same pipeline transaction as the Campaign row (the two rows carry the same LastCommandId) and the role survives closing and reopening the campaign"
+                      },
+                      {
+                          "testCaseId":  "TC-PERSIST-039",
+                          "taskId":  "ODY-S10-101",
+                          "authority":  "ODY-S10-101 test list (task contract section 9)",
+                          "runner":  "dotnet test",
+                          "path":  "DotNet/Tests/Odyssey.Tests.Persistence/SqliteCampaignRepositoryTests.cs",
+                          "check":  "CampaignMembershipAuthorization.IsMainGm is true for the host and for an added MainGm, false for a Player, an Observer and a user with no membership record at all (a success result, not an error)"
+                      },
+                      {
+                          "testCaseId":  "TC-PERSIST-040",
+                          "taskId":  "ODY-S10-101",
+                          "authority":  "ODY-S10-101 test list (task contract section 9)",
+                          "runner":  "dotnet test",
+                          "path":  "DotNet/Tests/Odyssey.Tests.Persistence/Board/BoardMovementServiceTests.cs",
+                          "check":  "BoardMovementService authorizes a non-controller by the STORED membership: a user with no membership, a Player and an Observer are denied (position unchanged), an AddMember'd MainGm is allowed from the next call, and a failing membership lookup fails closed (the token's own controller, needing no lookup, is unaffected)"
+                      },
+                      {
                           "testCaseId":  "TC-BOARD-001",
                           "taskId":  "ODY-S03-004",
                           "authority":  "ADR-020 section 5.1/5.3; ODY-S03-004",
