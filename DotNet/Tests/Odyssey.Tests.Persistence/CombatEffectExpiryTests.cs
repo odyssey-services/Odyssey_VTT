@@ -46,7 +46,7 @@ namespace Odyssey.Tests.Persistence
             _campaign = campaign.Value;
             _characters = new SqliteCharacterRepository(Clock, new SqliteCampaignRepository(Clock));
             _encounters = new SqliteCombatEncounterRepository(Clock);
-            _activeEffects = new SqliteActiveEffectRepository(Clock);
+            _activeEffects = new SqliteActiveEffectRepository(Clock, new SqliteCampaignRepository(Clock));
             _reader = new SqliteCombatEncounterLifecycleReader(_encounters);
         }
 
@@ -236,10 +236,10 @@ namespace Odyssey.Tests.Persistence
         // ---- helpers ----
 
         private CombatEncounterRecord CreateEncounter(CharacterId a, CharacterId b)
-            => CombatEncounterService.Create(_encounters, _campaign, new CreateCombatEncounterRequest(new[] { a, b }, User(), true, Command()), Corr).Value;
+            => CombatEncounterService.Create(_encounters, new SqliteCampaignRepository(Clock), _campaign, new CreateCombatEncounterRequest(new[] { a, b }, global::Odyssey.Application.Identity.DevIdentityProvider.AssignHost(), Command()), Corr).Value;
 
         private CombatEncounterRecord Advance(CombatEncounterRecord encounter)
-            => CombatEncounterService.Advance(_encounters, _campaign, new AdvanceCombatEncounterRequest(encounter.EncounterId, encounter.Revision, User(), true, Command()), Corr).Value;
+            => CombatEncounterService.Advance(_encounters, new SqliteCampaignRepository(Clock), _campaign, new AdvanceCombatEncounterRequest(encounter.EncounterId, encounter.Revision, global::Odyssey.Application.Identity.DevIdentityProvider.AssignHost(), Command()), Corr).Value;
 
         private CharacterId Active(string name)
         {

@@ -75,7 +75,7 @@ namespace Odyssey.Tests.Persistence
             _campaign = campaign.Value;
             _characters = new SqliteCharacterRepository(_clock, _campaignRepository);
             _catalog = new SqliteContentCatalogRepository(_clock);
-            _effects = new SqliteActiveEffectRepository(_clock);
+            _effects = new SqliteActiveEffectRepository(_clock, _campaignRepository);
             _inventory = new SqliteInventoryRepository(_clock);
             _scenes = new SqliteSceneRepository(_clock);
             _encounters = new SqliteCombatEncounterRepository(_clock);
@@ -84,7 +84,7 @@ namespace Odyssey.Tests.Persistence
             _useItemReader = new SqliteUseItemStateReader(_characters, _inventory, _catalog, _clock);
             _useItemApply = new SqliteUseItemRepository(_clock, _effects);
             _attackReader = new SqliteAttackStateReader(_encounters, _inventory, _characters, _clock, _scenes);
-            _attackApply = new SqliteAttackApplyRepository(_clock);
+            _attackApply = new SqliteAttackApplyRepository(_clock, _campaignRepository);
         }
 
         /// <summary>
@@ -326,7 +326,7 @@ namespace Odyssey.Tests.Persistence
             => new AttackRequest(new AttackIntent(encounter.EncounterId, actor, new[] { target }, item.ItemInstanceId, encounter.Revision), User(), true, Command(), Corr);
 
         private CombatEncounterRecord CreateEncounter(CharacterId actor, CharacterId target)
-            => CombatEncounterService.Create(_encounters, _campaign, new CreateCombatEncounterRequest(new[] { actor, target }, User(), true, Command()), Corr).Value;
+            => CombatEncounterService.Create(_encounters, _campaignRepository, _campaign, new CreateCombatEncounterRequest(new[] { actor, target }, global::Odyssey.Application.Identity.DevIdentityProvider.AssignHost(), Command()), Corr).Value;
 
         private SceneId CreateScene() => _scenes.CreateScene(_campaign, "MVP Battle Map " + Guid.NewGuid().ToString("N"), Command(), Corr).Value.SceneId;
 

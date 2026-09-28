@@ -60,7 +60,7 @@ namespace Odyssey.Tests.Persistence
             _inventory = new SqliteInventoryRepository(_clock);
             _scenes = new SqliteSceneRepository(_clock);
             _reader = new SqliteAttackStateReader(_encounters, _inventory, _characters, _clock, _scenes);
-            _apply = new SqliteAttackApplyRepository(_clock);
+            _apply = new SqliteAttackApplyRepository(_clock, new SqliteCampaignRepository(_clock));
         }
 
         [Test] // TC-ATTACK-066
@@ -118,7 +118,7 @@ namespace Odyssey.Tests.Persistence
             Assert.That(pending.IsSuccess, Is.True);
             Assert.That(CurrentValue(target, Health), Is.EqualTo(10), "No delta on the original, pending step.");
 
-            Result<AttackOutcomeRecord> approved = AttackApplyService.ResolveAttackIntervention(_apply, _campaign, request.CommandId, AttackInterventionResolution.Approve, User(), true, Command(), Corr);
+            Result<AttackOutcomeRecord> approved = AttackApplyService.ResolveAttackIntervention(_apply, _campaign, request.CommandId, AttackInterventionResolution.Approve, global::Odyssey.Application.Identity.DevIdentityProvider.AssignHost(), Command(), Corr);
 
             Assert.That(approved.IsSuccess, Is.True);
             Assert.That(CurrentValue(target, Health), Is.EqualTo(6), "The deferred approval step applies the delta.");
@@ -135,7 +135,7 @@ namespace Odyssey.Tests.Persistence
             AttackRequest request = Request(encounter, actor, target, item);
             Assert.That(AttackApplyService.ResolveAttack(_reader, rules, new CountingRandomFactory(), _apply, _campaign, Epoch, request).IsSuccess, Is.True);
 
-            Result<AttackOutcomeRecord> rejected = AttackApplyService.ResolveAttackIntervention(_apply, _campaign, request.CommandId, AttackInterventionResolution.Reject, User(), true, Command(), Corr);
+            Result<AttackOutcomeRecord> rejected = AttackApplyService.ResolveAttackIntervention(_apply, _campaign, request.CommandId, AttackInterventionResolution.Reject, global::Odyssey.Application.Identity.DevIdentityProvider.AssignHost(), Command(), Corr);
 
             Assert.That(rejected.IsSuccess, Is.True);
             Assert.That(rejected.Value.OutcomeKind, Is.EqualTo(AttackOutcomeKind.Rejected));
@@ -291,7 +291,7 @@ namespace Odyssey.Tests.Persistence
         }
 
         private CombatEncounterRecord CreateEncounter(CharacterId actor, CharacterId target)
-            => CombatEncounterService.Create(_encounters, _campaign, new CreateCombatEncounterRequest(new[] { actor, target }, User(), true, Command()), Corr).Value;
+            => CombatEncounterService.Create(_encounters, new SqliteCampaignRepository(_clock), _campaign, new CreateCombatEncounterRequest(new[] { actor, target }, global::Odyssey.Application.Identity.DevIdentityProvider.AssignHost(), Command()), Corr).Value;
 
         private static AttackRequest Request(CombatEncounterRecord encounter, CharacterId actor, CharacterId target, ItemInstanceRecord item)
             => new AttackRequest(new AttackIntent(encounter.EncounterId, actor, new[] { target }, item.ItemInstanceId, encounter.Revision), User(), true, Command(), Corr);

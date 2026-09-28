@@ -7,6 +7,7 @@ using Newtonsoft.Json;
 using Odyssey.Application.Commands;
 using Odyssey.Application.Content;
 using Odyssey.Application.Effects;
+using Odyssey.Application.Identity;
 using Odyssey.Application.Persistence;
 using Odyssey.Application.Results;
 using Odyssey.Application.Time;
@@ -47,11 +48,14 @@ namespace Odyssey.Persistence.Sqlite
     public sealed class SqliteActiveEffectRepository : IActiveEffectRepository
     {
         private readonly IWallClock _clock;
+        private readonly ICampaignRepository _campaignRepository;
         private readonly SqliteSavingPipeline _pipeline;
 
-        public SqliteActiveEffectRepository(IWallClock clock)
+        public SqliteActiveEffectRepository(IWallClock clock, ICampaignRepository campaignRepository)
         {
             _clock = clock ?? throw new ArgumentNullException(nameof(clock));
+            // ODY-S10-103: MainGM-ness is looked up from the stored campaign membership (never trusted from the caller).
+            _campaignRepository = campaignRepository ?? throw new ArgumentNullException(nameof(campaignRepository));
             _pipeline = new SqliteSavingPipeline(clock);
         }
 
@@ -354,7 +358,7 @@ namespace Odyssey.Persistence.Sqlite
             return text.ToString();
         }
 
-        public Result<ActiveEffectRecord> RemoveActiveEffect(CampaignHandle campaign, CampaignId campaignId, ActiveEffectId activeEffectId, UserId actorUserId, bool actorIsMainGm, long expectedRevision, CommandId commandId, CorrelationId correlationId)
+        public Result<ActiveEffectRecord> RemoveActiveEffect(CampaignHandle campaign, CampaignId campaignId, ActiveEffectId activeEffectId, UserId actorUserId, long expectedRevision, CommandId commandId, CorrelationId correlationId)
         {
             if (campaign == null) throw new ArgumentNullException(nameof(campaign));
             if (!activeEffectId.IsValid) throw new ArgumentException("ActiveEffectId is required.", nameof(activeEffectId));
@@ -365,11 +369,36 @@ namespace Odyssey.Persistence.Sqlite
             // ADR-028 section 10 rule 3: MainGM-only, checked before touching
             // the database at all -- matching every other MainGM-only gate's
             // own convention (SqliteCharacterRepository.DeleteCharacterPermanently).
-            if (!actorIsMainGm)
+            // ODY-S10-103: decided by the STORED campaign membership; a failed lookup fails closed.
+            Result<bool> mainGmCheck = CampaignMembershipAuthorization.IsMainGm(_campaignRepository, campaign, actorUserId, correlationId);
+            if (mainGmCheck.IsFailure)
+            {
+                return Result<ActiveEffectRecord>.Failure(mainGmCheck.Error);
+            }
+
+            if (!mainGmCheck.Value)
             {
                 return Result<ActiveEffectRecord>.Failure(PersistenceFailures.ActiveEffectOperationDenied(correlationId));
             }
 
+            return RemoveActiveEffectCore(campaign, campaignId, activeEffectId, actorUserId, expectedRevision, commandId, correlationId);
+        }
+
+        // ODY-S10-103: the system rollback of a failed ability activation / item use (see the interface comment). Same
+        // removal as RemoveActiveEffect, minus the MainGM gate; the one shared implementation is RemoveActiveEffectCore.
+        public Result<ActiveEffectRecord> RemoveActiveEffectAsSystemRollback(CampaignHandle campaign, CampaignId campaignId, ActiveEffectId activeEffectId, UserId actorUserId, long expectedRevision, CommandId commandId, CorrelationId correlationId)
+        {
+            if (campaign == null) throw new ArgumentNullException(nameof(campaign));
+            if (!activeEffectId.IsValid) throw new ArgumentException("ActiveEffectId is required.", nameof(activeEffectId));
+            if (!actorUserId.IsValid) throw new ArgumentException("ActorUserId is required.", nameof(actorUserId));
+            if (expectedRevision < 1) throw new ArgumentOutOfRangeException(nameof(expectedRevision));
+            if (!commandId.IsValid) throw new ArgumentException("CommandId is required.", nameof(commandId));
+
+            return RemoveActiveEffectCore(campaign, campaignId, activeEffectId, actorUserId, expectedRevision, commandId, correlationId);
+        }
+
+        private Result<ActiveEffectRecord> RemoveActiveEffectCore(CampaignHandle campaign, CampaignId campaignId, ActiveEffectId activeEffectId, UserId actorUserId, long expectedRevision, CommandId commandId, CorrelationId correlationId)
+        {
             if (!TryValidateCampaignBoundary(campaign, campaignId, correlationId, out Error campaignError))
             {
                 return Result<ActiveEffectRecord>.Failure(campaignError);

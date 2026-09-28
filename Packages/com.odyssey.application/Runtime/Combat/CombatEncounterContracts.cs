@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using Odyssey.Application.Commands;
+using Odyssey.Application.Identity;
 using Odyssey.Application.Persistence;
 using Odyssey.Application.Results;
 using Odyssey.Domain.Character;
@@ -12,29 +13,27 @@ namespace Odyssey.Application.Combat
 {
     public sealed class CreateCombatEncounterRequest
     {
-        public CreateCombatEncounterRequest(IReadOnlyList<CharacterId> participantOrder, UserId actorUserId, bool actorIsMainGm, CommandId commandId)
+        public CreateCombatEncounterRequest(IReadOnlyList<CharacterId> participantOrder, UserId actorUserId, CommandId commandId)
         {
             ParticipantOrder = participantOrder ?? throw new ArgumentNullException(nameof(participantOrder));
             if (!actorUserId.IsValid || !commandId.IsValid) throw new ArgumentException("Actor and command identity are required.");
-            ActorUserId = actorUserId; ActorIsMainGm = actorIsMainGm; CommandId = commandId;
+            ActorUserId = actorUserId; CommandId = commandId;
         }
         public IReadOnlyList<CharacterId> ParticipantOrder { get; }
         public UserId ActorUserId { get; }
-        public bool ActorIsMainGm { get; }
         public CommandId CommandId { get; }
     }
 
     public sealed class AdvanceCombatEncounterRequest
     {
-        public AdvanceCombatEncounterRequest(CombatEncounterId encounterId, long expectedRevision, UserId actorUserId, bool actorIsMainGm, CommandId commandId)
+        public AdvanceCombatEncounterRequest(CombatEncounterId encounterId, long expectedRevision, UserId actorUserId, CommandId commandId)
         {
             if (!encounterId.IsValid || expectedRevision < 1 || !actorUserId.IsValid || !commandId.IsValid) throw new ArgumentException("Valid encounter, revision, actor and command are required.");
-            EncounterId = encounterId; ExpectedRevision = expectedRevision; ActorUserId = actorUserId; ActorIsMainGm = actorIsMainGm; CommandId = commandId;
+            EncounterId = encounterId; ExpectedRevision = expectedRevision; ActorUserId = actorUserId; CommandId = commandId;
         }
         public CombatEncounterId EncounterId { get; }
         public long ExpectedRevision { get; }
         public UserId ActorUserId { get; }
-        public bool ActorIsMainGm { get; }
         public CommandId CommandId { get; }
     }
 
@@ -93,19 +92,27 @@ namespace Odyssey.Application.Combat
 
     public static class CombatEncounterService
     {
-        public static Result<CombatEncounterRecord> Create(ICombatEncounterRepository repository, CampaignHandle campaign, CreateCombatEncounterRequest request, CorrelationId correlationId)
+        public static Result<CombatEncounterRecord> Create(ICombatEncounterRepository repository, ICampaignRepository campaignRepository, CampaignHandle campaign, CreateCombatEncounterRequest request, CorrelationId correlationId)
         {
             if (repository == null) throw new ArgumentNullException(nameof(repository));
+            if (campaignRepository == null) throw new ArgumentNullException(nameof(campaignRepository));
             if (campaign == null || request == null) throw new ArgumentNullException(campaign == null ? nameof(campaign) : nameof(request));
-            if (!request.ActorIsMainGm) return Result<CombatEncounterRecord>.Failure(Denied(correlationId));
+            // ODY-S10-103: MainGM-only, decided by the STORED campaign membership (fail closed on a lookup failure).
+            Result<bool> mainGmCheck = CampaignMembershipAuthorization.IsMainGm(campaignRepository, campaign, request.ActorUserId, correlationId);
+            if (mainGmCheck.IsFailure) return Result<CombatEncounterRecord>.Failure(mainGmCheck.Error);
+            if (!mainGmCheck.Value) return Result<CombatEncounterRecord>.Failure(Denied(correlationId));
             return repository.Create(campaign, new CreateCombatEncounterCommand(request.ParticipantOrder, request.CommandId), correlationId);
         }
 
-        public static Result<CombatEncounterRecord> Advance(ICombatEncounterRepository repository, CampaignHandle campaign, AdvanceCombatEncounterRequest request, CorrelationId correlationId)
+        public static Result<CombatEncounterRecord> Advance(ICombatEncounterRepository repository, ICampaignRepository campaignRepository, CampaignHandle campaign, AdvanceCombatEncounterRequest request, CorrelationId correlationId)
         {
             if (repository == null) throw new ArgumentNullException(nameof(repository));
+            if (campaignRepository == null) throw new ArgumentNullException(nameof(campaignRepository));
             if (campaign == null || request == null) throw new ArgumentNullException(campaign == null ? nameof(campaign) : nameof(request));
-            if (!request.ActorIsMainGm) return Result<CombatEncounterRecord>.Failure(Denied(correlationId));
+            // ODY-S10-103: MainGM-only, decided by the STORED campaign membership (fail closed on a lookup failure).
+            Result<bool> mainGmCheck = CampaignMembershipAuthorization.IsMainGm(campaignRepository, campaign, request.ActorUserId, correlationId);
+            if (mainGmCheck.IsFailure) return Result<CombatEncounterRecord>.Failure(mainGmCheck.Error);
+            if (!mainGmCheck.Value) return Result<CombatEncounterRecord>.Failure(Denied(correlationId));
             return repository.Advance(campaign, new AdvanceCombatEncounterCommand(request.EncounterId, request.ExpectedRevision, request.CommandId), correlationId);
         }
 

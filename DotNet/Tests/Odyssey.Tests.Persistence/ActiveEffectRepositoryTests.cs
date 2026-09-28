@@ -47,7 +47,7 @@ namespace Odyssey.Tests.Persistence
             Result<CampaignHandle> created = _campaigns.Create(new CreateCampaignRequest(_campaignDir, "ActiveEffect Persistence Test Campaign", "ruleset.core", "1.0.0", "0.1.0", global::Odyssey.Application.Identity.DevIdentityProvider.AssignHost()), NewCommandId(), Corr);
             Assert.That(created.IsSuccess, Is.True);
             _campaign = created.Value;
-            _activeEffects = new SqliteActiveEffectRepository(Clock);
+            _activeEffects = new SqliteActiveEffectRepository(Clock, _campaigns);
         }
 
         [TearDown]

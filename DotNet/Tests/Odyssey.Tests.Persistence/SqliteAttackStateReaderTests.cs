@@ -323,7 +323,7 @@ namespace Odyssey.Tests.Persistence
         public void Read_MultipleTargets_EachHasItsOwnCorrectArmor_NotMixedUp()
         {
             CharacterId actor = Active("actor"), targetA = Active("targetA"), targetB = Active("targetB");
-            CombatEncounterRecord encounter = CombatEncounterService.Create(_encounters, _campaign, new CreateCombatEncounterRequest(new[] { actor, targetA, targetB }, User(), true, Command()), Corr).Value;
+            CombatEncounterRecord encounter = CombatEncounterService.Create(_encounters, new SqliteCampaignRepository(_clock), _campaign, new CreateCombatEncounterRequest(new[] { actor, targetA, targetB }, global::Odyssey.Application.Identity.DevIdentityProvider.AssignHost(), Command()), Corr).Value;
             ItemInstanceRecord item = ItemFor(actor);
             EquipArmor(targetA, "chest_slot", protection: 3, "Torso");
             EquipArmor(targetB, "head_slot", protection: 9, "Head");
@@ -415,7 +415,7 @@ namespace Odyssey.Tests.Persistence
             LinkToken(scene, actor, 0, 0);
             LinkToken(scene, targetA, 6, 8);
             // targetB deliberately has no linked token.
-            CombatEncounterRecord encounter = CombatEncounterService.Create(_encounters, _campaign, new CreateCombatEncounterRequest(new[] { actor, targetA, targetB }, User(), true, Command()), Corr).Value;
+            CombatEncounterRecord encounter = CombatEncounterService.Create(_encounters, new SqliteCampaignRepository(_clock), _campaign, new CreateCombatEncounterRequest(new[] { actor, targetA, targetB }, global::Odyssey.Application.Identity.DevIdentityProvider.AssignHost(), Command()), Corr).Value;
             ItemInstanceRecord item = ItemFor(actor);
 
             AttackIntent intent = new AttackIntent(encounter.EncounterId, actor, new[] { targetA, targetB }, item.ItemInstanceId, encounter.Revision);
@@ -473,10 +473,10 @@ namespace Odyssey.Tests.Persistence
         }
 
         private CombatEncounterRecord CreateEncounter(CharacterId actor, CharacterId target)
-            => CombatEncounterService.Create(_encounters, _campaign, new CreateCombatEncounterRequest(new[] { actor, target }, User(), true, Command()), Corr).Value;
+            => CombatEncounterService.Create(_encounters, new SqliteCampaignRepository(_clock), _campaign, new CreateCombatEncounterRequest(new[] { actor, target }, global::Odyssey.Application.Identity.DevIdentityProvider.AssignHost(), Command()), Corr).Value;
 
         private CombatEncounterRecord Advance(CombatEncounterRecord encounter)
-            => CombatEncounterService.Advance(_encounters, _campaign, new AdvanceCombatEncounterRequest(encounter.EncounterId, encounter.Revision, User(), true, Command()), Corr).Value;
+            => CombatEncounterService.Advance(_encounters, new SqliteCampaignRepository(_clock), _campaign, new AdvanceCombatEncounterRequest(encounter.EncounterId, encounter.Revision, global::Odyssey.Application.Identity.DevIdentityProvider.AssignHost(), Command()), Corr).Value;
 
         private static AttackIntent Intent(CombatEncounterRecord encounter, CharacterId actor, CharacterId target, ItemInstanceRecord item)
             => new AttackIntent(encounter.EncounterId, actor, new[] { target }, item.ItemInstanceId, encounter.Revision);

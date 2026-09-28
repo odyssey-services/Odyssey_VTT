@@ -209,7 +209,7 @@ namespace Odyssey.Application.Persistence
         /// `IActiveEffectRepository.RemoveActiveEffect` FIRST; only once every removal succeeds does this
         /// method reverse `ResourceDeltas` -- in one new SQLite transaction, atomically -- by re-applying each
         /// one negated through the same `SqliteAttackApplyRepository.ApplyAttackDelta`, then marks
-        /// `CompensatedAt`. `RemoveActiveEffect` uses `actorIsMainGm: true` regardless of the original
+        /// `CompensatedAt`. Effects are removed through `RemoveActiveEffectAsSystemRollback` (ODY-S10-103; it used to be `RemoveActiveEffect` with a forged `actorIsMainGm: true`), regardless of the original
         /// activation actor's own permission level -- this is an internal system rollback of the SAME
         /// activation attempt that actor themselves initiated and which failed, not a new capability granted
         /// to them (the same "internal operations bypass the public command's own user-facing authorization"

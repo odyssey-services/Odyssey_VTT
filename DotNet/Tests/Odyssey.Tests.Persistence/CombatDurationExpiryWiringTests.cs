@@ -49,7 +49,7 @@ namespace Odyssey.Tests.Persistence
             Assert.That(campaign.IsSuccess, Is.True);
             _campaign = campaign.Value;
             _characters = new SqliteCharacterRepository(_clock, new SqliteCampaignRepository(_clock));
-            _activeEffects = new SqliteActiveEffectRepository(_clock);
+            _activeEffects = new SqliteActiveEffectRepository(_clock, new SqliteCampaignRepository(_clock));
             _encounters = new SqliteCombatEncounterRepository(_clock);
         }
 
@@ -148,7 +148,7 @@ namespace Odyssey.Tests.Persistence
             CharacterId actor = Active("actor"), target = Active("target");
             CombatEncounterRecord encounter = CreateEncounter(actor, target);
 
-            Result<CombatEncounterRecord> result = CombatEncounterService.Advance(_encounters, _campaign, new AdvanceCombatEncounterRequest(encounter.EncounterId, encounter.Revision, User(), false, Command()), Corr);
+            Result<CombatEncounterRecord> result = CombatEncounterService.Advance(_encounters, new SqliteCampaignRepository(_clock), _campaign, new AdvanceCombatEncounterRequest(encounter.EncounterId, encounter.Revision, User(), Command()), Corr);
 
             Assert.That(result.IsFailure, Is.True, "Regression check: the pre-existing MainGM gate is untouched by this task's own wiring.");
         }
@@ -217,10 +217,10 @@ namespace Odyssey.Tests.Persistence
         }
 
         private CombatEncounterRecord CreateEncounter(params CharacterId[] participants)
-            => CombatEncounterService.Create(_encounters, _campaign, new CreateCombatEncounterRequest(participants, User(), true, Command()), Corr).Value;
+            => CombatEncounterService.Create(_encounters, new SqliteCampaignRepository(_clock), _campaign, new CreateCombatEncounterRequest(participants, global::Odyssey.Application.Identity.DevIdentityProvider.AssignHost(), Command()), Corr).Value;
 
         private CombatEncounterRecord Advance(CombatEncounterRecord encounter)
-            => CombatEncounterService.Advance(_encounters, _campaign, new AdvanceCombatEncounterRequest(encounter.EncounterId, encounter.Revision, User(), true, Command()), Corr).Value;
+            => CombatEncounterService.Advance(_encounters, new SqliteCampaignRepository(_clock), _campaign, new AdvanceCombatEncounterRequest(encounter.EncounterId, encounter.Revision, global::Odyssey.Application.Identity.DevIdentityProvider.AssignHost(), Command()), Corr).Value;
 
         private CharacterId Active(string name)
         {

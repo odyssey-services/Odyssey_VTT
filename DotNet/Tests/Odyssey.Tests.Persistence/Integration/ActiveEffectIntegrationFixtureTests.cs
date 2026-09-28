@@ -89,7 +89,7 @@ namespace Odyssey.Tests.Persistence.Integration
             _characters = new SqliteCharacterRepository(Clock, _campaigns,
                 deletionDependencyCheckers: new ICharacterDeletionDependencyChecker[] { new InventoryCharacterDeletionDependencyChecker(_inventory) },
                 bodyPartRemovalDependencyCheckers: new IBodyPartRemovalDependencyChecker[] { new InventoryBodyPartRemovalDependencyChecker(_inventory) });
-            _effects = new SqliteActiveEffectRepository(Clock);
+            _effects = new SqliteActiveEffectRepository(Clock, _campaigns);
 
             CharacterRecord character = CreateInitializedCharacter();
             _bag = new InventoryRecord(InventoryId.NewId(Clock.GetUtcNow()), _campaign.CampaignId, InventoryOwnerRef.ForCharacter(character.CharacterId), 1, Clock.GetUtcNow(), Clock.GetUtcNow());
@@ -264,7 +264,7 @@ namespace Odyssey.Tests.Persistence.Integration
             ActiveEffectRecord effect = ItemEffectLifecycleService.OnItemEquipped(_inventory, _catalog, _effects, _campaign, equipped, _target, NewCommandId(), Corr).Value.Single();
             long domainEventsBefore = CountRows("SELECT COUNT(*) FROM DomainEvents;");
 
-            Result<ActiveEffectRecord> rejected = _effects.RemoveActiveEffect(_campaign, _campaign.CampaignId, effect.Effect.ActiveEffectId, Player, actorIsMainGm: false, effect.Effect.Revision, NewCommandId(), Corr);
+            Result<ActiveEffectRecord> rejected = _effects.RemoveActiveEffect(_campaign, _campaign.CampaignId, effect.Effect.ActiveEffectId, Player, effect.Effect.Revision, NewCommandId(), Corr);
 
             Assert.That(rejected.IsFailure, Is.True);
             Assert.That(rejected.Error.Code, Is.EqualTo(ErrorCodes.PersistenceActiveEffectOperationDenied));
@@ -281,7 +281,7 @@ namespace Odyssey.Tests.Persistence.Integration
             EquippedEntryRecord equipped = Equip(instance, "slot_e", Array.Empty<BodyPartId>());
             ActiveEffectRecord effect = ItemEffectLifecycleService.OnItemEquipped(_inventory, _catalog, _effects, _campaign, equipped, _target, NewCommandId(), Corr).Value.Single();
 
-            Result<ActiveEffectRecord> removed = _effects.RemoveActiveEffect(_campaign, _campaign.CampaignId, effect.Effect.ActiveEffectId, MainGm, actorIsMainGm: true, effect.Effect.Revision, NewCommandId(), Corr);
+            Result<ActiveEffectRecord> removed = _effects.RemoveActiveEffect(_campaign, _campaign.CampaignId, effect.Effect.ActiveEffectId, global::Odyssey.Application.Identity.DevIdentityProvider.AssignHost(), effect.Effect.Revision, NewCommandId(), Corr);
 
             Assert.That(removed.IsSuccess, Is.True, removed.IsFailure ? removed.Error.Code.ToString() : string.Empty);
             Assert.That(removed.Value.Effect.Status, Is.EqualTo(ActiveEffectStatus.Removed));

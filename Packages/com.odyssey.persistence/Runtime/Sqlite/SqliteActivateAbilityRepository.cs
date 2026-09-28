@@ -231,7 +231,8 @@ namespace Odyssey.Persistence.Sqlite
                 // compensation fix still left already-created ActiveEffect rows behind on a later
                 // effect/target failure): every already-created ActiveEffect for THIS activation attempt is
                 // removed BEFORE any resource reversal is even attempted, via the existing, unmodified
-                // IActiveEffectRepository.RemoveActiveEffect. actorIsMainGm: true regardless of the original
+                // IActiveEffectRepository.RemoveActiveEffectAsSystemRollback (ODY-S10-103: a separate operation without any MainGM
+                // check -- it used to be RemoveActiveEffect with a forged actorIsMainGm: true), regardless of the original
                 // activation actor's own permission level -- an internal system rollback of this same
                 // failed attempt, not a new capability granted to them (mirrors ApplyCharacterResourceDelta's
                 // own established precedent of internal writes bypassing the public command's own
@@ -245,7 +246,7 @@ namespace Odyssey.Persistence.Sqlite
                 foreach (ActiveEffectId effectId in effectIdsToRemove)
                 {
                     CommandId removalCommandId = StableEffectRemovalCommandId(originalCommandId, effectId);
-                    Result<ActiveEffectRecord> removed = _effects.RemoveActiveEffect(campaign, campaign.CampaignId, effectId, actorUserId, actorIsMainGm: true, expectedRevision: 1, removalCommandId, correlationId);
+                    Result<ActiveEffectRecord> removed = _effects.RemoveActiveEffectAsSystemRollback(campaign, campaign.CampaignId, effectId, actorUserId, expectedRevision: 1, removalCommandId, correlationId);
                     if (removed.IsFailure)
                     {
                         return Result<AbilityActivationRecord>.Failure(removed.Error);

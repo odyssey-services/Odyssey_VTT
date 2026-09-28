@@ -79,9 +79,9 @@ namespace Odyssey.Tests.Persistence.Integration
             _encounters = new SqliteCombatEncounterRepository(_clock);
             _inventory = new SqliteInventoryRepository(_clock);
             _scenes = new SqliteSceneRepository(_clock);
-            _activeEffects = new SqliteActiveEffectRepository(_clock);
+            _activeEffects = new SqliteActiveEffectRepository(_clock, new SqliteCampaignRepository(_clock));
             _reader = new SqliteAttackStateReader(_encounters, _inventory, _characters, _clock, _scenes);
-            _apply = new SqliteAttackApplyRepository(_clock);
+            _apply = new SqliteAttackApplyRepository(_clock, new SqliteCampaignRepository(_clock));
             _gameLog = new SqliteGameLogRepository(_clock);
             _lifecycleReader = new SqliteCombatEncounterLifecycleReader(_encounters);
         }
@@ -156,7 +156,7 @@ namespace Odyssey.Tests.Persistence.Integration
             Assert.That(CurrentValue(target, Health), Is.EqualTo(10), "Nothing applied yet on the pending step.");
             Assert.That(_activeEffects.ListActiveEffectsByTarget(_campaign, _campaign.CampaignId, ActiveEffectTargetRef.ForCharacter(target), Corr).Value, Is.Empty);
 
-            Result<AttackOutcomeRecord> approved = AttackApplyService.ResolveAttackIntervention(_apply, _campaign, request.CommandId, AttackInterventionResolution.Approve, User(), true, Command(), Corr);
+            Result<AttackOutcomeRecord> approved = AttackApplyService.ResolveAttackIntervention(_apply, _campaign, request.CommandId, AttackInterventionResolution.Approve, global::Odyssey.Application.Identity.DevIdentityProvider.AssignHost(), Command(), Corr);
 
             Assert.That(approved.IsSuccess, Is.True);
             Assert.That(approved.Value.OutcomeKind, Is.EqualTo(AttackOutcomeKind.Accepted));
@@ -261,7 +261,7 @@ namespace Odyssey.Tests.Persistence.Integration
             string originalSummary = GameLogSummary(accepted.Value.GameLogEntryId!);
             long gameLogBefore = Count("GameLogEntries");
 
-            Result<AttackCompensationRecord> compensation = AttackApplyService.CompensateAttackOutcome(_apply, _campaign, accepted.Value.ResolveAttackCommandId, "mis-logged roll summary", "corrected: attack actually missed", User(), true, Command(), Corr);
+            Result<AttackCompensationRecord> compensation = AttackApplyService.CompensateAttackOutcome(_apply, _campaign, accepted.Value.ResolveAttackCommandId, "mis-logged roll summary", "corrected: attack actually missed", global::Odyssey.Application.Identity.DevIdentityProvider.AssignHost(), Command(), Corr);
 
             Assert.That(compensation.IsSuccess, Is.True);
             Assert.That(Count("GameLogEntries"), Is.EqualTo(gameLogBefore + 1), "A new, causally-linked row -- the original is never deleted.");
@@ -278,7 +278,7 @@ namespace Odyssey.Tests.Persistence.Integration
             AssignOwner(actor, actorOwner);
             AssignOwner(target, targetOwner);
             AssignOwner(observer, observerOwner);
-            CombatEncounterRecord encounter = CombatEncounterService.Create(_encounters, _campaign, new CreateCombatEncounterRequest(new[] { actor, target, observer }, User(), true, Command()), Corr).Value;
+            CombatEncounterRecord encounter = CombatEncounterService.Create(_encounters, new SqliteCampaignRepository(_clock), _campaign, new CreateCombatEncounterRequest(new[] { actor, target, observer }, global::Odyssey.Application.Identity.DevIdentityProvider.AssignHost(), Command()), Corr).Value;
             ItemInstanceRecord item = ItemFor(actor);
             var rules = new Rules(requiresIntervention: false, effectDecision: EffectApplicationDecision.DoNotApply, durationBinding: null, damageDeltas: Array.Empty<AttackDelta>(), costDeltas: Array.Empty<AttackDelta>());
 
@@ -344,10 +344,10 @@ namespace Odyssey.Tests.Persistence.Integration
         }
 
         private CombatEncounterRecord CreateEncounter(CharacterId actor, CharacterId target)
-            => CombatEncounterService.Create(_encounters, _campaign, new CreateCombatEncounterRequest(new[] { actor, target }, User(), true, Command()), Corr).Value;
+            => CombatEncounterService.Create(_encounters, new SqliteCampaignRepository(_clock), _campaign, new CreateCombatEncounterRequest(new[] { actor, target }, global::Odyssey.Application.Identity.DevIdentityProvider.AssignHost(), Command()), Corr).Value;
 
         private CombatEncounterRecord Advance(CombatEncounterRecord encounter)
-            => CombatEncounterService.Advance(_encounters, _campaign, new AdvanceCombatEncounterRequest(encounter.EncounterId, encounter.Revision, User(), true, Command()), Corr).Value;
+            => CombatEncounterService.Advance(_encounters, new SqliteCampaignRepository(_clock), _campaign, new AdvanceCombatEncounterRequest(encounter.EncounterId, encounter.Revision, global::Odyssey.Application.Identity.DevIdentityProvider.AssignHost(), Command()), Corr).Value;
 
         private static AttackRequest Request(CombatEncounterRecord encounter, CharacterId actor, CharacterId target, ItemInstanceRecord item)
             => new AttackRequest(new AttackIntent(encounter.EncounterId, actor, new[] { target }, item.ItemInstanceId, encounter.Revision), User(), true, Command(), Corr);
