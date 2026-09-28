@@ -577,7 +577,7 @@ namespace Odyssey.Tests.Persistence
         /// `FixedRandomStreamFactory`/`CountingRandomFactory` above) -- not a mocking framework, not bypassing
         /// any real logic for calls it does not intercept.
         /// </summary>
-        private sealed class FailsNthRemovalActiveEffectRepository : IActiveEffectRepository
+        private sealed class FailsNthRemovalActiveEffectRepository : IActiveEffectRepository, IActiveEffectSystemRollback
         {
             private readonly IActiveEffectRepository _inner;
             private readonly int _failOnCallNumber;
@@ -610,7 +610,7 @@ namespace Odyssey.Tests.Persistence
                     return Result<ActiveEffectRecord>.Failure(PersistenceFailures.ActiveEffectIoFailed(correlationId));
                 }
 
-                return _inner.RemoveActiveEffectAsSystemRollback(campaign, campaignId, activeEffectId, actorUserId, expectedRevision, commandId, correlationId);
+                return ((IActiveEffectSystemRollback)_inner).RemoveActiveEffectAsSystemRollback(campaign, campaignId, activeEffectId, actorUserId, expectedRevision, commandId, correlationId);
             }
         }
 

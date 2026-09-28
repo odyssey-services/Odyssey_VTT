@@ -1713,6 +1713,14 @@
                           "check":  "A failed item use by an ordinary Player is still fully rolled back by the system rollback: the created effect is removed and the consumed unit is restored"
                       },
                       {
+                          "testCaseId":  "TC-PERSIST-059",
+                          "taskId":  "ODY-S10-103",
+                          "authority":  "ODY-S10-103 follow-up: independent review finding (RemoveActiveEffectAsSystemRollback had no authorization at all)",
+                          "runner":  "dotnet test",
+                          "path":  "DotNet/Tests/Odyssey.Tests.Persistence/ActiveEffectSystemRollbackVisibilityTests.cs",
+                          "check":  "IActiveEffectRepository (the public interface) no longer declares RemoveActiveEffectAsSystemRollback and its other members are unchanged (a reflection check over the interface's own methods, not a behavior test); the new IActiveEffectSystemRollback interface exists in the same assembly but is not a public type"
+                      },
+                      {
                           "testCaseId":  "TC-BOARD-001",
                           "taskId":  "ODY-S03-004",
                           "authority":  "ADR-020 section 5.1/5.3; ODY-S03-004",

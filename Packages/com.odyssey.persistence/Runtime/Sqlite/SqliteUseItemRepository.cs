@@ -193,7 +193,10 @@ namespace Odyssey.Persistence.Sqlite
                 foreach (ActiveEffectId effectId in effectIdsToRemove)
                 {
                     CommandId removalCommandId = StableEffectRemovalCommandId(originalCommandId, effectId);
-                    Result<ActiveEffectRecord> removed = _effects.RemoveActiveEffectAsSystemRollback(campaign, campaign.CampaignId, effectId, actorUserId, expectedRevision: 1, removalCommandId, correlationId);
+                    // ODY-S10-103 follow-up: the cast is the explicit, visible acknowledgement that this call bypasses
+                    // RemoveActiveEffect's MainGM gate -- IActiveEffectSystemRollback is internal to this assembly pair (see
+                    // AssemblyInfo.cs), so only the two legitimate compensation call sites can even see it.
+                    Result<ActiveEffectRecord> removed = ((IActiveEffectSystemRollback)_effects).RemoveActiveEffectAsSystemRollback(campaign, campaign.CampaignId, effectId, actorUserId, expectedRevision: 1, removalCommandId, correlationId);
                     if (removed.IsFailure) return Result<ItemUsageRecord>.Failure(removed.Error);
                 }
 

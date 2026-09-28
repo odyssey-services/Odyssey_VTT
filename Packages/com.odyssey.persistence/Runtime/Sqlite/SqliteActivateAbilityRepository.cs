@@ -231,8 +231,9 @@ namespace Odyssey.Persistence.Sqlite
                 // compensation fix still left already-created ActiveEffect rows behind on a later
                 // effect/target failure): every already-created ActiveEffect for THIS activation attempt is
                 // removed BEFORE any resource reversal is even attempted, via the existing, unmodified
-                // IActiveEffectRepository.RemoveActiveEffectAsSystemRollback (ODY-S10-103: a separate operation without any MainGM
-                // check -- it used to be RemoveActiveEffect with a forged actorIsMainGm: true), regardless of the original
+                // IActiveEffectSystemRollback.RemoveActiveEffectAsSystemRollback (ODY-S10-103 follow-up: a separate, internal
+                // interface without any MainGM check -- it used to be RemoveActiveEffect with a forged actorIsMainGm: true, and
+                // before that was briefly a member of the public IActiveEffectRepository itself), regardless of the original
                 // activation actor's own permission level -- an internal system rollback of this same
                 // failed attempt, not a new capability granted to them (mirrors ApplyCharacterResourceDelta's
                 // own established precedent of internal writes bypassing the public command's own
@@ -246,7 +247,10 @@ namespace Odyssey.Persistence.Sqlite
                 foreach (ActiveEffectId effectId in effectIdsToRemove)
                 {
                     CommandId removalCommandId = StableEffectRemovalCommandId(originalCommandId, effectId);
-                    Result<ActiveEffectRecord> removed = _effects.RemoveActiveEffectAsSystemRollback(campaign, campaign.CampaignId, effectId, actorUserId, expectedRevision: 1, removalCommandId, correlationId);
+                    // The cast is the explicit, visible acknowledgement that this call bypasses RemoveActiveEffect's MainGM
+                    // gate -- IActiveEffectSystemRollback is internal to this assembly pair (see AssemblyInfo.cs), so only the
+                    // two legitimate compensation call sites (this one and SqliteUseItemRepository's own) can even see it.
+                    Result<ActiveEffectRecord> removed = ((IActiveEffectSystemRollback)_effects).RemoveActiveEffectAsSystemRollback(campaign, campaign.CampaignId, effectId, actorUserId, expectedRevision: 1, removalCommandId, correlationId);
                     if (removed.IsFailure)
                     {
                         return Result<AbilityActivationRecord>.Failure(removed.Error);
