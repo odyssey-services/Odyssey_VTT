@@ -88,15 +88,33 @@ namespace Odyssey.Application.Persistence
         /// not a separate Application-layer wrapper.
         /// </summary>
         Result<ActiveEffectRecord> RemoveActiveEffect(CampaignHandle campaign, CampaignId campaignId, ActiveEffectId activeEffectId, UserId actorUserId, long expectedRevision, CommandId commandId, CorrelationId correlationId);
+    }
 
+    /// <summary>
+    /// ODY-S10-103 follow-up (independent review finding): <see cref="RemoveActiveEffectAsSystemRollback"/> was
+    /// first added directly to the public <see cref="IActiveEffectRepository"/> -- reachable, with no
+    /// authorization check at all, by any code holding that (very widely held) interface. Splitting it into its
+    /// own <c>internal</c> interface is the fix: only the two legitimate callers
+    /// (<c>SqliteActivateAbilityRepository</c>, <c>SqliteUseItemRepository</c>), the implementation
+    /// (<c>SqliteActiveEffectRepository</c>), and the assemblies granted access via
+    /// <c>[assembly: InternalsVisibleTo]</c> (<c>AssemblyInfo.cs</c> in this same folder) can see it at all --
+    /// not merely "should not call it by convention". A same-class <c>internal</c> method was considered and
+    /// rejected: both callers hold their effect collaborator as <see cref="IActiveEffectRepository"/> (for DI and
+    /// so tests can substitute a fake), so a member that exists only on the concrete class would be unreachable
+    /// through that reference without an upcast the callers do not otherwise need; a separate interface keeps the
+    /// public contract intact while still requiring an explicit, visible cast at each of the two call sites.
+    /// </summary>
+    internal interface IActiveEffectSystemRollback
+    {
         /// <summary>
-        /// ODY-S10-103: the SYSTEM ROLLBACK counterpart of <see cref="RemoveActiveEffect"/>: it ends an effect that a
-        /// failed ability activation / item use created, when the host compensates that failed attempt. It performs
-        /// exactly the same removal (same validation, same revision compare-and-set, same idempotency ledger) but no
-        /// MainGM check, because compensating the actor's own failed attempt is not a privilege the actor gains: a
-        /// Player whose activation failed must still be rolled back. It deliberately takes NO role/flag parameter
-        /// (a flag would just be a second way to claim MainGM); it is a separate operation for persistence-layer
-        /// compensation code only and is not mapped to any user command.
+        /// ODY-S10-103: the SYSTEM ROLLBACK counterpart of <see cref="IActiveEffectRepository.RemoveActiveEffect"/>:
+        /// it ends an effect that a failed ability activation / item use created, when the host compensates that
+        /// failed attempt. It performs exactly the same removal (same validation, same revision compare-and-set,
+        /// same idempotency ledger) but no MainGM check, because compensating the actor's own failed attempt is not
+        /// a privilege the actor gains: a Player whose activation failed must still be rolled back. It deliberately
+        /// takes NO role/flag parameter (a flag would just be a second way to claim MainGM); it is a separate
+        /// operation for persistence-layer compensation code only and is not mapped to any user command. Kept off
+        /// <see cref="IActiveEffectRepository"/> on purpose -- see this interface's own remarks.
         /// </summary>
         Result<ActiveEffectRecord> RemoveActiveEffectAsSystemRollback(CampaignHandle campaign, CampaignId campaignId, ActiveEffectId activeEffectId, UserId actorUserId, long expectedRevision, CommandId commandId, CorrelationId correlationId);
     }

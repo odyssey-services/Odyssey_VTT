@@ -510,7 +510,7 @@ namespace Odyssey.Tests.Persistence
         }
 
         /// <summary>ODY-S06-107 (mirroring ODY-S06-106's own TC-ABILITY-014 precedent): a real `IActiveEffectRepository`, forwarding every call to the real `_inner` implementation except that the `failOnCallNumber`-th call to `RemoveActiveEffect` returns a real, distinct `Result.Failure` without touching the database.</summary>
-        private sealed class FailsNthRemovalActiveEffectRepository : IActiveEffectRepository
+        private sealed class FailsNthRemovalActiveEffectRepository : IActiveEffectRepository, IActiveEffectSystemRollback
         {
             private readonly IActiveEffectRepository _inner;
             private readonly int _failOnCallNumber;
@@ -543,7 +543,7 @@ namespace Odyssey.Tests.Persistence
                     return Result<ActiveEffectRecord>.Failure(PersistenceFailures.ActiveEffectIoFailed(correlationId));
                 }
 
-                return _inner.RemoveActiveEffectAsSystemRollback(campaign, campaignId, activeEffectId, actorUserId, expectedRevision, commandId, correlationId);
+                return ((IActiveEffectSystemRollback)_inner).RemoveActiveEffectAsSystemRollback(campaign, campaignId, activeEffectId, actorUserId, expectedRevision, commandId, correlationId);
             }
         }
 

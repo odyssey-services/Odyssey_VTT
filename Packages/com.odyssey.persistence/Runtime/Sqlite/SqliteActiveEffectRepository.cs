@@ -45,7 +45,7 @@ namespace Odyssey.Persistence.Sqlite
     /// (`ActiveEffectDirectCommandService`) over <see cref="CreateActiveEffect"/>,
     /// unmodified.
     /// </summary>
-    public sealed class SqliteActiveEffectRepository : IActiveEffectRepository
+    public sealed class SqliteActiveEffectRepository : IActiveEffectRepository, IActiveEffectSystemRollback
     {
         private readonly IWallClock _clock;
         private readonly ICampaignRepository _campaignRepository;
