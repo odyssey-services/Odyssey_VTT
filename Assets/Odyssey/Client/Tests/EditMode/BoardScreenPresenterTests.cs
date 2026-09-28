@@ -409,6 +409,246 @@ namespace Odyssey.Tests.Unity.EditMode
             }
         }
 
+        // ---- ODY-S08-104: dragging a token across the board ------------------------
+
+        private BoardScreenPresenter BuildPresenterForTokenDrag(out CampaignHandle campaign, out MoveCountingSceneRepository sceneRepository, out TokenId tokenId, out UIDocument document, out GameObject gameObject, out SqliteCampaignRepository campaignRepository, out TemporaryDirectory directory)
+        {
+            directory = new TemporaryDirectory();
+            campaignRepository = new SqliteCampaignRepository(Clock);
+            campaign = campaignRepository.Create(new CreateCampaignRequest(directory.Path, "Token Drag Test Campaign", "ruleset.core", "1.0.0", "0.1.0"), NewCommandId(), TestCorrelationId).Value;
+            var sqliteSceneRepository = new SqliteSceneRepository(Clock);
+            sceneRepository = new MoveCountingSceneRepository(sqliteSceneRepository);
+            SceneId sceneId = sqliteSceneRepository.CreateScene(campaign, "Test Scene", NewCommandId(), TestCorrelationId).Value.SceneId;
+            UserId localActor = NewUserId();
+            TokenRecord token = sqliteSceneRepository.CreateToken(campaign, sceneId, new TokenPosition(0, 0), localActor, NewCommandId(), TestCorrelationId).Value;
+            tokenId = token.TokenId;
+
+            gameObject = new GameObject("Token Drag Document");
+            document = gameObject.AddComponent<UIDocument>();
+            var presenter = new BoardScreenPresenter(document, sceneRepository, campaign, sceneId, localActor);
+            Assert.That(presenter.Initialize().IsSuccess, Is.True);
+            return presenter;
+        }
+
+        [Test] // TC-BOARD-072
+        public void TokenPointerGesture_BelowDragThreshold_SelectsTheToken_PositionUnchanged()
+        {
+            BoardScreenPresenter presenter = BuildPresenterForTokenDrag(out CampaignHandle campaign, out MoveCountingSceneRepository sceneRepository, out TokenId tokenId, out UIDocument document, out GameObject gameObject, out SqliteCampaignRepository campaignRepository, out TemporaryDirectory directory);
+            try
+            {
+                double tokenPixelX = presenter.Camera.ToPixelsX(0);
+                double tokenPixelY = presenter.Camera.ToPixelsY(0);
+
+                presenter.BeginTokenDrag(tokenId, tokenPixelX, tokenPixelY);
+                presenter.MoveTokenDrag(tokenId, tokenPixelX + 2.0, tokenPixelY + 1.0); // 2.24px -- below the 5px drag threshold
+                presenter.EndTokenDrag(tokenId, tokenPixelX + 2.0, tokenPixelY + 1.0);
+
+                Assert.That(presenter.SelectedTokenId, Is.EqualTo(tokenId), "movement below the threshold must select the token, exactly like the old ClickEvent handler");
+                Assert.That(sceneRepository.MoveTokenCalls, Is.EqualTo(0), "a click must never call MoveToken");
+                Result<TokenRecord> persisted = sceneRepository.GetToken(campaign, tokenId, TestCorrelationId);
+                Assert.That(persisted.Value.Position.X, Is.EqualTo(0));
+                Assert.That(persisted.Value.Position.Y, Is.EqualTo(0));
+            }
+            finally
+            {
+                presenter.Dispose();
+                UnityEngine.Object.DestroyImmediate(gameObject);
+                campaignRepository.Close(campaign, TestCorrelationId);
+                directory.Dispose();
+            }
+        }
+
+        [Test] // TC-BOARD-073
+        public void TokenPointerGesture_AboveDragThreshold_CommitsExactlyOnce_UpdatesPositionInRepositoryAndVisually()
+        {
+            BoardScreenPresenter presenter = BuildPresenterForTokenDrag(out CampaignHandle campaign, out MoveCountingSceneRepository sceneRepository, out TokenId tokenId, out UIDocument document, out GameObject gameObject, out SqliteCampaignRepository campaignRepository, out TemporaryDirectory directory);
+            try
+            {
+                VisualElement? tokenElement = document.rootVisualElement.Q<VisualElement>("token-" + tokenId);
+                Assert.That(tokenElement, Is.Not.Null);
+                float leftBefore = tokenElement!.style.left.value.value;
+
+                double startX = presenter.Camera.ToPixelsX(0);
+                double startY = presenter.Camera.ToPixelsY(0);
+                double endX = startX + 80.0;
+                double endY = startY + 40.0;
+
+                presenter.BeginTokenDrag(tokenId, startX, startY);
+                presenter.MoveTokenDrag(tokenId, startX + 40.0, startY + 20.0); // intermediate move, already above threshold
+                presenter.MoveTokenDrag(tokenId, endX, endY);
+                presenter.EndTokenDrag(tokenId, endX, endY);
+
+                Assert.That(sceneRepository.MoveTokenCalls, Is.EqualTo(1), "exactly one commit, not one per MoveTokenDrag call");
+                double expectedX = presenter.Camera.FromPixelsX(endX);
+                double expectedY = presenter.Camera.FromPixelsY(endY);
+                Result<TokenRecord> persisted = sceneRepository.GetToken(campaign, tokenId, TestCorrelationId);
+                Assert.That(persisted.Value.Position.X, Is.EqualTo(expectedX).Within(1e-9));
+                Assert.That(persisted.Value.Position.Y, Is.EqualTo(expectedY).Within(1e-9));
+
+                VisualElement? tokenElementAfter = document.rootVisualElement.Q<VisualElement>("token-" + tokenId);
+                Assert.That(tokenElementAfter, Is.Not.Null, "the token must still be rendered after the drag commits");
+                Assert.That(tokenElementAfter!.style.left.value.value, Is.Not.EqualTo(leftBefore), "the rendered position must reflect the new coordinates");
+            }
+            finally
+            {
+                presenter.Dispose();
+                UnityEngine.Object.DestroyImmediate(gameObject);
+                campaignRepository.Close(campaign, TestCorrelationId);
+                directory.Dispose();
+            }
+        }
+
+        [Test] // TC-BOARD-074
+        public void TokenPointerGesture_WhileDragging_UpdatesTheVisualPreview_WithoutAnyRepositoryMoveCall()
+        {
+            BoardScreenPresenter presenter = BuildPresenterForTokenDrag(out CampaignHandle campaign, out MoveCountingSceneRepository sceneRepository, out TokenId tokenId, out UIDocument document, out GameObject gameObject, out SqliteCampaignRepository campaignRepository, out TemporaryDirectory directory);
+            try
+            {
+                VisualElement? tokenElement = document.rootVisualElement.Q<VisualElement>("token-" + tokenId);
+                Assert.That(tokenElement, Is.Not.Null);
+                float leftBefore = tokenElement!.style.left.value.value;
+
+                double startX = presenter.Camera.ToPixelsX(0);
+                double startY = presenter.Camera.ToPixelsY(0);
+
+                presenter.BeginTokenDrag(tokenId, startX, startY);
+                presenter.MoveTokenDrag(tokenId, startX + 60.0, startY + 10.0);
+
+                Assert.That(sceneRepository.MoveTokenCalls, Is.EqualTo(0), "no repository call may happen before the pointer is released");
+                Assert.That(tokenElement.style.left.value.value, Is.Not.EqualTo(leftBefore), "the visual preview must follow the cursor while dragging");
+                Result<TokenRecord> stillOriginal = sceneRepository.GetToken(campaign, tokenId, TestCorrelationId);
+                Assert.That(stillOriginal.Value.Position.X, Is.EqualTo(0));
+                Assert.That(stillOriginal.Value.Position.Y, Is.EqualTo(0));
+
+                // Finish the gesture so the fixture does not leave a dangling pointer capture.
+                presenter.EndTokenDrag(tokenId, startX + 60.0, startY + 10.0);
+            }
+            finally
+            {
+                presenter.Dispose();
+                UnityEngine.Object.DestroyImmediate(gameObject);
+                campaignRepository.Close(campaign, TestCorrelationId);
+                directory.Dispose();
+            }
+        }
+
+        [Test] // TC-BOARD-075
+        public void TokenPointerGesture_UnsuccessfulCommit_RevertsTheVisualPositionToTheLastConfirmedOne()
+        {
+            BoardScreenPresenter presenter = BuildPresenterForTokenDrag(out CampaignHandle campaign, out MoveCountingSceneRepository sceneRepository, out TokenId tokenId, out UIDocument document, out GameObject gameObject, out SqliteCampaignRepository campaignRepository, out TemporaryDirectory directory);
+            try
+            {
+                Result<TokenRecord> anchorToken = sceneRepository.GetToken(campaign, tokenId, TestCorrelationId);
+                // A second token occupies (3, 3) -- BoardMovementService's own occupancy check (BOARD-INV-009)
+                // must deny a move onto it, exactly as it would for the old click-to-move flow.
+                Result<TokenRecord> occupant = sceneRepository.CreateToken(campaign, anchorToken.Value.SceneId, new TokenPosition(3, 3), NewUserId(), NewCommandId(), TestCorrelationId);
+                Assert.That(occupant.IsSuccess, Is.True);
+                Assert.That(presenter.Refresh().IsSuccess, Is.True);
+
+                VisualElement? tokenElement = document.rootVisualElement.Q<VisualElement>("token-" + tokenId);
+                Assert.That(tokenElement, Is.Not.Null);
+                float originalLeft = tokenElement!.style.left.value.value;
+                float originalTop = tokenElement.style.top.value.value;
+
+                double destPixelX = presenter.Camera.ToPixelsX(3);
+                double destPixelY = presenter.Camera.ToPixelsY(3);
+
+                presenter.BeginTokenDrag(tokenId, presenter.Camera.ToPixelsX(0), presenter.Camera.ToPixelsY(0));
+                presenter.MoveTokenDrag(tokenId, destPixelX, destPixelY);
+                presenter.EndTokenDrag(tokenId, destPixelX, destPixelY);
+
+                // BoardMovementService's own occupancy check (BOARD-INV-009) denies the move before ever
+                // calling ISceneRepository.MoveToken -- the repository-level call count is correctly 0 here;
+                // TryMoveTokenTo's own Refresh()-on-failure is what performs the rollback, not the repository.
+                Assert.That(sceneRepository.MoveTokenCalls, Is.EqualTo(0));
+                Result<TokenRecord> persisted = sceneRepository.GetToken(campaign, tokenId, TestCorrelationId);
+                Assert.That(persisted.Value.Position.X, Is.EqualTo(0), "a denied move must leave the persisted position exactly as it was");
+                Assert.That(persisted.Value.Position.Y, Is.EqualTo(0));
+
+                VisualElement? tokenElementAfter = document.rootVisualElement.Q<VisualElement>("token-" + tokenId);
+                Assert.That(tokenElementAfter, Is.Not.Null);
+                Assert.That(tokenElementAfter!.style.left.value.value, Is.EqualTo(originalLeft).Within(0.01f), "the visual position must roll back to the last confirmed position, not stay where the pointer was released");
+                Assert.That(tokenElementAfter.style.top.value.value, Is.EqualTo(originalTop).Within(0.01f));
+            }
+            finally
+            {
+                presenter.Dispose();
+                UnityEngine.Object.DestroyImmediate(gameObject);
+                campaignRepository.Close(campaign, TestCorrelationId);
+                directory.Dispose();
+            }
+        }
+
+        [Test] // TC-BOARD-076
+        public void TokenPointerGesture_DraggingATokenThatWasNeverSelected_StillMovesIt()
+        {
+            BoardScreenPresenter presenter = BuildPresenterForTokenDrag(out CampaignHandle campaign, out MoveCountingSceneRepository sceneRepository, out TokenId tokenId, out UIDocument document, out GameObject gameObject, out SqliteCampaignRepository campaignRepository, out TemporaryDirectory directory);
+            try
+            {
+                Assert.That(presenter.SelectedTokenId, Is.Null, "sanity: the token was never selected");
+
+                double startX = presenter.Camera.ToPixelsX(0);
+                double startY = presenter.Camera.ToPixelsY(0);
+                double endX = startX + 50.0;
+                double endY = startY + 30.0;
+
+                presenter.BeginTokenDrag(tokenId, startX, startY);
+                presenter.MoveTokenDrag(tokenId, endX, endY);
+                presenter.EndTokenDrag(tokenId, endX, endY);
+
+                Assert.That(sceneRepository.MoveTokenCalls, Is.EqualTo(1), "dragging must not require a prior click-to-select");
+                double expectedX = presenter.Camera.FromPixelsX(endX);
+                double expectedY = presenter.Camera.FromPixelsY(endY);
+                Result<TokenRecord> persisted = sceneRepository.GetToken(campaign, tokenId, TestCorrelationId);
+                Assert.That(persisted.Value.Position.X, Is.EqualTo(expectedX).Within(1e-9));
+                Assert.That(persisted.Value.Position.Y, Is.EqualTo(expectedY).Within(1e-9));
+            }
+            finally
+            {
+                presenter.Dispose();
+                UnityEngine.Object.DestroyImmediate(gameObject);
+                campaignRepository.Close(campaign, TestCorrelationId);
+                directory.Dispose();
+            }
+        }
+
+        [Test] // TC-BOARD-077
+        public void Regression_ClickToSelectThenClickBoardToMove_StillWorksExactlyAsBefore()
+        {
+            BoardScreenPresenter presenter = BuildPresenterForTokenDrag(out CampaignHandle campaign, out MoveCountingSceneRepository sceneRepository, out TokenId tokenId, out UIDocument document, out GameObject gameObject, out SqliteCampaignRepository campaignRepository, out TemporaryDirectory directory);
+            try
+            {
+                double tokenPixelX = presenter.Camera.ToPixelsX(0);
+                double tokenPixelY = presenter.Camera.ToPixelsY(0);
+
+                presenter.BeginTokenDrag(tokenId, tokenPixelX, tokenPixelY);
+                presenter.MoveTokenDrag(tokenId, tokenPixelX + 1.0, tokenPixelY + 1.0); // a real click on the token
+                presenter.EndTokenDrag(tokenId, tokenPixelX + 1.0, tokenPixelY + 1.0);
+                Assert.That(presenter.SelectedTokenId, Is.EqualTo(tokenId));
+
+                const double destPixelX = 300.0;
+                const double destPixelY = 260.0;
+                presenter.BeginBoardPointerGesture(destPixelX, destPixelY);
+                presenter.MoveBoardPointer(destPixelX + 1.0, destPixelY + 1.0); // a real click on the empty board
+                presenter.EndBoardPointerGesture(destPixelX + 1.0, destPixelY + 1.0);
+
+                double expectedX = presenter.Camera.FromPixelsX(destPixelX + 1.0);
+                double expectedY = presenter.Camera.FromPixelsY(destPixelY + 1.0);
+                Result<TokenRecord> persisted = sceneRepository.GetToken(campaign, tokenId, TestCorrelationId);
+                Assert.That(persisted.Value.Position.X, Is.EqualTo(expectedX).Within(1e-6));
+                Assert.That(persisted.Value.Position.Y, Is.EqualTo(expectedY).Within(1e-6));
+                Assert.That(presenter.SelectedTokenId, Is.Null, "the old click-to-move flow must still clear the selection exactly as before");
+                Assert.That(sceneRepository.MoveTokenCalls, Is.EqualTo(1));
+            }
+            finally
+            {
+                presenter.Dispose();
+                UnityEngine.Object.DestroyImmediate(gameObject);
+                campaignRepository.Close(campaign, TestCorrelationId);
+                directory.Dispose();
+            }
+        }
+
         private sealed class TemporaryDirectory : IDisposable
         {
             public TemporaryDirectory()
@@ -759,6 +999,37 @@ namespace Odyssey.Tests.Unity.EditMode
             public Result<SceneRecord> SetSceneBackground(CampaignHandle campaign, SceneId sceneId, AssetId? backgroundAssetId, long expectedRevision, CommandId commandId, CorrelationId correlationId) => _inner.SetSceneBackground(campaign, sceneId, backgroundAssetId, expectedRevision, commandId, correlationId);
             public Result<TokenRecord> SetTokenPortrait(CampaignHandle campaign, TokenId tokenId, AssetId? portraitAssetId, long expectedRevision, CommandId commandId, CorrelationId correlationId) => _inner.SetTokenPortrait(campaign, tokenId, portraitAssetId, expectedRevision, commandId, correlationId);
             public Result<SceneRecord> GetScene(CampaignHandle campaign, SceneId sceneId, CorrelationId correlationId) => _inner.GetScene(campaign, sceneId, correlationId);
+            public Result<IReadOnlyList<AssetManifestEntryRecord>> ListAssets(CampaignHandle campaign, CorrelationId correlationId) => _inner.ListAssets(campaign, correlationId);
+        }
+
+        /// <summary>ODY-S08-104: forwards every call to the real repository and counts <see cref="MoveToken"/> -- proves a token drag commits exactly once, never once per <see cref="BoardScreenPresenter.MoveTokenDrag"/> call.</summary>
+        private sealed class MoveCountingSceneRepository : ISceneRepository
+        {
+            private readonly ISceneRepository _inner;
+
+            public MoveCountingSceneRepository(ISceneRepository inner)
+            {
+                _inner = inner;
+            }
+
+            public int MoveTokenCalls { get; private set; }
+
+            public Result<TokenRecord> MoveToken(CampaignHandle campaign, TokenId tokenId, TokenPosition newPosition, long expectedRevision, CommandId commandId, CorrelationId correlationId)
+            {
+                MoveTokenCalls++;
+                return _inner.MoveToken(campaign, tokenId, newPosition, expectedRevision, commandId, correlationId);
+            }
+
+            public Result<SceneRecord> CreateScene(CampaignHandle campaign, string sceneName, CommandId commandId, CorrelationId correlationId) => _inner.CreateScene(campaign, sceneName, commandId, correlationId);
+            public Result<TokenRecord> CreateToken(CampaignHandle campaign, SceneId sceneId, TokenPosition initialPosition, UserId controllerUserId, CommandId commandId, CorrelationId correlationId, CharacterId? characterId = null) => _inner.CreateToken(campaign, sceneId, initialPosition, controllerUserId, commandId, correlationId, characterId);
+            public Result<TokenRecord> GetToken(CampaignHandle campaign, TokenId tokenId, CorrelationId correlationId) => _inner.GetToken(campaign, tokenId, correlationId);
+            public Result<IReadOnlyList<TokenRecord>> ListTokens(CampaignHandle campaign, SceneId sceneId, CorrelationId correlationId) => _inner.ListTokens(campaign, sceneId, correlationId);
+            public Result<IReadOnlyList<TokenRecord>> ListTokensByCharacter(CampaignHandle campaign, CharacterId characterId, CorrelationId correlationId) => _inner.ListTokensByCharacter(campaign, characterId, correlationId);
+            public Result<AssetManifestEntryRecord> RegisterAsset(CampaignHandle campaign, string sourceFilePath, CommandId commandId, CorrelationId correlationId) => _inner.RegisterAsset(campaign, sourceFilePath, commandId, correlationId);
+            public Result<SceneRecord> SetSceneBackground(CampaignHandle campaign, SceneId sceneId, AssetId? backgroundAssetId, long expectedRevision, CommandId commandId, CorrelationId correlationId) => _inner.SetSceneBackground(campaign, sceneId, backgroundAssetId, expectedRevision, commandId, correlationId);
+            public Result<TokenRecord> SetTokenPortrait(CampaignHandle campaign, TokenId tokenId, AssetId? portraitAssetId, long expectedRevision, CommandId commandId, CorrelationId correlationId) => _inner.SetTokenPortrait(campaign, tokenId, portraitAssetId, expectedRevision, commandId, correlationId);
+            public Result<SceneRecord> GetScene(CampaignHandle campaign, SceneId sceneId, CorrelationId correlationId) => _inner.GetScene(campaign, sceneId, correlationId);
+            public Result<byte[]> ReadAssetContent(CampaignHandle campaign, AssetId assetId, CorrelationId correlationId) => _inner.ReadAssetContent(campaign, assetId, correlationId);
             public Result<IReadOnlyList<AssetManifestEntryRecord>> ListAssets(CampaignHandle campaign, CorrelationId correlationId) => _inner.ListAssets(campaign, correlationId);
         }
     }
