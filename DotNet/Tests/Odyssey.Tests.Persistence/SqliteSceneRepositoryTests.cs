@@ -840,5 +840,86 @@ namespace Odyssey.Tests.Persistence
             Assert.That(unknown.IsFailure, Is.True);
             Assert.That(unknown.Error.Code, Is.EqualTo(ErrorCodes.PersistenceSceneNotFound));
         }
+
+        // ---- ODY-S08-105: token z-order and scale ----------------------------------
+
+        [Test] // TC-BOARD-078
+        public void CreateToken_AssignsZOrderAsSceneMaxPlusOne_AndDefaultScaleOne_PerScene()
+        {
+            var repository = new SqliteSceneRepository(Clock);
+            SceneId sceneA = repository.CreateScene(_campaign, "A", NewCommandId(), TestCorrelationId).Value.SceneId;
+            SceneId sceneB = repository.CreateScene(_campaign, "B", NewCommandId(), TestCorrelationId).Value.SceneId;
+
+            TokenRecord a1 = repository.CreateToken(_campaign, sceneA, new TokenPosition(1, 1), NewUserId(), NewCommandId(), TestCorrelationId).Value;
+            TokenRecord a2 = repository.CreateToken(_campaign, sceneA, new TokenPosition(2, 2), NewUserId(), NewCommandId(), TestCorrelationId).Value;
+            TokenRecord b1 = repository.CreateToken(_campaign, sceneB, new TokenPosition(1, 1), NewUserId(), NewCommandId(), TestCorrelationId).Value;
+
+            Assert.That(a1.ZOrder, Is.EqualTo(1));
+            Assert.That(a2.ZOrder, Is.EqualTo(2));
+            Assert.That(b1.ZOrder, Is.EqualTo(1), "z-order is per scene");
+            Assert.That(a1.Scale, Is.EqualTo(1.0));
+            Assert.That(repository.GetToken(_campaign, a2.TokenId, TestCorrelationId).Value.ZOrder, Is.EqualTo(2), "the stored value matches the returned record");
+
+            long bumped = repository.SetTokenZOrder(_campaign, a1.TokenId, 3, a1.Revision, NewCommandId(), TestCorrelationId).Value.ZOrder;
+            TokenRecord a3 = repository.CreateToken(_campaign, sceneA, new TokenPosition(3, 3), NewUserId(), NewCommandId(), TestCorrelationId).Value;
+            Assert.That(bumped, Is.EqualTo(3));
+            Assert.That(a3.ZOrder, Is.EqualTo(4), "a new token goes above the current maximum, wherever it came from");
+        }
+
+        [Test] // TC-BOARD-079
+        public void SetTokenZOrder_AndSetTokenScale_AreRevisionGated_Idempotent_AndSurviveOtherWrites()
+        {
+            var repository = new SqliteSceneRepository(Clock);
+            TokenRecord token = CreatePortraitTestToken(repository);
+
+            CommandId zCommand = NewCommandId();
+            Result<TokenRecord> z = repository.SetTokenZOrder(_campaign, token.TokenId, 7, token.Revision, zCommand, TestCorrelationId);
+            Assert.That(z.IsSuccess, Is.True);
+            Assert.That(z.Value.ZOrder, Is.EqualTo(7));
+            Assert.That(z.Value.Revision, Is.EqualTo(token.Revision + 1));
+            Assert.That(repository.SetTokenZOrder(_campaign, token.TokenId, 7, token.Revision, zCommand, TestCorrelationId).Value.Revision, Is.EqualTo(z.Value.Revision), "same command id replays, no second bump");
+
+            Result<TokenRecord> stale = repository.SetTokenScale(_campaign, token.TokenId, 2.0, token.Revision, NewCommandId(), TestCorrelationId);
+            Assert.That(stale.IsFailure, Is.True);
+            Assert.That(stale.Error.Code, Is.EqualTo(ErrorCodes.PersistenceTokenRevisionConflict));
+
+            Result<TokenRecord> s = repository.SetTokenScale(_campaign, token.TokenId, 2.0, z.Value.Revision, NewCommandId(), TestCorrelationId);
+            Assert.That(s.IsSuccess, Is.True);
+            Assert.That(s.Value.Scale, Is.EqualTo(2.0));
+            Assert.That(s.Value.ZOrder, Is.EqualTo(7), "scale write keeps z-order");
+
+            AssetId assetId = RegisterTestAsset(_campaign, repository);
+            TokenRecord withPortrait = repository.SetTokenPortrait(_campaign, token.TokenId, assetId, s.Value.Revision, NewCommandId(), TestCorrelationId).Value;
+            TokenRecord moved = repository.MoveToken(_campaign, token.TokenId, new TokenPosition(5, 5), withPortrait.Revision, NewCommandId(), TestCorrelationId).Value;
+            Assert.That(withPortrait.ZOrder, Is.EqualTo(7));
+            Assert.That(withPortrait.Scale, Is.EqualTo(2.0));
+            Assert.That(moved.ZOrder, Is.EqualTo(7));
+            Assert.That(moved.Scale, Is.EqualTo(2.0));
+            TokenRecord stored = repository.GetToken(_campaign, token.TokenId, TestCorrelationId).Value;
+            Assert.That(stored.ZOrder, Is.EqualTo(7));
+            Assert.That(stored.Scale, Is.EqualTo(2.0));
+
+            Assert.That(repository.SetTokenScale(_campaign, TokenId.NewId(Clock.GetUtcNow()), 1.0, 1, NewCommandId(), TestCorrelationId).Error.Code, Is.EqualTo(ErrorCodes.PersistenceTokenNotFound));
+        }
+
+        [Test] // TC-BOARD-080
+        public void SetTokenScale_RejectsOutOfBoundsAndNonFiniteValues_AndAcceptsTheBounds()
+        {
+            var repository = new SqliteSceneRepository(Clock);
+            TokenRecord token = CreatePortraitTestToken(repository);
+
+            Assert.Throws<ArgumentOutOfRangeException>((Action)(() => repository.SetTokenScale(_campaign, token.TokenId, 0.0, token.Revision, NewCommandId(), TestCorrelationId)));
+            Assert.Throws<ArgumentOutOfRangeException>((Action)(() => repository.SetTokenScale(_campaign, token.TokenId, -1.0, token.Revision, NewCommandId(), TestCorrelationId)));
+            Assert.Throws<ArgumentOutOfRangeException>((Action)(() => repository.SetTokenScale(_campaign, token.TokenId, TokenRecord.MinScale - 0.01, token.Revision, NewCommandId(), TestCorrelationId)));
+            Assert.Throws<ArgumentOutOfRangeException>((Action)(() => repository.SetTokenScale(_campaign, token.TokenId, TokenRecord.MaxScale + 0.01, token.Revision, NewCommandId(), TestCorrelationId)));
+            Assert.Throws<ArgumentOutOfRangeException>((Action)(() => repository.SetTokenScale(_campaign, token.TokenId, double.NaN, token.Revision, NewCommandId(), TestCorrelationId)));
+            Assert.Throws<ArgumentOutOfRangeException>((Action)(() => repository.SetTokenScale(_campaign, token.TokenId, double.PositiveInfinity, token.Revision, NewCommandId(), TestCorrelationId)));
+            Assert.That(repository.GetToken(_campaign, token.TokenId, TestCorrelationId).Value.Revision, Is.EqualTo(token.Revision), "rejected values write nothing");
+
+            TokenRecord atMin = repository.SetTokenScale(_campaign, token.TokenId, TokenRecord.MinScale, token.Revision, NewCommandId(), TestCorrelationId).Value;
+            TokenRecord atMax = repository.SetTokenScale(_campaign, token.TokenId, TokenRecord.MaxScale, atMin.Revision, NewCommandId(), TestCorrelationId).Value;
+            Assert.That(atMin.Scale, Is.EqualTo(TokenRecord.MinScale));
+            Assert.That(atMax.Scale, Is.EqualTo(TokenRecord.MaxScale));
+        }
     }
 }

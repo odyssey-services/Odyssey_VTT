@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Linq;
 using Odyssey.Application.Board;
 using Odyssey.Application.Commands;
 using Odyssey.Application.Persistence;
@@ -71,6 +72,11 @@ namespace Odyssey.Unity.Client
         // to roll the visual position back, versus the ordinary PointerCaptureOutEvent that follows our own
         // ReleasePointer call at the end of a normal drag (by then this is already cleared).
         private TokenId? _draggingTokenId;
+
+        // ODY-S08-105: last-rendered z-order and scale per token -- the in-memory mirror RenderTokens fills, so
+        // the pointer-down "is this already on top?" check and the hit test need no repository read.
+        private readonly Dictionary<string, long> _tokenZOrdersByTokenId = new Dictionary<string, long>(StringComparer.Ordinal);
+        private readonly Dictionary<string, double> _tokenScalesByTokenId = new Dictionary<string, double>(StringComparer.Ordinal);
         // ODY-S08-101/ODY-S08-103: decoded textures for the presenter's lifetime, keyed by AssetId.
         // Extracted into AssetTextureCache in ODY-S08-103 so AssetPoolPresenter can reuse the exact same
         // read+decode+cache logic instead of a second, independent implementation.
@@ -268,16 +274,20 @@ namespace Odyssey.Unity.Client
             _tokenElementsByTokenId.Clear();
             _tokenPositionsByTokenId.Clear();
             _tokenGesturesByTokenId.Clear();
+            _tokenZOrdersByTokenId.Clear();
+            _tokenScalesByTokenId.Clear();
             Error? firstAssetError = null;
 
-            foreach (TokenRecord token in tokens)
+            // ODY-S08-105: UI Toolkit draws siblings in tree order, so ascending ZOrder (stable for ties)
+            // puts the highest ZOrder last, i.e. on top.
+            foreach (TokenRecord token in tokens.OrderBy(t => t.ZOrder))
             {
                 VisualElement tokenElement = new VisualElement { name = "token-" + token.TokenId };
                 tokenElement.AddToClassList("board-token");
                 tokenElement.style.position = Position.Absolute;
-                tokenElement.style.width = (float)TokenSizePixels;
-                tokenElement.style.height = (float)TokenSizePixels;
-                PositionTokenElement(tokenElement, token.Position);
+                tokenElement.style.width = (float)(TokenSizePixels * token.Scale);
+                tokenElement.style.height = (float)(TokenSizePixels * token.Scale);
+                PositionTokenElement(tokenElement, token.Position, token.Scale);
                 bool hasPortraitTexture = false;
                 if (token.PortraitAssetId.HasValue)
                 {
@@ -323,6 +333,8 @@ namespace Odyssey.Unity.Client
                 _boardArea.Add(tokenElement);
                 _tokenElementsByTokenId[token.TokenId.ToString()] = tokenElement;
                 _tokenPositionsByTokenId[token.TokenId.ToString()] = token.Position;
+                _tokenZOrdersByTokenId[token.TokenId.ToString()] = token.ZOrder;
+                _tokenScalesByTokenId[token.TokenId.ToString()] = token.Scale;
             }
 
             return firstAssetError;
@@ -504,6 +516,53 @@ namespace Odyssey.Unity.Client
             if (!_tokenGesturesByTokenId.TryGetValue(tokenId.ToString(), out BoardPointerGesture? gesture)) return;
             gesture.Begin(boardPixelX, boardPixelY);
             _draggingTokenId = tokenId;
+
+            // ODY-S08-105: pointer-down on a token raises it above the others, before the click/drag
+            // decision. Purely additive -- the gesture above is already set up exactly as in ODY-S08-104.
+            RaiseTokenToTop(tokenId);
+        }
+
+        /// <summary>
+        /// ODY-S08-105: makes the token the topmost one in the scene. If it already is (strictly above every
+        /// other token), makes no repository call at all. Otherwise reads the token's revision fresh and calls
+        /// <see cref="ISceneRepository.SetTokenZOrder"/> with max+1, then moves the existing element to the
+        /// end of the board's children in place -- no <see cref="Refresh"/> mid-gesture, which would rebuild
+        /// the DOM under the active pointer capture. A failed write leaves the visual order untouched.
+        /// Public -- see the class remarks on testability.
+        /// </summary>
+        public Result RaiseTokenToTop(TokenId tokenId)
+        {
+            string key = tokenId.ToString();
+            if (!_tokenZOrdersByTokenId.TryGetValue(key, out long current)) return Result.Success();
+
+            long max = long.MinValue;
+            bool othersAtOrAbove = false;
+            foreach (KeyValuePair<string, long> entry in _tokenZOrdersByTokenId)
+            {
+                if (entry.Value > max) max = entry.Value;
+                if (entry.Key != key && entry.Value >= current) othersAtOrAbove = true;
+            }
+
+            if (!othersAtOrAbove) return Result.Success();
+
+            Result<TokenRecord> fresh = _sceneRepository.GetToken(_campaign, tokenId, NewCorrelationId());
+            if (fresh.IsFailure)
+            {
+                SetStatus("Could not raise the token: " + fresh.Error.Code);
+                return Result.Failure(fresh.Error);
+            }
+
+            long newZOrder = max + 1;
+            Result<TokenRecord> updated = _sceneRepository.SetTokenZOrder(_campaign, tokenId, newZOrder, fresh.Value.Revision, NewCommandId(), NewCorrelationId());
+            if (updated.IsFailure)
+            {
+                SetStatus("Could not raise the token: " + updated.Error.Code);
+                return Result.Failure(updated.Error);
+            }
+
+            _tokenZOrdersByTokenId[key] = updated.Value.ZOrder;
+            if (_tokenElementsByTokenId.TryGetValue(key, out VisualElement? element)) element.BringToFront();
+            return Result.Success();
         }
 
         /// <summary>
@@ -522,7 +581,7 @@ namespace Odyssey.Unity.Client
                 _tokenPositionsByTokenId[key] = worldPosition;
                 if (_tokenElementsByTokenId.TryGetValue(key, out VisualElement? tokenElement))
                 {
-                    PositionTokenElement(tokenElement, worldPosition);
+                    PositionTokenElement(tokenElement, worldPosition, ScaleOf(key));
                 }
             }
         }
@@ -584,12 +643,77 @@ namespace Odyssey.Unity.Client
 
         private void OnBoardWheel(WheelEvent evt)
         {
+            HandleBoardWheel(evt.delta.y, evt.shiftKey, evt.localMousePosition.x, evt.localMousePosition.y);
+            evt.StopPropagation();
+        }
+
+        /// <summary>
+        /// The board's wheel decision, separated from the UI Toolkit event so a test can drive it with plain
+        /// numbers. Shift held and a token under the pointer: scales that token (<see cref="ScaleTokenAt"/>),
+        /// the camera is untouched. Anything else -- including Shift over empty board -- zooms the camera,
+        /// exactly as before ODY-S08-105.
+        /// </summary>
+        public void HandleBoardWheel(double deltaY, bool shift, double boardPixelX, double boardPixelY)
+        {
+            if (shift && ScaleTokenAt(boardPixelX, boardPixelY, deltaY)) return;
+            ZoomBoardByWheel(deltaY, boardPixelX, boardPixelY);
+        }
+
+        private void ZoomBoardByWheel(double deltaY, double anchorPixelX, double anchorPixelY)
+        {
             // Scrolling "away from the user" (the standard mouse-wheel-forward notch, reported here as a
             // negative delta.y) zooms in -- the same convention most infinite-canvas tools use (e.g. Google
             // Maps, most browsers' own page zoom). Scrolling "towards the user" (positive delta.y) zooms out.
-            double factor = evt.delta.y < 0 ? BoardZoomStepFactor : 1.0 / BoardZoomStepFactor;
-            ZoomBoard(factor, evt.localMousePosition.x, evt.localMousePosition.y);
-            evt.StopPropagation();
+            double factor = deltaY < 0 ? BoardZoomStepFactor : 1.0 / BoardZoomStepFactor;
+            ZoomBoard(factor, anchorPixelX, anchorPixelY);
+        }
+
+        /// <summary>~10% per wheel notch, same step as the camera zoom.</summary>
+        private const double TokenScaleStepFactor = 1.1;
+
+        /// <summary>
+        /// ODY-S08-105: scales the topmost token under a board-local pixel position by one wheel notch
+        /// (wheel forward, negative <paramref name="wheelDeltaY"/>, grows), clamped to
+        /// [<see cref="TokenRecord.MinScale"/>, <see cref="TokenRecord.MaxScale"/>]. Returns false when no
+        /// token is there (nothing consumed). A notch that would leave the scale unchanged (already at a
+        /// bound) makes no repository call. The revision is read fresh; the element is resized in place.
+        /// Public -- see the class remarks on testability.
+        /// </summary>
+        public bool ScaleTokenAt(double boardPixelX, double boardPixelY, double wheelDeltaY)
+        {
+            TokenId? hit = HitTestToken(boardPixelX, boardPixelY);
+            if (!hit.HasValue) return false;
+
+            TokenId tokenId = hit.Value;
+            string key = tokenId.ToString();
+            double current = _tokenScalesByTokenId.TryGetValue(key, out double known) ? known : 1.0;
+            double stepped = wheelDeltaY < 0 ? current * TokenScaleStepFactor : current / TokenScaleStepFactor;
+            double next = Math.Min(TokenRecord.MaxScale, Math.Max(TokenRecord.MinScale, stepped));
+            if (next == current) return true;
+
+            Result<TokenRecord> fresh = _sceneRepository.GetToken(_campaign, tokenId, NewCorrelationId());
+            if (fresh.IsFailure)
+            {
+                SetStatus("Could not scale the token: " + fresh.Error.Code);
+                return true;
+            }
+
+            Result<TokenRecord> updated = _sceneRepository.SetTokenScale(_campaign, tokenId, next, fresh.Value.Revision, NewCommandId(), NewCorrelationId());
+            if (updated.IsFailure)
+            {
+                SetStatus("Could not scale the token: " + updated.Error.Code);
+                return true;
+            }
+
+            _tokenScalesByTokenId[key] = updated.Value.Scale;
+            if (_tokenElementsByTokenId.TryGetValue(key, out VisualElement? element) && _tokenPositionsByTokenId.TryGetValue(key, out TokenPosition position))
+            {
+                element.style.width = (float)(TokenSizePixels * updated.Value.Scale);
+                element.style.height = (float)(TokenSizePixels * updated.Value.Scale);
+                PositionTokenElement(element, position, updated.Value.Scale);
+            }
+
+            return true;
         }
 
         /// <summary>~10% per wheel notch -- a smooth, gradual zoom step; not otherwise significant.</summary>
@@ -708,18 +832,27 @@ namespace Odyssey.Unity.Client
         // renderer used), independent of UI Toolkit layout/worldBound timing.
         private TokenId? HitTestToken(double boardPixelX, double boardPixelY)
         {
-            double half = TokenSizePixels / 2.0;
+            // ODY-S08-105: the square is the token's scaled size, and among overlapping hits the topmost
+            // (highest ZOrder) wins -- the one the user actually sees under the pointer.
+            TokenId? best = null;
+            long bestZ = long.MinValue;
             foreach (KeyValuePair<string, TokenPosition> entry in _tokenPositionsByTokenId)
             {
+                double half = TokenSizePixels * (_tokenScalesByTokenId.TryGetValue(entry.Key, out double scale) ? scale : 1.0) / 2.0;
                 double centerX = _camera.ToPixelsX(entry.Value.X);
                 double centerY = _camera.ToPixelsY(entry.Value.Y);
                 if (boardPixelX >= centerX - half && boardPixelX <= centerX + half && boardPixelY >= centerY - half && boardPixelY <= centerY + half)
                 {
-                    return TokenId.Parse(entry.Key);
+                    long z = _tokenZOrdersByTokenId.TryGetValue(entry.Key, out long known) ? known : 0;
+                    if (!best.HasValue || z > bestZ)
+                    {
+                        best = TokenId.Parse(entry.Key);
+                        bestZ = z;
+                    }
                 }
             }
 
-            return null;
+            return best;
         }
 
         // Repositions the already-rendered token elements from their last-known world position (no DB
@@ -732,15 +865,18 @@ namespace Odyssey.Unity.Client
             {
                 if (_tokenElementsByTokenId.TryGetValue(entry.Key, out VisualElement? tokenElement))
                 {
-                    PositionTokenElement(tokenElement, entry.Value);
+                    PositionTokenElement(tokenElement, entry.Value, ScaleOf(entry.Key));
                 }
             }
         }
 
-        private void PositionTokenElement(VisualElement tokenElement, TokenPosition position)
+        private double ScaleOf(string key) => _tokenScalesByTokenId.TryGetValue(key, out double scale) ? scale : 1.0;
+
+        private void PositionTokenElement(VisualElement tokenElement, TokenPosition position, double scale)
         {
-            tokenElement.style.left = (float)(_camera.ToPixelsX(position.X) - TokenSizePixels / 2);
-            tokenElement.style.top = (float)(_camera.ToPixelsY(position.Y) - TokenSizePixels / 2);
+            double half = TokenSizePixels * scale / 2;
+            tokenElement.style.left = (float)(_camera.ToPixelsX(position.X) - half);
+            tokenElement.style.top = (float)(_camera.ToPixelsY(position.Y) - half);
         }
 
         private TokenPosition ToWorldPosition(double pixelX, double pixelY) => new TokenPosition(_camera.FromPixelsX(pixelX), _camera.FromPixelsY(pixelY));

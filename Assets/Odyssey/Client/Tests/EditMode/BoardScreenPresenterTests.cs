@@ -649,6 +649,166 @@ namespace Odyssey.Tests.Unity.EditMode
             }
         }
 
+        // ---- ODY-S08-105: token z-order and scale (backend: TC-BOARD-078..080 in SqliteSceneRepositoryTests) -----
+
+        /// <summary>Two overlapping tokens: lowerId (created first, ZOrder 1) and upperId (ZOrder 2), presenter already refreshed.</summary>
+        private BoardScreenPresenter BuildPresenterWithTwoOverlappingTokens(out CampaignHandle campaign, out MoveCountingSceneRepository sceneRepository, out TokenId lowerId, out TokenId upperId, out UIDocument document, out GameObject gameObject, out SqliteCampaignRepository campaignRepository, out TemporaryDirectory directory)
+        {
+            BoardScreenPresenter presenter = BuildPresenterForTokenDrag(out campaign, out sceneRepository, out lowerId, out document, out gameObject, out campaignRepository, out directory);
+            SceneId sceneId = sceneRepository.GetToken(campaign, lowerId, TestCorrelationId).Value.SceneId;
+            TokenRecord upper = sceneRepository.CreateToken(campaign, sceneId, new TokenPosition(0.2, 0.0), NewUserId(), NewCommandId(), TestCorrelationId).Value;
+            upperId = upper.TokenId;
+            Assert.That(presenter.Refresh().IsSuccess, Is.True);
+            return presenter;
+        }
+
+        [Test] // TC-BOARD-081
+        public void TokenPointerDown_OnANonTopOverlappingToken_RaisesItAboveTheOther_AndItRendersOnTop()
+        {
+            BoardScreenPresenter presenter = BuildPresenterWithTwoOverlappingTokens(out CampaignHandle campaign, out MoveCountingSceneRepository sceneRepository, out TokenId lowerId, out TokenId upperId, out UIDocument document, out GameObject gameObject, out SqliteCampaignRepository campaignRepository, out TemporaryDirectory directory);
+            try
+            {
+                VisualElement board = presenter.BoardArea!;
+                Assert.That(board.IndexOf(document.rootVisualElement.Q<VisualElement>("token-" + lowerId)), Is.LessThan(board.IndexOf(document.rootVisualElement.Q<VisualElement>("token-" + upperId))), "precondition: the later-created token is on top");
+
+                double x = presenter.Camera.ToPixelsX(0);
+                double y = presenter.Camera.ToPixelsY(0);
+                presenter.BeginTokenDrag(lowerId, x, y);
+                Assert.That(board.IndexOf(document.rootVisualElement.Q<VisualElement>("token-" + lowerId)), Is.GreaterThan(board.IndexOf(document.rootVisualElement.Q<VisualElement>("token-" + upperId))), "the raise reorders in place, without a Refresh under the active pointer capture");
+                presenter.EndTokenDrag(lowerId, x, y); // a click
+
+                Assert.That(sceneRepository.SetTokenZOrderCalls, Is.EqualTo(1));
+                long lowerZ = sceneRepository.GetToken(campaign, lowerId, TestCorrelationId).Value.ZOrder;
+                long upperZ = sceneRepository.GetToken(campaign, upperId, TestCorrelationId).Value.ZOrder;
+                Assert.That(lowerZ, Is.GreaterThan(upperZ), "the clicked token's ZOrder must now exceed the other's");
+                Assert.That(presenter.SelectedTokenId, Is.EqualTo(lowerId), "the click still selects, exactly as in ODY-S08-104");
+
+                Assert.That(presenter.Refresh().IsSuccess, Is.True);
+                Assert.That(board.IndexOf(document.rootVisualElement.Q<VisualElement>("token-" + lowerId)), Is.GreaterThan(board.IndexOf(document.rootVisualElement.Q<VisualElement>("token-" + upperId))), "a fresh render must sort by ZOrder ascending");
+            }
+            finally
+            {
+                presenter.Dispose();
+                UnityEngine.Object.DestroyImmediate(gameObject);
+                campaignRepository.Close(campaign, TestCorrelationId);
+                directory.Dispose();
+            }
+        }
+        [Test] // TC-BOARD-082
+        public void TokenPointerDown_OnAnAlreadyTopToken_MakesNoSetTokenZOrderCall()
+        {
+            BoardScreenPresenter presenter = BuildPresenterWithTwoOverlappingTokens(out CampaignHandle campaign, out MoveCountingSceneRepository sceneRepository, out TokenId lowerId, out TokenId upperId, out UIDocument document, out GameObject gameObject, out SqliteCampaignRepository campaignRepository, out TemporaryDirectory directory);
+            try
+            {
+                TokenRecord before = sceneRepository.GetToken(campaign, upperId, TestCorrelationId).Value;
+
+                double x = presenter.Camera.ToPixelsX(0.2);
+                double y = presenter.Camera.ToPixelsY(0.0);
+                presenter.BeginTokenDrag(upperId, x, y);
+                presenter.EndTokenDrag(upperId, x, y);
+
+                Assert.That(sceneRepository.SetTokenZOrderCalls, Is.EqualTo(0), "an already-top token must cause no backend call at all");
+                TokenRecord after = sceneRepository.GetToken(campaign, upperId, TestCorrelationId).Value;
+                Assert.That(after.ZOrder, Is.EqualTo(before.ZOrder));
+                Assert.That(after.Revision, Is.EqualTo(before.Revision));
+                Assert.That(presenter.SelectedTokenId, Is.EqualTo(upperId));
+            }
+            finally
+            {
+                presenter.Dispose();
+                UnityEngine.Object.DestroyImmediate(gameObject);
+                campaignRepository.Close(campaign, TestCorrelationId);
+                directory.Dispose();
+            }
+        }
+        [Test] // TC-BOARD-083
+        public void ShiftWheelOverAToken_ChangesThatTokensScale_AndNotTheCamera()
+        {
+            BoardScreenPresenter presenter = BuildPresenterForTokenDrag(out CampaignHandle campaign, out MoveCountingSceneRepository sceneRepository, out TokenId tokenId, out UIDocument document, out GameObject gameObject, out SqliteCampaignRepository campaignRepository, out TemporaryDirectory directory);
+            try
+            {
+                double cameraScaleBefore = presenter.Camera.Scale;
+                double x = presenter.Camera.ToPixelsX(0);
+                double y = presenter.Camera.ToPixelsY(0);
+                VisualElement element = document.rootVisualElement.Q<VisualElement>("token-" + tokenId)!;
+                float widthBefore = element.style.width.value.value;
+
+                presenter.HandleBoardWheel(-1.0, true, x, y);
+
+                Assert.That(sceneRepository.SetTokenScaleCalls, Is.EqualTo(1));
+                Assert.That(sceneRepository.GetToken(campaign, tokenId, TestCorrelationId).Value.Scale, Is.EqualTo(1.1).Within(1e-9));
+                Assert.That(element.style.width.value.value, Is.EqualTo(widthBefore * 1.1f).Within(0.01f), "the token's visual size must follow its Scale");
+                Assert.That(presenter.Camera.Scale, Is.EqualTo(cameraScaleBefore), "Shift+wheel over a token must not zoom the camera");
+            }
+            finally
+            {
+                presenter.Dispose();
+                UnityEngine.Object.DestroyImmediate(gameObject);
+                campaignRepository.Close(campaign, TestCorrelationId);
+                directory.Dispose();
+            }
+        }
+        [Test] // TC-BOARD-084
+        public void PlainWheelAtTheSamePosition_ZoomsTheCamera_AndNotTheTokensScale()
+        {
+            BoardScreenPresenter presenter = BuildPresenterForTokenDrag(out CampaignHandle campaign, out MoveCountingSceneRepository sceneRepository, out TokenId tokenId, out UIDocument document, out GameObject gameObject, out SqliteCampaignRepository campaignRepository, out TemporaryDirectory directory);
+            try
+            {
+                double cameraScaleBefore = presenter.Camera.Scale;
+                double x = presenter.Camera.ToPixelsX(0);
+                double y = presenter.Camera.ToPixelsY(0);
+
+                presenter.HandleBoardWheel(-1.0, false, x, y);
+
+                Assert.That(presenter.Camera.Scale, Is.GreaterThan(cameraScaleBefore), "a plain wheel must still zoom the camera in");
+                Assert.That(sceneRepository.SetTokenScaleCalls, Is.EqualTo(0));
+                Assert.That(sceneRepository.GetToken(campaign, tokenId, TestCorrelationId).Value.Scale, Is.EqualTo(1.0));
+
+                // Shift over empty board (no token there) keeps the old camera behaviour too.
+                double scaleAfterPlain = presenter.Camera.Scale;
+                presenter.HandleBoardWheel(-1.0, true, 5.0, 5.0);
+                Assert.That(presenter.Camera.Scale, Is.GreaterThan(scaleAfterPlain));
+                Assert.That(sceneRepository.SetTokenScaleCalls, Is.EqualTo(0));
+            }
+            finally
+            {
+                presenter.Dispose();
+                UnityEngine.Object.DestroyImmediate(gameObject);
+                campaignRepository.Close(campaign, TestCorrelationId);
+                directory.Dispose();
+            }
+        }
+        [Test] // TC-BOARD-085
+        public void TokenScale_IsClampedToTheBounds_AndNeverDegenerates()
+        {
+            BoardScreenPresenter presenter = BuildPresenterForTokenDrag(out CampaignHandle campaign, out MoveCountingSceneRepository sceneRepository, out TokenId tokenId, out UIDocument document, out GameObject gameObject, out SqliteCampaignRepository campaignRepository, out TemporaryDirectory directory);
+            try
+            {
+                double x = presenter.Camera.ToPixelsX(0);
+                double y = presenter.Camera.ToPixelsY(0);
+                VisualElement element = document.rootVisualElement.Q<VisualElement>("token-" + tokenId)!;
+
+                for (int i = 0; i < 60; i++) presenter.HandleBoardWheel(-1.0, true, x, y);
+                Assert.That(sceneRepository.GetToken(campaign, tokenId, TestCorrelationId).Value.Scale, Is.EqualTo(TokenRecord.MaxScale));
+                int callsAtMax = sceneRepository.SetTokenScaleCalls;
+                presenter.HandleBoardWheel(-1.0, true, x, y);
+                Assert.That(sceneRepository.SetTokenScaleCalls, Is.EqualTo(callsAtMax), "a notch at the upper bound changes nothing and makes no call");
+                Assert.That(element.style.width.value.value, Is.EqualTo((float)(28.0 * TokenRecord.MaxScale)).Within(0.01f));
+
+                for (int i = 0; i < 120; i++) presenter.HandleBoardWheel(1.0, true, x, y);
+                Assert.That(sceneRepository.GetToken(campaign, tokenId, TestCorrelationId).Value.Scale, Is.EqualTo(TokenRecord.MinScale));
+                Assert.That(element.style.width.value.value, Is.EqualTo((float)(28.0 * TokenRecord.MinScale)).Within(0.01f));
+                Assert.That(element.style.width.value.value, Is.GreaterThan(0f), "the token must never shrink to nothing");
+            }
+            finally
+            {
+                presenter.Dispose();
+                UnityEngine.Object.DestroyImmediate(gameObject);
+                campaignRepository.Close(campaign, TestCorrelationId);
+                directory.Dispose();
+            }
+        }
+
         private sealed class TemporaryDirectory : IDisposable
         {
             public TemporaryDirectory()
@@ -998,6 +1158,8 @@ namespace Odyssey.Tests.Unity.EditMode
             public Result<AssetManifestEntryRecord> RegisterAsset(CampaignHandle campaign, string sourceFilePath, CommandId commandId, CorrelationId correlationId) => _inner.RegisterAsset(campaign, sourceFilePath, commandId, correlationId);
             public Result<SceneRecord> SetSceneBackground(CampaignHandle campaign, SceneId sceneId, AssetId? backgroundAssetId, long expectedRevision, CommandId commandId, CorrelationId correlationId) => _inner.SetSceneBackground(campaign, sceneId, backgroundAssetId, expectedRevision, commandId, correlationId);
             public Result<TokenRecord> SetTokenPortrait(CampaignHandle campaign, TokenId tokenId, AssetId? portraitAssetId, long expectedRevision, CommandId commandId, CorrelationId correlationId) => _inner.SetTokenPortrait(campaign, tokenId, portraitAssetId, expectedRevision, commandId, correlationId);
+            public Result<TokenRecord> SetTokenZOrder(CampaignHandle campaign, TokenId tokenId, long zOrder, long expectedRevision, CommandId commandId, CorrelationId correlationId) => _inner.SetTokenZOrder(campaign, tokenId, zOrder, expectedRevision, commandId, correlationId);
+            public Result<TokenRecord> SetTokenScale(CampaignHandle campaign, TokenId tokenId, double scale, long expectedRevision, CommandId commandId, CorrelationId correlationId) => _inner.SetTokenScale(campaign, tokenId, scale, expectedRevision, commandId, correlationId);
             public Result<SceneRecord> GetScene(CampaignHandle campaign, SceneId sceneId, CorrelationId correlationId) => _inner.GetScene(campaign, sceneId, correlationId);
             public Result<IReadOnlyList<AssetManifestEntryRecord>> ListAssets(CampaignHandle campaign, CorrelationId correlationId) => _inner.ListAssets(campaign, correlationId);
         }
@@ -1028,6 +1190,20 @@ namespace Odyssey.Tests.Unity.EditMode
             public Result<AssetManifestEntryRecord> RegisterAsset(CampaignHandle campaign, string sourceFilePath, CommandId commandId, CorrelationId correlationId) => _inner.RegisterAsset(campaign, sourceFilePath, commandId, correlationId);
             public Result<SceneRecord> SetSceneBackground(CampaignHandle campaign, SceneId sceneId, AssetId? backgroundAssetId, long expectedRevision, CommandId commandId, CorrelationId correlationId) => _inner.SetSceneBackground(campaign, sceneId, backgroundAssetId, expectedRevision, commandId, correlationId);
             public Result<TokenRecord> SetTokenPortrait(CampaignHandle campaign, TokenId tokenId, AssetId? portraitAssetId, long expectedRevision, CommandId commandId, CorrelationId correlationId) => _inner.SetTokenPortrait(campaign, tokenId, portraitAssetId, expectedRevision, commandId, correlationId);
+            public int SetTokenZOrderCalls { get; private set; }
+            public int SetTokenScaleCalls { get; private set; }
+
+            public Result<TokenRecord> SetTokenZOrder(CampaignHandle campaign, TokenId tokenId, long zOrder, long expectedRevision, CommandId commandId, CorrelationId correlationId)
+            {
+                SetTokenZOrderCalls++;
+                return _inner.SetTokenZOrder(campaign, tokenId, zOrder, expectedRevision, commandId, correlationId);
+            }
+
+            public Result<TokenRecord> SetTokenScale(CampaignHandle campaign, TokenId tokenId, double scale, long expectedRevision, CommandId commandId, CorrelationId correlationId)
+            {
+                SetTokenScaleCalls++;
+                return _inner.SetTokenScale(campaign, tokenId, scale, expectedRevision, commandId, correlationId);
+            }
             public Result<SceneRecord> GetScene(CampaignHandle campaign, SceneId sceneId, CorrelationId correlationId) => _inner.GetScene(campaign, sceneId, correlationId);
             public Result<byte[]> ReadAssetContent(CampaignHandle campaign, AssetId assetId, CorrelationId correlationId) => _inner.ReadAssetContent(campaign, assetId, correlationId);
             public Result<IReadOnlyList<AssetManifestEntryRecord>> ListAssets(CampaignHandle campaign, CorrelationId correlationId) => _inner.ListAssets(campaign, correlationId);

@@ -4265,6 +4265,70 @@
                           "check":  "Regression: the pre-existing click-to-select-then-click-the-board-to-move flow (now reached through the same pointer-based gesture paths) still selects, then moves to the exact expected destination and clears the selection, calling MoveToken exactly once"
                       },
                       {
+                          "testCaseId":  "TC-BOARD-078",
+                          "taskId":  "ODY-S08-105",
+                          "authority":  "ODY-S08-105 test list (task contract section 9)",
+                          "runner":  "dotnet test",
+                          "path":  "DotNet/Tests/Odyssey.Tests.Persistence/SqliteSceneRepositoryTests.cs",
+                          "check":  "CreateToken assigns ZOrder = max ZOrder of the token's scene + 1 (per scene, also after a SetTokenZOrder bump) and Scale 1.0; the stored row matches the returned record"
+                      },
+                      {
+                          "testCaseId":  "TC-BOARD-079",
+                          "taskId":  "ODY-S08-105",
+                          "authority":  "ODY-S08-105 test list (task contract section 9)",
+                          "runner":  "dotnet test",
+                          "path":  "DotNet/Tests/Odyssey.Tests.Persistence/SqliteSceneRepositoryTests.cs",
+                          "check":  "SetTokenZOrder and SetTokenScale are revision-gated (TokenRevisionConflict on a stale revision), idempotent per command id, TokenNotFound for an unknown token, and the values survive SetTokenPortrait and MoveToken"
+                      },
+                      {
+                          "testCaseId":  "TC-BOARD-080",
+                          "taskId":  "ODY-S08-105",
+                          "authority":  "ODY-S08-105 test list (task contract section 9)",
+                          "runner":  "dotnet test",
+                          "path":  "DotNet/Tests/Odyssey.Tests.Persistence/SqliteSceneRepositoryTests.cs",
+                          "check":  "SetTokenScale rejects zero, negative, below-min, above-max, NaN and infinity with ArgumentOutOfRangeException and writes nothing; MinScale and MaxScale themselves are accepted"
+                      },
+                      {
+                          "testCaseId":  "TC-BOARD-081",
+                          "taskId":  "ODY-S08-105",
+                          "authority":  "ODY-S08-105 test list (task contract section 9)",
+                          "runner":  "Unity EditMode",
+                          "path":  "Assets/Odyssey/Client/Tests/EditMode/BoardScreenPresenterTests.cs",
+                          "check":  "Pointer-down on a non-top overlapping token calls SetTokenZOrder once, its ZOrder becomes greater than the other's, the click still selects, and the element order (in place and after a fresh render) puts it on top"
+                      },
+                      {
+                          "testCaseId":  "TC-BOARD-082",
+                          "taskId":  "ODY-S08-105",
+                          "authority":  "ODY-S08-105 test list (task contract section 9)",
+                          "runner":  "Unity EditMode",
+                          "path":  "Assets/Odyssey/Client/Tests/EditMode/BoardScreenPresenterTests.cs",
+                          "check":  "Pointer-down on an already-top token makes zero SetTokenZOrder calls (counting repository decorator) and leaves ZOrder and Revision unchanged"
+                      },
+                      {
+                          "testCaseId":  "TC-BOARD-083",
+                          "taskId":  "ODY-S08-105",
+                          "authority":  "ODY-S08-105 test list (task contract section 9)",
+                          "runner":  "Unity EditMode",
+                          "path":  "Assets/Odyssey/Client/Tests/EditMode/BoardScreenPresenterTests.cs",
+                          "check":  "Shift+wheel over a token changes that token's persisted Scale and its element size, and does not change the camera scale"
+                      },
+                      {
+                          "testCaseId":  "TC-BOARD-084",
+                          "taskId":  "ODY-S08-105",
+                          "authority":  "ODY-S08-105 test list (task contract section 9)",
+                          "runner":  "Unity EditMode",
+                          "path":  "Assets/Odyssey/Client/Tests/EditMode/BoardScreenPresenterTests.cs",
+                          "check":  "Plain wheel at the same position changes the camera scale and not the token's Scale (zero SetTokenScale calls); Shift over empty board still zooms the camera"
+                      },
+                      {
+                          "testCaseId":  "TC-BOARD-085",
+                          "taskId":  "ODY-S08-105",
+                          "authority":  "ODY-S08-105 test list (task contract section 9)",
+                          "runner":  "Unity EditMode",
+                          "path":  "Assets/Odyssey/Client/Tests/EditMode/BoardScreenPresenterTests.cs",
+                          "check":  "Token scale is clamped to [MinScale, MaxScale] in both directions, a notch at a bound makes no repository call, and the element never shrinks to zero size"
+                      },
+                      {
                           "testCaseId":  "TC-CATALOG-001",
                           "taskId":  "ODY-S05-101",
                           "authority":  "ADR-027 section 4; 11_Content_Block_System section 5.3/6.1",
