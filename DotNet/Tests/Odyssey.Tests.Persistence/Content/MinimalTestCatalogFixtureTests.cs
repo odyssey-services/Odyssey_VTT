@@ -76,17 +76,17 @@ namespace Odyssey.Tests.Persistence.Content
         private ContentDefinitionRecord AuthorDraft(ContentDefinitionType type, string name, string propertiesJson, IReadOnlyList<ContentDefinitionRef>? dependencyRefs = null, IReadOnlyList<string>? rulesetCompatibility = null)
         {
             var request = new CreateDraftDefinitionRequest(
-                _campaign, type, name, "ODY-S05-106 minimal test catalog fixture.", NewUserId(), actorIsMainGm: true, NewCommandId(), TestCorrelationId,
+                _campaign, type, name, "ODY-S05-106 minimal test catalog fixture.", global::Odyssey.Application.Identity.DevIdentityProvider.AssignHost(), NewCommandId(), TestCorrelationId,
                 rulesetCompatibility: rulesetCompatibility ?? new[] { ActiveRuleset }, propertiesJson: propertiesJson, dependencyRefs: dependencyRefs);
-            Result<ContentDefinitionRecord> result = ContentCatalogAuthoringService.CreateDraftDefinition(_catalogRepository, request);
+            Result<ContentDefinitionRecord> result = ContentCatalogAuthoringService.CreateDraftDefinition(_catalogRepository, _campaignRepository, request);
             Assert.That(result.IsSuccess, Is.True, $"fixture authoring of '{name}' must itself succeed");
             return result.Value;
         }
 
         private ContentDefinitionRecord PublishFixture(ContentDefinitionRecord draft)
         {
-            var request = new PublishDefinitionRequest(_campaign, draft.ContentDefinitionId, draft.Revision, NewUserId(), actorIsMainGm: true, NewCommandId(), TestCorrelationId);
-            Result<ContentDefinitionRecord> result = ContentCatalogLifecycleService.PublishDefinition(_catalogRepository, request);
+            var request = new PublishDefinitionRequest(_campaign, draft.ContentDefinitionId, draft.Revision, global::Odyssey.Application.Identity.DevIdentityProvider.AssignHost(), NewCommandId(), TestCorrelationId);
+            Result<ContentDefinitionRecord> result = ContentCatalogLifecycleService.PublishDefinition(_catalogRepository, _campaignRepository, request);
             Assert.That(result.IsSuccess, Is.True, $"fixture publish of '{draft.Name}' must itself succeed -- {(result.IsFailure ? result.Error.Code.ToString() : string.Empty)}");
             return result.Value;
         }
@@ -348,11 +348,11 @@ namespace Odyssey.Tests.Persistence.Content
             ContentDefinitionRecord stillPublished = PublishFixture(AuthorDraft(ContentDefinitionType.Effect, "Bleeding", EncodeEffect()));
             ContentDefinitionRecord toArchive = PublishFixture(AuthorDraft(ContentDefinitionType.Armor, "Light Vest", EncodeArmor()));
 
-            var archiveRequest = new ArchiveDefinitionRequest(_campaign, toArchive.ContentDefinitionId, "retired fixture armor", actorIsMainGm: true, NewCommandId(), TestCorrelationId);
-            Result<ContentDefinitionRecord> archived = ContentCatalogLifecycleService.ArchiveDefinition(_catalogRepository, archiveRequest);
+            var archiveRequest = new ArchiveDefinitionRequest(_campaign, toArchive.ContentDefinitionId, "retired fixture armor", global::Odyssey.Application.Identity.DevIdentityProvider.AssignHost(), NewCommandId(), TestCorrelationId);
+            Result<ContentDefinitionRecord> archived = ContentCatalogLifecycleService.ArchiveDefinition(_catalogRepository, _campaignRepository, archiveRequest);
             Assert.That(archived.IsSuccess, Is.True);
 
-            Result<IReadOnlyList<ContentDefinitionRecord>> archivedList = ContentCatalogLifecycleService.ListArchivedDefinitions(_catalogRepository, new ListArchivedDefinitionsRequest(_campaign, actorIsMainGm: true, TestCorrelationId));
+            Result<IReadOnlyList<ContentDefinitionRecord>> archivedList = ContentCatalogLifecycleService.ListArchivedDefinitions(_catalogRepository, _campaignRepository, new ListArchivedDefinitionsRequest(_campaign, global::Odyssey.Application.Identity.DevIdentityProvider.AssignHost(), TestCorrelationId));
 
             Assert.That(archivedList.IsSuccess, Is.True);
             Assert.That(archivedList.Value.Select(r => r.ContentDefinitionId), Does.Contain(toArchive.ContentDefinitionId));
@@ -366,8 +366,8 @@ namespace Odyssey.Tests.Persistence.Content
         {
             ContentDefinitionRecord unusedDraft = AuthorDraft(ContentDefinitionType.Ability, "Unused Draft Ability", EncodeAbility());
 
-            var deleteRequest = new DeleteDraftDefinitionRequest(_campaign, unusedDraft.ContentDefinitionId, actorIsMainGm: true, NewCommandId(), TestCorrelationId);
-            Result deleted = ContentCatalogLifecycleService.DeleteDraftDefinition(_catalogRepository, deleteRequest);
+            var deleteRequest = new DeleteDraftDefinitionRequest(_campaign, unusedDraft.ContentDefinitionId, global::Odyssey.Application.Identity.DevIdentityProvider.AssignHost(), NewCommandId(), TestCorrelationId);
+            Result deleted = ContentCatalogLifecycleService.DeleteDraftDefinition(_catalogRepository, _campaignRepository, deleteRequest);
 
             Assert.That(deleted.IsSuccess, Is.True);
             Result<ContentDefinitionRecord> reread = _catalogRepository.GetContentDefinition(_campaign, unusedDraft.ContentDefinitionId, TestCorrelationId);
@@ -379,10 +379,10 @@ namespace Odyssey.Tests.Persistence.Content
         {
             ContentDefinitionRecord published = PublishFixture(AuthorDraft(ContentDefinitionType.Weapon, "Service Pistol", EncodeWeapon(AmmoRequirement.None, Array.Empty<string>())));
             ContentDefinitionRecord toArchive = PublishFixture(AuthorDraft(ContentDefinitionType.Armor, "Light Vest", EncodeArmor()));
-            ContentCatalogLifecycleService.ArchiveDefinition(_catalogRepository, new ArchiveDefinitionRequest(_campaign, toArchive.ContentDefinitionId, "retired", actorIsMainGm: true, NewCommandId(), TestCorrelationId));
+            ContentCatalogLifecycleService.ArchiveDefinition(_catalogRepository, _campaignRepository, new ArchiveDefinitionRequest(_campaign, toArchive.ContentDefinitionId, "retired", global::Odyssey.Application.Identity.DevIdentityProvider.AssignHost(), NewCommandId(), TestCorrelationId));
 
-            Result deletePublished = ContentCatalogLifecycleService.DeleteDraftDefinition(_catalogRepository, new DeleteDraftDefinitionRequest(_campaign, published.ContentDefinitionId, actorIsMainGm: true, NewCommandId(), TestCorrelationId));
-            Result deleteArchived = ContentCatalogLifecycleService.DeleteDraftDefinition(_catalogRepository, new DeleteDraftDefinitionRequest(_campaign, toArchive.ContentDefinitionId, actorIsMainGm: true, NewCommandId(), TestCorrelationId));
+            Result deletePublished = ContentCatalogLifecycleService.DeleteDraftDefinition(_catalogRepository, _campaignRepository, new DeleteDraftDefinitionRequest(_campaign, published.ContentDefinitionId, global::Odyssey.Application.Identity.DevIdentityProvider.AssignHost(), NewCommandId(), TestCorrelationId));
+            Result deleteArchived = ContentCatalogLifecycleService.DeleteDraftDefinition(_catalogRepository, _campaignRepository, new DeleteDraftDefinitionRequest(_campaign, toArchive.ContentDefinitionId, global::Odyssey.Application.Identity.DevIdentityProvider.AssignHost(), NewCommandId(), TestCorrelationId));
 
             Assert.That(deletePublished.IsFailure, Is.True);
             Assert.That(deletePublished.Error.Code, Is.EqualTo(ErrorCodes.PersistenceContentDefinitionNotDraft));
@@ -405,8 +405,8 @@ namespace Odyssey.Tests.Persistence.Content
             Assert.That(validation.IsValid, Is.False);
             Assert.That(validation.Issues.Any(i => i.IssueCode == CatalogValidationIssueCode.ReferenceMissing), Is.True);
 
-            var publishRequest = new PublishDefinitionRequest(_campaign, brokenItem.ContentDefinitionId, brokenItem.Revision, NewUserId(), actorIsMainGm: true, NewCommandId(), TestCorrelationId);
-            Result<ContentDefinitionRecord> publishResult = ContentCatalogLifecycleService.PublishDefinition(_catalogRepository, publishRequest);
+            var publishRequest = new PublishDefinitionRequest(_campaign, brokenItem.ContentDefinitionId, brokenItem.Revision, global::Odyssey.Application.Identity.DevIdentityProvider.AssignHost(), NewCommandId(), TestCorrelationId);
+            Result<ContentDefinitionRecord> publishResult = ContentCatalogLifecycleService.PublishDefinition(_catalogRepository, _campaignRepository, publishRequest);
 
             Assert.That(publishResult.IsFailure, Is.True);
             Assert.That(publishResult.Error.Code, Is.EqualTo(ErrorCodes.ContentCatalogPublishValidationFailed));

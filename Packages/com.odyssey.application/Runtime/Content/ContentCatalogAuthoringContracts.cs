@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using Odyssey.Application.Commands;
+using Odyssey.Application.Identity;
 using Odyssey.Application.Persistence;
 using Odyssey.Application.Results;
 using Odyssey.Domain.Content;
@@ -33,12 +34,19 @@ namespace Odyssey.Application.Content
     /// </summary>
     public static class ContentCatalogAuthoringService
     {
-        public static Result<ContentDefinitionRecord> CreateDraftDefinition(IContentCatalogRepository repository, CreateDraftDefinitionRequest request)
+        public static Result<ContentDefinitionRecord> CreateDraftDefinition(IContentCatalogRepository repository, ICampaignRepository campaignRepository, CreateDraftDefinitionRequest request)
         {
             if (repository == null) throw new ArgumentNullException(nameof(repository));
+            if (campaignRepository == null) throw new ArgumentNullException(nameof(campaignRepository));
             if (request == null) throw new ArgumentNullException(nameof(request));
 
-            if (!request.ActorIsMainGm)
+            Result<bool> mainGmCheck = CampaignMembershipAuthorization.IsMainGm(campaignRepository, request.Campaign, request.ActorUserId, request.CorrelationId);
+            if (mainGmCheck.IsFailure)
+            {
+                return Result<ContentDefinitionRecord>.Failure(mainGmCheck.Error);
+            }
+
+            if (!mainGmCheck.Value)
             {
                 return Result<ContentDefinitionRecord>.Failure(ContentCatalogAuthoringFailures.NotMainGm(request.CorrelationId));
             }
@@ -50,12 +58,19 @@ namespace Odyssey.Application.Content
             return repository.CreateDraftContentDefinition(repositoryRequest, request.CommandId, request.CorrelationId);
         }
 
-        public static Result<ContentDefinitionRecord> UpdateDraftDefinition(IContentCatalogRepository repository, UpdateDraftDefinitionRequest request)
+        public static Result<ContentDefinitionRecord> UpdateDraftDefinition(IContentCatalogRepository repository, ICampaignRepository campaignRepository, UpdateDraftDefinitionRequest request)
         {
             if (repository == null) throw new ArgumentNullException(nameof(repository));
+            if (campaignRepository == null) throw new ArgumentNullException(nameof(campaignRepository));
             if (request == null) throw new ArgumentNullException(nameof(request));
 
-            if (!request.ActorIsMainGm)
+            Result<bool> mainGmCheck = CampaignMembershipAuthorization.IsMainGm(campaignRepository, request.Campaign, request.ActorUserId, request.CorrelationId);
+            if (mainGmCheck.IsFailure)
+            {
+                return Result<ContentDefinitionRecord>.Failure(mainGmCheck.Error);
+            }
+
+            if (!mainGmCheck.Value)
             {
                 return Result<ContentDefinitionRecord>.Failure(ContentCatalogAuthoringFailures.NotMainGm(request.CorrelationId));
             }
@@ -70,12 +85,19 @@ namespace Odyssey.Application.Content
         /// <see cref="Odyssey.Persistence.Sqlite.SqliteContentCatalogRepository.CreateNextDraftVersionFromPublished"/>
         /// for the copy semantics.
         /// </summary>
-        public static Result<ContentDefinitionRecord> CreateNextDraftVersionFromPublished(IContentCatalogRepository repository, CreateNextDraftVersionFromPublishedRequest request)
+        public static Result<ContentDefinitionRecord> CreateNextDraftVersionFromPublished(IContentCatalogRepository repository, ICampaignRepository campaignRepository, CreateNextDraftVersionFromPublishedRequest request)
         {
             if (repository == null) throw new ArgumentNullException(nameof(repository));
+            if (campaignRepository == null) throw new ArgumentNullException(nameof(campaignRepository));
             if (request == null) throw new ArgumentNullException(nameof(request));
 
-            if (!request.ActorIsMainGm)
+            Result<bool> mainGmCheck = CampaignMembershipAuthorization.IsMainGm(campaignRepository, request.Campaign, request.ActorUserId, request.CorrelationId);
+            if (mainGmCheck.IsFailure)
+            {
+                return Result<ContentDefinitionRecord>.Failure(mainGmCheck.Error);
+            }
+
+            if (!mainGmCheck.Value)
             {
                 return Result<ContentDefinitionRecord>.Failure(ContentCatalogAuthoringFailures.NotMainGm(request.CorrelationId));
             }
@@ -92,7 +114,6 @@ namespace Odyssey.Application.Content
             string name,
             string? description,
             UserId actorUserId,
-            bool actorIsMainGm,
             CommandId commandId,
             CorrelationId correlationId,
             IReadOnlyList<string>? rulesetCompatibility = null,
@@ -110,7 +131,6 @@ namespace Odyssey.Application.Content
             Name = name;
             Description = description;
             ActorUserId = actorUserId;
-            ActorIsMainGm = actorIsMainGm;
             CommandId = commandId;
             CorrelationId = correlationId;
             RulesetCompatibility = rulesetCompatibility ?? Array.Empty<string>();
@@ -124,9 +144,6 @@ namespace Odyssey.Application.Content
         public string Name { get; }
         public string? Description { get; }
         public UserId ActorUserId { get; }
-
-        /// <summary>ODY-S05-102's own deliberate simplification, matching `BoardMovementService`/`DiceRollService`'s already-established convention: this task has no session/role model of its own (`ADR-019` scope, not reopened) -- the caller supplies whether the actor holds the MainGM baseline role.</summary>
-        public bool ActorIsMainGm { get; }
 
         public CommandId CommandId { get; }
         public CorrelationId CorrelationId { get; }
@@ -146,7 +163,6 @@ namespace Odyssey.Application.Content
             string propertiesJson,
             long expectedRevision,
             UserId actorUserId,
-            bool actorIsMainGm,
             CommandId commandId,
             CorrelationId correlationId)
         {
@@ -164,7 +180,6 @@ namespace Odyssey.Application.Content
             PropertiesJson = propertiesJson;
             ExpectedRevision = expectedRevision;
             ActorUserId = actorUserId;
-            ActorIsMainGm = actorIsMainGm;
             CommandId = commandId;
             CorrelationId = correlationId;
         }
@@ -176,7 +191,6 @@ namespace Odyssey.Application.Content
         public string PropertiesJson { get; }
         public long ExpectedRevision { get; }
         public UserId ActorUserId { get; }
-        public bool ActorIsMainGm { get; }
         public CommandId CommandId { get; }
         public CorrelationId CorrelationId { get; }
     }
@@ -187,7 +201,6 @@ namespace Odyssey.Application.Content
             CampaignHandle campaign,
             ContentDefinitionId publishedDefinitionId,
             UserId actorUserId,
-            bool actorIsMainGm,
             CommandId commandId,
             CorrelationId correlationId)
         {
@@ -198,7 +211,6 @@ namespace Odyssey.Application.Content
 
             PublishedDefinitionId = publishedDefinitionId;
             ActorUserId = actorUserId;
-            ActorIsMainGm = actorIsMainGm;
             CommandId = commandId;
             CorrelationId = correlationId;
         }
@@ -206,7 +218,6 @@ namespace Odyssey.Application.Content
         public CampaignHandle Campaign { get; }
         public ContentDefinitionId PublishedDefinitionId { get; }
         public UserId ActorUserId { get; }
-        public bool ActorIsMainGm { get; }
         public CommandId CommandId { get; }
         public CorrelationId CorrelationId { get; }
     }

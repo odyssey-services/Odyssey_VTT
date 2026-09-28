@@ -1,5 +1,6 @@
 using System;
 using Odyssey.Application.Commands;
+using Odyssey.Application.Identity;
 using Odyssey.Application.Persistence;
 using Odyssey.Application.Results;
 using Odyssey.Domain.Content;
@@ -42,12 +43,19 @@ namespace Odyssey.Application.Content
         /// record would otherwise always report `DefinitionNotDraft` and
         /// incorrectly block a legitimate replay.
         /// </summary>
-        public static Result<ContentDefinitionRecord> PublishDefinition(IContentCatalogRepository repository, PublishDefinitionRequest request)
+        public static Result<ContentDefinitionRecord> PublishDefinition(IContentCatalogRepository repository, ICampaignRepository campaignRepository, PublishDefinitionRequest request)
         {
             if (repository == null) throw new ArgumentNullException(nameof(repository));
+            if (campaignRepository == null) throw new ArgumentNullException(nameof(campaignRepository));
             if (request == null) throw new ArgumentNullException(nameof(request));
 
-            if (!request.ActorIsMainGm)
+            Result<bool> mainGmCheck = CampaignMembershipAuthorization.IsMainGm(campaignRepository, request.Campaign, request.ActorUserId, request.CorrelationId);
+            if (mainGmCheck.IsFailure)
+            {
+                return Result<ContentDefinitionRecord>.Failure(mainGmCheck.Error);
+            }
+
+            if (!mainGmCheck.Value)
             {
                 return Result<ContentDefinitionRecord>.Failure(ContentCatalogAuthoringFailures.NotMainGm(request.CorrelationId));
             }
@@ -82,12 +90,19 @@ namespace Odyssey.Application.Content
         /// <see cref="IContentCatalogRepository.GetContentDefinition"/>/<see cref="IContentCatalogRepository.ListContentDefinitions"/>
         /// afterward.
         /// </summary>
-        public static Result<ContentDefinitionRecord> ArchiveDefinition(IContentCatalogRepository repository, ArchiveDefinitionRequest request)
+        public static Result<ContentDefinitionRecord> ArchiveDefinition(IContentCatalogRepository repository, ICampaignRepository campaignRepository, ArchiveDefinitionRequest request)
         {
             if (repository == null) throw new ArgumentNullException(nameof(repository));
+            if (campaignRepository == null) throw new ArgumentNullException(nameof(campaignRepository));
             if (request == null) throw new ArgumentNullException(nameof(request));
 
-            if (!request.ActorIsMainGm)
+            Result<bool> mainGmCheck = CampaignMembershipAuthorization.IsMainGm(campaignRepository, request.Campaign, request.ActorUserId, request.CorrelationId);
+            if (mainGmCheck.IsFailure)
+            {
+                return Result<ContentDefinitionRecord>.Failure(mainGmCheck.Error);
+            }
+
+            if (!mainGmCheck.Value)
             {
                 return Result<ContentDefinitionRecord>.Failure(ContentCatalogAuthoringFailures.NotMainGm(request.CorrelationId));
             }
@@ -103,12 +118,19 @@ namespace Odyssey.Application.Content
         /// division of labor (authorization here, structural/business
         /// invariants in the repository).
         /// </summary>
-        public static Result DeleteDraftDefinition(IContentCatalogRepository repository, DeleteDraftDefinitionRequest request)
+        public static Result DeleteDraftDefinition(IContentCatalogRepository repository, ICampaignRepository campaignRepository, DeleteDraftDefinitionRequest request)
         {
             if (repository == null) throw new ArgumentNullException(nameof(repository));
+            if (campaignRepository == null) throw new ArgumentNullException(nameof(campaignRepository));
             if (request == null) throw new ArgumentNullException(nameof(request));
 
-            if (!request.ActorIsMainGm)
+            Result<bool> mainGmCheck = CampaignMembershipAuthorization.IsMainGm(campaignRepository, request.Campaign, request.ActorUserId, request.CorrelationId);
+            if (mainGmCheck.IsFailure)
+            {
+                return Result.Failure(mainGmCheck.Error);
+            }
+
+            if (!mainGmCheck.Value)
             {
                 return Result.Failure(ContentCatalogAuthoringFailures.NotMainGm(request.CorrelationId));
             }
@@ -124,12 +146,19 @@ namespace Odyssey.Application.Content
         /// primitive (`ODY-S05-101`) filtered to <see cref="ContentDefinitionStatus.Archived"/>
         /// -- no new repository method or persistence shape was needed.
         /// </summary>
-        public static Result<System.Collections.Generic.IReadOnlyList<ContentDefinitionRecord>> ListArchivedDefinitions(IContentCatalogRepository repository, ListArchivedDefinitionsRequest request)
+        public static Result<System.Collections.Generic.IReadOnlyList<ContentDefinitionRecord>> ListArchivedDefinitions(IContentCatalogRepository repository, ICampaignRepository campaignRepository, ListArchivedDefinitionsRequest request)
         {
             if (repository == null) throw new ArgumentNullException(nameof(repository));
+            if (campaignRepository == null) throw new ArgumentNullException(nameof(campaignRepository));
             if (request == null) throw new ArgumentNullException(nameof(request));
 
-            if (!request.ActorIsMainGm)
+            Result<bool> mainGmCheck = CampaignMembershipAuthorization.IsMainGm(campaignRepository, request.Campaign, request.ActorUserId, request.CorrelationId);
+            if (mainGmCheck.IsFailure)
+            {
+                return Result<System.Collections.Generic.IReadOnlyList<ContentDefinitionRecord>>.Failure(mainGmCheck.Error);
+            }
+
+            if (!mainGmCheck.Value)
             {
                 return Result<System.Collections.Generic.IReadOnlyList<ContentDefinitionRecord>>.Failure(ContentCatalogAuthoringFailures.NotMainGm(request.CorrelationId));
             }
@@ -145,7 +174,6 @@ namespace Odyssey.Application.Content
             ContentDefinitionId definitionId,
             long expectedRevision,
             UserId actorUserId,
-            bool actorIsMainGm,
             CommandId commandId,
             CorrelationId correlationId)
         {
@@ -158,7 +186,6 @@ namespace Odyssey.Application.Content
             DefinitionId = definitionId;
             ExpectedRevision = expectedRevision;
             ActorUserId = actorUserId;
-            ActorIsMainGm = actorIsMainGm;
             CommandId = commandId;
             CorrelationId = correlationId;
         }
@@ -167,7 +194,6 @@ namespace Odyssey.Application.Content
         public ContentDefinitionId DefinitionId { get; }
         public long ExpectedRevision { get; }
         public UserId ActorUserId { get; }
-        public bool ActorIsMainGm { get; }
         public CommandId CommandId { get; }
         public CorrelationId CorrelationId { get; }
     }
@@ -178,17 +204,18 @@ namespace Odyssey.Application.Content
             CampaignHandle campaign,
             ContentDefinitionId definitionId,
             string? archiveReason,
-            bool actorIsMainGm,
+            UserId actorUserId,
             CommandId commandId,
             CorrelationId correlationId)
         {
             Campaign = campaign ?? throw new ArgumentNullException(nameof(campaign));
             if (!definitionId.IsValid) throw new ArgumentException("ContentDefinitionId is required.", nameof(definitionId));
+            if (!actorUserId.IsValid) throw new ArgumentException("ActorUserId is required.", nameof(actorUserId));
             if (!commandId.IsValid) throw new ArgumentException("CommandId is required.", nameof(commandId));
 
             DefinitionId = definitionId;
             ArchiveReason = archiveReason;
-            ActorIsMainGm = actorIsMainGm;
+            ActorUserId = actorUserId;
             CommandId = commandId;
             CorrelationId = correlationId;
         }
@@ -196,7 +223,9 @@ namespace Odyssey.Application.Content
         public CampaignHandle Campaign { get; }
         public ContentDefinitionId DefinitionId { get; }
         public string? ArchiveReason { get; }
-        public bool ActorIsMainGm { get; }
+
+        /// <summary>ODY-S10-104: the acting user -- checked against the campaign's stored membership, never trusted from a caller-supplied flag.</summary>
+        public UserId ActorUserId { get; }
         public CommandId CommandId { get; }
         public CorrelationId CorrelationId { get; }
     }
@@ -206,23 +235,26 @@ namespace Odyssey.Application.Content
         public DeleteDraftDefinitionRequest(
             CampaignHandle campaign,
             ContentDefinitionId definitionId,
-            bool actorIsMainGm,
+            UserId actorUserId,
             CommandId commandId,
             CorrelationId correlationId)
         {
             Campaign = campaign ?? throw new ArgumentNullException(nameof(campaign));
             if (!definitionId.IsValid) throw new ArgumentException("ContentDefinitionId is required.", nameof(definitionId));
+            if (!actorUserId.IsValid) throw new ArgumentException("ActorUserId is required.", nameof(actorUserId));
             if (!commandId.IsValid) throw new ArgumentException("CommandId is required.", nameof(commandId));
 
             DefinitionId = definitionId;
-            ActorIsMainGm = actorIsMainGm;
+            ActorUserId = actorUserId;
             CommandId = commandId;
             CorrelationId = correlationId;
         }
 
         public CampaignHandle Campaign { get; }
         public ContentDefinitionId DefinitionId { get; }
-        public bool ActorIsMainGm { get; }
+
+        /// <summary>ODY-S10-104: the acting user -- checked against the campaign's stored membership.</summary>
+        public UserId ActorUserId { get; }
         public CommandId CommandId { get; }
         public CorrelationId CorrelationId { get; }
     }
@@ -230,15 +262,18 @@ namespace Odyssey.Application.Content
     /// <summary>A pure read -- no <see cref="CommandId"/> is needed since nothing is mutated.</summary>
     public sealed class ListArchivedDefinitionsRequest
     {
-        public ListArchivedDefinitionsRequest(CampaignHandle campaign, bool actorIsMainGm, CorrelationId correlationId)
+        public ListArchivedDefinitionsRequest(CampaignHandle campaign, UserId actorUserId, CorrelationId correlationId)
         {
             Campaign = campaign ?? throw new ArgumentNullException(nameof(campaign));
-            ActorIsMainGm = actorIsMainGm;
+            if (!actorUserId.IsValid) throw new ArgumentException("ActorUserId is required.", nameof(actorUserId));
+            ActorUserId = actorUserId;
             CorrelationId = correlationId;
         }
 
         public CampaignHandle Campaign { get; }
-        public bool ActorIsMainGm { get; }
+
+        /// <summary>ODY-S10-104: the acting user -- checked against the campaign's stored membership.</summary>
+        public UserId ActorUserId { get; }
         public CorrelationId CorrelationId { get; }
     }
 

@@ -55,15 +55,15 @@ namespace Odyssey.Tests.Persistence.Content
             try { if (Directory.Exists(_campaignDir)) Directory.Delete(_campaignDir, recursive: true); } catch (IOException) { }
         }
 
-        private CreateDraftDefinitionRequest NewCreateRequest(bool actorIsMainGm = true, string name = "Iron Sword", ContentDefinitionType type = ContentDefinitionType.Weapon)
-            => new CreateDraftDefinitionRequest(_campaign, type, name, "A test fixture.", NewUserId(), actorIsMainGm, NewCommandId(), TestCorrelationId);
+        private CreateDraftDefinitionRequest NewCreateRequest(UserId? actor = null, string name = "Iron Sword", ContentDefinitionType type = ContentDefinitionType.Weapon)
+            => new CreateDraftDefinitionRequest(_campaign, type, name, "A test fixture.", actor ?? global::Odyssey.Application.Identity.DevIdentityProvider.AssignHost(), NewCommandId(), TestCorrelationId);
 
         // ---- CreateDraftDefinition ----------------------------------------------
 
         [Test]
         public void CreateDraftDefinition_ByMainGm_Succeeds_AndPersistsFoundationFields()
         {
-            Result<ContentDefinitionRecord> result = ContentCatalogAuthoringService.CreateDraftDefinition(_catalogRepository, NewCreateRequest());
+            Result<ContentDefinitionRecord> result = ContentCatalogAuthoringService.CreateDraftDefinition(_catalogRepository, _campaignRepository, NewCreateRequest());
 
             Assert.That(result.IsSuccess, Is.True);
             Assert.That(result.Value.Status, Is.EqualTo(ContentDefinitionStatus.Draft));
@@ -80,7 +80,7 @@ namespace Odyssey.Tests.Persistence.Content
         [Test]
         public void CreateDraftDefinition_ByNonMainGm_IsRejected_NoStateChange()
         {
-            Result<ContentDefinitionRecord> result = ContentCatalogAuthoringService.CreateDraftDefinition(_catalogRepository, NewCreateRequest(actorIsMainGm: false));
+            Result<ContentDefinitionRecord> result = ContentCatalogAuthoringService.CreateDraftDefinition(_catalogRepository, _campaignRepository, NewCreateRequest(actor: NewUserId()));
 
             Assert.That(result.IsFailure, Is.True);
             Assert.That(result.Error.Code, Is.EqualTo(ErrorCodes.ContentCatalogAuthoringDenied));
@@ -94,8 +94,8 @@ namespace Odyssey.Tests.Persistence.Content
         {
             CreateDraftDefinitionRequest request = NewCreateRequest();
 
-            Result<ContentDefinitionRecord> first = ContentCatalogAuthoringService.CreateDraftDefinition(_catalogRepository, request);
-            Result<ContentDefinitionRecord> replay = ContentCatalogAuthoringService.CreateDraftDefinition(_catalogRepository, request);
+            Result<ContentDefinitionRecord> first = ContentCatalogAuthoringService.CreateDraftDefinition(_catalogRepository, _campaignRepository, request);
+            Result<ContentDefinitionRecord> replay = ContentCatalogAuthoringService.CreateDraftDefinition(_catalogRepository, _campaignRepository, request);
 
             Assert.That(first.IsSuccess, Is.True);
             Assert.That(replay.IsSuccess, Is.True);
@@ -110,11 +110,11 @@ namespace Odyssey.Tests.Persistence.Content
         [Test]
         public void UpdateDraftDefinition_ByMainGm_Succeeds_AndIncrementsRevisionOnce()
         {
-            Result<ContentDefinitionRecord> created = ContentCatalogAuthoringService.CreateDraftDefinition(_catalogRepository, NewCreateRequest());
+            Result<ContentDefinitionRecord> created = ContentCatalogAuthoringService.CreateDraftDefinition(_catalogRepository, _campaignRepository, NewCreateRequest());
             Assert.That(created.IsSuccess, Is.True);
 
-            var updateRequest = new UpdateDraftDefinitionRequest(_campaign, created.Value.ContentDefinitionId, "Steel Sword", "Renamed by MainGM.", "{}", created.Value.Revision, NewUserId(), actorIsMainGm: true, NewCommandId(), TestCorrelationId);
-            Result<ContentDefinitionRecord> updated = ContentCatalogAuthoringService.UpdateDraftDefinition(_catalogRepository, updateRequest);
+            var updateRequest = new UpdateDraftDefinitionRequest(_campaign, created.Value.ContentDefinitionId, "Steel Sword", "Renamed by MainGM.", "{}", created.Value.Revision, global::Odyssey.Application.Identity.DevIdentityProvider.AssignHost(), NewCommandId(), TestCorrelationId);
+            Result<ContentDefinitionRecord> updated = ContentCatalogAuthoringService.UpdateDraftDefinition(_catalogRepository, _campaignRepository, updateRequest);
 
             Assert.That(updated.IsSuccess, Is.True);
             Assert.That(updated.Value.Name, Is.EqualTo("Steel Sword"));
@@ -124,11 +124,11 @@ namespace Odyssey.Tests.Persistence.Content
         [Test]
         public void UpdateDraftDefinition_WithStaleRevision_IsRejected_NoStateChange()
         {
-            Result<ContentDefinitionRecord> created = ContentCatalogAuthoringService.CreateDraftDefinition(_catalogRepository, NewCreateRequest());
+            Result<ContentDefinitionRecord> created = ContentCatalogAuthoringService.CreateDraftDefinition(_catalogRepository, _campaignRepository, NewCreateRequest());
             Assert.That(created.IsSuccess, Is.True);
 
-            var updateRequest = new UpdateDraftDefinitionRequest(_campaign, created.Value.ContentDefinitionId, "Should Not Apply", null, "{}", created.Value.Revision + 1, NewUserId(), actorIsMainGm: true, NewCommandId(), TestCorrelationId);
-            Result<ContentDefinitionRecord> updated = ContentCatalogAuthoringService.UpdateDraftDefinition(_catalogRepository, updateRequest);
+            var updateRequest = new UpdateDraftDefinitionRequest(_campaign, created.Value.ContentDefinitionId, "Should Not Apply", null, "{}", created.Value.Revision + 1, global::Odyssey.Application.Identity.DevIdentityProvider.AssignHost(), NewCommandId(), TestCorrelationId);
+            Result<ContentDefinitionRecord> updated = ContentCatalogAuthoringService.UpdateDraftDefinition(_catalogRepository, _campaignRepository, updateRequest);
 
             Assert.That(updated.IsFailure, Is.True);
             Assert.That(updated.Error.Code, Is.EqualTo(ErrorCodes.PersistenceContentDefinitionRevisionConflict));
@@ -141,11 +141,11 @@ namespace Odyssey.Tests.Persistence.Content
         [Test]
         public void UpdateDraftDefinition_ByNonMainGm_IsRejected_NoStateChange()
         {
-            Result<ContentDefinitionRecord> created = ContentCatalogAuthoringService.CreateDraftDefinition(_catalogRepository, NewCreateRequest());
+            Result<ContentDefinitionRecord> created = ContentCatalogAuthoringService.CreateDraftDefinition(_catalogRepository, _campaignRepository, NewCreateRequest());
             Assert.That(created.IsSuccess, Is.True);
 
-            var updateRequest = new UpdateDraftDefinitionRequest(_campaign, created.Value.ContentDefinitionId, "Should Not Apply", null, "{}", created.Value.Revision, NewUserId(), actorIsMainGm: false, NewCommandId(), TestCorrelationId);
-            Result<ContentDefinitionRecord> updated = ContentCatalogAuthoringService.UpdateDraftDefinition(_catalogRepository, updateRequest);
+            var updateRequest = new UpdateDraftDefinitionRequest(_campaign, created.Value.ContentDefinitionId, "Should Not Apply", null, "{}", created.Value.Revision, NewUserId(), NewCommandId(), TestCorrelationId);
+            Result<ContentDefinitionRecord> updated = ContentCatalogAuthoringService.UpdateDraftDefinition(_catalogRepository, _campaignRepository, updateRequest);
 
             Assert.That(updated.IsFailure, Is.True);
             Assert.That(updated.Error.Code, Is.EqualTo(ErrorCodes.ContentCatalogAuthoringDenied));
@@ -157,12 +157,12 @@ namespace Odyssey.Tests.Persistence.Content
         [Test]
         public void UpdateDraftDefinition_OnPublishedOrArchivedDefinition_IsRejected()
         {
-            Result<ContentDefinitionRecord> created = ContentCatalogAuthoringService.CreateDraftDefinition(_catalogRepository, NewCreateRequest());
+            Result<ContentDefinitionRecord> created = ContentCatalogAuthoringService.CreateDraftDefinition(_catalogRepository, _campaignRepository, NewCreateRequest());
             Assert.That(created.IsSuccess, Is.True);
             MarkStatusDirectly(created.Value.ContentDefinitionId, ContentDefinitionStatus.Published);
 
-            var updateRequest = new UpdateDraftDefinitionRequest(_campaign, created.Value.ContentDefinitionId, "Should Not Apply", null, "{}", created.Value.Revision, NewUserId(), actorIsMainGm: true, NewCommandId(), TestCorrelationId);
-            Result<ContentDefinitionRecord> updated = ContentCatalogAuthoringService.UpdateDraftDefinition(_catalogRepository, updateRequest);
+            var updateRequest = new UpdateDraftDefinitionRequest(_campaign, created.Value.ContentDefinitionId, "Should Not Apply", null, "{}", created.Value.Revision, global::Odyssey.Application.Identity.DevIdentityProvider.AssignHost(), NewCommandId(), TestCorrelationId);
+            Result<ContentDefinitionRecord> updated = ContentCatalogAuthoringService.UpdateDraftDefinition(_catalogRepository, _campaignRepository, updateRequest);
 
             Assert.That(updated.IsFailure, Is.True);
             Assert.That(updated.Error.Code, Is.EqualTo(ErrorCodes.PersistenceContentDefinitionNotDraft));
@@ -171,11 +171,11 @@ namespace Odyssey.Tests.Persistence.Content
         [Test]
         public void UpdateDraftDefinition_ReplayOfSameCommandId_DoesNotIncrementRevisionTwice()
         {
-            Result<ContentDefinitionRecord> created = ContentCatalogAuthoringService.CreateDraftDefinition(_catalogRepository, NewCreateRequest());
-            var updateRequest = new UpdateDraftDefinitionRequest(_campaign, created.Value.ContentDefinitionId, "Renamed Once", null, "{}", created.Value.Revision, NewUserId(), actorIsMainGm: true, NewCommandId(), TestCorrelationId);
+            Result<ContentDefinitionRecord> created = ContentCatalogAuthoringService.CreateDraftDefinition(_catalogRepository, _campaignRepository, NewCreateRequest());
+            var updateRequest = new UpdateDraftDefinitionRequest(_campaign, created.Value.ContentDefinitionId, "Renamed Once", null, "{}", created.Value.Revision, global::Odyssey.Application.Identity.DevIdentityProvider.AssignHost(), NewCommandId(), TestCorrelationId);
 
-            Result<ContentDefinitionRecord> first = ContentCatalogAuthoringService.UpdateDraftDefinition(_catalogRepository, updateRequest);
-            Result<ContentDefinitionRecord> replay = ContentCatalogAuthoringService.UpdateDraftDefinition(_catalogRepository, updateRequest);
+            Result<ContentDefinitionRecord> first = ContentCatalogAuthoringService.UpdateDraftDefinition(_catalogRepository, _campaignRepository, updateRequest);
+            Result<ContentDefinitionRecord> replay = ContentCatalogAuthoringService.UpdateDraftDefinition(_catalogRepository, _campaignRepository, updateRequest);
 
             Assert.That(first.IsSuccess, Is.True);
             Assert.That(replay.IsSuccess, Is.True);
@@ -187,12 +187,12 @@ namespace Odyssey.Tests.Persistence.Content
         [Test]
         public void CreateNextDraftVersionFromPublished_ByMainGm_CopiesSourceFields_AsNewDraftIdentity()
         {
-            Result<ContentDefinitionRecord> created = ContentCatalogAuthoringService.CreateDraftDefinition(_catalogRepository, NewCreateRequest(name: "Longsword"));
+            Result<ContentDefinitionRecord> created = ContentCatalogAuthoringService.CreateDraftDefinition(_catalogRepository, _campaignRepository, NewCreateRequest(name: "Longsword"));
             Assert.That(created.IsSuccess, Is.True);
             MarkStatusDirectly(created.Value.ContentDefinitionId, ContentDefinitionStatus.Published);
 
-            var nextRequest = new CreateNextDraftVersionFromPublishedRequest(_campaign, created.Value.ContentDefinitionId, NewUserId(), actorIsMainGm: true, NewCommandId(), TestCorrelationId);
-            Result<ContentDefinitionRecord> nextDraft = ContentCatalogAuthoringService.CreateNextDraftVersionFromPublished(_catalogRepository, nextRequest);
+            var nextRequest = new CreateNextDraftVersionFromPublishedRequest(_campaign, created.Value.ContentDefinitionId, global::Odyssey.Application.Identity.DevIdentityProvider.AssignHost(), NewCommandId(), TestCorrelationId);
+            Result<ContentDefinitionRecord> nextDraft = ContentCatalogAuthoringService.CreateNextDraftVersionFromPublished(_catalogRepository, _campaignRepository, nextRequest);
 
             Assert.That(nextDraft.IsSuccess, Is.True);
             Assert.That(nextDraft.Value.ContentDefinitionId, Is.Not.EqualTo(created.Value.ContentDefinitionId), "the next Draft version must have its own new ContentDefinitionId");
@@ -206,11 +206,11 @@ namespace Odyssey.Tests.Persistence.Content
         [Test]
         public void CreateNextDraftVersionFromPublished_DoesNotMutatePublishedSource()
         {
-            Result<ContentDefinitionRecord> created = ContentCatalogAuthoringService.CreateDraftDefinition(_catalogRepository, NewCreateRequest(name: "Longsword"));
+            Result<ContentDefinitionRecord> created = ContentCatalogAuthoringService.CreateDraftDefinition(_catalogRepository, _campaignRepository, NewCreateRequest(name: "Longsword"));
             MarkStatusDirectly(created.Value.ContentDefinitionId, ContentDefinitionStatus.Published);
 
-            var nextRequest = new CreateNextDraftVersionFromPublishedRequest(_campaign, created.Value.ContentDefinitionId, NewUserId(), actorIsMainGm: true, NewCommandId(), TestCorrelationId);
-            Result<ContentDefinitionRecord> nextDraft = ContentCatalogAuthoringService.CreateNextDraftVersionFromPublished(_catalogRepository, nextRequest);
+            var nextRequest = new CreateNextDraftVersionFromPublishedRequest(_campaign, created.Value.ContentDefinitionId, global::Odyssey.Application.Identity.DevIdentityProvider.AssignHost(), NewCommandId(), TestCorrelationId);
+            Result<ContentDefinitionRecord> nextDraft = ContentCatalogAuthoringService.CreateNextDraftVersionFromPublished(_catalogRepository, _campaignRepository, nextRequest);
             Assert.That(nextDraft.IsSuccess, Is.True);
 
             Result<ContentDefinitionRecord> sourceAfter = _catalogRepository.GetContentDefinition(_campaign, created.Value.ContentDefinitionId, TestCorrelationId);
@@ -223,11 +223,11 @@ namespace Odyssey.Tests.Persistence.Content
         [Test]
         public void CreateNextDraftVersionFromPublished_ByNonMainGm_IsRejected_NoStateChange()
         {
-            Result<ContentDefinitionRecord> created = ContentCatalogAuthoringService.CreateDraftDefinition(_catalogRepository, NewCreateRequest());
+            Result<ContentDefinitionRecord> created = ContentCatalogAuthoringService.CreateDraftDefinition(_catalogRepository, _campaignRepository, NewCreateRequest());
             MarkStatusDirectly(created.Value.ContentDefinitionId, ContentDefinitionStatus.Published);
 
-            var nextRequest = new CreateNextDraftVersionFromPublishedRequest(_campaign, created.Value.ContentDefinitionId, NewUserId(), actorIsMainGm: false, NewCommandId(), TestCorrelationId);
-            Result<ContentDefinitionRecord> nextDraft = ContentCatalogAuthoringService.CreateNextDraftVersionFromPublished(_catalogRepository, nextRequest);
+            var nextRequest = new CreateNextDraftVersionFromPublishedRequest(_campaign, created.Value.ContentDefinitionId, NewUserId(), NewCommandId(), TestCorrelationId);
+            Result<ContentDefinitionRecord> nextDraft = ContentCatalogAuthoringService.CreateNextDraftVersionFromPublished(_catalogRepository, _campaignRepository, nextRequest);
 
             Assert.That(nextDraft.IsFailure, Is.True);
             Assert.That(nextDraft.Error.Code, Is.EqualTo(ErrorCodes.ContentCatalogAuthoringDenied));
@@ -239,11 +239,11 @@ namespace Odyssey.Tests.Persistence.Content
         [Test]
         public void CreateNextDraftVersionFromPublished_OnNonPublishedSource_IsRejected()
         {
-            Result<ContentDefinitionRecord> created = ContentCatalogAuthoringService.CreateDraftDefinition(_catalogRepository, NewCreateRequest());
+            Result<ContentDefinitionRecord> created = ContentCatalogAuthoringService.CreateDraftDefinition(_catalogRepository, _campaignRepository, NewCreateRequest());
             Assert.That(created.IsSuccess, Is.True);
 
-            var nextRequest = new CreateNextDraftVersionFromPublishedRequest(_campaign, created.Value.ContentDefinitionId, NewUserId(), actorIsMainGm: true, NewCommandId(), TestCorrelationId);
-            Result<ContentDefinitionRecord> nextDraft = ContentCatalogAuthoringService.CreateNextDraftVersionFromPublished(_catalogRepository, nextRequest);
+            var nextRequest = new CreateNextDraftVersionFromPublishedRequest(_campaign, created.Value.ContentDefinitionId, global::Odyssey.Application.Identity.DevIdentityProvider.AssignHost(), NewCommandId(), TestCorrelationId);
+            Result<ContentDefinitionRecord> nextDraft = ContentCatalogAuthoringService.CreateNextDraftVersionFromPublished(_catalogRepository, _campaignRepository, nextRequest);
 
             Assert.That(nextDraft.IsFailure, Is.True);
             Assert.That(nextDraft.Error.Code, Is.EqualTo(ErrorCodes.PersistenceContentDefinitionNotPublished));
@@ -252,13 +252,13 @@ namespace Odyssey.Tests.Persistence.Content
         [Test]
         public void CreateNextDraftVersionFromPublished_ReplayOfSameCommandId_IsIdempotent()
         {
-            Result<ContentDefinitionRecord> created = ContentCatalogAuthoringService.CreateDraftDefinition(_catalogRepository, NewCreateRequest());
+            Result<ContentDefinitionRecord> created = ContentCatalogAuthoringService.CreateDraftDefinition(_catalogRepository, _campaignRepository, NewCreateRequest());
             MarkStatusDirectly(created.Value.ContentDefinitionId, ContentDefinitionStatus.Published);
 
-            var nextRequest = new CreateNextDraftVersionFromPublishedRequest(_campaign, created.Value.ContentDefinitionId, NewUserId(), actorIsMainGm: true, NewCommandId(), TestCorrelationId);
+            var nextRequest = new CreateNextDraftVersionFromPublishedRequest(_campaign, created.Value.ContentDefinitionId, global::Odyssey.Application.Identity.DevIdentityProvider.AssignHost(), NewCommandId(), TestCorrelationId);
 
-            Result<ContentDefinitionRecord> first = ContentCatalogAuthoringService.CreateNextDraftVersionFromPublished(_catalogRepository, nextRequest);
-            Result<ContentDefinitionRecord> replay = ContentCatalogAuthoringService.CreateNextDraftVersionFromPublished(_catalogRepository, nextRequest);
+            Result<ContentDefinitionRecord> first = ContentCatalogAuthoringService.CreateNextDraftVersionFromPublished(_catalogRepository, _campaignRepository, nextRequest);
+            Result<ContentDefinitionRecord> replay = ContentCatalogAuthoringService.CreateNextDraftVersionFromPublished(_catalogRepository, _campaignRepository, nextRequest);
 
             Assert.That(first.IsSuccess, Is.True);
             Assert.That(replay.IsSuccess, Is.True);
@@ -304,6 +304,92 @@ namespace Odyssey.Tests.Persistence.Content
             update.Parameters.AddWithValue("$status", status.ToString());
             update.Parameters.AddWithValue("$id", definitionId.ToString());
             update.ExecuteNonQuery();
+        }
+
+        // ---- ODY-S10-104: MainGM is the stored membership, not a claim -------------------------------
+
+        private UserId AddMember(CampaignMembershipRole role)
+        {
+            UserId user = NewUserId();
+            Assert.That(_campaignRepository.AddMember(_campaign, user, role, NewCommandId(), TestCorrelationId).IsSuccess, Is.True);
+            return user;
+        }
+
+        [Test] // TC-PERSIST-060
+        public void CreateDraftDefinition_UpdateDraftDefinition_CreateNextDraftVersionFromPublished_AreMainGmOnly_ByTheStoredMembership()
+        {
+            UserId stranger = NewUserId();
+            UserId player = AddMember(CampaignMembershipRole.Player);
+            UserId observer = AddMember(CampaignMembershipRole.Observer);
+            UserId secondGm = AddMember(CampaignMembershipRole.MainGm);
+
+            foreach (UserId actor in new[] { stranger, player, observer })
+            {
+                Result<ContentDefinitionRecord> created = ContentCatalogAuthoringService.CreateDraftDefinition(_catalogRepository, _campaignRepository, NewCreateRequest(actor: actor));
+                Assert.That(created.IsFailure, Is.True, "CreateDraftDefinition must deny a user who is not a stored MainGm");
+                Assert.That(created.Error.Code, Is.EqualTo(ErrorCodes.ContentCatalogAuthoringDenied));
+            }
+
+            Result<IReadOnlyList<ContentDefinitionRecord>> none = _catalogRepository.ListContentDefinitions(_campaign, null, TestCorrelationId);
+            Assert.That(none.Value, Is.Empty, "every denied Create above must have caused no repository state change");
+
+            ContentDefinitionRecord byHost = ContentCatalogAuthoringService.CreateDraftDefinition(_catalogRepository, _campaignRepository, NewCreateRequest(actor: global::Odyssey.Application.Identity.DevIdentityProvider.AssignHost())).Value;
+            ContentDefinitionRecord bySecondGm = ContentCatalogAuthoringService.CreateDraftDefinition(_catalogRepository, _campaignRepository, NewCreateRequest(actor: secondGm)).Value;
+
+            foreach (UserId actor in new[] { stranger, player, observer })
+            {
+                var updateRequest = new UpdateDraftDefinitionRequest(_campaign, byHost.ContentDefinitionId, "Denied Rename", null, "{}", byHost.Revision, actor, NewCommandId(), TestCorrelationId);
+                Result<ContentDefinitionRecord> updated = ContentCatalogAuthoringService.UpdateDraftDefinition(_catalogRepository, _campaignRepository, updateRequest);
+                Assert.That(updated.IsFailure, Is.True, "UpdateDraftDefinition must deny a user who is not a stored MainGm");
+                Assert.That(updated.Error.Code, Is.EqualTo(ErrorCodes.ContentCatalogAuthoringDenied));
+            }
+
+            MarkStatusDirectly(bySecondGm.ContentDefinitionId, ContentDefinitionStatus.Published);
+            foreach (UserId actor in new[] { stranger, player, observer })
+            {
+                var nextRequest = new CreateNextDraftVersionFromPublishedRequest(_campaign, bySecondGm.ContentDefinitionId, actor, NewCommandId(), TestCorrelationId);
+                Result<ContentDefinitionRecord> nextDraft = ContentCatalogAuthoringService.CreateNextDraftVersionFromPublished(_catalogRepository, _campaignRepository, nextRequest);
+                Assert.That(nextDraft.IsFailure, Is.True, "CreateNextDraftVersionFromPublished must deny a user who is not a stored MainGm");
+                Assert.That(nextDraft.Error.Code, Is.EqualTo(ErrorCodes.ContentCatalogAuthoringDenied));
+            }
+
+            // And a stored MainGm (the host, or an added one) is let through on every one of the three points.
+            var okUpdate = new UpdateDraftDefinitionRequest(_campaign, byHost.ContentDefinitionId, "Renamed by MainGm", null, "{}", byHost.Revision, secondGm, NewCommandId(), TestCorrelationId);
+            Assert.That(ContentCatalogAuthoringService.UpdateDraftDefinition(_catalogRepository, _campaignRepository, okUpdate).IsSuccess, Is.True);
+            var okNext = new CreateNextDraftVersionFromPublishedRequest(_campaign, bySecondGm.ContentDefinitionId, global::Odyssey.Application.Identity.DevIdentityProvider.AssignHost(), NewCommandId(), TestCorrelationId);
+            Assert.That(ContentCatalogAuthoringService.CreateNextDraftVersionFromPublished(_catalogRepository, _campaignRepository, okNext).IsSuccess, Is.True);
+        }
+
+        [Test] // TC-PERSIST-061
+        public void CreateDraftDefinition_FailsClosed_WhenTheMembershipLookupFails()
+        {
+            var poisoned = PoisonedMembershipCampaignRepository.FailsOnLookup();
+            Result<ContentDefinitionRecord> result = ContentCatalogAuthoringService.CreateDraftDefinition(_catalogRepository, poisoned, NewCreateRequest(actor: global::Odyssey.Application.Identity.DevIdentityProvider.AssignHost()));
+
+            Assert.That(result.IsFailure, Is.True);
+            Assert.That(result.Error.Code, Is.EqualTo(ErrorCodes.PersistenceCampaignIoFailed), "an unreadable membership is the lookup's own failure, not a pass and not a fake denial -- even for the host");
+            Assert.That(poisoned.LookupCalls, Is.EqualTo(1));
+            Assert.That(_catalogRepository.ListContentDefinitions(_campaign, null, TestCorrelationId).Value, Is.Empty);
+        }
+
+        /// <summary>A campaign repository whose membership lookup always fails -- everything else is unused by these checks.</summary>
+        private sealed class PoisonedMembershipCampaignRepository : ICampaignRepository
+        {
+            public static PoisonedMembershipCampaignRepository FailsOnLookup() => new PoisonedMembershipCampaignRepository();
+
+            public int LookupCalls { get; private set; }
+
+            public Result<CampaignMemberLookup> GetMemberRole(CampaignHandle campaign, UserId userId, CorrelationId correlationId)
+            {
+                LookupCalls++;
+                return Result<CampaignMemberLookup>.Failure(PersistenceFailures.CampaignIoFailed(correlationId));
+            }
+
+            public Result<CampaignHandle> Create(CreateCampaignRequest request, CommandId commandId, CorrelationId correlationId) => throw new NotSupportedException();
+            public Result<CampaignHandle> Open(string campaignFolderPath, CorrelationId correlationId) => throw new NotSupportedException();
+            public Result Close(CampaignHandle handle, CorrelationId correlationId) => throw new NotSupportedException();
+            public Result<CampaignMembership> AddMember(CampaignHandle campaign, UserId userId, CampaignMembershipRole role, CommandId commandId, CorrelationId correlationId) => throw new NotSupportedException();
+            public Result<IReadOnlyList<CampaignMembership>> ListMembers(CampaignHandle campaign, CorrelationId correlationId) => throw new NotSupportedException();
         }
     }
 }

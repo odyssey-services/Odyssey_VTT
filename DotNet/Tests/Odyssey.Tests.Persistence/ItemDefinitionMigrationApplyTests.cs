@@ -378,12 +378,12 @@ namespace Odyssey.Tests.Persistence
         {
             var item = new ItemDefinition(ItemCategory.Generic, isStackable: true, maxStackSize: 50, weight: 1, hasDurability: false, maxDurability: null, hasCharges: false, maxCharges: null, Array.Empty<ContentDefinitionRef>(), Array.Empty<ContentDefinitionRef>());
             string propertiesJson = TypedDefinitionCodec.EncodeItem(item);
-            Result<ContentDefinitionRecord> draft = ContentCatalogAuthoringService.CreateDraftDefinition(_catalog, new CreateDraftDefinitionRequest(
-                _campaign, ContentDefinitionType.Item, "Migration Apply Fixture " + tag, "ODY-S05-403 fixture", NewUserId(), actorIsMainGm: true, NewCommandId(), Corr,
+            Result<ContentDefinitionRecord> draft = ContentCatalogAuthoringService.CreateDraftDefinition(_catalog, _campaigns, new CreateDraftDefinitionRequest(
+                _campaign, ContentDefinitionType.Item, "Migration Apply Fixture " + tag, "ODY-S05-403 fixture", global::Odyssey.Application.Identity.DevIdentityProvider.AssignHost(), NewCommandId(), Corr,
                 rulesetCompatibility: new[] { ActiveRuleset }, propertiesJson: propertiesJson));
             Assert.That(draft.IsSuccess, Is.True, draft.IsFailure ? draft.Error.Code.ToString() : string.Empty);
-            Result<ContentDefinitionRecord> published = ContentCatalogLifecycleService.PublishDefinition(_catalog, new PublishDefinitionRequest(
-                _campaign, draft.Value.ContentDefinitionId, draft.Value.Revision, NewUserId(), actorIsMainGm: true, NewCommandId(), Corr));
+            Result<ContentDefinitionRecord> published = ContentCatalogLifecycleService.PublishDefinition(_catalog, _campaigns, new PublishDefinitionRequest(
+                _campaign, draft.Value.ContentDefinitionId, draft.Value.Revision, global::Odyssey.Application.Identity.DevIdentityProvider.AssignHost(), NewCommandId(), Corr));
             Assert.That(published.IsSuccess, Is.True, published.IsFailure ? published.Error.Code.ToString() : string.Empty);
             return published.Value;
         }
@@ -393,12 +393,12 @@ namespace Odyssey.Tests.Persistence
             var item = new ItemDefinition(ItemCategory.Generic, isStackable: false, maxStackSize: null, weight: 3, hasDurability: false, maxDurability: null, hasCharges: false, maxCharges: null, Array.Empty<ContentDefinitionRef>(), Array.Empty<ContentDefinitionRef>());
             var armor = new ArmorDefinition(item, slot, new[] { BodyPartId.Parse("Torso") }, protection);
             string propertiesJson = TypedDefinitionCodec.EncodeArmor(armor);
-            Result<ContentDefinitionRecord> draft = ContentCatalogAuthoringService.CreateDraftDefinition(_catalog, new CreateDraftDefinitionRequest(
-                _campaign, ContentDefinitionType.Armor, "Migration Apply Fixture " + tag, "ODY-S05-403 fixture", NewUserId(), actorIsMainGm: true, NewCommandId(), Corr,
+            Result<ContentDefinitionRecord> draft = ContentCatalogAuthoringService.CreateDraftDefinition(_catalog, _campaigns, new CreateDraftDefinitionRequest(
+                _campaign, ContentDefinitionType.Armor, "Migration Apply Fixture " + tag, "ODY-S05-403 fixture", global::Odyssey.Application.Identity.DevIdentityProvider.AssignHost(), NewCommandId(), Corr,
                 rulesetCompatibility: new[] { ActiveRuleset }, propertiesJson: propertiesJson));
             Assert.That(draft.IsSuccess, Is.True, draft.IsFailure ? draft.Error.Code.ToString() : string.Empty);
-            Result<ContentDefinitionRecord> published = ContentCatalogLifecycleService.PublishDefinition(_catalog, new PublishDefinitionRequest(
-                _campaign, draft.Value.ContentDefinitionId, draft.Value.Revision, NewUserId(), actorIsMainGm: true, NewCommandId(), Corr));
+            Result<ContentDefinitionRecord> published = ContentCatalogLifecycleService.PublishDefinition(_catalog, _campaigns, new PublishDefinitionRequest(
+                _campaign, draft.Value.ContentDefinitionId, draft.Value.Revision, global::Odyssey.Application.Identity.DevIdentityProvider.AssignHost(), NewCommandId(), Corr));
             Assert.That(published.IsSuccess, Is.True, published.IsFailure ? published.Error.Code.ToString() : string.Empty);
             return published.Value;
         }

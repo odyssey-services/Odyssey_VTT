@@ -1,0 +1,51 @@
+# ODY-S10-104 — Stored MainGM Check in the Content Catalog Subsystem
+
+## 1. Task identity
+`ODY-S10-104`; status: In Review (Draft PR, merge deferred to the product owner). Step MG-4 of the "replace the client-supplied MainGM flag" sub-track of `SLICE-10` (`docs/tasks/SLICE-10_IMPLEMENTATION_BACKLOG.md`).
+
+## 2. Goal
+Make the seven strictly-MainGM-only points of the content catalog subsystem depend on the stored campaign membership (`CampaignMembershipAuthorization.IsMainGm`) instead of a `bool actorIsMainGm` the caller claims, while leaving the two read operations (`GetContentDefinition`, `ListContentDefinitions`) exactly as unauthenticated as they were before this task.
+
+## 3. Authority
+This task's governing ТЗ; `ODY-S10-101` (Application-layer pattern, `BoardMovementService`), reused here as-is — all seven points of this subsystem already lived in the Application layer, so no Persistence-layer pattern (`ODY-S10-102`/`103`) was needed.
+
+## 4. In scope
+- **Application layer only:** `ContentCatalogAuthoringService.CreateDraftDefinition`/`UpdateDraftDefinition`/`CreateNextDraftVersionFromPublished` and `ContentCatalogLifecycleService.PublishDefinition`/`ArchiveDefinition`/`DeleteDraftDefinition`/`ListArchivedDefinitions` each take an added `ICampaignRepository campaignRepository` parameter (`ArgumentNullException` on `null`, same shape as `BoardMovementService.MoveToken`); the decision is `CampaignMembershipAuthorization.IsMainGm(campaignRepository, request.Campaign, request.ActorUserId, request.CorrelationId)`, a lookup failure is returned as-is (fail closed), a `false` result is the subsystem's existing `NotMainGm` denial.
+- `bool ActorIsMainGm` removed from all seven `*Request` types. Four of them (`CreateDraftDefinitionRequest`, `UpdateDraftDefinitionRequest`, `CreateNextDraftVersionFromPublishedRequest`, `PublishDefinitionRequest`) already carried a `UserId ActorUserId`/`actorUserId`, so only the flag left. Three (`ArchiveDefinitionRequest`, `DeleteDraftDefinitionRequest`, `ListArchivedDefinitionsRequest`) had no acting-user field at all before this task and gained `UserId ActorUserId` (validated with `if (!actorUserId.IsValid) throw new ArgumentException(...)`, matching every other actor parameter in this codebase) in the flag's place.
+- Tests, catalogue `TC-PERSIST-060`–`064`, the `SLICE-10` backlog, this contract and its plan.
+
+## 5. Out of scope
+- **Reads stay open, deliberately:** `GetContentDefinition` and `ListContentDefinitions` are not touched by this task and remain callable by anyone, exactly as before. The ТЗ named this explicitly as out of scope, not a gap the task forgot.
+- `SqliteContentCatalogRepository`/`ContentCatalogRepositoryContracts.cs` (Persistence layer; it does not authorize today and this task does not add authorization there); `CatalogValidationService`/`CatalogValidationContracts.cs`; any characters/board/combat-effects file; any Dice/Inventory production file (`DiceRollService.cs`, `InventoryStackOperationService.cs`, `InventoryMovementService.cs`, `EquipmentService.cs`, `InventoryCreationService.cs`, `SqliteInventoryRepository.cs` — reserved for a future `ODY-S10-105`); `CampaignMembershipAuthorization.cs`/`CampaignRepositoryContracts.cs`/`SqliteCampaignRepository.cs`; Unity client; ADRs; `.asmdef`/`.csproj`; verify scripts.
+- No alternative access path (an authorship- or draft-ownership-based right to author/publish/archive/delete/list-archived) exists today for the seven points; recon confirmed this before implementation and none was introduced.
+- No internal-caller/system-rollback complexity like `ODY-S10-103`'s exists in this subsystem; recon found no production caller that seeds or mutates the catalog outside a user-attributed request.
+
+## 6-8. Domain / Application / Persistence
+Application only: `ContentCatalogAuthoringContracts.cs`, `ContentCatalogLifecycleContracts.cs`. No Domain change. No Persistence change (the repository and its contracts are read-only participants here, untouched).
+
+## 9. Tests and validation
+New (`TC-PERSIST-060`–`064`), all in `Odyssey.Tests.Persistence/Content/`: `060` — `CreateDraftDefinition`/`UpdateDraftDefinition`/`CreateNextDraftVersionFromPublished` deny an unregistered user, a registered Player and a registered Observer (no repository state change on any denial) and let the host and a second, separately-registered MainGm through; `061` — `CreateDraftDefinition` fails closed (the lookup's own `PersistenceCampaignIoFailed`, not a pass and not a fake denial) when the membership repository cannot be read, even for the host, via a `PoisonedMembershipCampaignRepository` test double that also counts that exactly one lookup happened; `062` — the same denied/allowed shape as `060` for all four lifecycle operations (`PublishDefinition`, `ArchiveDefinition`, `DeleteDraftDefinition`, `ListArchivedDefinitions`); `063` — `PublishDefinition` fails closed the same way as `061`; `064` — proves the three newly added `ActorUserId` parameters are genuinely read, not merely accepted: a registered-but-not-MainGm Player is denied on `ArchiveDefinition`/`DeleteDraftDefinition`/`ListArchivedDefinitions`, and the same three calls succeed once the actor is a different, separately-registered MainGm (role promotion of the same user is not a capability this codebase has, so a second registered MainGm stands in for "the parameter's value decided the outcome").
+
+A deliberate mutation (`CreateDraftDefinition`'s `if (!mainGmCheck.Value)` short-circuited so the gate never denies) was applied, made `TC-PERSIST-060` fail (`Expected: True, But was: False` on the first denial assertion), and was reverted.
+
+**Existing tests changed, and why:** every one of the seven service-method calls in the 12 named test files gained the campaign repository as its second argument; every construction of the seven request types lost the `actorIsMainGm`/`ActorIsMainGm` argument — `true` became a real actor (the campaign's registered host, `DevIdentityProvider.AssignHost()`, or, where a request already carried its own distinct actor, that actor) so the request is now judged by the stored role instead of the claim. For the ten files listed as fixture-only in the ТЗ (`MinimalTestCatalogFixtureTests`, `UseItemIntegrationTests`, `InventoryRuntimeIntegrationFixtureTests`, `ActivateAbilityIntegrationTests`, `InventoryCreationServiceTests`, `ItemDefinitionMigrationApplyTests`, `EquipmentRuntimeIntegrationFixtureTests`, `MvpTwoCharacterCombatScenarioTests`, `ItemDefinitionMigrationIntegrationFixtureTests`, `ActiveEffectIntegrationFixtureTests`), only this mechanical argument change was made — no new assertions, no restructuring — per the ТЗ's stricter rule for files outside the two primary suites. `Odyssey.Tests.Persistence.dll`: 879/879 green after the change (874 pre-task + 5 new).
+
+## 10-17. (see plan)
+Same shape as `ODY-S10-101`/`102`/`103`.
+
+## 18. Change control
+
+### Decisions made during execution
+- **Reads (`GetContentDefinition`/`ListContentDefinitions`) were left exactly as they were.** The ТЗ named this explicitly; it is recorded here as a conscious decision, not an oversight. `SqliteContentCatalogRepository.cs` and `ContentCatalogRepositoryContracts.cs` were not opened for editing.
+- **`ArchiveDefinitionRequest`/`DeleteDraftDefinitionRequest`/`ListArchivedDefinitionsRequest` gained `UserId ActorUserId` in the flag's exact position** (immediately before `CommandId`/`CorrelationId`), matching the parameter order every other request type in this file already used for its actor. Recon before implementation confirmed none of the three request types had a pre-existing `UserId` field (owner/target) that the new actor parameter could collide or be confused with — `ArchiveDefinitionRequest`/`DeleteDraftDefinitionRequest` only carried a `ContentDefinitionId`, `ListArchivedDefinitionsRequest` only a `CampaignHandle`.
+- **`ListArchivedDefinitionsRequest` is a pure read of the archive list but is itself MainGM-gated** (per the ТЗ's explicit seven-point list) — this is a different thing from the two out-of-scope reads (`GetContentDefinition`/`ListContentDefinitions`, which list/fetch active catalog entries); the ТЗ drew this line deliberately and it is preserved as given.
+- **Test actor pattern:** `TC-PERSIST-064` cannot "promote" one registered member to MainGm (no such operation exists), so it registers a second, distinct user as MainGm to prove the parameter's value — not the caller's identity or position in the test — decides the outcome.
+
+### Findings (reported, not fixed silently)
+- **Scoping risk caught and fixed during implementation, not left for review:** an early mechanical pass used an unscoped pattern match for `actorIsMainGm: true` across the ten fixture files and briefly mutated eight call sites in `Integration/InventoryRuntimeIntegrationFixtureTests.cs` that belong to the Dice/Inventory subsystem's own identically-named flag (`CreateItemStackFromDefinitionRequest`/`MoveItemStackRequest`/`SplitItemStackRequest`/`MergeItemStacksRequest`) — a subsystem explicitly reserved for a future `ODY-S10-105` and forbidden here. Caught by the resulting `dotnet build` errors (argument-position shift), reverted with a script mapping each of the eight exact original strings back, and the whole diff was re-swept afterwards (`git diff` grepped for `actorIsMainGm`/`ActorIsMainGm` outside the seven catalog request types) to confirm no other file had the same contamination. No Dice/Inventory production or test file is in the final diff beyond the one mechanical argument-position fix the ТЗ itself required in `UseItemIntegrationTests.cs`/`ActivateAbilityIntegrationTests.cs`/`InventoryRuntimeIntegrationFixtureTests.cs` (adding the campaign repository to the catalog-service calls those files also happen to make).
+- No file of the characters, board, combat-effects or Dice/Inventory subsystems was changed beyond that one mechanical fix in the three integration-fixture files above.
+- `SqliteContentCatalogRepository.cs`, `ContentCatalogRepositoryContracts.cs`, `CatalogValidationService.cs`, `CatalogValidationContracts.cs` are not in this diff.
+- Unity was not re-run: no client file changed, and the production edits are plain C# in the Application assembly that `dotnet build` compiles from the same sources.
+
+### Blockers
+None.
