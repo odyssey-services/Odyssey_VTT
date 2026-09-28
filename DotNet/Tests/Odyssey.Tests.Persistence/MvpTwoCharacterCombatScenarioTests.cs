@@ -49,6 +49,7 @@ namespace Odyssey.Tests.Persistence
 
         private string _root = null!;
         private CampaignHandle _campaign = null!;
+        private SqliteCampaignRepository _campaignRepository = null!;
         private IWallClock _clock = null!;
         private SqliteCharacterRepository _characters = null!;
         private SqliteContentCatalogRepository _catalog = null!;
@@ -68,7 +69,8 @@ namespace Odyssey.Tests.Persistence
         {
             _root = Path.Combine(Path.GetTempPath(), "ody-s06-108-" + Guid.NewGuid().ToString("N"));
             _clock = new SystemWallClock();
-            Result<CampaignHandle> campaign = new SqliteCampaignRepository(_clock).Create(new CreateCampaignRequest(_root, "mvp-scenario", "ruleset.core", "1.0.0", "0.1.0"), Command(), Corr);
+            _campaignRepository = new SqliteCampaignRepository(_clock);
+            Result<CampaignHandle> campaign = _campaignRepository.Create(new CreateCampaignRequest(_root, "mvp-scenario", "ruleset.core", "1.0.0", "0.1.0", global::Odyssey.Application.Identity.DevIdentityProvider.AssignHost()), Command(), Corr);
             Assert.That(campaign.IsSuccess, Is.True);
             _campaign = campaign.Value;
             _characters = new SqliteCharacterRepository(_clock);
@@ -165,7 +167,7 @@ namespace Odyssey.Tests.Persistence
             Assert.That(potionAfterUse.Value.Quantity.Value, Is.EqualTo(1), "Exactly one unit of the two-unit stack must be consumed.");
 
             // Movement: the defender retreats from distance 3 to distance 10, crossing the weapon's own range of 5.
-            Result<TokenRecord> moved = BoardMovementService.MoveToken(_scenes, new MoveTokenRequest(_campaign, User(), actorIsMainGm: true, defenderToken.TokenId, new TokenPosition(10, 0), defenderToken.Revision, Command(), Corr));
+            Result<TokenRecord> moved = BoardMovementService.MoveToken(_scenes, _campaignRepository, new MoveTokenRequest(_campaign, global::Odyssey.Application.Identity.DevIdentityProvider.AssignHost(), defenderToken.TokenId, new TokenPosition(10, 0), defenderToken.Revision, Command(), Corr));
             Assert.That(moved.IsSuccess, Is.True, moved.IsFailure ? moved.Error.Code.ToString() : string.Empty);
 
             // Attack #2: same weapon, same encounter -- now out of range. The move alone must be what makes

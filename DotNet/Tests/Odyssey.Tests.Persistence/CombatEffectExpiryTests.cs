@@ -41,7 +41,7 @@ namespace Odyssey.Tests.Persistence
         public void SetUp()
         {
             _root = Path.Combine(Path.GetTempPath(), "ody-s05-605-" + Guid.NewGuid().ToString("N"));
-            Result<CampaignHandle> campaign = new SqliteCampaignRepository(Clock).Create(new CreateCampaignRequest(_root, "combat-effect-expiry", "ruleset.core", "1.0.0", "0.1.0"), Command(), Corr);
+            Result<CampaignHandle> campaign = new SqliteCampaignRepository(Clock).Create(new CreateCampaignRequest(_root, "combat-effect-expiry", "ruleset.core", "1.0.0", "0.1.0", global::Odyssey.Application.Identity.DevIdentityProvider.AssignHost()), Command(), Corr);
             Assert.That(campaign.IsSuccess, Is.True);
             _campaign = campaign.Value;
             _characters = new SqliteCharacterRepository(Clock);

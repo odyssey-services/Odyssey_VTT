@@ -48,7 +48,7 @@ namespace Odyssey.Tests.Persistence
 
         private static CampaignHandle CreateCampaign(SqliteCampaignRepository repository, string rootPath, IWallClock clock)
         {
-            var request = new CreateCampaignRequest(rootPath, "Backup Test Campaign", "ruleset.core", "1.0.0", "0.1.0");
+            var request = new CreateCampaignRequest(rootPath, "Backup Test Campaign", "ruleset.core", "1.0.0", "0.1.0", global::Odyssey.Application.Identity.DevIdentityProvider.AssignHost());
             Result<CampaignHandle> created = repository.Create(request, CommandId.Parse("cmd_" + Guid.NewGuid().ToString("N")), TestCorrelationId);
             Assert.That(created.IsSuccess, Is.True);
             return created.Value;

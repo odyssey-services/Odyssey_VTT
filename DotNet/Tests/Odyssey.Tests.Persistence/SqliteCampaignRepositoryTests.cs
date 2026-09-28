@@ -54,7 +54,7 @@ namespace Odyssey.Tests.Persistence
         public void Create_AppliesMandatoryPragmaProfile_VerifiedByReadback()
         {
             var repository = new SqliteCampaignRepository(Clock);
-            var request = new CreateCampaignRequest(_workDir, "Test Campaign", "ruleset.core", "1.0.0", "0.1.0");
+            var request = new CreateCampaignRequest(_workDir, "Test Campaign", "ruleset.core", "1.0.0", "0.1.0", global::Odyssey.Application.Identity.DevIdentityProvider.AssignHost());
             Result<CampaignHandle> created = repository.Create(request, NewCommandId(), TestCorrelationId);
             Assert.That(created.IsSuccess, Is.True);
 
@@ -98,7 +98,7 @@ namespace Odyssey.Tests.Persistence
         public void Open_AppliesMandatoryPragmaProfile_OnExistingCampaign()
         {
             var repository = new SqliteCampaignRepository(Clock);
-            var request = new CreateCampaignRequest(_workDir, "Test Campaign", "ruleset.core", "1.0.0", "0.1.0");
+            var request = new CreateCampaignRequest(_workDir, "Test Campaign", "ruleset.core", "1.0.0", "0.1.0", global::Odyssey.Application.Identity.DevIdentityProvider.AssignHost());
             Result<CampaignHandle> created = repository.Create(request, NewCommandId(), TestCorrelationId);
             Assert.That(created.IsSuccess, Is.True);
             Assert.That(repository.Close(created.Value, TestCorrelationId).IsSuccess, Is.True);
@@ -118,7 +118,7 @@ namespace Odyssey.Tests.Persistence
         public void CreateThenOpen_ManifestRoundTrips()
         {
             var repository = new SqliteCampaignRepository(Clock);
-            var request = new CreateCampaignRequest(_workDir, "Round Trip Campaign", "ruleset.core", "2.3.1", "0.1.0");
+            var request = new CreateCampaignRequest(_workDir, "Round Trip Campaign", "ruleset.core", "2.3.1", "0.1.0", global::Odyssey.Application.Identity.DevIdentityProvider.AssignHost());
             Result<CampaignHandle> created = repository.Create(request, NewCommandId(), TestCorrelationId);
             Assert.That(created.IsSuccess, Is.True);
             CampaignHandle createdHandle = created.Value;
@@ -171,7 +171,7 @@ namespace Odyssey.Tests.Persistence
         public void WriteManifestAtomic_LeavesNoTempFileOnSuccess()
         {
             var repository = new SqliteCampaignRepository(Clock);
-            var request = new CreateCampaignRequest(_workDir, "Atomic Test", "ruleset.core", "1.0.0", "0.1.0");
+            var request = new CreateCampaignRequest(_workDir, "Atomic Test", "ruleset.core", "1.0.0", "0.1.0", global::Odyssey.Application.Identity.DevIdentityProvider.AssignHost());
             Result<CampaignHandle> created = repository.Create(request, NewCommandId(), TestCorrelationId);
             Assert.That(created.IsSuccess, Is.True);
 
@@ -186,7 +186,7 @@ namespace Odyssey.Tests.Persistence
         public void WriteManifestAtomic_SimulatedMidWriteFailure_DoesNotCorruptExistingManifest()
         {
             var repository = new SqliteCampaignRepository(Clock);
-            var request = new CreateCampaignRequest(_workDir, "Crash Test", "ruleset.core", "1.0.0", "0.1.0");
+            var request = new CreateCampaignRequest(_workDir, "Crash Test", "ruleset.core", "1.0.0", "0.1.0", global::Odyssey.Application.Identity.DevIdentityProvider.AssignHost());
             Result<CampaignHandle> created = repository.Create(request, NewCommandId(), TestCorrelationId);
             Assert.That(created.IsSuccess, Is.True);
             repository.Close(created.Value, TestCorrelationId);
@@ -217,7 +217,7 @@ namespace Odyssey.Tests.Persistence
         public void Open_DetectsManifestDatabaseConflict_AndBlocks()
         {
             var repository = new SqliteCampaignRepository(Clock);
-            var request = new CreateCampaignRequest(_workDir, "Conflict Test", "ruleset.core", "1.0.0", "0.1.0");
+            var request = new CreateCampaignRequest(_workDir, "Conflict Test", "ruleset.core", "1.0.0", "0.1.0", global::Odyssey.Application.Identity.DevIdentityProvider.AssignHost());
             Result<CampaignHandle> created = repository.Create(request, NewCommandId(), TestCorrelationId);
             Assert.That(created.IsSuccess, Is.True);
             repository.Close(created.Value, TestCorrelationId);
@@ -290,7 +290,7 @@ namespace Odyssey.Tests.Persistence
             File.WriteAllText(Path.Combine(_workDir, "unexpected.txt"), "pre-existing content");
 
             var repository = new SqliteCampaignRepository(Clock);
-            var request = new CreateCampaignRequest(_workDir, "Collision Test", "ruleset.core", "1.0.0", "0.1.0");
+            var request = new CreateCampaignRequest(_workDir, "Collision Test", "ruleset.core", "1.0.0", "0.1.0", global::Odyssey.Application.Identity.DevIdentityProvider.AssignHost());
             Result<CampaignHandle> result = repository.Create(request, NewCommandId(), TestCorrelationId);
 
             Assert.That(result.IsFailure, Is.True);
@@ -302,6 +302,129 @@ namespace Odyssey.Tests.Persistence
             using var command = connection.CreateCommand();
             command.CommandText = "PRAGMA " + pragmaName + ";";
             return Convert.ToString(command.ExecuteScalar()) ?? string.Empty;
+        }
+
+        // ---- ODY-S10-101: campaign membership ---------------------------------------------------
+
+        private static UserId NewUserId() => UserId.Parse("user_" + Guid.NewGuid().ToString("N"));
+
+        private CampaignHandle CreateCampaignFor(SqliteCampaignRepository repository, string folder, UserId host) =>
+            repository.Create(new CreateCampaignRequest(folder, "Membership Test Campaign", "ruleset.core", "1.0.0", "0.1.0", host), NewCommandId(), TestCorrelationId).Value;
+
+        [Test] // TC-PERSIST-037
+        public void AddMember_ListMembers_GetMemberRole_WorkAndRejectDuplicates_AndCampaignsAreIsolated()
+        {
+            var repository = new SqliteCampaignRepository(Clock);
+            UserId host = NewUserId();
+            CampaignHandle campaign = CreateCampaignFor(repository, _workDir, host);
+            string otherFolder = _workDir + "-other";
+            CampaignHandle other = CreateCampaignFor(repository, otherFolder, NewUserId());
+            try
+            {
+                UserId player = NewUserId();
+                UserId observer = NewUserId();
+                CommandId addPlayer = NewCommandId();
+
+                Result<CampaignMembership> added = repository.AddMember(campaign, player, CampaignMembershipRole.Player, addPlayer, TestCorrelationId);
+                Assert.That(added.IsSuccess, Is.True);
+                Assert.That(added.Value.UserId, Is.EqualTo(player));
+                Assert.That(added.Value.Role, Is.EqualTo(CampaignMembershipRole.Player));
+                Assert.That(added.Value.Revision, Is.EqualTo(1));
+                Assert.That(repository.AddMember(campaign, observer, CampaignMembershipRole.Observer, NewCommandId(), TestCorrelationId).IsSuccess, Is.True);
+
+                Result<System.Collections.Generic.IReadOnlyList<CampaignMembership>> members = repository.ListMembers(campaign, TestCorrelationId);
+                Assert.That(members.IsSuccess, Is.True);
+                Assert.That(members.Value.Count, Is.EqualTo(3), "the host plus the two added members");
+                Assert.That(members.Value[0].UserId, Is.EqualTo(host), "oldest first: the host, created with the campaign");
+
+                Assert.That(repository.GetMemberRole(campaign, player, TestCorrelationId).Value.Role, Is.EqualTo(CampaignMembershipRole.Player));
+                Assert.That(repository.GetMemberRole(campaign, observer, TestCorrelationId).Value.Role, Is.EqualTo(CampaignMembershipRole.Observer));
+                CampaignMemberLookup unknown = repository.GetMemberRole(campaign, NewUserId(), TestCorrelationId).Value;
+                Assert.That(unknown.IsMember, Is.False, "a user with no membership is a success with IsMember=false, not an error");
+
+                Result<CampaignMembership> duplicate = repository.AddMember(campaign, player, CampaignMembershipRole.MainGm, NewCommandId(), TestCorrelationId);
+                Assert.That(duplicate.IsFailure, Is.True);
+                Assert.That(duplicate.Error.Code, Is.EqualTo(ErrorCodes.PersistenceCampaignMembershipAlreadyExists));
+                Assert.That(repository.GetMemberRole(campaign, player, TestCorrelationId).Value.Role, Is.EqualTo(CampaignMembershipRole.Player), "a rejected duplicate changes nothing");
+
+                Result<CampaignMembership> replay = repository.AddMember(campaign, player, CampaignMembershipRole.Player, addPlayer, TestCorrelationId);
+                Assert.That(replay.IsSuccess, Is.True, "redelivering the same CommandId returns the existing membership");
+                Assert.That(repository.ListMembers(campaign, TestCorrelationId).Value.Count, Is.EqualTo(3));
+
+                Assert.That(repository.GetMemberRole(other, player, TestCorrelationId).Value.IsMember, Is.False, "membership is per campaign");
+                Assert.That(repository.ListMembers(other, TestCorrelationId).Value.Count, Is.EqualTo(1), "the other campaign has only its own host");
+            }
+            finally
+            {
+                repository.Close(campaign, TestCorrelationId);
+                repository.Close(other, TestCorrelationId);
+                try { if (Directory.Exists(otherFolder)) Directory.Delete(otherFolder, recursive: true); } catch (IOException) { }
+            }
+        }
+
+        [Test] // TC-PERSIST-038
+        public void Create_AtomicallyRegistersTheHostAsMainGm_AndItSurvivesReopen()
+        {
+            var repository = new SqliteCampaignRepository(Clock);
+            UserId host = NewUserId();
+            CampaignHandle campaign = CreateCampaignFor(repository, _workDir, host);
+
+            Result<System.Collections.Generic.IReadOnlyList<CampaignMembership>> members = repository.ListMembers(campaign, TestCorrelationId);
+            Assert.That(members.Value.Count, Is.EqualTo(1));
+            Assert.That(members.Value[0].UserId, Is.EqualTo(host));
+            Assert.That(members.Value[0].Role, Is.EqualTo(CampaignMembershipRole.MainGm));
+            Assert.That(members.Value[0].CampaignId, Is.EqualTo(campaign.CampaignId));
+
+            // Atomicity: the membership row carries the very CommandId of the Create that wrote the Campaign row,
+            // i.e. both were written by the same pipeline transaction, not by two separate steps.
+            repository.Close(campaign, TestCorrelationId);
+            using var connection = new SqliteConnection("Data Source=" + Path.Combine(_workDir, "campaign.db"));
+            connection.Open();
+            using var command = connection.CreateCommand();
+            command.CommandText = "SELECT (SELECT LastCommandId FROM Campaign LIMIT 1) = (SELECT LastCommandId FROM CampaignMembership WHERE UserId = $host LIMIT 1);";
+            command.Parameters.AddWithValue("$host", host.ToString());
+            Assert.That(Convert.ToInt64(command.ExecuteScalar()), Is.EqualTo(1L), "Campaign row and host membership were written by the same command/transaction");
+            connection.Close();
+
+            var reopened = new SqliteCampaignRepository(Clock);
+            CampaignHandle handle = reopened.Open(_workDir, TestCorrelationId).Value;
+            try
+            {
+                Assert.That(reopened.GetMemberRole(handle, host, TestCorrelationId).Value.Role, Is.EqualTo(CampaignMembershipRole.MainGm), "the host is still MainGm after a reopen");
+            }
+            finally
+            {
+                reopened.Close(handle, TestCorrelationId);
+            }
+        }
+
+        [Test] // TC-PERSIST-039
+        public void CampaignMembershipAuthorization_IsMainGm_TrueOnlyForAStoredMainGm()
+        {
+            var repository = new SqliteCampaignRepository(Clock);
+            UserId host = NewUserId();
+            CampaignHandle campaign = CreateCampaignFor(repository, _workDir, host);
+            try
+            {
+                UserId player = NewUserId();
+                UserId observer = NewUserId();
+                UserId secondGm = NewUserId();
+                repository.AddMember(campaign, player, CampaignMembershipRole.Player, NewCommandId(), TestCorrelationId);
+                repository.AddMember(campaign, observer, CampaignMembershipRole.Observer, NewCommandId(), TestCorrelationId);
+                repository.AddMember(campaign, secondGm, CampaignMembershipRole.MainGm, NewCommandId(), TestCorrelationId);
+
+                Assert.That(global::Odyssey.Application.Identity.CampaignMembershipAuthorization.IsMainGm(repository, campaign, host, TestCorrelationId).Value, Is.True, "the host");
+                Assert.That(global::Odyssey.Application.Identity.CampaignMembershipAuthorization.IsMainGm(repository, campaign, secondGm, TestCorrelationId).Value, Is.True, "an added MainGm");
+                Assert.That(global::Odyssey.Application.Identity.CampaignMembershipAuthorization.IsMainGm(repository, campaign, player, TestCorrelationId).Value, Is.False, "a Player");
+                Assert.That(global::Odyssey.Application.Identity.CampaignMembershipAuthorization.IsMainGm(repository, campaign, observer, TestCorrelationId).Value, Is.False, "an Observer");
+                Result<bool> stranger = global::Odyssey.Application.Identity.CampaignMembershipAuthorization.IsMainGm(repository, campaign, NewUserId(), TestCorrelationId);
+                Assert.That(stranger.IsSuccess, Is.True);
+                Assert.That(stranger.Value, Is.False, "a user with no membership record at all");
+            }
+            finally
+            {
+                repository.Close(campaign, TestCorrelationId);
+            }
         }
     }
 }

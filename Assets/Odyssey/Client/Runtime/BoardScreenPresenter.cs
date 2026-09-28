@@ -50,6 +50,7 @@ namespace Odyssey.Unity.Client
         private readonly UIDocument _document;
         private readonly ISceneRepository _sceneRepository;
         private readonly CampaignHandle _campaign;
+        private readonly ICampaignRepository _campaignRepository;
         private readonly SceneId _sceneId;
         private readonly bool _includeRoleSelector;
         // ODY-S08-102: replaces the old fixed OriginOffsetPixels/PixelsPerUnit transform. Purely local,
@@ -117,11 +118,14 @@ namespace Odyssey.Unity.Client
         private readonly Dictionary<string, TokenPosition> _dragStartPositions = new Dictionary<string, TokenPosition>(StringComparer.Ordinal);
         private bool _disposed;
 
-        public BoardScreenPresenter(UIDocument document, ISceneRepository sceneRepository, CampaignHandle campaign, SceneId sceneId, UserId localActorUserId)
+        public BoardScreenPresenter(UIDocument document, ISceneRepository sceneRepository, CampaignHandle campaign, ICampaignRepository campaignRepository, SceneId sceneId, UserId localActorUserId)
         {
             _document = document ?? throw new ArgumentNullException(nameof(document));
             _sceneRepository = sceneRepository ?? throw new ArgumentNullException(nameof(sceneRepository));
             _campaign = campaign ?? throw new ArgumentNullException(nameof(campaign));
+            // ODY-S10-101: a token move by someone other than the token's controller is authorized against the
+            // stored campaign membership, so the presenter needs the repository that holds it.
+            _campaignRepository = campaignRepository ?? throw new ArgumentNullException(nameof(campaignRepository));
             if (!sceneId.IsValid) throw new ArgumentException("SceneId is required.", nameof(sceneId));
             if (!localActorUserId.IsValid) throw new ArgumentException("LocalActorUserId is required.", nameof(localActorUserId));
             _sceneId = sceneId;
@@ -129,8 +133,8 @@ namespace Odyssey.Unity.Client
             LocalActorUserId = localActorUserId;
         }
 
-        public BoardScreenPresenter(UIDocument document, ISceneRepository sceneRepository, CampaignHandle campaign, SceneId sceneId, RoleSelection roleSelection, PresentationRuntime presentationRuntime, bool includeRoleSelector = true)
-            : this(document, sceneRepository, campaign, sceneId, (roleSelection ?? throw new ArgumentNullException(nameof(roleSelection))).ActorUserId)
+        public BoardScreenPresenter(UIDocument document, ISceneRepository sceneRepository, CampaignHandle campaign, ICampaignRepository campaignRepository, SceneId sceneId, RoleSelection roleSelection, PresentationRuntime presentationRuntime, bool includeRoleSelector = true)
+            : this(document, sceneRepository, campaign, campaignRepository, sceneId, (roleSelection ?? throw new ArgumentNullException(nameof(roleSelection))).ActorUserId)
         {
             _roleSelection = roleSelection;
             _presentationRuntime = presentationRuntime ?? throw new ArgumentNullException(nameof(presentationRuntime));
@@ -143,7 +147,7 @@ namespace Odyssey.Unity.Client
         /// <summary>The single local actor this trial UI currently acts as. Settable -- see class remarks.</summary>
         public UserId LocalActorUserId { get; set; }
 
-        /// <summary>Whether the current local actor holds the MainGM baseline role. Settable -- see class remarks.</summary>
+        /// <summary>Whether the current local actor holds the MainGM baseline role, as the role selector reports it. Settable -- see class remarks. Since ODY-S10-101 this is presentation state only: token-move authorization no longer reads it (it uses the stored campaign membership).</summary>
         public bool LocalActorIsMainGm { get; set; }
 
         public Result Initialize()
@@ -449,7 +453,7 @@ namespace Odyssey.Unity.Client
         /// <summary>
         /// Attempts to move the currently-selected token to <paramref name="destination"/>
         /// via <see cref="BoardMovementService.MoveToken"/>, using the
-        /// current <see cref="LocalActorUserId"/>/<see cref="LocalActorIsMainGm"/>.
+        /// current <see cref="LocalActorUserId"/> (MainGM-ness is looked up from the stored campaign membership).
         /// Public for the same testability reason as <see cref="SelectToken"/>.
         /// </summary>
         public Result<TokenRecord> TryMoveSelectedTokenTo(TokenPosition destination)
@@ -471,8 +475,8 @@ namespace Odyssey.Unity.Client
                 return current;
             }
 
-            var request = new MoveTokenRequest(_campaign, LocalActorUserId, LocalActorIsMainGm, tokenId, destination, current.Value.Revision, NewCommandId(), NewCorrelationId());
-            Result<TokenRecord> moved = BoardMovementService.MoveToken(_sceneRepository, request);
+            var request = new MoveTokenRequest(_campaign, LocalActorUserId, tokenId, destination, current.Value.Revision, NewCommandId(), NewCorrelationId());
+            Result<TokenRecord> moved = BoardMovementService.MoveToken(_sceneRepository, _campaignRepository, request);
 
             _selectedTokenIds.Clear();
             if (moved.IsFailure)
@@ -508,8 +512,8 @@ namespace Odyssey.Unity.Client
                 return current;
             }
 
-            var request = new MoveTokenRequest(_campaign, LocalActorUserId, LocalActorIsMainGm, tokenId, destination, current.Value.Revision, NewCommandId(), NewCorrelationId());
-            Result<TokenRecord> moved = BoardMovementService.MoveToken(_sceneRepository, request);
+            var request = new MoveTokenRequest(_campaign, LocalActorUserId, tokenId, destination, current.Value.Revision, NewCommandId(), NewCorrelationId());
+            Result<TokenRecord> moved = BoardMovementService.MoveToken(_sceneRepository, _campaignRepository, request);
 
             if (moved.IsFailure)
             {
@@ -1375,7 +1379,7 @@ namespace Odyssey.Unity.Client
             if (!otherPlayer.IsValid) throw new ArgumentException("Other player UserId is required.", nameof(otherPlayer));
 
             var campaignRepository = new Odyssey.Persistence.Sqlite.SqliteCampaignRepository(clock);
-            var createRequest = new CreateCampaignRequest(rootDirectory, "SLICE-UI-01 Trial Campaign", "ruleset.core", "1.0.0", "0.1.0");
+            var createRequest = new CreateCampaignRequest(rootDirectory, "SLICE-UI-01 Trial Campaign", "ruleset.core", "1.0.0", "0.1.0", global::Odyssey.Application.Identity.DevIdentityProvider.AssignHost());
             CorrelationId correlationId = CorrelationId.Parse("corr_" + Guid.NewGuid().ToString("N"));
             Result<CampaignHandle> created = campaignRepository.Create(createRequest, NewCommandId(), correlationId);
             if (created.IsFailure) return Result<BoardScreenDemoCampaignHandle>.Failure(created.Error);
@@ -1390,7 +1394,7 @@ namespace Odyssey.Unity.Client
             Result<TokenRecord> otherToken = sceneRepository.CreateToken(created.Value, scene.Value.SceneId, new TokenPosition(3, 2), otherPlayer, NewCommandId(), correlationId);
             if (otherToken.IsFailure) return Result<BoardScreenDemoCampaignHandle>.Failure(otherToken.Error);
 
-            return Result<BoardScreenDemoCampaignHandle>.Success(new BoardScreenDemoCampaignHandle(created.Value, scene.Value.SceneId, localActor, localToken.Value.TokenId, otherToken.Value.TokenId));
+            return Result<BoardScreenDemoCampaignHandle>.Success(new BoardScreenDemoCampaignHandle(created.Value, scene.Value.SceneId, localActor, localToken.Value.TokenId, otherToken.Value.TokenId, campaignRepository));
         }
 
         private static CommandId NewCommandId() => CommandId.Parse("cmd_" + Guid.NewGuid().ToString("N"));
@@ -1398,9 +1402,10 @@ namespace Odyssey.Unity.Client
 
     public sealed class BoardScreenDemoCampaignHandle
     {
-        public BoardScreenDemoCampaignHandle(CampaignHandle campaign, SceneId sceneId, UserId localActorUserId, TokenId localToken, TokenId otherToken)
+        public BoardScreenDemoCampaignHandle(CampaignHandle campaign, SceneId sceneId, UserId localActorUserId, TokenId localToken, TokenId otherToken, ICampaignRepository campaignRepository)
         {
             Campaign = campaign;
+            CampaignRepository = campaignRepository;
             SceneId = sceneId;
             LocalActorUserId = localActorUserId;
             LocalToken = localToken;
@@ -1408,6 +1413,9 @@ namespace Odyssey.Unity.Client
         }
 
         public CampaignHandle Campaign { get; }
+
+        /// <summary>ODY-S10-101: the repository that created the demo campaign and holds its membership (the host is its MainGM).</summary>
+        public ICampaignRepository CampaignRepository { get; }
         public SceneId SceneId { get; }
         public UserId LocalActorUserId { get; }
         public TokenId LocalToken { get; }

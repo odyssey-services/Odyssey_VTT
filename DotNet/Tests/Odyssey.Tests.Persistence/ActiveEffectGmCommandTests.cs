@@ -45,7 +45,7 @@ namespace Odyssey.Tests.Persistence
         {
             _campaignDir = Path.Combine(Path.GetTempPath(), "ody-s05-506-" + Guid.NewGuid().ToString("N"));
             _campaigns = new SqliteCampaignRepository(Clock);
-            Result<CampaignHandle> created = _campaigns.Create(new CreateCampaignRequest(_campaignDir, "GM Command Test Campaign", "ruleset.core", "1.0.0", "0.1.0"), NewCommandId(), Corr);
+            Result<CampaignHandle> created = _campaigns.Create(new CreateCampaignRequest(_campaignDir, "GM Command Test Campaign", "ruleset.core", "1.0.0", "0.1.0", global::Odyssey.Application.Identity.DevIdentityProvider.AssignHost()), NewCommandId(), Corr);
             Assert.That(created.IsSuccess, Is.True);
             _campaign = created.Value;
             _effects = new SqliteActiveEffectRepository(Clock);

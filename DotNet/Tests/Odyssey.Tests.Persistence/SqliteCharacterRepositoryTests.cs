@@ -37,7 +37,7 @@ namespace Odyssey.Tests.Persistence
         {
             _workDir = Path.Combine(Path.GetTempPath(), "ody-s04-101-" + Guid.NewGuid().ToString("N"));
             _campaignRepository = new SqliteCampaignRepository(Clock);
-            var request = new CreateCampaignRequest(_workDir, "Character Skeleton Test Campaign", "ruleset.core", "1.0.0", "0.1.0");
+            var request = new CreateCampaignRequest(_workDir, "Character Skeleton Test Campaign", "ruleset.core", "1.0.0", "0.1.0", global::Odyssey.Application.Identity.DevIdentityProvider.AssignHost());
             Result<CampaignHandle> created = _campaignRepository.Create(request, NewCommandId(), TestCorrelationId);
             Assert.That(created.IsSuccess, Is.True);
             _campaign = created.Value;
@@ -609,7 +609,7 @@ namespace Odyssey.Tests.Persistence
         {
             string otherWorkDir = Path.Combine(Path.GetTempPath(), "ody-s07-106-other-" + Guid.NewGuid().ToString("N"));
             var otherCampaignRepository = new SqliteCampaignRepository(Clock);
-            Result<CampaignHandle> otherCreated = otherCampaignRepository.Create(new CreateCampaignRequest(otherWorkDir, "Other Campaign", "ruleset.core", "1.0.0", "0.1.0"), NewCommandId(), TestCorrelationId);
+            Result<CampaignHandle> otherCreated = otherCampaignRepository.Create(new CreateCampaignRequest(otherWorkDir, "Other Campaign", "ruleset.core", "1.0.0", "0.1.0", global::Odyssey.Application.Identity.DevIdentityProvider.AssignHost()), NewCommandId(), TestCorrelationId);
             Assert.That(otherCreated.IsSuccess, Is.True);
 
             try

@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Concurrent;
 using System.Globalization;
+using System.Collections.Generic;
 using System.IO;
 using Microsoft.Data.Sqlite;
 using Odyssey.Application.Commands;
@@ -76,6 +77,7 @@ namespace Odyssey.Persistence.Sqlite
                 string dbPath = Path.Combine(rootPath, DatabaseFileName);
                 SqliteConnection connection = OpenConnectionWithPragmaProfile(dbPath);
                 CreateSystemTables(connection);
+                EnsureMembershipTable(connection);
 
                 UtcInstant now = _clock.GetUtcNow();
                 CampaignId campaignId = CampaignId.NewId(now);
@@ -97,6 +99,9 @@ namespace Odyssey.Persistence.Sqlite
                     {
                         InsertCampaignRow(connection, transaction, campaignId, campaignPublicId, now, settings, commandId);
                         InsertInitialSchemaHistoryRow(connection, transaction, now, request.ApplicationVersion);
+                        // ODY-S10-101: the host becomes the campaign's MainGM member in the same transaction as the
+                        // Campaign row -- there is no state in which the campaign exists without its MainGM.
+                        InsertMembershipRow(connection, transaction, request.HostUserId, campaignId, CampaignMembershipRole.MainGm, now, commandId);
                         string payloadJson = "{\"campaignId\":\"" + campaignId + "\",\"campaignPublicId\":\"" + campaignPublicId + "\"}";
                         return Result<PipelineWrite<CampaignId>>.Success(new PipelineWrite<CampaignId>(
                             campaignId, "odyssey.persistence.campaign_created", payloadJson, campaignId.ToString(),
@@ -232,6 +237,157 @@ namespace Odyssey.Persistence.Sqlite
             {
                 return Result.Failure(PersistenceFailures.CampaignIoFailed(correlationId));
             }
+        }
+
+        // ---- ODY-S10-101: campaign membership -----------------------------------------------------
+
+        public Result<CampaignMembership> AddMember(CampaignHandle campaign, UserId userId, CampaignMembershipRole role, CommandId commandId, CorrelationId correlationId)
+        {
+            if (campaign == null) throw new ArgumentNullException(nameof(campaign));
+            if (!userId.IsValid) throw new ArgumentException("UserId is required.", nameof(userId));
+            if (!Enum.IsDefined(typeof(CampaignMembershipRole), role)) throw new ArgumentOutOfRangeException(nameof(role));
+            if (!commandId.IsValid) throw new ArgumentException("CommandId is required.", nameof(commandId));
+
+            try
+            {
+                using SqliteConnection connection = OpenConnectionWithPragmaProfile(Path.Combine(campaign.RootPath, DatabaseFileName));
+                EnsureMembershipTable(connection);
+                UtcInstant now = _clock.GetUtcNow();
+
+                return _pipeline.Execute(
+                    connection,
+                    campaign.CampaignId,
+                    commandId,
+                    correlationId,
+                    tryReplay: transaction =>
+                    {
+                        using var select = connection.CreateCommand();
+                        select.Transaction = transaction;
+                        select.CommandText = MembershipSelect + " WHERE LastCommandId = $commandId LIMIT 1;";
+                        select.Parameters.AddWithValue("$commandId", commandId.ToString());
+                        using SqliteDataReader reader = select.ExecuteReader();
+                        return reader.Read()
+                            ? Result<CampaignMembership>.Success(ReadMembership(reader, campaign.CampaignId))
+                            : Result<CampaignMembership>.Failure(PersistenceFailures.CommandReplayFailed(correlationId));
+                    },
+                    apply: transaction =>
+                    {
+                        using (var exists = connection.CreateCommand())
+                        {
+                            exists.Transaction = transaction;
+                            exists.CommandText = "SELECT 1 FROM CampaignMembership WHERE UserId = $userId LIMIT 1;";
+                            exists.Parameters.AddWithValue("$userId", userId.ToString());
+                            if (exists.ExecuteScalar() != null)
+                            {
+                                return Result<PipelineWrite<CampaignMembership>>.Failure(PersistenceFailures.CampaignMembershipAlreadyExists(correlationId));
+                            }
+                        }
+
+                        InsertMembershipRow(connection, transaction, userId, campaign.CampaignId, role, now, commandId);
+                        var record = new CampaignMembership(userId, campaign.CampaignId, role, 1L, now, now);
+                        string payloadJson = "{\"userId\":\"" + userId + "\",\"role\":\"" + role + "\"}";
+                        return Result<PipelineWrite<CampaignMembership>>.Success(new PipelineWrite<CampaignMembership>(
+                            record, "odyssey.persistence.campaign_member_added", payloadJson, userId.ToString(),
+                            aggregateType: "campaign_membership", aggregateId: userId.ToString(), aggregateRevision: 1));
+                    });
+            }
+            catch (Exception ex) when (ex is IOException || ex is UnauthorizedAccessException || ex is SqliteException)
+            {
+                return Result<CampaignMembership>.Failure(PersistenceFailures.CampaignIoFailed(correlationId));
+            }
+        }
+
+        public Result<IReadOnlyList<CampaignMembership>> ListMembers(CampaignHandle campaign, CorrelationId correlationId)
+        {
+            if (campaign == null) throw new ArgumentNullException(nameof(campaign));
+
+            try
+            {
+                using SqliteConnection connection = OpenConnectionWithPragmaProfile(Path.Combine(campaign.RootPath, DatabaseFileName));
+                EnsureMembershipTable(connection);
+
+                var members = new List<CampaignMembership>();
+                using var select = connection.CreateCommand();
+                select.CommandText = MembershipSelect + " ORDER BY CreatedAt, UserId;";
+                using SqliteDataReader reader = select.ExecuteReader();
+                while (reader.Read()) members.Add(ReadMembership(reader, campaign.CampaignId));
+                return Result<IReadOnlyList<CampaignMembership>>.Success(members);
+            }
+            catch (Exception ex) when (ex is IOException || ex is UnauthorizedAccessException || ex is SqliteException)
+            {
+                return Result<IReadOnlyList<CampaignMembership>>.Failure(PersistenceFailures.CampaignIoFailed(correlationId));
+            }
+        }
+
+        public Result<CampaignMemberLookup> GetMemberRole(CampaignHandle campaign, UserId userId, CorrelationId correlationId)
+        {
+            if (campaign == null) throw new ArgumentNullException(nameof(campaign));
+            if (!userId.IsValid) throw new ArgumentException("UserId is required.", nameof(userId));
+
+            try
+            {
+                using SqliteConnection connection = OpenConnectionWithPragmaProfile(Path.Combine(campaign.RootPath, DatabaseFileName));
+                EnsureMembershipTable(connection);
+
+                using var select = connection.CreateCommand();
+                select.CommandText = "SELECT Role FROM CampaignMembership WHERE UserId = $userId LIMIT 1;";
+                select.Parameters.AddWithValue("$userId", userId.ToString());
+                object? value = select.ExecuteScalar();
+                if (value == null) return Result<CampaignMemberLookup>.Success(CampaignMemberLookup.NotAMember);
+
+                // An unrecognised stored role is corrupted data: fail closed rather than guess.
+                if (!Enum.TryParse(Convert.ToString(value, CultureInfo.InvariantCulture), ignoreCase: false, out CampaignMembershipRole role) || !Enum.IsDefined(typeof(CampaignMembershipRole), role))
+                {
+                    return Result<CampaignMemberLookup>.Failure(PersistenceFailures.CampaignIoFailed(correlationId));
+                }
+
+                return Result<CampaignMemberLookup>.Success(CampaignMemberLookup.Member(role));
+            }
+            catch (Exception ex) when (ex is IOException || ex is UnauthorizedAccessException || ex is SqliteException)
+            {
+                return Result<CampaignMemberLookup>.Failure(PersistenceFailures.CampaignIoFailed(correlationId));
+            }
+        }
+
+        private const string MembershipSelect = "SELECT UserId, CampaignId, Role, Revision, CreatedAt, UpdatedAt FROM CampaignMembership";
+
+        // Plain CREATE TABLE IF NOT EXISTS, by the ActiveEffect precedent -- there is no migration machinery,
+        // so a campaign file created before this task simply has no membership rows (nobody is MainGM there).
+        private static void EnsureMembershipTable(SqliteConnection connection)
+        {
+            using var command = connection.CreateCommand();
+            command.CommandText = @"
+CREATE TABLE IF NOT EXISTS CampaignMembership (
+    UserId TEXT PRIMARY KEY,
+    CampaignId TEXT NOT NULL,
+    Role TEXT NOT NULL,
+    Revision INTEGER NOT NULL,
+    CreatedAt TEXT NOT NULL,
+    UpdatedAt TEXT NOT NULL,
+    LastCommandId TEXT NOT NULL
+);";
+            command.ExecuteNonQuery();
+        }
+
+        private static void InsertMembershipRow(SqliteConnection connection, SqliteTransaction transaction, UserId userId, CampaignId campaignId, CampaignMembershipRole role, UtcInstant now, CommandId commandId)
+        {
+            using var command = connection.CreateCommand();
+            command.Transaction = transaction;
+            command.CommandText = "INSERT INTO CampaignMembership (UserId, CampaignId, Role, Revision, CreatedAt, UpdatedAt, LastCommandId) " +
+                                   "VALUES ($userId, $campaignId, $role, 1, $createdAt, $updatedAt, $lastCommandId);";
+            command.Parameters.AddWithValue("$userId", userId.ToString());
+            command.Parameters.AddWithValue("$campaignId", campaignId.ToString());
+            command.Parameters.AddWithValue("$role", role.ToString());
+            command.Parameters.AddWithValue("$createdAt", now.ToString());
+            command.Parameters.AddWithValue("$updatedAt", now.ToString());
+            command.Parameters.AddWithValue("$lastCommandId", commandId.ToString());
+            command.ExecuteNonQuery();
+        }
+
+        private static CampaignMembership ReadMembership(SqliteDataReader reader, CampaignId campaignId)
+        {
+            CampaignMembershipRole role = (CampaignMembershipRole)Enum.Parse(typeof(CampaignMembershipRole), reader.GetString(2), ignoreCase: false);
+            return new CampaignMembership(UserId.Parse(reader.GetString(0)), campaignId, role, reader.GetInt64(3), UtcInstant.Parse(reader.GetString(4)), UtcInstant.Parse(reader.GetString(5)));
         }
 
         private static SqliteConnection OpenConnectionWithPragmaProfile(string dbPath)

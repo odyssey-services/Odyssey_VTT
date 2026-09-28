@@ -42,13 +42,13 @@ namespace Odyssey.Tests.Unity.EditMode
             public Fixture()
             {
                 CampaignRepository = new SqliteCampaignRepository(Clock);
-                Campaign = CampaignRepository.Create(new CreateCampaignRequest(Directory.Path, "Asset Pool Test Campaign", "ruleset.core", "1.0.0", "0.1.0"), NewCommandId(), TestCorrelationId).Value;
+                Campaign = CampaignRepository.Create(new CreateCampaignRequest(Directory.Path, "Asset Pool Test Campaign", "ruleset.core", "1.0.0", "0.1.0", global::Odyssey.Application.Identity.DevIdentityProvider.AssignHost()), NewCommandId(), TestCorrelationId).Value;
                 SceneRepository = new SqliteSceneRepository(Clock);
                 SceneId = SceneRepository.CreateScene(Campaign, "Test Scene", NewCommandId(), TestCorrelationId).Value.SceneId;
 
                 GameObject = new GameObject("Asset Pool Document");
                 Document = GameObject.AddComponent<UIDocument>();
-                Board = new BoardScreenPresenter(Document, SceneRepository, Campaign, SceneId, NewUserId());
+                Board = new BoardScreenPresenter(Document, SceneRepository, Campaign, CampaignRepository, SceneId, NewUserId());
                 Assert.That(Board.Initialize().IsSuccess, Is.True);
             }
 

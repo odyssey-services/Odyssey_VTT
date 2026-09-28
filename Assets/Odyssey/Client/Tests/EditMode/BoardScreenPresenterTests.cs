@@ -44,7 +44,7 @@ namespace Odyssey.Tests.Unity.EditMode
         {
             using TemporaryDirectory directory = new TemporaryDirectory();
             var campaignRepository = new SqliteCampaignRepository(Clock);
-            var createRequest = new CreateCampaignRequest(directory.Path, "Board Screen Test Campaign", "ruleset.core", "1.0.0", "0.1.0");
+            var createRequest = new CreateCampaignRequest(directory.Path, "Board Screen Test Campaign", "ruleset.core", "1.0.0", "0.1.0", global::Odyssey.Application.Identity.DevIdentityProvider.AssignHost());
             Result<CampaignHandle> created = campaignRepository.Create(createRequest, NewCommandId(), TestCorrelationId);
             Assert.That(created.IsSuccess, Is.True);
             CampaignHandle campaign = created.Value;
@@ -59,7 +59,7 @@ namespace Odyssey.Tests.Unity.EditMode
             try
             {
                 UIDocument document = gameObject.AddComponent<UIDocument>();
-                using var presenter = new BoardScreenPresenter(document, sceneRepository, campaign, sceneId, localActor);
+                using var presenter = new BoardScreenPresenter(document, sceneRepository, campaign, campaignRepository, sceneId, localActor);
                 Assert.That(presenter.Initialize().IsSuccess, Is.True);
 
                 presenter.SelectToken(ownToken.TokenId);
@@ -91,7 +91,7 @@ namespace Odyssey.Tests.Unity.EditMode
         {
             using TemporaryDirectory directory = new TemporaryDirectory();
             var campaignRepository = new SqliteCampaignRepository(Clock);
-            var createRequest = new CreateCampaignRequest(directory.Path, "Board Screen Test Campaign", "ruleset.core", "1.0.0", "0.1.0");
+            var createRequest = new CreateCampaignRequest(directory.Path, "Board Screen Test Campaign", "ruleset.core", "1.0.0", "0.1.0", global::Odyssey.Application.Identity.DevIdentityProvider.AssignHost());
             CampaignHandle campaign = campaignRepository.Create(createRequest, NewCommandId(), TestCorrelationId).Value;
 
             var sceneRepository = new SqliteSceneRepository(Clock);
@@ -105,7 +105,7 @@ namespace Odyssey.Tests.Unity.EditMode
             try
             {
                 UIDocument document = gameObject.AddComponent<UIDocument>();
-                using var presenter = new BoardScreenPresenter(document, sceneRepository, campaign, sceneId, localActor);
+                using var presenter = new BoardScreenPresenter(document, sceneRepository, campaign, campaignRepository, sceneId, localActor);
                 Assert.That(presenter.Initialize().IsSuccess, Is.True);
 
                 presenter.SelectToken(foreignToken.TokenId);
@@ -129,13 +129,14 @@ namespace Odyssey.Tests.Unity.EditMode
         {
             using TemporaryDirectory directory = new TemporaryDirectory();
             var campaignRepository = new SqliteCampaignRepository(Clock);
-            var createRequest = new CreateCampaignRequest(directory.Path, "Board Screen Test Campaign", "ruleset.core", "1.0.0", "0.1.0");
+            var createRequest = new CreateCampaignRequest(directory.Path, "Board Screen Test Campaign", "ruleset.core", "1.0.0", "0.1.0", global::Odyssey.Application.Identity.DevIdentityProvider.AssignHost());
             CampaignHandle campaign = campaignRepository.Create(createRequest, NewCommandId(), TestCorrelationId).Value;
 
             var sceneRepository = new SqliteSceneRepository(Clock);
             SceneId sceneId = sceneRepository.CreateScene(campaign, "Test Scene", NewCommandId(), TestCorrelationId).Value.SceneId;
 
-            UserId mainGm = NewUserId();
+            // ODY-S10-101: MainGM-ness is the stored membership now, so this actor is the campaign's host.
+            UserId mainGm = global::Odyssey.Application.Identity.DevIdentityProvider.AssignHost();
             UserId otherController = NewUserId();
             TokenRecord foreignToken = sceneRepository.CreateToken(campaign, sceneId, new TokenPosition(1, 1), otherController, NewCommandId(), TestCorrelationId).Value;
 
@@ -143,13 +144,13 @@ namespace Odyssey.Tests.Unity.EditMode
             try
             {
                 UIDocument document = gameObject.AddComponent<UIDocument>();
-                using var presenter = new BoardScreenPresenter(document, sceneRepository, campaign, sceneId, mainGm) { LocalActorIsMainGm = true };
+                using var presenter = new BoardScreenPresenter(document, sceneRepository, campaign, campaignRepository, sceneId, mainGm);
                 Assert.That(presenter.Initialize().IsSuccess, Is.True);
 
                 presenter.SelectToken(foreignToken.TokenId);
                 Result<TokenRecord> moved = presenter.TryMoveSelectedTokenTo(new TokenPosition(6, 6));
 
-                Assert.That(moved.IsSuccess, Is.True, "MainGM must be authorized to move any token regardless of control");
+                Assert.That(moved.IsSuccess, Is.True, "the campaign's stored MainGM must be authorized to move any token regardless of control");
                 Assert.That(moved.Value.Position.X, Is.EqualTo(6));
             }
             finally
@@ -164,7 +165,7 @@ namespace Odyssey.Tests.Unity.EditMode
         {
             using TemporaryDirectory directory = new TemporaryDirectory();
             var campaignRepository = new SqliteCampaignRepository(Clock);
-            var createRequest = new CreateCampaignRequest(directory.Path, "Board Screen Test Campaign", "ruleset.core", "1.0.0", "0.1.0");
+            var createRequest = new CreateCampaignRequest(directory.Path, "Board Screen Test Campaign", "ruleset.core", "1.0.0", "0.1.0", global::Odyssey.Application.Identity.DevIdentityProvider.AssignHost());
             CampaignHandle campaign = campaignRepository.Create(createRequest, NewCommandId(), TestCorrelationId).Value;
 
             var sceneRepository = new SqliteSceneRepository(Clock);
@@ -178,7 +179,7 @@ namespace Odyssey.Tests.Unity.EditMode
             try
             {
                 UIDocument document = gameObject.AddComponent<UIDocument>();
-                using var presenter = new BoardScreenPresenter(document, sceneRepository, campaign, sceneId, localActor);
+                using var presenter = new BoardScreenPresenter(document, sceneRepository, campaign, campaignRepository, sceneId, localActor);
                 Assert.That(presenter.Initialize().IsSuccess, Is.True);
 
                 Assert.That(document.rootVisualElement.Q<VisualElement>("token-" + tokenA.TokenId), Is.Not.Null);
@@ -197,7 +198,7 @@ namespace Odyssey.Tests.Unity.EditMode
         {
             directory = new TemporaryDirectory();
             campaignRepository = new SqliteCampaignRepository(Clock);
-            campaign = campaignRepository.Create(new CreateCampaignRequest(directory.Path, "Board Camera Test Campaign", "ruleset.core", "1.0.0", "0.1.0"), NewCommandId(), TestCorrelationId).Value;
+            campaign = campaignRepository.Create(new CreateCampaignRequest(directory.Path, "Board Camera Test Campaign", "ruleset.core", "1.0.0", "0.1.0", global::Odyssey.Application.Identity.DevIdentityProvider.AssignHost()), NewCommandId(), TestCorrelationId).Value;
             var sqliteSceneRepository = new SqliteSceneRepository(Clock);
             sceneRepository = sqliteSceneRepository;
             SceneId sceneId = sqliteSceneRepository.CreateScene(campaign, "Test Scene", NewCommandId(), TestCorrelationId).Value.SceneId;
@@ -207,7 +208,7 @@ namespace Odyssey.Tests.Unity.EditMode
 
             gameObject = new GameObject("Board Camera Document");
             document = gameObject.AddComponent<UIDocument>();
-            var presenter = new BoardScreenPresenter(document, sceneRepository, campaign, sceneId, localActor);
+            var presenter = new BoardScreenPresenter(document, sceneRepository, campaign, campaignRepository, sceneId, localActor);
             Assert.That(presenter.Initialize().IsSuccess, Is.True);
             return presenter;
         }
@@ -416,7 +417,7 @@ namespace Odyssey.Tests.Unity.EditMode
         {
             directory = new TemporaryDirectory();
             campaignRepository = new SqliteCampaignRepository(Clock);
-            campaign = campaignRepository.Create(new CreateCampaignRequest(directory.Path, "Token Drag Test Campaign", "ruleset.core", "1.0.0", "0.1.0"), NewCommandId(), TestCorrelationId).Value;
+            campaign = campaignRepository.Create(new CreateCampaignRequest(directory.Path, "Token Drag Test Campaign", "ruleset.core", "1.0.0", "0.1.0", global::Odyssey.Application.Identity.DevIdentityProvider.AssignHost()), NewCommandId(), TestCorrelationId).Value;
             var sqliteSceneRepository = new SqliteSceneRepository(Clock);
             sceneRepository = new MoveCountingSceneRepository(sqliteSceneRepository);
             SceneId sceneId = sqliteSceneRepository.CreateScene(campaign, "Test Scene", NewCommandId(), TestCorrelationId).Value.SceneId;
@@ -426,7 +427,7 @@ namespace Odyssey.Tests.Unity.EditMode
 
             gameObject = new GameObject("Token Drag Document");
             document = gameObject.AddComponent<UIDocument>();
-            var presenter = new BoardScreenPresenter(document, sceneRepository, campaign, sceneId, localActor);
+            var presenter = new BoardScreenPresenter(document, sceneRepository, campaign, campaignRepository, sceneId, localActor);
             Assert.That(presenter.Initialize().IsSuccess, Is.True);
             return presenter;
         }
@@ -1434,7 +1435,7 @@ namespace Odyssey.Tests.Unity.EditMode
 
             public BoardFixture()
             {
-                var createRequest = new CreateCampaignRequest(_directory.Path, "Board Texture Test Campaign", "ruleset.core", "1.0.0", "0.1.0");
+                var createRequest = new CreateCampaignRequest(_directory.Path, "Board Texture Test Campaign", "ruleset.core", "1.0.0", "0.1.0", global::Odyssey.Application.Identity.DevIdentityProvider.AssignHost());
                 Campaign = _campaignRepository.Create(createRequest, NewCommandId(), TestCorrelationId).Value;
                 Repository = new SqliteSceneRepository(Clock);
                 Scene = Repository.CreateScene(Campaign, "Test Scene", NewCommandId(), TestCorrelationId).Value;
@@ -1444,6 +1445,7 @@ namespace Odyssey.Tests.Unity.EditMode
             }
 
             public CampaignHandle Campaign { get; }
+            public SqliteCampaignRepository CampaignRepository => _campaignRepository;
             public SqliteSceneRepository Repository { get; }
             public SceneRecord Scene { get; }
             public UserId LocalActor { get; }
@@ -1484,7 +1486,7 @@ namespace Odyssey.Tests.Unity.EditMode
             try
             {
                 UIDocument document = gameObject.AddComponent<UIDocument>();
-                using var presenter = new BoardScreenPresenter(document, fixture.Repository, fixture.Campaign, fixture.Scene.SceneId, fixture.LocalActor);
+                using var presenter = new BoardScreenPresenter(document, fixture.Repository, fixture.Campaign, fixture.CampaignRepository, fixture.Scene.SceneId, fixture.LocalActor);
                 Assert.That(presenter.Initialize().IsSuccess, Is.True);
 
                 Texture2D? texture = Board(document).style.backgroundImage.value.texture;
@@ -1506,7 +1508,7 @@ namespace Odyssey.Tests.Unity.EditMode
             try
             {
                 UIDocument document = gameObject.AddComponent<UIDocument>();
-                using var presenter = new BoardScreenPresenter(document, fixture.Repository, fixture.Campaign, fixture.Scene.SceneId, fixture.LocalActor);
+                using var presenter = new BoardScreenPresenter(document, fixture.Repository, fixture.Campaign, fixture.CampaignRepository, fixture.Scene.SceneId, fixture.LocalActor);
                 Assert.That(presenter.Initialize().IsSuccess, Is.True);
 
                 VisualElement board = Board(document);
@@ -1530,7 +1532,7 @@ namespace Odyssey.Tests.Unity.EditMode
             try
             {
                 UIDocument document = gameObject.AddComponent<UIDocument>();
-                using var presenter = new BoardScreenPresenter(document, fixture.Repository, fixture.Campaign, fixture.Scene.SceneId, fixture.LocalActor);
+                using var presenter = new BoardScreenPresenter(document, fixture.Repository, fixture.Campaign, fixture.CampaignRepository, fixture.Scene.SceneId, fixture.LocalActor);
                 Assert.That(presenter.Initialize().IsSuccess, Is.True);
                 Assert.That(Board(document).style.backgroundImage.value.texture, Is.Not.Null, "precondition: the background is shown");
 
@@ -1556,7 +1558,7 @@ namespace Odyssey.Tests.Unity.EditMode
             try
             {
                 UIDocument document = gameObject.AddComponent<UIDocument>();
-                using var presenter = new BoardScreenPresenter(document, fixture.Repository, fixture.Campaign, fixture.Scene.SceneId, fixture.LocalActor);
+                using var presenter = new BoardScreenPresenter(document, fixture.Repository, fixture.Campaign, fixture.CampaignRepository, fixture.Scene.SceneId, fixture.LocalActor);
                 Assert.That(presenter.Initialize().IsSuccess, Is.True);
 
                 VisualElement tokenElement = TokenElement(document, fixture.Token);
@@ -1580,7 +1582,7 @@ namespace Odyssey.Tests.Unity.EditMode
             try
             {
                 UIDocument document = gameObject.AddComponent<UIDocument>();
-                using var presenter = new BoardScreenPresenter(document, fixture.Repository, fixture.Campaign, fixture.Scene.SceneId, fixture.LocalActor);
+                using var presenter = new BoardScreenPresenter(document, fixture.Repository, fixture.Campaign, fixture.CampaignRepository, fixture.Scene.SceneId, fixture.LocalActor);
                 Assert.That(presenter.Initialize().IsSuccess, Is.True);
 
                 VisualElement tokenElement = TokenElement(document, fixture.Token);
@@ -1607,7 +1609,7 @@ namespace Odyssey.Tests.Unity.EditMode
             try
             {
                 UIDocument document = gameObject.AddComponent<UIDocument>();
-                using var presenter = new BoardScreenPresenter(document, counting, fixture.Campaign, fixture.Scene.SceneId, fixture.LocalActor);
+                using var presenter = new BoardScreenPresenter(document, counting, fixture.Campaign, fixture.CampaignRepository, fixture.Scene.SceneId, fixture.LocalActor);
                 Assert.That(presenter.Initialize().IsSuccess, Is.True);
                 Assert.That(presenter.Refresh().IsSuccess, Is.True);
                 Assert.That(presenter.Refresh().IsSuccess, Is.True);
@@ -1638,7 +1640,7 @@ namespace Odyssey.Tests.Unity.EditMode
             try
             {
                 UIDocument document = gameObject.AddComponent<UIDocument>();
-                using var presenter = new BoardScreenPresenter(document, fixture.Repository, fixture.Campaign, fixture.Scene.SceneId, fixture.LocalActor);
+                using var presenter = new BoardScreenPresenter(document, fixture.Repository, fixture.Campaign, fixture.CampaignRepository, fixture.Scene.SceneId, fixture.LocalActor);
 
                 Result result = presenter.Initialize();
 
@@ -1667,7 +1669,7 @@ namespace Odyssey.Tests.Unity.EditMode
             try
             {
                 UIDocument document = gameObject.AddComponent<UIDocument>();
-                using var presenter = new BoardScreenPresenter(document, fixture.Repository, fixture.Campaign, fixture.Scene.SceneId, fixture.LocalActor);
+                using var presenter = new BoardScreenPresenter(document, fixture.Repository, fixture.Campaign, fixture.CampaignRepository, fixture.Scene.SceneId, fixture.LocalActor);
 
                 Result result = presenter.Initialize();
 

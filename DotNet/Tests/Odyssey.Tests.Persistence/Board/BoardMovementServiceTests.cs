@@ -36,7 +36,7 @@ namespace Odyssey.Tests.Persistence.Board
         {
             _workDir = Path.Combine(Path.GetTempPath(), "ody-s03-004-" + Guid.NewGuid().ToString("N"));
             _campaignRepository = new SqliteCampaignRepository(Clock);
-            var request = new CreateCampaignRequest(_workDir, "Board Movement Test Campaign", "ruleset.core", "1.0.0", "0.1.0");
+            var request = new CreateCampaignRequest(_workDir, "Board Movement Test Campaign", "ruleset.core", "1.0.0", "0.1.0", global::Odyssey.Application.Identity.DevIdentityProvider.AssignHost());
             Result<CampaignHandle> created = _campaignRepository.Create(request, NewCommandId(), TestCorrelationId);
             Assert.That(created.IsSuccess, Is.True);
             _campaign = created.Value;
@@ -59,8 +59,8 @@ namespace Odyssey.Tests.Persistence.Board
             UserId controller = NewUserId();
             TokenRecord token = _sceneRepository.CreateToken(_campaign, _sceneId, new TokenPosition(0, 0), controller, NewCommandId(), TestCorrelationId).Value;
 
-            var request = new MoveTokenRequest(_campaign, controller, actorIsMainGm: false, token.TokenId, new TokenPosition(3, 4), token.Revision, NewCommandId(), TestCorrelationId);
-            Result<TokenRecord> result = BoardMovementService.MoveToken(_sceneRepository, request);
+            var request = new MoveTokenRequest(_campaign, controller, token.TokenId, new TokenPosition(3, 4), token.Revision, NewCommandId(), TestCorrelationId);
+            Result<TokenRecord> result = BoardMovementService.MoveToken(_sceneRepository, _campaignRepository, request);
 
             Assert.That(result.IsSuccess, Is.True);
             Assert.That(result.Value.Position.X, Is.EqualTo(3));
@@ -76,8 +76,8 @@ namespace Odyssey.Tests.Persistence.Board
             UserId otherPlayer = NewUserId();
             TokenRecord token = _sceneRepository.CreateToken(_campaign, _sceneId, new TokenPosition(1, 1), controller, NewCommandId(), TestCorrelationId).Value;
 
-            var request = new MoveTokenRequest(_campaign, otherPlayer, actorIsMainGm: false, token.TokenId, new TokenPosition(9, 9), token.Revision, NewCommandId(), TestCorrelationId);
-            Result<TokenRecord> result = BoardMovementService.MoveToken(_sceneRepository, request);
+            var request = new MoveTokenRequest(_campaign, otherPlayer, token.TokenId, new TokenPosition(9, 9), token.Revision, NewCommandId(), TestCorrelationId);
+            Result<TokenRecord> result = BoardMovementService.MoveToken(_sceneRepository, _campaignRepository, request);
 
             Assert.That(result.IsFailure, Is.True);
             Assert.That(result.Error.Code, Is.EqualTo(ErrorCodes.BoardTokenMoveDenied));
@@ -92,13 +92,14 @@ namespace Odyssey.Tests.Persistence.Board
         [Test]
         public void MoveToken_ByMainGm_OnAnyoneElsesToken_Succeeds()
         {
-            // TC-BOARD-006
+            // TC-BOARD-006 (ODY-S10-101: the MainGM is the campaign's host, registered as MainGm at Create -- it used
+            // to be an arbitrary UserId plus a caller-supplied flag, which no longer exists)
             UserId controller = NewUserId();
-            UserId mainGm = NewUserId();
+            UserId mainGm = global::Odyssey.Application.Identity.DevIdentityProvider.AssignHost();
             TokenRecord token = _sceneRepository.CreateToken(_campaign, _sceneId, new TokenPosition(0, 0), controller, NewCommandId(), TestCorrelationId).Value;
 
-            var request = new MoveTokenRequest(_campaign, mainGm, actorIsMainGm: true, token.TokenId, new TokenPosition(7, 7), token.Revision, NewCommandId(), TestCorrelationId);
-            Result<TokenRecord> result = BoardMovementService.MoveToken(_sceneRepository, request);
+            var request = new MoveTokenRequest(_campaign, mainGm, token.TokenId, new TokenPosition(7, 7), token.Revision, NewCommandId(), TestCorrelationId);
+            Result<TokenRecord> result = BoardMovementService.MoveToken(_sceneRepository, _campaignRepository, request);
 
             Assert.That(result.IsSuccess, Is.True);
             Assert.That(result.Value.Position.X, Is.EqualTo(7));
@@ -112,12 +113,12 @@ namespace Odyssey.Tests.Persistence.Board
             TokenRecord token = _sceneRepository.CreateToken(_campaign, _sceneId, new TokenPosition(0, 0), controller, NewCommandId(), TestCorrelationId).Value;
 
             // A first move advances the revision to 2.
-            var firstMove = new MoveTokenRequest(_campaign, controller, actorIsMainGm: false, token.TokenId, new TokenPosition(1, 1), token.Revision, NewCommandId(), TestCorrelationId);
-            Assert.That(BoardMovementService.MoveToken(_sceneRepository, firstMove).IsSuccess, Is.True);
+            var firstMove = new MoveTokenRequest(_campaign, controller, token.TokenId, new TokenPosition(1, 1), token.Revision, NewCommandId(), TestCorrelationId);
+            Assert.That(BoardMovementService.MoveToken(_sceneRepository, _campaignRepository, firstMove).IsSuccess, Is.True);
 
             // A second move submitted with the now-stale ExpectedRevision (1, not 2).
-            var staleMove = new MoveTokenRequest(_campaign, controller, actorIsMainGm: false, token.TokenId, new TokenPosition(2, 2), token.Revision, NewCommandId(), TestCorrelationId);
-            Result<TokenRecord> result = BoardMovementService.MoveToken(_sceneRepository, staleMove);
+            var staleMove = new MoveTokenRequest(_campaign, controller, token.TokenId, new TokenPosition(2, 2), token.Revision, NewCommandId(), TestCorrelationId);
+            Result<TokenRecord> result = BoardMovementService.MoveToken(_sceneRepository, _campaignRepository, staleMove);
 
             Assert.That(result.IsFailure, Is.True);
             Assert.That(result.Error.Code, Is.EqualTo(ErrorCodes.PersistenceTokenRevisionConflict));
@@ -136,8 +137,8 @@ namespace Odyssey.Tests.Persistence.Board
             TokenRecord tokenA = _sceneRepository.CreateToken(_campaign, _sceneId, new TokenPosition(0, 0), controller, NewCommandId(), TestCorrelationId).Value;
             TokenRecord tokenB = _sceneRepository.CreateToken(_campaign, _sceneId, new TokenPosition(5, 5), controller, NewCommandId(), TestCorrelationId).Value;
 
-            var request = new MoveTokenRequest(_campaign, controller, actorIsMainGm: false, tokenA.TokenId, new TokenPosition(5, 5), tokenA.Revision, NewCommandId(), TestCorrelationId);
-            Result<TokenRecord> result = BoardMovementService.MoveToken(_sceneRepository, request);
+            var request = new MoveTokenRequest(_campaign, controller, tokenA.TokenId, new TokenPosition(5, 5), tokenA.Revision, NewCommandId(), TestCorrelationId);
+            Result<TokenRecord> result = BoardMovementService.MoveToken(_sceneRepository, _campaignRepository, request);
 
             Assert.That(result.IsFailure, Is.True);
             Assert.That(result.Error.Code, Is.EqualTo(ErrorCodes.BoardTokenDestinationOccupied));
@@ -154,8 +155,8 @@ namespace Odyssey.Tests.Persistence.Board
             UserId controller = NewUserId();
             TokenRecord token = _sceneRepository.CreateToken(_campaign, _sceneId, new TokenPosition(0, 0), controller, NewCommandId(), TestCorrelationId).Value;
 
-            var request = new MoveTokenRequest(_campaign, controller, actorIsMainGm: false, token.TokenId, new TokenPosition(double.NaN, 0), token.Revision, NewCommandId(), TestCorrelationId);
-            Result<TokenRecord> result = BoardMovementService.MoveToken(_sceneRepository, request);
+            var request = new MoveTokenRequest(_campaign, controller, token.TokenId, new TokenPosition(double.NaN, 0), token.Revision, NewCommandId(), TestCorrelationId);
+            Result<TokenRecord> result = BoardMovementService.MoveToken(_sceneRepository, _campaignRepository, request);
 
             Assert.That(result.IsFailure, Is.True);
             Assert.That(result.Error.Code, Is.EqualTo(ErrorCodes.BoardTokenDestinationInvalid));
@@ -172,13 +173,13 @@ namespace Odyssey.Tests.Persistence.Board
             TokenPosition original = new TokenPosition(1, 1);
             TokenRecord token = _sceneRepository.CreateToken(_campaign, _sceneId, original, controller, NewCommandId(), TestCorrelationId).Value;
 
-            var move = new MoveTokenRequest(_campaign, controller, actorIsMainGm: false, token.TokenId, new TokenPosition(8, 8), token.Revision, NewCommandId(), TestCorrelationId);
-            Result<TokenRecord> moved = BoardMovementService.MoveToken(_sceneRepository, move);
+            var move = new MoveTokenRequest(_campaign, controller, token.TokenId, new TokenPosition(8, 8), token.Revision, NewCommandId(), TestCorrelationId);
+            Result<TokenRecord> moved = BoardMovementService.MoveToken(_sceneRepository, _campaignRepository, move);
             Assert.That(moved.IsSuccess, Is.True);
             Assert.That(moved.Value.Revision, Is.EqualTo(2));
 
-            var undo = new MoveTokenRequest(_campaign, controller, actorIsMainGm: false, token.TokenId, original, moved.Value.Revision, NewCommandId(), TestCorrelationId);
-            Result<TokenRecord> undone = BoardMovementService.UndoMoveToken(_sceneRepository, undo);
+            var undo = new MoveTokenRequest(_campaign, controller, token.TokenId, original, moved.Value.Revision, NewCommandId(), TestCorrelationId);
+            Result<TokenRecord> undone = BoardMovementService.UndoMoveToken(_sceneRepository, _campaignRepository, undo);
 
             Assert.That(undone.IsSuccess, Is.True);
             Assert.That(undone.Value.Position.X, Is.EqualTo(1));
@@ -201,12 +202,12 @@ namespace Odyssey.Tests.Persistence.Board
             UserId otherActor = NewUserId();
             TokenRecord token = _sceneRepository.CreateToken(_campaign, _sceneId, new TokenPosition(1, 1), controller, NewCommandId(), TestCorrelationId).Value;
 
-            var move = new MoveTokenRequest(_campaign, controller, actorIsMainGm: false, token.TokenId, new TokenPosition(8, 8), token.Revision, NewCommandId(), TestCorrelationId);
-            Result<TokenRecord> moved = BoardMovementService.MoveToken(_sceneRepository, move);
+            var move = new MoveTokenRequest(_campaign, controller, token.TokenId, new TokenPosition(8, 8), token.Revision, NewCommandId(), TestCorrelationId);
+            Result<TokenRecord> moved = BoardMovementService.MoveToken(_sceneRepository, _campaignRepository, move);
             Assert.That(moved.IsSuccess, Is.True);
 
-            var undoByOtherActor = new MoveTokenRequest(_campaign, otherActor, actorIsMainGm: false, token.TokenId, new TokenPosition(1, 1), moved.Value.Revision, NewCommandId(), TestCorrelationId);
-            Result<TokenRecord> rejected = BoardMovementService.UndoMoveToken(_sceneRepository, undoByOtherActor);
+            var undoByOtherActor = new MoveTokenRequest(_campaign, otherActor, token.TokenId, new TokenPosition(1, 1), moved.Value.Revision, NewCommandId(), TestCorrelationId);
+            Result<TokenRecord> rejected = BoardMovementService.UndoMoveToken(_sceneRepository, _campaignRepository, undoByOtherActor);
 
             Assert.That(rejected.IsFailure, Is.True);
             Assert.That(rejected.Error.Code, Is.EqualTo(ErrorCodes.BoardTokenMoveDenied));
@@ -224,18 +225,18 @@ namespace Odyssey.Tests.Persistence.Board
             UserId controller = NewUserId();
             TokenRecord token = _sceneRepository.CreateToken(_campaign, _sceneId, new TokenPosition(1, 1), controller, NewCommandId(), TestCorrelationId).Value;
 
-            var move = new MoveTokenRequest(_campaign, controller, actorIsMainGm: false, token.TokenId, new TokenPosition(8, 8), token.Revision, NewCommandId(), TestCorrelationId);
-            Result<TokenRecord> moved = BoardMovementService.MoveToken(_sceneRepository, move);
+            var move = new MoveTokenRequest(_campaign, controller, token.TokenId, new TokenPosition(8, 8), token.Revision, NewCommandId(), TestCorrelationId);
+            Result<TokenRecord> moved = BoardMovementService.MoveToken(_sceneRepository, _campaignRepository, move);
             Assert.That(moved.IsSuccess, Is.True);
 
             // An intervening move (e.g. MainGM administrative move) advances the revision again.
-            var interveningMove = new MoveTokenRequest(_campaign, controller, actorIsMainGm: true, token.TokenId, new TokenPosition(9, 9), moved.Value.Revision, NewCommandId(), TestCorrelationId);
-            Result<TokenRecord> intervened = BoardMovementService.MoveToken(_sceneRepository, interveningMove);
+            var interveningMove = new MoveTokenRequest(_campaign, controller, token.TokenId, new TokenPosition(9, 9), moved.Value.Revision, NewCommandId(), TestCorrelationId);
+            Result<TokenRecord> intervened = BoardMovementService.MoveToken(_sceneRepository, _campaignRepository, interveningMove);
             Assert.That(intervened.IsSuccess, Is.True);
 
             // Undo submitted against the now-stale revision from before the intervening move.
-            var staleUndo = new MoveTokenRequest(_campaign, controller, actorIsMainGm: false, token.TokenId, new TokenPosition(1, 1), moved.Value.Revision, NewCommandId(), TestCorrelationId);
-            Result<TokenRecord> result = BoardMovementService.UndoMoveToken(_sceneRepository, staleUndo);
+            var staleUndo = new MoveTokenRequest(_campaign, controller, token.TokenId, new TokenPosition(1, 1), moved.Value.Revision, NewCommandId(), TestCorrelationId);
+            Result<TokenRecord> result = BoardMovementService.UndoMoveToken(_sceneRepository, _campaignRepository, staleUndo);
 
             Assert.That(result.IsFailure, Is.True);
             Assert.That(result.Error.Code, Is.EqualTo(ErrorCodes.PersistenceTokenRevisionConflict));
@@ -252,8 +253,8 @@ namespace Odyssey.Tests.Persistence.Board
             // coverage is ODY-S03-007, not this task).
             UserId controller = NewUserId();
             TokenRecord token = _sceneRepository.CreateToken(_campaign, _sceneId, new TokenPosition(0, 0), controller, NewCommandId(), TestCorrelationId).Value;
-            var move = new MoveTokenRequest(_campaign, controller, actorIsMainGm: false, token.TokenId, new TokenPosition(6, 6), token.Revision, NewCommandId(), TestCorrelationId);
-            Result<TokenRecord> moved = BoardMovementService.MoveToken(_sceneRepository, move);
+            var move = new MoveTokenRequest(_campaign, controller, token.TokenId, new TokenPosition(6, 6), token.Revision, NewCommandId(), TestCorrelationId);
+            Result<TokenRecord> moved = BoardMovementService.MoveToken(_sceneRepository, _campaignRepository, move);
             Assert.That(moved.IsSuccess, Is.True);
 
             _campaignRepository.Close(_campaign, TestCorrelationId);
@@ -269,6 +270,66 @@ namespace Odyssey.Tests.Persistence.Board
             Assert.That(restored.Position.Y, Is.EqualTo(6));
             Assert.That(restored.ControllerUserId, Is.EqualTo(controller));
             Assert.That(restored.Revision, Is.EqualTo(2));
+        }
+
+        // ---- ODY-S10-101: MainGM is the stored membership, not a claim ------------------------------
+
+        [Test] // TC-PERSIST-040
+        public void MoveToken_AuthorizationForNonControllers_FollowsTheStoredCampaignMembership()
+        {
+            UserId controller = NewUserId();
+            TokenRecord token = _sceneRepository.CreateToken(_campaign, _sceneId, new TokenPosition(0, 0), controller, NewCommandId(), TestCorrelationId).Value;
+
+            UserId unregistered = NewUserId();
+            UserId player = NewUserId();
+            UserId observer = NewUserId();
+            UserId secondGm = NewUserId();
+            Assert.That(_campaignRepository.AddMember(_campaign, player, CampaignMembershipRole.Player, NewCommandId(), TestCorrelationId).IsSuccess, Is.True);
+            Assert.That(_campaignRepository.AddMember(_campaign, observer, CampaignMembershipRole.Observer, NewCommandId(), TestCorrelationId).IsSuccess, Is.True);
+
+            foreach (UserId denied in new[] { unregistered, player, observer })
+            {
+                TokenRecord current = _sceneRepository.GetToken(_campaign, token.TokenId, TestCorrelationId).Value;
+                Result<TokenRecord> result = BoardMovementService.MoveToken(_sceneRepository, _campaignRepository, new MoveTokenRequest(_campaign, denied, token.TokenId, new TokenPosition(5, 5), current.Revision, NewCommandId(), TestCorrelationId));
+                Assert.That(result.IsFailure, Is.True, "a user who is not the token's controller and not a stored MainGm (no membership / Player / Observer) must be denied");
+                Assert.That(result.Error.Code, Is.EqualTo(ErrorCodes.BoardTokenMoveDenied));
+            }
+
+            Assert.That(_sceneRepository.GetToken(_campaign, token.TokenId, TestCorrelationId).Value.Position.X, Is.EqualTo(0), "nothing moved");
+
+            // Registering a second MainGm is what grants the right -- and it takes effect on the very next call.
+            Assert.That(_campaignRepository.AddMember(_campaign, secondGm, CampaignMembershipRole.MainGm, NewCommandId(), TestCorrelationId).IsSuccess, Is.True);
+            TokenRecord latest = _sceneRepository.GetToken(_campaign, token.TokenId, TestCorrelationId).Value;
+            Result<TokenRecord> allowed = BoardMovementService.MoveToken(_sceneRepository, _campaignRepository, new MoveTokenRequest(_campaign, secondGm, token.TokenId, new TokenPosition(5, 5), latest.Revision, NewCommandId(), TestCorrelationId));
+            Assert.That(allowed.IsSuccess, Is.True);
+        }
+
+        [Test] // TC-PERSIST-040
+        public void MoveToken_WhenTheMembershipLookupFails_FailsClosed()
+        {
+            UserId controller = NewUserId();
+            UserId stranger = NewUserId();
+            TokenRecord token = _sceneRepository.CreateToken(_campaign, _sceneId, new TokenPosition(0, 0), controller, NewCommandId(), TestCorrelationId).Value;
+
+            Result<TokenRecord> result = BoardMovementService.MoveToken(_sceneRepository, new FailingMembershipCampaignRepository(), new MoveTokenRequest(_campaign, stranger, token.TokenId, new TokenPosition(4, 4), token.Revision, NewCommandId(), TestCorrelationId));
+
+            Assert.That(result.IsFailure, Is.True, "an unreadable membership must never be treated as authorization");
+            Assert.That(_sceneRepository.GetToken(_campaign, token.TokenId, TestCorrelationId).Value.Position.X, Is.EqualTo(0));
+
+            // The controller needs no membership lookup at all, so it is unaffected by the failing lookup.
+            Result<TokenRecord> byController = BoardMovementService.MoveToken(_sceneRepository, new FailingMembershipCampaignRepository(), new MoveTokenRequest(_campaign, controller, token.TokenId, new TokenPosition(4, 4), token.Revision, NewCommandId(), TestCorrelationId));
+            Assert.That(byController.IsSuccess, Is.True);
+        }
+
+        /// <summary>A campaign repository whose membership lookup always fails -- everything else is unused by the move path.</summary>
+        private sealed class FailingMembershipCampaignRepository : ICampaignRepository
+        {
+            public Result<CampaignHandle> Create(CreateCampaignRequest request, CommandId commandId, CorrelationId correlationId) => throw new NotSupportedException();
+            public Result<CampaignHandle> Open(string campaignFolderPath, CorrelationId correlationId) => throw new NotSupportedException();
+            public Result Close(CampaignHandle handle, CorrelationId correlationId) => throw new NotSupportedException();
+            public Result<CampaignMembership> AddMember(CampaignHandle campaign, UserId userId, CampaignMembershipRole role, CommandId commandId, CorrelationId correlationId) => throw new NotSupportedException();
+            public Result<System.Collections.Generic.IReadOnlyList<CampaignMembership>> ListMembers(CampaignHandle campaign, CorrelationId correlationId) => throw new NotSupportedException();
+            public Result<CampaignMemberLookup> GetMemberRole(CampaignHandle campaign, UserId userId, CorrelationId correlationId) => Result<CampaignMemberLookup>.Failure(PersistenceFailures.CampaignIoFailed(correlationId));
         }
     }
 }

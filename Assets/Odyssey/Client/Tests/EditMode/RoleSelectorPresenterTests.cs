@@ -113,7 +113,7 @@ namespace Odyssey.Tests.Unity.EditMode
             {
                 TemporaryDirectory directory = new TemporaryDirectory();
                 var campaignRepository = new SqliteCampaignRepository(Clock);
-                var createRequest = new CreateCampaignRequest(directory.Path, "Role Selector Test Campaign", "ruleset.core", "1.0.0", "0.1.0");
+                var createRequest = new CreateCampaignRequest(directory.Path, "Role Selector Test Campaign", "ruleset.core", "1.0.0", "0.1.0", global::Odyssey.Application.Identity.DevIdentityProvider.AssignHost());
                 Result<CampaignHandle> created = campaignRepository.Create(createRequest, NewCommandId(), TestCorrelationId);
                 Assert.That(created.IsSuccess, Is.True);
 
@@ -126,7 +126,7 @@ namespace Odyssey.Tests.Unity.EditMode
                 UIDocument document = gameObject.AddComponent<UIDocument>();
                 PresentationRuntime presentationRuntime = new PresentationRuntime();
                 RoleSelection selection = new RoleSelection(User("2"), User("1"), User("3"), initialRole);
-                var presenter = new BoardScreenPresenter(document, sceneRepository, created.Value, sceneId, selection, presentationRuntime);
+                var presenter = new BoardScreenPresenter(document, sceneRepository, created.Value, campaignRepository, sceneId, selection, presentationRuntime);
                 Assert.That(presenter.Initialize().IsSuccess, Is.True);
                 var selector = new RoleSelectorPresenter(selection, presentationRuntime);
 

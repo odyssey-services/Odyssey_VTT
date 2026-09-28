@@ -83,7 +83,7 @@ namespace Odyssey.Tests.Persistence.Integration
         public void TenStepSlice_TokenSelectionThroughRollRerollWithJournalPersistence_AllStepsSucceed()
         {
             var campaignRepository = new SqliteCampaignRepository(Clock);
-            var createRequest = new CreateCampaignRequest(_workDir, "SLICE-03 Vertical Slice Campaign", "ruleset.core", "1.0.0", "0.1.0");
+            var createRequest = new CreateCampaignRequest(_workDir, "SLICE-03 Vertical Slice Campaign", "ruleset.core", "1.0.0", "0.1.0", global::Odyssey.Application.Identity.DevIdentityProvider.AssignHost());
             Result<CampaignHandle> created = campaignRepository.Create(createRequest, NewCommandId(), TestCorrelationId);
             Assert.That(created.IsSuccess, Is.True, "campaign creation must succeed before the scenario begins");
             CampaignHandle campaign = created.Value;
@@ -108,12 +108,12 @@ namespace Odyssey.Tests.Persistence.Integration
             TokenRecord token = tokenCreated.Value;
             Assert.That(token.ControllerUserId, Is.EqualTo(player), "step 1: the token must be controlled by the acting player");
 
-            var wrongActorMove = new MoveTokenRequest(campaign, excludedObserver, actorIsMainGm: false, token.TokenId, new TokenPosition(1, 1), token.Revision, NewCommandId(), TestCorrelationId);
-            Result<TokenRecord> wrongActorResult = BoardMovementService.MoveToken(sceneRepository, wrongActorMove);
+            var wrongActorMove = new MoveTokenRequest(campaign, excludedObserver, token.TokenId, new TokenPosition(1, 1), token.Revision, NewCommandId(), TestCorrelationId);
+            Result<TokenRecord> wrongActorResult = BoardMovementService.MoveToken(sceneRepository, campaignRepository, wrongActorMove);
             Assert.That(wrongActorResult.IsFailure, Is.True, "step 1: a non-controller, non-MainGM actor must not be authorized to move the token");
 
-            var ownMove = new MoveTokenRequest(campaign, player, actorIsMainGm: false, token.TokenId, new TokenPosition(5, 5), token.Revision, NewCommandId(), TestCorrelationId);
-            Result<TokenRecord> ownMoveResult = BoardMovementService.MoveToken(sceneRepository, ownMove);
+            var ownMove = new MoveTokenRequest(campaign, player, token.TokenId, new TokenPosition(5, 5), token.Revision, NewCommandId(), TestCorrelationId);
+            Result<TokenRecord> ownMoveResult = BoardMovementService.MoveToken(sceneRepository, campaignRepository, ownMove);
             Assert.That(ownMoveResult.IsSuccess, Is.True, "step 1: the controlling player must be authorized to move their own selected token");
 
             // ---- Steps 2-3: player sends a roll intent; host validates permission. ----

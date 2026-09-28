@@ -79,7 +79,7 @@ namespace Odyssey.Tests.Persistence
         public void Create_InsertsExactlyOneSchemaHistoryRow_MatchingDatabaseSchemaVersionInManifest()
         {
             var repository = new SqliteCampaignRepository(Clock);
-            var request = new CreateCampaignRequest(_workDir, "Migration Registry Test", "ruleset.core", "1.0.0", "0.1.0");
+            var request = new CreateCampaignRequest(_workDir, "Migration Registry Test", "ruleset.core", "1.0.0", "0.1.0", global::Odyssey.Application.Identity.DevIdentityProvider.AssignHost());
             Result<CampaignHandle> created = repository.Create(request, NewCommandId(), TestCorrelationId);
             Assert.That(created.IsSuccess, Is.True);
             CampaignHandle handle = created.Value;
@@ -114,7 +114,7 @@ namespace Odyssey.Tests.Persistence
         public void Open_DoesNotDuplicateOrRewriteInitialSchemaHistoryRow()
         {
             var repository = new SqliteCampaignRepository(Clock);
-            var request = new CreateCampaignRequest(_workDir, "Reopen Test", "ruleset.core", "1.0.0", "0.1.0");
+            var request = new CreateCampaignRequest(_workDir, "Reopen Test", "ruleset.core", "1.0.0", "0.1.0", global::Odyssey.Application.Identity.DevIdentityProvider.AssignHost());
             Result<CampaignHandle> created = repository.Create(request, NewCommandId(), TestCorrelationId);
             Assert.That(created.IsSuccess, Is.True);
             Assert.That(repository.Close(created.Value, TestCorrelationId).IsSuccess, Is.True);

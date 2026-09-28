@@ -21,7 +21,7 @@ namespace Odyssey.Application.Board
     /// </summary>
     public sealed class MoveTokenRequest
     {
-        public MoveTokenRequest(CampaignHandle campaign, UserId actorUserId, bool actorIsMainGm, TokenId tokenId, TokenPosition destination, long expectedRevision, CommandId commandId, CorrelationId correlationId)
+        public MoveTokenRequest(CampaignHandle campaign, UserId actorUserId, TokenId tokenId, TokenPosition destination, long expectedRevision, CommandId commandId, CorrelationId correlationId)
         {
             if (campaign == null) throw new ArgumentNullException(nameof(campaign));
             if (!actorUserId.IsValid) throw new ArgumentException("ActorUserId is required.", nameof(actorUserId));
@@ -31,7 +31,6 @@ namespace Odyssey.Application.Board
 
             Campaign = campaign;
             ActorUserId = actorUserId;
-            ActorIsMainGm = actorIsMainGm;
             TokenId = tokenId;
             Destination = destination;
             ExpectedRevision = expectedRevision;
@@ -40,17 +39,13 @@ namespace Odyssey.Application.Board
         }
 
         public CampaignHandle Campaign { get; }
+        /// <summary>
+        /// The acting user. ODY-S10-101: whether this user is the campaign's MainGM is no longer supplied by the
+        /// caller (the former <c>ActorIsMainGm</c> flag was removed); it is looked up from the stored campaign
+        /// membership (<c>CampaignMembershipAuthorization.IsMainGm</c>).
+        /// </summary>
         public UserId ActorUserId { get; }
 
-        /// <summary>
-        /// ODY-S03-004's deliberate simplification (see task contract section
-        /// 3): this task has no session/role model of its own (that remains
-        /// ADR-019/SLICE-02 scope, not reopened here) -- the caller supplies
-        /// whether the actor holds the MainGM baseline role, the same
-        /// information ODY-S02-011's <c>SessionAdmissionState</c> would
-        /// eventually provide in a networked context.
-        /// </summary>
-        public bool ActorIsMainGm { get; }
         public TokenId TokenId { get; }
         public TokenPosition Destination { get; }
         public long ExpectedRevision { get; }
