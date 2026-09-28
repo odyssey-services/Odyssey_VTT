@@ -50,7 +50,7 @@ namespace Odyssey.Tests.Persistence
             Assert.That(created.IsSuccess, Is.True);
             _campaign = created.Value;
             _inventoryRepository = new SqliteInventoryRepository(Clock);
-            _characterRepository = new SqliteCharacterRepository(Clock);
+            _characterRepository = new SqliteCharacterRepository(Clock, _campaignRepository);
         }
 
         [TearDown]
@@ -485,7 +485,7 @@ namespace Odyssey.Tests.Persistence
             var request = new CreateCharacterRequest(_campaign, CharacterKind.PlayerCharacter, "Equip Command Test Character");
             Result<CharacterRecord> created = _characterRepository.CreateCharacter(request, NewCommandId(), TestCorrelationId);
             Assert.That(created.IsSuccess, Is.True);
-            Result<CharacterRecord> initialized = CharacterAdvancementService.InitializeAnatomyWithDefaults(_characterRepository, _campaign, created.Value.CharacterId, Humanoid, NewUserId(), actorIsMainGm: true, created.Value.Revisions.CharacterAnatomyRevision, NewCommandId(), TestCorrelationId);
+            Result<CharacterRecord> initialized = CharacterAdvancementService.InitializeAnatomyWithDefaults(_characterRepository, _campaign, created.Value.CharacterId, Humanoid, global::Odyssey.Application.Identity.DevIdentityProvider.AssignHost(), created.Value.Revisions.CharacterAnatomyRevision, NewCommandId(), TestCorrelationId);
             Assert.That(initialized.IsSuccess, Is.True);
             return initialized.Value;
         }

@@ -69,7 +69,7 @@ namespace Odyssey.Tests.Persistence.Integration
             _campaign = created.Value;
             _catalog = new SqliteContentCatalogRepository(Clock);
             _inventory = new SqliteInventoryRepository(Clock);
-            _characters = new SqliteCharacterRepository(Clock,
+            _characters = new SqliteCharacterRepository(Clock, _campaigns,
                 deletionDependencyCheckers: new ICharacterDeletionDependencyChecker[] { new InventoryCharacterDeletionDependencyChecker(_inventory) },
                 bodyPartRemovalDependencyCheckers: new IBodyPartRemovalDependencyChecker[] { new InventoryBodyPartRemovalDependencyChecker(_inventory) });
         }
@@ -279,7 +279,7 @@ namespace Odyssey.Tests.Persistence.Integration
         {
             Result<CharacterRecord> created = _characters.CreateCharacter(new CreateCharacterRequest(_campaign, CharacterKind.PlayerCharacter, "Migration Integration Fixture Character"), NewCommandId(), Corr);
             Assert.That(created.IsSuccess, Is.True);
-            Result<CharacterRecord> initialized = CharacterAdvancementService.InitializeAnatomyWithDefaults(_characters, _campaign, created.Value.CharacterId, Humanoid, NewUserId(), actorIsMainGm: true, created.Value.Revisions.CharacterAnatomyRevision, NewCommandId(), Corr);
+            Result<CharacterRecord> initialized = CharacterAdvancementService.InitializeAnatomyWithDefaults(_characters, _campaign, created.Value.CharacterId, Humanoid, global::Odyssey.Application.Identity.DevIdentityProvider.AssignHost(), created.Value.Revisions.CharacterAnatomyRevision, NewCommandId(), Corr);
             Assert.That(initialized.IsSuccess, Is.True);
             return initialized.Value;
         }

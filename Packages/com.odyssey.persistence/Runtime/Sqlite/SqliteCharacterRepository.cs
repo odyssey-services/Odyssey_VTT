@@ -4,6 +4,7 @@ using System.IO;
 using Microsoft.Data.Sqlite;
 using Newtonsoft.Json.Linq;
 using Odyssey.Application.Commands;
+using Odyssey.Application.Identity;
 using Odyssey.Application.Persistence;
 using Odyssey.Application.Results;
 using Odyssey.Application.Time;
@@ -42,6 +43,7 @@ namespace Odyssey.Persistence.Sqlite
     public sealed class SqliteCharacterRepository : ICharacterRepository
     {
         private readonly IWallClock _clock;
+        private readonly ICampaignRepository _campaignRepository;
         private readonly SqliteSavingPipeline _pipeline;
         private readonly IBackupRepository _backupRepository;
         private readonly IReadOnlyList<ICharacterDeletionDependencyChecker> _deletionDependencyCheckers;
@@ -111,9 +113,12 @@ namespace Odyssey.Persistence.Sqlite
         /// needs to observe/substitute the backup step (e.g. a test) can
         /// still pass one explicitly.
         /// </summary>
-        public SqliteCharacterRepository(IWallClock clock, IBackupRepository? backupRepository = null, IReadOnlyList<ICharacterDeletionDependencyChecker>? deletionDependencyCheckers = null, IReadOnlyList<IBodyPartRemovalDependencyChecker>? bodyPartRemovalDependencyCheckers = null)
+        public SqliteCharacterRepository(IWallClock clock, ICampaignRepository campaignRepository, IBackupRepository? backupRepository = null, IReadOnlyList<ICharacterDeletionDependencyChecker>? deletionDependencyCheckers = null, IReadOnlyList<IBodyPartRemovalDependencyChecker>? bodyPartRemovalDependencyCheckers = null)
         {
             _clock = clock ?? throw new ArgumentNullException(nameof(clock));
+            // ODY-S10-102: MainGM-ness is looked up from the stored campaign membership (never trusted from the caller), so this
+            // identity-critical dependency is required -- the same rule BoardScreenPresenter follows since ODY-S10-101.
+            _campaignRepository = campaignRepository ?? throw new ArgumentNullException(nameof(campaignRepository));
             _pipeline = new SqliteSavingPipeline(clock);
             _backupRepository = backupRepository ?? new SqliteBackupRepository(clock);
             _deletionDependencyCheckers = deletionDependencyCheckers ?? Array.Empty<ICharacterDeletionDependencyChecker>();
@@ -490,7 +495,7 @@ namespace Odyssey.Persistence.Sqlite
             }
         }
 
-        public Result<CharacterRecord> ApproveCharacterDraft(CampaignHandle campaign, CharacterId characterId, bool actorIsMainGm, long expectedLifecycleRevision, CommandId commandId, CorrelationId correlationId)
+        public Result<CharacterRecord> ApproveCharacterDraft(CampaignHandle campaign, CharacterId characterId, UserId actorUserId, long expectedLifecycleRevision, CommandId commandId, CorrelationId correlationId)
         {
             if (campaign == null) throw new ArgumentNullException(nameof(campaign));
             if (!characterId.IsValid) throw new ArgumentException("CharacterId is required.", nameof(characterId));
@@ -500,7 +505,13 @@ namespace Odyssey.Persistence.Sqlite
             // ADR-023 section 7.3: Character.Approve is MainGM-only -- the
             // same caller-supplied-boolean baseline AssignPrimaryOwner
             // already uses, checked before touching the database at all.
-            if (!actorIsMainGm)
+            Result<bool> mainGmCheck = CampaignMembershipAuthorization.IsMainGm(_campaignRepository, campaign, actorUserId, correlationId);
+            if (mainGmCheck.IsFailure)
+            {
+                return Result<CharacterRecord>.Failure(mainGmCheck.Error);
+            }
+
+            if (!mainGmCheck.Value)
             {
                 return Result<CharacterRecord>.Failure(PersistenceFailures.CharacterApprovalDenied(correlationId));
             }
@@ -594,7 +605,7 @@ namespace Odyssey.Persistence.Sqlite
             }
         }
 
-        public Result<CharacterRecord> ArchiveCharacter(CampaignHandle campaign, CharacterId characterId, UserId actorUserId, bool actorIsMainGm, long expectedLifecycleRevision, CommandId commandId, CorrelationId correlationId)
+        public Result<CharacterRecord> ArchiveCharacter(CampaignHandle campaign, CharacterId characterId, UserId actorUserId, long expectedLifecycleRevision, CommandId commandId, CorrelationId correlationId)
         {
             if (campaign == null) throw new ArgumentNullException(nameof(campaign));
             if (!characterId.IsValid) throw new ArgumentException("CharacterId is required.", nameof(characterId));
@@ -634,7 +645,19 @@ namespace Odyssey.Persistence.Sqlite
                         // IsAssignedCharacter), unlike the MainGM-only gates
                         // elsewhere in this file that are checked before
                         // touching the database at all.
-                        bool permitted = actorIsMainGm || CharacterOwnershipAssignment.IsAssignedCharacter(current.Ownership, actorUserId, _clock.GetUtcNow());
+                        bool permitted = CharacterOwnershipAssignment.IsAssignedCharacter(current.Ownership, actorUserId, _clock.GetUtcNow());
+                        if (!permitted)
+                        {
+                            // ODY-S10-102: only a non-owner reaches the stored-membership lookup (owner first, MainGM second).
+                            Result<bool> mainGmCheck = CampaignMembershipAuthorization.IsMainGm(_campaignRepository, campaign, actorUserId, correlationId);
+                            if (mainGmCheck.IsFailure)
+                            {
+                                return Result<PipelineWrite<CharacterRecord>>.Failure(mainGmCheck.Error);
+                            }
+
+                            permitted = mainGmCheck.Value;
+                        }
+
                         if (!permitted)
                         {
                             return Result<PipelineWrite<CharacterRecord>>.Failure(PersistenceFailures.CharacterArchiveDenied(correlationId));
@@ -715,7 +738,7 @@ namespace Odyssey.Persistence.Sqlite
         /// what a client-side preview showed" host authority) immediately
         /// before the irreversible commit.
         /// </summary>
-        public Result DeleteCharacterPermanently(CampaignHandle campaign, CharacterId characterId, string reasonCode, UserId actorUserId, bool actorIsMainGm, long expectedLifecycleRevision, CommandId commandId, CorrelationId correlationId)
+        public Result DeleteCharacterPermanently(CampaignHandle campaign, CharacterId characterId, string reasonCode, UserId actorUserId, long expectedLifecycleRevision, CommandId commandId, CorrelationId correlationId)
         {
             if (campaign == null) throw new ArgumentNullException(nameof(campaign));
             if (!characterId.IsValid) throw new ArgumentException("CharacterId is required.", nameof(characterId));
@@ -726,7 +749,13 @@ namespace Odyssey.Persistence.Sqlite
             // Product section 22.2: "доступно только MainGM" -- checked
             // before touching the database at all, matching every other
             // MainGM-only gate's own convention.
-            if (!actorIsMainGm)
+            Result<bool> mainGmCheck = CampaignMembershipAuthorization.IsMainGm(_campaignRepository, campaign, actorUserId, correlationId);
+            if (mainGmCheck.IsFailure)
+            {
+                return Result.Failure(mainGmCheck.Error);
+            }
+
+            if (!mainGmCheck.Value)
             {
                 return Result.Failure(PersistenceFailures.CharacterDeletionDenied(correlationId));
             }
@@ -894,7 +923,7 @@ namespace Odyssey.Persistence.Sqlite
             return count > 0;
         }
 
-        public Result<CharacterRecord> TransitionCharacterToDead(CampaignHandle campaign, CharacterId characterId, LifecycleDeathIssuerKind issuerKind, UserId actorUserId, bool actorIsMainGm, long expectedLifecycleRevision, CommandId commandId, CorrelationId correlationId)
+        public Result<CharacterRecord> TransitionCharacterToDead(CampaignHandle campaign, CharacterId characterId, LifecycleDeathIssuerKind issuerKind, UserId actorUserId, long expectedLifecycleRevision, CommandId commandId, CorrelationId correlationId)
         {
             if (campaign == null) throw new ArgumentNullException(nameof(campaign));
             if (!characterId.IsValid) throw new ArgumentException("CharacterId is required.", nameof(characterId));
@@ -909,12 +938,21 @@ namespace Odyssey.Persistence.Sqlite
             // MainGM-only gate's own convention. HostSystemFatalDamageCompletion
             // is a structurally legal entry point for a future Rules Engine
             // workflow (ADR-002 section 6.4's IssuerKind=HostSystem) -- not
-            // a user-issued command, so no actorIsMainGm check applies to
+            // a user-issued command, so no actorUserId check applies to
             // it. There is no third path a plain owner/controller can take
             // (CAP-INV-008).
-            if (issuerKind == LifecycleDeathIssuerKind.GMOverride && !actorIsMainGm)
+            if (issuerKind == LifecycleDeathIssuerKind.GMOverride)
             {
-                return Result<CharacterRecord>.Failure(PersistenceFailures.CharacterDeadTransitionDenied(correlationId));
+                Result<bool> mainGmCheck = CampaignMembershipAuthorization.IsMainGm(_campaignRepository, campaign, actorUserId, correlationId);
+                if (mainGmCheck.IsFailure)
+                {
+                    return Result<CharacterRecord>.Failure(mainGmCheck.Error);
+                }
+
+                if (!mainGmCheck.Value)
+                {
+                    return Result<CharacterRecord>.Failure(PersistenceFailures.CharacterDeadTransitionDenied(correlationId));
+                }
             }
 
             try
@@ -1035,7 +1073,13 @@ namespace Odyssey.Persistence.Sqlite
 
             // Product section 23.2: "MainGM может вернуть персонажа" --
             // checked before touching the database at all.
-            if (!request.ActorIsMainGm)
+            Result<bool> mainGmCheck = CampaignMembershipAuthorization.IsMainGm(_campaignRepository, campaign, request.ActorUserId, correlationId);
+            if (mainGmCheck.IsFailure)
+            {
+                return Result<CharacterRecord>.Failure(mainGmCheck.Error);
+            }
+
+            if (!mainGmCheck.Value)
             {
                 return Result<CharacterRecord>.Failure(PersistenceFailures.CharacterRestoreDenied(correlationId));
             }
@@ -1388,7 +1432,7 @@ namespace Odyssey.Persistence.Sqlite
         /// transaction lock those must still match, otherwise the plan is
         /// stale and rejected before any write.
         /// </summary>
-        public Result<CharacterRecord> ApplyCharacterRulesetMigration(CampaignHandle campaign, CharacterId characterId, string targetRulesetVersion, string decidedSourceRulesetVersion, long decidedMechanicsRevision, long decidedCharacterAbilitiesRevision, long decidedCharacterResourcesRevision, bool hasUnresolvedDecisions, int definitionMappingCount, UserId actorUserId, bool actorIsMainGm, CommandId commandId, CorrelationId correlationId)
+        public Result<CharacterRecord> ApplyCharacterRulesetMigration(CampaignHandle campaign, CharacterId characterId, string targetRulesetVersion, string decidedSourceRulesetVersion, long decidedMechanicsRevision, long decidedCharacterAbilitiesRevision, long decidedCharacterResourcesRevision, bool hasUnresolvedDecisions, int definitionMappingCount, UserId actorUserId, CommandId commandId, CorrelationId correlationId)
         {
             if (campaign == null) throw new ArgumentNullException(nameof(campaign));
             if (!characterId.IsValid) throw new ArgumentException("CharacterId is required.", nameof(characterId));
@@ -1402,7 +1446,13 @@ namespace Odyssey.Persistence.Sqlite
             if (!commandId.IsValid) throw new ArgumentException("CommandId is required.", nameof(commandId));
 
             // Product section 25's own process step 1: "GM выбирает новую версию Ruleset" -- MainGM-only, checked before touching the database at all.
-            if (!actorIsMainGm)
+            Result<bool> mainGmCheck = CampaignMembershipAuthorization.IsMainGm(_campaignRepository, campaign, actorUserId, correlationId);
+            if (mainGmCheck.IsFailure)
+            {
+                return Result<CharacterRecord>.Failure(mainGmCheck.Error);
+            }
+
+            if (!mainGmCheck.Value)
             {
                 return Result<CharacterRecord>.Failure(PersistenceFailures.CharacterRulesetMigrationDenied(correlationId));
             }
@@ -1503,7 +1553,7 @@ namespace Odyssey.Persistence.Sqlite
         /// same shape ApplyCharacterRespec/RevertAdvancementPurchase already
         /// established, sized to what this task's own scope actually needs.
         /// </summary>
-        public Result<CharacterRecord> RevertCharacterRulesetMigration(CampaignHandle campaign, CharacterId characterId, CommandId migrationCommandId, string reasonCode, UserId actorUserId, bool actorIsMainGm, long expectedCharacterRevision, CommandId commandId, CorrelationId correlationId)
+        public Result<CharacterRecord> RevertCharacterRulesetMigration(CampaignHandle campaign, CharacterId characterId, CommandId migrationCommandId, string reasonCode, UserId actorUserId, long expectedCharacterRevision, CommandId commandId, CorrelationId correlationId)
         {
             if (campaign == null) throw new ArgumentNullException(nameof(campaign));
             if (!characterId.IsValid) throw new ArgumentException("CharacterId is required.", nameof(characterId));
@@ -1519,7 +1569,13 @@ namespace Odyssey.Persistence.Sqlite
             // ADR-024 section 6.2's own convention: reverting a committed
             // Mechanics-affecting operation is a GM correction action --
             // MainGM-only.
-            if (!actorIsMainGm)
+            Result<bool> mainGmCheck = CampaignMembershipAuthorization.IsMainGm(_campaignRepository, campaign, actorUserId, correlationId);
+            if (mainGmCheck.IsFailure)
+            {
+                return Result<CharacterRecord>.Failure(mainGmCheck.Error);
+            }
+
+            if (!mainGmCheck.Value)
             {
                 return Result<CharacterRecord>.Failure(PersistenceFailures.CharacterRulesetMigrationDenied(correlationId));
             }
@@ -2088,7 +2144,7 @@ namespace Odyssey.Persistence.Sqlite
             }
         }
 
-        public Result<CharacterRecord> GrantDevelopmentPoints(CampaignHandle campaign, CharacterId characterId, long amount, string reason, UserId actorUserId, bool actorIsMainGm, long expectedMechanicsRevision, CommandId commandId, CorrelationId correlationId)
+        public Result<CharacterRecord> GrantDevelopmentPoints(CampaignHandle campaign, CharacterId characterId, long amount, string reason, UserId actorUserId, long expectedMechanicsRevision, CommandId commandId, CorrelationId correlationId)
         {
             if (amount <= 0) throw new ArgumentOutOfRangeException(nameof(amount));
             if (string.IsNullOrWhiteSpace(reason)) throw new ArgumentException("Reason is required.", nameof(reason));
@@ -2098,7 +2154,13 @@ namespace Odyssey.Persistence.Sqlite
             // развития" -- the same caller-supplied-boolean convention
             // AssignPrimaryOwner already uses, checked before touching the
             // database at all.
-            if (!actorIsMainGm)
+            Result<bool> mainGmCheck = CampaignMembershipAuthorization.IsMainGm(_campaignRepository, campaign, actorUserId, correlationId);
+            if (mainGmCheck.IsFailure)
+            {
+                return Result<CharacterRecord>.Failure(mainGmCheck.Error);
+            }
+
+            if (!mainGmCheck.Value)
             {
                 return Result<CharacterRecord>.Failure(PersistenceFailures.CharacterDevelopmentGrantDenied(correlationId));
             }
@@ -2123,7 +2185,7 @@ namespace Odyssey.Persistence.Sqlite
             });
         }
 
-        public Result<CharacterRecord> PurchaseAttributeIncrease(CampaignHandle campaign, CharacterId characterId, AttributeDefinitionId attributeDefinitionId, long toValue, long decidedFromValue, bool exceedsNormalCap, long decidedCost, UserId actorUserId, bool actorIsMainGm, long expectedMechanicsRevision, long expectedAttributeRevision, CommandId commandId, CorrelationId correlationId)
+        public Result<CharacterRecord> PurchaseAttributeIncrease(CampaignHandle campaign, CharacterId characterId, AttributeDefinitionId attributeDefinitionId, long toValue, long decidedFromValue, bool exceedsNormalCap, long decidedCost, UserId actorUserId, long expectedMechanicsRevision, long expectedAttributeRevision, CommandId commandId, CorrelationId correlationId)
         {
             if (!attributeDefinitionId.IsValid) throw new ArgumentException("AttributeDefinitionId is required.", nameof(attributeDefinitionId));
             if (toValue < 0) throw new ArgumentOutOfRangeException(nameof(toValue));
@@ -2138,7 +2200,19 @@ namespace Odyssey.Persistence.Sqlite
                 // reusing ODY-S04-102's own IsAssignedCharacter predicate
                 // rather than duplicating an ownership check here.
                 UtcInstant now = _clock.GetUtcNow();
-                bool permitted = actorIsMainGm || CharacterOwnershipAssignment.IsAssignedCharacter(current.Ownership, actorUserId, now);
+                bool permitted = CharacterOwnershipAssignment.IsAssignedCharacter(current.Ownership, actorUserId, now);
+                if (!permitted)
+                {
+                    // ODY-S10-102: only a non-owner reaches the stored-membership lookup (owner first, MainGM second).
+                    Result<bool> mainGmCheck = CampaignMembershipAuthorization.IsMainGm(_campaignRepository, campaign, actorUserId, correlationId);
+                    if (mainGmCheck.IsFailure)
+                    {
+                        return Result<MechanicsMutation>.Failure(mainGmCheck.Error);
+                    }
+
+                    permitted = mainGmCheck.Value;
+                }
+
                 if (!permitted)
                 {
                     return Result<MechanicsMutation>.Failure(PersistenceFailures.CharacterDevelopmentPurchaseDenied(correlationId));
@@ -2270,7 +2344,7 @@ namespace Odyssey.Persistence.Sqlite
             }
         }
 
-        public Result<CharacterRecord> PurchaseSkillLevel(CampaignHandle campaign, CharacterId characterId, SkillDefinitionId skillDefinitionId, long toLevel, long decidedFromLevel, bool requiresRecommendation, long decidedCost, UserId actorUserId, bool actorIsMainGm, long expectedMechanicsRevision, long expectedSkillRevision, CommandId commandId, CorrelationId correlationId)
+        public Result<CharacterRecord> PurchaseSkillLevel(CampaignHandle campaign, CharacterId characterId, SkillDefinitionId skillDefinitionId, long toLevel, long decidedFromLevel, bool requiresRecommendation, long decidedCost, UserId actorUserId, long expectedMechanicsRevision, long expectedSkillRevision, CommandId commandId, CorrelationId correlationId)
         {
             if (!skillDefinitionId.IsValid) throw new ArgumentException("SkillDefinitionId is required.", nameof(skillDefinitionId));
             if (toLevel < 0) throw new ArgumentOutOfRangeException(nameof(toLevel));
@@ -2283,7 +2357,19 @@ namespace Odyssey.Persistence.Sqlite
                 UtcInstant now = _clock.GetUtcNow();
 
                 // Product section 13.1's permission framing, reused unchanged for skills.
-                bool permitted = actorIsMainGm || CharacterOwnershipAssignment.IsAssignedCharacter(current.Ownership, actorUserId, now);
+                bool permitted = CharacterOwnershipAssignment.IsAssignedCharacter(current.Ownership, actorUserId, now);
+                if (!permitted)
+                {
+                    // ODY-S10-102: only a non-owner reaches the stored-membership lookup (owner first, MainGM second).
+                    Result<bool> mainGmCheck = CampaignMembershipAuthorization.IsMainGm(_campaignRepository, campaign, actorUserId, correlationId);
+                    if (mainGmCheck.IsFailure)
+                    {
+                        return Result<MechanicsMutation>.Failure(mainGmCheck.Error);
+                    }
+
+                    permitted = mainGmCheck.Value;
+                }
+
                 if (!permitted)
                 {
                     return Result<MechanicsMutation>.Failure(PersistenceFailures.CharacterDevelopmentPurchaseDenied(correlationId));
@@ -2479,7 +2565,7 @@ namespace Odyssey.Persistence.Sqlite
             }
         }
 
-        public Result<AdvancementRecommendationRecord> RequestSkillAdvancedRecommendation(CampaignHandle campaign, CharacterId characterId, SkillDefinitionId skillDefinitionId, long targetLevel, long decidedFromLevel, long decidedReservedAmount, IReadOnlyList<CriticalSuccessEvidenceId> evidenceIds, UserId actorUserId, bool actorIsMainGm, long expectedMechanicsRevision, CommandId commandId, CorrelationId correlationId)
+        public Result<AdvancementRecommendationRecord> RequestSkillAdvancedRecommendation(CampaignHandle campaign, CharacterId characterId, SkillDefinitionId skillDefinitionId, long targetLevel, long decidedFromLevel, long decidedReservedAmount, IReadOnlyList<CriticalSuccessEvidenceId> evidenceIds, UserId actorUserId, long expectedMechanicsRevision, CommandId commandId, CorrelationId correlationId)
         {
             if (!skillDefinitionId.IsValid) throw new ArgumentException("SkillDefinitionId is required.", nameof(skillDefinitionId));
             if (targetLevel < 1) throw new ArgumentOutOfRangeException(nameof(targetLevel));
@@ -2492,7 +2578,19 @@ namespace Odyssey.Persistence.Sqlite
             Result<CharacterRecord> mutated = MutateMechanics(campaign, characterId, expectedMechanicsRevision, commandId, correlationId, (current, connection, transaction) =>
             {
                 UtcInstant now = _clock.GetUtcNow();
-                bool permitted = actorIsMainGm || CharacterOwnershipAssignment.IsAssignedCharacter(current.Ownership, actorUserId, now);
+                bool permitted = CharacterOwnershipAssignment.IsAssignedCharacter(current.Ownership, actorUserId, now);
+                if (!permitted)
+                {
+                    // ODY-S10-102: only a non-owner reaches the stored-membership lookup (owner first, MainGM second).
+                    Result<bool> mainGmCheck = CampaignMembershipAuthorization.IsMainGm(_campaignRepository, campaign, actorUserId, correlationId);
+                    if (mainGmCheck.IsFailure)
+                    {
+                        return Result<MechanicsMutation>.Failure(mainGmCheck.Error);
+                    }
+
+                    permitted = mainGmCheck.Value;
+                }
+
                 if (!permitted)
                 {
                     return Result<MechanicsMutation>.Failure(PersistenceFailures.CharacterDevelopmentPurchaseDenied(correlationId));
@@ -2566,7 +2664,7 @@ namespace Odyssey.Persistence.Sqlite
             return replay;
         }
 
-        public Result<CharacterRecord> ResolveAdvancementRecommendation(CampaignHandle campaign, CharacterId characterId, AdvancementRecommendationId recommendationId, bool approve, bool spendReservedPoints, UserId actorUserId, bool actorIsMainGm, long expectedMechanicsRevision, long expectedRecommendationRevision, CommandId commandId, CorrelationId correlationId)
+        public Result<CharacterRecord> ResolveAdvancementRecommendation(CampaignHandle campaign, CharacterId characterId, AdvancementRecommendationId recommendationId, bool approve, bool spendReservedPoints, UserId actorUserId, long expectedMechanicsRevision, long expectedRecommendationRevision, CommandId commandId, CorrelationId correlationId)
         {
             if (!recommendationId.IsValid) throw new ArgumentException("RecommendationId is required.", nameof(recommendationId));
             if (!actorUserId.IsValid) throw new ArgumentException("ActorUserId is required.", nameof(actorUserId));
@@ -2574,7 +2672,13 @@ namespace Odyssey.Persistence.Sqlite
 
             // Product section 14.3: "GM reviews... GM approves or dismisses" --
             // MainGM-only, checked before touching the database at all.
-            if (!actorIsMainGm)
+            Result<bool> mainGmCheck = CampaignMembershipAuthorization.IsMainGm(_campaignRepository, campaign, actorUserId, correlationId);
+            if (mainGmCheck.IsFailure)
+            {
+                return Result<CharacterRecord>.Failure(mainGmCheck.Error);
+            }
+
+            if (!mainGmCheck.Value)
             {
                 return Result<CharacterRecord>.Failure(PersistenceFailures.CharacterAdvancementResolutionDenied(correlationId));
             }
@@ -2788,7 +2892,7 @@ namespace Odyssey.Persistence.Sqlite
         /// cross-entry dependencies (e.g. one skill unlocking another),
         /// because no such graph exists anywhere in this codebase yet.
         /// </summary>
-        public Result<CharacterRecord> RevertAdvancementPurchase(CampaignHandle campaign, CharacterId characterId, AdvancementPurchaseId purchaseId, string reasonCode, UserId actorUserId, bool actorIsMainGm, long expectedMechanicsRevision, CommandId commandId, CorrelationId correlationId)
+        public Result<CharacterRecord> RevertAdvancementPurchase(CampaignHandle campaign, CharacterId characterId, AdvancementPurchaseId purchaseId, string reasonCode, UserId actorUserId, long expectedMechanicsRevision, CommandId commandId, CorrelationId correlationId)
         {
             if (!purchaseId.IsValid) throw new ArgumentException("PurchaseId is required.", nameof(purchaseId));
             if (!actorUserId.IsValid) throw new ArgumentException("ActorUserId is required.", nameof(actorUserId));
@@ -2801,7 +2905,13 @@ namespace Odyssey.Persistence.Sqlite
             // ADR-024 section 6.2: reverting a spend is a GM correction
             // action -- MainGM-only, checked before touching the database at
             // all, matching every other GM-gated command's own convention.
-            if (!actorIsMainGm)
+            Result<bool> mainGmCheck = CampaignMembershipAuthorization.IsMainGm(_campaignRepository, campaign, actorUserId, correlationId);
+            if (mainGmCheck.IsFailure)
+            {
+                return Result<CharacterRecord>.Failure(mainGmCheck.Error);
+            }
+
+            if (!mainGmCheck.Value)
             {
                 return Result<CharacterRecord>.Failure(PersistenceFailures.CharacterAdvancementOperationDenied(correlationId));
             }
@@ -2956,7 +3066,7 @@ namespace Odyssey.Persistence.Sqlite
         /// database file backup is a different, heavier mechanism this task
         /// does not invoke.
         /// </summary>
-        public Result<CharacterRecord> ApplyCharacterRespec(CampaignHandle campaign, CharacterId characterId, IReadOnlyList<CharacterRespecTarget> targets, CharacterRespecPreview decidedPlan, long decidedMechanicsRevision, string reasonCode, UserId actorUserId, bool actorIsMainGm, long expectedMechanicsRevision, CommandId commandId, CorrelationId correlationId)
+        public Result<CharacterRecord> ApplyCharacterRespec(CampaignHandle campaign, CharacterId characterId, IReadOnlyList<CharacterRespecTarget> targets, CharacterRespecPreview decidedPlan, long decidedMechanicsRevision, string reasonCode, UserId actorUserId, long expectedMechanicsRevision, CommandId commandId, CorrelationId correlationId)
         {
             if (campaign == null) throw new ArgumentNullException(nameof(campaign));
             if (!characterId.IsValid) throw new ArgumentException("CharacterId is required.", nameof(characterId));
@@ -2973,7 +3083,13 @@ namespace Odyssey.Persistence.Sqlite
             }
 
             // Product section 13.5: performed by MainGM.
-            if (!actorIsMainGm)
+            Result<bool> mainGmCheck = CampaignMembershipAuthorization.IsMainGm(_campaignRepository, campaign, actorUserId, correlationId);
+            if (mainGmCheck.IsFailure)
+            {
+                return Result<CharacterRecord>.Failure(mainGmCheck.Error);
+            }
+
+            if (!mainGmCheck.Value)
             {
                 return Result<CharacterRecord>.Failure(PersistenceFailures.CharacterAdvancementOperationDenied(correlationId));
             }
@@ -3290,7 +3406,7 @@ namespace Odyssey.Persistence.Sqlite
         /// actually built, rather than shipping an undecided/ungated
         /// permission surface today.
         /// </summary>
-        public Result<CharacterRecord> AcquireAbility(CampaignHandle campaign, CharacterId characterId, AbilityDefinitionId abilityDefinitionId, SourceKind sourceKind, string? sourceRef, RankMode rankMode, long? numericRank, string? namedRankKey, string configuration, long progressionPurchaseCost, UserId actorUserId, bool actorIsMainGm, long? expectedMechanicsRevision, long expectedCharacterAbilitiesRevision, CommandId commandId, CorrelationId correlationId)
+        public Result<CharacterRecord> AcquireAbility(CampaignHandle campaign, CharacterId characterId, AbilityDefinitionId abilityDefinitionId, SourceKind sourceKind, string? sourceRef, RankMode rankMode, long? numericRank, string? namedRankKey, string configuration, long progressionPurchaseCost, UserId actorUserId, long? expectedMechanicsRevision, long expectedCharacterAbilitiesRevision, CommandId commandId, CorrelationId correlationId)
         {
             if (!abilityDefinitionId.IsValid) throw new ArgumentException("AbilityDefinitionId is required.", nameof(abilityDefinitionId));
             if (!Enum.IsDefined(typeof(SourceKind), sourceKind)) throw new ArgumentOutOfRangeException(nameof(sourceKind));
@@ -3307,10 +3423,16 @@ namespace Odyssey.Persistence.Sqlite
 
                 if (progressionPurchaseCost < 0) throw new ArgumentOutOfRangeException(nameof(progressionPurchaseCost));
 
-                return AcquireAbilityViaProgressionPurchase(campaign, characterId, abilityDefinitionId, sourceRef, rankMode, numericRank, namedRankKey, configuration, progressionPurchaseCost, actorUserId, actorIsMainGm, expectedMechanicsRevision.Value, expectedCharacterAbilitiesRevision, commandId, correlationId);
+                return AcquireAbilityViaProgressionPurchase(campaign, characterId, abilityDefinitionId, sourceRef, rankMode, numericRank, namedRankKey, configuration, progressionPurchaseCost, actorUserId, expectedMechanicsRevision.Value, expectedCharacterAbilitiesRevision, commandId, correlationId);
             }
 
-            if (!actorIsMainGm)
+            Result<bool> mainGmCheck = CampaignMembershipAuthorization.IsMainGm(_campaignRepository, campaign, actorUserId, correlationId);
+            if (mainGmCheck.IsFailure)
+            {
+                return Result<CharacterRecord>.Failure(mainGmCheck.Error);
+            }
+
+            if (!mainGmCheck.Value)
             {
                 return Result<CharacterRecord>.Failure(PersistenceFailures.CharacterAbilityGrantDenied(correlationId));
             }
@@ -3351,7 +3473,7 @@ namespace Odyssey.Persistence.Sqlite
         /// ADR-024 section 9's own module-boundary list naming
         /// <c>AcquireAbility</c> alongside them).
         /// </summary>
-        private Result<CharacterRecord> AcquireAbilityViaProgressionPurchase(CampaignHandle campaign, CharacterId characterId, AbilityDefinitionId abilityDefinitionId, string? sourceRef, RankMode rankMode, long? numericRank, string? namedRankKey, string configuration, long progressionPurchaseCost, UserId actorUserId, bool actorIsMainGm, long expectedMechanicsRevision, long expectedCharacterAbilitiesRevision, CommandId commandId, CorrelationId correlationId)
+        private Result<CharacterRecord> AcquireAbilityViaProgressionPurchase(CampaignHandle campaign, CharacterId characterId, AbilityDefinitionId abilityDefinitionId, string? sourceRef, RankMode rankMode, long? numericRank, string? namedRankKey, string configuration, long progressionPurchaseCost, UserId actorUserId, long expectedMechanicsRevision, long expectedCharacterAbilitiesRevision, CommandId commandId, CorrelationId correlationId)
         {
             if (campaign == null) throw new ArgumentNullException(nameof(campaign));
             if (!characterId.IsValid) throw new ArgumentException("CharacterId is required.", nameof(characterId));
@@ -3393,7 +3515,19 @@ namespace Odyssey.Persistence.Sqlite
                         }
 
                         UtcInstant now = _clock.GetUtcNow();
-                        bool permitted = actorIsMainGm || CharacterOwnershipAssignment.IsAssignedCharacter(current.Ownership, actorUserId, now);
+                        bool permitted = CharacterOwnershipAssignment.IsAssignedCharacter(current.Ownership, actorUserId, now);
+                        if (!permitted)
+                        {
+                            // ODY-S10-102: only a non-owner reaches the stored-membership lookup (owner first, MainGM second).
+                            Result<bool> mainGmCheck = CampaignMembershipAuthorization.IsMainGm(_campaignRepository, campaign, actorUserId, correlationId);
+                            if (mainGmCheck.IsFailure)
+                            {
+                                return Result<PipelineWrite<CharacterRecord>>.Failure(mainGmCheck.Error);
+                            }
+
+                            permitted = mainGmCheck.Value;
+                        }
+
                         if (!permitted)
                         {
                             return Result<PipelineWrite<CharacterRecord>>.Failure(PersistenceFailures.CharacterDevelopmentPurchaseDenied(correlationId));
@@ -3478,12 +3612,18 @@ namespace Odyssey.Persistence.Sqlite
             }
         }
 
-        public Result<CharacterRecord> RemoveAbility(CampaignHandle campaign, CharacterId characterId, CharacterAbilityId characterAbilityId, UserId actorUserId, bool actorIsMainGm, long expectedCharacterAbilitiesRevision, CommandId commandId, CorrelationId correlationId)
+        public Result<CharacterRecord> RemoveAbility(CampaignHandle campaign, CharacterId characterId, CharacterAbilityId characterAbilityId, UserId actorUserId, long expectedCharacterAbilitiesRevision, CommandId commandId, CorrelationId correlationId)
         {
             if (!characterAbilityId.IsValid) throw new ArgumentException("CharacterAbilityId is required.", nameof(characterAbilityId));
             if (!actorUserId.IsValid) throw new ArgumentException("ActorUserId is required.", nameof(actorUserId));
 
-            if (!actorIsMainGm)
+            Result<bool> mainGmCheck = CampaignMembershipAuthorization.IsMainGm(_campaignRepository, campaign, actorUserId, correlationId);
+            if (mainGmCheck.IsFailure)
+            {
+                return Result<CharacterRecord>.Failure(mainGmCheck.Error);
+            }
+
+            if (!mainGmCheck.Value)
             {
                 return Result<CharacterRecord>.Failure(PersistenceFailures.CharacterAbilityGrantDenied(correlationId));
             }
@@ -3544,13 +3684,19 @@ namespace Odyssey.Persistence.Sqlite
         /// own permission gate exactly -- linking an ability's own mechanics-execution identity is at least
         /// as sensitive as removing the ability outright.
         /// </summary>
-        public Result<CharacterRecord> LinkAbilityActivationSource(CampaignHandle campaign, CharacterId characterId, CharacterAbilityId characterAbilityId, ContentDefinitionRef activationDefinitionRef, UserId actorUserId, bool actorIsMainGm, long expectedCharacterAbilitiesRevision, CommandId commandId, CorrelationId correlationId)
+        public Result<CharacterRecord> LinkAbilityActivationSource(CampaignHandle campaign, CharacterId characterId, CharacterAbilityId characterAbilityId, ContentDefinitionRef activationDefinitionRef, UserId actorUserId, long expectedCharacterAbilitiesRevision, CommandId commandId, CorrelationId correlationId)
         {
             if (!characterAbilityId.IsValid) throw new ArgumentException("CharacterAbilityId is required.", nameof(characterAbilityId));
             if (!activationDefinitionRef.IsValid) throw new ArgumentException("ActivationDefinitionRef is required.", nameof(activationDefinitionRef));
             if (!actorUserId.IsValid) throw new ArgumentException("ActorUserId is required.", nameof(actorUserId));
 
-            if (!actorIsMainGm)
+            Result<bool> mainGmCheck = CampaignMembershipAuthorization.IsMainGm(_campaignRepository, campaign, actorUserId, correlationId);
+            if (mainGmCheck.IsFailure)
+            {
+                return Result<CharacterRecord>.Failure(mainGmCheck.Error);
+            }
+
+            if (!mainGmCheck.Value)
             {
                 return Result<CharacterRecord>.Failure(PersistenceFailures.CharacterAbilityGrantDenied(correlationId));
             }
@@ -3697,7 +3843,7 @@ namespace Odyssey.Persistence.Sqlite
 
         // ==================== ODY-S04-109: CharacterResource ====================
 
-        public Result<CharacterRecord> InitializeCharacterResource(CampaignHandle campaign, CharacterId characterId, ResourceDefinitionId resourceDefinitionId, long baseMaximum, long minimumValue, RecoveryRule recoveryRule, UserId actorUserId, bool actorIsMainGm, long expectedCharacterResourcesRevision, CommandId commandId, CorrelationId correlationId)
+        public Result<CharacterRecord> InitializeCharacterResource(CampaignHandle campaign, CharacterId characterId, ResourceDefinitionId resourceDefinitionId, long baseMaximum, long minimumValue, RecoveryRule recoveryRule, UserId actorUserId, long expectedCharacterResourcesRevision, CommandId commandId, CorrelationId correlationId)
         {
             if (!resourceDefinitionId.IsValid) throw new ArgumentException("ResourceDefinitionId is required.", nameof(resourceDefinitionId));
             if (!actorUserId.IsValid) throw new ArgumentException("ActorUserId is required.", nameof(actorUserId));
@@ -3707,7 +3853,13 @@ namespace Odyssey.Persistence.Sqlite
             if (!Enum.IsDefined(typeof(RecoveryRule), recoveryRule)) throw new ArgumentOutOfRangeException(nameof(recoveryRule));
             if (baseMaximum < minimumValue) throw new ArgumentException("BaseMaximum must be >= MinimumValue.", nameof(baseMaximum));
 
-            if (!actorIsMainGm)
+            Result<bool> mainGmCheck = CampaignMembershipAuthorization.IsMainGm(_campaignRepository, campaign, actorUserId, correlationId);
+            if (mainGmCheck.IsFailure)
+            {
+                return Result<CharacterRecord>.Failure(mainGmCheck.Error);
+            }
+
+            if (!mainGmCheck.Value)
             {
                 return Result<CharacterRecord>.Failure(PersistenceFailures.CharacterResourceOperationDenied(correlationId));
             }
@@ -3737,12 +3889,18 @@ namespace Odyssey.Persistence.Sqlite
             });
         }
 
-        public Result<CharacterRecord> SetResourceCurrentValue(CampaignHandle campaign, CharacterId characterId, CharacterResourceId characterResourceId, long newCurrentValue, UserId actorUserId, bool actorIsMainGm, long expectedCharacterResourcesRevision, CommandId commandId, CorrelationId correlationId)
+        public Result<CharacterRecord> SetResourceCurrentValue(CampaignHandle campaign, CharacterId characterId, CharacterResourceId characterResourceId, long newCurrentValue, UserId actorUserId, long expectedCharacterResourcesRevision, CommandId commandId, CorrelationId correlationId)
         {
             if (!characterResourceId.IsValid) throw new ArgumentException("CharacterResourceId is required.", nameof(characterResourceId));
             if (!actorUserId.IsValid) throw new ArgumentException("ActorUserId is required.", nameof(actorUserId));
 
-            if (!actorIsMainGm)
+            Result<bool> mainGmCheck = CampaignMembershipAuthorization.IsMainGm(_campaignRepository, campaign, actorUserId, correlationId);
+            if (mainGmCheck.IsFailure)
+            {
+                return Result<CharacterRecord>.Failure(mainGmCheck.Error);
+            }
+
+            if (!mainGmCheck.Value)
             {
                 return Result<CharacterRecord>.Failure(PersistenceFailures.CharacterResourceOperationDenied(correlationId));
             }
@@ -3786,12 +3944,18 @@ namespace Odyssey.Persistence.Sqlite
             });
         }
 
-        public Result<CharacterRecord> SetResourceMaximum(CampaignHandle campaign, CharacterId characterId, CharacterResourceId characterResourceId, long newBaseMaximum, long newPermanentMaximumAdjustment, UserId actorUserId, bool actorIsMainGm, long expectedCharacterResourcesRevision, CommandId commandId, CorrelationId correlationId)
+        public Result<CharacterRecord> SetResourceMaximum(CampaignHandle campaign, CharacterId characterId, CharacterResourceId characterResourceId, long newBaseMaximum, long newPermanentMaximumAdjustment, UserId actorUserId, long expectedCharacterResourcesRevision, CommandId commandId, CorrelationId correlationId)
         {
             if (!characterResourceId.IsValid) throw new ArgumentException("CharacterResourceId is required.", nameof(characterResourceId));
             if (!actorUserId.IsValid) throw new ArgumentException("ActorUserId is required.", nameof(actorUserId));
 
-            if (!actorIsMainGm)
+            Result<bool> mainGmCheck = CampaignMembershipAuthorization.IsMainGm(_campaignRepository, campaign, actorUserId, correlationId);
+            if (mainGmCheck.IsFailure)
+            {
+                return Result<CharacterRecord>.Failure(mainGmCheck.Error);
+            }
+
+            if (!mainGmCheck.Value)
             {
                 return Result<CharacterRecord>.Failure(PersistenceFailures.CharacterResourceOperationDenied(correlationId));
             }
@@ -3939,14 +4103,14 @@ namespace Odyssey.Persistence.Sqlite
 
         // ==================== ODY-S04-109: CharacterAnatomy ====================
 
-        public Result<CharacterRecord> InitializeCharacterAnatomy(CampaignHandle campaign, CharacterId characterId, AnatomyProfileDefinitionId anatomyProfileDefinitionId, string anatomyProfileVersion, IReadOnlyList<BodyPart> bodyParts, UserId actorUserId, bool actorIsMainGm, long expectedCharacterAnatomyRevision, CommandId commandId, CorrelationId correlationId)
+        public Result<CharacterRecord> InitializeCharacterAnatomy(CampaignHandle campaign, CharacterId characterId, AnatomyProfileDefinitionId anatomyProfileDefinitionId, string anatomyProfileVersion, IReadOnlyList<BodyPart> bodyParts, UserId actorUserId, long expectedCharacterAnatomyRevision, CommandId commandId, CorrelationId correlationId)
         {
             if (!anatomyProfileDefinitionId.IsValid) throw new ArgumentException("AnatomyProfileDefinitionId is required.", nameof(anatomyProfileDefinitionId));
             if (!actorUserId.IsValid) throw new ArgumentException("ActorUserId is required.", nameof(actorUserId));
             if (string.IsNullOrWhiteSpace(anatomyProfileVersion)) throw new ArgumentException("AnatomyProfileVersion is required.", nameof(anatomyProfileVersion));
             if (bodyParts == null) throw new ArgumentNullException(nameof(bodyParts));
 
-            return MutateAnatomy(campaign, characterId, actorIsMainGm, expectedCharacterAnatomyRevision, commandId, correlationId, (current, connection, transaction) =>
+            return MutateAnatomy(campaign, characterId, actorUserId, expectedCharacterAnatomyRevision, commandId, correlationId, (current, connection, transaction) =>
             {
                 if (current.Anatomy != null)
                 {
@@ -3976,12 +4140,12 @@ namespace Odyssey.Persistence.Sqlite
             });
         }
 
-        public Result<CharacterRecord> AddBodyPart(CampaignHandle campaign, CharacterId characterId, BodyPartId bodyPartId, string name, long damageLimit, BodyPartId? attachedToBodyPartId, string properties, UserId actorUserId, bool actorIsMainGm, long expectedCharacterAnatomyRevision, CommandId commandId, CorrelationId correlationId)
+        public Result<CharacterRecord> AddBodyPart(CampaignHandle campaign, CharacterId characterId, BodyPartId bodyPartId, string name, long damageLimit, BodyPartId? attachedToBodyPartId, string properties, UserId actorUserId, long expectedCharacterAnatomyRevision, CommandId commandId, CorrelationId correlationId)
         {
             if (!bodyPartId.IsValid) throw new ArgumentException("BodyPartId is required.", nameof(bodyPartId));
             if (!actorUserId.IsValid) throw new ArgumentException("ActorUserId is required.", nameof(actorUserId));
 
-            return MutateAnatomy(campaign, characterId, actorIsMainGm, expectedCharacterAnatomyRevision, commandId, correlationId, (current, connection, transaction) =>
+            return MutateAnatomy(campaign, characterId, actorUserId, expectedCharacterAnatomyRevision, commandId, correlationId, (current, connection, transaction) =>
             {
                 if (current.Anatomy == null)
                 {
@@ -4062,12 +4226,12 @@ namespace Odyssey.Persistence.Sqlite
         /// retry. If no checker is passed, behavior is unchanged from before
         /// ODY-S05-305.
         /// </summary>
-        public Result<CharacterRecord> RemoveBodyPart(CampaignHandle campaign, CharacterId characterId, BodyPartId bodyPartId, UserId actorUserId, bool actorIsMainGm, long expectedCharacterAnatomyRevision, CommandId commandId, CorrelationId correlationId)
+        public Result<CharacterRecord> RemoveBodyPart(CampaignHandle campaign, CharacterId characterId, BodyPartId bodyPartId, UserId actorUserId, long expectedCharacterAnatomyRevision, CommandId commandId, CorrelationId correlationId)
         {
             if (!bodyPartId.IsValid) throw new ArgumentException("BodyPartId is required.", nameof(bodyPartId));
             if (!actorUserId.IsValid) throw new ArgumentException("ActorUserId is required.", nameof(actorUserId));
 
-            return MutateAnatomy(campaign, characterId, actorIsMainGm, expectedCharacterAnatomyRevision, commandId, correlationId, (current, connection, transaction) =>
+            return MutateAnatomy(campaign, characterId, actorUserId, expectedCharacterAnatomyRevision, commandId, correlationId, (current, connection, transaction) =>
             {
                 if (current.Anatomy == null)
                 {
@@ -4140,12 +4304,12 @@ namespace Odyssey.Persistence.Sqlite
             });
         }
 
-        public Result<CharacterRecord> UpdateBodyPart(CampaignHandle campaign, CharacterId characterId, BodyPartId bodyPartId, long? newDamageLimit, string? newProperties, UserId actorUserId, bool actorIsMainGm, long expectedCharacterAnatomyRevision, CommandId commandId, CorrelationId correlationId)
+        public Result<CharacterRecord> UpdateBodyPart(CampaignHandle campaign, CharacterId characterId, BodyPartId bodyPartId, long? newDamageLimit, string? newProperties, UserId actorUserId, long expectedCharacterAnatomyRevision, CommandId commandId, CorrelationId correlationId)
         {
             if (!bodyPartId.IsValid) throw new ArgumentException("BodyPartId is required.", nameof(bodyPartId));
             if (!actorUserId.IsValid) throw new ArgumentException("ActorUserId is required.", nameof(actorUserId));
 
-            return MutateAnatomy(campaign, characterId, actorIsMainGm, expectedCharacterAnatomyRevision, commandId, correlationId, (current, connection, transaction) =>
+            return MutateAnatomy(campaign, characterId, actorUserId, expectedCharacterAnatomyRevision, commandId, correlationId, (current, connection, transaction) =>
             {
                 if (current.Anatomy == null)
                 {
@@ -4189,14 +4353,14 @@ namespace Odyssey.Persistence.Sqlite
             });
         }
 
-        public Result<CharacterRecord> ReplaceAnatomyProfile(CampaignHandle campaign, CharacterId characterId, AnatomyProfileDefinitionId newAnatomyProfileDefinitionId, string newAnatomyProfileVersion, IReadOnlyList<BodyPart> newBodyParts, UserId actorUserId, bool actorIsMainGm, long expectedCharacterAnatomyRevision, CommandId commandId, CorrelationId correlationId)
+        public Result<CharacterRecord> ReplaceAnatomyProfile(CampaignHandle campaign, CharacterId characterId, AnatomyProfileDefinitionId newAnatomyProfileDefinitionId, string newAnatomyProfileVersion, IReadOnlyList<BodyPart> newBodyParts, UserId actorUserId, long expectedCharacterAnatomyRevision, CommandId commandId, CorrelationId correlationId)
         {
             if (!newAnatomyProfileDefinitionId.IsValid) throw new ArgumentException("AnatomyProfileDefinitionId is required.", nameof(newAnatomyProfileDefinitionId));
             if (string.IsNullOrWhiteSpace(newAnatomyProfileVersion)) throw new ArgumentException("AnatomyProfileVersion is required.", nameof(newAnatomyProfileVersion));
             if (newBodyParts == null) throw new ArgumentNullException(nameof(newBodyParts));
             if (!actorUserId.IsValid) throw new ArgumentException("ActorUserId is required.", nameof(actorUserId));
 
-            return MutateAnatomy(campaign, characterId, actorIsMainGm, expectedCharacterAnatomyRevision, commandId, correlationId, (current, connection, transaction) =>
+            return MutateAnatomy(campaign, characterId, actorUserId, expectedCharacterAnatomyRevision, commandId, correlationId, (current, connection, transaction) =>
             {
                 if (current.Anatomy == null)
                 {
@@ -4224,12 +4388,12 @@ namespace Odyssey.Persistence.Sqlite
             });
         }
 
-        public Result<CharacterRecord> ApplyPermanentModification(CampaignHandle campaign, CharacterId characterId, BodyPartId attachedToBodyPartId, string kind, string description, UserId actorUserId, bool actorIsMainGm, long expectedCharacterAnatomyRevision, CommandId commandId, CorrelationId correlationId)
+        public Result<CharacterRecord> ApplyPermanentModification(CampaignHandle campaign, CharacterId characterId, BodyPartId attachedToBodyPartId, string kind, string description, UserId actorUserId, long expectedCharacterAnatomyRevision, CommandId commandId, CorrelationId correlationId)
         {
             if (!attachedToBodyPartId.IsValid) throw new ArgumentException("AttachedToBodyPartId is required.", nameof(attachedToBodyPartId));
             if (!actorUserId.IsValid) throw new ArgumentException("ActorUserId is required.", nameof(actorUserId));
 
-            return MutateAnatomy(campaign, characterId, actorIsMainGm, expectedCharacterAnatomyRevision, commandId, correlationId, (current, connection, transaction) =>
+            return MutateAnatomy(campaign, characterId, actorUserId, expectedCharacterAnatomyRevision, commandId, correlationId, (current, connection, transaction) =>
             {
                 if (current.Anatomy == null)
                 {
@@ -4284,7 +4448,7 @@ namespace Odyssey.Persistence.Sqlite
         private Result<CharacterRecord> MutateAnatomy(
             CampaignHandle campaign,
             CharacterId characterId,
-            bool actorIsMainGm,
+            UserId actorUserId,
             long expectedCharacterAnatomyRevision,
             CommandId commandId,
             CorrelationId correlationId,
@@ -4296,7 +4460,13 @@ namespace Odyssey.Persistence.Sqlite
             if (!commandId.IsValid) throw new ArgumentException("CommandId is required.", nameof(commandId));
 
             // Product section 18: "GM может..." -- every anatomy command is MainGM-only, checked before touching the database at all.
-            if (!actorIsMainGm)
+            Result<bool> mainGmCheck = CampaignMembershipAuthorization.IsMainGm(_campaignRepository, campaign, actorUserId, correlationId);
+            if (mainGmCheck.IsFailure)
+            {
+                return Result<CharacterRecord>.Failure(mainGmCheck.Error);
+            }
+
+            if (!mainGmCheck.Value)
             {
                 return Result<CharacterRecord>.Failure(PersistenceFailures.CharacterAnatomyOperationDenied(correlationId));
             }
@@ -5142,7 +5312,7 @@ namespace Odyssey.Persistence.Sqlite
             }
         }
 
-        public Result<CharacterRecord> AssignPrimaryOwner(CampaignHandle campaign, CharacterId characterId, UserId newPrimaryOwnerUserId, string reasonCode, bool actorIsMainGm, long expectedOwnershipRevision, CommandId commandId, CorrelationId correlationId)
+        public Result<CharacterRecord> AssignPrimaryOwner(CampaignHandle campaign, CharacterId characterId, UserId newPrimaryOwnerUserId, string reasonCode, UserId actorUserId, long expectedOwnershipRevision, CommandId commandId, CorrelationId correlationId)
         {
             if (campaign == null) throw new ArgumentNullException(nameof(campaign));
             if (!characterId.IsValid) throw new ArgumentException("CharacterId is required.", nameof(characterId));
@@ -5154,7 +5324,13 @@ namespace Odyssey.Persistence.Sqlite
             // caller-supplied-boolean baseline BoardMovementService/
             // DiceRollService already use, checked before touching the
             // database at all.
-            if (!actorIsMainGm)
+            Result<bool> mainGmCheck = CampaignMembershipAuthorization.IsMainGm(_campaignRepository, campaign, actorUserId, correlationId);
+            if (mainGmCheck.IsFailure)
+            {
+                return Result<CharacterRecord>.Failure(mainGmCheck.Error);
+            }
+
+            if (!mainGmCheck.Value)
             {
                 return Result<CharacterRecord>.Failure(PersistenceFailures.CharacterOwnershipDenied(correlationId));
             }
@@ -5237,10 +5413,10 @@ namespace Odyssey.Persistence.Sqlite
             }
         }
 
-        public Result<CharacterRecord> AddCharacterCoOwner(CampaignHandle campaign, CharacterId characterId, UserId coOwnerUserId, bool actorIsMainGm, long expectedOwnershipRevision, CommandId commandId, CorrelationId correlationId)
+        public Result<CharacterRecord> AddCharacterCoOwner(CampaignHandle campaign, CharacterId characterId, UserId coOwnerUserId, UserId actorUserId, long expectedOwnershipRevision, CommandId commandId, CorrelationId correlationId)
         {
             return MutateOwnership(
-                campaign, characterId, actorIsMainGm, expectedOwnershipRevision, commandId, correlationId,
+                campaign, characterId, actorUserId, expectedOwnershipRevision, commandId, correlationId,
                 mutate: current =>
                 {
                     var coOwners = new List<UserId>(current.Ownership.CoOwnerUserIds);
@@ -5261,10 +5437,10 @@ namespace Odyssey.Persistence.Sqlite
                 });
         }
 
-        public Result<CharacterRecord> RemoveCharacterCoOwner(CampaignHandle campaign, CharacterId characterId, UserId coOwnerUserId, bool actorIsMainGm, long expectedOwnershipRevision, CommandId commandId, CorrelationId correlationId)
+        public Result<CharacterRecord> RemoveCharacterCoOwner(CampaignHandle campaign, CharacterId characterId, UserId coOwnerUserId, UserId actorUserId, long expectedOwnershipRevision, CommandId commandId, CorrelationId correlationId)
         {
             return MutateOwnership(
-                campaign, characterId, actorIsMainGm, expectedOwnershipRevision, commandId, correlationId,
+                campaign, characterId, actorUserId, expectedOwnershipRevision, commandId, correlationId,
                 mutate: current =>
                 {
                     var coOwners = new List<UserId>();
@@ -5280,10 +5456,10 @@ namespace Odyssey.Persistence.Sqlite
                 });
         }
 
-        public Result<CharacterRecord> GrantPermanentCharacterControl(CampaignHandle campaign, CharacterId characterId, UserId controlUserId, bool actorIsMainGm, long expectedOwnershipRevision, CommandId commandId, CorrelationId correlationId)
+        public Result<CharacterRecord> GrantPermanentCharacterControl(CampaignHandle campaign, CharacterId characterId, UserId controlUserId, UserId actorUserId, long expectedOwnershipRevision, CommandId commandId, CorrelationId correlationId)
         {
             return MutateOwnership(
-                campaign, characterId, actorIsMainGm, expectedOwnershipRevision, commandId, correlationId,
+                campaign, characterId, actorUserId, expectedOwnershipRevision, commandId, correlationId,
                 mutate: current =>
                 {
                     var controllers = new List<UserId>(current.Ownership.PermanentControllerUserIds);
@@ -5296,10 +5472,10 @@ namespace Odyssey.Persistence.Sqlite
                 });
         }
 
-        public Result<CharacterRecord> GrantTemporaryCharacterControl(CampaignHandle campaign, CharacterId characterId, UserId controlUserId, UtcInstant? expiresAt, bool actorIsMainGm, long expectedOwnershipRevision, CommandId commandId, CorrelationId correlationId)
+        public Result<CharacterRecord> GrantTemporaryCharacterControl(CampaignHandle campaign, CharacterId characterId, UserId controlUserId, UtcInstant? expiresAt, UserId actorUserId, long expectedOwnershipRevision, CommandId commandId, CorrelationId correlationId)
         {
             return MutateOwnership(
-                campaign, characterId, actorIsMainGm, expectedOwnershipRevision, commandId, correlationId,
+                campaign, characterId, actorUserId, expectedOwnershipRevision, commandId, correlationId,
                 mutate: current =>
                 {
                     UtcInstant grantedAt = _clock.GetUtcNow();
@@ -5322,10 +5498,10 @@ namespace Odyssey.Persistence.Sqlite
                 });
         }
 
-        public Result<CharacterRecord> RevokeCharacterControl(CampaignHandle campaign, CharacterId characterId, UserId controlUserId, bool actorIsMainGm, long expectedOwnershipRevision, CommandId commandId, CorrelationId correlationId)
+        public Result<CharacterRecord> RevokeCharacterControl(CampaignHandle campaign, CharacterId characterId, UserId controlUserId, UserId actorUserId, long expectedOwnershipRevision, CommandId commandId, CorrelationId correlationId)
         {
             return MutateOwnership(
-                campaign, characterId, actorIsMainGm, expectedOwnershipRevision, commandId, correlationId,
+                campaign, characterId, actorUserId, expectedOwnershipRevision, commandId, correlationId,
                 mutate: current =>
                 {
                     var controllers = new List<UserId>();
@@ -5359,7 +5535,7 @@ namespace Odyssey.Persistence.Sqlite
         private Result<CharacterRecord> MutateOwnership(
             CampaignHandle campaign,
             CharacterId characterId,
-            bool actorIsMainGm,
+            UserId actorUserId,
             long expectedOwnershipRevision,
             CommandId commandId,
             CorrelationId correlationId,
@@ -5370,7 +5546,13 @@ namespace Odyssey.Persistence.Sqlite
             if (expectedOwnershipRevision < 1) throw new ArgumentOutOfRangeException(nameof(expectedOwnershipRevision));
             if (!commandId.IsValid) throw new ArgumentException("CommandId is required.", nameof(commandId));
 
-            if (!actorIsMainGm)
+            Result<bool> mainGmCheck = CampaignMembershipAuthorization.IsMainGm(_campaignRepository, campaign, actorUserId, correlationId);
+            if (mainGmCheck.IsFailure)
+            {
+                return Result<CharacterRecord>.Failure(mainGmCheck.Error);
+            }
+
+            if (!mainGmCheck.Value)
             {
                 return Result<CharacterRecord>.Failure(PersistenceFailures.CharacterOwnershipDenied(correlationId));
             }

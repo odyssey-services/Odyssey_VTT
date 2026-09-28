@@ -73,25 +73,26 @@ namespace Odyssey.Application.Persistence
         Result<IReadOnlyList<CharacterHistoryEntry>> GetCharacterHistory(CampaignHandle campaign, CharacterId characterId, CorrelationId correlationId);
 
         /// <summary>
-        /// ODY-S04-102: ADR-025 section 4.2. <paramref name="actorIsMainGm"/>
-        /// is the same caller-supplied-boolean baseline simplification
-        /// <c>BoardMovementService</c>/<c>DiceRollService</c> already use for
-        /// MainGM-gated operations (ADR-019's own accepted simplification,
-        /// not reopened here) -- not a new permission-decision service.
+        /// ODY-S04-102: ADR-025 section 4.2. MainGM-only. Since ODY-S10-102 the
+        /// caller no longer claims MainGM with a flag: whether
+        /// <paramref name="actorUserId"/> is the campaign's MainGM is looked up
+        /// from the stored campaign membership
+        /// (<c>CampaignMembershipAuthorization.IsMainGm</c>) -- not a new
+        /// permission-decision service.
         /// Declares only the <c>Ownership</c> section's expected revision;
         /// never silently changes <see cref="CharacterOwnership.CoOwnerUserIds"/>/
         /// control grants.
         /// </summary>
-        Result<CharacterRecord> AssignPrimaryOwner(CampaignHandle campaign, CharacterId characterId, UserId newPrimaryOwnerUserId, string reasonCode, bool actorIsMainGm, long expectedOwnershipRevision, CommandId commandId, CorrelationId correlationId);
+        Result<CharacterRecord> AssignPrimaryOwner(CampaignHandle campaign, CharacterId characterId, UserId newPrimaryOwnerUserId, string reasonCode, UserId actorUserId, long expectedOwnershipRevision, CommandId commandId, CorrelationId correlationId);
 
         /// <summary>ODY-S04-102: ADR-025 section 4.3, <c>Character.ManageOwnership</c>-gated. A duplicate add of an already-present co-owner does not append a second entry.</summary>
-        Result<CharacterRecord> AddCharacterCoOwner(CampaignHandle campaign, CharacterId characterId, UserId coOwnerUserId, bool actorIsMainGm, long expectedOwnershipRevision, CommandId commandId, CorrelationId correlationId);
+        Result<CharacterRecord> AddCharacterCoOwner(CampaignHandle campaign, CharacterId characterId, UserId coOwnerUserId, UserId actorUserId, long expectedOwnershipRevision, CommandId commandId, CorrelationId correlationId);
 
         /// <summary>ODY-S04-102: ADR-025 section 4.3, <c>Character.ManageOwnership</c>-gated.</summary>
-        Result<CharacterRecord> RemoveCharacterCoOwner(CampaignHandle campaign, CharacterId characterId, UserId coOwnerUserId, bool actorIsMainGm, long expectedOwnershipRevision, CommandId commandId, CorrelationId correlationId);
+        Result<CharacterRecord> RemoveCharacterCoOwner(CampaignHandle campaign, CharacterId characterId, UserId coOwnerUserId, UserId actorUserId, long expectedOwnershipRevision, CommandId commandId, CorrelationId correlationId);
 
         /// <summary>ODY-S04-102: ADR-025 section 4.3, <c>Character.ManageOwnership</c>-gated.</summary>
-        Result<CharacterRecord> GrantPermanentCharacterControl(CampaignHandle campaign, CharacterId characterId, UserId controlUserId, bool actorIsMainGm, long expectedOwnershipRevision, CommandId commandId, CorrelationId correlationId);
+        Result<CharacterRecord> GrantPermanentCharacterControl(CampaignHandle campaign, CharacterId characterId, UserId controlUserId, UserId actorUserId, long expectedOwnershipRevision, CommandId commandId, CorrelationId correlationId);
 
         /// <summary>
         /// ODY-S04-102: ADR-025 section 4.3, <c>Character.ManageOwnership</c>-gated.
@@ -100,10 +101,10 @@ namespace Odyssey.Application.Persistence
         /// own doc comment for why no automatic expiry-enforcement mechanism
         /// is introduced here.
         /// </summary>
-        Result<CharacterRecord> GrantTemporaryCharacterControl(CampaignHandle campaign, CharacterId characterId, UserId controlUserId, UtcInstant? expiresAt, bool actorIsMainGm, long expectedOwnershipRevision, CommandId commandId, CorrelationId correlationId);
+        Result<CharacterRecord> GrantTemporaryCharacterControl(CampaignHandle campaign, CharacterId characterId, UserId controlUserId, UtcInstant? expiresAt, UserId actorUserId, long expectedOwnershipRevision, CommandId commandId, CorrelationId correlationId);
 
         /// <summary>ODY-S04-102: ADR-025 section 4.3, <c>Character.ManageOwnership</c>-gated. Revokes both a permanent controller entry and/or a temporary grant for the given user, whichever is present.</summary>
-        Result<CharacterRecord> RevokeCharacterControl(CampaignHandle campaign, CharacterId characterId, UserId controlUserId, bool actorIsMainGm, long expectedOwnershipRevision, CommandId commandId, CorrelationId correlationId);
+        Result<CharacterRecord> RevokeCharacterControl(CampaignHandle campaign, CharacterId characterId, UserId controlUserId, UserId actorUserId, long expectedOwnershipRevision, CommandId commandId, CorrelationId correlationId);
 
         /// <summary>
         /// ODY-S04-103: ADR-023 section 4.2 -- creates exactly one, permanent
@@ -144,9 +145,8 @@ namespace Odyssey.Application.Persistence
 
         /// <summary>
         /// ODY-S04-104: ADR-023 section 7.1/7.3 -- <c>Character.Approve</c>,
-        /// MainGM-only (<paramref name="actorIsMainGm"/>, the same caller-
-        /// supplied-boolean convention <see cref="AssignPrimaryOwner"/> already
-        /// uses). Declares the expected <c>LifecycleRevision</c>. The sole
+        /// MainGM-only (<paramref name="actorUserId"/> must be the campaign's
+        /// stored MainGM, the same rule <see cref="AssignPrimaryOwner"/> uses). Declares the expected <c>LifecycleRevision</c>. The sole
         /// state-legality gate is <see cref="CharacterLifecycleTransitions.IsValidTransition"/>
         /// on the current <see cref="CharacterLifecycleStatus"/> -&gt;
         /// <see cref="Character.CharacterLifecycleStatus.Active"/> edge -- not a
@@ -159,16 +159,16 @@ namespace Odyssey.Application.Persistence
         /// atomically -- there is no intermediate state where one field
         /// changed and the other did not.
         /// </summary>
-        Result<CharacterRecord> ApproveCharacterDraft(CampaignHandle campaign, CharacterId characterId, bool actorIsMainGm, long expectedLifecycleRevision, CommandId commandId, CorrelationId correlationId);
+        Result<CharacterRecord> ApproveCharacterDraft(CampaignHandle campaign, CharacterId characterId, UserId actorUserId, long expectedLifecycleRevision, CommandId commandId, CorrelationId correlationId);
 
         /// <summary>ODY-S04-104: reads the full, ordered review-comment thread for one Character -- no audience/redaction filtering (product names no hidden-comment concept), matching <see cref="IGameLogRepository.ListGameLog"/>'s own "Persistence stores everything" convention.</summary>
         Result<IReadOnlyList<CharacterReviewCommentRecord>> GetCharacterReviewComments(CampaignHandle campaign, CharacterId characterId, CorrelationId correlationId);
 
         /// <summary>
         /// ODY-S04-105: ADR-024 section 4/5, product section 12.2 --
-        /// <c>MainGM</c>-only (<paramref name="actorIsMainGm"/>, the same
-        /// caller-supplied-boolean convention <see cref="AssignPrimaryOwner"/>
-        /// already uses). Increases <c>DevelopmentPool.Earned</c>, gated by
+        /// <c>MainGM</c>-only (<paramref name="actorUserId"/> must be the
+        /// campaign's stored MainGM, the same rule <see cref="AssignPrimaryOwner"/>
+        /// uses). Increases <c>DevelopmentPool.Earned</c>, gated by
         /// <c>MechanicsRevision</c> (ADR-024 section 4.2: pool fields are
         /// <c>Mechanics</c>-level metadata). Commits the pool update, a
         /// <c>DevelopmentPointsGranted</c> event, and a co-committed
@@ -177,7 +177,7 @@ namespace Odyssey.Application.Persistence
         /// the sole idempotency mechanism (ADR-024 section 5) -- no second
         /// economy-specific dedup key.
         /// </summary>
-        Result<CharacterRecord> GrantDevelopmentPoints(CampaignHandle campaign, CharacterId characterId, long amount, string reason, UserId actorUserId, bool actorIsMainGm, long expectedMechanicsRevision, CommandId commandId, CorrelationId correlationId);
+        Result<CharacterRecord> GrantDevelopmentPoints(CampaignHandle campaign, CharacterId characterId, long amount, string reason, UserId actorUserId, long expectedMechanicsRevision, CommandId commandId, CorrelationId correlationId);
 
         /// <summary>
         /// ODY-S04-105: ADR-024 section 5.1, product section 11/13.1 --
@@ -212,7 +212,7 @@ namespace Odyssey.Application.Persistence
         /// non-increase (argument error), cap, balance.
         /// </para>
         /// </summary>
-        Result<CharacterRecord> PurchaseAttributeIncrease(CampaignHandle campaign, CharacterId characterId, AttributeDefinitionId attributeDefinitionId, long toValue, long decidedFromValue, bool exceedsNormalCap, long decidedCost, UserId actorUserId, bool actorIsMainGm, long expectedMechanicsRevision, long expectedAttributeRevision, CommandId commandId, CorrelationId correlationId);
+        Result<CharacterRecord> PurchaseAttributeIncrease(CampaignHandle campaign, CharacterId characterId, AttributeDefinitionId attributeDefinitionId, long toValue, long decidedFromValue, bool exceedsNormalCap, long decidedCost, UserId actorUserId, long expectedMechanicsRevision, long expectedAttributeRevision, CommandId commandId, CorrelationId correlationId);
 
         /// <summary>ODY-S04-105: reads the full development ledger for one Character, ordered by <see cref="DevelopmentTransactionRecord.CreatedAt"/> -- matching <see cref="IGameLogRepository.ListGameLog"/>'s own "Persistence stores everything" convention. Rebuildable from <c>DomainEvents</c> if ever lost (ADR-024 section 4.3); this method reads the co-committed ledger table directly, the same way <see cref="GetCharacter"/> reads current state directly rather than rebuilding it from events on every call.</summary>
         Result<IReadOnlyList<DevelopmentTransactionRecord>> GetDevelopmentLedger(CampaignHandle campaign, CharacterId characterId, CorrelationId correlationId);
@@ -235,7 +235,7 @@ namespace Odyssey.Application.Persistence
         /// entry-level revision, stale basis, non-increase (argument error), balance.
         /// </para>
         /// </summary>
-        Result<CharacterRecord> PurchaseSkillLevel(CampaignHandle campaign, CharacterId characterId, SkillDefinitionId skillDefinitionId, long toLevel, long decidedFromLevel, bool requiresRecommendation, long decidedCost, UserId actorUserId, bool actorIsMainGm, long expectedMechanicsRevision, long expectedSkillRevision, CommandId commandId, CorrelationId correlationId);
+        Result<CharacterRecord> PurchaseSkillLevel(CampaignHandle campaign, CharacterId characterId, SkillDefinitionId skillDefinitionId, long toLevel, long decidedFromLevel, bool requiresRecommendation, long decidedCost, UserId actorUserId, long expectedMechanicsRevision, long expectedSkillRevision, CommandId commandId, CorrelationId correlationId);
 
         /// <summary>
         /// ODY-S04-106: ADR-024 section 3.5/7.1, product section 14.4 --
@@ -286,7 +286,7 @@ namespace Odyssey.Application.Persistence
         /// <paramref name="decidedFromLevel"/> (otherwise <c>CharacterRevisionConflict</c>).
         /// </para>
         /// </summary>
-        Result<AdvancementRecommendationRecord> RequestSkillAdvancedRecommendation(CampaignHandle campaign, CharacterId characterId, SkillDefinitionId skillDefinitionId, long targetLevel, long decidedFromLevel, long decidedReservedAmount, IReadOnlyList<CriticalSuccessEvidenceId> evidenceIds, UserId actorUserId, bool actorIsMainGm, long expectedMechanicsRevision, CommandId commandId, CorrelationId correlationId);
+        Result<AdvancementRecommendationRecord> RequestSkillAdvancedRecommendation(CampaignHandle campaign, CharacterId characterId, SkillDefinitionId skillDefinitionId, long targetLevel, long decidedFromLevel, long decidedReservedAmount, IReadOnlyList<CriticalSuccessEvidenceId> evidenceIds, UserId actorUserId, long expectedMechanicsRevision, CommandId commandId, CorrelationId correlationId);
 
         /// <summary>
         /// ODY-S04-106: ADR-024 section 6.1 step 2, MainGM-only (product
@@ -313,7 +313,7 @@ namespace Odyssey.Application.Persistence
         /// state change, if any referenced evidence was already consumed by
         /// a concurrently-committed resolution (ADR-024 section 7.1).
         /// </summary>
-        Result<CharacterRecord> ResolveAdvancementRecommendation(CampaignHandle campaign, CharacterId characterId, AdvancementRecommendationId recommendationId, bool approve, bool spendReservedPoints, UserId actorUserId, bool actorIsMainGm, long expectedMechanicsRevision, long expectedRecommendationRevision, CommandId commandId, CorrelationId correlationId);
+        Result<CharacterRecord> ResolveAdvancementRecommendation(CampaignHandle campaign, CharacterId characterId, AdvancementRecommendationId recommendationId, bool approve, bool spendReservedPoints, UserId actorUserId, long expectedMechanicsRevision, long expectedRecommendationRevision, CommandId commandId, CorrelationId correlationId);
 
         /// <summary>ODY-S04-106: reads one <c>AdvancementRecommendation</c> by id.</summary>
         Result<AdvancementRecommendationRecord> GetAdvancementRecommendation(CampaignHandle campaign, CharacterId characterId, AdvancementRecommendationId recommendationId, CorrelationId correlationId);
@@ -324,9 +324,9 @@ namespace Odyssey.Application.Persistence
         /// <summary>
         /// ODY-S04-107: ADR-024 section 6.2 -- a compensating command
         /// (ADR-012 section 6) that undoes one <see cref="AdvancementPurchaseStatus.Applied"/>
-        /// <c>AdvancementPurchase</c>. MainGM-only (<paramref name="actorIsMainGm"/>,
-        /// the same caller-supplied-boolean convention every other GM-gated
-        /// command already uses) -- reverting a spend is a GM correction
+        /// <c>AdvancementPurchase</c>. MainGM-only (<paramref name="actorUserId"/> must be the
+        /// campaign's stored MainGM, like every other GM-gated
+        /// command) -- reverting a spend is a GM correction
         /// action, not a player self-service one. <paramref name="reasonCode"/>
         /// is required (ADR-002 section 21.2's compensation metadata).
         /// Rejects with <c>CharacterAdvancementPurchaseHasDependent</c> when the
@@ -344,7 +344,7 @@ namespace Odyssey.Application.Persistence
         /// plus a co-committed <c>DevelopmentTransaction</c> (<c>Kind=Refund</c>)
         /// in one transaction; sets <c>AdvancementPurchase.Status=Reverted</c>.
         /// </summary>
-        Result<CharacterRecord> RevertAdvancementPurchase(CampaignHandle campaign, CharacterId characterId, AdvancementPurchaseId purchaseId, string reasonCode, UserId actorUserId, bool actorIsMainGm, long expectedMechanicsRevision, CommandId commandId, CorrelationId correlationId);
+        Result<CharacterRecord> RevertAdvancementPurchase(CampaignHandle campaign, CharacterId characterId, AdvancementPurchaseId purchaseId, string reasonCode, UserId actorUserId, long expectedMechanicsRevision, CommandId commandId, CorrelationId correlationId);
 
         /// <summary>
         /// ODY-S04-107: ADR-024 section 7.2, product section 13.5 steps 4-8 --
@@ -385,7 +385,7 @@ namespace Odyssey.Application.Persistence
         /// (<c>CharacterAdvancementService.PreviewCharacterRespec</c>); it no longer has a repository method.
         /// </para>
         /// </summary>
-        Result<CharacterRecord> ApplyCharacterRespec(CampaignHandle campaign, CharacterId characterId, IReadOnlyList<CharacterRespecTarget> targets, CharacterRespecPreview decidedPlan, long decidedMechanicsRevision, string reasonCode, UserId actorUserId, bool actorIsMainGm, long expectedMechanicsRevision, CommandId commandId, CorrelationId correlationId);
+        Result<CharacterRecord> ApplyCharacterRespec(CampaignHandle campaign, CharacterId characterId, IReadOnlyList<CharacterRespecTarget> targets, CharacterRespecPreview decidedPlan, long decidedMechanicsRevision, string reasonCode, UserId actorUserId, long expectedMechanicsRevision, CommandId commandId, CorrelationId correlationId);
 
         /// <summary>
         /// ODY-S04-108: product section 16, ADR-024 section 5.1/9 -- one
@@ -436,7 +436,7 @@ namespace Odyssey.Application.Persistence
         /// no Rules reference. The value is ignored for every other <see cref="SourceKind"/>.
         /// </para>
         /// </summary>
-        Result<CharacterRecord> AcquireAbility(CampaignHandle campaign, CharacterId characterId, AbilityDefinitionId abilityDefinitionId, SourceKind sourceKind, string? sourceRef, RankMode rankMode, long? numericRank, string? namedRankKey, string configuration, long progressionPurchaseCost, UserId actorUserId, bool actorIsMainGm, long? expectedMechanicsRevision, long expectedCharacterAbilitiesRevision, CommandId commandId, CorrelationId correlationId);
+        Result<CharacterRecord> AcquireAbility(CampaignHandle campaign, CharacterId characterId, AbilityDefinitionId abilityDefinitionId, SourceKind sourceKind, string? sourceRef, RankMode rankMode, long? numericRank, string? namedRankKey, string configuration, long progressionPurchaseCost, UserId actorUserId, long? expectedMechanicsRevision, long expectedCharacterAbilitiesRevision, CommandId commandId, CorrelationId correlationId);
 
         /// <summary>
         /// ODY-S04-108: product section 16 -- "способность предмета или
@@ -452,7 +452,7 @@ namespace Odyssey.Application.Persistence
         /// 1.3). MainGM-only. Touches only the <c>CharacterAbilities</c>
         /// section, gated by <paramref name="expectedCharacterAbilitiesRevision"/>.
         /// </summary>
-        Result<CharacterRecord> RemoveAbility(CampaignHandle campaign, CharacterId characterId, CharacterAbilityId characterAbilityId, UserId actorUserId, bool actorIsMainGm, long expectedCharacterAbilitiesRevision, CommandId commandId, CorrelationId correlationId);
+        Result<CharacterRecord> RemoveAbility(CampaignHandle campaign, CharacterId characterId, CharacterAbilityId characterAbilityId, UserId actorUserId, long expectedCharacterAbilitiesRevision, CommandId commandId, CorrelationId correlationId);
 
         /// <summary>
         /// ODY-S06-106 doработка (product-owner-ordered fix): the real <see cref="AbilityDefinitionId"/>-to-
@@ -463,7 +463,7 @@ namespace Odyssey.Application.Persistence
         /// neither of which this method touches). MainGM-only. Touches only the <c>CharacterAbilities</c>
         /// section, gated by <paramref name="expectedCharacterAbilitiesRevision"/>.
         /// </summary>
-        Result<CharacterRecord> LinkAbilityActivationSource(CampaignHandle campaign, CharacterId characterId, CharacterAbilityId characterAbilityId, ContentDefinitionRef activationDefinitionRef, UserId actorUserId, bool actorIsMainGm, long expectedCharacterAbilitiesRevision, CommandId commandId, CorrelationId correlationId);
+        Result<CharacterRecord> LinkAbilityActivationSource(CampaignHandle campaign, CharacterId characterId, CharacterAbilityId characterAbilityId, ContentDefinitionRef activationDefinitionRef, UserId actorUserId, long expectedCharacterAbilitiesRevision, CommandId commandId, CorrelationId correlationId);
 
         /// <summary>
         /// ODY-S04-109: product section 17. MainGM-only. Initializes a new
@@ -484,7 +484,7 @@ namespace Odyssey.Application.Persistence
         /// Invalid values (<paramref name="baseMaximum"/> below <paramref name="minimumValue"/>,
         /// an undefined <paramref name="recoveryRule"/>) are rejected before any database access.
         /// </summary>
-        Result<CharacterRecord> InitializeCharacterResource(CampaignHandle campaign, CharacterId characterId, ResourceDefinitionId resourceDefinitionId, long baseMaximum, long minimumValue, RecoveryRule recoveryRule, UserId actorUserId, bool actorIsMainGm, long expectedCharacterResourcesRevision, CommandId commandId, CorrelationId correlationId);
+        Result<CharacterRecord> InitializeCharacterResource(CampaignHandle campaign, CharacterId characterId, ResourceDefinitionId resourceDefinitionId, long baseMaximum, long minimumValue, RecoveryRule recoveryRule, UserId actorUserId, long expectedCharacterResourcesRevision, CommandId commandId, CorrelationId correlationId);
 
         /// <summary>
         /// ODY-S04-109: product section 17.2/requirement 46 -- the ONE
@@ -501,7 +501,7 @@ namespace Odyssey.Application.Persistence
         /// <c>CharacterResourceValueOutOfRange</c> if the requested value
         /// falls outside <c>[MinimumValue, EffectiveMaximum]</c>. MainGM-only.
         /// </summary>
-        Result<CharacterRecord> SetResourceCurrentValue(CampaignHandle campaign, CharacterId characterId, CharacterResourceId characterResourceId, long newCurrentValue, UserId actorUserId, bool actorIsMainGm, long expectedCharacterResourcesRevision, CommandId commandId, CorrelationId correlationId);
+        Result<CharacterRecord> SetResourceCurrentValue(CampaignHandle campaign, CharacterId characterId, CharacterResourceId characterResourceId, long newCurrentValue, UserId actorUserId, long expectedCharacterResourcesRevision, CommandId commandId, CorrelationId correlationId);
 
         /// <summary>
         /// ODY-S04-109: product section 17.1/requirements 44-45. Changes
@@ -516,7 +516,7 @@ namespace Odyssey.Application.Persistence
         /// (requirement 45) -- this command only ever sets the new maximum,
         /// it never touches <c>CurrentValue</c> upward. MainGM-only.
         /// </summary>
-        Result<CharacterRecord> SetResourceMaximum(CampaignHandle campaign, CharacterId characterId, CharacterResourceId characterResourceId, long newBaseMaximum, long newPermanentMaximumAdjustment, UserId actorUserId, bool actorIsMainGm, long expectedCharacterResourcesRevision, CommandId commandId, CorrelationId correlationId);
+        Result<CharacterRecord> SetResourceMaximum(CampaignHandle campaign, CharacterId characterId, CharacterResourceId characterResourceId, long newBaseMaximum, long newPermanentMaximumAdjustment, UserId actorUserId, long expectedCharacterResourcesRevision, CommandId commandId, CorrelationId correlationId);
 
         /// <summary>
         /// ODY-S04-109 (section 1.2): product section 18. MainGM-only.
@@ -537,10 +537,10 @@ namespace Odyssey.Application.Persistence
         /// A blank <paramref name="anatomyProfileVersion"/> or a <c>null</c>
         /// <paramref name="bodyParts"/> is rejected before any database access.
         /// </summary>
-        Result<CharacterRecord> InitializeCharacterAnatomy(CampaignHandle campaign, CharacterId characterId, AnatomyProfileDefinitionId anatomyProfileDefinitionId, string anatomyProfileVersion, IReadOnlyList<BodyPart> bodyParts, UserId actorUserId, bool actorIsMainGm, long expectedCharacterAnatomyRevision, CommandId commandId, CorrelationId correlationId);
+        Result<CharacterRecord> InitializeCharacterAnatomy(CampaignHandle campaign, CharacterId characterId, AnatomyProfileDefinitionId anatomyProfileDefinitionId, string anatomyProfileVersion, IReadOnlyList<BodyPart> bodyParts, UserId actorUserId, long expectedCharacterAnatomyRevision, CommandId commandId, CorrelationId correlationId);
 
         /// <summary>ODY-S04-109: product section 18 -- "добавить... часть тела." MainGM-only. Appends one <see cref="AnatomyMigrationEntry"/>. Rejected with <c>CharacterAnatomyNotInitialized</c> if no anatomy exists yet.</summary>
-        Result<CharacterRecord> AddBodyPart(CampaignHandle campaign, CharacterId characterId, BodyPartId bodyPartId, string name, long damageLimit, BodyPartId? attachedToBodyPartId, string properties, UserId actorUserId, bool actorIsMainGm, long expectedCharacterAnatomyRevision, CommandId commandId, CorrelationId correlationId);
+        Result<CharacterRecord> AddBodyPart(CampaignHandle campaign, CharacterId characterId, BodyPartId bodyPartId, string name, long damageLimit, BodyPartId? attachedToBodyPartId, string properties, UserId actorUserId, long expectedCharacterAnatomyRevision, CommandId commandId, CorrelationId correlationId);
 
         /// <summary>
         /// ODY-S04-109 (section 1.3): product section 18/requirements 50-51
@@ -557,10 +557,10 @@ namespace Odyssey.Application.Persistence
         /// <c>CharacterBodyPartHasDependent</c> if any such reference
         /// exists; no partial removal. MainGM-only.
         /// </summary>
-        Result<CharacterRecord> RemoveBodyPart(CampaignHandle campaign, CharacterId characterId, BodyPartId bodyPartId, UserId actorUserId, bool actorIsMainGm, long expectedCharacterAnatomyRevision, CommandId commandId, CorrelationId correlationId);
+        Result<CharacterRecord> RemoveBodyPart(CampaignHandle campaign, CharacterId characterId, BodyPartId bodyPartId, UserId actorUserId, long expectedCharacterAnatomyRevision, CommandId commandId, CorrelationId correlationId);
 
         /// <summary>ODY-S04-109: product section 18 -- "изменить пределы повреждений части тела" / "изменить свойства части," folded into one command (both target the same <see cref="BodyPart"/> row; two near-identical single-field setters would duplicate the same lookup/replace logic). Pass <c>null</c> for either parameter to leave that field unchanged. MainGM-only.</summary>
-        Result<CharacterRecord> UpdateBodyPart(CampaignHandle campaign, CharacterId characterId, BodyPartId bodyPartId, long? newDamageLimit, string? newProperties, UserId actorUserId, bool actorIsMainGm, long expectedCharacterAnatomyRevision, CommandId commandId, CorrelationId correlationId);
+        Result<CharacterRecord> UpdateBodyPart(CampaignHandle campaign, CharacterId characterId, BodyPartId bodyPartId, long? newDamageLimit, string? newProperties, UserId actorUserId, long expectedCharacterAnatomyRevision, CommandId commandId, CorrelationId correlationId);
 
         /// <summary>
         /// ODY-S04-109: product section 18 -- "заменить профиль." Replaces
@@ -572,10 +572,10 @@ namespace Odyssey.Application.Persistence
         /// campaign-wide mechanism) -- this is a per-Character, GM-issued
         /// profile swap. MainGM-only.
         /// </summary>
-        Result<CharacterRecord> ReplaceAnatomyProfile(CampaignHandle campaign, CharacterId characterId, AnatomyProfileDefinitionId newAnatomyProfileDefinitionId, string newAnatomyProfileVersion, IReadOnlyList<BodyPart> newBodyParts, UserId actorUserId, bool actorIsMainGm, long expectedCharacterAnatomyRevision, CommandId commandId, CorrelationId correlationId);
+        Result<CharacterRecord> ReplaceAnatomyProfile(CampaignHandle campaign, CharacterId characterId, AnatomyProfileDefinitionId newAnatomyProfileDefinitionId, string newAnatomyProfileVersion, IReadOnlyList<BodyPart> newBodyParts, UserId actorUserId, long expectedCharacterAnatomyRevision, CommandId commandId, CorrelationId correlationId);
 
         /// <summary>ODY-S04-109: product section 18 -- "применить протез, мутацию или постоянную модификацию," one generic command for all three (product itself groups them with no separate schema per kind -- see <see cref="PermanentModification"/>'s own doc comment). MainGM-only.</summary>
-        Result<CharacterRecord> ApplyPermanentModification(CampaignHandle campaign, CharacterId characterId, BodyPartId attachedToBodyPartId, string kind, string description, UserId actorUserId, bool actorIsMainGm, long expectedCharacterAnatomyRevision, CommandId commandId, CorrelationId correlationId);
+        Result<CharacterRecord> ApplyPermanentModification(CampaignHandle campaign, CharacterId characterId, BodyPartId attachedToBodyPartId, string kind, string description, UserId actorUserId, long expectedCharacterAnatomyRevision, CommandId commandId, CorrelationId correlationId);
 
         /// <summary>
         /// ODY-S04-110: ADR-025 section 5.1 -- an ordinary `Lifecycle`-section
@@ -600,7 +600,7 @@ namespace Odyssey.Application.Persistence
         /// is a deliberate choice, not a copy of the stricter sibling
         /// command's own gate.
         /// </summary>
-        Result<CharacterRecord> ArchiveCharacter(CampaignHandle campaign, CharacterId characterId, UserId actorUserId, bool actorIsMainGm, long expectedLifecycleRevision, CommandId commandId, CorrelationId correlationId);
+        Result<CharacterRecord> ArchiveCharacter(CampaignHandle campaign, CharacterId characterId, UserId actorUserId, long expectedLifecycleRevision, CommandId commandId, CorrelationId correlationId);
 
         /// <summary>
         /// ODY-S04-110: ADR-025 section 5.2 -- MainGM-only. Before
@@ -630,7 +630,7 @@ namespace Odyssey.Application.Persistence
         /// operations). Returns a non-generic <see cref="Result"/> -- there
         /// is no live <see cref="CharacterRecord"/> left to return.
         /// </summary>
-        Result DeleteCharacterPermanently(CampaignHandle campaign, CharacterId characterId, string reasonCode, UserId actorUserId, bool actorIsMainGm, long expectedLifecycleRevision, CommandId commandId, CorrelationId correlationId);
+        Result DeleteCharacterPermanently(CampaignHandle campaign, CharacterId characterId, string reasonCode, UserId actorUserId, long expectedLifecycleRevision, CommandId commandId, CorrelationId correlationId);
 
         /// <summary>
         /// ODY-S04-111: ADR-025 section 6.1 -- the ONLY command that may
@@ -641,16 +641,16 @@ namespace Odyssey.Application.Persistence
         /// table -- never a duplicated ad hoc check. WHO may invoke it is
         /// gated by <paramref name="issuerKind"/> (section 1.1 of this
         /// task's own ТЗ): <see cref="LifecycleDeathIssuerKind.GMOverride"/>
-        /// requires <paramref name="actorIsMainGm"/>; <see cref="LifecycleDeathIssuerKind.HostSystemFatalDamageCompletion"/>
+        /// requires <paramref name="actorUserId"/> to be the stored MainGM; <see cref="LifecycleDeathIssuerKind.HostSystemFatalDamageCompletion"/>
         /// is accepted as a structurally legal entry point for a future
         /// Rules Engine workflow (not implemented here) and does not check
-        /// <paramref name="actorIsMainGm"/> at all. There is no third,
+        /// <paramref name="actorUserId"/>'s role at all. There is no third,
         /// plain-owner path -- `CAP-INV-008`. Touches and declares only the
         /// `Lifecycle` section (ADR-025 section 6.2): `DevelopmentPool`/
         /// `Reserved`/pending `AdvancementRecommendation` rows are left
         /// exactly as they were.
         /// </summary>
-        Result<CharacterRecord> TransitionCharacterToDead(CampaignHandle campaign, CharacterId characterId, LifecycleDeathIssuerKind issuerKind, UserId actorUserId, bool actorIsMainGm, long expectedLifecycleRevision, CommandId commandId, CorrelationId correlationId);
+        Result<CharacterRecord> TransitionCharacterToDead(CampaignHandle campaign, CharacterId characterId, LifecycleDeathIssuerKind issuerKind, UserId actorUserId, long expectedLifecycleRevision, CommandId commandId, CorrelationId correlationId);
 
         /// <summary>
         /// ODY-S04-111: ADR-025 section 6.3, product section 23.2. Legal
@@ -728,7 +728,7 @@ namespace Odyssey.Application.Persistence
         /// it no longer has a repository method.
         /// </para>
         /// </summary>
-        Result<CharacterRecord> ApplyCharacterRulesetMigration(CampaignHandle campaign, CharacterId characterId, string targetRulesetVersion, string decidedSourceRulesetVersion, long decidedMechanicsRevision, long decidedCharacterAbilitiesRevision, long decidedCharacterResourcesRevision, bool hasUnresolvedDecisions, int definitionMappingCount, UserId actorUserId, bool actorIsMainGm, CommandId commandId, CorrelationId correlationId);
+        Result<CharacterRecord> ApplyCharacterRulesetMigration(CampaignHandle campaign, CharacterId characterId, string targetRulesetVersion, string decidedSourceRulesetVersion, long decidedMechanicsRevision, long decidedCharacterAbilitiesRevision, long decidedCharacterResourcesRevision, bool hasUnresolvedDecisions, int definitionMappingCount, UserId actorUserId, CommandId commandId, CorrelationId correlationId);
 
         /// <summary>
         /// ODY-S04-113: ADR-024 section 7.2/7.4's exact compensating-batch
@@ -741,7 +741,7 @@ namespace Odyssey.Application.Persistence
         /// <paramref name="reasonCode"/>; rejects a second revert of the same
         /// migration.
         /// </summary>
-        Result<CharacterRecord> RevertCharacterRulesetMigration(CampaignHandle campaign, CharacterId characterId, CommandId migrationCommandId, string reasonCode, UserId actorUserId, bool actorIsMainGm, long expectedCharacterRevision, CommandId commandId, CorrelationId correlationId);
+        Result<CharacterRecord> RevertCharacterRulesetMigration(CampaignHandle campaign, CharacterId characterId, CommandId migrationCommandId, string reasonCode, UserId actorUserId, long expectedCharacterRevision, CommandId commandId, CorrelationId correlationId);
     }
 
     /// <summary>
@@ -770,7 +770,6 @@ namespace Odyssey.Application.Persistence
             IReadOnlyList<PermanentModification>? newPermanentModifications,
             IReadOnlyList<CharacterRestoreResourceValue>? newResourceCurrentValues,
             UserId actorUserId,
-            bool actorIsMainGm,
             long expectedLifecycleRevision,
             long? expectedCharacterAnatomyRevision,
             long? expectedCharacterResourcesRevision)
@@ -805,7 +804,6 @@ namespace Odyssey.Application.Persistence
             NewPermanentModifications = newPermanentModifications;
             NewResourceCurrentValues = newResourceCurrentValues;
             ActorUserId = actorUserId;
-            ActorIsMainGm = actorIsMainGm;
             ExpectedLifecycleRevision = expectedLifecycleRevision;
             ExpectedCharacterAnatomyRevision = expectedCharacterAnatomyRevision;
             ExpectedCharacterResourcesRevision = expectedCharacterResourcesRevision;
@@ -819,7 +817,6 @@ namespace Odyssey.Application.Persistence
         public IReadOnlyList<PermanentModification>? NewPermanentModifications { get; }
         public IReadOnlyList<CharacterRestoreResourceValue>? NewResourceCurrentValues { get; }
         public UserId ActorUserId { get; }
-        public bool ActorIsMainGm { get; }
         public long ExpectedLifecycleRevision { get; }
         public long? ExpectedCharacterAnatomyRevision { get; }
         public long? ExpectedCharacterResourcesRevision { get; }

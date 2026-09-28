@@ -56,7 +56,7 @@ namespace Odyssey.Tests.Persistence
             Assert.That(target.IsSuccess, Is.True);
             _targetCampaign = target.Value;
 
-            _characterRepository = new SqliteCharacterRepository(Clock);
+            _characterRepository = new SqliteCharacterRepository(Clock, _campaignRepository);
         }
 
         [TearDown]
@@ -78,7 +78,7 @@ namespace Odyssey.Tests.Persistence
             var bindRequest = new BindDraftToCampaignRequest(campaign, CharacterKind.PlayerCharacter, name, "Humanoid", NewUserId(), CharacterCreationSeed.None(), null, null);
             Result<CharacterRecord> bound = _characterRepository.BindDraftToCampaign(bindRequest, NewCommandId(), TestCorrelationId);
             Assert.That(bound.IsSuccess, Is.True);
-            Result<CharacterRecord> approved = _characterRepository.ApproveCharacterDraft(campaign, bound.Value.CharacterId, actorIsMainGm: true, bound.Value.Revisions.LifecycleRevision, NewCommandId(), TestCorrelationId);
+            Result<CharacterRecord> approved = _characterRepository.ApproveCharacterDraft(campaign, bound.Value.CharacterId, global::Odyssey.Application.Identity.DevIdentityProvider.AssignHost(), bound.Value.Revisions.LifecycleRevision, NewCommandId(), TestCorrelationId);
             Assert.That(approved.IsSuccess, Is.True);
             return approved.Value;
         }
@@ -115,7 +115,7 @@ namespace Odyssey.Tests.Persistence
         {
             CharacterRecord character = CreateActiveCharacter(_sourceCampaign);
             UserId owner = NewUserId();
-            Result<CharacterRecord> assigned = _characterRepository.AssignPrimaryOwner(_sourceCampaign, character.CharacterId, owner, "assign for export test", actorIsMainGm: true, character.Revisions.OwnershipRevision, NewCommandId(), TestCorrelationId);
+            Result<CharacterRecord> assigned = _characterRepository.AssignPrimaryOwner(_sourceCampaign, character.CharacterId, owner, "assign for export test", global::Odyssey.Application.Identity.DevIdentityProvider.AssignHost(), character.Revisions.OwnershipRevision, NewCommandId(), TestCorrelationId);
             Assert.That(assigned.IsSuccess, Is.True);
 
             string mainGmDir = _bundleDir + "-maingm";
@@ -212,29 +212,29 @@ namespace Odyssey.Tests.Persistence
         {
             CharacterRecord character = CreateActiveCharacter(_sourceCampaign);
 
-            Result<CharacterRecord> granted = _characterRepository.GrantDevelopmentPoints(_sourceCampaign, character.CharacterId, 50, "fixture grant", NewUserId(), actorIsMainGm: true, character.Revisions.MechanicsRevision, NewCommandId(), TestCorrelationId);
+            Result<CharacterRecord> granted = _characterRepository.GrantDevelopmentPoints(_sourceCampaign, character.CharacterId, 50, "fixture grant", global::Odyssey.Application.Identity.DevIdentityProvider.AssignHost(), character.Revisions.MechanicsRevision, NewCommandId(), TestCorrelationId);
             Assert.That(granted.IsSuccess, Is.True);
 
             var strength = AttributeDefinitionId.Parse("Strength");
-            Result<CharacterRecord> attributeResult = CharacterAdvancementService.PurchaseAttributeIncrease(_characterRepository, _sourceCampaign, character.CharacterId, strength, toValue: 2, NewUserId(), actorIsMainGm: true, granted.Value.Revisions.MechanicsRevision, expectedAttributeRevision: 0, NewCommandId(), TestCorrelationId);
+            Result<CharacterRecord> attributeResult = CharacterAdvancementService.PurchaseAttributeIncrease(_characterRepository, _sourceCampaign, character.CharacterId, strength, toValue: 2, global::Odyssey.Application.Identity.DevIdentityProvider.AssignHost(), granted.Value.Revisions.MechanicsRevision, expectedAttributeRevision: 0, NewCommandId(), TestCorrelationId);
             Assert.That(attributeResult.IsSuccess, Is.True);
 
             var lockpicking = SkillDefinitionId.Parse("Lockpicking");
-            Result<CharacterRecord> skillResult = CharacterAdvancementService.PurchaseSkillLevel(_characterRepository, _sourceCampaign, character.CharacterId, lockpicking, toLevel: 1, NewUserId(), actorIsMainGm: true, attributeResult.Value.Revisions.MechanicsRevision, expectedSkillRevision: 0, NewCommandId(), TestCorrelationId);
+            Result<CharacterRecord> skillResult = CharacterAdvancementService.PurchaseSkillLevel(_characterRepository, _sourceCampaign, character.CharacterId, lockpicking, toLevel: 1, global::Odyssey.Application.Identity.DevIdentityProvider.AssignHost(), attributeResult.Value.Revisions.MechanicsRevision, expectedSkillRevision: 0, NewCommandId(), TestCorrelationId);
             Assert.That(skillResult.IsSuccess, Is.True);
 
             var fireball = AbilityDefinitionId.Parse("Fireball");
-            Result<CharacterRecord> abilityResult = CharacterAdvancementService.AcquireAbility(_characterRepository, _sourceCampaign, character.CharacterId, fireball, SourceKind.GMGrant, null, RankMode.None, null, null, "{}", NewUserId(), actorIsMainGm: true, skillResult.Value.Revisions.MechanicsRevision, skillResult.Value.Revisions.CharacterAbilitiesRevision, NewCommandId(), TestCorrelationId);
+            Result<CharacterRecord> abilityResult = CharacterAdvancementService.AcquireAbility(_characterRepository, _sourceCampaign, character.CharacterId, fireball, SourceKind.GMGrant, null, RankMode.None, null, null, "{}", global::Odyssey.Application.Identity.DevIdentityProvider.AssignHost(), skillResult.Value.Revisions.MechanicsRevision, skillResult.Value.Revisions.CharacterAbilitiesRevision, NewCommandId(), TestCorrelationId);
             Assert.That(abilityResult.IsSuccess, Is.True);
 
-            Result<CharacterRecord> resourceResult = CharacterAdvancementService.InitializeResourceWithDefaults(_characterRepository, _sourceCampaign, character.CharacterId, Health, NewUserId(), actorIsMainGm: true, abilityResult.Value.Revisions.CharacterResourcesRevision, NewCommandId(), TestCorrelationId);
+            Result<CharacterRecord> resourceResult = CharacterAdvancementService.InitializeResourceWithDefaults(_characterRepository, _sourceCampaign, character.CharacterId, Health, global::Odyssey.Application.Identity.DevIdentityProvider.AssignHost(), abilityResult.Value.Revisions.CharacterResourcesRevision, NewCommandId(), TestCorrelationId);
             Assert.That(resourceResult.IsSuccess, Is.True);
             CharacterResource sourceResource = resourceResult.Value.Resources[0];
             long damagedValue = sourceResource.MinimumValue + 1;
-            Result<CharacterRecord> damagedResult = _characterRepository.SetResourceCurrentValue(_sourceCampaign, character.CharacterId, sourceResource.CharacterResourceId, damagedValue, NewUserId(), actorIsMainGm: true, resourceResult.Value.Revisions.CharacterResourcesRevision, NewCommandId(), TestCorrelationId);
+            Result<CharacterRecord> damagedResult = _characterRepository.SetResourceCurrentValue(_sourceCampaign, character.CharacterId, sourceResource.CharacterResourceId, damagedValue, global::Odyssey.Application.Identity.DevIdentityProvider.AssignHost(), resourceResult.Value.Revisions.CharacterResourcesRevision, NewCommandId(), TestCorrelationId);
             Assert.That(damagedResult.IsSuccess, Is.True);
 
-            Result<CharacterRecord> anatomyResult = CharacterAdvancementService.InitializeAnatomyWithDefaults(_characterRepository, _sourceCampaign, character.CharacterId, Humanoid, NewUserId(), actorIsMainGm: true, damagedResult.Value.Revisions.CharacterAnatomyRevision, NewCommandId(), TestCorrelationId);
+            Result<CharacterRecord> anatomyResult = CharacterAdvancementService.InitializeAnatomyWithDefaults(_characterRepository, _sourceCampaign, character.CharacterId, Humanoid, global::Odyssey.Application.Identity.DevIdentityProvider.AssignHost(), damagedResult.Value.Revisions.CharacterAnatomyRevision, NewCommandId(), TestCorrelationId);
             Assert.That(anatomyResult.IsSuccess, Is.True);
 
             Result<CharacterRecord> reRead = _characterRepository.GetCharacter(_sourceCampaign, character.CharacterId, TestCorrelationId);

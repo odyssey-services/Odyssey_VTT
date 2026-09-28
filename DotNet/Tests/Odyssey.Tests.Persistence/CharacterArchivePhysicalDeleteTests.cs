@@ -48,7 +48,7 @@ namespace Odyssey.Tests.Persistence
             Assert.That(created.IsSuccess, Is.True);
             _campaign = created.Value;
             _backupRepository = new SqliteBackupRepository(Clock);
-            _characterRepository = new SqliteCharacterRepository(Clock);
+            _characterRepository = new SqliteCharacterRepository(Clock, _campaignRepository);
         }
 
         [TearDown]
@@ -91,7 +91,7 @@ namespace Odyssey.Tests.Persistence
         {
             CharacterRecord character = CreateCharacter();
 
-            Result<CharacterRecord> archived = _characterRepository.ArchiveCharacter(_campaign, character.CharacterId, NewUserId(), actorIsMainGm: true, character.Revisions.LifecycleRevision, NewCommandId(), TestCorrelationId);
+            Result<CharacterRecord> archived = _characterRepository.ArchiveCharacter(_campaign, character.CharacterId, global::Odyssey.Application.Identity.DevIdentityProvider.AssignHost(), character.Revisions.LifecycleRevision, NewCommandId(), TestCorrelationId);
 
             Assert.That(archived.IsSuccess, Is.True);
             Assert.That(archived.Value.LifecycleStatus, Is.EqualTo(CharacterLifecycleStatus.Archived));
@@ -101,11 +101,11 @@ namespace Odyssey.Tests.Persistence
         public void ArchiveCharacter_FromActive_TransitionsToArchived()
         {
             CharacterRecord character = CreateCharacter();
-            Result<CharacterRecord> approved = _characterRepository.ApproveCharacterDraft(_campaign, character.CharacterId, actorIsMainGm: true, character.Revisions.LifecycleRevision, NewCommandId(), TestCorrelationId);
+            Result<CharacterRecord> approved = _characterRepository.ApproveCharacterDraft(_campaign, character.CharacterId, global::Odyssey.Application.Identity.DevIdentityProvider.AssignHost(), character.Revisions.LifecycleRevision, NewCommandId(), TestCorrelationId);
             Assert.That(approved.IsSuccess, Is.True);
             Assert.That(approved.Value.LifecycleStatus, Is.EqualTo(CharacterLifecycleStatus.Active));
 
-            Result<CharacterRecord> archived = _characterRepository.ArchiveCharacter(_campaign, character.CharacterId, NewUserId(), actorIsMainGm: true, approved.Value.Revisions.LifecycleRevision, NewCommandId(), TestCorrelationId);
+            Result<CharacterRecord> archived = _characterRepository.ArchiveCharacter(_campaign, character.CharacterId, global::Odyssey.Application.Identity.DevIdentityProvider.AssignHost(), approved.Value.Revisions.LifecycleRevision, NewCommandId(), TestCorrelationId);
 
             Assert.That(archived.IsSuccess, Is.True);
             Assert.That(archived.Value.LifecycleStatus, Is.EqualTo(CharacterLifecycleStatus.Archived));
@@ -115,10 +115,10 @@ namespace Odyssey.Tests.Persistence
         public void ArchiveCharacter_Twice_SecondCallIsRejected()
         {
             CharacterRecord character = CreateCharacter();
-            Result<CharacterRecord> archived = _characterRepository.ArchiveCharacter(_campaign, character.CharacterId, NewUserId(), actorIsMainGm: true, character.Revisions.LifecycleRevision, NewCommandId(), TestCorrelationId);
+            Result<CharacterRecord> archived = _characterRepository.ArchiveCharacter(_campaign, character.CharacterId, global::Odyssey.Application.Identity.DevIdentityProvider.AssignHost(), character.Revisions.LifecycleRevision, NewCommandId(), TestCorrelationId);
             Assert.That(archived.IsSuccess, Is.True);
 
-            Result<CharacterRecord> secondArchive = _characterRepository.ArchiveCharacter(_campaign, character.CharacterId, NewUserId(), actorIsMainGm: true, archived.Value.Revisions.LifecycleRevision, NewCommandId(), TestCorrelationId);
+            Result<CharacterRecord> secondArchive = _characterRepository.ArchiveCharacter(_campaign, character.CharacterId, global::Odyssey.Application.Identity.DevIdentityProvider.AssignHost(), archived.Value.Revisions.LifecycleRevision, NewCommandId(), TestCorrelationId);
 
             Assert.That(secondArchive.IsFailure, Is.True);
             Assert.That(secondArchive.Error.Code, Is.EqualTo(ErrorCodes.PersistenceCharacterLifecycleTransitionInvalid));
@@ -130,10 +130,10 @@ namespace Odyssey.Tests.Persistence
             // Section 1.3: MainGM-or-assigned, not MainGM-only.
             CharacterRecord character = CreateCharacter();
             UserId owner = NewUserId();
-            Result<CharacterRecord> assigned = _characterRepository.AssignPrimaryOwner(_campaign, character.CharacterId, owner, "initial owner", actorIsMainGm: true, character.Revisions.OwnershipRevision, NewCommandId(), TestCorrelationId);
+            Result<CharacterRecord> assigned = _characterRepository.AssignPrimaryOwner(_campaign, character.CharacterId, owner, "initial owner", global::Odyssey.Application.Identity.DevIdentityProvider.AssignHost(), character.Revisions.OwnershipRevision, NewCommandId(), TestCorrelationId);
             Assert.That(assigned.IsSuccess, Is.True);
 
-            Result<CharacterRecord> archived = _characterRepository.ArchiveCharacter(_campaign, character.CharacterId, owner, actorIsMainGm: false, assigned.Value.Revisions.LifecycleRevision, NewCommandId(), TestCorrelationId);
+            Result<CharacterRecord> archived = _characterRepository.ArchiveCharacter(_campaign, character.CharacterId, owner, assigned.Value.Revisions.LifecycleRevision, NewCommandId(), TestCorrelationId);
 
             Assert.That(archived.IsSuccess, Is.True);
             Assert.That(archived.Value.LifecycleStatus, Is.EqualTo(CharacterLifecycleStatus.Archived));
@@ -144,7 +144,7 @@ namespace Odyssey.Tests.Persistence
         {
             CharacterRecord character = CreateCharacter();
 
-            Result<CharacterRecord> archived = _characterRepository.ArchiveCharacter(_campaign, character.CharacterId, NewUserId(), actorIsMainGm: false, character.Revisions.LifecycleRevision, NewCommandId(), TestCorrelationId);
+            Result<CharacterRecord> archived = _characterRepository.ArchiveCharacter(_campaign, character.CharacterId, NewUserId(), character.Revisions.LifecycleRevision, NewCommandId(), TestCorrelationId);
 
             Assert.That(archived.IsFailure, Is.True);
             Assert.That(archived.Error.Code, Is.EqualTo(ErrorCodes.PersistenceCharacterArchiveDenied));
@@ -159,10 +159,10 @@ namespace Odyssey.Tests.Persistence
             CharacterRecord character = CreateCharacter();
             CommandId commandId = NewCommandId();
 
-            Result<CharacterRecord> first = _characterRepository.ArchiveCharacter(_campaign, character.CharacterId, NewUserId(), actorIsMainGm: true, character.Revisions.LifecycleRevision, commandId, TestCorrelationId);
+            Result<CharacterRecord> first = _characterRepository.ArchiveCharacter(_campaign, character.CharacterId, global::Odyssey.Application.Identity.DevIdentityProvider.AssignHost(), character.Revisions.LifecycleRevision, commandId, TestCorrelationId);
             Assert.That(first.IsSuccess, Is.True);
 
-            Result<CharacterRecord> replay = _characterRepository.ArchiveCharacter(_campaign, character.CharacterId, NewUserId(), actorIsMainGm: true, character.Revisions.LifecycleRevision, commandId, TestCorrelationId);
+            Result<CharacterRecord> replay = _characterRepository.ArchiveCharacter(_campaign, character.CharacterId, global::Odyssey.Application.Identity.DevIdentityProvider.AssignHost(), character.Revisions.LifecycleRevision, commandId, TestCorrelationId);
             Assert.That(replay.IsSuccess, Is.True);
 
             Result<CharacterRecord> reRead = _characterRepository.GetCharacter(_campaign, character.CharacterId, TestCorrelationId);
@@ -177,7 +177,7 @@ namespace Odyssey.Tests.Persistence
         {
             CharacterRecord character = CreateCharacter();
 
-            Result deleted = _characterRepository.DeleteCharacterPermanently(_campaign, character.CharacterId, "test", NewUserId(), actorIsMainGm: false, character.Revisions.LifecycleRevision, NewCommandId(), TestCorrelationId);
+            Result deleted = _characterRepository.DeleteCharacterPermanently(_campaign, character.CharacterId, "test", NewUserId(), character.Revisions.LifecycleRevision, NewCommandId(), TestCorrelationId);
 
             Assert.That(deleted.IsFailure, Is.True);
             Assert.That(deleted.Error.Code, Is.EqualTo(ErrorCodes.PersistenceCharacterDeletionDenied));
@@ -191,7 +191,7 @@ namespace Odyssey.Tests.Persistence
         {
             CharacterRecord character = CreateCharacter();
 
-            Result deleted = _characterRepository.DeleteCharacterPermanently(_campaign, character.CharacterId, "", NewUserId(), actorIsMainGm: true, character.Revisions.LifecycleRevision, NewCommandId(), TestCorrelationId);
+            Result deleted = _characterRepository.DeleteCharacterPermanently(_campaign, character.CharacterId, "", global::Odyssey.Application.Identity.DevIdentityProvider.AssignHost(), character.Revisions.LifecycleRevision, NewCommandId(), TestCorrelationId);
 
             Assert.That(deleted.IsFailure, Is.True);
             Assert.That(deleted.Error.Code, Is.EqualTo(ErrorCodes.PersistenceCharacterDeletionReasonRequired));
@@ -202,7 +202,7 @@ namespace Odyssey.Tests.Persistence
         {
             CharacterRecord character = CreateCharacter();
 
-            Result deleted = _characterRepository.DeleteCharacterPermanently(_campaign, character.CharacterId, "test cleanup", NewUserId(), actorIsMainGm: true, character.Revisions.LifecycleRevision, NewCommandId(), TestCorrelationId);
+            Result deleted = _characterRepository.DeleteCharacterPermanently(_campaign, character.CharacterId, "test cleanup", global::Odyssey.Application.Identity.DevIdentityProvider.AssignHost(), character.Revisions.LifecycleRevision, NewCommandId(), TestCorrelationId);
 
             Assert.That(deleted.IsSuccess, Is.True);
         }
@@ -216,7 +216,7 @@ namespace Odyssey.Tests.Persistence
             Assert.That(backupsBefore.IsSuccess, Is.True);
             int countBefore = backupsBefore.Value.Count;
 
-            Result deleted = _characterRepository.DeleteCharacterPermanently(_campaign, character.CharacterId, "test cleanup", NewUserId(), actorIsMainGm: true, character.Revisions.LifecycleRevision, NewCommandId(), TestCorrelationId);
+            Result deleted = _characterRepository.DeleteCharacterPermanently(_campaign, character.CharacterId, "test cleanup", global::Odyssey.Application.Identity.DevIdentityProvider.AssignHost(), character.Revisions.LifecycleRevision, NewCommandId(), TestCorrelationId);
             Assert.That(deleted.IsSuccess, Is.True);
 
             Result<IReadOnlyList<Odyssey.Application.Persistence.BackupRecord>> backupsAfter = _backupRepository.ListBackups(_campaignDir, TestCorrelationId);
@@ -232,7 +232,7 @@ namespace Odyssey.Tests.Persistence
             string originalDisplayName = character.DisplayName;
             string originalRulesetVersion = character.RulesetVersion;
 
-            Result deleted = _characterRepository.DeleteCharacterPermanently(_campaign, character.CharacterId, "test cleanup", NewUserId(), actorIsMainGm: true, character.Revisions.LifecycleRevision, NewCommandId(), TestCorrelationId);
+            Result deleted = _characterRepository.DeleteCharacterPermanently(_campaign, character.CharacterId, "test cleanup", global::Odyssey.Application.Identity.DevIdentityProvider.AssignHost(), character.Revisions.LifecycleRevision, NewCommandId(), TestCorrelationId);
             Assert.That(deleted.IsSuccess, Is.True);
 
             Result<CharacterRecord> reRead = _characterRepository.GetCharacter(_campaign, character.CharacterId, TestCorrelationId);
@@ -271,7 +271,7 @@ namespace Odyssey.Tests.Persistence
                 eventCountBefore = ReadLong(connection, "SELECT COUNT(*) FROM DomainEvents");
             }
 
-            Result deleted = _characterRepository.DeleteCharacterPermanently(_campaign, character.CharacterId, "test cleanup", NewUserId(), actorIsMainGm: true, character.Revisions.LifecycleRevision, NewCommandId(), TestCorrelationId);
+            Result deleted = _characterRepository.DeleteCharacterPermanently(_campaign, character.CharacterId, "test cleanup", global::Odyssey.Application.Identity.DevIdentityProvider.AssignHost(), character.Revisions.LifecycleRevision, NewCommandId(), TestCorrelationId);
             Assert.That(deleted.IsSuccess, Is.True);
 
             using (SqliteConnection connection = OpenReadOnly())
@@ -288,10 +288,10 @@ namespace Odyssey.Tests.Persistence
             CharacterRecord character = CreateCharacter();
             CommandId commandId = NewCommandId();
 
-            Result first = _characterRepository.DeleteCharacterPermanently(_campaign, character.CharacterId, "test cleanup", NewUserId(), actorIsMainGm: true, character.Revisions.LifecycleRevision, commandId, TestCorrelationId);
+            Result first = _characterRepository.DeleteCharacterPermanently(_campaign, character.CharacterId, "test cleanup", global::Odyssey.Application.Identity.DevIdentityProvider.AssignHost(), character.Revisions.LifecycleRevision, commandId, TestCorrelationId);
             Assert.That(first.IsSuccess, Is.True);
 
-            Result replay = _characterRepository.DeleteCharacterPermanently(_campaign, character.CharacterId, "test cleanup", NewUserId(), actorIsMainGm: true, character.Revisions.LifecycleRevision, commandId, TestCorrelationId);
+            Result replay = _characterRepository.DeleteCharacterPermanently(_campaign, character.CharacterId, "test cleanup", global::Odyssey.Application.Identity.DevIdentityProvider.AssignHost(), character.Revisions.LifecycleRevision, commandId, TestCorrelationId);
             Assert.That(replay.IsSuccess, Is.True);
 
             using SqliteConnection connection = OpenReadOnly();
@@ -307,11 +307,11 @@ namespace Odyssey.Tests.Persistence
             // always reports a dependency must actually influence the
             // decision, not merely exist as an unused parameter.
             var blockingChecker = new AlwaysBlockingDependencyChecker();
-            var repositoryWithChecker = new SqliteCharacterRepository(Clock, deletionDependencyCheckers: new ICharacterDeletionDependencyChecker[] { blockingChecker });
+            var repositoryWithChecker = new SqliteCharacterRepository(Clock, _campaignRepository, deletionDependencyCheckers: new ICharacterDeletionDependencyChecker[] { blockingChecker });
 
             CharacterRecord character = CreateCharacter();
 
-            Result deleted = repositoryWithChecker.DeleteCharacterPermanently(_campaign, character.CharacterId, "test cleanup", NewUserId(), actorIsMainGm: true, character.Revisions.LifecycleRevision, NewCommandId(), TestCorrelationId);
+            Result deleted = repositoryWithChecker.DeleteCharacterPermanently(_campaign, character.CharacterId, "test cleanup", global::Odyssey.Application.Identity.DevIdentityProvider.AssignHost(), character.Revisions.LifecycleRevision, NewCommandId(), TestCorrelationId);
 
             Assert.That(deleted.IsFailure, Is.True);
             Assert.That(deleted.Error.Code, Is.EqualTo(ErrorCodes.PersistenceCharacterDeletionHasDependent));
@@ -323,6 +323,28 @@ namespace Odyssey.Tests.Persistence
         private sealed class AlwaysBlockingDependencyChecker : ICharacterDeletionDependencyChecker
         {
             public string? CheckBlockingDependency(CampaignHandle campaign, CharacterId characterId) => "test-fixture: always blocks";
+        }
+
+        // ---- ODY-S10-102: owner first, stored MainGM second ------------------------------------------
+
+        [Test] // TC-PERSIST-045
+        public void ArchiveCharacter_OwnerNeedsNoMembershipLookup_NonOwnerFailsClosedOnAnUnreadableLookup()
+        {
+            CharacterRecord character = CreateCharacter();
+            UserId owner = NewUserId();
+            Result<CharacterRecord> assigned = _characterRepository.AssignPrimaryOwner(_campaign, character.CharacterId, owner, "initial owner", global::Odyssey.Application.Identity.DevIdentityProvider.AssignHost(), character.Revisions.OwnershipRevision, NewCommandId(), TestCorrelationId);
+            Assert.That(assigned.IsSuccess, Is.True);
+
+            var stranger = PoisonedMembershipCampaignRepository.FailsOnLookup();
+            Result<CharacterRecord> byStranger = new SqliteCharacterRepository(Clock, stranger).ArchiveCharacter(_campaign, character.CharacterId, NewUserId(), assigned.Value.Revisions.LifecycleRevision, NewCommandId(), TestCorrelationId);
+            Assert.That(byStranger.IsFailure, Is.True);
+            Assert.That(byStranger.Error.Code, Is.EqualTo(ErrorCodes.PersistenceCampaignIoFailed), "a non-owner reaches the lookup, and its failure is returned as such");
+            Assert.That(stranger.LookupCalls, Is.EqualTo(1));
+
+            var neverLooksUp = PoisonedMembershipCampaignRepository.ThrowsOnLookup();
+            Result<CharacterRecord> byOwner = new SqliteCharacterRepository(Clock, neverLooksUp).ArchiveCharacter(_campaign, character.CharacterId, owner, assigned.Value.Revisions.LifecycleRevision, NewCommandId(), TestCorrelationId);
+            Assert.That(byOwner.IsSuccess, Is.True, "the owner passes on the cheap local check");
+            Assert.That(neverLooksUp.LookupCalls, Is.EqualTo(0), "without any membership lookup");
         }
     }
 }

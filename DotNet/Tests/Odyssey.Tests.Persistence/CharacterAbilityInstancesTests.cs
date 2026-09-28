@@ -49,7 +49,7 @@ namespace Odyssey.Tests.Persistence
             Result<CampaignHandle> created = _campaignRepository.Create(request, NewCommandId(), TestCorrelationId);
             Assert.That(created.IsSuccess, Is.True);
             _campaign = created.Value;
-            _characterRepository = new SqliteCharacterRepository(Clock);
+            _characterRepository = new SqliteCharacterRepository(Clock, _campaignRepository);
         }
 
         [TearDown]
@@ -72,7 +72,7 @@ namespace Odyssey.Tests.Persistence
 
         private CharacterRecord GrantPoints(CharacterRecord character, long amount)
         {
-            Result<CharacterRecord> granted = _characterRepository.GrantDevelopmentPoints(_campaign, character.CharacterId, amount, "Grant", NewUserId(), actorIsMainGm: true, character.Revisions.MechanicsRevision, NewCommandId(), TestCorrelationId);
+            Result<CharacterRecord> granted = _characterRepository.GrantDevelopmentPoints(_campaign, character.CharacterId, amount, "Grant", global::Odyssey.Application.Identity.DevIdentityProvider.AssignHost(), character.Revisions.MechanicsRevision, NewCommandId(), TestCorrelationId);
             Assert.That(granted.IsSuccess, Is.True);
             return granted.Value;
         }
@@ -87,7 +87,7 @@ namespace Odyssey.Tests.Persistence
             CharacterRecord character = CreateCharacter();
             CharacterRecord granted = GrantPoints(character, AbilityCost);
 
-            Result<CharacterRecord> acquired = CharacterAdvancementService.AcquireAbility(_characterRepository, _campaign, character.CharacterId, Fireball, SourceKind.ProgressionPurchase, null, RankMode.None, null, null, FixtureConfiguration, NewUserId(), actorIsMainGm: true, granted.Revisions.MechanicsRevision, granted.Revisions.CharacterAbilitiesRevision, NewCommandId(), TestCorrelationId);
+            Result<CharacterRecord> acquired = CharacterAdvancementService.AcquireAbility(_characterRepository, _campaign, character.CharacterId, Fireball, SourceKind.ProgressionPurchase, null, RankMode.None, null, null, FixtureConfiguration, global::Odyssey.Application.Identity.DevIdentityProvider.AssignHost(), granted.Revisions.MechanicsRevision, granted.Revisions.CharacterAbilitiesRevision, NewCommandId(), TestCorrelationId);
 
             Assert.That(acquired.IsSuccess, Is.True);
             Assert.That(acquired.Value.Abilities, Has.Count.EqualTo(1));
@@ -103,7 +103,7 @@ namespace Odyssey.Tests.Persistence
             CharacterRecord character = CreateCharacter();
             CharacterRecord granted = GrantPoints(character, AbilityCost - 1);
 
-            Result<CharacterRecord> acquired = CharacterAdvancementService.AcquireAbility(_characterRepository, _campaign, character.CharacterId, Fireball, SourceKind.ProgressionPurchase, null, RankMode.None, null, null, FixtureConfiguration, NewUserId(), actorIsMainGm: true, granted.Revisions.MechanicsRevision, granted.Revisions.CharacterAbilitiesRevision, NewCommandId(), TestCorrelationId);
+            Result<CharacterRecord> acquired = CharacterAdvancementService.AcquireAbility(_characterRepository, _campaign, character.CharacterId, Fireball, SourceKind.ProgressionPurchase, null, RankMode.None, null, null, FixtureConfiguration, global::Odyssey.Application.Identity.DevIdentityProvider.AssignHost(), granted.Revisions.MechanicsRevision, granted.Revisions.CharacterAbilitiesRevision, NewCommandId(), TestCorrelationId);
 
             Assert.That(acquired.IsFailure, Is.True);
             Assert.That(acquired.Error.Code, Is.EqualTo(ErrorCodes.PersistenceCharacterDevelopmentInsufficientBalance));
@@ -120,7 +120,7 @@ namespace Odyssey.Tests.Persistence
             CharacterRecord character = CreateCharacter();
             CharacterRecord granted = GrantPoints(character, AbilityCost);
 
-            Result<CharacterRecord> acquired = CharacterAdvancementService.AcquireAbility(_characterRepository, _campaign, character.CharacterId, Fireball, SourceKind.ProgressionPurchase, null, RankMode.None, null, null, FixtureConfiguration, NewUserId(), actorIsMainGm: true, granted.Revisions.MechanicsRevision, granted.Revisions.CharacterAbilitiesRevision, NewCommandId(), TestCorrelationId);
+            Result<CharacterRecord> acquired = CharacterAdvancementService.AcquireAbility(_characterRepository, _campaign, character.CharacterId, Fireball, SourceKind.ProgressionPurchase, null, RankMode.None, null, null, FixtureConfiguration, global::Odyssey.Application.Identity.DevIdentityProvider.AssignHost(), granted.Revisions.MechanicsRevision, granted.Revisions.CharacterAbilitiesRevision, NewCommandId(), TestCorrelationId);
             Assert.That(acquired.IsSuccess, Is.True);
 
             AdvancementPurchase purchase = _characterRepository.GetAdvancementPurchases(_campaign, character.CharacterId, TestCorrelationId).Value.Single();
@@ -139,10 +139,10 @@ namespace Odyssey.Tests.Persistence
             CharacterRecord granted = GrantPoints(character, AbilityCost * 2);
 
             CommandId acquireCommandId = NewCommandId();
-            Result<CharacterRecord> first = CharacterAdvancementService.AcquireAbility(_characterRepository, _campaign, character.CharacterId, Fireball, SourceKind.ProgressionPurchase, null, RankMode.None, null, null, FixtureConfiguration, NewUserId(), actorIsMainGm: true, granted.Revisions.MechanicsRevision, granted.Revisions.CharacterAbilitiesRevision, acquireCommandId, TestCorrelationId);
+            Result<CharacterRecord> first = CharacterAdvancementService.AcquireAbility(_characterRepository, _campaign, character.CharacterId, Fireball, SourceKind.ProgressionPurchase, null, RankMode.None, null, null, FixtureConfiguration, global::Odyssey.Application.Identity.DevIdentityProvider.AssignHost(), granted.Revisions.MechanicsRevision, granted.Revisions.CharacterAbilitiesRevision, acquireCommandId, TestCorrelationId);
             Assert.That(first.IsSuccess, Is.True);
 
-            Result<CharacterRecord> replay = CharacterAdvancementService.AcquireAbility(_characterRepository, _campaign, character.CharacterId, Fireball, SourceKind.ProgressionPurchase, null, RankMode.None, null, null, FixtureConfiguration, NewUserId(), actorIsMainGm: true, granted.Revisions.MechanicsRevision, granted.Revisions.CharacterAbilitiesRevision, acquireCommandId, TestCorrelationId);
+            Result<CharacterRecord> replay = CharacterAdvancementService.AcquireAbility(_characterRepository, _campaign, character.CharacterId, Fireball, SourceKind.ProgressionPurchase, null, RankMode.None, null, null, FixtureConfiguration, global::Odyssey.Application.Identity.DevIdentityProvider.AssignHost(), granted.Revisions.MechanicsRevision, granted.Revisions.CharacterAbilitiesRevision, acquireCommandId, TestCorrelationId);
             Assert.That(replay.IsSuccess, Is.True);
 
             Result<CharacterRecord> reRead = _characterRepository.GetCharacter(_campaign, character.CharacterId, TestCorrelationId);
@@ -157,7 +157,7 @@ namespace Odyssey.Tests.Persistence
         {
             CharacterRecord character = CreateCharacter();
 
-            Result<CharacterRecord> acquired = CharacterAdvancementService.AcquireAbility(_characterRepository, _campaign, character.CharacterId, Fireball, SourceKind.GMGrant, null, RankMode.None, null, null, FixtureConfiguration, NewUserId(), actorIsMainGm: false, null, character.Revisions.CharacterAbilitiesRevision, NewCommandId(), TestCorrelationId);
+            Result<CharacterRecord> acquired = CharacterAdvancementService.AcquireAbility(_characterRepository, _campaign, character.CharacterId, Fireball, SourceKind.GMGrant, null, RankMode.None, null, null, FixtureConfiguration, NewUserId(), null, character.Revisions.CharacterAbilitiesRevision, NewCommandId(), TestCorrelationId);
 
             Assert.That(acquired.IsFailure, Is.True);
             Assert.That(acquired.Error.Code, Is.EqualTo(ErrorCodes.PersistenceCharacterAbilityGrantDenied));
@@ -168,7 +168,7 @@ namespace Odyssey.Tests.Persistence
         {
             CharacterRecord character = CreateCharacter();
 
-            Result<CharacterRecord> acquired = CharacterAdvancementService.AcquireAbility(_characterRepository, _campaign, character.CharacterId, Fireball, SourceKind.GMGrant, null, RankMode.None, null, null, FixtureConfiguration, NewUserId(), actorIsMainGm: true, null, character.Revisions.CharacterAbilitiesRevision, NewCommandId(), TestCorrelationId);
+            Result<CharacterRecord> acquired = CharacterAdvancementService.AcquireAbility(_characterRepository, _campaign, character.CharacterId, Fireball, SourceKind.GMGrant, null, RankMode.None, null, null, FixtureConfiguration, global::Odyssey.Application.Identity.DevIdentityProvider.AssignHost(), null, character.Revisions.CharacterAbilitiesRevision, NewCommandId(), TestCorrelationId);
 
             Assert.That(acquired.IsSuccess, Is.True);
             Assert.That(acquired.Value.Abilities, Has.Count.EqualTo(1));
@@ -187,7 +187,7 @@ namespace Odyssey.Tests.Persistence
             CharacterRecord character = CreateCharacter();
             long revisionBefore = character.Revisions.CharacterAbilitiesRevision;
 
-            Result<CharacterRecord> acquired = CharacterAdvancementService.AcquireAbility(_characterRepository, _campaign, character.CharacterId, Fireball, SourceKind.GMGrant, null, RankMode.None, null, null, FixtureConfiguration, NewUserId(), actorIsMainGm: true, null, revisionBefore, NewCommandId(), TestCorrelationId);
+            Result<CharacterRecord> acquired = CharacterAdvancementService.AcquireAbility(_characterRepository, _campaign, character.CharacterId, Fireball, SourceKind.GMGrant, null, RankMode.None, null, null, FixtureConfiguration, global::Odyssey.Application.Identity.DevIdentityProvider.AssignHost(), null, revisionBefore, NewCommandId(), TestCorrelationId);
             Assert.That(acquired.IsSuccess, Is.True);
             Assert.That(acquired.Value.Revisions.CharacterAbilitiesRevision, Is.EqualTo(revisionBefore + 1));
 
@@ -197,13 +197,13 @@ namespace Odyssey.Tests.Persistence
             // second GMGrant-sourced item-kind acquisition would not be
             // legal to remove; acquire one with SourceKind=Item instead to
             // exercise the full increment + remove path.
-            Result<CharacterRecord> acquiredItem = CharacterAdvancementService.AcquireAbility(_characterRepository, _campaign, character.CharacterId, Fireball, SourceKind.Item, "item_0001", RankMode.None, null, null, FixtureConfiguration, NewUserId(), actorIsMainGm: true, null, acquired.Value.Revisions.CharacterAbilitiesRevision, NewCommandId(), TestCorrelationId);
+            Result<CharacterRecord> acquiredItem = CharacterAdvancementService.AcquireAbility(_characterRepository, _campaign, character.CharacterId, Fireball, SourceKind.Item, "item_0001", RankMode.None, null, null, FixtureConfiguration, global::Odyssey.Application.Identity.DevIdentityProvider.AssignHost(), null, acquired.Value.Revisions.CharacterAbilitiesRevision, NewCommandId(), TestCorrelationId);
             Assert.That(acquiredItem.IsSuccess, Is.True);
             Assert.That(acquiredItem.Value.Revisions.CharacterAbilitiesRevision, Is.EqualTo(revisionBefore + 2));
 
             CharacterAbilityId itemAbilityId = acquiredItem.Value.Abilities.Single(a => a.SourceKind == SourceKind.Item).CharacterAbilityId;
 
-            Result<CharacterRecord> removed = _characterRepository.RemoveAbility(_campaign, character.CharacterId, itemAbilityId, NewUserId(), actorIsMainGm: true, acquiredItem.Value.Revisions.CharacterAbilitiesRevision, NewCommandId(), TestCorrelationId);
+            Result<CharacterRecord> removed = _characterRepository.RemoveAbility(_campaign, character.CharacterId, itemAbilityId, global::Odyssey.Application.Identity.DevIdentityProvider.AssignHost(), acquiredItem.Value.Revisions.CharacterAbilitiesRevision, NewCommandId(), TestCorrelationId);
             Assert.That(removed.IsSuccess, Is.True);
             Assert.That(removed.Value.Revisions.CharacterAbilitiesRevision, Is.EqualTo(revisionBefore + 3));
             Assert.That(removed.Value.Abilities.Select(a => a.CharacterAbilityId), Does.Not.Contain(itemAbilityId));
@@ -262,7 +262,7 @@ namespace Odyssey.Tests.Persistence
             CharacterRecord character = CreateCharacter();
             CharacterAbilityId unknownId = CharacterAbilityId.NewId(Clock.GetUtcNow());
 
-            Result<CharacterRecord> removed = _characterRepository.RemoveAbility(_campaign, character.CharacterId, unknownId, NewUserId(), actorIsMainGm: true, character.Revisions.CharacterAbilitiesRevision, NewCommandId(), TestCorrelationId);
+            Result<CharacterRecord> removed = _characterRepository.RemoveAbility(_campaign, character.CharacterId, unknownId, global::Odyssey.Application.Identity.DevIdentityProvider.AssignHost(), character.Revisions.CharacterAbilitiesRevision, NewCommandId(), TestCorrelationId);
 
             Assert.That(removed.IsFailure, Is.True);
             Assert.That(removed.Error.Code, Is.EqualTo(ErrorCodes.PersistenceCharacterAbilityNotFound));
@@ -272,10 +272,10 @@ namespace Odyssey.Tests.Persistence
         public void RemoveAbility_OnItemSource_Succeeds()
         {
             CharacterRecord character = CreateCharacter();
-            Result<CharacterRecord> acquired = CharacterAdvancementService.AcquireAbility(_characterRepository, _campaign, character.CharacterId, Fireball, SourceKind.Item, "item_0001", RankMode.None, null, null, FixtureConfiguration, NewUserId(), actorIsMainGm: true, null, character.Revisions.CharacterAbilitiesRevision, NewCommandId(), TestCorrelationId);
+            Result<CharacterRecord> acquired = CharacterAdvancementService.AcquireAbility(_characterRepository, _campaign, character.CharacterId, Fireball, SourceKind.Item, "item_0001", RankMode.None, null, null, FixtureConfiguration, global::Odyssey.Application.Identity.DevIdentityProvider.AssignHost(), null, character.Revisions.CharacterAbilitiesRevision, NewCommandId(), TestCorrelationId);
             CharacterAbilityId abilityId = acquired.Value.Abilities[0].CharacterAbilityId;
 
-            Result<CharacterRecord> removed = _characterRepository.RemoveAbility(_campaign, character.CharacterId, abilityId, NewUserId(), actorIsMainGm: true, acquired.Value.Revisions.CharacterAbilitiesRevision, NewCommandId(), TestCorrelationId);
+            Result<CharacterRecord> removed = _characterRepository.RemoveAbility(_campaign, character.CharacterId, abilityId, global::Odyssey.Application.Identity.DevIdentityProvider.AssignHost(), acquired.Value.Revisions.CharacterAbilitiesRevision, NewCommandId(), TestCorrelationId);
 
             Assert.That(removed.IsSuccess, Is.True);
             Assert.That(removed.Value.Abilities, Is.Empty);
@@ -285,10 +285,10 @@ namespace Odyssey.Tests.Persistence
         public void RemoveAbility_OnActiveEffectSource_Succeeds()
         {
             CharacterRecord character = CreateCharacter();
-            Result<CharacterRecord> acquired = CharacterAdvancementService.AcquireAbility(_characterRepository, _campaign, character.CharacterId, Fireball, SourceKind.ActiveEffect, "effect_0001", RankMode.None, null, null, FixtureConfiguration, NewUserId(), actorIsMainGm: true, null, character.Revisions.CharacterAbilitiesRevision, NewCommandId(), TestCorrelationId);
+            Result<CharacterRecord> acquired = CharacterAdvancementService.AcquireAbility(_characterRepository, _campaign, character.CharacterId, Fireball, SourceKind.ActiveEffect, "effect_0001", RankMode.None, null, null, FixtureConfiguration, global::Odyssey.Application.Identity.DevIdentityProvider.AssignHost(), null, character.Revisions.CharacterAbilitiesRevision, NewCommandId(), TestCorrelationId);
             CharacterAbilityId abilityId = acquired.Value.Abilities[0].CharacterAbilityId;
 
-            Result<CharacterRecord> removed = _characterRepository.RemoveAbility(_campaign, character.CharacterId, abilityId, NewUserId(), actorIsMainGm: true, acquired.Value.Revisions.CharacterAbilitiesRevision, NewCommandId(), TestCorrelationId);
+            Result<CharacterRecord> removed = _characterRepository.RemoveAbility(_campaign, character.CharacterId, abilityId, global::Odyssey.Application.Identity.DevIdentityProvider.AssignHost(), acquired.Value.Revisions.CharacterAbilitiesRevision, NewCommandId(), TestCorrelationId);
 
             Assert.That(removed.IsSuccess, Is.True);
             Assert.That(removed.Value.Abilities, Is.Empty);
@@ -304,12 +304,12 @@ namespace Odyssey.Tests.Persistence
             CharacterRecord funded = sourceKind == SourceKind.ProgressionPurchase ? GrantPoints(character, AbilityCost) : character;
 
             Result<CharacterRecord> acquired = sourceKind == SourceKind.ProgressionPurchase
-                ? CharacterAdvancementService.AcquireAbility(_characterRepository, _campaign, character.CharacterId, Fireball, sourceKind, null, RankMode.None, null, null, FixtureConfiguration, NewUserId(), actorIsMainGm: true, funded.Revisions.MechanicsRevision, funded.Revisions.CharacterAbilitiesRevision, NewCommandId(), TestCorrelationId)
-                : CharacterAdvancementService.AcquireAbility(_characterRepository, _campaign, character.CharacterId, Fireball, sourceKind, null, RankMode.None, null, null, FixtureConfiguration, NewUserId(), actorIsMainGm: true, null, funded.Revisions.CharacterAbilitiesRevision, NewCommandId(), TestCorrelationId);
+                ? CharacterAdvancementService.AcquireAbility(_characterRepository, _campaign, character.CharacterId, Fireball, sourceKind, null, RankMode.None, null, null, FixtureConfiguration, global::Odyssey.Application.Identity.DevIdentityProvider.AssignHost(), funded.Revisions.MechanicsRevision, funded.Revisions.CharacterAbilitiesRevision, NewCommandId(), TestCorrelationId)
+                : CharacterAdvancementService.AcquireAbility(_characterRepository, _campaign, character.CharacterId, Fireball, sourceKind, null, RankMode.None, null, null, FixtureConfiguration, global::Odyssey.Application.Identity.DevIdentityProvider.AssignHost(), null, funded.Revisions.CharacterAbilitiesRevision, NewCommandId(), TestCorrelationId);
             Assert.That(acquired.IsSuccess, Is.True);
             CharacterAbilityId abilityId = acquired.Value.Abilities[0].CharacterAbilityId;
 
-            Result<CharacterRecord> removed = _characterRepository.RemoveAbility(_campaign, character.CharacterId, abilityId, NewUserId(), actorIsMainGm: true, acquired.Value.Revisions.CharacterAbilitiesRevision, NewCommandId(), TestCorrelationId);
+            Result<CharacterRecord> removed = _characterRepository.RemoveAbility(_campaign, character.CharacterId, abilityId, global::Odyssey.Application.Identity.DevIdentityProvider.AssignHost(), acquired.Value.Revisions.CharacterAbilitiesRevision, NewCommandId(), TestCorrelationId);
 
             Assert.That(removed.IsFailure, Is.True);
             Assert.That(removed.Error.Code, Is.EqualTo(ErrorCodes.PersistenceCharacterAbilityRemovalNotAllowed));
@@ -322,14 +322,14 @@ namespace Odyssey.Tests.Persistence
         public void RemoveAbility_DuplicateCommandId_DoesNotRemoveTwice()
         {
             CharacterRecord character = CreateCharacter();
-            Result<CharacterRecord> acquired = CharacterAdvancementService.AcquireAbility(_characterRepository, _campaign, character.CharacterId, Fireball, SourceKind.Item, "item_0001", RankMode.None, null, null, FixtureConfiguration, NewUserId(), actorIsMainGm: true, null, character.Revisions.CharacterAbilitiesRevision, NewCommandId(), TestCorrelationId);
+            Result<CharacterRecord> acquired = CharacterAdvancementService.AcquireAbility(_characterRepository, _campaign, character.CharacterId, Fireball, SourceKind.Item, "item_0001", RankMode.None, null, null, FixtureConfiguration, global::Odyssey.Application.Identity.DevIdentityProvider.AssignHost(), null, character.Revisions.CharacterAbilitiesRevision, NewCommandId(), TestCorrelationId);
             CharacterAbilityId abilityId = acquired.Value.Abilities[0].CharacterAbilityId;
 
             CommandId removeCommandId = NewCommandId();
-            Result<CharacterRecord> first = _characterRepository.RemoveAbility(_campaign, character.CharacterId, abilityId, NewUserId(), actorIsMainGm: true, acquired.Value.Revisions.CharacterAbilitiesRevision, removeCommandId, TestCorrelationId);
+            Result<CharacterRecord> first = _characterRepository.RemoveAbility(_campaign, character.CharacterId, abilityId, global::Odyssey.Application.Identity.DevIdentityProvider.AssignHost(), acquired.Value.Revisions.CharacterAbilitiesRevision, removeCommandId, TestCorrelationId);
             Assert.That(first.IsSuccess, Is.True);
 
-            Result<CharacterRecord> replay = _characterRepository.RemoveAbility(_campaign, character.CharacterId, abilityId, NewUserId(), actorIsMainGm: true, acquired.Value.Revisions.CharacterAbilitiesRevision, removeCommandId, TestCorrelationId);
+            Result<CharacterRecord> replay = _characterRepository.RemoveAbility(_campaign, character.CharacterId, abilityId, global::Odyssey.Application.Identity.DevIdentityProvider.AssignHost(), acquired.Value.Revisions.CharacterAbilitiesRevision, removeCommandId, TestCorrelationId);
             Assert.That(replay.IsSuccess, Is.True);
 
             Result<CharacterRecord> reRead = _characterRepository.GetCharacter(_campaign, character.CharacterId, TestCorrelationId);
@@ -343,13 +343,13 @@ namespace Odyssey.Tests.Persistence
         {
             CharacterRecord character = CreateCharacter();
             CharacterRecord granted = GrantPoints(character, AbilityCost);
-            Result<CharacterRecord> acquired = CharacterAdvancementService.AcquireAbility(_characterRepository, _campaign, character.CharacterId, Fireball, SourceKind.ProgressionPurchase, null, RankMode.None, null, null, FixtureConfiguration, NewUserId(), actorIsMainGm: true, granted.Revisions.MechanicsRevision, granted.Revisions.CharacterAbilitiesRevision, NewCommandId(), TestCorrelationId);
+            Result<CharacterRecord> acquired = CharacterAdvancementService.AcquireAbility(_characterRepository, _campaign, character.CharacterId, Fireball, SourceKind.ProgressionPurchase, null, RankMode.None, null, null, FixtureConfiguration, global::Odyssey.Application.Identity.DevIdentityProvider.AssignHost(), granted.Revisions.MechanicsRevision, granted.Revisions.CharacterAbilitiesRevision, NewCommandId(), TestCorrelationId);
             Assert.That(acquired.IsSuccess, Is.True);
 
             AdvancementPurchase purchase = _characterRepository.GetAdvancementPurchases(_campaign, character.CharacterId, TestCorrelationId).Value.Single();
             Assert.That(purchase.OperationKind, Is.EqualTo(AdvancementOperationKind.AbilityAcquisition));
 
-            Result<CharacterRecord> reverted = _characterRepository.RevertAdvancementPurchase(_campaign, character.CharacterId, purchase.PurchaseId, "test", NewUserId(), actorIsMainGm: true, acquired.Value.Revisions.MechanicsRevision, NewCommandId(), TestCorrelationId);
+            Result<CharacterRecord> reverted = _characterRepository.RevertAdvancementPurchase(_campaign, character.CharacterId, purchase.PurchaseId, "test", global::Odyssey.Application.Identity.DevIdentityProvider.AssignHost(), acquired.Value.Revisions.MechanicsRevision, NewCommandId(), TestCorrelationId);
 
             Assert.That(reverted.IsFailure, Is.True);
             Assert.That(reverted.Error.Code, Is.EqualTo(ErrorCodes.PersistenceCharacterAdvancementOperationKindNotSupported));
@@ -366,7 +366,7 @@ namespace Odyssey.Tests.Persistence
         {
             CharacterRecord character = CreateCharacter();
             CharacterRecord granted = GrantPoints(character, AbilityCost);
-            Result<CharacterRecord> acquired = CharacterAdvancementService.AcquireAbility(_characterRepository, _campaign, character.CharacterId, Fireball, SourceKind.ProgressionPurchase, null, RankMode.None, null, null, FixtureConfiguration, NewUserId(), actorIsMainGm: true, granted.Revisions.MechanicsRevision, granted.Revisions.CharacterAbilitiesRevision, NewCommandId(), TestCorrelationId);
+            Result<CharacterRecord> acquired = CharacterAdvancementService.AcquireAbility(_characterRepository, _campaign, character.CharacterId, Fireball, SourceKind.ProgressionPurchase, null, RankMode.None, null, null, FixtureConfiguration, global::Odyssey.Application.Identity.DevIdentityProvider.AssignHost(), granted.Revisions.MechanicsRevision, granted.Revisions.CharacterAbilitiesRevision, NewCommandId(), TestCorrelationId);
             Assert.That(acquired.IsSuccess, Is.True);
 
             var targets = new[] { new CharacterRespecTarget(AdvancementOperationKind.AbilityAcquisition, Fireball.ToString(), desiredValue: 0) };
@@ -375,7 +375,7 @@ namespace Odyssey.Tests.Persistence
             Assert.That(preview.IsFailure, Is.True);
             Assert.That(preview.Error.Code, Is.EqualTo(ErrorCodes.PersistenceCharacterAdvancementOperationKindNotSupported));
 
-            Result<CharacterRecord> applied = CharacterAdvancementService.ApplyCharacterRespec(_characterRepository, _campaign, character.CharacterId, targets, "test", NewUserId(), actorIsMainGm: true, acquired.Value.Revisions.MechanicsRevision, NewCommandId(), TestCorrelationId);
+            Result<CharacterRecord> applied = CharacterAdvancementService.ApplyCharacterRespec(_characterRepository, _campaign, character.CharacterId, targets, "test", global::Odyssey.Application.Identity.DevIdentityProvider.AssignHost(), acquired.Value.Revisions.MechanicsRevision, NewCommandId(), TestCorrelationId);
             Assert.That(applied.IsFailure, Is.True);
             Assert.That(applied.Error.Code, Is.EqualTo(ErrorCodes.PersistenceCharacterAdvancementOperationKindNotSupported));
 
@@ -397,8 +397,8 @@ namespace Odyssey.Tests.Persistence
             // ability grant (CharacterAbilities only) must not conflict
             // with a concurrent attribute purchase (Mechanics only), even
             // though both start from the same pre-edit CharacterRecord.
-            Result<CharacterRecord> abilityResult = CharacterAdvancementService.AcquireAbility(_characterRepository, _campaign, character.CharacterId, Fireball, SourceKind.GMGrant, null, RankMode.None, null, null, FixtureConfiguration, NewUserId(), actorIsMainGm: true, null, granted.Revisions.CharacterAbilitiesRevision, NewCommandId(), TestCorrelationId);
-            Result<CharacterRecord> attributeResult = CharacterAdvancementService.PurchaseAttributeIncrease(_characterRepository, _campaign, character.CharacterId, AttributeDefinitionId.Parse("Strength"), toValue: 1, NewUserId(), actorIsMainGm: true, granted.Revisions.MechanicsRevision, expectedAttributeRevision: 0, NewCommandId(), TestCorrelationId);
+            Result<CharacterRecord> abilityResult = CharacterAdvancementService.AcquireAbility(_characterRepository, _campaign, character.CharacterId, Fireball, SourceKind.GMGrant, null, RankMode.None, null, null, FixtureConfiguration, global::Odyssey.Application.Identity.DevIdentityProvider.AssignHost(), null, granted.Revisions.CharacterAbilitiesRevision, NewCommandId(), TestCorrelationId);
+            Result<CharacterRecord> attributeResult = CharacterAdvancementService.PurchaseAttributeIncrease(_characterRepository, _campaign, character.CharacterId, AttributeDefinitionId.Parse("Strength"), toValue: 1, global::Odyssey.Application.Identity.DevIdentityProvider.AssignHost(), granted.Revisions.MechanicsRevision, expectedAttributeRevision: 0, NewCommandId(), TestCorrelationId);
 
             Assert.That(abilityResult.IsSuccess, Is.True);
             Assert.That(attributeResult.IsSuccess, Is.True);
@@ -416,10 +416,10 @@ namespace Odyssey.Tests.Persistence
         public void GetCharacterHistory_AfterAbilityAcquiredAndRemoved_Succeeds_SurfacesBothEventTypes()
         {
             CharacterRecord character = CreateCharacter();
-            Result<CharacterRecord> acquiredItem = CharacterAdvancementService.AcquireAbility(_characterRepository, _campaign, character.CharacterId, Fireball, SourceKind.Item, "item_0001", RankMode.None, null, null, FixtureConfiguration, NewUserId(), actorIsMainGm: true, null, character.Revisions.CharacterAbilitiesRevision, NewCommandId(), TestCorrelationId);
+            Result<CharacterRecord> acquiredItem = CharacterAdvancementService.AcquireAbility(_characterRepository, _campaign, character.CharacterId, Fireball, SourceKind.Item, "item_0001", RankMode.None, null, null, FixtureConfiguration, global::Odyssey.Application.Identity.DevIdentityProvider.AssignHost(), null, character.Revisions.CharacterAbilitiesRevision, NewCommandId(), TestCorrelationId);
             Assert.That(acquiredItem.IsSuccess, Is.True);
             CharacterAbilityId itemAbilityId = acquiredItem.Value.Abilities.Single().CharacterAbilityId;
-            Result<CharacterRecord> removed = _characterRepository.RemoveAbility(_campaign, character.CharacterId, itemAbilityId, NewUserId(), actorIsMainGm: true, acquiredItem.Value.Revisions.CharacterAbilitiesRevision, NewCommandId(), TestCorrelationId);
+            Result<CharacterRecord> removed = _characterRepository.RemoveAbility(_campaign, character.CharacterId, itemAbilityId, global::Odyssey.Application.Identity.DevIdentityProvider.AssignHost(), acquiredItem.Value.Revisions.CharacterAbilitiesRevision, NewCommandId(), TestCorrelationId);
             Assert.That(removed.IsSuccess, Is.True);
 
             Result<IReadOnlyList<CharacterHistoryEntry>> history = _characterRepository.GetCharacterHistory(_campaign, character.CharacterId, TestCorrelationId);
@@ -428,6 +428,28 @@ namespace Odyssey.Tests.Persistence
             Assert.That(history.Value.Select(e => e.EventType), Does.Contain("odyssey.persistence.character_ability_acquired"));
             Assert.That(history.Value.Select(e => e.EventType), Does.Contain("odyssey.persistence.character_ability_removed"));
             Assert.That(history.Value, Has.All.Property(nameof(CharacterHistoryEntry.DisplayNameSnapshot)).Not.Null);
+        }
+
+        // ---- ODY-S10-102: owner first, stored MainGM second ------------------------------------------
+
+        [Test] // TC-PERSIST-049
+        public void AcquireAbility_ProgressionPurchase_OwnerNeedsNoMembershipLookup_NonOwnerFailsClosedOnAnUnreadableLookup()
+        {
+            CharacterRecord character = CreateCharacter();
+            UserId owner = NewUserId();
+            Result<CharacterRecord> assigned = _characterRepository.AssignPrimaryOwner(_campaign, character.CharacterId, owner, "owner", global::Odyssey.Application.Identity.DevIdentityProvider.AssignHost(), character.Revisions.OwnershipRevision, NewCommandId(), TestCorrelationId);
+            Assert.That(assigned.IsSuccess, Is.True);
+            CharacterRecord granted = GrantPoints(assigned.Value, AbilityCost);
+
+            var failing = PoisonedMembershipCampaignRepository.FailsOnLookup();
+            Result<CharacterRecord> byStranger = CharacterAdvancementService.AcquireAbility(new SqliteCharacterRepository(Clock, failing), _campaign, character.CharacterId, Fireball, SourceKind.ProgressionPurchase, null, RankMode.None, null, null, FixtureConfiguration, NewUserId(), granted.Revisions.MechanicsRevision, granted.Revisions.CharacterAbilitiesRevision, NewCommandId(), TestCorrelationId);
+            Assert.That(byStranger.IsFailure, Is.True);
+            Assert.That(byStranger.Error.Code, Is.EqualTo(ErrorCodes.PersistenceCampaignIoFailed));
+
+            var neverLooksUp = PoisonedMembershipCampaignRepository.ThrowsOnLookup();
+            Result<CharacterRecord> byOwner = CharacterAdvancementService.AcquireAbility(new SqliteCharacterRepository(Clock, neverLooksUp), _campaign, character.CharacterId, Fireball, SourceKind.ProgressionPurchase, null, RankMode.None, null, null, FixtureConfiguration, owner, granted.Revisions.MechanicsRevision, granted.Revisions.CharacterAbilitiesRevision, NewCommandId(), TestCorrelationId);
+            Assert.That(byOwner.IsSuccess, Is.True);
+            Assert.That(neverLooksUp.LookupCalls, Is.EqualTo(0));
         }
     }
 }

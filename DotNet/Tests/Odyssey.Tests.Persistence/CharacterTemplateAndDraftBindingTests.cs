@@ -152,7 +152,7 @@ namespace Odyssey.Tests.Persistence
         public void BindDraftToCampaign_FromCampaignTemplate_CreatesOneCharacter_WithFreshNestedIds()
         {
             var templateRepository = new SqliteCharacterTemplateRepository(Clock);
-            var characterRepository = new SqliteCharacterRepository(Clock);
+            var characterRepository = new SqliteCharacterRepository(Clock, _campaignRepository);
             CharacterTemplateSeed rawSeed = OneItemSeed("Skill", "Swordplay", "2");
 
             Result<CharacterTemplateRecord> template = templateRepository.CreateCampaignCharacterTemplate(_campaign, "Fighter Template", CharacterKind.PlayerCharacter, "anatomy.humanoid", rawSeed, NewCommandId(), TestCorrelationId);
@@ -188,7 +188,7 @@ namespace Odyssey.Tests.Persistence
         public void BindDraftToCampaign_TwiceFromSameTemplate_ProducesDistinctNestedIds()
         {
             var templateRepository = new SqliteCharacterTemplateRepository(Clock);
-            var characterRepository = new SqliteCharacterRepository(Clock);
+            var characterRepository = new SqliteCharacterRepository(Clock, _campaignRepository);
             CharacterTemplateSeed rawSeed = OneItemSeed("Skill", "Swordplay", "2");
             Result<CharacterTemplateRecord> template = templateRepository.CreateCampaignCharacterTemplate(_campaign, "Fighter Template", CharacterKind.PlayerCharacter, "anatomy.humanoid", rawSeed, NewCommandId(), TestCorrelationId);
             Assert.That(template.IsSuccess, Is.True);
@@ -215,7 +215,7 @@ namespace Odyssey.Tests.Persistence
         public void UpdateCharacterTemplate_AfterBind_DoesNotChangeAlreadyCreatedCharacter()
         {
             var templateRepository = new SqliteCharacterTemplateRepository(Clock);
-            var characterRepository = new SqliteCharacterRepository(Clock);
+            var characterRepository = new SqliteCharacterRepository(Clock, _campaignRepository);
             CharacterTemplateSeed originalSeed = OneItemSeed("Attribute", "Strength", "10");
             Result<CharacterTemplateRecord> template = templateRepository.CreateCampaignCharacterTemplate(_campaign, "Original Name", CharacterKind.PlayerCharacter, "anatomy.humanoid", originalSeed, NewCommandId(), TestCorrelationId);
             Assert.That(template.IsSuccess, Is.True);
@@ -248,7 +248,7 @@ namespace Odyssey.Tests.Persistence
         [Test]
         public void BindDraftToCampaign_WithIncompatibleRulesetId_IsRejected_NoCharacterCreated()
         {
-            var characterRepository = new SqliteCharacterRepository(Clock);
+            var characterRepository = new SqliteCharacterRepository(Clock, _campaignRepository);
             CharacterTemplateSeed seed = OneItemSeed("Attribute", "Strength", "10");
             CharacterCreationSeed creationSeed = CharacterCreationSeed.FromTemplate(CharacterTemplateId.NewId(Clock.GetUtcNow()), 1, seed, Clock.GetUtcNow());
 
@@ -265,7 +265,7 @@ namespace Odyssey.Tests.Persistence
         [Test]
         public void BindDraftToCampaign_WithIncompatibleRulesetMajorVersion_IsRejected()
         {
-            var characterRepository = new SqliteCharacterRepository(Clock);
+            var characterRepository = new SqliteCharacterRepository(Clock, _campaignRepository);
             CharacterTemplateSeed seed = CharacterTemplateSeed.Empty();
             CharacterCreationSeed creationSeed = CharacterCreationSeed.FromTemplate(CharacterTemplateId.NewId(Clock.GetUtcNow()), 1, seed, Clock.GetUtcNow());
 
@@ -282,7 +282,7 @@ namespace Odyssey.Tests.Persistence
         [Test]
         public void BindDraftToCampaign_PinsCampaignsCurrentRulesetVersion_NotTheTemplatesOwn()
         {
-            var characterRepository = new SqliteCharacterRepository(Clock);
+            var characterRepository = new SqliteCharacterRepository(Clock, _campaignRepository);
             CharacterTemplateSeed seed = CharacterTemplateSeed.Empty();
             // Compatible (same RulesetId, same major line 1.x) but a
             // different recorded version than the campaign's own "1.0.0".
@@ -302,7 +302,7 @@ namespace Odyssey.Tests.Persistence
         [Test]
         public void BindDraftToCampaign_SetsInitialPrimaryOwner_VisibleThroughCharacterOwnership()
         {
-            var characterRepository = new SqliteCharacterRepository(Clock);
+            var characterRepository = new SqliteCharacterRepository(Clock, _campaignRepository);
             UserId owner = NewUserId();
             var bindRequest = new BindDraftToCampaignRequest(_campaign, CharacterKind.PlayerCharacter, "Owned Character", "anatomy.humanoid", owner, CharacterCreationSeed.None(), null, null);
 
@@ -328,7 +328,7 @@ namespace Odyssey.Tests.Persistence
         [Test]
         public void BindDraftToCampaign_NonPlayerCharacter_DoesNotRequireInitialPrimaryOwner()
         {
-            var characterRepository = new SqliteCharacterRepository(Clock);
+            var characterRepository = new SqliteCharacterRepository(Clock, _campaignRepository);
             var bindRequest = new BindDraftToCampaignRequest(_campaign, CharacterKind.NonPlayerCharacter, "GM's NPC", "anatomy.humanoid", null, CharacterCreationSeed.None(), null, null);
 
             Result<CharacterRecord> result = characterRepository.BindDraftToCampaign(bindRequest, NewCommandId(), TestCorrelationId);
@@ -342,7 +342,7 @@ namespace Odyssey.Tests.Persistence
         [Test]
         public void BindDraftToCampaign_DuplicateCommandId_DoesNotCreateSecondCharacter()
         {
-            var characterRepository = new SqliteCharacterRepository(Clock);
+            var characterRepository = new SqliteCharacterRepository(Clock, _campaignRepository);
             CommandId commandId = NewCommandId();
             var bindRequest = new BindDraftToCampaignRequest(_campaign, CharacterKind.PlayerCharacter, "Replayed Character", "anatomy.humanoid", NewUserId(), CharacterCreationSeed.None(), null, null);
 
@@ -362,7 +362,7 @@ namespace Odyssey.Tests.Persistence
         {
             var templateRepository = new SqliteCharacterTemplateRepository(Clock);
             var draftRepository = new SqliteLocalCharacterDraftRepository(Clock);
-            var characterRepository = new SqliteCharacterRepository(Clock);
+            var characterRepository = new SqliteCharacterRepository(Clock, _campaignRepository);
 
             CharacterTemplateSeed rawSeed = OneItemSeed("Skill", "Stealth", "1");
             Result<CharacterTemplateRecord> template = templateRepository.CreatePersonalCharacterTemplate(_profile, "Rogue Template", CharacterKind.PlayerCharacter, "ruleset.core", "1.0.0", "anatomy.humanoid", rawSeed, NewCommandId(), TestCorrelationId);

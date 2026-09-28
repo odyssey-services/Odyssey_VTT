@@ -22,6 +22,39 @@ namespace Odyssey.Tests.Persistence
     /// real file on disk); none of them mock or bypass
     /// <see cref="SqliteSavingPipeline"/>.
     /// </summary>
+    /// <summary>
+    /// ODY-S10-102: a campaign repository whose membership lookup either throws (proving a code path never
+    /// reaches the lookup) or fails (proving the caller fails closed). Everything else is unused by the
+    /// character repository's authorization checks.
+    /// </summary>
+    internal sealed class PoisonedMembershipCampaignRepository : ICampaignRepository
+    {
+        private readonly bool _throws;
+
+        private PoisonedMembershipCampaignRepository(bool throws) => _throws = throws;
+
+        /// <summary>The lookup throws: a test using this passes only if the code path never performs the lookup.</summary>
+        public static PoisonedMembershipCampaignRepository ThrowsOnLookup() => new PoisonedMembershipCampaignRepository(true);
+
+        /// <summary>The lookup returns a failure (an unreadable membership).</summary>
+        public static PoisonedMembershipCampaignRepository FailsOnLookup() => new PoisonedMembershipCampaignRepository(false);
+
+        public int LookupCalls { get; private set; }
+
+        public Result<CampaignMemberLookup> GetMemberRole(CampaignHandle campaign, UserId userId, CorrelationId correlationId)
+        {
+            LookupCalls++;
+            if (_throws) throw new InvalidOperationException("The membership lookup must not happen on this path.");
+            return Result<CampaignMemberLookup>.Failure(PersistenceFailures.CampaignIoFailed(correlationId));
+        }
+
+        public Result<CampaignHandle> Create(CreateCampaignRequest request, CommandId commandId, CorrelationId correlationId) => throw new NotSupportedException();
+        public Result<CampaignHandle> Open(string campaignFolderPath, CorrelationId correlationId) => throw new NotSupportedException();
+        public Result Close(CampaignHandle handle, CorrelationId correlationId) => throw new NotSupportedException();
+        public Result<CampaignMembership> AddMember(CampaignHandle campaign, UserId userId, CampaignMembershipRole role, CommandId commandId, CorrelationId correlationId) => throw new NotSupportedException();
+        public Result<IReadOnlyList<CampaignMembership>> ListMembers(CampaignHandle campaign, CorrelationId correlationId) => throw new NotSupportedException();
+    }
+
     public sealed class SqliteCharacterRepositoryTests
     {
         private static readonly CorrelationId TestCorrelationId = CorrelationId.Parse("corr_0123456789abcdef0123456789abcdef");
@@ -67,7 +100,7 @@ namespace Odyssey.Tests.Persistence
         [TestCase(CharacterKind.Creature)]
         public void CreateCharacter_ForEveryCharacterKind_ReturnsDraftAtRevisionOne_WithAllTwelveSectionRevisions(CharacterKind kind)
         {
-            var repository = new SqliteCharacterRepository(Clock);
+            var repository = new SqliteCharacterRepository(Clock, _campaignRepository);
             var request = new CreateCharacterRequest(_campaign, kind, "Test " + kind);
 
             Result<CharacterRecord> result = repository.CreateCharacter(request, NewCommandId(), TestCorrelationId);
@@ -114,7 +147,7 @@ namespace Odyssey.Tests.Persistence
             // proves the two update paths do not cross-check each other's
             // revision, which is the actual property under test, not merely
             // that two independent single edits each succeed in isolation.
-            var repository = new SqliteCharacterRepository(Clock);
+            var repository = new SqliteCharacterRepository(Clock, _campaignRepository);
             CharacterRecord created = repository.CreateCharacter(new CreateCharacterRequest(_campaign, CharacterKind.PlayerCharacter, "Original Name"), NewCommandId(), TestCorrelationId).Value;
 
             Result<CharacterRecord> identityResult = repository.UpdateIdentity(_campaign, created.CharacterId, "Renamed", created.Revisions.IdentityRevision, NewCommandId(), TestCorrelationId);
@@ -137,7 +170,7 @@ namespace Odyssey.Tests.Persistence
         [Test]
         public void UpdateIdentity_WithStaleExpectedRevision_IsRejected_NoStateChange()
         {
-            var repository = new SqliteCharacterRepository(Clock);
+            var repository = new SqliteCharacterRepository(Clock, _campaignRepository);
             CharacterRecord created = repository.CreateCharacter(new CreateCharacterRequest(_campaign, CharacterKind.PlayerCharacter, "Original Name"), NewCommandId(), TestCorrelationId).Value;
 
             // First edit succeeds and advances IdentityRevision to 2.
@@ -166,14 +199,14 @@ namespace Odyssey.Tests.Persistence
             // entry. A correct result here can only come from reading
             // DomainEvents fresh, never from an incrementally-maintained,
             // separately-tracked history list.
-            var writer = new SqliteCharacterRepository(Clock);
+            var writer = new SqliteCharacterRepository(Clock, _campaignRepository);
             CharacterRecord created = writer.CreateCharacter(new CreateCharacterRequest(_campaign, CharacterKind.PlayerCharacter, "Original Name"), NewCommandId(), TestCorrelationId).Value;
             writer.UpdateIdentity(_campaign, created.CharacterId, "Renamed Once", created.Revisions.IdentityRevision, NewCommandId(), TestCorrelationId);
             CharacterRecord afterFirstRename = writer.GetCharacter(_campaign, created.CharacterId, TestCorrelationId).Value;
             writer.UpdateIdentity(_campaign, created.CharacterId, "Renamed Twice", afterFirstRename.Revisions.IdentityRevision, NewCommandId(), TestCorrelationId);
 
             // A brand-new repository instance with no in-memory state of its own.
-            var reader = new SqliteCharacterRepository(Clock);
+            var reader = new SqliteCharacterRepository(Clock, _campaignRepository);
             Result<IReadOnlyList<CharacterHistoryEntry>> history = reader.GetCharacterHistory(_campaign, created.CharacterId, TestCorrelationId);
 
             Assert.That(history.IsSuccess, Is.True);
@@ -199,7 +232,7 @@ namespace Odyssey.Tests.Persistence
         [Test]
         public void History_ForTwoDifferentCharacters_NeverCrosses()
         {
-            var repository = new SqliteCharacterRepository(Clock);
+            var repository = new SqliteCharacterRepository(Clock, _campaignRepository);
             CharacterRecord characterA = repository.CreateCharacter(new CreateCharacterRequest(_campaign, CharacterKind.PlayerCharacter, "Character A"), NewCommandId(), TestCorrelationId).Value;
             CharacterRecord characterB = repository.CreateCharacter(new CreateCharacterRequest(_campaign, CharacterKind.PlayerCharacter, "Character B"), NewCommandId(), TestCorrelationId).Value;
             repository.UpdateIdentity(_campaign, characterA.CharacterId, "Character A Renamed", characterA.Revisions.IdentityRevision, NewCommandId(), TestCorrelationId);
@@ -216,7 +249,7 @@ namespace Odyssey.Tests.Persistence
         [Test]
         public void CreatedCharacter_SurvivesCloseAndReopen_SameStateRebuiltFromDisk()
         {
-            var writer = new SqliteCharacterRepository(Clock);
+            var writer = new SqliteCharacterRepository(Clock, _campaignRepository);
             CharacterRecord created = writer.CreateCharacter(new CreateCharacterRequest(_campaign, CharacterKind.NonPlayerCharacter, "Persisted NPC"), NewCommandId(), TestCorrelationId).Value;
             writer.UpdatePresentation(_campaign, created.CharacterId, "portrait://npc.png", created.Revisions.PresentationRevision, NewCommandId(), TestCorrelationId);
 
@@ -232,7 +265,7 @@ namespace Odyssey.Tests.Persistence
             _campaign = reopened.Value;
             _campaignRepository = reopenCampaignRepository;
 
-            var reader = new SqliteCharacterRepository(Clock);
+            var reader = new SqliteCharacterRepository(Clock, _campaignRepository);
             Result<CharacterRecord> reread = reader.GetCharacter(_campaign, created.CharacterId, TestCorrelationId);
 
             Assert.That(reread.IsSuccess, Is.True);
@@ -249,7 +282,7 @@ namespace Odyssey.Tests.Persistence
         [Test]
         public void GetCharacter_OnNonExistentCharacter_ReturnsTypedCharacterNotFound()
         {
-            var repository = new SqliteCharacterRepository(Clock);
+            var repository = new SqliteCharacterRepository(Clock, _campaignRepository);
             CharacterId phantom = CharacterId.NewId(Clock.GetUtcNow());
 
             Result<CharacterRecord> result = repository.GetCharacter(_campaign, phantom, TestCorrelationId);
@@ -262,11 +295,11 @@ namespace Odyssey.Tests.Persistence
         [Test]
         public void AssignPrimaryOwner_WithEmptyReasonCode_IsRejected_NoStateChange()
         {
-            var repository = new SqliteCharacterRepository(Clock);
+            var repository = new SqliteCharacterRepository(Clock, _campaignRepository);
             CharacterRecord created = repository.CreateCharacter(new CreateCharacterRequest(_campaign, CharacterKind.PlayerCharacter, "Owned Character"), NewCommandId(), TestCorrelationId).Value;
             UserId newOwner = NewUserId();
 
-            Result<CharacterRecord> result = repository.AssignPrimaryOwner(_campaign, created.CharacterId, newOwner, reasonCode: "", actorIsMainGm: true, created.Revisions.OwnershipRevision, NewCommandId(), TestCorrelationId);
+            Result<CharacterRecord> result = repository.AssignPrimaryOwner(_campaign, created.CharacterId, newOwner, reasonCode: "", global::Odyssey.Application.Identity.DevIdentityProvider.AssignHost(), created.Revisions.OwnershipRevision, NewCommandId(), TestCorrelationId);
 
             Assert.That(result.IsFailure, Is.True);
             Assert.That(result.Error.Code, Is.EqualTo(ErrorCodes.PersistenceCharacterOwnershipReasonRequired));
@@ -280,14 +313,14 @@ namespace Odyssey.Tests.Persistence
         [Test]
         public void AssignPrimaryOwner_ByNonMainGm_IsRejected_NoStateChange()
         {
-            var repository = new SqliteCharacterRepository(Clock);
+            var repository = new SqliteCharacterRepository(Clock, _campaignRepository);
             CharacterRecord created = repository.CreateCharacter(new CreateCharacterRequest(_campaign, CharacterKind.PlayerCharacter, "Owned Character"), NewCommandId(), TestCorrelationId).Value;
             UserId newOwner = NewUserId();
 
             // Character.ManageOwnership is MainGM-only (ADR-025 section 4) --
             // this asserts the gate is actually enforced by the repository
             // method itself, not merely documented.
-            Result<CharacterRecord> result = repository.AssignPrimaryOwner(_campaign, created.CharacterId, newOwner, reasonCode: "GM decision", actorIsMainGm: false, created.Revisions.OwnershipRevision, NewCommandId(), TestCorrelationId);
+            Result<CharacterRecord> result = repository.AssignPrimaryOwner(_campaign, created.CharacterId, newOwner, reasonCode: "GM decision", global::Odyssey.Application.Identity.DevIdentityProvider.AssignJoiningActor(0).Value, created.Revisions.OwnershipRevision, NewCommandId(), TestCorrelationId);
 
             Assert.That(result.IsFailure, Is.True);
             Assert.That(result.Error.Code, Is.EqualTo(ErrorCodes.PersistenceCharacterOwnershipDenied));
@@ -299,17 +332,17 @@ namespace Odyssey.Tests.Persistence
 
         [TestCase(true)]
         [TestCase(false)]
-        public void NonMainGmActor_IsRejected_ForEveryOwnershipCommand(bool actorIsMainGm)
+        public void NonMainGmActor_IsRejected_ForEveryOwnershipCommand(bool actorIsMainGm) // ODY-S10-102: the parameter now selects a stored MainGm (the host) or an unregistered actor
         {
             // Parameterized to make the contrast explicit in test output:
             // the same call succeeds when actorIsMainGm=true and is denied
             // when actorIsMainGm=false, for every one of the five
             // Character.ManageOwnership-gated commands beyond AssignPrimaryOwner.
-            var repository = new SqliteCharacterRepository(Clock);
+            var repository = new SqliteCharacterRepository(Clock, _campaignRepository);
             CharacterRecord created = repository.CreateCharacter(new CreateCharacterRequest(_campaign, CharacterKind.PlayerCharacter, "Gate Test Character"), NewCommandId(), TestCorrelationId).Value;
             UserId targetUser = NewUserId();
 
-            Result<CharacterRecord> addCoOwner = repository.AddCharacterCoOwner(_campaign, created.CharacterId, targetUser, actorIsMainGm, created.Revisions.OwnershipRevision, NewCommandId(), TestCorrelationId);
+            Result<CharacterRecord> addCoOwner = repository.AddCharacterCoOwner(_campaign, created.CharacterId, targetUser, actorIsMainGm ? global::Odyssey.Application.Identity.DevIdentityProvider.AssignHost() : global::Odyssey.Application.Identity.DevIdentityProvider.AssignJoiningActor(0).Value, created.Revisions.OwnershipRevision, NewCommandId(), TestCorrelationId);
             Assert.That(addCoOwner.IsSuccess, Is.EqualTo(actorIsMainGm));
             if (!actorIsMainGm) Assert.That(addCoOwner.Error.Code, Is.EqualTo(ErrorCodes.PersistenceCharacterOwnershipDenied));
         }
@@ -317,18 +350,18 @@ namespace Odyssey.Tests.Persistence
         [Test]
         public void AssignPrimaryOwner_ByMainGm_Succeeds_AuditedCorrectly_DoesNotChangeCoOwnersOrControl()
         {
-            var repository = new SqliteCharacterRepository(Clock);
+            var repository = new SqliteCharacterRepository(Clock, _campaignRepository);
             CharacterRecord created = repository.CreateCharacter(new CreateCharacterRequest(_campaign, CharacterKind.PlayerCharacter, "Owned Character"), NewCommandId(), TestCorrelationId).Value;
             UserId existingCoOwner = NewUserId();
-            repository.AddCharacterCoOwner(_campaign, created.CharacterId, existingCoOwner, actorIsMainGm: true, created.Revisions.OwnershipRevision, NewCommandId(), TestCorrelationId);
+            repository.AddCharacterCoOwner(_campaign, created.CharacterId, existingCoOwner, global::Odyssey.Application.Identity.DevIdentityProvider.AssignHost(), created.Revisions.OwnershipRevision, NewCommandId(), TestCorrelationId);
             UserId existingController = NewUserId();
             CharacterRecord afterCoOwner = repository.GetCharacter(_campaign, created.CharacterId, TestCorrelationId).Value;
-            repository.GrantPermanentCharacterControl(_campaign, created.CharacterId, existingController, actorIsMainGm: true, afterCoOwner.Revisions.OwnershipRevision, NewCommandId(), TestCorrelationId);
+            repository.GrantPermanentCharacterControl(_campaign, created.CharacterId, existingController, global::Odyssey.Application.Identity.DevIdentityProvider.AssignHost(), afterCoOwner.Revisions.OwnershipRevision, NewCommandId(), TestCorrelationId);
 
             CharacterRecord beforeAssign = repository.GetCharacter(_campaign, created.CharacterId, TestCorrelationId).Value;
             UserId newOwner = NewUserId();
 
-            Result<CharacterRecord> result = repository.AssignPrimaryOwner(_campaign, created.CharacterId, newOwner, reasonCode: "Player left the table", actorIsMainGm: true, beforeAssign.Revisions.OwnershipRevision, NewCommandId(), TestCorrelationId);
+            Result<CharacterRecord> result = repository.AssignPrimaryOwner(_campaign, created.CharacterId, newOwner, reasonCode: "Player left the table", global::Odyssey.Application.Identity.DevIdentityProvider.AssignHost(), beforeAssign.Revisions.OwnershipRevision, NewCommandId(), TestCorrelationId);
 
             Assert.That(result.IsSuccess, Is.True);
             Assert.That(result.Value.Ownership.PrimaryOwnerUserId, Is.EqualTo(newOwner));
@@ -347,13 +380,13 @@ namespace Odyssey.Tests.Persistence
         [Test]
         public void AssignPrimaryOwner_WithStaleExpectedOwnershipRevision_IsRejected_NoStateChange()
         {
-            var repository = new SqliteCharacterRepository(Clock);
+            var repository = new SqliteCharacterRepository(Clock, _campaignRepository);
             CharacterRecord created = repository.CreateCharacter(new CreateCharacterRequest(_campaign, CharacterKind.PlayerCharacter, "Owned Character"), NewCommandId(), TestCorrelationId).Value;
             UserId firstOwner = NewUserId();
-            repository.AssignPrimaryOwner(_campaign, created.CharacterId, firstOwner, "Initial assignment", actorIsMainGm: true, created.Revisions.OwnershipRevision, NewCommandId(), TestCorrelationId);
+            repository.AssignPrimaryOwner(_campaign, created.CharacterId, firstOwner, "Initial assignment", global::Odyssey.Application.Identity.DevIdentityProvider.AssignHost(), created.Revisions.OwnershipRevision, NewCommandId(), TestCorrelationId);
 
             UserId secondOwner = NewUserId();
-            Result<CharacterRecord> staleAssign = repository.AssignPrimaryOwner(_campaign, created.CharacterId, secondOwner, "Should not apply", actorIsMainGm: true, created.Revisions.OwnershipRevision, NewCommandId(), TestCorrelationId);
+            Result<CharacterRecord> staleAssign = repository.AssignPrimaryOwner(_campaign, created.CharacterId, secondOwner, "Should not apply", global::Odyssey.Application.Identity.DevIdentityProvider.AssignHost(), created.Revisions.OwnershipRevision, NewCommandId(), TestCorrelationId);
 
             Assert.That(staleAssign.IsFailure, Is.True);
             Assert.That(staleAssign.Error.Code, Is.EqualTo(ErrorCodes.PersistenceCharacterRevisionConflict));
@@ -369,12 +402,12 @@ namespace Odyssey.Tests.Persistence
             // third independent section (Ownership), reusing the exact same
             // property under test: neither call declares or checks the
             // other's section revision.
-            var repository = new SqliteCharacterRepository(Clock);
+            var repository = new SqliteCharacterRepository(Clock, _campaignRepository);
             CharacterRecord created = repository.CreateCharacter(new CreateCharacterRequest(_campaign, CharacterKind.PlayerCharacter, "Original Name"), NewCommandId(), TestCorrelationId).Value;
             UserId newOwner = NewUserId();
 
             Result<CharacterRecord> identityResult = repository.UpdateIdentity(_campaign, created.CharacterId, "Renamed", created.Revisions.IdentityRevision, NewCommandId(), TestCorrelationId);
-            Result<CharacterRecord> ownershipResult = repository.AssignPrimaryOwner(_campaign, created.CharacterId, newOwner, "Initial owner", actorIsMainGm: true, created.Revisions.OwnershipRevision, NewCommandId(), TestCorrelationId);
+            Result<CharacterRecord> ownershipResult = repository.AssignPrimaryOwner(_campaign, created.CharacterId, newOwner, "Initial owner", global::Odyssey.Application.Identity.DevIdentityProvider.AssignHost(), created.Revisions.OwnershipRevision, NewCommandId(), TestCorrelationId);
 
             Assert.That(identityResult.IsSuccess, Is.True, "an Identity edit must not be rejected by a concurrent, unrelated Ownership edit");
             Assert.That(ownershipResult.IsSuccess, Is.True, "an Ownership edit must not be rejected by a concurrent, unrelated Identity edit");
@@ -389,13 +422,13 @@ namespace Odyssey.Tests.Persistence
         [Test]
         public void AddCharacterCoOwner_CalledTwiceForSameUser_DoesNotCreateDuplicateEntry()
         {
-            var repository = new SqliteCharacterRepository(Clock);
+            var repository = new SqliteCharacterRepository(Clock, _campaignRepository);
             CharacterRecord created = repository.CreateCharacter(new CreateCharacterRequest(_campaign, CharacterKind.PlayerCharacter, "Co-owned Character"), NewCommandId(), TestCorrelationId).Value;
             UserId coOwner = NewUserId();
 
-            Result<CharacterRecord> first = repository.AddCharacterCoOwner(_campaign, created.CharacterId, coOwner, actorIsMainGm: true, created.Revisions.OwnershipRevision, NewCommandId(), TestCorrelationId);
+            Result<CharacterRecord> first = repository.AddCharacterCoOwner(_campaign, created.CharacterId, coOwner, global::Odyssey.Application.Identity.DevIdentityProvider.AssignHost(), created.Revisions.OwnershipRevision, NewCommandId(), TestCorrelationId);
             Assert.That(first.IsSuccess, Is.True);
-            Result<CharacterRecord> second = repository.AddCharacterCoOwner(_campaign, created.CharacterId, coOwner, actorIsMainGm: true, first.Value.Revisions.OwnershipRevision, NewCommandId(), TestCorrelationId);
+            Result<CharacterRecord> second = repository.AddCharacterCoOwner(_campaign, created.CharacterId, coOwner, global::Odyssey.Application.Identity.DevIdentityProvider.AssignHost(), first.Value.Revisions.OwnershipRevision, NewCommandId(), TestCorrelationId);
             Assert.That(second.IsSuccess, Is.True);
 
             int occurrences = 0;
@@ -410,15 +443,15 @@ namespace Odyssey.Tests.Persistence
         [Test]
         public void RemoveCharacterCoOwner_RemovesExactlyThatUser()
         {
-            var repository = new SqliteCharacterRepository(Clock);
+            var repository = new SqliteCharacterRepository(Clock, _campaignRepository);
             CharacterRecord created = repository.CreateCharacter(new CreateCharacterRequest(_campaign, CharacterKind.PlayerCharacter, "Co-owned Character"), NewCommandId(), TestCorrelationId).Value;
             UserId coOwnerA = NewUserId();
             UserId coOwnerB = NewUserId();
 
-            CharacterRecord afterA = repository.AddCharacterCoOwner(_campaign, created.CharacterId, coOwnerA, actorIsMainGm: true, created.Revisions.OwnershipRevision, NewCommandId(), TestCorrelationId).Value;
-            CharacterRecord afterB = repository.AddCharacterCoOwner(_campaign, created.CharacterId, coOwnerB, actorIsMainGm: true, afterA.Revisions.OwnershipRevision, NewCommandId(), TestCorrelationId).Value;
+            CharacterRecord afterA = repository.AddCharacterCoOwner(_campaign, created.CharacterId, coOwnerA, global::Odyssey.Application.Identity.DevIdentityProvider.AssignHost(), created.Revisions.OwnershipRevision, NewCommandId(), TestCorrelationId).Value;
+            CharacterRecord afterB = repository.AddCharacterCoOwner(_campaign, created.CharacterId, coOwnerB, global::Odyssey.Application.Identity.DevIdentityProvider.AssignHost(), afterA.Revisions.OwnershipRevision, NewCommandId(), TestCorrelationId).Value;
 
-            Result<CharacterRecord> afterRemove = repository.RemoveCharacterCoOwner(_campaign, created.CharacterId, coOwnerA, actorIsMainGm: true, afterB.Revisions.OwnershipRevision, NewCommandId(), TestCorrelationId);
+            Result<CharacterRecord> afterRemove = repository.RemoveCharacterCoOwner(_campaign, created.CharacterId, coOwnerA, global::Odyssey.Application.Identity.DevIdentityProvider.AssignHost(), afterB.Revisions.OwnershipRevision, NewCommandId(), TestCorrelationId);
 
             Assert.That(afterRemove.IsSuccess, Is.True);
             Assert.That(afterRemove.Value.Ownership.CoOwnerUserIds, Does.Not.Contain(coOwnerA));
@@ -428,14 +461,14 @@ namespace Odyssey.Tests.Persistence
         [Test]
         public void GrantPermanentControl_ThenRevoke_RemovesController()
         {
-            var repository = new SqliteCharacterRepository(Clock);
+            var repository = new SqliteCharacterRepository(Clock, _campaignRepository);
             CharacterRecord created = repository.CreateCharacter(new CreateCharacterRequest(_campaign, CharacterKind.PlayerCharacter, "Controlled Character"), NewCommandId(), TestCorrelationId).Value;
             UserId controller = NewUserId();
 
-            CharacterRecord afterGrant = repository.GrantPermanentCharacterControl(_campaign, created.CharacterId, controller, actorIsMainGm: true, created.Revisions.OwnershipRevision, NewCommandId(), TestCorrelationId).Value;
+            CharacterRecord afterGrant = repository.GrantPermanentCharacterControl(_campaign, created.CharacterId, controller, global::Odyssey.Application.Identity.DevIdentityProvider.AssignHost(), created.Revisions.OwnershipRevision, NewCommandId(), TestCorrelationId).Value;
             Assert.That(afterGrant.Ownership.PermanentControllerUserIds, Does.Contain(controller));
 
-            Result<CharacterRecord> afterRevoke = repository.RevokeCharacterControl(_campaign, created.CharacterId, controller, actorIsMainGm: true, afterGrant.Revisions.OwnershipRevision, NewCommandId(), TestCorrelationId);
+            Result<CharacterRecord> afterRevoke = repository.RevokeCharacterControl(_campaign, created.CharacterId, controller, global::Odyssey.Application.Identity.DevIdentityProvider.AssignHost(), afterGrant.Revisions.OwnershipRevision, NewCommandId(), TestCorrelationId);
 
             Assert.That(afterRevoke.IsSuccess, Is.True);
             Assert.That(afterRevoke.Value.Ownership.PermanentControllerUserIds, Does.Not.Contain(controller));
@@ -444,17 +477,17 @@ namespace Odyssey.Tests.Persistence
         [Test]
         public void GrantTemporaryControl_ThenRevoke_RemovesGrant()
         {
-            var repository = new SqliteCharacterRepository(Clock);
+            var repository = new SqliteCharacterRepository(Clock, _campaignRepository);
             CharacterRecord created = repository.CreateCharacter(new CreateCharacterRequest(_campaign, CharacterKind.PlayerCharacter, "Controlled Character"), NewCommandId(), TestCorrelationId).Value;
             UserId controller = NewUserId();
             UtcInstant expiresAt = UtcInstant.FromDateTimeOffset(DateTimeOffset.UtcNow.AddHours(1));
 
-            CharacterRecord afterGrant = repository.GrantTemporaryCharacterControl(_campaign, created.CharacterId, controller, expiresAt, actorIsMainGm: true, created.Revisions.OwnershipRevision, NewCommandId(), TestCorrelationId).Value;
+            CharacterRecord afterGrant = repository.GrantTemporaryCharacterControl(_campaign, created.CharacterId, controller, expiresAt, global::Odyssey.Application.Identity.DevIdentityProvider.AssignHost(), created.Revisions.OwnershipRevision, NewCommandId(), TestCorrelationId).Value;
             Assert.That(afterGrant.Ownership.TemporaryControlGrants, Has.Count.EqualTo(1));
             Assert.That(afterGrant.Ownership.TemporaryControlGrants[0].UserId, Is.EqualTo(controller));
             Assert.That(afterGrant.Ownership.TemporaryControlGrants[0].ExpiresAt, Is.EqualTo(expiresAt));
 
-            Result<CharacterRecord> afterRevoke = repository.RevokeCharacterControl(_campaign, created.CharacterId, controller, actorIsMainGm: true, afterGrant.Revisions.OwnershipRevision, NewCommandId(), TestCorrelationId);
+            Result<CharacterRecord> afterRevoke = repository.RevokeCharacterControl(_campaign, created.CharacterId, controller, global::Odyssey.Application.Identity.DevIdentityProvider.AssignHost(), afterGrant.Revisions.OwnershipRevision, NewCommandId(), TestCorrelationId);
 
             Assert.That(afterRevoke.IsSuccess, Is.True);
             Assert.That(afterRevoke.Value.Ownership.TemporaryControlGrants, Is.Empty);
@@ -470,11 +503,11 @@ namespace Odyssey.Tests.Persistence
             // future Player-action-eligibility check against a Character
             // must reuse, rather than re-deriving its own separate
             // ownership/control logic.
-            var repository = new SqliteCharacterRepository(Clock);
+            var repository = new SqliteCharacterRepository(Clock, _campaignRepository);
             CharacterRecord created = repository.CreateCharacter(new CreateCharacterRequest(_campaign, CharacterKind.PlayerCharacter, "Assigned Character"), NewCommandId(), TestCorrelationId).Value;
 
             UserId owner = NewUserId();
-            CharacterRecord afterOwner = repository.AssignPrimaryOwner(_campaign, created.CharacterId, owner, "assign", actorIsMainGm: true, created.Revisions.OwnershipRevision, NewCommandId(), TestCorrelationId).Value;
+            CharacterRecord afterOwner = repository.AssignPrimaryOwner(_campaign, created.CharacterId, owner, "assign", global::Odyssey.Application.Identity.DevIdentityProvider.AssignHost(), created.Revisions.OwnershipRevision, NewCommandId(), TestCorrelationId).Value;
 
             // A grant's ExpiresAt can never precede its own GrantedAt (the
             // domain constructor enforces this -- granting something already
@@ -485,11 +518,11 @@ namespace Odyssey.Tests.Persistence
             // trying to construct an already-past-expiry grant directly.
             UserId activeGrantee = NewUserId();
             UtcInstant distantFuture = UtcInstant.FromDateTimeOffset(DateTimeOffset.UtcNow.AddHours(1));
-            CharacterRecord afterGrant = repository.GrantTemporaryCharacterControl(_campaign, created.CharacterId, activeGrantee, distantFuture, actorIsMainGm: true, afterOwner.Revisions.OwnershipRevision, NewCommandId(), TestCorrelationId).Value;
+            CharacterRecord afterGrant = repository.GrantTemporaryCharacterControl(_campaign, created.CharacterId, activeGrantee, distantFuture, global::Odyssey.Application.Identity.DevIdentityProvider.AssignHost(), afterOwner.Revisions.OwnershipRevision, NewCommandId(), TestCorrelationId).Value;
 
             UserId expiredGrantee = NewUserId();
             UtcInstant nearFuture = UtcInstant.FromDateTimeOffset(DateTimeOffset.UtcNow.AddSeconds(1));
-            CharacterRecord afterExpiredGrant = repository.GrantTemporaryCharacterControl(_campaign, created.CharacterId, expiredGrantee, nearFuture, actorIsMainGm: true, afterGrant.Revisions.OwnershipRevision, NewCommandId(), TestCorrelationId).Value;
+            CharacterRecord afterExpiredGrant = repository.GrantTemporaryCharacterControl(_campaign, created.CharacterId, expiredGrantee, nearFuture, global::Odyssey.Application.Identity.DevIdentityProvider.AssignHost(), afterGrant.Revisions.OwnershipRevision, NewCommandId(), TestCorrelationId).Value;
 
             // Between the two grants' expiries: after the 1-second grant has
             // lapsed, but well before the 1-hour grant expires.
@@ -518,7 +551,7 @@ namespace Odyssey.Tests.Persistence
             // ADR-002 section 9.2 / ADR-012 section 7.2: retrying the same
             // CommandId must replay the stored result, never re-run the
             // handler or create a second row.
-            var repository = new SqliteCharacterRepository(Clock);
+            var repository = new SqliteCharacterRepository(Clock, _campaignRepository);
             CommandId commandId = NewCommandId();
             var request = new CreateCharacterRequest(_campaign, CharacterKind.PlayerCharacter, "Idempotency Test");
 
@@ -571,7 +604,7 @@ namespace Odyssey.Tests.Persistence
         [Test] // TC-CHAR-173
         public void SetCharacterPortrait_WithValidAssetId_SetsIt_IncrementsRevisions_LeavesPortraitReferenceUntouched_AndSurvivesUpdatePresentation()
         {
-            var repository = new SqliteCharacterRepository(Clock);
+            var repository = new SqliteCharacterRepository(Clock, _campaignRepository);
             CharacterRecord character = CreatePortraitTestCharacter(repository);
             AssetId assetId = RegisterTestAsset(_campaign);
             CharacterRecord withReference = repository.UpdatePresentation(_campaign, character.CharacterId, "portrait://legacy.png", character.Revisions.PresentationRevision, NewCommandId(), TestCorrelationId).Value;
@@ -592,7 +625,7 @@ namespace Odyssey.Tests.Persistence
         [Test] // TC-CHAR-174
         public void SetCharacterPortrait_WithNonExistentAssetId_ReturnsTypedError_CharacterUnchanged()
         {
-            var repository = new SqliteCharacterRepository(Clock);
+            var repository = new SqliteCharacterRepository(Clock, _campaignRepository);
             CharacterRecord character = CreatePortraitTestCharacter(repository);
 
             Result<CharacterRecord> result = repository.SetCharacterPortrait(_campaign, character.CharacterId, AssetId.NewId(Clock.GetUtcNow()), character.Revisions.PresentationRevision, NewCommandId(), TestCorrelationId);
@@ -614,7 +647,7 @@ namespace Odyssey.Tests.Persistence
 
             try
             {
-                var repository = new SqliteCharacterRepository(Clock);
+                var repository = new SqliteCharacterRepository(Clock, _campaignRepository);
                 AssetId foreignAssetId = RegisterTestAsset(otherCreated.Value);
                 CharacterRecord character = CreatePortraitTestCharacter(repository);
 
@@ -633,7 +666,7 @@ namespace Odyssey.Tests.Persistence
         [Test] // TC-CHAR-176
         public void SetCharacterPortrait_WithNull_AfterPreviouslySet_ClearsPortrait()
         {
-            var repository = new SqliteCharacterRepository(Clock);
+            var repository = new SqliteCharacterRepository(Clock, _campaignRepository);
             CharacterRecord character = CreatePortraitTestCharacter(repository);
             CharacterRecord withPortrait = repository.SetCharacterPortrait(_campaign, character.CharacterId, RegisterTestAsset(_campaign), character.Revisions.PresentationRevision, NewCommandId(), TestCorrelationId).Value;
 
@@ -648,7 +681,7 @@ namespace Odyssey.Tests.Persistence
         [Test] // TC-CHAR-177
         public void SetCharacterPortrait_WithMismatchedExpectedPresentationRevision_ReturnsTypedConflict()
         {
-            var repository = new SqliteCharacterRepository(Clock);
+            var repository = new SqliteCharacterRepository(Clock, _campaignRepository);
             CharacterRecord character = CreatePortraitTestCharacter(repository);
             AssetId assetId = RegisterTestAsset(_campaign);
 
@@ -662,7 +695,7 @@ namespace Odyssey.Tests.Persistence
         [Test] // TC-CHAR-178
         public void SetCharacterPortrait_RetriedWithSameCommandId_ReplaysIdempotently_NoDoubleWrite()
         {
-            var repository = new SqliteCharacterRepository(Clock);
+            var repository = new SqliteCharacterRepository(Clock, _campaignRepository);
             CharacterRecord character = CreatePortraitTestCharacter(repository);
             AssetId assetId = RegisterTestAsset(_campaign);
             CommandId commandId = NewCommandId();
@@ -679,7 +712,7 @@ namespace Odyssey.Tests.Persistence
         [Test] // TC-CHAR-179
         public void SetCharacterPortrait_OnSuccess_WritesAssetReferenceRow()
         {
-            var repository = new SqliteCharacterRepository(Clock);
+            var repository = new SqliteCharacterRepository(Clock, _campaignRepository);
             CharacterRecord character = CreatePortraitTestCharacter(repository);
             AssetId assetId = RegisterTestAsset(_campaign);
 
@@ -691,7 +724,7 @@ namespace Odyssey.Tests.Persistence
         [Test] // TC-CHAR-180
         public void SetCharacterPortrait_ReplacingPortrait_ReplacesAssetReferenceRow_NoDuplicate()
         {
-            var repository = new SqliteCharacterRepository(Clock);
+            var repository = new SqliteCharacterRepository(Clock, _campaignRepository);
             CharacterRecord character = CreatePortraitTestCharacter(repository);
             AssetId firstAsset = RegisterTestAsset(_campaign);
             AssetId secondAsset = RegisterTestAsset(_campaign);
@@ -703,6 +736,112 @@ namespace Odyssey.Tests.Persistence
             Assert.That(withSecond.Value.PortraitAssetId, Is.EqualTo(secondAsset));
             Assert.That(CountAssetReferences(_campaign, "AssetId = $asset AND ReferencedByType = 'Character' AND ReferencedById = $id", ("$asset", firstAsset.ToString()), ("$id", character.CharacterId.ToString())), Is.EqualTo(0), "the old row must not remain");
             Assert.That(CountAssetReferences(_campaign, "ReferencedByType = 'Character' AND ReferencedById = $id", ("$id", character.CharacterId.ToString())), Is.EqualTo(1), "exactly one current row, never accumulating");
+        }
+
+        // ---- ODY-S10-102: MainGM is the stored membership, not a claim -----------------------------
+
+        private UserId AddMember(CampaignMembershipRole role)
+        {
+            UserId user = NewUserId();
+            Assert.That(_campaignRepository.AddMember(_campaign, user, role, NewCommandId(), TestCorrelationId).IsSuccess, Is.True);
+            return user;
+        }
+
+        private CharacterRecord CreateDraftForGateTests(SqliteCharacterRepository repository) =>
+            repository.CreateCharacter(new CreateCharacterRequest(_campaign, CharacterKind.PlayerCharacter, "Gate Character"), NewCommandId(), TestCorrelationId).Value;
+
+        // One representative per logical group of the 19 strictly-MainGM-only gates (ownership transfer, ownership
+        // list, draft approval, deletion, ruleset migration, resource, anatomy, advancement). Every gate runs before
+        // any state legality, so a denial does not need a fully prepared character.
+        private System.Collections.Generic.List<(string Name, ErrorCode DeniedCode, Func<SqliteCharacterRepository, CharacterId, UserId, UserId, ErrorCode?> Call)> StrictOperations() =>
+            new System.Collections.Generic.List<(string, ErrorCode, Func<SqliteCharacterRepository, CharacterId, UserId, UserId, ErrorCode?>)>
+            {
+                ("AssignPrimaryOwner", ErrorCodes.PersistenceCharacterOwnershipDenied, (r, id, actor, target) => Code(r.AssignPrimaryOwner(_campaign, id, target, "reason", actor, 1, NewCommandId(), TestCorrelationId))),
+                ("AddCharacterCoOwner", ErrorCodes.PersistenceCharacterOwnershipDenied, (r, id, actor, target) => Code(r.AddCharacterCoOwner(_campaign, id, target, actor, 1, NewCommandId(), TestCorrelationId))),
+                ("ApproveCharacterDraft", ErrorCodes.PersistenceCharacterApprovalDenied, (r, id, actor, target) => Code(r.ApproveCharacterDraft(_campaign, id, actor, 1, NewCommandId(), TestCorrelationId))),
+                ("DeleteCharacterPermanently", ErrorCodes.PersistenceCharacterDeletionDenied, (r, id, actor, target) => Code(r.DeleteCharacterPermanently(_campaign, id, "reason", actor, 1, NewCommandId(), TestCorrelationId))),
+                ("RevertCharacterRulesetMigration", ErrorCodes.PersistenceCharacterRulesetMigrationDenied, (r, id, actor, target) => Code(r.RevertCharacterRulesetMigration(_campaign, id, NewCommandId(), "reason", actor, 1, NewCommandId(), TestCorrelationId))),
+                ("SetResourceCurrentValue", ErrorCodes.PersistenceCharacterResourceOperationDenied, (r, id, actor, target) => Code(r.SetResourceCurrentValue(_campaign, id, CharacterResourceId.NewId(Clock.GetUtcNow()), 1, actor, 1, NewCommandId(), TestCorrelationId))),
+                ("RemoveBodyPart", ErrorCodes.PersistenceCharacterAnatomyOperationDenied, (r, id, actor, target) => Code(r.RemoveBodyPart(_campaign, id, BodyPartId.Parse("Head"), actor, 1, NewCommandId(), TestCorrelationId))),
+                ("GrantDevelopmentPoints", ErrorCodes.PersistenceCharacterDevelopmentGrantDenied, (r, id, actor, target) => Code(r.GrantDevelopmentPoints(_campaign, id, 5, "reason", actor, 1, NewCommandId(), TestCorrelationId))),
+            };
+
+        private static ErrorCode? Code(Result result) => result.IsFailure ? result.Error.Code : (ErrorCode?)null;
+        private static ErrorCode? Code<T>(Result<T> result) where T : notnull => result.IsFailure ? result.Error.Code : (ErrorCode?)null;
+
+        [Test] // TC-PERSIST-041
+        public void StrictMainGmOnlyGates_DenyEveryNonMainGm_AndLetAStoredMainGmThrough_InEveryLogicalGroup()
+        {
+            var repository = new SqliteCharacterRepository(Clock, _campaignRepository);
+            CharacterRecord character = CreateDraftForGateTests(repository);
+            UserId player = AddMember(CampaignMembershipRole.Player);
+            UserId observer = AddMember(CampaignMembershipRole.Observer);
+            UserId stranger = NewUserId();
+            UserId secondGm = AddMember(CampaignMembershipRole.MainGm);
+            UserId target = NewUserId();
+
+            foreach (var op in StrictOperations())
+            {
+                foreach ((string who, UserId actor) in new[] { ("unregistered user", stranger), ("Player", player), ("Observer", observer) })
+                {
+                    Assert.That(op.Call(repository, character.CharacterId, actor, target), Is.EqualTo(op.DeniedCode), op.Name + " must deny a " + who);
+                }
+
+                foreach ((string who, UserId actor) in new[] { ("the host", global::Odyssey.Application.Identity.DevIdentityProvider.AssignHost()), ("an added MainGm", secondGm) })
+                {
+                    Assert.That(op.Call(repository, character.CharacterId, actor, target), Is.Not.EqualTo(op.DeniedCode), op.Name + " must let " + who + " through the authorization gate");
+                }
+            }
+        }
+
+        [Test] // TC-PERSIST-043
+        public void StrictMainGmOnlyGates_FailClosed_WhenTheMembershipLookupFails_EvenForTheHost()
+        {
+            var poisoned = PoisonedMembershipCampaignRepository.FailsOnLookup();
+            var repository = new SqliteCharacterRepository(Clock, poisoned);
+            CharacterRecord character = CreateDraftForGateTests(new SqliteCharacterRepository(Clock, _campaignRepository));
+
+            foreach (var op in StrictOperations())
+            {
+                int before = poisoned.LookupCalls;
+                ErrorCode? code = op.Call(repository, character.CharacterId, global::Odyssey.Application.Identity.DevIdentityProvider.AssignHost(), NewUserId());
+
+                Assert.That(poisoned.LookupCalls, Is.EqualTo(before + 1), op.Name + " must have performed the lookup");
+                Assert.That(code, Is.EqualTo(ErrorCodes.PersistenceCampaignIoFailed), op.Name + ": an unreadable membership is the lookup's own failure -- neither a pass nor a fake denial");
+            }
+
+            CharacterRecord unchanged = new SqliteCharacterRepository(Clock, _campaignRepository).GetCharacter(_campaign, character.CharacterId, TestCorrelationId).Value;
+            Assert.That(unchanged.LifecycleStatus, Is.EqualTo(character.LifecycleStatus));
+            Assert.That(unchanged.Ownership.PrimaryOwnerUserId, Is.Null);
+        }
+
+        [Test] // TC-PERSIST-044
+        public void TheSevenOperationsThatGainedAnActorParameter_ReallyUseIt_NotTheTargetUser()
+        {
+            var repository = new SqliteCharacterRepository(Clock, _campaignRepository);
+            CharacterRecord character = CreateDraftForGateTests(repository);
+            UserId host = global::Odyssey.Application.Identity.DevIdentityProvider.AssignHost();
+            UserId stranger = NewUserId();
+
+            // (name, denied code, call given (actor, target)) -- the target is a different user from the actor everywhere.
+            var operations = new (string Name, ErrorCode DeniedCode, Func<UserId, UserId, ErrorCode?> Call)[]
+            {
+                ("ApproveCharacterDraft", ErrorCodes.PersistenceCharacterApprovalDenied, (actor, target) => Code(repository.ApproveCharacterDraft(_campaign, character.CharacterId, actor, 1, NewCommandId(), TestCorrelationId))),
+                ("AssignPrimaryOwner", ErrorCodes.PersistenceCharacterOwnershipDenied, (actor, target) => Code(repository.AssignPrimaryOwner(_campaign, character.CharacterId, target, "reason", actor, 1, NewCommandId(), TestCorrelationId))),
+                ("AddCharacterCoOwner", ErrorCodes.PersistenceCharacterOwnershipDenied, (actor, target) => Code(repository.AddCharacterCoOwner(_campaign, character.CharacterId, target, actor, 1, NewCommandId(), TestCorrelationId))),
+                ("RemoveCharacterCoOwner", ErrorCodes.PersistenceCharacterOwnershipDenied, (actor, target) => Code(repository.RemoveCharacterCoOwner(_campaign, character.CharacterId, target, actor, 1, NewCommandId(), TestCorrelationId))),
+                ("GrantPermanentCharacterControl", ErrorCodes.PersistenceCharacterOwnershipDenied, (actor, target) => Code(repository.GrantPermanentCharacterControl(_campaign, character.CharacterId, target, actor, 1, NewCommandId(), TestCorrelationId))),
+                ("GrantTemporaryCharacterControl", ErrorCodes.PersistenceCharacterOwnershipDenied, (actor, target) => Code(repository.GrantTemporaryCharacterControl(_campaign, character.CharacterId, target, null, actor, 1, NewCommandId(), TestCorrelationId))),
+                ("RevokeCharacterControl", ErrorCodes.PersistenceCharacterOwnershipDenied, (actor, target) => Code(repository.RevokeCharacterControl(_campaign, character.CharacterId, target, actor, 1, NewCommandId(), TestCorrelationId))),
+            };
+
+            foreach (var op in operations)
+            {
+                // The actor is a stranger while the TARGET is the stored MainGm: still denied -- the target is not mistaken for the actor.
+                Assert.That(op.Call(stranger, host), Is.EqualTo(op.DeniedCode), op.Name + ": a non-MainGm actor must be denied even when the target user is the MainGm");
+                // The actor is the stored MainGm while the target is a stranger: not denied -- the actor is what is checked.
+                Assert.That(op.Call(host, stranger), Is.Not.EqualTo(op.DeniedCode), op.Name + ": the MainGm actor must pass even when the target user is a stranger");
+            }
         }
     }
 }

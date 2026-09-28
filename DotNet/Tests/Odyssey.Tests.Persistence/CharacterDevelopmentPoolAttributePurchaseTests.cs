@@ -48,7 +48,7 @@ namespace Odyssey.Tests.Persistence
             Result<CampaignHandle> created = _campaignRepository.Create(request, NewCommandId(), TestCorrelationId);
             Assert.That(created.IsSuccess, Is.True);
             _campaign = created.Value;
-            _characterRepository = new SqliteCharacterRepository(Clock);
+            _characterRepository = new SqliteCharacterRepository(Clock, _campaignRepository);
         }
 
         [TearDown]
@@ -85,7 +85,7 @@ namespace Odyssey.Tests.Persistence
         {
             CharacterRecord character = CreateCharacter();
 
-            Result<CharacterRecord> result = _characterRepository.GrantDevelopmentPoints(_campaign, character.CharacterId, 10, "Session reward", NewUserId(), actorIsMainGm: false, character.Revisions.MechanicsRevision, NewCommandId(), TestCorrelationId);
+            Result<CharacterRecord> result = _characterRepository.GrantDevelopmentPoints(_campaign, character.CharacterId, 10, "Session reward", NewUserId(), character.Revisions.MechanicsRevision, NewCommandId(), TestCorrelationId);
 
             Assert.That(result.IsFailure, Is.True);
             Assert.That(result.Error.Code, Is.EqualTo(ErrorCodes.PersistenceCharacterDevelopmentGrantDenied));
@@ -98,7 +98,7 @@ namespace Odyssey.Tests.Persistence
         {
             CharacterRecord character = CreateCharacter();
 
-            Result<CharacterRecord> result = _characterRepository.GrantDevelopmentPoints(_campaign, character.CharacterId, 10, "Session reward", NewUserId(), actorIsMainGm: true, character.Revisions.MechanicsRevision, NewCommandId(), TestCorrelationId);
+            Result<CharacterRecord> result = _characterRepository.GrantDevelopmentPoints(_campaign, character.CharacterId, 10, "Session reward", global::Odyssey.Application.Identity.DevIdentityProvider.AssignHost(), character.Revisions.MechanicsRevision, NewCommandId(), TestCorrelationId);
 
             Assert.That(result.IsSuccess, Is.True);
             Assert.That(result.Value.DevelopmentPool.Earned, Is.EqualTo(10));
@@ -114,10 +114,10 @@ namespace Odyssey.Tests.Persistence
         {
             CharacterRecord character = CreateCharacter();
             UserId owner = NewUserId();
-            Result<CharacterRecord> granted = _characterRepository.GrantDevelopmentPoints(_campaign, character.CharacterId, 10, "Initial grant", NewUserId(), actorIsMainGm: true, character.Revisions.MechanicsRevision, NewCommandId(), TestCorrelationId);
+            Result<CharacterRecord> granted = _characterRepository.GrantDevelopmentPoints(_campaign, character.CharacterId, 10, "Initial grant", global::Odyssey.Application.Identity.DevIdentityProvider.AssignHost(), character.Revisions.MechanicsRevision, NewCommandId(), TestCorrelationId);
             Assert.That(granted.IsSuccess, Is.True);
 
-            Result<CharacterRecord> purchased = CharacterAdvancementService.PurchaseAttributeIncrease(_characterRepository, _campaign, character.CharacterId, Strength, toValue: 2, owner, actorIsMainGm: true, granted.Value.Revisions.MechanicsRevision, expectedAttributeRevision: 0, NewCommandId(), TestCorrelationId);
+            Result<CharacterRecord> purchased = CharacterAdvancementService.PurchaseAttributeIncrease(_characterRepository, _campaign, character.CharacterId, Strength, toValue: 2, global::Odyssey.Application.Identity.DevIdentityProvider.AssignHost(), granted.Value.Revisions.MechanicsRevision, expectedAttributeRevision: 0, NewCommandId(), TestCorrelationId);
 
             Assert.That(purchased.IsSuccess, Is.True);
             // Fixture cost: 2 dev points per attribute point (AttributeCostRules.CostPerAttributePoint).
@@ -135,10 +135,10 @@ namespace Odyssey.Tests.Persistence
         public void PurchaseAttributeIncrease_WithInsufficientBalance_IsRejected_NoStateChange()
         {
             CharacterRecord character = CreateCharacter();
-            Result<CharacterRecord> granted = _characterRepository.GrantDevelopmentPoints(_campaign, character.CharacterId, 1, "Small grant", NewUserId(), actorIsMainGm: true, character.Revisions.MechanicsRevision, NewCommandId(), TestCorrelationId);
+            Result<CharacterRecord> granted = _characterRepository.GrantDevelopmentPoints(_campaign, character.CharacterId, 1, "Small grant", global::Odyssey.Application.Identity.DevIdentityProvider.AssignHost(), character.Revisions.MechanicsRevision, NewCommandId(), TestCorrelationId);
             Assert.That(granted.IsSuccess, Is.True);
 
-            Result<CharacterRecord> purchased = CharacterAdvancementService.PurchaseAttributeIncrease(_characterRepository, _campaign, character.CharacterId, Strength, toValue: 2, NewUserId(), actorIsMainGm: true, granted.Value.Revisions.MechanicsRevision, expectedAttributeRevision: 0, NewCommandId(), TestCorrelationId);
+            Result<CharacterRecord> purchased = CharacterAdvancementService.PurchaseAttributeIncrease(_characterRepository, _campaign, character.CharacterId, Strength, toValue: 2, global::Odyssey.Application.Identity.DevIdentityProvider.AssignHost(), granted.Value.Revisions.MechanicsRevision, expectedAttributeRevision: 0, NewCommandId(), TestCorrelationId);
 
             Assert.That(purchased.IsFailure, Is.True);
             Assert.That(purchased.Error.Code, Is.EqualTo(ErrorCodes.PersistenceCharacterDevelopmentInsufficientBalance));
@@ -155,11 +155,11 @@ namespace Odyssey.Tests.Persistence
         public void PurchaseAttributeIncrease_AboveCap_IsRejected()
         {
             CharacterRecord character = CreateCharacter();
-            Result<CharacterRecord> granted = _characterRepository.GrantDevelopmentPoints(_campaign, character.CharacterId, 1000, "Large grant", NewUserId(), actorIsMainGm: true, character.Revisions.MechanicsRevision, NewCommandId(), TestCorrelationId);
+            Result<CharacterRecord> granted = _characterRepository.GrantDevelopmentPoints(_campaign, character.CharacterId, 1000, "Large grant", global::Odyssey.Application.Identity.DevIdentityProvider.AssignHost(), character.Revisions.MechanicsRevision, NewCommandId(), TestCorrelationId);
             Assert.That(granted.IsSuccess, Is.True);
 
             // AttributeCostRules.NormalDevelopmentCap == 15 (test fixture).
-            Result<CharacterRecord> purchased = CharacterAdvancementService.PurchaseAttributeIncrease(_characterRepository, _campaign, character.CharacterId, Strength, toValue: 16, NewUserId(), actorIsMainGm: true, granted.Value.Revisions.MechanicsRevision, expectedAttributeRevision: 0, NewCommandId(), TestCorrelationId);
+            Result<CharacterRecord> purchased = CharacterAdvancementService.PurchaseAttributeIncrease(_characterRepository, _campaign, character.CharacterId, Strength, toValue: 16, global::Odyssey.Application.Identity.DevIdentityProvider.AssignHost(), granted.Value.Revisions.MechanicsRevision, expectedAttributeRevision: 0, NewCommandId(), TestCorrelationId);
 
             Assert.That(purchased.IsFailure, Is.True);
             Assert.That(purchased.Error.Code, Is.EqualTo(ErrorCodes.PersistenceCharacterAttributeCapExceeded));
@@ -172,13 +172,13 @@ namespace Odyssey.Tests.Persistence
         public void PurchaseAttributeIncrease_DuplicateCommandId_DoesNotDoubleSpend()
         {
             CharacterRecord character = CreateCharacter();
-            Result<CharacterRecord> granted = _characterRepository.GrantDevelopmentPoints(_campaign, character.CharacterId, 10, "Grant", NewUserId(), actorIsMainGm: true, character.Revisions.MechanicsRevision, NewCommandId(), TestCorrelationId);
+            Result<CharacterRecord> granted = _characterRepository.GrantDevelopmentPoints(_campaign, character.CharacterId, 10, "Grant", global::Odyssey.Application.Identity.DevIdentityProvider.AssignHost(), character.Revisions.MechanicsRevision, NewCommandId(), TestCorrelationId);
             Assert.That(granted.IsSuccess, Is.True);
             CommandId commandId = NewCommandId();
 
-            Result<CharacterRecord> first = CharacterAdvancementService.PurchaseAttributeIncrease(_characterRepository, _campaign, character.CharacterId, Strength, toValue: 2, NewUserId(), actorIsMainGm: true, granted.Value.Revisions.MechanicsRevision, expectedAttributeRevision: 0, commandId, TestCorrelationId);
+            Result<CharacterRecord> first = CharacterAdvancementService.PurchaseAttributeIncrease(_characterRepository, _campaign, character.CharacterId, Strength, toValue: 2, global::Odyssey.Application.Identity.DevIdentityProvider.AssignHost(), granted.Value.Revisions.MechanicsRevision, expectedAttributeRevision: 0, commandId, TestCorrelationId);
             Assert.That(first.IsSuccess, Is.True);
-            Result<CharacterRecord> second = CharacterAdvancementService.PurchaseAttributeIncrease(_characterRepository, _campaign, character.CharacterId, Strength, toValue: 2, NewUserId(), actorIsMainGm: true, granted.Value.Revisions.MechanicsRevision, expectedAttributeRevision: 0, commandId, TestCorrelationId);
+            Result<CharacterRecord> second = CharacterAdvancementService.PurchaseAttributeIncrease(_characterRepository, _campaign, character.CharacterId, Strength, toValue: 2, global::Odyssey.Application.Identity.DevIdentityProvider.AssignHost(), granted.Value.Revisions.MechanicsRevision, expectedAttributeRevision: 0, commandId, TestCorrelationId);
 
             Assert.That(second.IsSuccess, Is.True);
             Assert.That(second.Value.DevelopmentPool.Spent, Is.EqualTo(first.Value.DevelopmentPool.Spent));
@@ -197,7 +197,7 @@ namespace Odyssey.Tests.Persistence
         {
             CharacterRecord character = CreateCharacter();
 
-            Result<CharacterRecord> grantResult = _characterRepository.GrantDevelopmentPoints(_campaign, character.CharacterId, 5, "Grant", NewUserId(), actorIsMainGm: true, character.Revisions.MechanicsRevision, NewCommandId(), TestCorrelationId);
+            Result<CharacterRecord> grantResult = _characterRepository.GrantDevelopmentPoints(_campaign, character.CharacterId, 5, "Grant", global::Odyssey.Application.Identity.DevIdentityProvider.AssignHost(), character.Revisions.MechanicsRevision, NewCommandId(), TestCorrelationId);
             Result<CharacterRecord> identityResult = _characterRepository.UpdateIdentity(_campaign, character.CharacterId, "Renamed", character.Revisions.IdentityRevision, NewCommandId(), TestCorrelationId);
 
             Assert.That(grantResult.IsSuccess, Is.True);
@@ -215,10 +215,10 @@ namespace Odyssey.Tests.Persistence
         public void GrantDevelopmentPoints_WithStaleExpectedMechanicsRevision_IsRejected_NoStateChange()
         {
             CharacterRecord character = CreateCharacter();
-            Result<CharacterRecord> firstGrant = _characterRepository.GrantDevelopmentPoints(_campaign, character.CharacterId, 5, "First grant", NewUserId(), actorIsMainGm: true, character.Revisions.MechanicsRevision, NewCommandId(), TestCorrelationId);
+            Result<CharacterRecord> firstGrant = _characterRepository.GrantDevelopmentPoints(_campaign, character.CharacterId, 5, "First grant", global::Odyssey.Application.Identity.DevIdentityProvider.AssignHost(), character.Revisions.MechanicsRevision, NewCommandId(), TestCorrelationId);
             Assert.That(firstGrant.IsSuccess, Is.True);
 
-            Result<CharacterRecord> staleGrant = _characterRepository.GrantDevelopmentPoints(_campaign, character.CharacterId, 5, "Stale grant", NewUserId(), actorIsMainGm: true, character.Revisions.MechanicsRevision, NewCommandId(), TestCorrelationId);
+            Result<CharacterRecord> staleGrant = _characterRepository.GrantDevelopmentPoints(_campaign, character.CharacterId, 5, "Stale grant", global::Odyssey.Application.Identity.DevIdentityProvider.AssignHost(), character.Revisions.MechanicsRevision, NewCommandId(), TestCorrelationId);
 
             Assert.That(staleGrant.IsFailure, Is.True);
             Assert.That(staleGrant.Error.Code, Is.EqualTo(ErrorCodes.PersistenceCharacterRevisionConflict));
@@ -236,9 +236,9 @@ namespace Odyssey.Tests.Persistence
         {
             CharacterRecord character = CreateCharacter();
             UserId actor = NewUserId();
-            Result<CharacterRecord> granted = _characterRepository.GrantDevelopmentPoints(_campaign, character.CharacterId, 10, "Session reward", actor, actorIsMainGm: true, character.Revisions.MechanicsRevision, NewCommandId(), TestCorrelationId);
+            Result<CharacterRecord> granted = _characterRepository.GrantDevelopmentPoints(_campaign, character.CharacterId, 10, "Session reward", global::Odyssey.Application.Identity.DevIdentityProvider.AssignHost(), character.Revisions.MechanicsRevision, NewCommandId(), TestCorrelationId);
             Assert.That(granted.IsSuccess, Is.True);
-            Result<CharacterRecord> purchased = CharacterAdvancementService.PurchaseAttributeIncrease(_characterRepository, _campaign, character.CharacterId, Strength, toValue: 3, actor, actorIsMainGm: true, granted.Value.Revisions.MechanicsRevision, expectedAttributeRevision: 0, NewCommandId(), TestCorrelationId);
+            Result<CharacterRecord> purchased = CharacterAdvancementService.PurchaseAttributeIncrease(_characterRepository, _campaign, character.CharacterId, Strength, toValue: 3, global::Odyssey.Application.Identity.DevIdentityProvider.AssignHost(), granted.Value.Revisions.MechanicsRevision, expectedAttributeRevision: 0, NewCommandId(), TestCorrelationId);
             Assert.That(purchased.IsSuccess, Is.True);
 
             Result<System.Collections.Generic.IReadOnlyList<DevelopmentTransactionRecord>> ledger = _characterRepository.GetDevelopmentLedger(_campaign, character.CharacterId, TestCorrelationId);
@@ -261,10 +261,10 @@ namespace Odyssey.Tests.Persistence
         public void PurchaseAttributeIncrease_ByUnrelatedActor_IsRejected()
         {
             CharacterRecord character = CreateCharacter();
-            Result<CharacterRecord> granted = _characterRepository.GrantDevelopmentPoints(_campaign, character.CharacterId, 10, "Grant", NewUserId(), actorIsMainGm: true, character.Revisions.MechanicsRevision, NewCommandId(), TestCorrelationId);
+            Result<CharacterRecord> granted = _characterRepository.GrantDevelopmentPoints(_campaign, character.CharacterId, 10, "Grant", global::Odyssey.Application.Identity.DevIdentityProvider.AssignHost(), character.Revisions.MechanicsRevision, NewCommandId(), TestCorrelationId);
             Assert.That(granted.IsSuccess, Is.True);
 
-            Result<CharacterRecord> purchased = CharacterAdvancementService.PurchaseAttributeIncrease(_characterRepository, _campaign, character.CharacterId, Strength, toValue: 2, NewUserId(), actorIsMainGm: false, granted.Value.Revisions.MechanicsRevision, expectedAttributeRevision: 0, NewCommandId(), TestCorrelationId);
+            Result<CharacterRecord> purchased = CharacterAdvancementService.PurchaseAttributeIncrease(_characterRepository, _campaign, character.CharacterId, Strength, toValue: 2, NewUserId(), granted.Value.Revisions.MechanicsRevision, expectedAttributeRevision: 0, NewCommandId(), TestCorrelationId);
 
             Assert.That(purchased.IsFailure, Is.True);
             Assert.That(purchased.Error.Code, Is.EqualTo(ErrorCodes.PersistenceCharacterDevelopmentPurchaseDenied));
@@ -278,12 +278,12 @@ namespace Odyssey.Tests.Persistence
         {
             CharacterRecord character = CreateCharacter();
             UserId owner = NewUserId();
-            Result<CharacterRecord> ownerAssigned = _characterRepository.AssignPrimaryOwner(_campaign, character.CharacterId, owner, "Initial assignment", actorIsMainGm: true, character.Revisions.OwnershipRevision, NewCommandId(), TestCorrelationId);
+            Result<CharacterRecord> ownerAssigned = _characterRepository.AssignPrimaryOwner(_campaign, character.CharacterId, owner, "Initial assignment", global::Odyssey.Application.Identity.DevIdentityProvider.AssignHost(), character.Revisions.OwnershipRevision, NewCommandId(), TestCorrelationId);
             Assert.That(ownerAssigned.IsSuccess, Is.True);
-            Result<CharacterRecord> granted = _characterRepository.GrantDevelopmentPoints(_campaign, character.CharacterId, 10, "Grant", NewUserId(), actorIsMainGm: true, ownerAssigned.Value.Revisions.MechanicsRevision, NewCommandId(), TestCorrelationId);
+            Result<CharacterRecord> granted = _characterRepository.GrantDevelopmentPoints(_campaign, character.CharacterId, 10, "Grant", global::Odyssey.Application.Identity.DevIdentityProvider.AssignHost(), ownerAssigned.Value.Revisions.MechanicsRevision, NewCommandId(), TestCorrelationId);
             Assert.That(granted.IsSuccess, Is.True);
 
-            Result<CharacterRecord> purchased = CharacterAdvancementService.PurchaseAttributeIncrease(_characterRepository, _campaign, character.CharacterId, Strength, toValue: 2, owner, actorIsMainGm: false, granted.Value.Revisions.MechanicsRevision, expectedAttributeRevision: 0, NewCommandId(), TestCorrelationId);
+            Result<CharacterRecord> purchased = CharacterAdvancementService.PurchaseAttributeIncrease(_characterRepository, _campaign, character.CharacterId, Strength, toValue: 2, owner, granted.Value.Revisions.MechanicsRevision, expectedAttributeRevision: 0, NewCommandId(), TestCorrelationId);
 
             Assert.That(purchased.IsSuccess, Is.True);
         }
@@ -295,17 +295,42 @@ namespace Odyssey.Tests.Persistence
         public void PurchaseAttributeIncrease_WithStaleAttributeRevision_IsRejected()
         {
             CharacterRecord character = CreateCharacter();
-            Result<CharacterRecord> granted = _characterRepository.GrantDevelopmentPoints(_campaign, character.CharacterId, 20, "Grant", NewUserId(), actorIsMainGm: true, character.Revisions.MechanicsRevision, NewCommandId(), TestCorrelationId);
+            Result<CharacterRecord> granted = _characterRepository.GrantDevelopmentPoints(_campaign, character.CharacterId, 20, "Grant", global::Odyssey.Application.Identity.DevIdentityProvider.AssignHost(), character.Revisions.MechanicsRevision, NewCommandId(), TestCorrelationId);
             Assert.That(granted.IsSuccess, Is.True);
-            Result<CharacterRecord> firstPurchase = CharacterAdvancementService.PurchaseAttributeIncrease(_characterRepository, _campaign, character.CharacterId, Strength, toValue: 2, NewUserId(), actorIsMainGm: true, granted.Value.Revisions.MechanicsRevision, expectedAttributeRevision: 0, NewCommandId(), TestCorrelationId);
+            Result<CharacterRecord> firstPurchase = CharacterAdvancementService.PurchaseAttributeIncrease(_characterRepository, _campaign, character.CharacterId, Strength, toValue: 2, global::Odyssey.Application.Identity.DevIdentityProvider.AssignHost(), granted.Value.Revisions.MechanicsRevision, expectedAttributeRevision: 0, NewCommandId(), TestCorrelationId);
             Assert.That(firstPurchase.IsSuccess, Is.True);
 
             // expectedAttributeRevision is now stale (0, but the attribute's
             // own revision advanced to 1 after the first purchase).
-            Result<CharacterRecord> secondPurchase = CharacterAdvancementService.PurchaseAttributeIncrease(_characterRepository, _campaign, character.CharacterId, Strength, toValue: 3, NewUserId(), actorIsMainGm: true, firstPurchase.Value.Revisions.MechanicsRevision, expectedAttributeRevision: 0, NewCommandId(), TestCorrelationId);
+            Result<CharacterRecord> secondPurchase = CharacterAdvancementService.PurchaseAttributeIncrease(_characterRepository, _campaign, character.CharacterId, Strength, toValue: 3, global::Odyssey.Application.Identity.DevIdentityProvider.AssignHost(), firstPurchase.Value.Revisions.MechanicsRevision, expectedAttributeRevision: 0, NewCommandId(), TestCorrelationId);
 
             Assert.That(secondPurchase.IsFailure, Is.True);
             Assert.That(secondPurchase.Error.Code, Is.EqualTo(ErrorCodes.PersistenceCharacterRevisionConflict));
+        }
+
+        // ---- ODY-S10-102: owner first, stored MainGM second ------------------------------------------
+
+        [Test] // TC-PERSIST-046
+        public void PurchaseAttributeIncrease_OwnerNeedsNoMembershipLookup_NonOwnerFailsClosedOnAnUnreadableLookup()
+        {
+            CharacterRecord character = CreateCharacter();
+            UserId owner = NewUserId();
+            Result<CharacterRecord> ownerAssigned = _characterRepository.AssignPrimaryOwner(_campaign, character.CharacterId, owner, "Initial assignment", global::Odyssey.Application.Identity.DevIdentityProvider.AssignHost(), character.Revisions.OwnershipRevision, NewCommandId(), TestCorrelationId);
+            Assert.That(ownerAssigned.IsSuccess, Is.True);
+            Result<CharacterRecord> granted = _characterRepository.GrantDevelopmentPoints(_campaign, character.CharacterId, 20, "Grant", global::Odyssey.Application.Identity.DevIdentityProvider.AssignHost(), ownerAssigned.Value.Revisions.MechanicsRevision, NewCommandId(), TestCorrelationId);
+            Assert.That(granted.IsSuccess, Is.True);
+            long attributeRevision = 0;
+
+            var failing = PoisonedMembershipCampaignRepository.FailsOnLookup();
+            Result<CharacterRecord> byStranger = CharacterAdvancementService.PurchaseAttributeIncrease(new SqliteCharacterRepository(Clock, failing), _campaign, character.CharacterId, Strength, toValue: 2, NewUserId(), granted.Value.Revisions.MechanicsRevision, expectedAttributeRevision: attributeRevision, NewCommandId(), TestCorrelationId);
+            Assert.That(byStranger.IsFailure, Is.True);
+            Assert.That(byStranger.Error.Code, Is.EqualTo(ErrorCodes.PersistenceCampaignIoFailed));
+            Assert.That(failing.LookupCalls, Is.EqualTo(1));
+
+            var neverLooksUp = PoisonedMembershipCampaignRepository.ThrowsOnLookup();
+            Result<CharacterRecord> byOwner = CharacterAdvancementService.PurchaseAttributeIncrease(new SqliteCharacterRepository(Clock, neverLooksUp), _campaign, character.CharacterId, Strength, toValue: 2, owner, granted.Value.Revisions.MechanicsRevision, expectedAttributeRevision: attributeRevision, NewCommandId(), TestCorrelationId);
+            Assert.That(byOwner.IsSuccess, Is.True);
+            Assert.That(neverLooksUp.LookupCalls, Is.EqualTo(0));
         }
     }
 }

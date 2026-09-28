@@ -43,7 +43,7 @@ namespace Odyssey.Tests.Persistence
             Result<CampaignHandle> campaign = new SqliteCampaignRepository(_clock).Create(new CreateCampaignRequest(_root, "attack", "ruleset.core", "1.0.0", "0.1.0", global::Odyssey.Application.Identity.DevIdentityProvider.AssignHost()), Command(), Corr);
             Assert.That(campaign.IsSuccess, Is.True);
             _campaign = campaign.Value;
-            _characters = new SqliteCharacterRepository(_clock);
+            _characters = new SqliteCharacterRepository(_clock, new SqliteCampaignRepository(_clock));
             _encounters = new SqliteCombatEncounterRepository(_clock);
             _inventory = new SqliteInventoryRepository(_clock);
             _scenes = new SqliteSceneRepository(_clock);
@@ -181,7 +181,7 @@ namespace Odyssey.Tests.Persistence
             CharacterId actor = Active("actor");
             UserId owner = User();
             CharacterRecord current = _characters.GetCharacter(_campaign, actor, Corr).Value;
-            Result<CharacterRecord> assigned = _characters.AssignPrimaryOwner(_campaign, actor, owner, "test ownership", actorIsMainGm: true, current.Revisions.OwnershipRevision, Command(), Corr);
+            Result<CharacterRecord> assigned = _characters.AssignPrimaryOwner(_campaign, actor, owner, "test ownership", global::Odyssey.Application.Identity.DevIdentityProvider.AssignHost(), current.Revisions.OwnershipRevision, Command(), Corr);
             Assert.That(assigned.IsSuccess, Is.True);
 
             Assert.That(_reader.CanControlActor(_campaign, actor, owner, Corr).Value, Is.True);
@@ -451,9 +451,9 @@ namespace Odyssey.Tests.Persistence
         private CharacterRecord GrantAttribute(CharacterId characterId, string attributeName, long value)
         {
             CharacterRecord current = _characters.GetCharacter(_campaign, characterId, Corr).Value;
-            Result<CharacterRecord> granted = _characters.GrantDevelopmentPoints(_campaign, characterId, 100, "test", User(), actorIsMainGm: true, current.Revisions.MechanicsRevision, Command(), Corr);
+            Result<CharacterRecord> granted = _characters.GrantDevelopmentPoints(_campaign, characterId, 100, "test", global::Odyssey.Application.Identity.DevIdentityProvider.AssignHost(), current.Revisions.MechanicsRevision, Command(), Corr);
             Assert.That(granted.IsSuccess, Is.True);
-            Result<CharacterRecord> purchased = CharacterAdvancementService.PurchaseAttributeIncrease(_characters, _campaign, characterId, AttributeDefinitionId.Parse(attributeName), value, User(), actorIsMainGm: true, granted.Value.Revisions.MechanicsRevision, expectedAttributeRevision: 0, Command(), Corr);
+            Result<CharacterRecord> purchased = CharacterAdvancementService.PurchaseAttributeIncrease(_characters, _campaign, characterId, AttributeDefinitionId.Parse(attributeName), value, global::Odyssey.Application.Identity.DevIdentityProvider.AssignHost(), granted.Value.Revisions.MechanicsRevision, expectedAttributeRevision: 0, Command(), Corr);
             Assert.That(purchased.IsSuccess, Is.True);
             return purchased.Value;
         }
@@ -485,13 +485,13 @@ namespace Odyssey.Tests.Persistence
         {
             CharacterId id = _characters.CreateCharacter(new CreateCharacterRequest(_campaign, CharacterKind.PlayerCharacter, name), Command(), Corr).Value.CharacterId;
             CharacterRecord current = _characters.GetCharacter(_campaign, id, Corr).Value;
-            return _characters.ApproveCharacterDraft(_campaign, id, true, current.Revisions.LifecycleRevision, Command(), Corr).Value.CharacterId;
+            return _characters.ApproveCharacterDraft(_campaign, id, global::Odyssey.Application.Identity.DevIdentityProvider.AssignHost(), current.Revisions.LifecycleRevision, Command(), Corr).Value.CharacterId;
         }
 
         private void TransitionToDead(CharacterId id)
         {
             CharacterRecord current = _characters.GetCharacter(_campaign, id, Corr).Value;
-            Result<CharacterRecord> transitioned = _characters.TransitionCharacterToDead(_campaign, id, LifecycleDeathIssuerKind.GMOverride, User(), true, current.Revisions.LifecycleRevision, Command(), Corr);
+            Result<CharacterRecord> transitioned = _characters.TransitionCharacterToDead(_campaign, id, LifecycleDeathIssuerKind.GMOverride, global::Odyssey.Application.Identity.DevIdentityProvider.AssignHost(), current.Revisions.LifecycleRevision, Command(), Corr);
             Assert.That(transitioned.IsSuccess, Is.True);
         }
 

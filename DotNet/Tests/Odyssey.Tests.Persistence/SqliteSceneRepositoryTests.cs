@@ -681,7 +681,7 @@ namespace Odyssey.Tests.Persistence
             // A token's portrait is an independent field: linking a token to a
             // Character that has its own PortraitAssetId must not copy it.
             var sceneRepository = new SqliteSceneRepository(Clock);
-            var characterRepository = new SqliteCharacterRepository(Clock);
+            var characterRepository = new SqliteCharacterRepository(Clock, _campaignRepository);
             CharacterRecord character = characterRepository.CreateCharacter(new CreateCharacterRequest(_campaign, Odyssey.Domain.Character.CharacterKind.PlayerCharacter, "Hero"), NewCommandId(), TestCorrelationId).Value;
             characterRepository.SetCharacterPortrait(_campaign, character.CharacterId, RegisterTestAsset(_campaign, sceneRepository), character.Revisions.PresentationRevision, NewCommandId(), TestCorrelationId);
 

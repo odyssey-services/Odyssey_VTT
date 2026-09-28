@@ -73,7 +73,7 @@ namespace Odyssey.Tests.Persistence
             Result<CampaignHandle> campaign = _campaignRepository.Create(new CreateCampaignRequest(_root, "mvp-scenario", "ruleset.core", "1.0.0", "0.1.0", global::Odyssey.Application.Identity.DevIdentityProvider.AssignHost()), Command(), Corr);
             Assert.That(campaign.IsSuccess, Is.True);
             _campaign = campaign.Value;
-            _characters = new SqliteCharacterRepository(_clock);
+            _characters = new SqliteCharacterRepository(_clock, _campaignRepository);
             _catalog = new SqliteContentCatalogRepository(_clock);
             _effects = new SqliteActiveEffectRepository(_clock);
             _inventory = new SqliteInventoryRepository(_clock);
@@ -274,7 +274,7 @@ namespace Odyssey.Tests.Persistence
         private void InitializeAnatomy(CharacterId characterId)
         {
             CharacterRecord current = _characters.GetCharacter(_campaign, characterId, Corr).Value;
-            Result<CharacterRecord> result = CharacterAdvancementService.InitializeAnatomyWithDefaults(_characters, _campaign, characterId, Humanoid, User(), actorIsMainGm: true, current.Revisions.CharacterAnatomyRevision, Command(), Corr);
+            Result<CharacterRecord> result = CharacterAdvancementService.InitializeAnatomyWithDefaults(_characters, _campaign, characterId, Humanoid, global::Odyssey.Application.Identity.DevIdentityProvider.AssignHost(), current.Revisions.CharacterAnatomyRevision, Command(), Corr);
             Assert.That(result.IsSuccess, Is.True, result.IsFailure ? result.Error.Code.ToString() : string.Empty);
         }
 
@@ -282,7 +282,7 @@ namespace Odyssey.Tests.Persistence
         private CharacterAbility GrantActivatableAbility(CharacterId characterId, ContentDefinitionRecord published)
         {
             CharacterRecord current = _characters.GetCharacter(_campaign, characterId, Corr).Value;
-            Result<CharacterRecord> acquired = CharacterAdvancementService.AcquireAbility(_characters, _campaign, characterId, PowerStrikeKey, SourceKind.GMGrant, null, RankMode.None, null, null, "{}", User(), actorIsMainGm: true, null, current.Revisions.CharacterAbilitiesRevision, Command(), Corr);
+            Result<CharacterRecord> acquired = CharacterAdvancementService.AcquireAbility(_characters, _campaign, characterId, PowerStrikeKey, SourceKind.GMGrant, null, RankMode.None, null, null, "{}", global::Odyssey.Application.Identity.DevIdentityProvider.AssignHost(), null, current.Revisions.CharacterAbilitiesRevision, Command(), Corr);
             Assert.That(acquired.IsSuccess, Is.True, acquired.IsFailure ? acquired.Error.Code.ToString() : string.Empty);
             CharacterAbility? granted = null;
             foreach (CharacterAbility candidate in acquired.Value.Abilities)
@@ -297,7 +297,7 @@ namespace Odyssey.Tests.Persistence
             }
 
             var activationRef = new ContentDefinitionRef(published.ContentDefinitionId, published.Version);
-            Result<CharacterRecord> linked = _characters.LinkAbilityActivationSource(_campaign, characterId, granted.CharacterAbilityId, activationRef, User(), actorIsMainGm: true, acquired.Value.Revisions.CharacterAbilitiesRevision, Command(), Corr);
+            Result<CharacterRecord> linked = _characters.LinkAbilityActivationSource(_campaign, characterId, granted.CharacterAbilityId, activationRef, global::Odyssey.Application.Identity.DevIdentityProvider.AssignHost(), acquired.Value.Revisions.CharacterAbilitiesRevision, Command(), Corr);
             Assert.That(linked.IsSuccess, Is.True, linked.IsFailure ? linked.Error.Code.ToString() : string.Empty);
             foreach (CharacterAbility candidate in linked.Value.Abilities)
             {
@@ -340,7 +340,7 @@ namespace Odyssey.Tests.Persistence
         private void InitResource(CharacterId characterId, ResourceDefinitionId resourceKind)
         {
             CharacterRecord current = _characters.GetCharacter(_campaign, characterId, Corr).Value;
-            Result<CharacterRecord> result = CharacterAdvancementService.InitializeResourceWithDefaults(_characters, _campaign, characterId, resourceKind, User(), true, current.Revisions.CharacterResourcesRevision, Command(), Corr);
+            Result<CharacterRecord> result = CharacterAdvancementService.InitializeResourceWithDefaults(_characters, _campaign, characterId, resourceKind, global::Odyssey.Application.Identity.DevIdentityProvider.AssignHost(), current.Revisions.CharacterResourcesRevision, Command(), Corr);
             Assert.That(result.IsSuccess, Is.True);
         }
 
@@ -359,9 +359,9 @@ namespace Odyssey.Tests.Persistence
         private CharacterRecord GrantAttribute(CharacterId characterId, string attributeName, long value)
         {
             CharacterRecord current = _characters.GetCharacter(_campaign, characterId, Corr).Value;
-            Result<CharacterRecord> granted = _characters.GrantDevelopmentPoints(_campaign, characterId, 100, "test", User(), actorIsMainGm: true, current.Revisions.MechanicsRevision, Command(), Corr);
+            Result<CharacterRecord> granted = _characters.GrantDevelopmentPoints(_campaign, characterId, 100, "test", global::Odyssey.Application.Identity.DevIdentityProvider.AssignHost(), current.Revisions.MechanicsRevision, Command(), Corr);
             Assert.That(granted.IsSuccess, Is.True);
-            Result<CharacterRecord> purchased = CharacterAdvancementService.PurchaseAttributeIncrease(_characters, _campaign, characterId, AttributeDefinitionId.Parse(attributeName), value, User(), actorIsMainGm: true, granted.Value.Revisions.MechanicsRevision, expectedAttributeRevision: 0, Command(), Corr);
+            Result<CharacterRecord> purchased = CharacterAdvancementService.PurchaseAttributeIncrease(_characters, _campaign, characterId, AttributeDefinitionId.Parse(attributeName), value, global::Odyssey.Application.Identity.DevIdentityProvider.AssignHost(), granted.Value.Revisions.MechanicsRevision, expectedAttributeRevision: 0, Command(), Corr);
             Assert.That(purchased.IsSuccess, Is.True);
             return purchased.Value;
         }
@@ -370,7 +370,7 @@ namespace Odyssey.Tests.Persistence
         {
             CharacterId id = _characters.CreateCharacter(new CreateCharacterRequest(_campaign, CharacterKind.PlayerCharacter, name), Command(), Corr).Value.CharacterId;
             CharacterRecord current = _characters.GetCharacter(_campaign, id, Corr).Value;
-            return _characters.ApproveCharacterDraft(_campaign, id, true, current.Revisions.LifecycleRevision, Command(), Corr).Value.CharacterId;
+            return _characters.ApproveCharacterDraft(_campaign, id, global::Odyssey.Application.Identity.DevIdentityProvider.AssignHost(), current.Revisions.LifecycleRevision, Command(), Corr).Value.CharacterId;
         }
 
         private static CommandId Command() => CommandId.Parse("cmd_" + Guid.NewGuid().ToString("N"));

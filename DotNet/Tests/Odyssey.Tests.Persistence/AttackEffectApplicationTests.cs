@@ -56,7 +56,7 @@ namespace Odyssey.Tests.Persistence
             Result<CampaignHandle> campaign = new SqliteCampaignRepository(_clock).Create(new CreateCampaignRequest(_root, "attack-effect-application", "ruleset.core", "1.0.0", "0.1.0", global::Odyssey.Application.Identity.DevIdentityProvider.AssignHost()), Command(), Corr);
             Assert.That(campaign.IsSuccess, Is.True);
             _campaign = campaign.Value;
-            _characters = new SqliteCharacterRepository(_clock);
+            _characters = new SqliteCharacterRepository(_clock, new SqliteCampaignRepository(_clock));
             _encounters = new SqliteCombatEncounterRepository(_clock);
             _inventory = new SqliteInventoryRepository(_clock);
             _scenes = new SqliteSceneRepository(_clock);
@@ -247,7 +247,7 @@ namespace Odyssey.Tests.Persistence
         {
             CharacterId id = _characters.CreateCharacter(new CreateCharacterRequest(_campaign, CharacterKind.PlayerCharacter, name), Command(), Corr).Value.CharacterId;
             CharacterRecord current = _characters.GetCharacter(_campaign, id, Corr).Value;
-            return _characters.ApproveCharacterDraft(_campaign, id, true, current.Revisions.LifecycleRevision, Command(), Corr).Value.CharacterId;
+            return _characters.ApproveCharacterDraft(_campaign, id, global::Odyssey.Application.Identity.DevIdentityProvider.AssignHost(), current.Revisions.LifecycleRevision, Command(), Corr).Value.CharacterId;
         }
 
         // ODY-S06-103: the attack action item must now be currently Equipped, not merely owned -- every

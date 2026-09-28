@@ -44,7 +44,7 @@ namespace Odyssey.Tests.Persistence
             Result<CampaignHandle> created = _campaignRepository.Create(request, NewCommandId(), TestCorrelationId);
             Assert.That(created.IsSuccess, Is.True);
             _campaign = created.Value;
-            _characterRepository = new SqliteCharacterRepository(Clock);
+            _characterRepository = new SqliteCharacterRepository(Clock, _campaignRepository);
         }
 
         [TearDown]
@@ -96,7 +96,7 @@ namespace Odyssey.Tests.Persistence
         public void SubmitCharacterDraft_OnActiveCharacter_IsRejected()
         {
             CharacterRecord character = CreateDraftCharacter();
-            Result<CharacterRecord> approved = _characterRepository.ApproveCharacterDraft(_campaign, character.CharacterId, actorIsMainGm: true, character.Revisions.LifecycleRevision, NewCommandId(), TestCorrelationId);
+            Result<CharacterRecord> approved = _characterRepository.ApproveCharacterDraft(_campaign, character.CharacterId, global::Odyssey.Application.Identity.DevIdentityProvider.AssignHost(), character.Revisions.LifecycleRevision, NewCommandId(), TestCorrelationId);
             Assert.That(approved.IsSuccess, Is.True);
 
             Result<CharacterRecord> result = _characterRepository.SubmitCharacterDraft(_campaign, character.CharacterId, approved.Value.Revisions.LifecycleRevision, NewCommandId(), TestCorrelationId);
@@ -161,7 +161,7 @@ namespace Odyssey.Tests.Persistence
         {
             CharacterRecord character = CreateDraftCharacter();
 
-            Result<CharacterRecord> result = _characterRepository.ApproveCharacterDraft(_campaign, character.CharacterId, actorIsMainGm: false, character.Revisions.LifecycleRevision, NewCommandId(), TestCorrelationId);
+            Result<CharacterRecord> result = _characterRepository.ApproveCharacterDraft(_campaign, character.CharacterId, global::Odyssey.Application.Identity.DevIdentityProvider.AssignJoiningActor(0).Value, character.Revisions.LifecycleRevision, NewCommandId(), TestCorrelationId);
 
             Assert.That(result.IsFailure, Is.True);
             Assert.That(result.Error.Code, Is.EqualTo(ErrorCodes.PersistenceCharacterApprovalDenied));
@@ -179,7 +179,7 @@ namespace Odyssey.Tests.Persistence
         {
             CharacterRecord character = CreateDraftCharacter();
 
-            Result<CharacterRecord> result = _characterRepository.ApproveCharacterDraft(_campaign, character.CharacterId, actorIsMainGm: true, character.Revisions.LifecycleRevision, NewCommandId(), TestCorrelationId);
+            Result<CharacterRecord> result = _characterRepository.ApproveCharacterDraft(_campaign, character.CharacterId, global::Odyssey.Application.Identity.DevIdentityProvider.AssignHost(), character.Revisions.LifecycleRevision, NewCommandId(), TestCorrelationId);
 
             Assert.That(result.IsSuccess, Is.True);
             Assert.That(result.Value.LifecycleStatus, Is.EqualTo(CharacterLifecycleStatus.Active));
@@ -201,11 +201,11 @@ namespace Odyssey.Tests.Persistence
         public void ApproveCharacterDraft_OnAlreadyActiveCharacter_IsRejected_ViaLifecycleTransitionTable()
         {
             CharacterRecord character = CreateDraftCharacter();
-            Result<CharacterRecord> firstApprove = _characterRepository.ApproveCharacterDraft(_campaign, character.CharacterId, actorIsMainGm: true, character.Revisions.LifecycleRevision, NewCommandId(), TestCorrelationId);
+            Result<CharacterRecord> firstApprove = _characterRepository.ApproveCharacterDraft(_campaign, character.CharacterId, global::Odyssey.Application.Identity.DevIdentityProvider.AssignHost(), character.Revisions.LifecycleRevision, NewCommandId(), TestCorrelationId);
             Assert.That(firstApprove.IsSuccess, Is.True);
             Assert.That(CharacterLifecycleTransitions.IsValidTransition(CharacterLifecycleStatus.Active, CharacterLifecycleStatus.Active), Is.False);
 
-            Result<CharacterRecord> secondApprove = _characterRepository.ApproveCharacterDraft(_campaign, character.CharacterId, actorIsMainGm: true, firstApprove.Value.Revisions.LifecycleRevision, NewCommandId(), TestCorrelationId);
+            Result<CharacterRecord> secondApprove = _characterRepository.ApproveCharacterDraft(_campaign, character.CharacterId, global::Odyssey.Application.Identity.DevIdentityProvider.AssignHost(), firstApprove.Value.Revisions.LifecycleRevision, NewCommandId(), TestCorrelationId);
 
             Assert.That(secondApprove.IsFailure, Is.True);
             Assert.That(secondApprove.Error.Code, Is.EqualTo(ErrorCodes.PersistenceCharacterLifecycleTransitionInvalid));
@@ -220,8 +220,8 @@ namespace Odyssey.Tests.Persistence
             CharacterRecord character = CreateDraftCharacter();
             CommandId commandId = NewCommandId();
 
-            Result<CharacterRecord> first = _characterRepository.ApproveCharacterDraft(_campaign, character.CharacterId, actorIsMainGm: true, character.Revisions.LifecycleRevision, commandId, TestCorrelationId);
-            Result<CharacterRecord> second = _characterRepository.ApproveCharacterDraft(_campaign, character.CharacterId, actorIsMainGm: true, character.Revisions.LifecycleRevision, commandId, TestCorrelationId);
+            Result<CharacterRecord> first = _characterRepository.ApproveCharacterDraft(_campaign, character.CharacterId, global::Odyssey.Application.Identity.DevIdentityProvider.AssignHost(), character.Revisions.LifecycleRevision, commandId, TestCorrelationId);
+            Result<CharacterRecord> second = _characterRepository.ApproveCharacterDraft(_campaign, character.CharacterId, global::Odyssey.Application.Identity.DevIdentityProvider.AssignHost(), character.Revisions.LifecycleRevision, commandId, TestCorrelationId);
 
             Assert.That(first.IsSuccess, Is.True);
             Assert.That(second.IsSuccess, Is.True);
@@ -255,7 +255,7 @@ namespace Odyssey.Tests.Persistence
 
             // character.Revisions.LifecycleRevision is now stale -- Submit
             // already advanced it.
-            Result<CharacterRecord> approve = _characterRepository.ApproveCharacterDraft(_campaign, character.CharacterId, actorIsMainGm: true, character.Revisions.LifecycleRevision, NewCommandId(), TestCorrelationId);
+            Result<CharacterRecord> approve = _characterRepository.ApproveCharacterDraft(_campaign, character.CharacterId, global::Odyssey.Application.Identity.DevIdentityProvider.AssignHost(), character.Revisions.LifecycleRevision, NewCommandId(), TestCorrelationId);
 
             Assert.That(approve.IsFailure, Is.True);
             Assert.That(approve.Error.Code, Is.EqualTo(ErrorCodes.PersistenceCharacterRevisionConflict));
