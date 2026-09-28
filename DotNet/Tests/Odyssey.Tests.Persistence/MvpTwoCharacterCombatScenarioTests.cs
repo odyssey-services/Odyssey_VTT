@@ -185,16 +185,16 @@ namespace Odyssey.Tests.Persistence
 
         private ContentDefinitionRecord AuthorDraft(ContentDefinitionType type, string name, string propertiesJson, IReadOnlyList<ContentDefinitionRef>? dependencyRefs = null)
         {
-            var request = new CreateDraftDefinitionRequest(_campaign, type, name, "ODY-S06-108 MVP fixture.", User(), actorIsMainGm: true, Command(), Corr, rulesetCompatibility: new[] { ActiveRuleset }, propertiesJson: propertiesJson, dependencyRefs: dependencyRefs);
-            Result<ContentDefinitionRecord> result = ContentCatalogAuthoringService.CreateDraftDefinition(_catalog, request);
+            var request = new CreateDraftDefinitionRequest(_campaign, type, name, "ODY-S06-108 MVP fixture.", global::Odyssey.Application.Identity.DevIdentityProvider.AssignHost(), Command(), Corr, rulesetCompatibility: new[] { ActiveRuleset }, propertiesJson: propertiesJson, dependencyRefs: dependencyRefs);
+            Result<ContentDefinitionRecord> result = ContentCatalogAuthoringService.CreateDraftDefinition(_catalog, _campaignRepository, request);
             Assert.That(result.IsSuccess, Is.True, result.IsFailure ? result.Error.Code.ToString() : string.Empty);
             return result.Value;
         }
 
         private ContentDefinitionRecord PublishFixture(ContentDefinitionRecord draft)
         {
-            var request = new PublishDefinitionRequest(_campaign, draft.ContentDefinitionId, draft.Revision, User(), actorIsMainGm: true, Command(), Corr);
-            Result<ContentDefinitionRecord> result = ContentCatalogLifecycleService.PublishDefinition(_catalog, request);
+            var request = new PublishDefinitionRequest(_campaign, draft.ContentDefinitionId, draft.Revision, global::Odyssey.Application.Identity.DevIdentityProvider.AssignHost(), Command(), Corr);
+            Result<ContentDefinitionRecord> result = ContentCatalogLifecycleService.PublishDefinition(_catalog, _campaignRepository, request);
             Assert.That(result.IsSuccess, Is.True, result.IsFailure ? result.Error.Code.ToString() : string.Empty);
             return result.Value;
         }

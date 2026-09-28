@@ -172,19 +172,19 @@ namespace Odyssey.Tests.Persistence.Integration
             // properties, and publish it. (In this MVP CreateNextDraftVersionFromPublished
             // mints a new ContentDefinitionId; every publish is Version 1.)
             Result<ContentDefinitionRecord> nextDraft = ContentCatalogAuthoringService.CreateNextDraftVersionFromPublished(
-                _catalog, new CreateNextDraftVersionFromPublishedRequest(_campaign, original.ContentDefinitionId, NewUserId(), actorIsMainGm: true, NewCommandId(), Corr));
+                _catalog, _campaigns, new CreateNextDraftVersionFromPublishedRequest(_campaign, original.ContentDefinitionId, global::Odyssey.Application.Identity.DevIdentityProvider.AssignHost(), NewCommandId(), Corr));
             Assert.That(nextDraft.IsSuccess, Is.True);
             Assert.That(nextDraft.Value.ContentDefinitionId, Is.Not.EqualTo(original.ContentDefinitionId));
 
             Result<ContentDefinitionRecord> updatedDraft = ContentCatalogAuthoringService.UpdateDraftDefinition(
-                _catalog, new UpdateDraftDefinitionRequest(
+                _catalog, _campaigns, new UpdateDraftDefinitionRequest(
                     _campaign, nextDraft.Value.ContentDefinitionId, "Stackable Consumable (successor)", "changed properties",
-                    EncodeStackableConsumable(maxStackSize: 99), nextDraft.Value.Revision, NewUserId(), actorIsMainGm: true, NewCommandId(), Corr));
+                    EncodeStackableConsumable(maxStackSize: 99), nextDraft.Value.Revision, global::Odyssey.Application.Identity.DevIdentityProvider.AssignHost(), NewCommandId(), Corr));
             Assert.That(updatedDraft.IsSuccess, Is.True);
             Assert.That(updatedDraft.Value.PropertiesJson, Is.Not.EqualTo(originalProperties));
 
             Result<ContentDefinitionRecord> successorPublished = ContentCatalogLifecycleService.PublishDefinition(
-                _catalog, new PublishDefinitionRequest(_campaign, updatedDraft.Value.ContentDefinitionId, updatedDraft.Value.Revision, NewUserId(), actorIsMainGm: true, NewCommandId(), Corr));
+                _catalog, _campaigns, new PublishDefinitionRequest(_campaign, updatedDraft.Value.ContentDefinitionId, updatedDraft.Value.Revision, global::Odyssey.Application.Identity.DevIdentityProvider.AssignHost(), NewCommandId(), Corr));
             Assert.That(successorPublished.IsSuccess, Is.True);
 
             // The already-created stack's snapshot must still pin the original
@@ -246,8 +246,8 @@ namespace Odyssey.Tests.Persistence.Integration
         public void CreateItemStackFromDefinition_OnADraftDefinition_IsRejectedByTheExistingNotPublishedError()
         {
             Result<ContentDefinitionRecord> draft = ContentCatalogAuthoringService.CreateDraftDefinition(
-                _catalog, new CreateDraftDefinitionRequest(
-                    _campaign, ContentDefinitionType.Item, "Unpublished Consumable", "ODY-S05-207 fixture", NewUserId(), actorIsMainGm: true, NewCommandId(), Corr,
+                _catalog, _campaigns, new CreateDraftDefinitionRequest(
+                    _campaign, ContentDefinitionType.Item, "Unpublished Consumable", "ODY-S05-207 fixture", global::Odyssey.Application.Identity.DevIdentityProvider.AssignHost(), NewCommandId(), Corr,
                     rulesetCompatibility: new[] { ActiveRuleset }, propertiesJson: EncodeStackableConsumable(maxStackSize: 10)));
             Assert.That(draft.IsSuccess, Is.True);
 
@@ -280,13 +280,13 @@ namespace Odyssey.Tests.Persistence.Integration
         private ContentDefinitionRecord PublishItem(string propertiesJson)
         {
             Result<ContentDefinitionRecord> draft = ContentCatalogAuthoringService.CreateDraftDefinition(
-                _catalog, new CreateDraftDefinitionRequest(
-                    _campaign, ContentDefinitionType.Item, "Stackable Consumable", "ODY-S05-207 integration fixture", NewUserId(), actorIsMainGm: true, NewCommandId(), Corr,
+                _catalog, _campaigns, new CreateDraftDefinitionRequest(
+                    _campaign, ContentDefinitionType.Item, "Stackable Consumable", "ODY-S05-207 integration fixture", global::Odyssey.Application.Identity.DevIdentityProvider.AssignHost(), NewCommandId(), Corr,
                     rulesetCompatibility: new[] { ActiveRuleset }, propertiesJson: propertiesJson));
             Assert.That(draft.IsSuccess, Is.True, draft.IsFailure ? draft.Error.Code.ToString() : string.Empty);
 
             Result<ContentDefinitionRecord> published = ContentCatalogLifecycleService.PublishDefinition(
-                _catalog, new PublishDefinitionRequest(_campaign, draft.Value.ContentDefinitionId, draft.Value.Revision, NewUserId(), actorIsMainGm: true, NewCommandId(), Corr));
+                _catalog, _campaigns, new PublishDefinitionRequest(_campaign, draft.Value.ContentDefinitionId, draft.Value.Revision, global::Odyssey.Application.Identity.DevIdentityProvider.AssignHost(), NewCommandId(), Corr));
             Assert.That(published.IsSuccess, Is.True, published.IsFailure ? published.Error.Code.ToString() : string.Empty);
             return published.Value;
         }

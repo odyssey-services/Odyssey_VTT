@@ -227,13 +227,13 @@ namespace Odyssey.Tests.Persistence.Integration
         private ContentDefinitionRecord PublishArmor(string propertiesJson)
         {
             Result<ContentDefinitionRecord> draft = ContentCatalogAuthoringService.CreateDraftDefinition(
-                _catalog, new CreateDraftDefinitionRequest(
-                    _campaign, ContentDefinitionType.Armor, "Integration Fixture Chestplate", "ODY-S05-306 integration fixture", NewUserId(), actorIsMainGm: true, NewCommandId(), Corr,
+                _catalog, _campaigns, new CreateDraftDefinitionRequest(
+                    _campaign, ContentDefinitionType.Armor, "Integration Fixture Chestplate", "ODY-S05-306 integration fixture", global::Odyssey.Application.Identity.DevIdentityProvider.AssignHost(), NewCommandId(), Corr,
                     rulesetCompatibility: new[] { ActiveRuleset }, propertiesJson: propertiesJson));
             Assert.That(draft.IsSuccess, Is.True, draft.IsFailure ? draft.Error.Code.ToString() : string.Empty);
 
             Result<ContentDefinitionRecord> published = ContentCatalogLifecycleService.PublishDefinition(
-                _catalog, new PublishDefinitionRequest(_campaign, draft.Value.ContentDefinitionId, draft.Value.Revision, NewUserId(), actorIsMainGm: true, NewCommandId(), Corr));
+                _catalog, _campaigns, new PublishDefinitionRequest(_campaign, draft.Value.ContentDefinitionId, draft.Value.Revision, global::Odyssey.Application.Identity.DevIdentityProvider.AssignHost(), NewCommandId(), Corr));
             Assert.That(published.IsSuccess, Is.True, published.IsFailure ? published.Error.Code.ToString() : string.Empty);
             return published.Value;
         }
@@ -241,13 +241,13 @@ namespace Odyssey.Tests.Persistence.Integration
         private ContentDefinitionRecord PublishWeapon(string propertiesJson)
         {
             Result<ContentDefinitionRecord> draft = ContentCatalogAuthoringService.CreateDraftDefinition(
-                _catalog, new CreateDraftDefinitionRequest(
-                    _campaign, ContentDefinitionType.Weapon, "Integration Fixture Shortsword", "ODY-S05-306 integration fixture", NewUserId(), actorIsMainGm: true, NewCommandId(), Corr,
+                _catalog, _campaigns, new CreateDraftDefinitionRequest(
+                    _campaign, ContentDefinitionType.Weapon, "Integration Fixture Shortsword", "ODY-S05-306 integration fixture", global::Odyssey.Application.Identity.DevIdentityProvider.AssignHost(), NewCommandId(), Corr,
                     rulesetCompatibility: new[] { ActiveRuleset }, propertiesJson: propertiesJson));
             Assert.That(draft.IsSuccess, Is.True, draft.IsFailure ? draft.Error.Code.ToString() : string.Empty);
 
             Result<ContentDefinitionRecord> published = ContentCatalogLifecycleService.PublishDefinition(
-                _catalog, new PublishDefinitionRequest(_campaign, draft.Value.ContentDefinitionId, draft.Value.Revision, NewUserId(), actorIsMainGm: true, NewCommandId(), Corr));
+                _catalog, _campaigns, new PublishDefinitionRequest(_campaign, draft.Value.ContentDefinitionId, draft.Value.Revision, global::Odyssey.Application.Identity.DevIdentityProvider.AssignHost(), NewCommandId(), Corr));
             Assert.That(published.IsSuccess, Is.True, published.IsFailure ? published.Error.Code.ToString() : string.Empty);
             return published.Value;
         }

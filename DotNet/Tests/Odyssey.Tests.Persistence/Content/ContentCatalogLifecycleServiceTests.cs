@@ -86,18 +86,19 @@ namespace Odyssey.Tests.Persistence.Content
             return created.Value;
         }
 
-        private PublishDefinitionRequest PublishRequest(ContentDefinitionId id, long expectedRevision, bool actorIsMainGm = true) =>
-            new PublishDefinitionRequest(_campaign, id, expectedRevision, NewUserId(), actorIsMainGm, NewCommandId(), TestCorrelationId);
+        // ODY-S10-104: `actor` defaults to the campaign's stored MainGm (the host); pass an unregistered UserId to exercise a denial.
+        private PublishDefinitionRequest PublishRequest(ContentDefinitionId id, long expectedRevision, UserId? actor = null) =>
+            new PublishDefinitionRequest(_campaign, id, expectedRevision, actor ?? global::Odyssey.Application.Identity.DevIdentityProvider.AssignHost(), NewCommandId(), TestCorrelationId);
 
-        private ArchiveDefinitionRequest ArchiveRequest(ContentDefinitionId id, bool actorIsMainGm = true, string? reason = "no longer needed") =>
-            new ArchiveDefinitionRequest(_campaign, id, reason, actorIsMainGm, NewCommandId(), TestCorrelationId);
+        private ArchiveDefinitionRequest ArchiveRequest(ContentDefinitionId id, UserId? actor = null, string? reason = "no longer needed") =>
+            new ArchiveDefinitionRequest(_campaign, id, reason, actor ?? global::Odyssey.Application.Identity.DevIdentityProvider.AssignHost(), NewCommandId(), TestCorrelationId);
 
-        private DeleteDraftDefinitionRequest DeleteRequest(ContentDefinitionId id, bool actorIsMainGm = true) =>
-            new DeleteDraftDefinitionRequest(_campaign, id, actorIsMainGm, NewCommandId(), TestCorrelationId);
+        private DeleteDraftDefinitionRequest DeleteRequest(ContentDefinitionId id, UserId? actor = null) =>
+            new DeleteDraftDefinitionRequest(_campaign, id, actor ?? global::Odyssey.Application.Identity.DevIdentityProvider.AssignHost(), NewCommandId(), TestCorrelationId);
 
         private ContentDefinitionRecord Publish(ContentDefinitionId id, long expectedRevision = 1)
         {
-            Result<ContentDefinitionRecord> result = ContentCatalogLifecycleService.PublishDefinition(_catalogRepository, PublishRequest(id, expectedRevision));
+            Result<ContentDefinitionRecord> result = ContentCatalogLifecycleService.PublishDefinition(_catalogRepository, _campaignRepository, PublishRequest(id, expectedRevision));
             Assert.That(result.IsSuccess, Is.True, "fixture setup must itself succeed");
             return result.Value;
         }
@@ -109,7 +110,7 @@ namespace Odyssey.Tests.Persistence.Content
         {
             ContentDefinitionRecord draft = CreateValidDraft();
 
-            Result<ContentDefinitionRecord> result = ContentCatalogLifecycleService.PublishDefinition(_catalogRepository, PublishRequest(draft.ContentDefinitionId, draft.Revision));
+            Result<ContentDefinitionRecord> result = ContentCatalogLifecycleService.PublishDefinition(_catalogRepository, _campaignRepository, PublishRequest(draft.ContentDefinitionId, draft.Revision));
 
             Assert.That(result.IsSuccess, Is.True);
             Assert.That(result.Value.Status, Is.EqualTo(ContentDefinitionStatus.Published));
@@ -124,7 +125,7 @@ namespace Odyssey.Tests.Persistence.Content
         {
             ContentDefinitionRecord draft = CreateInvalidDraft();
 
-            Result<ContentDefinitionRecord> result = ContentCatalogLifecycleService.PublishDefinition(_catalogRepository, PublishRequest(draft.ContentDefinitionId, draft.Revision));
+            Result<ContentDefinitionRecord> result = ContentCatalogLifecycleService.PublishDefinition(_catalogRepository, _campaignRepository, PublishRequest(draft.ContentDefinitionId, draft.Revision));
 
             Assert.That(result.IsFailure, Is.True);
             Assert.That(result.Error.Code, Is.EqualTo(ErrorCodes.ContentCatalogPublishValidationFailed));
@@ -141,7 +142,7 @@ namespace Odyssey.Tests.Persistence.Content
         {
             ContentDefinitionRecord draft = CreateValidDraft();
 
-            Result<ContentDefinitionRecord> result = ContentCatalogLifecycleService.PublishDefinition(_catalogRepository, PublishRequest(draft.ContentDefinitionId, draft.Revision, actorIsMainGm: false));
+            Result<ContentDefinitionRecord> result = ContentCatalogLifecycleService.PublishDefinition(_catalogRepository, _campaignRepository, PublishRequest(draft.ContentDefinitionId, draft.Revision, actor: NewUserId()));
 
             Assert.That(result.IsFailure, Is.True);
             Assert.That(result.Error.Code, Is.EqualTo(ErrorCodes.ContentCatalogAuthoringDenied));
@@ -169,7 +170,7 @@ namespace Odyssey.Tests.Persistence.Content
             ContentDefinitionRecord draft = CreateValidDraft();
             ContentDefinitionRecord published = Publish(draft.ContentDefinitionId, draft.Revision);
 
-            Result<ContentDefinitionRecord> result = ContentCatalogLifecycleService.PublishDefinition(_catalogRepository, PublishRequest(published.ContentDefinitionId, published.Revision));
+            Result<ContentDefinitionRecord> result = ContentCatalogLifecycleService.PublishDefinition(_catalogRepository, _campaignRepository, PublishRequest(published.ContentDefinitionId, published.Revision));
 
             Assert.That(result.IsFailure, Is.True);
             Assert.That(result.Error.Code, Is.EqualTo(ErrorCodes.PersistenceContentDefinitionNotDraft));
@@ -181,7 +182,7 @@ namespace Odyssey.Tests.Persistence.Content
             ContentDefinitionRecord draft = CreateValidDraft();
             var request = PublishRequest(draft.ContentDefinitionId, draft.Revision);
 
-            Result<ContentDefinitionRecord> first = ContentCatalogLifecycleService.PublishDefinition(_catalogRepository, request);
+            Result<ContentDefinitionRecord> first = ContentCatalogLifecycleService.PublishDefinition(_catalogRepository, _campaignRepository, request);
             Assert.That(first.IsSuccess, Is.True);
 
             // Replay the exact same CommandId directly against the
@@ -203,7 +204,7 @@ namespace Odyssey.Tests.Persistence.Content
             ContentDefinitionRecord draft = CreateValidDraft();
             ContentDefinitionRecord published = Publish(draft.ContentDefinitionId, draft.Revision);
 
-            Result<ContentDefinitionRecord> result = ContentCatalogLifecycleService.ArchiveDefinition(_catalogRepository, ArchiveRequest(published.ContentDefinitionId));
+            Result<ContentDefinitionRecord> result = ContentCatalogLifecycleService.ArchiveDefinition(_catalogRepository, _campaignRepository, ArchiveRequest(published.ContentDefinitionId));
 
             Assert.That(result.IsSuccess, Is.True);
             Assert.That(result.Value.Status, Is.EqualTo(ContentDefinitionStatus.Archived));
@@ -216,7 +217,7 @@ namespace Odyssey.Tests.Persistence.Content
         {
             ContentDefinitionRecord draft = CreateValidDraft();
             ContentDefinitionRecord published = Publish(draft.ContentDefinitionId, draft.Revision);
-            ContentCatalogLifecycleService.ArchiveDefinition(_catalogRepository, ArchiveRequest(published.ContentDefinitionId));
+            ContentCatalogLifecycleService.ArchiveDefinition(_catalogRepository, _campaignRepository, ArchiveRequest(published.ContentDefinitionId));
 
             Result<ContentDefinitionRecord> reread = _catalogRepository.GetContentDefinition(_campaign, published.ContentDefinitionId, TestCorrelationId);
 
@@ -230,9 +231,9 @@ namespace Odyssey.Tests.Persistence.Content
             ContentDefinitionRecord stillDraft = CreateValidDraft(name: "Still Draft");
             ContentDefinitionRecord stillPublished = Publish(CreateValidDraft(name: "Still Published").ContentDefinitionId);
             ContentDefinitionRecord archived = Publish(CreateValidDraft(name: "Will Be Archived").ContentDefinitionId);
-            ContentCatalogLifecycleService.ArchiveDefinition(_catalogRepository, ArchiveRequest(archived.ContentDefinitionId));
+            ContentCatalogLifecycleService.ArchiveDefinition(_catalogRepository, _campaignRepository, ArchiveRequest(archived.ContentDefinitionId));
 
-            Result<IReadOnlyList<ContentDefinitionRecord>> listed = ContentCatalogLifecycleService.ListArchivedDefinitions(_catalogRepository, new ListArchivedDefinitionsRequest(_campaign, actorIsMainGm: true, TestCorrelationId));
+            Result<IReadOnlyList<ContentDefinitionRecord>> listed = ContentCatalogLifecycleService.ListArchivedDefinitions(_catalogRepository, _campaignRepository, new ListArchivedDefinitionsRequest(_campaign, global::Odyssey.Application.Identity.DevIdentityProvider.AssignHost(), TestCorrelationId));
 
             Assert.That(listed.IsSuccess, Is.True);
             Assert.That(listed.Value.Select(r => r.ContentDefinitionId), Does.Contain(archived.ContentDefinitionId));
@@ -247,7 +248,7 @@ namespace Odyssey.Tests.Persistence.Content
             ContentDefinitionRecord draft = CreateValidDraft();
             ContentDefinitionRecord published = Publish(draft.ContentDefinitionId, draft.Revision);
 
-            Result<ContentDefinitionRecord> result = ContentCatalogLifecycleService.ArchiveDefinition(_catalogRepository, ArchiveRequest(published.ContentDefinitionId, actorIsMainGm: false));
+            Result<ContentDefinitionRecord> result = ContentCatalogLifecycleService.ArchiveDefinition(_catalogRepository, _campaignRepository, ArchiveRequest(published.ContentDefinitionId, actor: NewUserId()));
 
             Assert.That(result.IsFailure, Is.True);
             Assert.That(result.Error.Code, Is.EqualTo(ErrorCodes.ContentCatalogAuthoringDenied));
@@ -261,7 +262,7 @@ namespace Odyssey.Tests.Persistence.Content
         {
             ContentDefinitionRecord draft = CreateValidDraft();
 
-            Result<ContentDefinitionRecord> result = ContentCatalogLifecycleService.ArchiveDefinition(_catalogRepository, ArchiveRequest(draft.ContentDefinitionId));
+            Result<ContentDefinitionRecord> result = ContentCatalogLifecycleService.ArchiveDefinition(_catalogRepository, _campaignRepository, ArchiveRequest(draft.ContentDefinitionId));
 
             Assert.That(result.IsFailure, Is.True);
             Assert.That(result.Error.Code, Is.EqualTo(ErrorCodes.PersistenceContentDefinitionNotPublished));
@@ -274,7 +275,7 @@ namespace Odyssey.Tests.Persistence.Content
         {
             ContentDefinitionRecord draft = CreateValidDraft();
 
-            Result result = ContentCatalogLifecycleService.DeleteDraftDefinition(_catalogRepository, DeleteRequest(draft.ContentDefinitionId));
+            Result result = ContentCatalogLifecycleService.DeleteDraftDefinition(_catalogRepository, _campaignRepository, DeleteRequest(draft.ContentDefinitionId));
 
             Assert.That(result.IsSuccess, Is.True);
             Result<ContentDefinitionRecord> reread = _catalogRepository.GetContentDefinition(_campaign, draft.ContentDefinitionId, TestCorrelationId);
@@ -288,7 +289,7 @@ namespace Odyssey.Tests.Persistence.Content
             ContentDefinitionRecord draft = CreateValidDraft();
             ContentDefinitionRecord published = Publish(draft.ContentDefinitionId, draft.Revision);
 
-            Result result = ContentCatalogLifecycleService.DeleteDraftDefinition(_catalogRepository, DeleteRequest(published.ContentDefinitionId));
+            Result result = ContentCatalogLifecycleService.DeleteDraftDefinition(_catalogRepository, _campaignRepository, DeleteRequest(published.ContentDefinitionId));
 
             Assert.That(result.IsFailure, Is.True);
             Assert.That(result.Error.Code, Is.EqualTo(ErrorCodes.PersistenceContentDefinitionNotDraft));
@@ -302,9 +303,9 @@ namespace Odyssey.Tests.Persistence.Content
         {
             ContentDefinitionRecord draft = CreateValidDraft();
             ContentDefinitionRecord published = Publish(draft.ContentDefinitionId, draft.Revision);
-            ContentCatalogLifecycleService.ArchiveDefinition(_catalogRepository, ArchiveRequest(published.ContentDefinitionId));
+            ContentCatalogLifecycleService.ArchiveDefinition(_catalogRepository, _campaignRepository, ArchiveRequest(published.ContentDefinitionId));
 
-            Result result = ContentCatalogLifecycleService.DeleteDraftDefinition(_catalogRepository, DeleteRequest(published.ContentDefinitionId));
+            Result result = ContentCatalogLifecycleService.DeleteDraftDefinition(_catalogRepository, _campaignRepository, DeleteRequest(published.ContentDefinitionId));
 
             Assert.That(result.IsFailure, Is.True);
             Assert.That(result.Error.Code, Is.EqualTo(ErrorCodes.PersistenceContentDefinitionNotDraft));
@@ -325,7 +326,7 @@ namespace Odyssey.Tests.Persistence.Content
             ContentDefinitionRecord referencer = CreateValidDraft(name: "Referencer");
             SeedDependencyRefDirectly(referencer.ContentDefinitionId, target.ContentDefinitionId, version: 1);
 
-            Result result = ContentCatalogLifecycleService.DeleteDraftDefinition(_catalogRepository, DeleteRequest(target.ContentDefinitionId));
+            Result result = ContentCatalogLifecycleService.DeleteDraftDefinition(_catalogRepository, _campaignRepository, DeleteRequest(target.ContentDefinitionId));
 
             Assert.That(result.IsFailure, Is.True);
             Assert.That(result.Error.Code, Is.EqualTo(ErrorCodes.PersistenceContentDefinitionReferenced));
@@ -342,7 +343,7 @@ namespace Odyssey.Tests.Persistence.Content
             SeedDependencyRefDirectly(referencer.ContentDefinitionId, unrelatedTarget.ContentDefinitionId, version: 1);
 
             ContentDefinitionRecord actualTarget = CreateValidDraft(name: "Truly Unused Draft");
-            Result result = ContentCatalogLifecycleService.DeleteDraftDefinition(_catalogRepository, DeleteRequest(actualTarget.ContentDefinitionId));
+            Result result = ContentCatalogLifecycleService.DeleteDraftDefinition(_catalogRepository, _campaignRepository, DeleteRequest(actualTarget.ContentDefinitionId));
 
             Assert.That(result.IsSuccess, Is.True);
         }
@@ -352,7 +353,7 @@ namespace Odyssey.Tests.Persistence.Content
         {
             ContentDefinitionRecord draft = CreateValidDraft();
 
-            Result result = ContentCatalogLifecycleService.DeleteDraftDefinition(_catalogRepository, DeleteRequest(draft.ContentDefinitionId, actorIsMainGm: false));
+            Result result = ContentCatalogLifecycleService.DeleteDraftDefinition(_catalogRepository, _campaignRepository, DeleteRequest(draft.ContentDefinitionId, actor: NewUserId()));
 
             Assert.That(result.IsFailure, Is.True);
             Assert.That(result.Error.Code, Is.EqualTo(ErrorCodes.ContentCatalogAuthoringDenied));
@@ -367,7 +368,7 @@ namespace Odyssey.Tests.Persistence.Content
             ContentDefinitionRecord draft = CreateValidDraft();
             var request = DeleteRequest(draft.ContentDefinitionId);
 
-            Result first = ContentCatalogLifecycleService.DeleteDraftDefinition(_catalogRepository, request);
+            Result first = ContentCatalogLifecycleService.DeleteDraftDefinition(_catalogRepository, _campaignRepository, request);
             Assert.That(first.IsSuccess, Is.True);
 
             Result replay = _catalogRepository.DeleteDraftDefinition(_campaign, draft.ContentDefinitionId, request.CommandId, TestCorrelationId);
@@ -479,6 +480,127 @@ namespace Odyssey.Tests.Persistence.Content
             Assert.That(tableNames, Does.Contain("ContentDefinition"));
             Assert.That(tableNames, Does.Contain("ContentDefinitionCommandLedger"));
             Assert.That(tableNames, Does.Contain("ContentDefinitionDeleteLedger"));
+        }
+
+        // ---- ODY-S10-104: MainGM is the stored membership, not a claim -------------------------------
+
+        private UserId AddMember(CampaignMembershipRole role)
+        {
+            UserId user = NewUserId();
+            Assert.That(_campaignRepository.AddMember(_campaign, user, role, NewCommandId(), TestCorrelationId).IsSuccess, Is.True);
+            return user;
+        }
+
+        [Test] // TC-PERSIST-062
+        public void PublishDefinition_ArchiveDefinition_DeleteDraftDefinition_ListArchivedDefinitions_AreMainGmOnly_ByTheStoredMembership()
+        {
+            UserId stranger = NewUserId();
+            UserId player = AddMember(CampaignMembershipRole.Player);
+            UserId observer = AddMember(CampaignMembershipRole.Observer);
+            UserId secondGm = AddMember(CampaignMembershipRole.MainGm);
+
+            ContentDefinitionRecord draft = CreateValidDraft();
+            foreach (UserId actor in new[] { stranger, player, observer })
+            {
+                Result<ContentDefinitionRecord> published = ContentCatalogLifecycleService.PublishDefinition(_catalogRepository, _campaignRepository, PublishRequest(draft.ContentDefinitionId, draft.Revision, actor: actor));
+                Assert.That(published.IsFailure, Is.True, "PublishDefinition must deny a user who is not a stored MainGm");
+                Assert.That(published.Error.Code, Is.EqualTo(ErrorCodes.ContentCatalogAuthoringDenied));
+            }
+
+            ContentDefinitionRecord published2 = Publish(draft.ContentDefinitionId, draft.Revision);
+
+            foreach (UserId actor in new[] { stranger, player, observer })
+            {
+                Result<ContentDefinitionRecord> archived = ContentCatalogLifecycleService.ArchiveDefinition(_catalogRepository, _campaignRepository, ArchiveRequest(published2.ContentDefinitionId, actor: actor));
+                Assert.That(archived.IsFailure, Is.True, "ArchiveDefinition must deny a user who is not a stored MainGm");
+                Assert.That(archived.Error.Code, Is.EqualTo(ErrorCodes.ContentCatalogAuthoringDenied));
+            }
+
+            Assert.That(_catalogRepository.GetContentDefinition(_campaign, published2.ContentDefinitionId, TestCorrelationId).Value.Status, Is.EqualTo(ContentDefinitionStatus.Published), "no denied Archive above changed the row");
+
+            ContentDefinitionRecord otherDraft = CreateValidDraft();
+            foreach (UserId actor in new[] { stranger, player, observer })
+            {
+                Result deleted = ContentCatalogLifecycleService.DeleteDraftDefinition(_catalogRepository, _campaignRepository, DeleteRequest(otherDraft.ContentDefinitionId, actor: actor));
+                Assert.That(deleted.IsFailure, Is.True, "DeleteDraftDefinition must deny a user who is not a stored MainGm");
+                Assert.That(deleted.Error.Code, Is.EqualTo(ErrorCodes.ContentCatalogAuthoringDenied));
+            }
+
+            Assert.That(_catalogRepository.GetContentDefinition(_campaign, otherDraft.ContentDefinitionId, TestCorrelationId).IsSuccess, Is.True, "no denied Delete above removed the row");
+
+            foreach (UserId actor in new[] { stranger, player, observer })
+            {
+                Result<IReadOnlyList<ContentDefinitionRecord>> listed = ContentCatalogLifecycleService.ListArchivedDefinitions(_catalogRepository, _campaignRepository, new ListArchivedDefinitionsRequest(_campaign, actor, TestCorrelationId));
+                Assert.That(listed.IsFailure, Is.True, "ListArchivedDefinitions must deny a user who is not a stored MainGm");
+                Assert.That(listed.Error.Code, Is.EqualTo(ErrorCodes.ContentCatalogAuthoringDenied));
+            }
+
+            // A stored MainGm (the host, or an added one) is let through on all four points.
+            Assert.That(ContentCatalogLifecycleService.PublishDefinition(_catalogRepository, _campaignRepository, PublishRequest(draft.ContentDefinitionId, draft.Revision, actor: secondGm)).IsFailure, Is.True, "not-Draft is a different, structural rejection -- this only confirms the MainGm gate itself did not fire");
+            Assert.That(ContentCatalogLifecycleService.ArchiveDefinition(_catalogRepository, _campaignRepository, ArchiveRequest(published2.ContentDefinitionId, actor: secondGm)).IsSuccess, Is.True);
+            Assert.That(ContentCatalogLifecycleService.DeleteDraftDefinition(_catalogRepository, _campaignRepository, DeleteRequest(otherDraft.ContentDefinitionId, actor: secondGm)).IsSuccess, Is.True);
+            Assert.That(ContentCatalogLifecycleService.ListArchivedDefinitions(_catalogRepository, _campaignRepository, new ListArchivedDefinitionsRequest(_campaign, global::Odyssey.Application.Identity.DevIdentityProvider.AssignHost(), TestCorrelationId)).IsSuccess, Is.True);
+        }
+
+        [Test] // TC-PERSIST-063
+        public void PublishDefinition_FailsClosed_WhenTheMembershipLookupFails()
+        {
+            ContentDefinitionRecord draft = CreateValidDraft();
+            var poisoned = PoisonedMembershipCampaignRepository.FailsOnLookup();
+
+            Result<ContentDefinitionRecord> result = ContentCatalogLifecycleService.PublishDefinition(_catalogRepository, poisoned, PublishRequest(draft.ContentDefinitionId, draft.Revision, actor: global::Odyssey.Application.Identity.DevIdentityProvider.AssignHost()));
+
+            Assert.That(result.IsFailure, Is.True);
+            Assert.That(result.Error.Code, Is.EqualTo(ErrorCodes.PersistenceCampaignIoFailed), "an unreadable membership is the lookup's own failure, not a pass and not a fake denial -- even for the host");
+            Assert.That(poisoned.LookupCalls, Is.EqualTo(1));
+            Assert.That(_catalogRepository.GetContentDefinition(_campaign, draft.ContentDefinitionId, TestCorrelationId).Value.Status, Is.EqualTo(ContentDefinitionStatus.Draft));
+        }
+
+        [Test] // TC-PERSIST-064
+        public void ArchiveDefinition_DeleteDraftDefinition_ListArchivedDefinitions_ReallyUseTheirNewActorUserId_NotJustAcceptAnyValue()
+        {
+            // These three request types had no actor parameter at all before this task; this confirms the newly
+            // added UserId is really looked up, not merely accepted and ignored: an actor who IS a registered
+            // participant, but not MainGm, is still denied -- proving the check reads the role, not just
+            // "is this a syntactically valid UserId".
+            UserId player = AddMember(CampaignMembershipRole.Player);
+
+            ContentDefinitionRecord draft = CreateValidDraft();
+            ContentDefinitionRecord published = Publish(draft.ContentDefinitionId, draft.Revision);
+            Assert.That(ContentCatalogLifecycleService.ArchiveDefinition(_catalogRepository, _campaignRepository, ArchiveRequest(published.ContentDefinitionId, actor: player)).Error.Code, Is.EqualTo(ErrorCodes.ContentCatalogAuthoringDenied));
+
+            ContentDefinitionRecord otherDraft = CreateValidDraft();
+            Assert.That(ContentCatalogLifecycleService.DeleteDraftDefinition(_catalogRepository, _campaignRepository, DeleteRequest(otherDraft.ContentDefinitionId, actor: player)).Error.Code, Is.EqualTo(ErrorCodes.ContentCatalogAuthoringDenied));
+
+            Assert.That(ContentCatalogLifecycleService.ListArchivedDefinitions(_catalogRepository, _campaignRepository, new ListArchivedDefinitionsRequest(_campaign, player, TestCorrelationId)).Error.Code, Is.EqualTo(ErrorCodes.ContentCatalogAuthoringDenied));
+
+            // And the same three operations succeed once the actor really is a stored MainGm (a different user, since
+            // role change/removal are not in this project's scope) -- the parameter's value, not something else, decides
+            // the outcome.
+            UserId realGm = AddMember(CampaignMembershipRole.MainGm);
+            Assert.That(ContentCatalogLifecycleService.ArchiveDefinition(_catalogRepository, _campaignRepository, ArchiveRequest(published.ContentDefinitionId, actor: realGm)).IsSuccess, Is.True);
+            Assert.That(ContentCatalogLifecycleService.DeleteDraftDefinition(_catalogRepository, _campaignRepository, DeleteRequest(otherDraft.ContentDefinitionId, actor: realGm)).IsSuccess, Is.True);
+            Assert.That(ContentCatalogLifecycleService.ListArchivedDefinitions(_catalogRepository, _campaignRepository, new ListArchivedDefinitionsRequest(_campaign, realGm, TestCorrelationId)).IsSuccess, Is.True);
+        }
+
+        /// <summary>A campaign repository whose membership lookup always fails -- everything else is unused by these checks.</summary>
+        private sealed class PoisonedMembershipCampaignRepository : ICampaignRepository
+        {
+            public static PoisonedMembershipCampaignRepository FailsOnLookup() => new PoisonedMembershipCampaignRepository();
+
+            public int LookupCalls { get; private set; }
+
+            public Result<CampaignMemberLookup> GetMemberRole(CampaignHandle campaign, UserId userId, CorrelationId correlationId)
+            {
+                LookupCalls++;
+                return Result<CampaignMemberLookup>.Failure(PersistenceFailures.CampaignIoFailed(correlationId));
+            }
+
+            public Result<CampaignHandle> Create(CreateCampaignRequest request, CommandId commandId, CorrelationId correlationId) => throw new NotSupportedException();
+            public Result<CampaignHandle> Open(string campaignFolderPath, CorrelationId correlationId) => throw new NotSupportedException();
+            public Result Close(CampaignHandle handle, CorrelationId correlationId) => throw new NotSupportedException();
+            public Result<CampaignMembership> AddMember(CampaignHandle campaign, UserId userId, CampaignMembershipRole role, CommandId commandId, CorrelationId correlationId) => throw new NotSupportedException();
+            public Result<IReadOnlyList<CampaignMembership>> ListMembers(CampaignHandle campaign, CorrelationId correlationId) => throw new NotSupportedException();
         }
     }
 }

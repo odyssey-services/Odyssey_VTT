@@ -1721,6 +1721,46 @@
                           "check":  "IActiveEffectRepository (the public interface) no longer declares RemoveActiveEffectAsSystemRollback and its other members are unchanged (a reflection check over the interface's own methods, not a behavior test); the new IActiveEffectSystemRollback interface exists in the same assembly but is not a public type"
                       },
                       {
+                          "testCaseId":  "TC-PERSIST-060",
+                          "taskId":  "ODY-S10-104",
+                          "authority":  "ODY-S10-104 test list (task contract section 9)",
+                          "runner":  "dotnet test",
+                          "path":  "DotNet/Tests/Odyssey.Tests.Persistence/Content/ContentCatalogAuthoringServiceTests.cs",
+                          "check":  "CreateDraftDefinition, UpdateDraftDefinition and CreateNextDraftVersionFromPublished are MainGM-only by the stored membership: an unregistered user, a Player and an Observer are denied (repository state unchanged) and the host and an added MainGm succeed"
+                      },
+                      {
+                          "testCaseId":  "TC-PERSIST-061",
+                          "taskId":  "ODY-S10-104",
+                          "authority":  "ODY-S10-104 test list (task contract section 9)",
+                          "runner":  "dotnet test",
+                          "path":  "DotNet/Tests/Odyssey.Tests.Persistence/Content/ContentCatalogAuthoringServiceTests.cs",
+                          "check":  "Fail-closed: CreateDraftDefinition returns the lookup's own failure (PersistenceCampaignIoFailed) with an unreadable membership, even for the host, and creates no row"
+                      },
+                      {
+                          "testCaseId":  "TC-PERSIST-062",
+                          "taskId":  "ODY-S10-104",
+                          "authority":  "ODY-S10-104 test list (task contract section 9)",
+                          "runner":  "dotnet test",
+                          "path":  "DotNet/Tests/Odyssey.Tests.Persistence/Content/ContentCatalogLifecycleServiceTests.cs",
+                          "check":  "PublishDefinition, ArchiveDefinition, DeleteDraftDefinition and ListArchivedDefinitions are MainGM-only by the stored membership: an unregistered user, a Player and an Observer are denied with no state change, and the host and an added MainGm succeed"
+                      },
+                      {
+                          "testCaseId":  "TC-PERSIST-063",
+                          "taskId":  "ODY-S10-104",
+                          "authority":  "ODY-S10-104 test list (task contract section 9)",
+                          "runner":  "dotnet test",
+                          "path":  "DotNet/Tests/Odyssey.Tests.Persistence/Content/ContentCatalogLifecycleServiceTests.cs",
+                          "check":  "Fail-closed: PublishDefinition returns the lookup's own failure with an unreadable membership, even for the host, and leaves the Draft untouched"
+                      },
+                      {
+                          "testCaseId":  "TC-PERSIST-064",
+                          "taskId":  "ODY-S10-104",
+                          "authority":  "ODY-S10-104 test list (task contract section 9)",
+                          "runner":  "dotnet test",
+                          "path":  "DotNet/Tests/Odyssey.Tests.Persistence/Content/ContentCatalogLifecycleServiceTests.cs",
+                          "check":  "The three newly added actorUserId parameters (ArchiveDefinition, DeleteDraftDefinition, ListArchivedDefinitions) really decide the outcome: a registered-but-not-MainGm Player is denied on all three, and the same three calls succeed once the actor really is a stored MainGm"
+                      },
+                      {
                           "testCaseId":  "TC-BOARD-001",
                           "taskId":  "ODY-S03-004",
                           "authority":  "ADR-020 section 5.1/5.3; ODY-S03-004",

@@ -324,12 +324,12 @@ namespace Odyssey.Tests.Persistence.Integration
 
         private ContentDefinitionRecord PublishDefinition(ContentDefinitionType type, string name, string propertiesJson)
         {
-            Result<ContentDefinitionRecord> draft = ContentCatalogAuthoringService.CreateDraftDefinition(_catalog, new CreateDraftDefinitionRequest(
-                _campaign, type, name, "ODY-S05-507 integration fixture", NewUserId(), actorIsMainGm: true, NewCommandId(), Corr,
+            Result<ContentDefinitionRecord> draft = ContentCatalogAuthoringService.CreateDraftDefinition(_catalog, _campaigns, new CreateDraftDefinitionRequest(
+                _campaign, type, name, "ODY-S05-507 integration fixture", global::Odyssey.Application.Identity.DevIdentityProvider.AssignHost(), NewCommandId(), Corr,
                 rulesetCompatibility: new[] { ActiveRuleset }, propertiesJson: propertiesJson));
             Assert.That(draft.IsSuccess, Is.True, draft.IsFailure ? draft.Error.Code.ToString() : string.Empty);
-            Result<ContentDefinitionRecord> published = ContentCatalogLifecycleService.PublishDefinition(_catalog, new PublishDefinitionRequest(
-                _campaign, draft.Value.ContentDefinitionId, draft.Value.Revision, NewUserId(), actorIsMainGm: true, NewCommandId(), Corr));
+            Result<ContentDefinitionRecord> published = ContentCatalogLifecycleService.PublishDefinition(_catalog, _campaigns, new PublishDefinitionRequest(
+                _campaign, draft.Value.ContentDefinitionId, draft.Value.Revision, global::Odyssey.Application.Identity.DevIdentityProvider.AssignHost(), NewCommandId(), Corr));
             Assert.That(published.IsSuccess, Is.True, published.IsFailure ? published.Error.Code.ToString() : string.Empty);
             return published.Value;
         }

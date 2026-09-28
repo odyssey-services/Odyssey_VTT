@@ -141,7 +141,7 @@ namespace Odyssey.Tests.Persistence
             ContentDefinitionRecord itemEffect2 = PublishApplyEffectEffect(secondApplied);
             ItemStackRecord stack = CreateStack(inventory, quantity: 2, itemEffect1, itemEffect2);
 
-            Result<ContentDefinitionRecord> archived = ContentCatalogLifecycleService.ArchiveDefinition(_catalog, new ArchiveDefinitionRequest(_campaign, secondApplied.ContentDefinitionId, "test archive", actorIsMainGm: true, Command(), Corr));
+            Result<ContentDefinitionRecord> archived = ContentCatalogLifecycleService.ArchiveDefinition(_catalog, new SqliteCampaignRepository(_clock), new ArchiveDefinitionRequest(_campaign, secondApplied.ContentDefinitionId, "test archive", global::Odyssey.Application.Identity.DevIdentityProvider.AssignHost(), Command(), Corr));
             Assert.That(archived.IsSuccess, Is.True, archived.IsFailure ? archived.Error.Code.ToString() : string.Empty);
 
             UseItemRequest request = Request(actor, InventoryItemRef.ForStack(stack.ItemStackId), stack.Revision, inventory.Revision);
@@ -170,7 +170,7 @@ namespace Odyssey.Tests.Persistence
             ContentDefinitionRecord itemEffect3 = PublishApplyEffectEffect(thirdApplied);
             ItemStackRecord stack = CreateStack(inventory, quantity: 2, itemEffect1, itemEffect2, itemEffect3);
 
-            Result<ContentDefinitionRecord> archived = ContentCatalogLifecycleService.ArchiveDefinition(_catalog, new ArchiveDefinitionRequest(_campaign, thirdApplied.ContentDefinitionId, "test archive", actorIsMainGm: true, Command(), Corr));
+            Result<ContentDefinitionRecord> archived = ContentCatalogLifecycleService.ArchiveDefinition(_catalog, new SqliteCampaignRepository(_clock), new ArchiveDefinitionRequest(_campaign, thirdApplied.ContentDefinitionId, "test archive", global::Odyssey.Application.Identity.DevIdentityProvider.AssignHost(), Command(), Corr));
             Assert.That(archived.IsSuccess, Is.True, archived.IsFailure ? archived.Error.Code.ToString() : string.Empty);
 
             UseItemRequest request = Request(actor, InventoryItemRef.ForStack(stack.ItemStackId), stack.Revision, inventory.Revision);
@@ -213,7 +213,7 @@ namespace Odyssey.Tests.Persistence
             ContentDefinitionRecord itemEffect2 = PublishApplyEffectEffect(secondApplied);
             ItemStackRecord stack = CreateStack(inventory, quantity: 1, itemEffect1, itemEffect2);
 
-            Result<ContentDefinitionRecord> archived = ContentCatalogLifecycleService.ArchiveDefinition(_catalog, new ArchiveDefinitionRequest(_campaign, secondApplied.ContentDefinitionId, "test archive", actorIsMainGm: true, Command(), Corr));
+            Result<ContentDefinitionRecord> archived = ContentCatalogLifecycleService.ArchiveDefinition(_catalog, new SqliteCampaignRepository(_clock), new ArchiveDefinitionRequest(_campaign, secondApplied.ContentDefinitionId, "test archive", global::Odyssey.Application.Identity.DevIdentityProvider.AssignHost(), Command(), Corr));
             Assert.That(archived.IsSuccess, Is.True, archived.IsFailure ? archived.Error.Code.ToString() : string.Empty);
 
             UseItemRequest request = Request(actor, InventoryItemRef.ForStack(stack.ItemStackId), stack.Revision, inventory.Revision);
@@ -253,7 +253,7 @@ namespace Odyssey.Tests.Persistence
             var itemDefinition = new ItemDefinition(ItemCategory.Consumable, false, null, 1, false, null, false, null, Array.Empty<ContentDefinitionRef>(), effectRefs);
             ItemInstanceRecord instance = CreateInstance(inventory, itemDefinition);
 
-            Result<ContentDefinitionRecord> archived = ContentCatalogLifecycleService.ArchiveDefinition(_catalog, new ArchiveDefinitionRequest(_campaign, secondApplied.ContentDefinitionId, "test archive", actorIsMainGm: true, Command(), Corr));
+            Result<ContentDefinitionRecord> archived = ContentCatalogLifecycleService.ArchiveDefinition(_catalog, new SqliteCampaignRepository(_clock), new ArchiveDefinitionRequest(_campaign, secondApplied.ContentDefinitionId, "test archive", global::Odyssey.Application.Identity.DevIdentityProvider.AssignHost(), Command(), Corr));
             Assert.That(archived.IsSuccess, Is.True, archived.IsFailure ? archived.Error.Code.ToString() : string.Empty);
 
             UseItemRequest request = Request(actor, InventoryItemRef.ForInstance(instance.ItemInstanceId), instance.Revision, inventory.Revision);
@@ -354,16 +354,16 @@ namespace Odyssey.Tests.Persistence
 
         private ContentDefinitionRecord AuthorDraft(ContentDefinitionType type, string name, string propertiesJson, IReadOnlyList<ContentDefinitionRef>? dependencyRefs = null)
         {
-            var request = new CreateDraftDefinitionRequest(_campaign, type, name, "ODY-S06-107 fixture.", User(), actorIsMainGm: true, Command(), Corr, rulesetCompatibility: new[] { ActiveRuleset }, propertiesJson: propertiesJson, dependencyRefs: dependencyRefs);
-            Result<ContentDefinitionRecord> result = ContentCatalogAuthoringService.CreateDraftDefinition(_catalog, request);
+            var request = new CreateDraftDefinitionRequest(_campaign, type, name, "ODY-S06-107 fixture.", global::Odyssey.Application.Identity.DevIdentityProvider.AssignHost(), Command(), Corr, rulesetCompatibility: new[] { ActiveRuleset }, propertiesJson: propertiesJson, dependencyRefs: dependencyRefs);
+            Result<ContentDefinitionRecord> result = ContentCatalogAuthoringService.CreateDraftDefinition(_catalog, new SqliteCampaignRepository(_clock), request);
             Assert.That(result.IsSuccess, Is.True);
             return result.Value;
         }
 
         private ContentDefinitionRecord PublishFixture(ContentDefinitionRecord draft)
         {
-            var request = new PublishDefinitionRequest(_campaign, draft.ContentDefinitionId, draft.Revision, User(), actorIsMainGm: true, Command(), Corr);
-            Result<ContentDefinitionRecord> result = ContentCatalogLifecycleService.PublishDefinition(_catalog, request);
+            var request = new PublishDefinitionRequest(_campaign, draft.ContentDefinitionId, draft.Revision, global::Odyssey.Application.Identity.DevIdentityProvider.AssignHost(), Command(), Corr);
+            Result<ContentDefinitionRecord> result = ContentCatalogLifecycleService.PublishDefinition(_catalog, new SqliteCampaignRepository(_clock), request);
             Assert.That(result.IsSuccess, Is.True, result.IsFailure ? result.Error.Code.ToString() : string.Empty);
             return result.Value;
         }
@@ -566,7 +566,7 @@ namespace Odyssey.Tests.Persistence
             ContentDefinitionRecord itemEffect1 = PublishApplyEffectEffect(firstApplied);
             ContentDefinitionRecord itemEffect2 = PublishApplyEffectEffect(secondApplied);
             ItemStackRecord stack = CreateStack(inventory, quantity: 2, itemEffect1, itemEffect2);
-            Assert.That(ContentCatalogLifecycleService.ArchiveDefinition(_catalog, new ArchiveDefinitionRequest(_campaign, secondApplied.ContentDefinitionId, "test archive", actorIsMainGm: true, Command(), Corr)).IsSuccess, Is.True);
+            Assert.That(ContentCatalogLifecycleService.ArchiveDefinition(_catalog, new SqliteCampaignRepository(_clock), new ArchiveDefinitionRequest(_campaign, secondApplied.ContentDefinitionId, "test archive", global::Odyssey.Application.Identity.DevIdentityProvider.AssignHost(), Command(), Corr)).IsSuccess, Is.True);
 
             CharacterRecord current = _characters.GetCharacter(_campaign, actor, Corr).Value;
             var intent = new UseItemIntent(actor, InventoryItemRef.ForStack(stack.ItemStackId), stack.Revision, inventory.Revision, current.Revisions.CharacterResourcesRevision);
