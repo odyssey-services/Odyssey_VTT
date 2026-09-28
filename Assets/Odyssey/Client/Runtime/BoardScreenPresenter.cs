@@ -55,7 +55,24 @@ namespace Odyssey.Unity.Client
         // ODY-S08-102: replaces the old fixed OriginOffsetPixels/PixelsPerUnit transform. Purely local,
         // per-presenter, ephemeral state (task contract section 1.4: no persistence, no sync).
         private readonly BoardCamera _camera = new BoardCamera();
+        // ODY-S08-107: _boardPointerGesture now drives only the middle-button camera pan (it still reports the
+        // movement deltas a pan needs); the left button on empty board is the box-select/click gesture below.
         private readonly BoardPointerGesture _boardPointerGesture = new BoardPointerGesture();
+        private readonly BoardBoxSelectGesture _boxGesture = new BoardBoxSelectGesture();
+        private bool _boxAdditive;
+        private VisualElement? _boxElement;
+
+        // Which mouse button owns the board gesture in progress (-1: none). The mouse reports one pointer id
+        // for every button, so this -- not the pointer id -- is what keeps a second button from starting a
+        // second gesture, and keeps its release from ending the first.
+        private int _activeBoardButton = -1;
+
+        // ODY-S08-107: the right-button "player trail" marker -- local visual state only, in world coordinates.
+        private const double PlayerMarkerSizePixels = 22.0;
+        private const long PlayerMarkerLifetimeMilliseconds = 2500;
+        private VisualElement? _markerElement;
+        private IVisualElementScheduledItem? _markerExpiry;
+        private TokenPosition? _markerWorldPosition;
         private readonly Dictionary<string, VisualElement> _tokenElementsByTokenId = new Dictionary<string, VisualElement>(StringComparer.Ordinal);
         // ODY-S08-102: the last-rendered world position of each token, so a pan/zoom can reposition
         // already-rendered token elements without a full Refresh() (no repeated DB read/texture-cache
@@ -93,7 +110,7 @@ namespace Odyssey.Unity.Client
         private readonly HashSet<string> _selectedTokenIds = new HashSet<string>(StringComparer.Ordinal);
 
         // ODY-S08-106: state of the token gesture in progress (set by BeginTokenDrag, cleared when it ends).
-        private bool _dragCtrl;
+        private bool _dragShift;
         private bool _dragStarted;
         private string? _dragAnchorKey;
         private readonly List<string> _dragGroup = new List<string>();
@@ -346,6 +363,10 @@ namespace Odyssey.Unity.Client
                 _tokenScalesByTokenId[token.TokenId.ToString()] = token.Scale;
             }
 
+            // _boardArea.Clear() above also removed the overlays; put back whichever is live.
+            if (_boxElement != null && _boxGesture.IsDragging) _boardArea.Add(_boxElement);
+            if (_markerElement != null && _markerWorldPosition.HasValue) _boardArea.Add(_markerElement);
+
             return firstAssetError;
         }
 
@@ -408,7 +429,7 @@ namespace Odyssey.Unity.Client
             Refresh();
         }
 
-        /// <summary>ODY-S08-106: a Ctrl+click on a token: adds it to the selection if absent, removes exactly it if present; the rest of the selection is untouched.</summary>
+        /// <summary>ODY-S08-106/107: a Shift+click on a token: adds it to the selection if absent, removes exactly it if present; the rest of the selection is untouched.</summary>
         public void ToggleTokenSelection(TokenId tokenId)
         {
             string key = tokenId.ToString();
@@ -520,12 +541,18 @@ namespace Odyssey.Unity.Client
             // A pointer-down that starts on a token must never reach the board's own gesture tracking
             // (OnBoardPointerDown) -- by exact precedent of ODY-S08-102's own reasoning, now serving the
             // token's own drag instead of merely protecting a click.
+            // ODY-S08-107: only the left button drives a token. Middle/right presses are left alone (no
+            // StopPropagation, no capture) so they bubble to the board and pan / place the marker even over a
+            // token. A left press while another gesture already owns the pointer is ignored too.
+            if (evt.button != 0) return;
+            if (_activeBoardButton != -1 || _draggingTokenId.HasValue) return;
             evt.StopPropagation();
             if (_boardArea == null) return;
             tokenElement.CapturePointer(evt.pointerId);
             Vector2 boardLocal = _boardArea.WorldToLocal(evt.position);
-            // ODY-S08-106: the Ctrl state is read here, at the physical press, and carried in the gesture state.
-            BeginTokenDrag(tokenId, boardLocal.x, boardLocal.y, evt.ctrlKey);
+            // ODY-S08-106/107: the Shift state (it was Ctrl before ODY-S08-107) is read here, at the physical
+            // press, and carried in the gesture state. Ctrl is not read anywhere: a Ctrl+click is a plain click.
+            BeginTokenDrag(tokenId, boardLocal.x, boardLocal.y, evt.shiftKey);
         }
 
         private void OnTokenPointerMove(PointerMoveEvent evt, VisualElement tokenElement, TokenId tokenId)
@@ -537,6 +564,7 @@ namespace Odyssey.Unity.Client
 
         private void OnTokenPointerUp(PointerUpEvent evt, VisualElement tokenElement, TokenId tokenId)
         {
+            if (evt.button != 0) return; // releasing another button must not end this token's drag
             if (_boardArea == null || !tokenElement.HasPointerCapture(evt.pointerId)) return;
             Vector2 boardLocal = _boardArea.WorldToLocal(evt.position);
             // Cleared before ReleasePointer so that whatever PointerCaptureOutEvent it produces (this
@@ -566,7 +594,7 @@ namespace Odyssey.Unity.Client
         }
 
         /// <summary>Starts tracking a token's own drag gesture. Public -- see the class remarks on testability.</summary>
-        public void BeginTokenDrag(TokenId tokenId, double boardPixelX, double boardPixelY, bool ctrl = false)
+        public void BeginTokenDrag(TokenId tokenId, double boardPixelX, double boardPixelY, bool shift = false)
         {
             string anchorKey = tokenId.ToString();
             if (!_tokenGesturesByTokenId.TryGetValue(anchorKey, out BoardPointerGesture? gesture)) return;
@@ -577,7 +605,7 @@ namespace Odyssey.Unity.Client
             // Only a token that is part of a selection of two or more drags the whole group; anything else
             // drags just the grabbed token (exactly the ODY-S08-104 behaviour).
             ResetDragState();
-            _dragCtrl = ctrl;
+            _dragShift = shift;
             _dragAnchorKey = anchorKey;
             if (_selectedTokenIds.Count >= 2 && _selectedTokenIds.Contains(anchorKey))
             {
@@ -696,13 +724,13 @@ namespace Odyssey.Unity.Client
         }
 
         // First real drag step of a gesture: grabbing a token that is not part of the current selection makes
-        // it the selection (a Ctrl-drag never edits the selection). Updated in place -- no Refresh under the
+        // it the selection (a Shift-drag never edits the selection). Updated in place -- no Refresh under the
         // active pointer capture.
         private void BeginDragIfNeeded(string key)
         {
             if (_dragStarted) return;
             _dragStarted = true;
-            if (!_dragCtrl && !_selectedTokenIds.Contains(key))
+            if (!_dragShift && !_selectedTokenIds.Contains(key))
             {
                 _selectedTokenIds.Clear();
                 _selectedTokenIds.Add(key);
@@ -712,7 +740,7 @@ namespace Odyssey.Unity.Client
 
         private void ResetDragState()
         {
-            _dragCtrl = false;
+            _dragShift = false;
             _dragStarted = false;
             _dragAnchorKey = null;
             _dragGroup.Clear();
@@ -743,15 +771,15 @@ namespace Odyssey.Unity.Client
             if (!_tokenGesturesByTokenId.TryGetValue(tokenId.ToString(), out BoardPointerGesture? gesture)) return;
             bool wasClick = gesture.End();
             _draggingTokenId = null;
-            bool ctrl = _dragCtrl;
+            bool shift = _dragShift;
             List<string> group = new List<string>(_dragGroup);
 
             if (wasClick)
             {
                 ResetDragState();
-                // ODY-S08-106: Ctrl+click adds/removes just this token; a plain click replaces (or, for the
+                // ODY-S08-106/107: Shift+click adds/removes just this token; a plain click replaces (or, for the
                 // only selected token, clears) the selection -- the modifier was read at pointer-down.
-                if (ctrl) ToggleTokenSelection(tokenId);
+                if (shift) ToggleTokenSelection(tokenId);
                 else SelectToken(tokenId);
                 return;
             }
@@ -805,26 +833,74 @@ namespace Odyssey.Unity.Client
         private void OnBoardPointerDown(PointerDownEvent evt)
         {
             if (_boardArea == null) return;
-            _boardArea.CapturePointer(evt.pointerId);
-            BeginBoardPointerGesture(evt.localPosition.x, evt.localPosition.y);
+            Vector2 local = _boardArea.WorldToLocal(evt.position);
+            if (!HandleBoardButtonDown(evt.button, local.x, local.y, evt.shiftKey)) return;
+            if (evt.button == 0 || evt.button == 1) _boardArea.CapturePointer(evt.pointerId);
+            if (evt.button != 0) evt.StopPropagation();
         }
+
+        /// <summary>
+        /// The board's mouse-button decision, separated from the UI Toolkit event so a test can drive it with
+        /// plain numbers. One gesture at a time: a press while another button's gesture (or a token drag) is
+        /// running is refused (returns false) and starts nothing. Left (0): click / selection box; middle (1):
+        /// camera pan; right (2): local player marker. Returns whether the press was accepted.
+        /// </summary>
+        public bool HandleBoardButtonDown(int button, double pixelX, double pixelY, bool shift)
+        {
+            if (_activeBoardButton != -1 || _draggingTokenId.HasValue) return false;
+            switch (button)
+            {
+                case 0:
+                    _activeBoardButton = 0;
+                    BeginBoardPointerGesture(pixelX, pixelY, shift);
+                    return true;
+                case 1:
+                    _activeBoardButton = 1;
+                    BeginBoardPan(pixelX, pixelY);
+                    return true;
+                case 2:
+                    PlacePlayerMarker(pixelX, pixelY);
+                    return true;
+                default:
+                    return false;
+            }
+        }
+
+        /// <summary>The release counterpart of <see cref="HandleBoardButtonDown"/>: only the button that owns the gesture ends it; any other button's release is ignored (returns false).</summary>
+        public bool HandleBoardButtonUp(int button, double pixelX, double pixelY)
+        {
+            if (_activeBoardButton == -1 || button != _activeBoardButton) return false;
+            _activeBoardButton = -1;
+            if (button == 0) EndBoardPointerGesture(pixelX, pixelY);
+            else EndBoardPan();
+            return true;
+        }
+
+        /// <summary>The mouse button that owns the board gesture in progress (0 left, 1 middle), or -1 when none. Exposed for tests.</summary>
+        public int ActiveBoardButton => _activeBoardButton;
 
         private void OnBoardPointerMove(PointerMoveEvent evt)
         {
-            if (_boardArea == null || !_boardArea.HasPointerCapture(evt.pointerId)) return;
-            MoveBoardPointer(evt.localPosition.x, evt.localPosition.y);
+            if (_boardArea == null || _activeBoardButton == -1 || !_boardArea.HasPointerCapture(evt.pointerId)) return;
+            Vector2 local = _boardArea.WorldToLocal(evt.position);
+            if (_activeBoardButton == 0) MoveBoardPointer(local.x, local.y);
+            else if (_activeBoardButton == 1) MoveBoardPan(local.x, local.y);
         }
 
         private void OnBoardPointerUp(PointerUpEvent evt)
         {
             if (_boardArea == null) return;
+            Vector2 local = _boardArea.WorldToLocal(evt.position);
+            if (!HandleBoardButtonUp(evt.button, local.x, local.y)) return;
             if (_boardArea.HasPointerCapture(evt.pointerId)) _boardArea.ReleasePointer(evt.pointerId);
-            EndBoardPointerGesture(evt.localPosition.x, evt.localPosition.y);
         }
 
         private void OnBoardPointerCaptureOut(PointerCaptureOutEvent evt)
         {
             _boardPointerGesture.Cancel();
+            _boxGesture.Cancel();
+            _activeBoardButton = -1;
+            HideBoxElement();
         }
 
         private void OnBoardWheel(WheelEvent evt)
@@ -906,32 +982,45 @@ namespace Odyssey.Unity.Client
         private const double BoardZoomStepFactor = 1.1;
 
         /// <summary>
-        /// Starts tracking the board's own pointer gesture at a pixel position. Public for the same
-        /// testability reason as <see cref="SelectToken"/>: a test drives a full down/move/up sequence with
-        /// plain pixel numbers, exactly reproducing the click-vs-drag disambiguation task contract section
-        /// 1.2 requires, without simulating a single UI Toolkit event.
+        /// Starts the left-button gesture on the empty board at a pixel position: a click, or (once the
+        /// pointer moves past the drag threshold) a selection box. With <paramref name="shift"/> the box adds
+        /// to the current selection instead of replacing it. Public for the same testability reason as
+        /// <see cref="SelectToken"/>: a test drives a full down/move/up sequence with plain pixel numbers,
+        /// without simulating a single UI Toolkit event.
         /// </summary>
-        public void BeginBoardPointerGesture(double pixelX, double pixelY) => _boardPointerGesture.Begin(pixelX, pixelY);
+        public void BeginBoardPointerGesture(double pixelX, double pixelY, bool shift = false)
+        {
+            _boxGesture.Begin(pixelX, pixelY);
+            _boxAdditive = shift;
+        }
 
-        /// <summary>Feeds a pointer move into the board's gesture; once the drag threshold is crossed, pans the camera and repositions the already-rendered tokens. Public -- see <see cref="BeginBoardPointerGesture"/>.</summary>
+        /// <summary>Feeds a pointer move into the left-button gesture; past the drag threshold, shows and updates the selection box. Public -- see <see cref="BeginBoardPointerGesture"/>.</summary>
         public void MoveBoardPointer(double pixelX, double pixelY)
         {
-            if (_boardPointerGesture.Move(pixelX, pixelY, out double deltaX, out double deltaY))
-            {
-                _camera.Pan(deltaX, deltaY);
-                RepositionTokens();
-            }
+            if (_boxGesture.Move(pixelX, pixelY)) UpdateBoxElement();
         }
 
         /// <summary>
-        /// Ends the board's gesture. If it never crossed the drag threshold, dispatches the pointer-up
-        /// position as an ordinary click -- <see cref="TryMoveSelectedTokenTo"/>, unchanged, exactly as
-        /// the old <c>ClickEvent</c>-driven <c>OnBoardAreaClicked</c> did. Public -- see
+        /// Ends the left-button gesture. A drag selects every token whose position lies inside the box (in
+        /// world coordinates, through the camera): replacing the selection, or adding to it when the gesture
+        /// began with Shift. A click (movement below the threshold) is unchanged from before this task: it
+        /// tries to move the single selected token there, or clears a selection of two or more. Public -- see
         /// <see cref="BeginBoardPointerGesture"/>.
         /// </summary>
         public void EndBoardPointerGesture(double pixelX, double pixelY)
         {
-            if (_boardPointerGesture.End())
+            _boxGesture.Move(pixelX, pixelY);
+            bool isDrag = _boxGesture.TryGetBox(out double minX, out double minY, out double maxX, out double maxY);
+            bool wasClick = _boxGesture.End();
+            HideBoxElement();
+
+            if (isDrag)
+            {
+                SelectTokensInBox(minX, minY, maxX, maxY, _boxAdditive);
+                return;
+            }
+
+            if (wasClick)
             {
                 // ODY-S08-106: with two or more tokens selected a single destination point cannot place them
                 // all, so a click on empty board just clears the selection. With exactly one selected token
@@ -946,6 +1035,144 @@ namespace Odyssey.Unity.Client
 
                 TryMoveSelectedTokenTo(ToWorldPosition(pixelX, pixelY));
             }
+        }
+
+        // The box is converted to world coordinates and compared with the tokens' world positions, so pan and
+        // zoom are accounted for by BoardCamera rather than by comparing raw pixels.
+        private void SelectTokensInBox(double minPixelX, double minPixelY, double maxPixelX, double maxPixelY, bool additive)
+        {
+            double worldMinX = _camera.FromPixelsX(minPixelX);
+            double worldMaxX = _camera.FromPixelsX(maxPixelX);
+            double worldMinY = _camera.FromPixelsY(minPixelY);
+            double worldMaxY = _camera.FromPixelsY(maxPixelY);
+
+            if (!additive) _selectedTokenIds.Clear();
+            int inside = 0;
+            foreach (KeyValuePair<string, TokenPosition> entry in _tokenPositionsByTokenId)
+            {
+                if (entry.Value.X >= worldMinX && entry.Value.X <= worldMaxX && entry.Value.Y >= worldMinY && entry.Value.Y <= worldMaxY)
+                {
+                    _selectedTokenIds.Add(entry.Key);
+                    inside++;
+                }
+            }
+
+            SetStatus(inside + " token(s) in the box; " + _selectedTokenIds.Count + " selected.");
+            Refresh();
+        }
+
+        private void UpdateBoxElement()
+        {
+            if (_boardArea == null) return;
+            if (!_boxGesture.TryGetBox(out double minX, out double minY, out double maxX, out double maxY)) return;
+            if (_boxElement == null)
+            {
+                _boxElement = new VisualElement { name = "board-selection-box", pickingMode = PickingMode.Ignore };
+                _boxElement.style.position = Position.Absolute;
+                _boxElement.style.backgroundColor = new StyleColor(new Color(0.3f, 0.6f, 1f, 0.15f));
+                _boxElement.style.borderTopWidth = 1;
+                _boxElement.style.borderBottomWidth = 1;
+                _boxElement.style.borderLeftWidth = 1;
+                _boxElement.style.borderRightWidth = 1;
+                var border = new StyleColor(new Color(0.3f, 0.6f, 1f, 0.9f));
+                _boxElement.style.borderTopColor = border;
+                _boxElement.style.borderBottomColor = border;
+                _boxElement.style.borderLeftColor = border;
+                _boxElement.style.borderRightColor = border;
+            }
+
+            _boxElement.style.left = (float)minX;
+            _boxElement.style.top = (float)minY;
+            _boxElement.style.width = (float)(maxX - minX);
+            _boxElement.style.height = (float)(maxY - minY);
+            if (_boxElement.parent != _boardArea) _boardArea.Add(_boxElement);
+        }
+
+        private void HideBoxElement() => _boxElement?.RemoveFromHierarchy();
+
+        /// <summary>The selection box element while a box drag is in progress, else <c>null</c>. Exposed for tests.</summary>
+        public VisualElement? SelectionBoxElement => _boxElement != null && _boxElement.parent != null ? _boxElement : null;
+
+        // ---- ODY-S08-107: middle-button camera pan --------------------------------------------------
+
+        /// <summary>Starts a camera pan at a board-local pixel position (middle button). Public -- see <see cref="BeginBoardPointerGesture"/>.</summary>
+        public void BeginBoardPan(double pixelX, double pixelY) => _boardPointerGesture.Begin(pixelX, pixelY);
+
+        /// <summary>Feeds a pointer move into the pan; once past <see cref="BoardPointerGesture.DragThresholdPixels"/> it pans the camera and repositions the rendered tokens and the marker. Public -- see <see cref="BeginBoardPointerGesture"/>.</summary>
+        public void MoveBoardPan(double pixelX, double pixelY)
+        {
+            if (_boardPointerGesture.Move(pixelX, pixelY, out double deltaX, out double deltaY))
+            {
+                _camera.Pan(deltaX, deltaY);
+                RepositionTokens();
+            }
+        }
+
+        /// <summary>Ends the pan. A pan has no click equivalent: releasing without ever crossing the threshold does nothing. Public -- see <see cref="BeginBoardPointerGesture"/>.</summary>
+        public void EndBoardPan() => _boardPointerGesture.End();
+
+        // ---- ODY-S08-107: right-button local player marker ------------------------------------------
+        //
+        // LOCAL ONLY: a plain VisualElement plus a world position in memory. Nothing is sent over any
+        // network and nothing is written to the repository or database; other participants never see it.
+        // Two and a half seconds is long enough to notice and point at, short enough not to clutter the
+        // board; a second press replaces the marker immediately. A ring (transparent fill, bordered) is used
+        // instead of a filled dot so the token or map under it stays visible.
+
+        /// <summary>Places (or moves) the local marker at a board-local pixel position; it disappears by itself after a short time. Public -- see <see cref="BeginBoardPointerGesture"/>.</summary>
+        public void PlacePlayerMarker(double pixelX, double pixelY)
+        {
+            if (_boardArea == null) return;
+            _markerWorldPosition = ToWorldPosition(pixelX, pixelY);
+            if (_markerElement == null)
+            {
+                _markerElement = new VisualElement { name = "board-player-marker", pickingMode = PickingMode.Ignore };
+                _markerElement.style.position = Position.Absolute;
+                _markerElement.style.width = (float)PlayerMarkerSizePixels;
+                _markerElement.style.height = (float)PlayerMarkerSizePixels;
+                _markerElement.style.borderTopLeftRadius = (float)(PlayerMarkerSizePixels / 2);
+                _markerElement.style.borderTopRightRadius = (float)(PlayerMarkerSizePixels / 2);
+                _markerElement.style.borderBottomLeftRadius = (float)(PlayerMarkerSizePixels / 2);
+                _markerElement.style.borderBottomRightRadius = (float)(PlayerMarkerSizePixels / 2);
+                _markerElement.style.borderTopWidth = 3;
+                _markerElement.style.borderBottomWidth = 3;
+                _markerElement.style.borderLeftWidth = 3;
+                _markerElement.style.borderRightWidth = 3;
+                var ring = new StyleColor(new Color(1f, 0.85f, 0.1f, 0.95f));
+                _markerElement.style.borderTopColor = ring;
+                _markerElement.style.borderBottomColor = ring;
+                _markerElement.style.borderLeftColor = ring;
+                _markerElement.style.borderRightColor = ring;
+            }
+
+            if (_markerElement.parent != _boardArea) _boardArea.Add(_markerElement);
+            PositionMarkerElement();
+
+            _markerExpiry?.Pause();
+            _markerExpiry = _markerElement.schedule.Execute(ClearPlayerMarker);
+            _markerExpiry.ExecuteLater(PlayerMarkerLifetimeMilliseconds);
+        }
+
+        /// <summary>Removes the local marker now (also what the expiry timer calls).</summary>
+        public void ClearPlayerMarker()
+        {
+            _markerExpiry?.Pause();
+            _markerExpiry = null;
+            _markerWorldPosition = null;
+            _markerElement?.RemoveFromHierarchy();
+        }
+
+        /// <summary>The marker's world position, or <c>null</c> when no marker is showing. Exposed for tests.</summary>
+        public TokenPosition? PlayerMarkerWorldPosition => _markerWorldPosition;
+
+        /// <summary>The marker element while it is showing, else <c>null</c>. Exposed for tests.</summary>
+        public VisualElement? PlayerMarkerElement => _markerWorldPosition.HasValue ? _markerElement : null;
+
+        private void PositionMarkerElement()
+        {
+            if (_markerElement == null || !_markerWorldPosition.HasValue) return;
+            _markerElement.style.left = (float)(_camera.ToPixelsX(_markerWorldPosition.Value.X) - PlayerMarkerSizePixels / 2);
+            _markerElement.style.top = (float)(_camera.ToPixelsY(_markerWorldPosition.Value.Y) - PlayerMarkerSizePixels / 2);
         }
 
         /// <summary>Zooms the camera to <paramref name="anchorPixelX"/>/<paramref name="anchorPixelY"/> and repositions the already-rendered tokens. Public -- see <see cref="BeginBoardPointerGesture"/>.</summary>
@@ -1058,6 +1285,7 @@ namespace Odyssey.Unity.Client
         // token positions from the repository.
         private void RepositionTokens()
         {
+            PositionMarkerElement();
             foreach (KeyValuePair<string, TokenPosition> entry in _tokenPositionsByTokenId)
             {
                 if (_tokenElementsByTokenId.TryGetValue(entry.Key, out VisualElement? tokenElement))

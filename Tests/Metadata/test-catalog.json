@@ -4150,7 +4150,7 @@
                           "authority":  "ODY-S08-102 test list (task contract section 3)",
                           "runner":  "Unity EditMode",
                           "path":  "Assets/Odyssey/Client/Tests/EditMode/BoardScreenPresenterTests.cs",
-                          "check":  "A board pointer gesture with movement above the drag threshold pans the camera by exactly the dragged pixel delta and leaves both the token's persisted position and the current selection untouched"
+                          "check":  "A middle-button board pan (ODY-S08-107; it was the left-button drag before) with movement above the drag threshold pans the camera by exactly the dragged pixel delta and leaves both the token's persisted position and the current selection untouched"
                       },
                       {
                           "testCaseId":  "TC-BOARD-064",
@@ -4334,7 +4334,7 @@
                           "authority":  "ODY-S08-106 test list (task contract section 9)",
                           "runner":  "Unity EditMode",
                           "path":  "Assets/Odyssey/Client/Tests/EditMode/BoardScreenPresenterTests.cs",
-                          "check":  "Ctrl+click on an unselected token adds it to the selection and keeps the already selected tokens; no repository move happens"
+                          "check":  "Shift+click (ODY-S08-107; it was Ctrl+click) on an unselected token adds it to the selection and keeps the already selected tokens; no repository move happens"
                       },
                       {
                           "testCaseId":  "TC-BOARD-087",
@@ -4342,7 +4342,7 @@
                           "authority":  "ODY-S08-106 test list (task contract section 9)",
                           "runner":  "Unity EditMode",
                           "path":  "Assets/Odyssey/Client/Tests/EditMode/BoardScreenPresenterTests.cs",
-                          "check":  "Ctrl+click on a selected token removes exactly that token; the other selected tokens stay selected"
+                          "check":  "Shift+click (ODY-S08-107; it was Ctrl+click) on a selected token removes exactly that token; the other selected tokens stay selected"
                       },
                       {
                           "testCaseId":  "TC-BOARD-088",
@@ -4391,6 +4391,78 @@
                           "runner":  "Unity EditMode",
                           "path":  "Assets/Odyssey/Client/Tests/EditMode/BoardScreenPresenterTests.cs",
                           "check":  "Partial group failure: with one member's destination occupied, the free member stays moved and committed while the denied member is unchanged in the repository and visually rolled back, asserted in the same test"
+                      },
+                      {
+                          "testCaseId":  "TC-BOARD-094",
+                          "taskId":  "ODY-S08-107",
+                          "authority":  "ODY-S08-107 test list (task contract section 9)",
+                          "runner":  "Unity EditMode",
+                          "path":  "Assets/Odyssey/Client/Tests/EditMode/BoardScreenPresenterTests.cs",
+                          "check":  "A left-button drag on empty board draws a selection box while dragging and, on release, selects every token inside it, replacing the previous selection; the box is removed and no token is moved"
+                      },
+                      {
+                          "testCaseId":  "TC-BOARD-095",
+                          "taskId":  "ODY-S08-107",
+                          "authority":  "ODY-S08-107 test list (task contract section 9)",
+                          "runner":  "Unity EditMode",
+                          "path":  "Assets/Odyssey/Client/Tests/EditMode/BoardScreenPresenterTests.cs",
+                          "check":  "A Shift+left drag on empty board adds the boxed tokens to the existing selection instead of replacing it"
+                      },
+                      {
+                          "testCaseId":  "TC-BOARD-096",
+                          "taskId":  "ODY-S08-107",
+                          "authority":  "ODY-S08-107 test list (task contract section 9)",
+                          "runner":  "Unity EditMode",
+                          "path":  "Assets/Odyssey/Client/Tests/EditMode/BoardScreenPresenterTests.cs",
+                          "check":  "Tokens outside the box are not selected; the box is compared in world coordinates through BoardCamera, so it still selects the right token after a pan and a zoom"
+                      },
+                      {
+                          "testCaseId":  "TC-BOARD-097",
+                          "taskId":  "ODY-S08-107",
+                          "authority":  "ODY-S08-107 test list (task contract section 9)",
+                          "runner":  "Unity EditMode",
+                          "path":  "Assets/Odyssey/Client/Tests/EditMode/BoardScreenPresenterTests.cs",
+                          "check":  "Shift+click adds and removes a token from the selection; Ctrl is no longer special (a Ctrl+click is a plain click and replaces the selection)"
+                      },
+                      {
+                          "testCaseId":  "TC-BOARD-098",
+                          "taskId":  "ODY-S08-107",
+                          "authority":  "ODY-S08-107 test list (task contract section 9)",
+                          "runner":  "Unity EditMode",
+                          "path":  "Assets/Odyssey/Client/Tests/EditMode/BoardScreenPresenterTests.cs",
+                          "check":  "Shift+wheel over a token still scales it and does not change the selection; Shift+click on tokens makes no SetTokenScale call"
+                      },
+                      {
+                          "testCaseId":  "TC-BOARD-099",
+                          "taskId":  "ODY-S08-107",
+                          "authority":  "ODY-S08-107 test list (task contract section 9)",
+                          "runner":  "Unity EditMode",
+                          "path":  "Assets/Odyssey/Client/Tests/EditMode/BoardScreenPresenterTests.cs",
+                          "check":  "A middle-button drag on empty board pans the camera by the dragged delta, draws no selection box, and leaves the selection and every token untouched"
+                      },
+                      {
+                          "testCaseId":  "TC-BOARD-100",
+                          "taskId":  "ODY-S08-107",
+                          "authority":  "ODY-S08-107 test list (task contract section 9)",
+                          "runner":  "Unity EditMode",
+                          "path":  "Assets/Odyssey/Client/Tests/EditMode/BoardScreenPresenterTests.cs",
+                          "check":  "A middle-button drag starting over a token pans the camera and neither selects nor moves that token"
+                      },
+                      {
+                          "testCaseId":  "TC-BOARD-101",
+                          "taskId":  "ODY-S08-107",
+                          "authority":  "ODY-S08-107 test list (task contract section 9)",
+                          "runner":  "Unity EditMode",
+                          "path":  "Assets/Odyssey/Client/Tests/EditMode/BoardScreenPresenterTests.cs",
+                          "check":  "A right press places a local marker at the correct world position (pixel position round-trips), owns no gesture, follows a camera pan, is replaced by a second press and can be cleared"
+                      },
+                      {
+                          "testCaseId":  "TC-BOARD-102",
+                          "taskId":  "ODY-S08-107",
+                          "authority":  "ODY-S08-107 test list (task contract section 9)",
+                          "runner":  "Unity EditMode",
+                          "path":  "Assets/Odyssey/Client/Tests/EditMode/BoardScreenPresenterTests.cs",
+                          "check":  "Only one mouse-button gesture runs at a time: middle/right presses during a left gesture are refused, another button's release is ignored, and the same holds for a left press during a middle pan"
                       },
                       {
                           "testCaseId":  "TC-CATALOG-001",

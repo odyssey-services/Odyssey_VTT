@@ -242,7 +242,7 @@ namespace Odyssey.Tests.Unity.EditMode
         }
 
         [Test] // TC-BOARD-063
-        public void BoardPointerGesture_AboveDragThreshold_PansTheCamera_AndDoesNotMoveOrDeselectTheSelectedToken()
+        public void BoardMiddleButtonPan_AboveDragThreshold_PansTheCamera_AndDoesNotMoveOrDeselectTheSelectedToken()
         {
             BoardScreenPresenter presenter = BuildPresenterForCamera(out CampaignHandle campaign, out ISceneRepository sceneRepository, out TokenId tokenId, out UIDocument document, out GameObject gameObject, out SqliteCampaignRepository campaignRepository, out TemporaryDirectory directory);
             try
@@ -254,9 +254,10 @@ namespace Odyssey.Tests.Unity.EditMode
                 const double deltaY = -15.0;
                 double pixelXBefore = presenter.Camera.ToPixelsX(0);
 
-                presenter.BeginBoardPointerGesture(startPixelX, startPixelY);
-                presenter.MoveBoardPointer(startPixelX + deltaX, startPixelY + deltaY); // ~42.7px -- above the 5px drag threshold
-                presenter.EndBoardPointerGesture(startPixelX + deltaX, startPixelY + deltaY);
+                // ODY-S08-107: the pan moved from the left-button drag to the middle-button drag.
+                presenter.BeginBoardPan(startPixelX, startPixelY);
+                presenter.MoveBoardPan(startPixelX + deltaX, startPixelY + deltaY); // ~42.7px -- above the 5px drag threshold
+                presenter.EndBoardPan();
 
                 Result<TokenRecord> persisted = sceneRepository.GetToken(campaign, tokenId, TestCorrelationId);
                 Assert.That(persisted.Value.Position.X, Is.EqualTo(0), "movement above the drag threshold must NOT move the token");
@@ -822,16 +823,16 @@ namespace Odyssey.Tests.Unity.EditMode
             return presenter;
         }
 
-        private static void ClickToken(BoardScreenPresenter presenter, TokenId id, double worldX, bool ctrl)
+        private static void ClickToken(BoardScreenPresenter presenter, TokenId id, double worldX, bool shift)
         {
             double x = presenter.Camera.ToPixelsX(worldX);
             double y = presenter.Camera.ToPixelsY(0);
-            presenter.BeginTokenDrag(id, x, y, ctrl);
+            presenter.BeginTokenDrag(id, x, y, shift);
             presenter.EndTokenDrag(id, x, y);
         }
 
         [Test] // TC-BOARD-086
-        public void CtrlClick_OnAnUnselectedToken_AddsItToTheSelection_KeepingTheOthers()
+        public void ShiftClick_OnAnUnselectedToken_AddsItToTheSelection_KeepingTheOthers()
         {
             BoardScreenPresenter presenter = BuildPresenterWithThreeTokens(out CampaignHandle campaign, out MoveCountingSceneRepository sceneRepository, out TokenId a, out TokenId b, out TokenId c, out UIDocument document, out GameObject gameObject, out SqliteCampaignRepository campaignRepository, out TemporaryDirectory directory);
             try
@@ -854,7 +855,7 @@ namespace Odyssey.Tests.Unity.EditMode
         }
 
         [Test] // TC-BOARD-087
-        public void CtrlClick_OnASelectedToken_RemovesExactlyThatToken_LeavingTheRestSelected()
+        public void ShiftClick_OnASelectedToken_RemovesExactlyThatToken_LeavingTheRestSelected()
         {
             BoardScreenPresenter presenter = BuildPresenterWithThreeTokens(out CampaignHandle campaign, out MoveCountingSceneRepository sceneRepository, out TokenId a, out TokenId b, out TokenId c, out UIDocument document, out GameObject gameObject, out SqliteCampaignRepository campaignRepository, out TemporaryDirectory directory);
             try
@@ -1055,6 +1056,300 @@ namespace Odyssey.Tests.Unity.EditMode
                 Assert.That(bAfter.style.left.value.value, Is.EqualTo(bOriginalLeft).Within(0.01f), "the denied member is visually rolled back");
                 VisualElement aAfter = document.rootVisualElement.Q<VisualElement>("token-" + a)!;
                 Assert.That(aAfter.style.left.value.value, Is.EqualTo((float)(presenter.Camera.ToPixelsX(2) - 14.0)).Within(0.01f), "the accepted member is rendered at its committed position");
+            }
+            finally
+            {
+                presenter.Dispose();
+                UnityEngine.Object.DestroyImmediate(gameObject);
+                campaignRepository.Close(campaign, TestCorrelationId);
+                directory.Dispose();
+            }
+        }
+
+        // ---- ODY-S08-107: board controls (box selection, Shift-click, middle-button pan, right-button marker) ----
+
+        // Drags a box between two world-coordinate corners with the left button (through the same public
+        // entry points a real drag ends up in).
+        private static void DragBox(BoardScreenPresenter presenter, double worldX1, double worldY1, double worldX2, double worldY2, bool shift)
+        {
+            double x1 = presenter.Camera.ToPixelsX(worldX1);
+            double y1 = presenter.Camera.ToPixelsY(worldY1);
+            double x2 = presenter.Camera.ToPixelsX(worldX2);
+            double y2 = presenter.Camera.ToPixelsY(worldY2);
+            presenter.BeginBoardPointerGesture(x1, y1, shift);
+            presenter.MoveBoardPointer((x1 + x2) / 2.0, (y1 + y2) / 2.0);
+            presenter.MoveBoardPointer(x2, y2);
+            presenter.EndBoardPointerGesture(x2, y2);
+        }
+
+        [Test] // TC-BOARD-094
+        public void BoxSelect_LeftDragOnEmptyBoard_SelectsEveryTokenInside_ReplacingThePreviousSelection()
+        {
+            BoardScreenPresenter presenter = BuildPresenterWithThreeTokens(out CampaignHandle campaign, out MoveCountingSceneRepository sceneRepository, out TokenId a, out TokenId b, out TokenId c, out UIDocument document, out GameObject gameObject, out SqliteCampaignRepository campaignRepository, out TemporaryDirectory directory);
+            try
+            {
+                presenter.SelectToken(c);
+
+                double x1 = presenter.Camera.ToPixelsX(-1);
+                double y1 = presenter.Camera.ToPixelsY(-1);
+                double x2 = presenter.Camera.ToPixelsX(4);
+                double y2 = presenter.Camera.ToPixelsY(1);
+                presenter.BeginBoardPointerGesture(x1, y1);
+                presenter.MoveBoardPointer(x2, y2);
+                Assert.That(presenter.SelectionBoxElement, Is.Not.Null, "a box is drawn while dragging");
+                Assert.That(presenter.SelectionBoxElement!.style.width.value.value, Is.EqualTo((float)(x2 - x1)).Within(0.01f));
+                presenter.EndBoardPointerGesture(x2, y2);
+
+                Assert.That(presenter.SelectedTokenIds, Is.EquivalentTo(new[] { a, b }), "the tokens inside the box replace the old selection");
+                Assert.That(presenter.SelectionBoxElement, Is.Null, "the box is gone after release");
+                Assert.That(sceneRepository.MoveTokenCalls, Is.EqualTo(0), "a box drag never moves a token");
+            }
+            finally
+            {
+                presenter.Dispose();
+                UnityEngine.Object.DestroyImmediate(gameObject);
+                campaignRepository.Close(campaign, TestCorrelationId);
+                directory.Dispose();
+            }
+        }
+
+        [Test] // TC-BOARD-095
+        public void BoxSelect_WithShift_AddsTheTokensInsideToTheExistingSelection()
+        {
+            BoardScreenPresenter presenter = BuildPresenterWithThreeTokens(out CampaignHandle campaign, out MoveCountingSceneRepository sceneRepository, out TokenId a, out TokenId b, out TokenId c, out UIDocument document, out GameObject gameObject, out SqliteCampaignRepository campaignRepository, out TemporaryDirectory directory);
+            try
+            {
+                presenter.SelectToken(c);
+
+                DragBox(presenter, -1, -1, 1, 1, true); // contains only a
+
+                Assert.That(presenter.SelectedTokenIds, Is.EquivalentTo(new[] { c, a }), "Shift keeps the existing selection and adds the boxed token");
+            }
+            finally
+            {
+                presenter.Dispose();
+                UnityEngine.Object.DestroyImmediate(gameObject);
+                campaignRepository.Close(campaign, TestCorrelationId);
+                directory.Dispose();
+            }
+        }
+
+        [Test] // TC-BOARD-096
+        public void BoxSelect_DoesNotSelectTokensOutsideTheBox_AndUsesWorldCoordinatesAfterPanAndZoom()
+        {
+            BoardScreenPresenter presenter = BuildPresenterWithThreeTokens(out CampaignHandle campaign, out MoveCountingSceneRepository sceneRepository, out TokenId a, out TokenId b, out TokenId c, out UIDocument document, out GameObject gameObject, out SqliteCampaignRepository campaignRepository, out TemporaryDirectory directory);
+            try
+            {
+                DragBox(presenter, 2, -1, 4, 1, false); // contains only b
+                Assert.That(presenter.SelectedTokenIds, Is.EquivalentTo(new[] { b }), "a and c are outside the box");
+
+                // Pan and zoom the camera so pixels no longer equal the original layout, then box a again:
+                // the box is compared in world coordinates, so only a is selected.
+                presenter.BeginBoardPan(100, 100);
+                presenter.MoveBoardPan(170, 130);
+                presenter.EndBoardPan();
+                presenter.ZoomBoard(1.5, 200, 200);
+                DragBox(presenter, -0.5, -0.5, 0.5, 0.5, false);
+
+                Assert.That(presenter.SelectedTokenIds, Is.EquivalentTo(new[] { a }));
+            }
+            finally
+            {
+                presenter.Dispose();
+                UnityEngine.Object.DestroyImmediate(gameObject);
+                campaignRepository.Close(campaign, TestCorrelationId);
+                directory.Dispose();
+            }
+        }
+
+        [Test] // TC-BOARD-097
+        public void ShiftClick_AddsAndRemovesFromTheSelection_AndCtrlIsNoLongerSpecial()
+        {
+            BoardScreenPresenter presenter = BuildPresenterWithThreeTokens(out CampaignHandle campaign, out MoveCountingSceneRepository sceneRepository, out TokenId a, out TokenId b, out TokenId c, out UIDocument document, out GameObject gameObject, out SqliteCampaignRepository campaignRepository, out TemporaryDirectory directory);
+            try
+            {
+                presenter.SelectToken(a);
+                ClickToken(presenter, b, 3, true);
+                Assert.That(presenter.SelectedTokenIds, Is.EquivalentTo(new[] { a, b }), "Shift+click adds");
+                ClickToken(presenter, b, 3, true);
+                Assert.That(presenter.SelectedTokenIds, Is.EquivalentTo(new[] { a }), "Shift+click on a selected token removes exactly it");
+
+                // Ctrl is not read anywhere any more: a Ctrl+click reaches BeginTokenDrag with shift == false,
+                // i.e. it is a plain click and replaces the selection.
+                ClickToken(presenter, b, 3, true);
+                Assert.That(presenter.SelectedTokenIds, Is.EquivalentTo(new[] { a, b }));
+                ClickToken(presenter, c, 6, false);
+                Assert.That(presenter.SelectedTokenIds, Is.EquivalentTo(new[] { c }), "without Shift a click replaces the whole selection");
+            }
+            finally
+            {
+                presenter.Dispose();
+                UnityEngine.Object.DestroyImmediate(gameObject);
+                campaignRepository.Close(campaign, TestCorrelationId);
+                directory.Dispose();
+            }
+        }
+
+        [Test] // TC-BOARD-098
+        public void ShiftWheel_ScalesTheToken_WithoutTouchingTheSelection_AndShiftClick_DoesNotScale()
+        {
+            BoardScreenPresenter presenter = BuildPresenterWithThreeTokens(out CampaignHandle campaign, out MoveCountingSceneRepository sceneRepository, out TokenId a, out TokenId b, out TokenId c, out UIDocument document, out GameObject gameObject, out SqliteCampaignRepository campaignRepository, out TemporaryDirectory directory);
+            try
+            {
+                presenter.SelectToken(a);
+                ClickToken(presenter, b, 3, true); // selection {a, b}
+                double x = presenter.Camera.ToPixelsX(0);
+                double y = presenter.Camera.ToPixelsY(0);
+
+                Assert.That(sceneRepository.SetTokenScaleCalls, Is.EqualTo(0), "a Shift+click never scales");
+                Assert.That(sceneRepository.GetToken(campaign, b, TestCorrelationId).Value.Scale, Is.EqualTo(1.0));
+
+                presenter.HandleBoardWheel(-1.0, true, x, y);
+
+                Assert.That(sceneRepository.GetToken(campaign, a, TestCorrelationId).Value.Scale, Is.EqualTo(1.1).Within(1e-9), "Shift+wheel still scales the token under the pointer");
+                Assert.That(presenter.SelectedTokenIds, Is.EquivalentTo(new[] { a, b }), "and does not change the selection");
+            }
+            finally
+            {
+                presenter.Dispose();
+                UnityEngine.Object.DestroyImmediate(gameObject);
+                campaignRepository.Close(campaign, TestCorrelationId);
+                directory.Dispose();
+            }
+        }
+
+        [Test] // TC-BOARD-099
+        public void MiddleButton_OnEmptyBoard_PansTheCamera_WithoutStartingABoxOrTouchingTokens()
+        {
+            BoardScreenPresenter presenter = BuildPresenterWithThreeTokens(out CampaignHandle campaign, out MoveCountingSceneRepository sceneRepository, out TokenId a, out TokenId b, out TokenId c, out UIDocument document, out GameObject gameObject, out SqliteCampaignRepository campaignRepository, out TemporaryDirectory directory);
+            try
+            {
+                presenter.SelectToken(b);
+                double before = presenter.Camera.ToPixelsX(0);
+
+                Assert.That(presenter.HandleBoardButtonDown(1, 300, 300, false), Is.True);
+                Assert.That(presenter.ActiveBoardButton, Is.EqualTo(1));
+                presenter.MoveBoardPan(340, 300);
+                Assert.That(presenter.SelectionBoxElement, Is.Null, "a middle drag never draws a selection box");
+                Assert.That(presenter.HandleBoardButtonUp(1, 340, 300), Is.True);
+
+                Assert.That(presenter.Camera.ToPixelsX(0), Is.EqualTo(before + 40.0).Within(1e-9));
+                Assert.That(presenter.SelectedTokenIds, Is.EquivalentTo(new[] { b }), "the selection is untouched");
+                Assert.That(sceneRepository.MoveTokenCalls, Is.EqualTo(0));
+                Assert.That(presenter.ActiveBoardButton, Is.EqualTo(-1));
+            }
+            finally
+            {
+                presenter.Dispose();
+                UnityEngine.Object.DestroyImmediate(gameObject);
+                campaignRepository.Close(campaign, TestCorrelationId);
+                directory.Dispose();
+            }
+        }
+
+        [Test] // TC-BOARD-100
+        public void MiddleButton_OverAToken_PansTheCamera_AndNeitherSelectsNorMovesThatToken()
+        {
+            BoardScreenPresenter presenter = BuildPresenterWithThreeTokens(out CampaignHandle campaign, out MoveCountingSceneRepository sceneRepository, out TokenId a, out TokenId b, out TokenId c, out UIDocument document, out GameObject gameObject, out SqliteCampaignRepository campaignRepository, out TemporaryDirectory directory);
+            try
+            {
+                double tokenX = presenter.Camera.ToPixelsX(0);
+                double tokenY = presenter.Camera.ToPixelsY(0);
+                double before = presenter.Camera.ToPixelsX(0);
+
+                // The token's own handler ignores a non-left press (it neither captures nor stops the event),
+                // so the press reaches the board, which starts the pan.
+                Assert.That(presenter.HandleBoardButtonDown(1, tokenX, tokenY, false), Is.True);
+                presenter.MoveBoardPan(tokenX + 50.0, tokenY);
+                presenter.HandleBoardButtonUp(1, tokenX + 50.0, tokenY);
+
+                Assert.That(presenter.Camera.ToPixelsX(0), Is.EqualTo(before + 50.0).Within(1e-9));
+                Assert.That(presenter.SelectedTokenIds, Is.Empty, "the token under the cursor is not selected");
+                Assert.That(sceneRepository.MoveTokenCalls, Is.EqualTo(0));
+                Assert.That(sceneRepository.GetToken(campaign, a, TestCorrelationId).Value.Position.X, Is.EqualTo(0), "and is not moved");
+            }
+            finally
+            {
+                presenter.Dispose();
+                UnityEngine.Object.DestroyImmediate(gameObject);
+                campaignRepository.Close(campaign, TestCorrelationId);
+                directory.Dispose();
+            }
+        }
+
+        [Test] // TC-BOARD-101
+        public void RightButton_PlacesALocalMarkerAtTheWorldPosition_AndItFollowsThePanAndZoom()
+        {
+            BoardScreenPresenter presenter = BuildPresenterWithThreeTokens(out CampaignHandle campaign, out MoveCountingSceneRepository sceneRepository, out TokenId a, out TokenId b, out TokenId c, out UIDocument document, out GameObject gameObject, out SqliteCampaignRepository campaignRepository, out TemporaryDirectory directory);
+            try
+            {
+                const double px = 250.0;
+                const double py = 180.0;
+                Assert.That(presenter.PlayerMarkerWorldPosition, Is.Null);
+
+                Assert.That(presenter.HandleBoardButtonDown(2, px, py, false), Is.True);
+
+                TokenPosition? world = presenter.PlayerMarkerWorldPosition;
+                Assert.That(world.HasValue, Is.True);
+                Assert.That(world!.Value.X, Is.EqualTo(presenter.Camera.FromPixelsX(px)).Within(1e-9));
+                Assert.That(world.Value.Y, Is.EqualTo(presenter.Camera.FromPixelsY(py)).Within(1e-9));
+                VisualElement marker = presenter.PlayerMarkerElement!;
+                float half = marker.style.width.value.value / 2f;
+                Assert.That(marker.style.left.value.value + half, Is.EqualTo((float)px).Within(0.01f));
+                Assert.That(marker.style.top.value.value + half, Is.EqualTo((float)py).Within(0.01f));
+                Assert.That(presenter.ActiveBoardButton, Is.EqualTo(-1), "a right press is a single event, it owns no gesture");
+                Assert.That(sceneRepository.MoveTokenCalls, Is.EqualTo(0));
+
+                presenter.BeginBoardPan(100, 100);
+                presenter.MoveBoardPan(160, 100);
+                presenter.EndBoardPan();
+                Assert.That(marker.style.left.value.value + half, Is.EqualTo((float)(px + 60.0)).Within(0.01f), "the marker follows the camera pan");
+                Assert.That(presenter.PlayerMarkerWorldPosition!.Value.X, Is.EqualTo(world.Value.X), "its world position does not change");
+
+                presenter.HandleBoardButtonDown(2, 10, 10, false);
+                Assert.That(presenter.PlayerMarkerWorldPosition!.Value.X, Is.Not.EqualTo(world.Value.X), "a second right press replaces the marker");
+
+                presenter.ClearPlayerMarker();
+                Assert.That(presenter.PlayerMarkerWorldPosition, Is.Null);
+                Assert.That(presenter.PlayerMarkerElement, Is.Null);
+            }
+            finally
+            {
+                presenter.Dispose();
+                UnityEngine.Object.DestroyImmediate(gameObject);
+                campaignRepository.Close(campaign, TestCorrelationId);
+                directory.Dispose();
+            }
+        }
+
+        [Test] // TC-BOARD-102
+        public void OnlyOneMouseButtonGestureRunsAtATime_AndAnotherButtonsReleaseIsIgnored()
+        {
+            BoardScreenPresenter presenter = BuildPresenterWithThreeTokens(out CampaignHandle campaign, out MoveCountingSceneRepository sceneRepository, out TokenId a, out TokenId b, out TokenId c, out UIDocument document, out GameObject gameObject, out SqliteCampaignRepository campaignRepository, out TemporaryDirectory directory);
+            try
+            {
+                double before = presenter.Camera.ToPixelsX(0);
+
+                Assert.That(presenter.HandleBoardButtonDown(0, 300, 300, false), Is.True);
+                Assert.That(presenter.HandleBoardButtonDown(1, 300, 300, false), Is.False, "a middle press during a left gesture is refused");
+                Assert.That(presenter.HandleBoardButtonDown(2, 300, 300, false), Is.False, "and so is a right press");
+                Assert.That(presenter.PlayerMarkerWorldPosition, Is.Null);
+                Assert.That(presenter.ActiveBoardButton, Is.EqualTo(0));
+
+                Assert.That(presenter.HandleBoardButtonUp(1, 320, 300), Is.False, "the release of a button that owns nothing is ignored");
+                Assert.That(presenter.ActiveBoardButton, Is.EqualTo(0), "the left gesture is still running");
+                Assert.That(presenter.Camera.ToPixelsX(0), Is.EqualTo(before), "no pan happened");
+
+                presenter.MoveBoardPointer(360, 340);
+                Assert.That(presenter.SelectionBoxElement, Is.Not.Null, "the left gesture is still a box drag");
+                Assert.That(presenter.HandleBoardButtonUp(0, 360, 340), Is.True);
+                Assert.That(presenter.ActiveBoardButton, Is.EqualTo(-1));
+
+                // And the other way round: a left press during a middle pan is refused.
+                Assert.That(presenter.HandleBoardButtonDown(1, 100, 100, false), Is.True);
+                Assert.That(presenter.HandleBoardButtonDown(0, 100, 100, false), Is.False);
+                Assert.That(presenter.HandleBoardButtonUp(0, 100, 100), Is.False);
+                Assert.That(presenter.HandleBoardButtonUp(1, 100, 100), Is.True);
             }
             finally
             {
