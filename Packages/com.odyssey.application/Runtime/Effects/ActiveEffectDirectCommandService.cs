@@ -1,5 +1,6 @@
 using System;
 using Odyssey.Application.Commands;
+using Odyssey.Application.Identity;
 using Odyssey.Application.Persistence;
 using Odyssey.Application.Results;
 using Odyssey.Domain.Content;
@@ -30,26 +31,27 @@ namespace Odyssey.Application.Effects
     {
         /// <summary>
         /// Builds a new `ActiveEffect` sourced `ForGMDirect()` and creates it
-        /// via the unmodified `CreateActiveEffect`. <paramref name="actorIsMainGm"/>
-        /// is checked as this method's own first statement, before any
-        /// repository access at all -- matching `RemoveActiveEffect`'s own
+        /// via the unmodified `CreateActiveEffect`. Since ODY-S10-103 the MainGM check is the
+        /// stored campaign membership (<c>CampaignMembershipAuthorization.IsMainGm</c>), made as this method's own first
+        /// membership lookup, before any effect-repository access at all -- matching `RemoveActiveEffect`'s own
         /// placement of the identical gate.
         /// </summary>
         public static Result<ActiveEffectRecord> CreateDirectActiveEffect(
             IActiveEffectRepository effects,
+            ICampaignRepository campaignRepository,
             CampaignHandle campaign,
             CampaignId campaignId,
             ContentDefinitionRef effectDefinitionRef,
             EffectMechanicsSnapshot effectMechanicsSnapshot,
             ActiveEffectTargetRef target,
             UserId actorUserId,
-            bool actorIsMainGm,
             UtcInstant appliedAt,
             UtcInstant? expiresAt,
             CommandId commandId,
             CorrelationId correlationId)
         {
             if (effects == null) throw new ArgumentNullException(nameof(effects));
+            if (campaignRepository == null) throw new ArgumentNullException(nameof(campaignRepository));
             if (campaign == null) throw new ArgumentNullException(nameof(campaign));
             if (!campaignId.IsValid) throw new ArgumentException("CampaignId is required.", nameof(campaignId));
             if (!actorUserId.IsValid) throw new ArgumentException("ActorUserId is required.", nameof(actorUserId));
@@ -59,7 +61,13 @@ namespace Odyssey.Application.Effects
             // repository access at all -- matching every other MainGM-only
             // gate's own convention (SqliteCharacterRepository.DeleteCharacterPermanently,
             // and this task's own RemoveActiveEffect).
-            if (!actorIsMainGm)
+            Result<bool> mainGmCheck = CampaignMembershipAuthorization.IsMainGm(campaignRepository, campaign, actorUserId, correlationId);
+            if (mainGmCheck.IsFailure)
+            {
+                return Result<ActiveEffectRecord>.Failure(mainGmCheck.Error);
+            }
+
+            if (!mainGmCheck.Value)
             {
                 return Result<ActiveEffectRecord>.Failure(PersistenceFailures.ActiveEffectOperationDenied(correlationId));
             }

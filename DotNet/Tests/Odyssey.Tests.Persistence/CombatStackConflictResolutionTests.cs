@@ -61,9 +61,9 @@ namespace Odyssey.Tests.Persistence
             _encounters = new SqliteCombatEncounterRepository(_clock);
             _inventory = new SqliteInventoryRepository(_clock);
             _scenes = new SqliteSceneRepository(_clock);
-            _activeEffects = new SqliteActiveEffectRepository(_clock);
+            _activeEffects = new SqliteActiveEffectRepository(_clock, new SqliteCampaignRepository(_clock));
             _reader = new SqliteAttackStateReader(_encounters, _inventory, _characters, _clock, _scenes);
-            _apply = new SqliteAttackApplyRepository(_clock);
+            _apply = new SqliteAttackApplyRepository(_clock, new SqliteCampaignRepository(_clock));
         }
 
         [Test] // TC-ATTACK-084
@@ -105,7 +105,7 @@ namespace Odyssey.Tests.Persistence
             (CommandId raisingCommandId, ActiveEffectId conflictingId, CharacterId target) = RaiseConflict();
             long effectsBefore = ActiveEffectsFor(target).Count;
 
-            Result<CombatStackConflictRecord> result = AttackApplyService.ResolveStackConflict(_apply, _campaign, raisingCommandId, conflictingId, ActiveEffectStackConflictResolution.ApplyAsIndependentInstance, User(), true, Command(), Corr);
+            Result<CombatStackConflictRecord> result = AttackApplyService.ResolveStackConflict(_apply, _campaign, raisingCommandId, conflictingId, ActiveEffectStackConflictResolution.ApplyAsIndependentInstance, global::Odyssey.Application.Identity.DevIdentityProvider.AssignHost(), Command(), Corr);
 
             Assert.That(result.IsSuccess, Is.True);
             Assert.That(result.Value.IsResolved, Is.True);
@@ -119,7 +119,7 @@ namespace Odyssey.Tests.Persistence
         {
             (CommandId raisingCommandId, ActiveEffectId conflictingId, CharacterId target) = RaiseConflict();
 
-            Result<CombatStackConflictRecord> result = AttackApplyService.ResolveStackConflict(_apply, _campaign, raisingCommandId, conflictingId, ActiveEffectStackConflictResolution.Replace, User(), true, Command(), Corr);
+            Result<CombatStackConflictRecord> result = AttackApplyService.ResolveStackConflict(_apply, _campaign, raisingCommandId, conflictingId, ActiveEffectStackConflictResolution.Replace, global::Odyssey.Application.Identity.DevIdentityProvider.AssignHost(), Command(), Corr);
 
             Assert.That(result.IsSuccess, Is.True);
             IReadOnlyList<ActiveEffectRecord> effects = ActiveEffectsFor(target);
@@ -135,7 +135,7 @@ namespace Odyssey.Tests.Persistence
             (CommandId raisingCommandId, ActiveEffectId conflictingId, CharacterId target) = RaiseConflict();
             long effectsBefore = ActiveEffectsFor(target).Count;
 
-            Result<CombatStackConflictRecord> result = AttackApplyService.ResolveStackConflict(_apply, _campaign, raisingCommandId, conflictingId, ActiveEffectStackConflictResolution.Ignore, User(), true, Command(), Corr);
+            Result<CombatStackConflictRecord> result = AttackApplyService.ResolveStackConflict(_apply, _campaign, raisingCommandId, conflictingId, ActiveEffectStackConflictResolution.Ignore, global::Odyssey.Application.Identity.DevIdentityProvider.AssignHost(), Command(), Corr);
 
             Assert.That(result.IsSuccess, Is.True);
             Assert.That(ActiveEffectsFor(target).Count, Is.EqualTo(effectsBefore), "Ignore creates or mutates no ActiveEffect row.");
@@ -149,7 +149,7 @@ namespace Odyssey.Tests.Persistence
             (CommandId raisingCommandId, ActiveEffectId conflictingId, CharacterId target) = RaiseConflict();
             long before = TotalRowCount();
 
-            Result<CombatStackConflictRecord> result = AttackApplyService.ResolveStackConflict(_apply, _campaign, raisingCommandId, conflictingId, ActiveEffectStackConflictResolution.ApplyAsIndependentInstance, User(), false, Command(), Corr);
+            Result<CombatStackConflictRecord> result = AttackApplyService.ResolveStackConflict(_apply, _campaign, raisingCommandId, conflictingId, ActiveEffectStackConflictResolution.ApplyAsIndependentInstance, User(), Command(), Corr);
 
             Assert.That(result.IsFailure, Is.True);
             Assert.That(TotalRowCount(), Is.EqualTo(before));
@@ -159,9 +159,9 @@ namespace Odyssey.Tests.Persistence
         public void Resolving_an_already_resolved_conflict_a_second_time_is_a_CAS_failure()
         {
             (CommandId raisingCommandId, ActiveEffectId conflictingId, CharacterId target) = RaiseConflict();
-            Assert.That(AttackApplyService.ResolveStackConflict(_apply, _campaign, raisingCommandId, conflictingId, ActiveEffectStackConflictResolution.Ignore, User(), true, Command(), Corr).IsSuccess, Is.True);
+            Assert.That(AttackApplyService.ResolveStackConflict(_apply, _campaign, raisingCommandId, conflictingId, ActiveEffectStackConflictResolution.Ignore, global::Odyssey.Application.Identity.DevIdentityProvider.AssignHost(), Command(), Corr).IsSuccess, Is.True);
 
-            Result<CombatStackConflictRecord> second = AttackApplyService.ResolveStackConflict(_apply, _campaign, raisingCommandId, conflictingId, ActiveEffectStackConflictResolution.ApplyAsIndependentInstance, User(), true, Command(), Corr);
+            Result<CombatStackConflictRecord> second = AttackApplyService.ResolveStackConflict(_apply, _campaign, raisingCommandId, conflictingId, ActiveEffectStackConflictResolution.ApplyAsIndependentInstance, global::Odyssey.Application.Identity.DevIdentityProvider.AssignHost(), Command(), Corr);
 
             Assert.That(second.IsFailure, Is.True);
             Assert.That(ActiveEffectsFor(target).Count, Is.EqualTo(1), "The second, different resolving command never applies -- no new row from the rejected ApplyAsIndependentInstance attempt.");
@@ -173,11 +173,11 @@ namespace Odyssey.Tests.Persistence
             (CommandId raisingCommandId, ActiveEffectId conflictingId, CharacterId target) = RaiseConflict();
             CommandId resolvingCommandId = Command();
 
-            Result<CombatStackConflictRecord> first = AttackApplyService.ResolveStackConflict(_apply, _campaign, raisingCommandId, conflictingId, ActiveEffectStackConflictResolution.ApplyAsIndependentInstance, User(), true, resolvingCommandId, Corr);
+            Result<CombatStackConflictRecord> first = AttackApplyService.ResolveStackConflict(_apply, _campaign, raisingCommandId, conflictingId, ActiveEffectStackConflictResolution.ApplyAsIndependentInstance, global::Odyssey.Application.Identity.DevIdentityProvider.AssignHost(), resolvingCommandId, Corr);
             Assert.That(first.IsSuccess, Is.True);
             long effectsAfterFirst = ActiveEffectsFor(target).Count;
 
-            Result<CombatStackConflictRecord> retry = AttackApplyService.ResolveStackConflict(_apply, _campaign, raisingCommandId, conflictingId, ActiveEffectStackConflictResolution.ApplyAsIndependentInstance, User(), true, resolvingCommandId, Corr);
+            Result<CombatStackConflictRecord> retry = AttackApplyService.ResolveStackConflict(_apply, _campaign, raisingCommandId, conflictingId, ActiveEffectStackConflictResolution.ApplyAsIndependentInstance, global::Odyssey.Application.Identity.DevIdentityProvider.AssignHost(), resolvingCommandId, Corr);
 
             Assert.That(retry.IsSuccess, Is.True);
             Assert.That(ActiveEffectsFor(target).Count, Is.EqualTo(effectsAfterFirst), "A retry with the same resolving CommandId never re-applies the decision.");
@@ -248,10 +248,10 @@ namespace Odyssey.Tests.Persistence
             => _activeEffects.ListActiveEffectsByTarget(_campaign, _campaign.CampaignId, ActiveEffectTargetRef.ForCharacter(target), Corr).Value;
 
         private CombatEncounterRecord CreateEncounter(CharacterId actor, CharacterId target)
-            => CombatEncounterService.Create(_encounters, _campaign, new CreateCombatEncounterRequest(new[] { actor, target }, User(), true, Command()), Corr).Value;
+            => CombatEncounterService.Create(_encounters, new SqliteCampaignRepository(_clock), _campaign, new CreateCombatEncounterRequest(new[] { actor, target }, global::Odyssey.Application.Identity.DevIdentityProvider.AssignHost(), Command()), Corr).Value;
 
         private CombatEncounterRecord Advance(CombatEncounterRecord encounter)
-            => CombatEncounterService.Advance(_encounters, _campaign, new AdvanceCombatEncounterRequest(encounter.EncounterId, encounter.Revision, User(), true, Command()), Corr).Value;
+            => CombatEncounterService.Advance(_encounters, new SqliteCampaignRepository(_clock), _campaign, new AdvanceCombatEncounterRequest(encounter.EncounterId, encounter.Revision, global::Odyssey.Application.Identity.DevIdentityProvider.AssignHost(), Command()), Corr).Value;
 
         private static AttackRequest Request(CombatEncounterRecord encounter, CharacterId actor, CharacterId target, ItemInstanceRecord item)
             => new AttackRequest(new AttackIntent(encounter.EncounterId, actor, new[] { target }, item.ItemInstanceId, encounter.Revision), User(), true, Command(), Corr);

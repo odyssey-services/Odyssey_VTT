@@ -45,7 +45,7 @@ namespace Odyssey.Tests.Persistence
             _campaign = campaign.Value;
             _inventory = new SqliteInventoryRepository(_clock);
             _catalog = new SqliteContentCatalogRepository(_clock);
-            _effects = new SqliteActiveEffectRepository(_clock);
+            _effects = new SqliteActiveEffectRepository(_clock, _campaigns);
             _bag = new InventoryRecord(InventoryId.NewId(Now), _campaign.CampaignId, InventoryOwnerRef.ForCharacter(CharacterId.NewId(Now)), 1, Now, Now);
             Assert.That(_inventory.CreateInventory(_campaign, _bag, Command(), Corr).IsSuccess, Is.True);
         }
@@ -157,7 +157,7 @@ namespace Odyssey.Tests.Persistence
             Assert.That(Transition(effect, false, 1, suspend).Value, Is.EqualTo(2L));
             Assert.That(Transition(effect, true, 2, Command()).Value, Is.EqualTo(3L));
             long events = Count("DomainEvents");
-            _effects = new SqliteActiveEffectRepository(_clock);
+            _effects = new SqliteActiveEffectRepository(_clock, _campaigns);
             var replay = Transition(effect, false, 1, suspend);
             Assert.That(replay.IsSuccess, Is.True);
             Assert.That(replay.Value, Is.EqualTo(2L));

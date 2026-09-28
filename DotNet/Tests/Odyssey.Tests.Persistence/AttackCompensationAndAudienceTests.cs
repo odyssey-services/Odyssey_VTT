@@ -63,7 +63,7 @@ namespace Odyssey.Tests.Persistence
             _inventory = new SqliteInventoryRepository(_clock);
             _scenes = new SqliteSceneRepository(_clock);
             _reader = new SqliteAttackStateReader(_encounters, _inventory, _characters, _clock, _scenes);
-            _apply = new SqliteAttackApplyRepository(_clock);
+            _apply = new SqliteAttackApplyRepository(_clock, new SqliteCampaignRepository(_clock));
             _gameLog = new SqliteGameLogRepository(_clock);
         }
 
@@ -77,7 +77,7 @@ namespace Odyssey.Tests.Persistence
             long attackOutcomeBefore = Count("AttackOutcome");
             long gameLogEntriesBefore = Count("GameLogEntries");
 
-            Result<AttackCompensationRecord> result = AttackApplyService.CompensateAttackOutcome(_apply, _campaign, accepted.ResolveAttackCommandId, "logged wrong summary", "corrected: no damage was actually dealt", User(), actorIsMainGm: true, Command(), Corr);
+            Result<AttackCompensationRecord> result = AttackApplyService.CompensateAttackOutcome(_apply, _campaign, accepted.ResolveAttackCommandId, "logged wrong summary", "corrected: no damage was actually dealt", global::Odyssey.Application.Identity.DevIdentityProvider.AssignHost(), Command(), Corr);
 
             Assert.That(result.IsSuccess, Is.True);
             Assert.That(result.Value.GameLogEntryId, Is.Not.EqualTo(accepted.GameLogEntryId));
@@ -97,7 +97,7 @@ namespace Odyssey.Tests.Persistence
             (AttackOutcomeRecord accepted, _, _) = AcceptedAttack();
             long before = TotalRowCount();
 
-            Result<AttackCompensationRecord> result = AttackApplyService.CompensateAttackOutcome(_apply, _campaign, accepted.ResolveAttackCommandId, "reason", "corrected summary", User(), actorIsMainGm: false, Command(), Corr);
+            Result<AttackCompensationRecord> result = AttackApplyService.CompensateAttackOutcome(_apply, _campaign, accepted.ResolveAttackCommandId, "reason", "corrected summary", User(), Command(), Corr);
 
             Assert.That(result.IsFailure, Is.True);
             Assert.That(TotalRowCount(), Is.EqualTo(before));
@@ -108,17 +108,17 @@ namespace Odyssey.Tests.Persistence
         {
             (AttackOutcomeRecord accepted, _, _) = AcceptedAttack();
 
-            Assert.That(AttackApplyService.CompensateAttackOutcome(_apply, _campaign, accepted.ResolveAttackCommandId, "", "corrected summary", User(), true, Command(), Corr).IsFailure, Is.True);
-            Assert.That(AttackApplyService.CompensateAttackOutcome(_apply, _campaign, accepted.ResolveAttackCommandId, "reason", "  ", User(), true, Command(), Corr).IsFailure, Is.True);
+            Assert.That(AttackApplyService.CompensateAttackOutcome(_apply, _campaign, accepted.ResolveAttackCommandId, "", "corrected summary", global::Odyssey.Application.Identity.DevIdentityProvider.AssignHost(), Command(), Corr).IsFailure, Is.True);
+            Assert.That(AttackApplyService.CompensateAttackOutcome(_apply, _campaign, accepted.ResolveAttackCommandId, "reason", "  ", global::Odyssey.Application.Identity.DevIdentityProvider.AssignHost(), Command(), Corr).IsFailure, Is.True);
         }
 
         [Test] // TC-ATTACK-059
         public void A_second_compensation_of_the_same_committing_event_is_rejected()
         {
             (AttackOutcomeRecord accepted, _, _) = AcceptedAttack();
-            Assert.That(AttackApplyService.CompensateAttackOutcome(_apply, _campaign, accepted.ResolveAttackCommandId, "first reason", "first correction", User(), true, Command(), Corr).IsSuccess, Is.True);
+            Assert.That(AttackApplyService.CompensateAttackOutcome(_apply, _campaign, accepted.ResolveAttackCommandId, "first reason", "first correction", global::Odyssey.Application.Identity.DevIdentityProvider.AssignHost(), Command(), Corr).IsSuccess, Is.True);
 
-            Result<AttackCompensationRecord> second = AttackApplyService.CompensateAttackOutcome(_apply, _campaign, accepted.ResolveAttackCommandId, "second reason", "second correction", User(), true, Command(), Corr);
+            Result<AttackCompensationRecord> second = AttackApplyService.CompensateAttackOutcome(_apply, _campaign, accepted.ResolveAttackCommandId, "second reason", "second correction", global::Odyssey.Application.Identity.DevIdentityProvider.AssignHost(), Command(), Corr);
 
             Assert.That(second.IsFailure, Is.True);
             Assert.That(Count("GameLogEntries"), Is.EqualTo(2), "Original attack entry + exactly one compensation entry, not two.");
@@ -130,11 +130,11 @@ namespace Odyssey.Tests.Persistence
             (AttackOutcomeRecord accepted, _, _) = AcceptedAttack();
             CommandId compensatingCommandId = Command();
 
-            Result<AttackCompensationRecord> first = AttackApplyService.CompensateAttackOutcome(_apply, _campaign, accepted.ResolveAttackCommandId, "reason", "corrected", User(), true, compensatingCommandId, Corr);
+            Result<AttackCompensationRecord> first = AttackApplyService.CompensateAttackOutcome(_apply, _campaign, accepted.ResolveAttackCommandId, "reason", "corrected", global::Odyssey.Application.Identity.DevIdentityProvider.AssignHost(), compensatingCommandId, Corr);
             Assert.That(first.IsSuccess, Is.True);
             Assert.That(first.Value.CompensatingCommandId, Is.Not.EqualTo(accepted.ResolveAttackCommandId), "The compensating command has its own identity, distinct from the original attack's.");
 
-            Result<AttackCompensationRecord> retry = AttackApplyService.CompensateAttackOutcome(_apply, _campaign, accepted.ResolveAttackCommandId, "reason", "corrected", User(), true, compensatingCommandId, Corr);
+            Result<AttackCompensationRecord> retry = AttackApplyService.CompensateAttackOutcome(_apply, _campaign, accepted.ResolveAttackCommandId, "reason", "corrected", global::Odyssey.Application.Identity.DevIdentityProvider.AssignHost(), compensatingCommandId, Corr);
             Assert.That(retry.IsSuccess, Is.True);
             Assert.That(retry.Value.GameLogEntryId, Is.EqualTo(first.Value.GameLogEntryId), "A retry with the same compensating CommandId returns the original correction, not a second one.");
             Assert.That(Count("GameLogEntries"), Is.EqualTo(2));
@@ -151,7 +151,7 @@ namespace Odyssey.Tests.Persistence
             Assert.That(pending.IsSuccess, Is.True);
             Assert.That(pending.Value.OutcomeKind, Is.EqualTo(AttackOutcomeKind.Pending));
 
-            Result<AttackCompensationRecord> result = AttackApplyService.CompensateAttackOutcome(_apply, _campaign, pending.Value.ResolveAttackCommandId, "reason", "corrected", User(), true, Command(), Corr);
+            Result<AttackCompensationRecord> result = AttackApplyService.CompensateAttackOutcome(_apply, _campaign, pending.Value.ResolveAttackCommandId, "reason", "corrected", global::Odyssey.Application.Identity.DevIdentityProvider.AssignHost(), Command(), Corr);
 
             Assert.That(result.IsFailure, Is.True);
         }
@@ -249,7 +249,7 @@ namespace Odyssey.Tests.Persistence
         }
 
         private CombatEncounterRecord CreateEncounter(CharacterId a, CharacterId b)
-            => CombatEncounterService.Create(_encounters, _campaign, new CreateCombatEncounterRequest(new[] { a, b }, User(), true, Command()), Corr).Value;
+            => CombatEncounterService.Create(_encounters, new SqliteCampaignRepository(_clock), _campaign, new CreateCombatEncounterRequest(new[] { a, b }, global::Odyssey.Application.Identity.DevIdentityProvider.AssignHost(), Command()), Corr).Value;
 
         private static AttackRequest Request(CombatEncounterRecord encounter, CharacterId actor, CharacterId target, ItemInstanceRecord item)
             => new AttackRequest(new AttackIntent(encounter.EncounterId, actor, new[] { target }, item.ItemInstanceId, encounter.Revision), User(), true, Command(), Corr);
@@ -359,6 +359,59 @@ namespace Odyssey.Tests.Persistence
             private readonly IAuthoritativeRandomStreamFactory _inner = new DeterministicRandomStreamFactory(CampaignRngKey.FromBytes(new byte[32] { 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1 }));
             public int CreateCalls;
             public Result<IAuthoritativeRandomStream> Create(RandomDecisionContext context) { CreateCalls++; return _inner.Create(context); }
+        }
+
+        // ---- ODY-S10-103: MainGM is the stored membership -------------------------------------------
+
+        private System.Collections.Generic.List<(string Name, ErrorCode Denied, Func<SqliteAttackApplyRepository, UserId, ErrorCode?> Call)> AttackApplyOperations() =>
+            new System.Collections.Generic.List<(string, ErrorCode, Func<SqliteAttackApplyRepository, UserId, ErrorCode?>)>
+            {
+                ("ResolveAttackIntervention", ErrorCodes.PersistenceAttackOutcomeOperationDenied, (r, actor) => Code(r.ResolveAttackIntervention(_campaign, Command(), AttackInterventionResolution.Approve, actor, Command(), Corr))),
+                ("CompensateAttackOutcome", ErrorCodes.PersistenceAttackOutcomeOperationDenied, (r, actor) => Code(r.CompensateAttackOutcome(_campaign, Command(), "reason", "corrected", actor, Command(), Corr))),
+                ("ResolveStackConflict", ErrorCodes.PersistenceCombatStackConflictOperationDenied, (r, actor) => Code(r.ResolveStackConflict(_campaign, Command(), Odyssey.Domain.Effects.ActiveEffectId.NewId(_clock.GetUtcNow()), ActiveEffectStackConflictResolution.Ignore, actor, Command(), Corr))),
+            };
+
+        private static ErrorCode? Code<T>(Result<T> result) where T : notnull => result.IsFailure ? result.Error.Code : (ErrorCode?)null;
+
+        [Test] // TC-PERSIST-053
+        public void AttackApplyMainGmGates_DenyEveryNonMainGm_AndLetAStoredMainGmThrough()
+        {
+            var campaigns = new SqliteCampaignRepository(_clock);
+            UserId stranger = User();
+            UserId player = User();
+            UserId observer = User();
+            UserId secondGm = User();
+            Assert.That(campaigns.AddMember(_campaign, player, CampaignMembershipRole.Player, Command(), Corr).IsSuccess, Is.True);
+            Assert.That(campaigns.AddMember(_campaign, observer, CampaignMembershipRole.Observer, Command(), Corr).IsSuccess, Is.True);
+            Assert.That(campaigns.AddMember(_campaign, secondGm, CampaignMembershipRole.MainGm, Command(), Corr).IsSuccess, Is.True);
+
+            foreach (var op in AttackApplyOperations())
+            {
+                foreach (UserId actor in new[] { stranger, player, observer })
+                {
+                    Assert.That(op.Call(_apply, actor), Is.EqualTo(op.Denied), op.Name + " must deny a user who is not a stored MainGm");
+                }
+
+                foreach (UserId actor in new[] { global::Odyssey.Application.Identity.DevIdentityProvider.AssignHost(), secondGm })
+                {
+                    Assert.That(op.Call(_apply, actor), Is.Not.EqualTo(op.Denied), op.Name + " must let a stored MainGm through the authorization gate");
+                }
+            }
+        }
+
+        [Test] // TC-PERSIST-055
+        public void AttackApplyMainGmGates_FailClosed_WhenTheMembershipLookupFails()
+        {
+            var poisoned = PoisonedMembershipCampaignRepository.FailsOnLookup();
+            var repository = new SqliteAttackApplyRepository(_clock, poisoned);
+
+            foreach (var op in AttackApplyOperations())
+            {
+                int before = poisoned.LookupCalls;
+                ErrorCode? code = op.Call(repository, global::Odyssey.Application.Identity.DevIdentityProvider.AssignHost());
+                Assert.That(poisoned.LookupCalls, Is.EqualTo(before + 1), op.Name + " must have performed the lookup");
+                Assert.That(code, Is.EqualTo(ErrorCodes.PersistenceCampaignIoFailed), op.Name + ": the lookup's own failure, not a pass and not a fake denial");
+            }
         }
     }
 }

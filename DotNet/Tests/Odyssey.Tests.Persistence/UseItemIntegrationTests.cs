@@ -56,7 +56,7 @@ namespace Odyssey.Tests.Persistence
             _campaign = campaign.Value;
             _characters = new SqliteCharacterRepository(_clock, new SqliteCampaignRepository(_clock));
             _catalog = new SqliteContentCatalogRepository(_clock);
-            _effects = new SqliteActiveEffectRepository(_clock);
+            _effects = new SqliteActiveEffectRepository(_clock, new SqliteCampaignRepository(_clock));
             _inventory = new SqliteInventoryRepository(_clock);
             _reader = new SqliteUseItemStateReader(_characters, _inventory, _catalog, _clock);
             _apply = new SqliteUseItemRepository(_clock, _effects);
@@ -529,7 +529,13 @@ namespace Odyssey.Tests.Persistence
             public Result<ActiveEffectRecord> ExpireActiveEffect(CampaignHandle campaign, CampaignId campaignId, ActiveEffectId activeEffectId, long expectedRevision, CommandId commandId, CorrelationId correlationId) => _inner.ExpireActiveEffect(campaign, campaignId, activeEffectId, expectedRevision, commandId, correlationId);
             public Result<long> SetItemEffectEquipped(CampaignHandle campaign, CampaignId campaignId, ActiveEffectId activeEffectId, bool equipped, long expectedRevision, UserId actorUserId, CommandId commandId, CorrelationId correlationId) => _inner.SetItemEffectEquipped(campaign, campaignId, activeEffectId, equipped, expectedRevision, actorUserId, commandId, correlationId);
 
-            public Result<ActiveEffectRecord> RemoveActiveEffect(CampaignHandle campaign, CampaignId campaignId, ActiveEffectId activeEffectId, UserId actorUserId, bool actorIsMainGm, long expectedRevision, CommandId commandId, CorrelationId correlationId)
+            // ODY-S10-103: a public RemoveActiveEffect is the MainGM-gated command; the compensation code removes the effects
+            // it created through RemoveActiveEffectAsSystemRollback, so THAT is the call this double counts and fails (a
+            // failing removal during compensation is exactly what these tests need to inject).
+            public Result<ActiveEffectRecord> RemoveActiveEffect(CampaignHandle campaign, CampaignId campaignId, ActiveEffectId activeEffectId, UserId actorUserId, long expectedRevision, CommandId commandId, CorrelationId correlationId) =>
+                _inner.RemoveActiveEffect(campaign, campaignId, activeEffectId, actorUserId, expectedRevision, commandId, correlationId);
+
+            public Result<ActiveEffectRecord> RemoveActiveEffectAsSystemRollback(CampaignHandle campaign, CampaignId campaignId, ActiveEffectId activeEffectId, UserId actorUserId, long expectedRevision, CommandId commandId, CorrelationId correlationId)
             {
                 _removeCallCount++;
                 if (_removeCallCount == _failOnCallNumber)
@@ -537,8 +543,40 @@ namespace Odyssey.Tests.Persistence
                     return Result<ActiveEffectRecord>.Failure(PersistenceFailures.ActiveEffectIoFailed(correlationId));
                 }
 
-                return _inner.RemoveActiveEffect(campaign, campaignId, activeEffectId, actorUserId, actorIsMainGm, expectedRevision, commandId, correlationId);
+                return _inner.RemoveActiveEffectAsSystemRollback(campaign, campaignId, activeEffectId, actorUserId, expectedRevision, commandId, correlationId);
             }
+        }
+
+        // ---- ODY-S10-103: the system rollback is not a MainGM operation -----------------------------
+
+        [Test] // TC-PERSIST-058
+        public void UseItem_FailedUseByAnOrdinaryPlayer_IsStillFullyRolledBack()
+        {
+            CharacterId actor = Active("player character");
+            UserId player = User();
+            var campaigns = new SqliteCampaignRepository(_clock);
+            Assert.That(campaigns.AddMember(_campaign, player, CampaignMembershipRole.Player, Command(), Corr).IsSuccess, Is.True);
+            CharacterRecord before = _characters.GetCharacter(_campaign, actor, Corr).Value;
+            Assert.That(_characters.AssignPrimaryOwner(_campaign, actor, player, "the player's own character", global::Odyssey.Application.Identity.DevIdentityProvider.AssignHost(), before.Revisions.OwnershipRevision, Command(), Corr).IsSuccess, Is.True);
+            Assert.That(global::Odyssey.Application.Identity.CampaignMembershipAuthorization.IsMainGm(campaigns, _campaign, player, Corr).Value, Is.False, "the actor is an ordinary Player");
+
+            InventoryRecord inventory = CreateInventory(actor);
+            ContentDefinitionRecord firstApplied = PublishFixtureAppliedEffect();
+            ContentDefinitionRecord secondApplied = PublishFixtureAppliedEffect();
+            ContentDefinitionRecord itemEffect1 = PublishApplyEffectEffect(firstApplied);
+            ContentDefinitionRecord itemEffect2 = PublishApplyEffectEffect(secondApplied);
+            ItemStackRecord stack = CreateStack(inventory, quantity: 2, itemEffect1, itemEffect2);
+            Assert.That(ContentCatalogLifecycleService.ArchiveDefinition(_catalog, new ArchiveDefinitionRequest(_campaign, secondApplied.ContentDefinitionId, "test archive", actorIsMainGm: true, Command(), Corr)).IsSuccess, Is.True);
+
+            CharacterRecord current = _characters.GetCharacter(_campaign, actor, Corr).Value;
+            var intent = new UseItemIntent(actor, InventoryItemRef.ForStack(stack.ItemStackId), stack.Revision, inventory.Revision, current.Revisions.CharacterResourcesRevision);
+            var request = new UseItemRequest(intent, player, actorIsMainGm: false, Command(), Corr);
+
+            Result<ItemUsageRecord> result = UseItemService.UseItem(_reader, _apply, _catalog, _effects, new ThrowingRandomFactory(), _clock, _campaign, Epoch, request);
+
+            Assert.That(result.IsFailure, Is.True, "the second, archived ApplyEffect fails the whole use");
+            Assert.That(CountStillAttached(actor), Is.EqualTo(0), "the effect created before the failure is rolled back even though the actor is not a MainGm");
+            Assert.That(_inventory.GetItemStack(_campaign, stack.ItemStackId, Corr).Value.Quantity.Value, Is.EqualTo(2), "and the consumed unit is restored");
         }
     }
 }

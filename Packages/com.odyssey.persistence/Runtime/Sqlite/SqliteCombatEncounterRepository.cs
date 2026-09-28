@@ -51,7 +51,9 @@ namespace Odyssey.Persistence.Sqlite
         public SqliteCombatEncounterRepository(IWallClock clock, IActiveEffectRepository? activeEffects = null, ICombatEncounterLifecycleReader? lifecycleReader = null)
         {
             _clock = clock ?? throw new ArgumentNullException(nameof(clock));
-            _activeEffects = activeEffects ?? new SqliteActiveEffectRepository(_clock);
+            // ODY-S10-103: the default effect repository needs a campaign repository for its MainGM lookups; this class only ever
+            // expires effects through it (no MainGM operation), so a plain SqliteCampaignRepository is enough.
+            _activeEffects = activeEffects ?? new SqliteActiveEffectRepository(_clock, new SqliteCampaignRepository(_clock));
             _lifecycleReader = lifecycleReader ?? new SqliteCombatEncounterLifecycleReader(this);
         }
 

@@ -8,6 +8,7 @@ using Newtonsoft.Json.Linq;
 using Odyssey.Application.Commands;
 using Odyssey.Application.Dice;
 using Odyssey.Application.Effects;
+using Odyssey.Application.Identity;
 using Odyssey.Application.Persistence;
 using Odyssey.Application.Results;
 using Odyssey.Application.Time;
@@ -54,7 +55,7 @@ namespace Odyssey.Persistence.Sqlite
     /// `DeserializeResources` `internal` for reuse -- never by calling the
     /// public `ICharacterRepository.SetResourceCurrentValue`, which (a) opens
     /// its own separate connection/transaction via `MutateResources`, and (b)
-    /// hard-requires `actorIsMainGm == true`, which an immediate (non-
+    /// hard-requires a stored MainGm actor (ODY-S10-103: it used to be a caller flag), which an immediate (non-
     /// intervention) attack accept is not necessarily. See the ODY-S05-609
     /// task contract's decision log for the full reasoning, including why an
     /// `item:`-targeted delta is a disclosed, escalated blocker rather than a
@@ -65,9 +66,13 @@ namespace Odyssey.Persistence.Sqlite
         private readonly IWallClock _clock;
         private readonly SqliteSavingPipeline _pipeline;
 
-        public SqliteAttackApplyRepository(IWallClock clock)
+        private readonly ICampaignRepository _campaignRepository;
+
+        public SqliteAttackApplyRepository(IWallClock clock, ICampaignRepository campaignRepository)
         {
             _clock = clock ?? throw new ArgumentNullException(nameof(clock));
+            // ODY-S10-103: MainGM-ness is looked up from the stored campaign membership (never trusted from the caller).
+            _campaignRepository = campaignRepository ?? throw new ArgumentNullException(nameof(campaignRepository));
             _pipeline = new SqliteSavingPipeline(clock);
         }
 
@@ -177,7 +182,7 @@ namespace Odyssey.Persistence.Sqlite
             }
         }
 
-        public Result<AttackOutcomeRecord> ResolveAttackIntervention(CampaignHandle campaign, CommandId pendingCommandId, AttackInterventionResolution resolution, UserId actorUserId, bool actorIsMainGm, CommandId commandId, CorrelationId correlationId)
+        public Result<AttackOutcomeRecord> ResolveAttackIntervention(CampaignHandle campaign, CommandId pendingCommandId, AttackInterventionResolution resolution, UserId actorUserId, CommandId commandId, CorrelationId correlationId)
         {
             if (campaign == null) throw new ArgumentNullException(nameof(campaign));
             if (!pendingCommandId.IsValid) throw new ArgumentException("PendingCommandId is required.", nameof(pendingCommandId));
@@ -189,7 +194,13 @@ namespace Odyssey.Persistence.Sqlite
             // remains out of this task's own scope (section 1 rule 3 / section 14
             // item 3), so this task gates the whole command on MainGM, mirroring
             // RemoveActiveEffect's own literal-first-statement placement.
-            if (!actorIsMainGm)
+            Result<bool> mainGmCheck = CampaignMembershipAuthorization.IsMainGm(_campaignRepository, campaign, actorUserId, correlationId);
+            if (mainGmCheck.IsFailure)
+            {
+                return Result<AttackOutcomeRecord>.Failure(mainGmCheck.Error);
+            }
+
+            if (!mainGmCheck.Value)
             {
                 return Result<AttackOutcomeRecord>.Failure(PersistenceFailures.AttackOutcomeOperationDenied(correlationId));
             }
@@ -306,7 +317,7 @@ namespace Odyssey.Persistence.Sqlite
         /// never touches `ICharacterRepository`/`IInventoryRepository` or any
         /// Character/Item resource state (`ODY-S05-609`'s own territory).
         /// </summary>
-        public Result<AttackCompensationRecord> CompensateAttackOutcome(CampaignHandle campaign, CommandId resolveAttackCommandId, string reasonCode, string correctedSummaryPayload, UserId actorUserId, bool actorIsMainGm, CommandId commandId, CorrelationId correlationId)
+        public Result<AttackCompensationRecord> CompensateAttackOutcome(CampaignHandle campaign, CommandId resolveAttackCommandId, string reasonCode, string correctedSummaryPayload, UserId actorUserId, CommandId commandId, CorrelationId correlationId)
         {
             if (campaign == null) throw new ArgumentNullException(nameof(campaign));
             if (!resolveAttackCommandId.IsValid) throw new ArgumentException("ResolveAttackCommandId is required.", nameof(resolveAttackCommandId));
@@ -316,7 +327,13 @@ namespace Odyssey.Persistence.Sqlite
             // ADR-029 section 1 rule 7: a compensating command is a separate,
             // authorized action -- MainGM-only, checked first, mirroring
             // RevertCharacterRulesetMigration's own exact placement.
-            if (!actorIsMainGm)
+            Result<bool> mainGmCheck = CampaignMembershipAuthorization.IsMainGm(_campaignRepository, campaign, actorUserId, correlationId);
+            if (mainGmCheck.IsFailure)
+            {
+                return Result<AttackCompensationRecord>.Failure(mainGmCheck.Error);
+            }
+
+            if (!mainGmCheck.Value)
             {
                 return Result<AttackCompensationRecord>.Failure(PersistenceFailures.AttackOutcomeOperationDenied(correlationId));
             }
@@ -780,7 +797,7 @@ namespace Odyssey.Persistence.Sqlite
         /// result -- never a duplicated create/replace/ignore implementation,
         /// and never the public `IActiveEffectRepository.CreateActiveEffect`.
         /// </summary>
-        public Result<CombatStackConflictRecord> ResolveStackConflict(CampaignHandle campaign, CommandId raisingCommandId, ActiveEffectId conflictingActiveEffectId, ActiveEffectStackConflictResolution resolution, UserId actorUserId, bool actorIsMainGm, CommandId commandId, CorrelationId correlationId)
+        public Result<CombatStackConflictRecord> ResolveStackConflict(CampaignHandle campaign, CommandId raisingCommandId, ActiveEffectId conflictingActiveEffectId, ActiveEffectStackConflictResolution resolution, UserId actorUserId, CommandId commandId, CorrelationId correlationId)
         {
             if (campaign == null) throw new ArgumentNullException(nameof(campaign));
             if (!raisingCommandId.IsValid) throw new ArgumentException("RaisingCommandId is required.", nameof(raisingCommandId));
@@ -791,7 +808,13 @@ namespace Odyssey.Persistence.Sqlite
             // ADR-028 section 7 rule 7: a MainGM resolves a pending stacking
             // conflict -- checked as this method's own first statement,
             // mirroring ResolveAttackIntervention's exact placement.
-            if (!actorIsMainGm)
+            Result<bool> mainGmCheck = CampaignMembershipAuthorization.IsMainGm(_campaignRepository, campaign, actorUserId, correlationId);
+            if (mainGmCheck.IsFailure)
+            {
+                return Result<CombatStackConflictRecord>.Failure(mainGmCheck.Error);
+            }
+
+            if (!mainGmCheck.Value)
             {
                 return Result<CombatStackConflictRecord>.Failure(PersistenceFailures.CombatStackConflictOperationDenied(correlationId));
             }

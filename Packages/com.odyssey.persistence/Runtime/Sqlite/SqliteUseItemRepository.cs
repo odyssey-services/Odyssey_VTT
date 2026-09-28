@@ -193,7 +193,7 @@ namespace Odyssey.Persistence.Sqlite
                 foreach (ActiveEffectId effectId in effectIdsToRemove)
                 {
                     CommandId removalCommandId = StableEffectRemovalCommandId(originalCommandId, effectId);
-                    Result<ActiveEffectRecord> removed = _effects.RemoveActiveEffect(campaign, campaign.CampaignId, effectId, actorUserId, actorIsMainGm: true, expectedRevision: 1, removalCommandId, correlationId);
+                    Result<ActiveEffectRecord> removed = _effects.RemoveActiveEffectAsSystemRollback(campaign, campaign.CampaignId, effectId, actorUserId, expectedRevision: 1, removalCommandId, correlationId);
                     if (removed.IsFailure) return Result<ItemUsageRecord>.Failure(removed.Error);
                 }
 

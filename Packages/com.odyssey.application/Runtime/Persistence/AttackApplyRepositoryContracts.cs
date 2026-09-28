@@ -245,7 +245,7 @@ namespace Odyssey.Application.Persistence
         /// the pending outcome by <paramref name="pendingCommandId"/>, requires
         /// it still be <c>Pending</c> (a CAS guard -- an already-resolved
         /// pending outcome is a typed conflict, not a silent no-op), requires
-        /// <paramref name="actorIsMainGm"/> (ADR-029 section 10: MainGM
+        /// <paramref name="actorUserId"/> to be the campaign's stored MainGM (ADR-029 section 10: MainGM
         /// resolves an ambiguous/contested/expired intervention; a
         /// Ruleset-specific eligible-controller-choice payload remains out of
         /// this task's scope), and atomically transitions it to
@@ -255,7 +255,7 @@ namespace Odyssey.Application.Persistence
         /// deriving a new one. Idempotent by <paramref name="commandId"/> (this
         /// command's own root identity, distinct from <paramref name="pendingCommandId"/>).
         /// </summary>
-        Result<AttackOutcomeRecord> ResolveAttackIntervention(CampaignHandle campaign, CommandId pendingCommandId, AttackInterventionResolution resolution, UserId actorUserId, bool actorIsMainGm, CommandId commandId, CorrelationId correlationId);
+        Result<AttackOutcomeRecord> ResolveAttackIntervention(CampaignHandle campaign, CommandId pendingCommandId, AttackInterventionResolution resolution, UserId actorUserId, CommandId commandId, CorrelationId correlationId);
 
         /// <summary>
         /// ODY-S05-607: `ADR-029` §1 rule 7's own compensating root command --
@@ -273,7 +273,7 @@ namespace Odyssey.Application.Persistence
         /// <paramref name="commandId"/> (this command's own root identity,
         /// distinct from <paramref name="resolveAttackCommandId"/>).
         /// </summary>
-        Result<AttackCompensationRecord> CompensateAttackOutcome(CampaignHandle campaign, CommandId resolveAttackCommandId, string reasonCode, string correctedSummaryPayload, UserId actorUserId, bool actorIsMainGm, CommandId commandId, CorrelationId correlationId);
+        Result<AttackCompensationRecord> CompensateAttackOutcome(CampaignHandle campaign, CommandId resolveAttackCommandId, string reasonCode, string correctedSummaryPayload, UserId actorUserId, CommandId commandId, CorrelationId correlationId);
 
         /// <summary>
         /// ODY-S05-610: `ADR-028` §7 rule 7's own resolution command for a
@@ -293,6 +293,6 @@ namespace Odyssey.Application.Persistence
         /// knows how to apply -- never a duplicated create/replace/ignore
         /// implementation.
         /// </summary>
-        Result<CombatStackConflictRecord> ResolveStackConflict(CampaignHandle campaign, CommandId raisingCommandId, ActiveEffectId conflictingActiveEffectId, ActiveEffectStackConflictResolution resolution, UserId actorUserId, bool actorIsMainGm, CommandId commandId, CorrelationId correlationId);
+        Result<CombatStackConflictRecord> ResolveStackConflict(CampaignHandle campaign, CommandId raisingCommandId, ActiveEffectId conflictingActiveEffectId, ActiveEffectStackConflictResolution resolution, UserId actorUserId, CommandId commandId, CorrelationId correlationId);
     }
 }

@@ -48,7 +48,7 @@ namespace Odyssey.Tests.Persistence
             Result<CampaignHandle> created = _campaigns.Create(new CreateCampaignRequest(_campaignDir, "GM Command Test Campaign", "ruleset.core", "1.0.0", "0.1.0", global::Odyssey.Application.Identity.DevIdentityProvider.AssignHost()), NewCommandId(), Corr);
             Assert.That(created.IsSuccess, Is.True);
             _campaign = created.Value;
-            _effects = new SqliteActiveEffectRepository(Clock);
+            _effects = new SqliteActiveEffectRepository(Clock, _campaigns);
         }
 
         [TearDown]
@@ -81,7 +81,7 @@ namespace Odyssey.Tests.Persistence
         {
             ActiveEffectRecord record = PersistEffect();
 
-            Result<ActiveEffectRecord> removed = _effects.RemoveActiveEffect(_campaign, _campaign.CampaignId, record.Effect.ActiveEffectId, MainGm, true, record.Effect.Revision, NewCommandId(), Corr);
+            Result<ActiveEffectRecord> removed = _effects.RemoveActiveEffect(_campaign, _campaign.CampaignId, record.Effect.ActiveEffectId, global::Odyssey.Application.Identity.DevIdentityProvider.AssignHost(), record.Effect.Revision, NewCommandId(), Corr);
 
             Assert.That(removed.IsSuccess, Is.True, removed.IsFailure ? removed.Error.Code.ToString() : string.Empty);
             Assert.That(removed.Value.Effect.Status, Is.EqualTo(ActiveEffectStatus.Removed));
@@ -97,7 +97,7 @@ namespace Odyssey.Tests.Persistence
         {
             ActiveEffectRecord record = PersistEffect();
 
-            Result<ActiveEffectRecord> removed = _effects.RemoveActiveEffect(_campaign, _campaign.CampaignId, record.Effect.ActiveEffectId, Player, false, record.Effect.Revision, NewCommandId(), Corr);
+            Result<ActiveEffectRecord> removed = _effects.RemoveActiveEffect(_campaign, _campaign.CampaignId, record.Effect.ActiveEffectId, Player, record.Effect.Revision, NewCommandId(), Corr);
 
             Assert.That(removed.IsFailure, Is.True);
             Assert.That(removed.Error.Code, Is.EqualTo(ErrorCodes.PersistenceActiveEffectOperationDenied));
@@ -114,7 +114,7 @@ namespace Odyssey.Tests.Persistence
             ActiveEffectRecord record = PersistEffect();
             long staleRevision = record.Effect.Revision + 5;
 
-            Result<ActiveEffectRecord> removed = _effects.RemoveActiveEffect(_campaign, _campaign.CampaignId, record.Effect.ActiveEffectId, MainGm, true, staleRevision, NewCommandId(), Corr);
+            Result<ActiveEffectRecord> removed = _effects.RemoveActiveEffect(_campaign, _campaign.CampaignId, record.Effect.ActiveEffectId, global::Odyssey.Application.Identity.DevIdentityProvider.AssignHost(), staleRevision, NewCommandId(), Corr);
 
             Assert.That(removed.IsFailure, Is.True);
             Assert.That(removed.Error.Code, Is.EqualTo(ErrorCodes.PersistenceActiveEffectRevisionConflict));
@@ -130,8 +130,8 @@ namespace Odyssey.Tests.Persistence
             ActiveEffectRecord record = PersistEffect();
             CommandId commandId = NewCommandId();
 
-            Result<ActiveEffectRecord> first = _effects.RemoveActiveEffect(_campaign, _campaign.CampaignId, record.Effect.ActiveEffectId, MainGm, true, record.Effect.Revision, commandId, Corr);
-            Result<ActiveEffectRecord> replay = _effects.RemoveActiveEffect(_campaign, _campaign.CampaignId, record.Effect.ActiveEffectId, MainGm, true, record.Effect.Revision, commandId, Corr);
+            Result<ActiveEffectRecord> first = _effects.RemoveActiveEffect(_campaign, _campaign.CampaignId, record.Effect.ActiveEffectId, global::Odyssey.Application.Identity.DevIdentityProvider.AssignHost(), record.Effect.Revision, commandId, Corr);
+            Result<ActiveEffectRecord> replay = _effects.RemoveActiveEffect(_campaign, _campaign.CampaignId, record.Effect.ActiveEffectId, global::Odyssey.Application.Identity.DevIdentityProvider.AssignHost(), record.Effect.Revision, commandId, Corr);
 
             Assert.That(first.IsSuccess, Is.True);
             Assert.That(replay.IsSuccess, Is.True);
@@ -144,7 +144,7 @@ namespace Odyssey.Tests.Persistence
         {
             ActiveEffectRecord record = PersistEffect(terminalStatus);
 
-            Result<ActiveEffectRecord> removed = _effects.RemoveActiveEffect(_campaign, _campaign.CampaignId, record.Effect.ActiveEffectId, MainGm, true, record.Effect.Revision, NewCommandId(), Corr);
+            Result<ActiveEffectRecord> removed = _effects.RemoveActiveEffect(_campaign, _campaign.CampaignId, record.Effect.ActiveEffectId, global::Odyssey.Application.Identity.DevIdentityProvider.AssignHost(), record.Effect.Revision, NewCommandId(), Corr);
 
             Assert.That(removed.IsFailure, Is.True);
             Assert.That(removed.Error.Code, Is.EqualTo(ErrorCodes.PersistenceActiveEffectRevisionConflict));
@@ -158,7 +158,7 @@ namespace Odyssey.Tests.Persistence
         {
             ActiveEffectRecord record = PersistEffect(ActiveEffectStatus.Suspended);
 
-            Result<ActiveEffectRecord> removed = _effects.RemoveActiveEffect(_campaign, _campaign.CampaignId, record.Effect.ActiveEffectId, MainGm, true, record.Effect.Revision, NewCommandId(), Corr);
+            Result<ActiveEffectRecord> removed = _effects.RemoveActiveEffect(_campaign, _campaign.CampaignId, record.Effect.ActiveEffectId, global::Odyssey.Application.Identity.DevIdentityProvider.AssignHost(), record.Effect.Revision, NewCommandId(), Corr);
 
             Assert.That(removed.IsSuccess, Is.True);
             Assert.That(removed.Value.Effect.Status, Is.EqualTo(ActiveEffectStatus.Removed), "removal can end a Suspended WhileItemEquipped effect early too, not only an Active one");
@@ -169,7 +169,7 @@ namespace Odyssey.Tests.Persistence
         {
             ActiveEffectRecord record = PersistEffect();
 
-            Result<ActiveEffectRecord> removed = _effects.RemoveActiveEffect(_campaign, CampaignId.NewId(Clock.GetUtcNow()), record.Effect.ActiveEffectId, MainGm, true, record.Effect.Revision, NewCommandId(), Corr);
+            Result<ActiveEffectRecord> removed = _effects.RemoveActiveEffect(_campaign, CampaignId.NewId(Clock.GetUtcNow()), record.Effect.ActiveEffectId, global::Odyssey.Application.Identity.DevIdentityProvider.AssignHost(), record.Effect.Revision, NewCommandId(), Corr);
 
             Assert.That(removed.IsFailure, Is.True);
             Assert.That(removed.Error.Code, Is.EqualTo(ErrorCodes.PersistenceActiveEffectCampaignMismatch));
@@ -185,7 +185,7 @@ namespace Odyssey.Tests.Persistence
             var target = ActiveEffectTargetRef.ForCharacter(CharacterId.NewId(Clock.GetUtcNow()));
 
             Result<ActiveEffectRecord> result = ActiveEffectDirectCommandService.CreateDirectActiveEffect(
-                _effects, _campaign, _campaign.CampaignId, effectRef, snapshot, target, MainGm, true, Clock.GetUtcNow(), null, NewCommandId(), Corr);
+                _effects, _campaigns, _campaign, _campaign.CampaignId, effectRef, snapshot, target, global::Odyssey.Application.Identity.DevIdentityProvider.AssignHost(), Clock.GetUtcNow(), null, NewCommandId(), Corr);
 
             Assert.That(result.IsSuccess, Is.True, result.IsFailure ? result.Error.Code.ToString() : string.Empty);
             Assert.That(result.Value.Effect.SourceRef.Kind, Is.EqualTo(ActiveEffectSourceKind.GMDirect));
@@ -204,7 +204,7 @@ namespace Odyssey.Tests.Persistence
             var target = ActiveEffectTargetRef.ForCharacter(CharacterId.NewId(Clock.GetUtcNow()));
 
             Result<ActiveEffectRecord> result = ActiveEffectDirectCommandService.CreateDirectActiveEffect(
-                _effects, _campaign, _campaign.CampaignId, effectRef, snapshot, target, Player, false, Clock.GetUtcNow(), null, NewCommandId(), Corr);
+                _effects, _campaigns, _campaign, _campaign.CampaignId, effectRef, snapshot, target, Player, Clock.GetUtcNow(), null, NewCommandId(), Corr);
 
             Assert.That(result.IsFailure, Is.True);
             Assert.That(result.Error.Code, Is.EqualTo(ErrorCodes.PersistenceActiveEffectOperationDenied));
@@ -224,9 +224,9 @@ namespace Odyssey.Tests.Persistence
             UtcInstant appliedAt = Clock.GetUtcNow();
 
             Result<ActiveEffectRecord> first = ActiveEffectDirectCommandService.CreateDirectActiveEffect(
-                _effects, _campaign, _campaign.CampaignId, effectRef, snapshot, target, MainGm, true, appliedAt, null, commandId, Corr);
+                _effects, _campaigns, _campaign, _campaign.CampaignId, effectRef, snapshot, target, global::Odyssey.Application.Identity.DevIdentityProvider.AssignHost(), appliedAt, null, commandId, Corr);
             Result<ActiveEffectRecord> replay = ActiveEffectDirectCommandService.CreateDirectActiveEffect(
-                _effects, _campaign, _campaign.CampaignId, effectRef, snapshot, target, MainGm, true, appliedAt, null, commandId, Corr);
+                _effects, _campaigns, _campaign, _campaign.CampaignId, effectRef, snapshot, target, global::Odyssey.Application.Identity.DevIdentityProvider.AssignHost(), appliedAt, null, commandId, Corr);
 
             Assert.That(first.IsSuccess, Is.True);
             Assert.That(replay.IsSuccess, Is.True);
@@ -234,6 +234,77 @@ namespace Odyssey.Tests.Persistence
 
             Result<System.Collections.Generic.IReadOnlyList<ActiveEffectRecord>> listed = _effects.ListActiveEffectsByTarget(_campaign, _campaign.CampaignId, target, Corr);
             Assert.That(listed.Value.Count, Is.EqualTo(1), "a replay must not create a second row");
+        }
+
+        // ---- ODY-S10-103: MainGM is the stored membership -------------------------------------------
+
+        private UserId AddMember(CampaignMembershipRole role)
+        {
+            UserId user = NewUserId();
+            Assert.That(_campaigns.AddMember(_campaign, user, role, NewCommandId(), Corr).IsSuccess, Is.True);
+            return user;
+        }
+
+        [Test] // TC-PERSIST-052
+        public void CreateDirectActiveEffect_AndRemoveActiveEffect_AreMainGmOnly_ByTheStoredMembership()
+        {
+            UserId host = global::Odyssey.Application.Identity.DevIdentityProvider.AssignHost();
+            UserId stranger = NewUserId();
+            UserId player = AddMember(CampaignMembershipRole.Player);
+            UserId observer = AddMember(CampaignMembershipRole.Observer);
+            UserId secondGm = AddMember(CampaignMembershipRole.MainGm);
+            ContentDefinitionRef effectRef = NewEffectRef();
+            var snapshot = new EffectMechanicsSnapshot(effectRef, 1, ContentDefinitionType.Effect, "{\"duration\":\"permanent\"}");
+            var target = ActiveEffectTargetRef.ForCharacter(CharacterId.NewId(Clock.GetUtcNow()));
+
+            foreach (UserId actor in new[] { stranger, player, observer })
+            {
+                Result<ActiveEffectRecord> created = ActiveEffectDirectCommandService.CreateDirectActiveEffect(_effects, _campaigns, _campaign, _campaign.CampaignId, effectRef, snapshot, target, actor, Clock.GetUtcNow(), null, NewCommandId(), Corr);
+                Assert.That(created.IsFailure, Is.True, "CreateDirectActiveEffect must deny a user who is not a stored MainGm");
+                Assert.That(created.Error.Code, Is.EqualTo(ErrorCodes.PersistenceActiveEffectOperationDenied));
+            }
+
+            foreach (UserId actor in new[] { host, secondGm })
+            {
+                Assert.That(ActiveEffectDirectCommandService.CreateDirectActiveEffect(_effects, _campaigns, _campaign, _campaign.CampaignId, effectRef, snapshot, target, actor, Clock.GetUtcNow(), null, NewCommandId(), Corr).IsSuccess, Is.True);
+            }
+
+            ActiveEffectRecord record = PersistEffect();
+            foreach (UserId actor in new[] { stranger, player, observer })
+            {
+                Result<ActiveEffectRecord> removed = _effects.RemoveActiveEffect(_campaign, _campaign.CampaignId, record.Effect.ActiveEffectId, actor, record.Effect.Revision, NewCommandId(), Corr);
+                Assert.That(removed.IsFailure, Is.True, "RemoveActiveEffect must deny a user who is not a stored MainGm");
+                Assert.That(removed.Error.Code, Is.EqualTo(ErrorCodes.PersistenceActiveEffectOperationDenied));
+            }
+
+            Assert.That(_effects.GetActiveEffect(_campaign, record.Effect.ActiveEffectId, Corr).Value.Effect.Status, Is.EqualTo(ActiveEffectStatus.Active), "nothing was removed");
+            Assert.That(_effects.RemoveActiveEffect(_campaign, _campaign.CampaignId, record.Effect.ActiveEffectId, secondGm, record.Effect.Revision, NewCommandId(), Corr).IsSuccess, Is.True);
+        }
+
+        [Test] // TC-PERSIST-056
+        public void CreateDirectActiveEffect_AndRemoveActiveEffect_FailClosed_WhenTheMembershipLookupFails()
+        {
+            ActiveEffectRecord record = PersistEffect();
+            var poisoned = PoisonedMembershipCampaignRepository.FailsOnLookup();
+            var effects = new SqliteActiveEffectRepository(Clock, poisoned);
+            UserId host = global::Odyssey.Application.Identity.DevIdentityProvider.AssignHost();
+
+            Result<ActiveEffectRecord> removed = effects.RemoveActiveEffect(_campaign, _campaign.CampaignId, record.Effect.ActiveEffectId, host, record.Effect.Revision, NewCommandId(), Corr);
+            Assert.That(removed.IsFailure, Is.True);
+            Assert.That(removed.Error.Code, Is.EqualTo(ErrorCodes.PersistenceCampaignIoFailed), "Persistence layer: the lookup's own failure, not a pass and not a fake denial");
+            Assert.That(_effects.GetActiveEffect(_campaign, record.Effect.ActiveEffectId, Corr).Value.Effect.Status, Is.EqualTo(ActiveEffectStatus.Active));
+
+            ContentDefinitionRef effectRef = NewEffectRef();
+            var snapshot = new EffectMechanicsSnapshot(effectRef, 1, ContentDefinitionType.Effect, "{\"duration\":\"permanent\"}");
+            Result<ActiveEffectRecord> created = ActiveEffectDirectCommandService.CreateDirectActiveEffect(effects, poisoned, _campaign, _campaign.CampaignId, effectRef, snapshot, ActiveEffectTargetRef.ForCharacter(CharacterId.NewId(Clock.GetUtcNow())), host, Clock.GetUtcNow(), null, NewCommandId(), Corr);
+            Assert.That(created.IsFailure, Is.True);
+            Assert.That(created.Error.Code, Is.EqualTo(ErrorCodes.PersistenceCampaignIoFailed), "Application layer");
+
+            // The system rollback needs no membership at all: it works even though the lookup is unreadable.
+            Assert.That(poisoned.LookupCalls, Is.EqualTo(2));
+            Result<ActiveEffectRecord> rolledBack = effects.RemoveActiveEffectAsSystemRollback(_campaign, _campaign.CampaignId, record.Effect.ActiveEffectId, NewUserId(), record.Effect.Revision, NewCommandId(), Corr);
+            Assert.That(rolledBack.IsSuccess, Is.True, "the system rollback is not a MainGM operation");
+            Assert.That(poisoned.LookupCalls, Is.EqualTo(2), "and performs no membership lookup");
         }
     }
 }

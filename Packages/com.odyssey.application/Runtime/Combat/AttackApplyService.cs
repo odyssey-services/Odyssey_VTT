@@ -68,10 +68,10 @@ namespace Odyssey.Application.Combat
         /// random sample verbatim -- this method never touches
         /// <see cref="IAuthoritativeRandomStreamFactory"/> at all.
         /// </summary>
-        public static Result<AttackOutcomeRecord> ResolveAttackIntervention(IAttackApplyRepository apply, CampaignHandle campaign, CommandId pendingCommandId, AttackInterventionResolution resolution, UserId actorUserId, bool actorIsMainGm, CommandId commandId, CorrelationId correlationId)
+        public static Result<AttackOutcomeRecord> ResolveAttackIntervention(IAttackApplyRepository apply, CampaignHandle campaign, CommandId pendingCommandId, AttackInterventionResolution resolution, UserId actorUserId, CommandId commandId, CorrelationId correlationId)
         {
             if (apply == null) throw new ArgumentNullException(nameof(apply));
-            return apply.ResolveAttackIntervention(campaign, pendingCommandId, resolution, actorUserId, actorIsMainGm, commandId, correlationId);
+            return apply.ResolveAttackIntervention(campaign, pendingCommandId, resolution, actorUserId, commandId, correlationId);
         }
 
         /// <summary>
@@ -80,10 +80,10 @@ namespace Odyssey.Application.Combat
         /// directly to <see cref="IAttackApplyRepository.CompensateAttackOutcome"/>;
         /// this method never touches <see cref="IAuthoritativeRandomStreamFactory"/>.
         /// </summary>
-        public static Result<AttackCompensationRecord> CompensateAttackOutcome(IAttackApplyRepository apply, CampaignHandle campaign, CommandId resolveAttackCommandId, string reasonCode, string correctedSummaryPayload, UserId actorUserId, bool actorIsMainGm, CommandId commandId, CorrelationId correlationId)
+        public static Result<AttackCompensationRecord> CompensateAttackOutcome(IAttackApplyRepository apply, CampaignHandle campaign, CommandId resolveAttackCommandId, string reasonCode, string correctedSummaryPayload, UserId actorUserId, CommandId commandId, CorrelationId correlationId)
         {
             if (apply == null) throw new ArgumentNullException(nameof(apply));
-            return apply.CompensateAttackOutcome(campaign, resolveAttackCommandId, reasonCode, correctedSummaryPayload, actorUserId, actorIsMainGm, commandId, correlationId);
+            return apply.CompensateAttackOutcome(campaign, resolveAttackCommandId, reasonCode, correctedSummaryPayload, actorUserId, commandId, correlationId);
         }
 
         /// <summary>
@@ -92,10 +92,10 @@ namespace Odyssey.Application.Combat
         /// directly to <see cref="IAttackApplyRepository.ResolveStackConflict"/>;
         /// this method never touches <see cref="IAuthoritativeRandomStreamFactory"/>.
         /// </summary>
-        public static Result<CombatStackConflictRecord> ResolveStackConflict(IAttackApplyRepository apply, CampaignHandle campaign, CommandId raisingCommandId, ActiveEffectId conflictingActiveEffectId, ActiveEffectStackConflictResolution resolution, UserId actorUserId, bool actorIsMainGm, CommandId commandId, CorrelationId correlationId)
+        public static Result<CombatStackConflictRecord> ResolveStackConflict(IAttackApplyRepository apply, CampaignHandle campaign, CommandId raisingCommandId, ActiveEffectId conflictingActiveEffectId, ActiveEffectStackConflictResolution resolution, UserId actorUserId, CommandId commandId, CorrelationId correlationId)
         {
             if (apply == null) throw new ArgumentNullException(nameof(apply));
-            return apply.ResolveStackConflict(campaign, raisingCommandId, conflictingActiveEffectId, resolution, actorUserId, actorIsMainGm, commandId, correlationId);
+            return apply.ResolveStackConflict(campaign, raisingCommandId, conflictingActiveEffectId, resolution, actorUserId, commandId, correlationId);
         }
     }
 }

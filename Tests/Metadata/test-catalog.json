@@ -1649,6 +1649,70 @@
                           "check":  "AddMember/ListMembers/GetMemberRole on a campaign whose CampaignMembership table exists execute the CREATE TABLE zero times (an execution counter stays unchanged over eleven calls); a dropped table is created by the first read exactly once, never again, and the read answers not-a-member instead of failing"
                       },
                       {
+                          "testCaseId":  "TC-PERSIST-051",
+                          "taskId":  "ODY-S10-103",
+                          "authority":  "ODY-S10-103 test list (task contract section 9)",
+                          "runner":  "dotnet test",
+                          "path":  "DotNet/Tests/Odyssey.Tests.Persistence/CombatEncounterTests.cs",
+                          "check":  "CombatEncounterService.Create and Advance are MainGM-only by the stored membership: an unregistered user, a Player and an Observer are denied before any repository call (call count zero, encounter revision unchanged); the host and an added MainGm succeed"
+                      },
+                      {
+                          "testCaseId":  "TC-PERSIST-052",
+                          "taskId":  "ODY-S10-103",
+                          "authority":  "ODY-S10-103 test list (task contract section 9)",
+                          "runner":  "dotnet test",
+                          "path":  "DotNet/Tests/Odyssey.Tests.Persistence/ActiveEffectGmCommandTests.cs",
+                          "check":  "ActiveEffectDirectCommandService.CreateDirectActiveEffect and SqliteActiveEffectRepository.RemoveActiveEffect are MainGM-only by the stored membership: an unregistered user, a Player and an Observer are denied with the operation-denied code and nothing is created or removed; the host and an added MainGm succeed"
+                      },
+                      {
+                          "testCaseId":  "TC-PERSIST-053",
+                          "taskId":  "ODY-S10-103",
+                          "authority":  "ODY-S10-103 test list (task contract section 9)",
+                          "runner":  "dotnet test",
+                          "path":  "DotNet/Tests/Odyssey.Tests.Persistence/AttackCompensationAndAudienceTests.cs",
+                          "check":  "SqliteAttackApplyRepository.ResolveAttackIntervention, CompensateAttackOutcome and ResolveStackConflict deny an unregistered user, a Player and an Observer with their own denial codes and let the host and an added MainGm through the authorization gate"
+                      },
+                      {
+                          "testCaseId":  "TC-PERSIST-054",
+                          "taskId":  "ODY-S10-103",
+                          "authority":  "ODY-S10-103 test list (task contract section 9)",
+                          "runner":  "dotnet test",
+                          "path":  "DotNet/Tests/Odyssey.Tests.Persistence/CombatEncounterTests.cs",
+                          "check":  "Fail-closed (Application layer): with an unreadable membership CombatEncounterService.Create and Advance return the lookup's own failure (PersistenceCampaignIoFailed), even for the host, and never reach the repository"
+                      },
+                      {
+                          "testCaseId":  "TC-PERSIST-055",
+                          "taskId":  "ODY-S10-103",
+                          "authority":  "ODY-S10-103 test list (task contract section 9)",
+                          "runner":  "dotnet test",
+                          "path":  "DotNet/Tests/Odyssey.Tests.Persistence/AttackCompensationAndAudienceTests.cs",
+                          "check":  "Fail-closed (Persistence layer): with an unreadable membership every SqliteAttackApplyRepository MainGM gate returns the lookup's own failure, even for the host"
+                      },
+                      {
+                          "testCaseId":  "TC-PERSIST-056",
+                          "taskId":  "ODY-S10-103",
+                          "authority":  "ODY-S10-103 test list (task contract section 9)",
+                          "runner":  "dotnet test",
+                          "path":  "DotNet/Tests/Odyssey.Tests.Persistence/ActiveEffectGmCommandTests.cs",
+                          "check":  "Fail-closed: RemoveActiveEffect (Persistence) and CreateDirectActiveEffect (Application) return the lookup's own failure with an unreadable membership and change nothing; the system rollback of the same effect still succeeds and performs no membership lookup"
+                      },
+                      {
+                          "testCaseId":  "TC-PERSIST-057",
+                          "taskId":  "ODY-S10-103",
+                          "authority":  "ODY-S10-103 test list (task contract section 9)",
+                          "runner":  "dotnet test",
+                          "path":  "DotNet/Tests/Odyssey.Tests.Persistence/ActivateAbilityIntegrationTests.cs",
+                          "check":  "A failed ability activation by an ordinary Player (a stored Player, not a MainGm) is still fully rolled back by the system rollback: the created effects are removed and the resource cost is reversed"
+                      },
+                      {
+                          "testCaseId":  "TC-PERSIST-058",
+                          "taskId":  "ODY-S10-103",
+                          "authority":  "ODY-S10-103 test list (task contract section 9)",
+                          "runner":  "dotnet test",
+                          "path":  "DotNet/Tests/Odyssey.Tests.Persistence/UseItemIntegrationTests.cs",
+                          "check":  "A failed item use by an ordinary Player is still fully rolled back by the system rollback: the created effect is removed and the consumed unit is restored"
+                      },
+                      {
                           "testCaseId":  "TC-BOARD-001",
                           "taskId":  "ODY-S03-004",
                           "authority":  "ADR-020 section 5.1/5.3; ODY-S03-004",

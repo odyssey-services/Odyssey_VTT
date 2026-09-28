@@ -87,6 +87,17 @@ namespace Odyssey.Application.Persistence
         /// established for an analogous explicit lifecycle-ending command,
         /// not a separate Application-layer wrapper.
         /// </summary>
-        Result<ActiveEffectRecord> RemoveActiveEffect(CampaignHandle campaign, CampaignId campaignId, ActiveEffectId activeEffectId, UserId actorUserId, bool actorIsMainGm, long expectedRevision, CommandId commandId, CorrelationId correlationId);
+        Result<ActiveEffectRecord> RemoveActiveEffect(CampaignHandle campaign, CampaignId campaignId, ActiveEffectId activeEffectId, UserId actorUserId, long expectedRevision, CommandId commandId, CorrelationId correlationId);
+
+        /// <summary>
+        /// ODY-S10-103: the SYSTEM ROLLBACK counterpart of <see cref="RemoveActiveEffect"/>: it ends an effect that a
+        /// failed ability activation / item use created, when the host compensates that failed attempt. It performs
+        /// exactly the same removal (same validation, same revision compare-and-set, same idempotency ledger) but no
+        /// MainGM check, because compensating the actor's own failed attempt is not a privilege the actor gains: a
+        /// Player whose activation failed must still be rolled back. It deliberately takes NO role/flag parameter
+        /// (a flag would just be a second way to claim MainGM); it is a separate operation for persistence-layer
+        /// compensation code only and is not mapped to any user command.
+        /// </summary>
+        Result<ActiveEffectRecord> RemoveActiveEffectAsSystemRollback(CampaignHandle campaign, CampaignId campaignId, ActiveEffectId activeEffectId, UserId actorUserId, long expectedRevision, CommandId commandId, CorrelationId correlationId);
     }
 }
