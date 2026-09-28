@@ -4329,6 +4329,70 @@
                           "check":  "Token scale is clamped to [MinScale, MaxScale] in both directions, a notch at a bound makes no repository call, and the element never shrinks to zero size"
                       },
                       {
+                          "testCaseId":  "TC-BOARD-086",
+                          "taskId":  "ODY-S08-106",
+                          "authority":  "ODY-S08-106 test list (task contract section 9)",
+                          "runner":  "Unity EditMode",
+                          "path":  "Assets/Odyssey/Client/Tests/EditMode/BoardScreenPresenterTests.cs",
+                          "check":  "Ctrl+click on an unselected token adds it to the selection and keeps the already selected tokens; no repository move happens"
+                      },
+                      {
+                          "testCaseId":  "TC-BOARD-087",
+                          "taskId":  "ODY-S08-106",
+                          "authority":  "ODY-S08-106 test list (task contract section 9)",
+                          "runner":  "Unity EditMode",
+                          "path":  "Assets/Odyssey/Client/Tests/EditMode/BoardScreenPresenterTests.cs",
+                          "check":  "Ctrl+click on a selected token removes exactly that token; the other selected tokens stay selected"
+                      },
+                      {
+                          "testCaseId":  "TC-BOARD-088",
+                          "taskId":  "ODY-S08-106",
+                          "authority":  "ODY-S08-106 test list (task contract section 9)",
+                          "runner":  "Unity EditMode",
+                          "path":  "Assets/Odyssey/Client/Tests/EditMode/BoardScreenPresenterTests.cs",
+                          "check":  "A plain click replaces the whole selection with the clicked token (also from a selection of 2+); a plain click on the only selected token clears the selection as before"
+                      },
+                      {
+                          "testCaseId":  "TC-BOARD-089",
+                          "taskId":  "ODY-S08-106",
+                          "authority":  "ODY-S08-106 test list (task contract section 9)",
+                          "runner":  "Unity EditMode",
+                          "path":  "Assets/Odyssey/Client/Tests/EditMode/BoardScreenPresenterTests.cs",
+                          "check":  "A click on empty board with two or more tokens selected clears the selection and calls MoveToken zero times; positions unchanged"
+                      },
+                      {
+                          "testCaseId":  "TC-BOARD-090",
+                          "taskId":  "ODY-S08-106",
+                          "authority":  "ODY-S08-106 test list (task contract section 9)",
+                          "runner":  "Unity EditMode",
+                          "path":  "Assets/Odyssey/Client/Tests/EditMode/BoardScreenPresenterTests.cs",
+                          "check":  "Regression: a click on empty board with exactly one token selected still moves that token there and clears the selection"
+                      },
+                      {
+                          "testCaseId":  "TC-BOARD-091",
+                          "taskId":  "ODY-S08-106",
+                          "authority":  "ODY-S08-106 test list (task contract section 9)",
+                          "runner":  "Unity EditMode",
+                          "path":  "Assets/Odyssey/Client/Tests/EditMode/BoardScreenPresenterTests.cs",
+                          "check":  "Dragging a token of a two-token selection moves both by the same world delta; before release there is no MoveToken call and the persisted positions are unchanged, the other member's element previews the shift; after release exactly two MoveToken calls and an unselected token stays put"
+                      },
+                      {
+                          "testCaseId":  "TC-BOARD-092",
+                          "taskId":  "ODY-S08-106",
+                          "authority":  "ODY-S08-106 test list (task contract section 9)",
+                          "runner":  "Unity EditMode",
+                          "path":  "Assets/Odyssey/Client/Tests/EditMode/BoardScreenPresenterTests.cs",
+                          "check":  "Dragging a token outside the current selection first replaces the selection with it, then moves only that token (one MoveToken call); the previously selected tokens do not move"
+                      },
+                      {
+                          "testCaseId":  "TC-BOARD-093",
+                          "taskId":  "ODY-S08-106",
+                          "authority":  "ODY-S08-106 test list (task contract section 9)",
+                          "runner":  "Unity EditMode",
+                          "path":  "Assets/Odyssey/Client/Tests/EditMode/BoardScreenPresenterTests.cs",
+                          "check":  "Partial group failure: with one member's destination occupied, the free member stays moved and committed while the denied member is unchanged in the repository and visually rolled back, asserted in the same test"
+                      },
+                      {
                           "testCaseId":  "TC-CATALOG-001",
                           "taskId":  "ODY-S05-101",
                           "authority":  "ADR-027 section 4; 11_Content_Block_System section 5.3/6.1",
