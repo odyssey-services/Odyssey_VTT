@@ -286,14 +286,6 @@ namespace Odyssey.Application.Persistence
             RetryDirective.DoNotRetry,
             correlationId);
 
-        /// <summary>
-        /// ODY-S03-004: ADR-002 section 10.2's optimistic-concurrency check,
-        /// enforced atomically inside <c>SqliteSceneRepository.MoveToken</c>'s
-        /// own transaction -- the final guard against a concurrent revision
-        /// change, independent of any Application-layer pre-check
-        /// (<c>Odyssey.Application.Board.BoardMovementService</c>) that ran
-        /// outside this transaction.
-        /// </summary>
         /// <summary>ODY-S10-101: <c>AddMember</c> for a user that already has a membership in the campaign.</summary>
         public static Error CampaignMembershipAlreadyExists(CorrelationId correlationId) => Error.Create(
             ErrorCodes.PersistenceCampaignMembershipAlreadyExists,
@@ -303,6 +295,14 @@ namespace Odyssey.Application.Persistence
             RetryDirective.DoNotRetry,
             correlationId);
 
+        /// <summary>
+        /// ODY-S03-004: ADR-002 section 10.2's optimistic-concurrency check,
+        /// enforced atomically inside <c>SqliteSceneRepository.MoveToken</c>'s
+        /// own transaction -- the final guard against a concurrent revision
+        /// change, independent of any Application-layer pre-check
+        /// (<c>Odyssey.Application.Board.BoardMovementService</c>) that ran
+        /// outside this transaction.
+        /// </summary>
         public static Error TokenRevisionConflict(CorrelationId correlationId) => Error.Create(
             ErrorCodes.PersistenceTokenRevisionConflict,
             ErrorCategory.Conflict,
