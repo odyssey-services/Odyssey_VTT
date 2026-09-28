@@ -88,7 +88,16 @@ namespace Odyssey.Unity.Client
         private RoleSelectorPresenter? _roleSelectorPresenter;
         private VisualElement? _boardArea;
         private Label? _statusLabel;
-        private TokenId? _selectedTokenId;
+        // ODY-S08-106: the selection is a set (session-only, never persisted), keyed by the token id's string
+        // form like every other per-token dictionary in this class.
+        private readonly HashSet<string> _selectedTokenIds = new HashSet<string>(StringComparer.Ordinal);
+
+        // ODY-S08-106: state of the token gesture in progress (set by BeginTokenDrag, cleared when it ends).
+        private bool _dragCtrl;
+        private bool _dragStarted;
+        private string? _dragAnchorKey;
+        private readonly List<string> _dragGroup = new List<string>();
+        private readonly Dictionary<string, TokenPosition> _dragStartPositions = new Dictionary<string, TokenPosition>(StringComparer.Ordinal);
         private bool _disposed;
 
         public BoardScreenPresenter(UIDocument document, ISceneRepository sceneRepository, CampaignHandle campaign, SceneId sceneId, UserId localActorUserId)
@@ -309,7 +318,7 @@ namespace Odyssey.Unity.Client
                     tokenElement.style.backgroundColor = new StyleColor(TokenColor(token, out _));
                 }
 
-                bool isSelected = _selectedTokenId.HasValue && _selectedTokenId.Value.Equals(token.TokenId);
+                bool isSelected = _selectedTokenIds.Contains(token.TokenId.ToString());
                 tokenElement.style.borderTopWidth = isSelected ? 3 : 1;
                 tokenElement.style.borderBottomWidth = isSelected ? 3 : 1;
                 tokenElement.style.borderLeftWidth = isSelected ? 3 : 1;
@@ -356,20 +365,63 @@ namespace Odyssey.Unity.Client
         /// (<see cref="RenderTokens"/>) is a thin wrapper over this method,
         /// not a second implementation of it.
         /// </summary>
-        public TokenId? SelectedTokenId => _selectedTokenId;
+        public TokenId? SelectedTokenId
+        {
+            get
+            {
+                if (_selectedTokenIds.Count != 1) return null;
+                foreach (string key in _selectedTokenIds) return TokenId.Parse(key);
+                return null;
+            }
+        }
 
+        /// <summary>ODY-S08-106: every currently selected token (session-only; empty when nothing is selected).</summary>
+        public IReadOnlyList<TokenId> SelectedTokenIds
+        {
+            get
+            {
+                var result = new List<TokenId>(_selectedTokenIds.Count);
+                foreach (string key in _selectedTokenIds) result.Add(TokenId.Parse(key));
+                return result;
+            }
+        }
+
+        /// <summary>
+        /// A plain (no-modifier) click on a token: replaces the whole selection with this one token, except
+        /// that clicking the token that is already the only selected one clears the selection (the
+        /// pre-ODY-S08-106 toggle, unchanged for a selection of size 1).
+        /// </summary>
         public void SelectToken(TokenId tokenId)
         {
-            if (_selectedTokenId.HasValue && _selectedTokenId.Value.Equals(tokenId))
+            string key = tokenId.ToString();
+            if (_selectedTokenIds.Count == 1 && _selectedTokenIds.Contains(key))
             {
-                _selectedTokenId = null;
+                _selectedTokenIds.Clear();
                 SetStatus("Deselected.");
                 Refresh();
                 return;
             }
 
-            _selectedTokenId = tokenId;
+            _selectedTokenIds.Clear();
+            _selectedTokenIds.Add(key);
             SetStatus("Selected token " + tokenId + ".");
+            Refresh();
+        }
+
+        /// <summary>ODY-S08-106: a Ctrl+click on a token: adds it to the selection if absent, removes exactly it if present; the rest of the selection is untouched.</summary>
+        public void ToggleTokenSelection(TokenId tokenId)
+        {
+            string key = tokenId.ToString();
+            if (!_selectedTokenIds.Remove(key))
+            {
+                _selectedTokenIds.Add(key);
+                SetStatus("Added token " + tokenId + " to the selection (" + _selectedTokenIds.Count + " selected).");
+            }
+            else
+            {
+                SetStatus("Removed token " + tokenId + " from the selection (" + _selectedTokenIds.Count + " selected).");
+            }
+
             Refresh();
         }
 
@@ -381,18 +433,19 @@ namespace Odyssey.Unity.Client
         /// </summary>
         public Result<TokenRecord> TryMoveSelectedTokenTo(TokenPosition destination)
         {
-            if (!_selectedTokenId.HasValue)
+            TokenId? selected = SelectedTokenId;
+            if (!selected.HasValue)
             {
                 SetStatus("Select a token first.");
                 return Result<TokenRecord>.Failure(BoardScreenErrors.NoTokenSelected());
             }
 
-            TokenId tokenId = _selectedTokenId.Value;
+            TokenId tokenId = selected.Value;
             Result<TokenRecord> current = _sceneRepository.GetToken(_campaign, tokenId, NewCorrelationId());
             if (current.IsFailure)
             {
                 SetStatus("Move failed: " + current.Error.SafeReasonCode);
-                _selectedTokenId = null;
+                _selectedTokenIds.Clear();
                 Refresh();
                 return current;
             }
@@ -400,7 +453,7 @@ namespace Odyssey.Unity.Client
             var request = new MoveTokenRequest(_campaign, LocalActorUserId, LocalActorIsMainGm, tokenId, destination, current.Value.Revision, NewCommandId(), NewCorrelationId());
             Result<TokenRecord> moved = BoardMovementService.MoveToken(_sceneRepository, request);
 
-            _selectedTokenId = null;
+            _selectedTokenIds.Clear();
             if (moved.IsFailure)
             {
                 SetStatus("Move denied: " + moved.Error.SafeReasonCode);
@@ -471,7 +524,8 @@ namespace Odyssey.Unity.Client
             if (_boardArea == null) return;
             tokenElement.CapturePointer(evt.pointerId);
             Vector2 boardLocal = _boardArea.WorldToLocal(evt.position);
-            BeginTokenDrag(tokenId, boardLocal.x, boardLocal.y);
+            // ODY-S08-106: the Ctrl state is read here, at the physical press, and carried in the gesture state.
+            BeginTokenDrag(tokenId, boardLocal.x, boardLocal.y, evt.ctrlKey);
         }
 
         private void OnTokenPointerMove(PointerMoveEvent evt, VisualElement tokenElement, TokenId tokenId)
@@ -506,16 +560,41 @@ namespace Odyssey.Unity.Client
             if (_draggingTokenId.HasValue && _draggingTokenId.Value.Equals(tokenId))
             {
                 _draggingTokenId = null;
+                ResetDragState();
                 Refresh();
             }
         }
 
         /// <summary>Starts tracking a token's own drag gesture. Public -- see the class remarks on testability.</summary>
-        public void BeginTokenDrag(TokenId tokenId, double boardPixelX, double boardPixelY)
+        public void BeginTokenDrag(TokenId tokenId, double boardPixelX, double boardPixelY, bool ctrl = false)
         {
-            if (!_tokenGesturesByTokenId.TryGetValue(tokenId.ToString(), out BoardPointerGesture? gesture)) return;
+            string anchorKey = tokenId.ToString();
+            if (!_tokenGesturesByTokenId.TryGetValue(anchorKey, out BoardPointerGesture? gesture)) return;
             gesture.Begin(boardPixelX, boardPixelY);
             _draggingTokenId = tokenId;
+
+            // ODY-S08-106: which tokens a drag would carry is decided now, from the selection at press time.
+            // Only a token that is part of a selection of two or more drags the whole group; anything else
+            // drags just the grabbed token (exactly the ODY-S08-104 behaviour).
+            ResetDragState();
+            _dragCtrl = ctrl;
+            _dragAnchorKey = anchorKey;
+            if (_selectedTokenIds.Count >= 2 && _selectedTokenIds.Contains(anchorKey))
+            {
+                foreach (string key in _selectedTokenIds)
+                {
+                    if (_tokenPositionsByTokenId.ContainsKey(key)) _dragGroup.Add(key);
+                }
+            }
+            else
+            {
+                _dragGroup.Add(anchorKey);
+            }
+
+            foreach (string key in _dragGroup)
+            {
+                if (_tokenPositionsByTokenId.TryGetValue(key, out TokenPosition start)) _dragStartPositions[key] = start;
+            }
 
             // ODY-S08-105: pointer-down on a token raises it above the others, before the click/drag
             // decision. Purely additive -- the gesture above is already set up exactly as in ODY-S08-104.
@@ -577,12 +656,79 @@ namespace Odyssey.Unity.Client
 
             if (gesture.Move(boardPixelX, boardPixelY, out _, out _) && gesture.IsDragging)
             {
+                BeginDragIfNeeded(key);
+
                 TokenPosition worldPosition = ToWorldPosition(boardPixelX, boardPixelY);
-                _tokenPositionsByTokenId[key] = worldPosition;
-                if (_tokenElementsByTokenId.TryGetValue(key, out VisualElement? tokenElement))
+                ApplyDragPreview(key, worldPosition);
+            }
+        }
+
+        // Live preview only (never the repository): the grabbed token follows the pointer exactly as in
+        // ODY-S08-104; every other token of the group shifts by the same world delta, so the group keeps its
+        // shape.
+        private void ApplyDragPreview(string anchorKey, TokenPosition anchorWorldPosition)
+        {
+            _dragStartPositions.TryGetValue(anchorKey, out TokenPosition anchorStart);
+            double deltaX = anchorWorldPosition.X - anchorStart.X;
+            double deltaY = anchorWorldPosition.Y - anchorStart.Y;
+            foreach (string memberKey in _dragGroup)
+            {
+                TokenPosition preview;
+                if (memberKey == anchorKey)
                 {
-                    PositionTokenElement(tokenElement, worldPosition, ScaleOf(key));
+                    preview = anchorWorldPosition;
                 }
+                else if (_dragStartPositions.TryGetValue(memberKey, out TokenPosition memberStart))
+                {
+                    preview = new TokenPosition(memberStart.X + deltaX, memberStart.Y + deltaY);
+                }
+                else
+                {
+                    continue;
+                }
+
+                _tokenPositionsByTokenId[memberKey] = preview;
+                if (_tokenElementsByTokenId.TryGetValue(memberKey, out VisualElement? element))
+                {
+                    PositionTokenElement(element, preview, ScaleOf(memberKey));
+                }
+            }
+        }
+
+        // First real drag step of a gesture: grabbing a token that is not part of the current selection makes
+        // it the selection (a Ctrl-drag never edits the selection). Updated in place -- no Refresh under the
+        // active pointer capture.
+        private void BeginDragIfNeeded(string key)
+        {
+            if (_dragStarted) return;
+            _dragStarted = true;
+            if (!_dragCtrl && !_selectedTokenIds.Contains(key))
+            {
+                _selectedTokenIds.Clear();
+                _selectedTokenIds.Add(key);
+                UpdateSelectionBorders();
+            }
+        }
+
+        private void ResetDragState()
+        {
+            _dragCtrl = false;
+            _dragStarted = false;
+            _dragAnchorKey = null;
+            _dragGroup.Clear();
+            _dragStartPositions.Clear();
+        }
+
+        // Re-applies the selection border to the already-rendered elements (same widths RenderTokens uses).
+        private void UpdateSelectionBorders()
+        {
+            foreach (KeyValuePair<string, VisualElement> entry in _tokenElementsByTokenId)
+            {
+                bool isSelected = _selectedTokenIds.Contains(entry.Key);
+                entry.Value.style.borderTopWidth = isSelected ? 3 : 1;
+                entry.Value.style.borderBottomWidth = isSelected ? 3 : 1;
+                entry.Value.style.borderLeftWidth = isSelected ? 3 : 1;
+                entry.Value.style.borderRightWidth = isSelected ? 3 : 1;
             }
         }
 
@@ -597,15 +743,55 @@ namespace Odyssey.Unity.Client
             if (!_tokenGesturesByTokenId.TryGetValue(tokenId.ToString(), out BoardPointerGesture? gesture)) return;
             bool wasClick = gesture.End();
             _draggingTokenId = null;
+            bool ctrl = _dragCtrl;
+            List<string> group = new List<string>(_dragGroup);
 
             if (wasClick)
             {
-                SelectToken(tokenId);
+                ResetDragState();
+                // ODY-S08-106: Ctrl+click adds/removes just this token; a plain click replaces (or, for the
+                // only selected token, clears) the selection -- the modifier was read at pointer-down.
+                if (ctrl) ToggleTokenSelection(tokenId);
+                else SelectToken(tokenId);
                 return;
             }
 
-            TokenPosition destination = ToWorldPosition(boardPixelX, boardPixelY);
-            TryMoveTokenTo(tokenId, destination);
+            // Destinations are computed from the pointer BEFORE any commit: every TryMoveTokenTo calls
+            // Refresh(), which rebuilds the in-memory positions from the repository.
+            string anchorKey = tokenId.ToString();
+            BeginDragIfNeeded(anchorKey);
+            if (group.Count == 0)
+            {
+                group.Add(anchorKey);
+                _dragGroup.Add(anchorKey);
+                if (_tokenPositionsByTokenId.TryGetValue(anchorKey, out TokenPosition anchorStart)) _dragStartPositions[anchorKey] = anchorStart;
+            }
+
+            ApplyDragPreview(anchorKey, ToWorldPosition(boardPixelX, boardPixelY));
+            var destinations = new List<KeyValuePair<TokenId, TokenPosition>>();
+            foreach (string memberKey in group)
+            {
+                if (_tokenPositionsByTokenId.TryGetValue(memberKey, out TokenPosition destination))
+                {
+                    destinations.Add(new KeyValuePair<TokenId, TokenPosition>(TokenId.Parse(memberKey), destination));
+                }
+            }
+
+            ResetDragState();
+
+            // ODY-S08-106: a group commits as one ordinary MoveToken per token (BoardMovementService has no
+            // batch API). NOT atomic: a token whose move is denied is rolled back visually by its own
+            // Refresh(), while the tokens already committed stay committed -- no attempt is made to undo them.
+            int moved = 0;
+            foreach (KeyValuePair<TokenId, TokenPosition> entry in destinations)
+            {
+                if (TryMoveTokenTo(entry.Key, entry.Value).IsSuccess) moved++;
+            }
+
+            if (destinations.Count > 1)
+            {
+                SetStatus("Moved " + moved + " of " + destinations.Count + " tokens.");
+            }
         }
 
         // ---- ODY-S08-102: board camera (pan/zoom) and click-vs-drag gesture -------------------------
@@ -747,6 +933,17 @@ namespace Odyssey.Unity.Client
         {
             if (_boardPointerGesture.End())
             {
+                // ODY-S08-106: with two or more tokens selected a single destination point cannot place them
+                // all, so a click on empty board just clears the selection. With exactly one selected token
+                // (or none) the behaviour is unchanged: try to move it there.
+                if (_selectedTokenIds.Count >= 2)
+                {
+                    _selectedTokenIds.Clear();
+                    SetStatus("Deselected.");
+                    Refresh();
+                    return;
+                }
+
                 TryMoveSelectedTokenTo(ToWorldPosition(pixelX, pixelY));
             }
         }

@@ -809,6 +809,262 @@ namespace Odyssey.Tests.Unity.EditMode
             }
         }
 
+        // ---- ODY-S08-106: multi-selection ---------------------------------------------------------
+
+        /// <summary>Three non-overlapping tokens a (0,0), b (3,0), c (6,0), all controlled by the local actor, presenter refreshed.</summary>
+        private BoardScreenPresenter BuildPresenterWithThreeTokens(out CampaignHandle campaign, out MoveCountingSceneRepository sceneRepository, out TokenId a, out TokenId b, out TokenId c, out UIDocument document, out GameObject gameObject, out SqliteCampaignRepository campaignRepository, out TemporaryDirectory directory)
+        {
+            BoardScreenPresenter presenter = BuildPresenterForTokenDrag(out campaign, out sceneRepository, out a, out document, out gameObject, out campaignRepository, out directory);
+            TokenRecord first = sceneRepository.GetToken(campaign, a, TestCorrelationId).Value;
+            b = sceneRepository.CreateToken(campaign, first.SceneId, new TokenPosition(3, 0), first.ControllerUserId, NewCommandId(), TestCorrelationId).Value.TokenId;
+            c = sceneRepository.CreateToken(campaign, first.SceneId, new TokenPosition(6, 0), first.ControllerUserId, NewCommandId(), TestCorrelationId).Value.TokenId;
+            Assert.That(presenter.Refresh().IsSuccess, Is.True);
+            return presenter;
+        }
+
+        private static void ClickToken(BoardScreenPresenter presenter, TokenId id, double worldX, bool ctrl)
+        {
+            double x = presenter.Camera.ToPixelsX(worldX);
+            double y = presenter.Camera.ToPixelsY(0);
+            presenter.BeginTokenDrag(id, x, y, ctrl);
+            presenter.EndTokenDrag(id, x, y);
+        }
+
+        [Test] // TC-BOARD-086
+        public void CtrlClick_OnAnUnselectedToken_AddsItToTheSelection_KeepingTheOthers()
+        {
+            BoardScreenPresenter presenter = BuildPresenterWithThreeTokens(out CampaignHandle campaign, out MoveCountingSceneRepository sceneRepository, out TokenId a, out TokenId b, out TokenId c, out UIDocument document, out GameObject gameObject, out SqliteCampaignRepository campaignRepository, out TemporaryDirectory directory);
+            try
+            {
+                presenter.SelectToken(a);
+                ClickToken(presenter, b, 3, true);
+
+                Assert.That(presenter.SelectedTokenIds, Is.EquivalentTo(new[] { a, b }));
+                ClickToken(presenter, c, 6, true);
+                Assert.That(presenter.SelectedTokenIds, Is.EquivalentTo(new[] { a, b, c }));
+                Assert.That(sceneRepository.MoveTokenCalls, Is.EqualTo(0));
+            }
+            finally
+            {
+                presenter.Dispose();
+                UnityEngine.Object.DestroyImmediate(gameObject);
+                campaignRepository.Close(campaign, TestCorrelationId);
+                directory.Dispose();
+            }
+        }
+
+        [Test] // TC-BOARD-087
+        public void CtrlClick_OnASelectedToken_RemovesExactlyThatToken_LeavingTheRestSelected()
+        {
+            BoardScreenPresenter presenter = BuildPresenterWithThreeTokens(out CampaignHandle campaign, out MoveCountingSceneRepository sceneRepository, out TokenId a, out TokenId b, out TokenId c, out UIDocument document, out GameObject gameObject, out SqliteCampaignRepository campaignRepository, out TemporaryDirectory directory);
+            try
+            {
+                ClickToken(presenter, a, 0, true);
+                ClickToken(presenter, b, 3, true);
+                ClickToken(presenter, c, 6, true);
+                Assert.That(presenter.SelectedTokenIds, Is.EquivalentTo(new[] { a, b, c }));
+
+                ClickToken(presenter, b, 3, true);
+
+                Assert.That(presenter.SelectedTokenIds, Is.EquivalentTo(new[] { a, c }));
+            }
+            finally
+            {
+                presenter.Dispose();
+                UnityEngine.Object.DestroyImmediate(gameObject);
+                campaignRepository.Close(campaign, TestCorrelationId);
+                directory.Dispose();
+            }
+        }
+
+        [Test] // TC-BOARD-088
+        public void PlainClick_OnAnyToken_ReplacesTheWholeSelection_AndOnTheOnlySelectedTokenClearsIt()
+        {
+            BoardScreenPresenter presenter = BuildPresenterWithThreeTokens(out CampaignHandle campaign, out MoveCountingSceneRepository sceneRepository, out TokenId a, out TokenId b, out TokenId c, out UIDocument document, out GameObject gameObject, out SqliteCampaignRepository campaignRepository, out TemporaryDirectory directory);
+            try
+            {
+                ClickToken(presenter, a, 0, true);
+                ClickToken(presenter, b, 3, true);
+                Assert.That(presenter.SelectedTokenIds, Is.EquivalentTo(new[] { a, b }));
+
+                ClickToken(presenter, c, 6, false);
+                Assert.That(presenter.SelectedTokenIds, Is.EquivalentTo(new[] { c }), "a plain click on an unselected token selects only it");
+
+                ClickToken(presenter, a, 0, true);
+                Assert.That(presenter.SelectedTokenIds, Is.EquivalentTo(new[] { c, a }));
+                ClickToken(presenter, a, 0, false);
+                Assert.That(presenter.SelectedTokenIds, Is.EquivalentTo(new[] { a }), "a plain click on a token inside a larger selection also collapses it to just that token");
+
+                ClickToken(presenter, a, 0, false);
+                Assert.That(presenter.SelectedTokenIds, Is.Empty, "a plain click on the only selected token clears the selection, as before");
+            }
+            finally
+            {
+                presenter.Dispose();
+                UnityEngine.Object.DestroyImmediate(gameObject);
+                campaignRepository.Close(campaign, TestCorrelationId);
+                directory.Dispose();
+            }
+        }
+
+        [Test] // TC-BOARD-089
+        public void ClickOnEmptyBoard_WithTwoOrMoreSelected_ClearsTheSelection_AndMovesNothing()
+        {
+            BoardScreenPresenter presenter = BuildPresenterWithThreeTokens(out CampaignHandle campaign, out MoveCountingSceneRepository sceneRepository, out TokenId a, out TokenId b, out TokenId c, out UIDocument document, out GameObject gameObject, out SqliteCampaignRepository campaignRepository, out TemporaryDirectory directory);
+            try
+            {
+                ClickToken(presenter, a, 0, true);
+                ClickToken(presenter, b, 3, true);
+
+                const double px = 300.0;
+                const double py = 260.0;
+                presenter.BeginBoardPointerGesture(px, py);
+                presenter.EndBoardPointerGesture(px, py);
+
+                Assert.That(presenter.SelectedTokenIds, Is.Empty);
+                Assert.That(sceneRepository.MoveTokenCalls, Is.EqualTo(0));
+                Assert.That(sceneRepository.GetToken(campaign, a, TestCorrelationId).Value.Position.X, Is.EqualTo(0));
+                Assert.That(sceneRepository.GetToken(campaign, b, TestCorrelationId).Value.Position.X, Is.EqualTo(3));
+            }
+            finally
+            {
+                presenter.Dispose();
+                UnityEngine.Object.DestroyImmediate(gameObject);
+                campaignRepository.Close(campaign, TestCorrelationId);
+                directory.Dispose();
+            }
+        }
+
+        [Test] // TC-BOARD-090
+        public void ClickOnEmptyBoard_WithExactlyOneSelected_StillMovesThatToken()
+        {
+            BoardScreenPresenter presenter = BuildPresenterWithThreeTokens(out CampaignHandle campaign, out MoveCountingSceneRepository sceneRepository, out TokenId a, out TokenId b, out TokenId c, out UIDocument document, out GameObject gameObject, out SqliteCampaignRepository campaignRepository, out TemporaryDirectory directory);
+            try
+            {
+                presenter.SelectToken(a);
+
+                const double px = 300.0;
+                const double py = 260.0;
+                presenter.BeginBoardPointerGesture(px, py);
+                presenter.EndBoardPointerGesture(px, py);
+
+                Assert.That(sceneRepository.MoveTokenCalls, Is.EqualTo(1));
+                Assert.That(sceneRepository.GetToken(campaign, a, TestCorrelationId).Value.Position.X, Is.EqualTo(presenter.Camera.FromPixelsX(px)).Within(1e-9));
+                Assert.That(presenter.SelectedTokenIds, Is.Empty, "the move clears the selection exactly as before");
+            }
+            finally
+            {
+                presenter.Dispose();
+                UnityEngine.Object.DestroyImmediate(gameObject);
+                campaignRepository.Close(campaign, TestCorrelationId);
+                directory.Dispose();
+            }
+        }
+
+        [Test] // TC-BOARD-091
+        public void DraggingATokenOfATwoTokenSelection_MovesBothByTheSameDelta_WithNoRepositoryMoveBeforeRelease()
+        {
+            BoardScreenPresenter presenter = BuildPresenterWithThreeTokens(out CampaignHandle campaign, out MoveCountingSceneRepository sceneRepository, out TokenId a, out TokenId b, out TokenId c, out UIDocument document, out GameObject gameObject, out SqliteCampaignRepository campaignRepository, out TemporaryDirectory directory);
+            try
+            {
+                ClickToken(presenter, a, 0, true);
+                ClickToken(presenter, b, 3, true);
+
+                double startX = presenter.Camera.ToPixelsX(0);
+                double startY = presenter.Camera.ToPixelsY(0);
+                double endX = startX + 80.0; // +2 world units at the default 40 px/unit
+                presenter.BeginTokenDrag(a, startX, startY);
+                presenter.MoveTokenDrag(a, endX, startY);
+
+                Assert.That(sceneRepository.MoveTokenCalls, Is.EqualTo(0), "no repository move before the pointer is released");
+                Assert.That(sceneRepository.GetToken(campaign, b, TestCorrelationId).Value.Position.X, Is.EqualTo(3), "the persisted position of the other group member is untouched mid-drag");
+                float bLeftMid = document.rootVisualElement.Q<VisualElement>("token-" + b)!.style.left.value.value;
+                Assert.That(bLeftMid, Is.EqualTo((float)(presenter.Camera.ToPixelsX(5) - 14.0)).Within(0.01f), "the other member's preview follows by the same delta");
+
+                presenter.EndTokenDrag(a, endX, startY);
+
+                Assert.That(sceneRepository.MoveTokenCalls, Is.EqualTo(2), "one ordinary MoveToken per group member");
+                Assert.That(sceneRepository.GetToken(campaign, a, TestCorrelationId).Value.Position.X, Is.EqualTo(2.0).Within(1e-9));
+                Assert.That(sceneRepository.GetToken(campaign, b, TestCorrelationId).Value.Position.X, Is.EqualTo(5.0).Within(1e-9));
+                Assert.That(sceneRepository.GetToken(campaign, c, TestCorrelationId).Value.Position.X, Is.EqualTo(6.0), "an unselected token does not move");
+            }
+            finally
+            {
+                presenter.Dispose();
+                UnityEngine.Object.DestroyImmediate(gameObject);
+                campaignRepository.Close(campaign, TestCorrelationId);
+                directory.Dispose();
+            }
+        }
+
+        [Test] // TC-BOARD-092
+        public void DraggingATokenOutsideTheSelection_ReplacesTheSelectionWithIt_AndMovesOnlyIt()
+        {
+            BoardScreenPresenter presenter = BuildPresenterWithThreeTokens(out CampaignHandle campaign, out MoveCountingSceneRepository sceneRepository, out TokenId a, out TokenId b, out TokenId c, out UIDocument document, out GameObject gameObject, out SqliteCampaignRepository campaignRepository, out TemporaryDirectory directory);
+            try
+            {
+                ClickToken(presenter, a, 0, true);
+                ClickToken(presenter, b, 3, true);
+
+                double startX = presenter.Camera.ToPixelsX(6);
+                double startY = presenter.Camera.ToPixelsY(0);
+                presenter.BeginTokenDrag(c, startX, startY);
+                presenter.MoveTokenDrag(c, startX, startY + 80.0);
+                Assert.That(presenter.SelectedTokenIds, Is.EquivalentTo(new[] { c }), "the grabbed token becomes the selection as soon as the drag starts");
+                presenter.EndTokenDrag(c, startX, startY + 80.0);
+
+                Assert.That(sceneRepository.MoveTokenCalls, Is.EqualTo(1));
+                Assert.That(sceneRepository.GetToken(campaign, c, TestCorrelationId).Value.Position.Y, Is.EqualTo(2.0).Within(1e-9));
+                Assert.That(sceneRepository.GetToken(campaign, a, TestCorrelationId).Value.Position.X, Is.EqualTo(0));
+                Assert.That(sceneRepository.GetToken(campaign, b, TestCorrelationId).Value.Position.X, Is.EqualTo(3));
+            }
+            finally
+            {
+                presenter.Dispose();
+                UnityEngine.Object.DestroyImmediate(gameObject);
+                campaignRepository.Close(campaign, TestCorrelationId);
+                directory.Dispose();
+            }
+        }
+
+        [Test] // TC-BOARD-093
+        public void GroupDrag_WithOneDeniedMember_KeepsTheAcceptedMoveCommitted_AndRollsBackOnlyTheDeniedOne()
+        {
+            BoardScreenPresenter presenter = BuildPresenterWithThreeTokens(out CampaignHandle campaign, out MoveCountingSceneRepository sceneRepository, out TokenId a, out TokenId b, out TokenId c, out UIDocument document, out GameObject gameObject, out SqliteCampaignRepository campaignRepository, out TemporaryDirectory directory);
+            try
+            {
+                ClickToken(presenter, a, 0, true);
+                ClickToken(presenter, b, 3, true);
+
+                // Dragging by +2: a goes to (2,0), free; b goes to (5,0). Put an occupant there first.
+                TokenRecord first = sceneRepository.GetToken(campaign, a, TestCorrelationId).Value;
+                sceneRepository.CreateToken(campaign, first.SceneId, new TokenPosition(5, 0), first.ControllerUserId, NewCommandId(), TestCorrelationId);
+                Assert.That(presenter.Refresh().IsSuccess, Is.True);
+                float bOriginalLeft = document.rootVisualElement.Q<VisualElement>("token-" + b)!.style.left.value.value;
+
+                double startX = presenter.Camera.ToPixelsX(0);
+                double startY = presenter.Camera.ToPixelsY(0);
+                double endX = startX + 80.0;
+                presenter.BeginTokenDrag(a, startX, startY);
+                presenter.MoveTokenDrag(a, endX, startY);
+                presenter.EndTokenDrag(a, endX, startY);
+
+                Assert.That(sceneRepository.GetToken(campaign, a, TestCorrelationId).Value.Position.X, Is.EqualTo(2.0).Within(1e-9), "the accepted member stays moved and committed");
+                Assert.That(sceneRepository.GetToken(campaign, b, TestCorrelationId).Value.Position.X, Is.EqualTo(3.0), "the denied member was not moved");
+                VisualElement bAfter = document.rootVisualElement.Q<VisualElement>("token-" + b)!;
+                Assert.That(bAfter.style.left.value.value, Is.EqualTo(bOriginalLeft).Within(0.01f), "the denied member is visually rolled back");
+                VisualElement aAfter = document.rootVisualElement.Q<VisualElement>("token-" + a)!;
+                Assert.That(aAfter.style.left.value.value, Is.EqualTo((float)(presenter.Camera.ToPixelsX(2) - 14.0)).Within(0.01f), "the accepted member is rendered at its committed position");
+            }
+            finally
+            {
+                presenter.Dispose();
+                UnityEngine.Object.DestroyImmediate(gameObject);
+                campaignRepository.Close(campaign, TestCorrelationId);
+                directory.Dispose();
+            }
+        }
+
         private sealed class TemporaryDirectory : IDisposable
         {
             public TemporaryDirectory()
