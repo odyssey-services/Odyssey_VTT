@@ -49,7 +49,7 @@ namespace Odyssey.Tests.Persistence
             Result<CampaignHandle> created = _campaignRepository.Create(request, NewCommandId(), TestCorrelationId);
             Assert.That(created.IsSuccess, Is.True);
             _campaign = created.Value;
-            _characterRepository = new SqliteCharacterRepository(Clock);
+            _characterRepository = new SqliteCharacterRepository(Clock, _campaignRepository);
         }
 
         [TearDown]
@@ -72,14 +72,14 @@ namespace Odyssey.Tests.Persistence
 
         private CharacterRecord ActivateCharacter(CharacterRecord character)
         {
-            Result<CharacterRecord> approved = _characterRepository.ApproveCharacterDraft(_campaign, character.CharacterId, actorIsMainGm: true, character.Revisions.LifecycleRevision, NewCommandId(), TestCorrelationId);
+            Result<CharacterRecord> approved = _characterRepository.ApproveCharacterDraft(_campaign, character.CharacterId, global::Odyssey.Application.Identity.DevIdentityProvider.AssignHost(), character.Revisions.LifecycleRevision, NewCommandId(), TestCorrelationId);
             Assert.That(approved.IsSuccess, Is.True);
             return approved.Value;
         }
 
         private CharacterRecord KillCharacter(CharacterRecord character)
         {
-            Result<CharacterRecord> dead = _characterRepository.TransitionCharacterToDead(_campaign, character.CharacterId, LifecycleDeathIssuerKind.GMOverride, NewUserId(), actorIsMainGm: true, character.Revisions.LifecycleRevision, NewCommandId(), TestCorrelationId);
+            Result<CharacterRecord> dead = _characterRepository.TransitionCharacterToDead(_campaign, character.CharacterId, LifecycleDeathIssuerKind.GMOverride, global::Odyssey.Application.Identity.DevIdentityProvider.AssignHost(), character.Revisions.LifecycleRevision, NewCommandId(), TestCorrelationId);
             Assert.That(dead.IsSuccess, Is.True);
             return dead.Value;
         }
@@ -93,7 +93,7 @@ namespace Odyssey.Tests.Persistence
         {
             CharacterRecord character = ActivateCharacter(CreateCharacter());
 
-            Result<CharacterRecord> dead = _characterRepository.TransitionCharacterToDead(_campaign, character.CharacterId, LifecycleDeathIssuerKind.GMOverride, NewUserId(), actorIsMainGm: true, character.Revisions.LifecycleRevision, NewCommandId(), TestCorrelationId);
+            Result<CharacterRecord> dead = _characterRepository.TransitionCharacterToDead(_campaign, character.CharacterId, LifecycleDeathIssuerKind.GMOverride, global::Odyssey.Application.Identity.DevIdentityProvider.AssignHost(), character.Revisions.LifecycleRevision, NewCommandId(), TestCorrelationId);
 
             Assert.That(dead.IsSuccess, Is.True);
             Assert.That(dead.Value.LifecycleStatus, Is.EqualTo(CharacterLifecycleStatus.Dead));
@@ -104,7 +104,7 @@ namespace Odyssey.Tests.Persistence
         {
             CharacterRecord character = ActivateCharacter(CreateCharacter());
 
-            Result<CharacterRecord> dead = _characterRepository.TransitionCharacterToDead(_campaign, character.CharacterId, LifecycleDeathIssuerKind.GMOverride, NewUserId(), actorIsMainGm: false, character.Revisions.LifecycleRevision, NewCommandId(), TestCorrelationId);
+            Result<CharacterRecord> dead = _characterRepository.TransitionCharacterToDead(_campaign, character.CharacterId, LifecycleDeathIssuerKind.GMOverride, NewUserId(), character.Revisions.LifecycleRevision, NewCommandId(), TestCorrelationId);
 
             Assert.That(dead.IsFailure, Is.True);
             Assert.That(dead.Error.Code, Is.EqualTo(ErrorCodes.PersistenceCharacterDeadTransitionDenied));
@@ -121,7 +121,7 @@ namespace Odyssey.Tests.Persistence
             // this path at all (actorIsMainGm: false, and it still succeeds).
             CharacterRecord character = ActivateCharacter(CreateCharacter());
 
-            Result<CharacterRecord> dead = _characterRepository.TransitionCharacterToDead(_campaign, character.CharacterId, LifecycleDeathIssuerKind.HostSystemFatalDamageCompletion, NewUserId(), actorIsMainGm: false, character.Revisions.LifecycleRevision, NewCommandId(), TestCorrelationId);
+            Result<CharacterRecord> dead = _characterRepository.TransitionCharacterToDead(_campaign, character.CharacterId, LifecycleDeathIssuerKind.HostSystemFatalDamageCompletion, NewUserId(), character.Revisions.LifecycleRevision, NewCommandId(), TestCorrelationId);
 
             Assert.That(dead.IsSuccess, Is.True);
             Assert.That(dead.Value.LifecycleStatus, Is.EqualTo(CharacterLifecycleStatus.Dead));
@@ -135,7 +135,7 @@ namespace Odyssey.Tests.Persistence
             CharacterRecord character = CreateCharacter();
             Assert.That(character.LifecycleStatus, Is.EqualTo(CharacterLifecycleStatus.Draft));
 
-            Result<CharacterRecord> dead = _characterRepository.TransitionCharacterToDead(_campaign, character.CharacterId, LifecycleDeathIssuerKind.GMOverride, NewUserId(), actorIsMainGm: true, character.Revisions.LifecycleRevision, NewCommandId(), TestCorrelationId);
+            Result<CharacterRecord> dead = _characterRepository.TransitionCharacterToDead(_campaign, character.CharacterId, LifecycleDeathIssuerKind.GMOverride, global::Odyssey.Application.Identity.DevIdentityProvider.AssignHost(), character.Revisions.LifecycleRevision, NewCommandId(), TestCorrelationId);
 
             Assert.That(dead.IsFailure, Is.True);
             Assert.That(dead.Error.Code, Is.EqualTo(ErrorCodes.PersistenceCharacterLifecycleTransitionInvalid));
@@ -149,13 +149,13 @@ namespace Odyssey.Tests.Persistence
             // section's own revision counter must survive the Dead
             // transition completely unchanged.
             CharacterRecord character = ActivateCharacter(CreateCharacter());
-            Result<CharacterRecord> granted = _characterRepository.GrantDevelopmentPoints(_campaign, character.CharacterId, 10, "Grant", NewUserId(), actorIsMainGm: true, character.Revisions.MechanicsRevision, NewCommandId(), TestCorrelationId);
+            Result<CharacterRecord> granted = _characterRepository.GrantDevelopmentPoints(_campaign, character.CharacterId, 10, "Grant", global::Odyssey.Application.Identity.DevIdentityProvider.AssignHost(), character.Revisions.MechanicsRevision, NewCommandId(), TestCorrelationId);
             Assert.That(granted.IsSuccess, Is.True);
             long earnedBefore = granted.Value.DevelopmentPool.Earned;
             long reservedBefore = granted.Value.DevelopmentPool.Reserved;
             long mechanicsRevisionBefore = granted.Value.Revisions.MechanicsRevision;
 
-            Result<CharacterRecord> dead = _characterRepository.TransitionCharacterToDead(_campaign, character.CharacterId, LifecycleDeathIssuerKind.GMOverride, NewUserId(), actorIsMainGm: true, granted.Value.Revisions.LifecycleRevision, NewCommandId(), TestCorrelationId);
+            Result<CharacterRecord> dead = _characterRepository.TransitionCharacterToDead(_campaign, character.CharacterId, LifecycleDeathIssuerKind.GMOverride, global::Odyssey.Application.Identity.DevIdentityProvider.AssignHost(), granted.Value.Revisions.LifecycleRevision, NewCommandId(), TestCorrelationId);
 
             Assert.That(dead.IsSuccess, Is.True);
             Assert.That(dead.Value.DevelopmentPool.Earned, Is.EqualTo(earnedBefore));
@@ -169,10 +169,10 @@ namespace Odyssey.Tests.Persistence
             CharacterRecord character = ActivateCharacter(CreateCharacter());
             CommandId commandId = NewCommandId();
 
-            Result<CharacterRecord> first = _characterRepository.TransitionCharacterToDead(_campaign, character.CharacterId, LifecycleDeathIssuerKind.GMOverride, NewUserId(), actorIsMainGm: true, character.Revisions.LifecycleRevision, commandId, TestCorrelationId);
+            Result<CharacterRecord> first = _characterRepository.TransitionCharacterToDead(_campaign, character.CharacterId, LifecycleDeathIssuerKind.GMOverride, global::Odyssey.Application.Identity.DevIdentityProvider.AssignHost(), character.Revisions.LifecycleRevision, commandId, TestCorrelationId);
             Assert.That(first.IsSuccess, Is.True);
 
-            Result<CharacterRecord> replay = _characterRepository.TransitionCharacterToDead(_campaign, character.CharacterId, LifecycleDeathIssuerKind.GMOverride, NewUserId(), actorIsMainGm: true, character.Revisions.LifecycleRevision, commandId, TestCorrelationId);
+            Result<CharacterRecord> replay = _characterRepository.TransitionCharacterToDead(_campaign, character.CharacterId, LifecycleDeathIssuerKind.GMOverride, global::Odyssey.Application.Identity.DevIdentityProvider.AssignHost(), character.Revisions.LifecycleRevision, commandId, TestCorrelationId);
             Assert.That(replay.IsSuccess, Is.True);
 
             Result<CharacterRecord> reRead = _characterRepository.GetCharacter(_campaign, character.CharacterId, TestCorrelationId);
@@ -190,7 +190,7 @@ namespace Odyssey.Tests.Persistence
             var request = new RestoreDeadCharacterRequest(
                 _campaign, dead.CharacterId, CharacterLifecycleStatus.Active, "brought back by the party cleric",
                 newBodyParts: null, newPermanentModifications: null, newResourceCurrentValues: null,
-                NewUserId(), actorIsMainGm: true, dead.Revisions.LifecycleRevision,
+                global::Odyssey.Application.Identity.DevIdentityProvider.AssignHost(), dead.Revisions.LifecycleRevision,
                 expectedCharacterAnatomyRevision: null, expectedCharacterResourcesRevision: null);
 
             Result<CharacterRecord> restored = _characterRepository.RestoreDeadCharacter(request, NewCommandId(), TestCorrelationId);
@@ -207,7 +207,7 @@ namespace Odyssey.Tests.Persistence
             var request = new RestoreDeadCharacterRequest(
                 _campaign, character.CharacterId, CharacterLifecycleStatus.Active, "not actually dead",
                 newBodyParts: null, newPermanentModifications: null, newResourceCurrentValues: null,
-                NewUserId(), actorIsMainGm: true, character.Revisions.LifecycleRevision,
+                global::Odyssey.Application.Identity.DevIdentityProvider.AssignHost(), character.Revisions.LifecycleRevision,
                 expectedCharacterAnatomyRevision: null, expectedCharacterResourcesRevision: null);
 
             Result<CharacterRecord> restored = _characterRepository.RestoreDeadCharacter(request, NewCommandId(), TestCorrelationId);
@@ -224,7 +224,7 @@ namespace Odyssey.Tests.Persistence
             var request = new RestoreDeadCharacterRequest(
                 _campaign, dead.CharacterId, CharacterLifecycleStatus.Active, "",
                 newBodyParts: null, newPermanentModifications: null, newResourceCurrentValues: null,
-                NewUserId(), actorIsMainGm: true, dead.Revisions.LifecycleRevision,
+                global::Odyssey.Application.Identity.DevIdentityProvider.AssignHost(), dead.Revisions.LifecycleRevision,
                 expectedCharacterAnatomyRevision: null, expectedCharacterResourcesRevision: null);
 
             Result<CharacterRecord> restored = _characterRepository.RestoreDeadCharacter(request, NewCommandId(), TestCorrelationId);
@@ -241,7 +241,7 @@ namespace Odyssey.Tests.Persistence
             var request = new RestoreDeadCharacterRequest(
                 _campaign, dead.CharacterId, CharacterLifecycleStatus.Active, "attempted by a non-GM",
                 newBodyParts: null, newPermanentModifications: null, newResourceCurrentValues: null,
-                NewUserId(), actorIsMainGm: false, dead.Revisions.LifecycleRevision,
+                NewUserId(), dead.Revisions.LifecycleRevision,
                 expectedCharacterAnatomyRevision: null, expectedCharacterResourcesRevision: null);
 
             Result<CharacterRecord> restored = _characterRepository.RestoreDeadCharacter(request, NewCommandId(), TestCorrelationId);
@@ -257,9 +257,9 @@ namespace Odyssey.Tests.Persistence
         public void RestoreDeadCharacter_WithExplicitAnatomyAndResourceChanges_UpdatesValues_AndOnlyThoseRevisionsIncrease()
         {
             CharacterRecord character = ActivateCharacter(CreateCharacter());
-            Result<CharacterRecord> withAnatomy = CharacterAdvancementService.InitializeAnatomyWithDefaults(_characterRepository, _campaign, character.CharacterId, Humanoid, NewUserId(), actorIsMainGm: true, character.Revisions.CharacterAnatomyRevision, NewCommandId(), TestCorrelationId);
+            Result<CharacterRecord> withAnatomy = CharacterAdvancementService.InitializeAnatomyWithDefaults(_characterRepository, _campaign, character.CharacterId, Humanoid, global::Odyssey.Application.Identity.DevIdentityProvider.AssignHost(), character.Revisions.CharacterAnatomyRevision, NewCommandId(), TestCorrelationId);
             Assert.That(withAnatomy.IsSuccess, Is.True);
-            Result<CharacterRecord> withResource = CharacterAdvancementService.InitializeResourceWithDefaults(_characterRepository, _campaign, character.CharacterId, Health, NewUserId(), actorIsMainGm: true, withAnatomy.Value.Revisions.CharacterResourcesRevision, NewCommandId(), TestCorrelationId);
+            Result<CharacterRecord> withResource = CharacterAdvancementService.InitializeResourceWithDefaults(_characterRepository, _campaign, character.CharacterId, Health, global::Odyssey.Application.Identity.DevIdentityProvider.AssignHost(), withAnatomy.Value.Revisions.CharacterResourcesRevision, NewCommandId(), TestCorrelationId);
             Assert.That(withResource.IsSuccess, Is.True);
 
             CharacterRecord dead = KillCharacter(withResource.Value);
@@ -273,7 +273,7 @@ namespace Odyssey.Tests.Persistence
                 _campaign, dead.CharacterId, CharacterLifecycleStatus.Active, "restored with new body and partial health",
                 newBodyParts: newBodyParts, newPermanentModifications: null,
                 newResourceCurrentValues: new[] { new CharacterRestoreResourceValue(resourceId, restoredCurrentValue) },
-                NewUserId(), actorIsMainGm: true, dead.Revisions.LifecycleRevision,
+                global::Odyssey.Application.Identity.DevIdentityProvider.AssignHost(), dead.Revisions.LifecycleRevision,
                 expectedCharacterAnatomyRevision: anatomyRevisionBefore, expectedCharacterResourcesRevision: resourcesRevisionBefore);
 
             Result<CharacterRecord> restored = _characterRepository.RestoreDeadCharacter(request, NewCommandId(), TestCorrelationId);
@@ -290,8 +290,8 @@ namespace Odyssey.Tests.Persistence
         public void RestoreDeadCharacter_WithoutTouchingAnatomyOrResources_LeavesThoseRevisionsUnchanged()
         {
             CharacterRecord character = ActivateCharacter(CreateCharacter());
-            Result<CharacterRecord> withAnatomy = CharacterAdvancementService.InitializeAnatomyWithDefaults(_characterRepository, _campaign, character.CharacterId, Humanoid, NewUserId(), actorIsMainGm: true, character.Revisions.CharacterAnatomyRevision, NewCommandId(), TestCorrelationId);
-            Result<CharacterRecord> withResource = CharacterAdvancementService.InitializeResourceWithDefaults(_characterRepository, _campaign, character.CharacterId, Health, NewUserId(), actorIsMainGm: true, withAnatomy.Value.Revisions.CharacterResourcesRevision, NewCommandId(), TestCorrelationId);
+            Result<CharacterRecord> withAnatomy = CharacterAdvancementService.InitializeAnatomyWithDefaults(_characterRepository, _campaign, character.CharacterId, Humanoid, global::Odyssey.Application.Identity.DevIdentityProvider.AssignHost(), character.Revisions.CharacterAnatomyRevision, NewCommandId(), TestCorrelationId);
+            Result<CharacterRecord> withResource = CharacterAdvancementService.InitializeResourceWithDefaults(_characterRepository, _campaign, character.CharacterId, Health, global::Odyssey.Application.Identity.DevIdentityProvider.AssignHost(), withAnatomy.Value.Revisions.CharacterResourcesRevision, NewCommandId(), TestCorrelationId);
             CharacterRecord dead = KillCharacter(withResource.Value);
             long anatomyRevisionBefore = dead.Revisions.CharacterAnatomyRevision;
             long resourcesRevisionBefore = dead.Revisions.CharacterResourcesRevision;
@@ -299,7 +299,7 @@ namespace Odyssey.Tests.Persistence
             var request = new RestoreDeadCharacterRequest(
                 _campaign, dead.CharacterId, CharacterLifecycleStatus.Active, "restored without touching anatomy or resources",
                 newBodyParts: null, newPermanentModifications: null, newResourceCurrentValues: null,
-                NewUserId(), actorIsMainGm: true, dead.Revisions.LifecycleRevision,
+                global::Odyssey.Application.Identity.DevIdentityProvider.AssignHost(), dead.Revisions.LifecycleRevision,
                 expectedCharacterAnatomyRevision: null, expectedCharacterResourcesRevision: null);
 
             Result<CharacterRecord> restored = _characterRepository.RestoreDeadCharacter(request, NewCommandId(), TestCorrelationId);
@@ -320,7 +320,7 @@ namespace Odyssey.Tests.Persistence
             var request = new RestoreDeadCharacterRequest(
                 _campaign, dead.CharacterId, CharacterLifecycleStatus.Active, "forward event check",
                 newBodyParts: null, newPermanentModifications: null, newResourceCurrentValues: null,
-                NewUserId(), actorIsMainGm: true, dead.Revisions.LifecycleRevision,
+                global::Odyssey.Application.Identity.DevIdentityProvider.AssignHost(), dead.Revisions.LifecycleRevision,
                 expectedCharacterAnatomyRevision: null, expectedCharacterResourcesRevision: null);
             Result<CharacterRecord> restored = _characterRepository.RestoreDeadCharacter(request, NewCommandId(), TestCorrelationId);
             Assert.That(restored.IsSuccess, Is.True);
@@ -344,7 +344,7 @@ namespace Odyssey.Tests.Persistence
             var request = new RestoreDeadCharacterRequest(
                 _campaign, dead.CharacterId, CharacterLifecycleStatus.Active, "duplicate check",
                 newBodyParts: null, newPermanentModifications: null, newResourceCurrentValues: null,
-                NewUserId(), actorIsMainGm: true, dead.Revisions.LifecycleRevision,
+                global::Odyssey.Application.Identity.DevIdentityProvider.AssignHost(), dead.Revisions.LifecycleRevision,
                 expectedCharacterAnatomyRevision: null, expectedCharacterResourcesRevision: null);
 
             Result<CharacterRecord> first = _characterRepository.RestoreDeadCharacter(request, commandId, TestCorrelationId);
@@ -370,13 +370,45 @@ namespace Odyssey.Tests.Persistence
             // must not conflict with it, regardless of ordering.
             CharacterRecord character = ActivateCharacter(CreateCharacter());
 
-            Result<CharacterRecord> dead = _characterRepository.TransitionCharacterToDead(_campaign, character.CharacterId, LifecycleDeathIssuerKind.GMOverride, NewUserId(), actorIsMainGm: true, character.Revisions.LifecycleRevision, NewCommandId(), TestCorrelationId);
+            Result<CharacterRecord> dead = _characterRepository.TransitionCharacterToDead(_campaign, character.CharacterId, LifecycleDeathIssuerKind.GMOverride, global::Odyssey.Application.Identity.DevIdentityProvider.AssignHost(), character.Revisions.LifecycleRevision, NewCommandId(), TestCorrelationId);
             Assert.That(dead.IsSuccess, Is.True);
 
-            Result<CharacterRecord> granted = _characterRepository.GrantDevelopmentPoints(_campaign, character.CharacterId, 5, "Grant after death", NewUserId(), actorIsMainGm: true, character.Revisions.MechanicsRevision, NewCommandId(), TestCorrelationId);
+            Result<CharacterRecord> granted = _characterRepository.GrantDevelopmentPoints(_campaign, character.CharacterId, 5, "Grant after death", global::Odyssey.Application.Identity.DevIdentityProvider.AssignHost(), character.Revisions.MechanicsRevision, NewCommandId(), TestCorrelationId);
 
             Assert.That(granted.IsSuccess, Is.True, "an independent Mechanics-section command must not be falsely rejected by the earlier, unrelated Lifecycle-section transition");
             Assert.That(granted.Value.LifecycleStatus, Is.EqualTo(CharacterLifecycleStatus.Dead));
+        }
+
+        // ---- ODY-S10-102: the conditional gate keeps its structure ----------------------------------
+
+        [Test] // TC-PERSIST-042
+        public void TransitionCharacterToDead_ChecksTheStoredMainGmOnlyForGmOverride()
+        {
+            UserId stranger = NewUserId();
+            UserId host = global::Odyssey.Application.Identity.DevIdentityProvider.AssignHost();
+
+            // GMOverride without a stored MainGm: denied. With the stored MainGm: succeeds.
+            CharacterRecord first = ActivateCharacter(CreateCharacter("GM override target"));
+            Result<CharacterRecord> denied = _characterRepository.TransitionCharacterToDead(_campaign, first.CharacterId, LifecycleDeathIssuerKind.GMOverride, stranger, first.Revisions.LifecycleRevision, NewCommandId(), TestCorrelationId);
+            Assert.That(denied.IsFailure, Is.True);
+            Assert.That(denied.Error.Code, Is.EqualTo(ErrorCodes.PersistenceCharacterDeadTransitionDenied));
+            Result<CharacterRecord> allowed = _characterRepository.TransitionCharacterToDead(_campaign, first.CharacterId, LifecycleDeathIssuerKind.GMOverride, host, first.Revisions.LifecycleRevision, NewCommandId(), TestCorrelationId);
+            Assert.That(allowed.IsSuccess, Is.True);
+
+            // Any other issuer kind: no membership check at all -- proven with a repository whose lookup throws.
+            var neverLooksUp = PoisonedMembershipCampaignRepository.ThrowsOnLookup();
+            var noLookupRepository = new SqliteCharacterRepository(Clock, neverLooksUp);
+            CharacterRecord second = ActivateCharacter(CreateCharacter("Host system target"));
+            Result<CharacterRecord> byHostSystem = noLookupRepository.TransitionCharacterToDead(_campaign, second.CharacterId, LifecycleDeathIssuerKind.HostSystemFatalDamageCompletion, stranger, second.Revisions.LifecycleRevision, NewCommandId(), TestCorrelationId);
+            Assert.That(byHostSystem.IsSuccess, Is.True, "a non-GMOverride issuer needs no MainGm");
+            Assert.That(neverLooksUp.LookupCalls, Is.EqualTo(0), "and performs no membership lookup");
+
+            // GMOverride with an unreadable membership fails closed (neither a pass nor a fake denial).
+            CharacterRecord third = ActivateCharacter(CreateCharacter("Fail closed target"));
+            var failing = PoisonedMembershipCampaignRepository.FailsOnLookup();
+            Result<CharacterRecord> unreadable = new SqliteCharacterRepository(Clock, failing).TransitionCharacterToDead(_campaign, third.CharacterId, LifecycleDeathIssuerKind.GMOverride, host, third.Revisions.LifecycleRevision, NewCommandId(), TestCorrelationId);
+            Assert.That(unreadable.IsFailure, Is.True);
+            Assert.That(unreadable.Error.Code, Is.EqualTo(ErrorCodes.PersistenceCampaignIoFailed));
         }
     }
 }

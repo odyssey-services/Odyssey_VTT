@@ -324,7 +324,7 @@ namespace Odyssey.Tests.Persistence
         {
             long revision = item.Kind == InventoryItemRefKind.ItemInstance ? _inventory.GetItemInstance(_campaign, item.ItemInstanceId, Corr).Value.Revision : _inventory.GetItemStack(_campaign, item.ItemStackId, Corr).Value.Revision;
             var request = new EquipRequest(_campaign, item, _bag.InventoryId, revision, "slot", Array.Empty<BodyPartId>(), Actor, Now, Actor, true, Command(), Corr);
-            var result = EquipmentService.Equip(_inventory, new SqliteCharacterRepository(_clock), request);
+            var result = EquipmentService.Equip(_inventory, new SqliteCharacterRepository(_clock, _campaigns), request);
             Assert.That(result.IsSuccess, Is.True);
             return result.Value;
         }

@@ -63,7 +63,7 @@ namespace Odyssey.Tests.Persistence.Integration
             _campaign = created.Value;
             _catalog = new SqliteContentCatalogRepository(Clock);
             _inventory = new SqliteInventoryRepository(Clock);
-            _characters = new SqliteCharacterRepository(Clock,
+            _characters = new SqliteCharacterRepository(Clock, _campaigns,
                 deletionDependencyCheckers: new ICharacterDeletionDependencyChecker[] { new InventoryCharacterDeletionDependencyChecker(_inventory) },
                 bodyPartRemovalDependencyCheckers: new IBodyPartRemovalDependencyChecker[] { new InventoryBodyPartRemovalDependencyChecker(_inventory) });
         }
@@ -124,12 +124,12 @@ namespace Odyssey.Tests.Persistence.Integration
             // full EquipmentService.Equip-created EquippedEntry, is scoped to
             // the specific body part.
             Result<CharacterRecord> leftArmRemoved = _characters.RemoveBodyPart(
-                _campaign, character.CharacterId, BodyPartId.Parse("LeftArm"), NewUserId(), actorIsMainGm: true,
+                _campaign, character.CharacterId, BodyPartId.Parse("LeftArm"), global::Odyssey.Application.Identity.DevIdentityProvider.AssignHost(),
                 character.Revisions.CharacterAnatomyRevision, NewCommandId(), Corr);
             Assert.That(leftArmRemoved.IsSuccess, Is.True);
 
             Result<CharacterRecord> headRemoved = _characters.RemoveBodyPart(
-                _campaign, character.CharacterId, BodyPartId.Parse("Head"), NewUserId(), actorIsMainGm: true,
+                _campaign, character.CharacterId, BodyPartId.Parse("Head"), global::Odyssey.Application.Identity.DevIdentityProvider.AssignHost(),
                 leftArmRemoved.Value.Revisions.CharacterAnatomyRevision, NewCommandId(), Corr);
             Assert.That(headRemoved.IsFailure, Is.True);
             Assert.That(headRemoved.Error.Code, Is.EqualTo(ErrorCodes.PersistenceCharacterBodyPartHasDependent));
@@ -173,7 +173,7 @@ namespace Odyssey.Tests.Persistence.Integration
             Assert.That(equipped.Value.Entry.BodyPartRefs, Is.EqualTo(new[] { bodyPart }));
 
             Result<CharacterRecord> blocked = _characters.RemoveBodyPart(
-                _campaign, character.CharacterId, bodyPart, NewUserId(), actorIsMainGm: true,
+                _campaign, character.CharacterId, bodyPart, global::Odyssey.Application.Identity.DevIdentityProvider.AssignHost(),
                 character.Revisions.CharacterAnatomyRevision, NewCommandId(), Corr);
             Assert.That(blocked.IsFailure, Is.True, "RemoveBodyPart must be blocked while the item is equipped");
             Assert.That(blocked.Error.Code, Is.EqualTo(ErrorCodes.PersistenceCharacterBodyPartHasDependent));
@@ -191,7 +191,7 @@ namespace Odyssey.Tests.Persistence.Integration
             Assert.That(unequipped.IsSuccess, Is.True, "Unequip must succeed through the real MainGM-gated EquipmentService");
 
             Result<CharacterRecord> removed = _characters.RemoveBodyPart(
-                _campaign, character.CharacterId, bodyPart, NewUserId(), actorIsMainGm: true,
+                _campaign, character.CharacterId, bodyPart, global::Odyssey.Application.Identity.DevIdentityProvider.AssignHost(),
                 character.Revisions.CharacterAnatomyRevision, NewCommandId(), Corr);
             Assert.That(removed.IsSuccess, Is.True, "RemoveBodyPart must succeed once the item is unequipped");
             bool stillPresent = false;
@@ -269,7 +269,7 @@ namespace Odyssey.Tests.Persistence.Integration
             var request = new CreateCharacterRequest(_campaign, CharacterKind.PlayerCharacter, "Equipment Integration Fixture Character");
             Result<CharacterRecord> created = _characters.CreateCharacter(request, NewCommandId(), Corr);
             Assert.That(created.IsSuccess, Is.True);
-            Result<CharacterRecord> initialized = CharacterAdvancementService.InitializeAnatomyWithDefaults(_characters, _campaign, created.Value.CharacterId, Humanoid, NewUserId(), actorIsMainGm: true, created.Value.Revisions.CharacterAnatomyRevision, NewCommandId(), Corr);
+            Result<CharacterRecord> initialized = CharacterAdvancementService.InitializeAnatomyWithDefaults(_characters, _campaign, created.Value.CharacterId, Humanoid, global::Odyssey.Application.Identity.DevIdentityProvider.AssignHost(), created.Value.Revisions.CharacterAnatomyRevision, NewCommandId(), Corr);
             Assert.That(initialized.IsSuccess, Is.True);
             return initialized.Value;
         }

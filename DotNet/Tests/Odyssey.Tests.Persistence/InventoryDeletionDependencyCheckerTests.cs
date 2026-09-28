@@ -47,7 +47,7 @@ namespace Odyssey.Tests.Persistence
             Result<CampaignHandle> created = _campaigns.Create(new CreateCampaignRequest(_campaignDir, "Runtime Reference Dependency Test", "ruleset.core", "1.0.0", "0.1.0", global::Odyssey.Application.Identity.DevIdentityProvider.AssignHost()), NewCommandId(), Corr);
             Assert.That(created.IsSuccess, Is.True);
             _campaign = created.Value;
-            _characters = new SqliteCharacterRepository(Clock);
+            _characters = new SqliteCharacterRepository(Clock, _campaigns);
             _catalog = new SqliteContentCatalogRepository(Clock);
             _inventory = new SqliteInventoryRepository(Clock);
         }
@@ -128,7 +128,7 @@ namespace Odyssey.Tests.Persistence
             InventoryRecord inv = CreateInventory(character.CharacterId);
             CreateItemStack(inv, character.CharacterId, InventoryLocationRef.Contained(inv.InventoryId, "main"), "cdef_" + new string('c', 32) + "/1");
 
-            Result deleted = repo.DeleteCharacterPermanently(_campaign, character.CharacterId, "test cleanup", NewUserId(), actorIsMainGm: true, character.Revisions.LifecycleRevision, NewCommandId(), Corr);
+            Result deleted = repo.DeleteCharacterPermanently(_campaign, character.CharacterId, "test cleanup", global::Odyssey.Application.Identity.DevIdentityProvider.AssignHost(), character.Revisions.LifecycleRevision, NewCommandId(), Corr);
 
             Assert.That(deleted.IsFailure, Is.True);
             Assert.That(deleted.Error.Code, Is.EqualTo(ErrorCodes.PersistenceCharacterDeletionHasDependent));
@@ -144,7 +144,7 @@ namespace Odyssey.Tests.Persistence
             InventoryRecord inv = CreateInventory(character.CharacterId);
             CreateItemInstance(inv, character.CharacterId, InventoryLocationRef.SceneDropped(SceneId.NewId(Clock.GetUtcNow()), "floor"));
 
-            Result deleted = repo.DeleteCharacterPermanently(_campaign, character.CharacterId, "test cleanup", NewUserId(), actorIsMainGm: true, character.Revisions.LifecycleRevision, NewCommandId(), Corr);
+            Result deleted = repo.DeleteCharacterPermanently(_campaign, character.CharacterId, "test cleanup", global::Odyssey.Application.Identity.DevIdentityProvider.AssignHost(), character.Revisions.LifecycleRevision, NewCommandId(), Corr);
 
             Assert.That(deleted.IsFailure, Is.True);
             Assert.That(deleted.Error.Code, Is.EqualTo(ErrorCodes.PersistenceCharacterDeletionHasDependent));
@@ -158,7 +158,7 @@ namespace Odyssey.Tests.Persistence
             CharacterRecord character = CreateCharacter(repo);
             CreateInventory(CharacterId.NewId(Clock.GetUtcNow())); // unrelated inventory so the in-transaction re-check does only a SELECT
 
-            Result deleted = repo.DeleteCharacterPermanently(_campaign, character.CharacterId, "test cleanup", NewUserId(), actorIsMainGm: true, character.Revisions.LifecycleRevision, NewCommandId(), Corr);
+            Result deleted = repo.DeleteCharacterPermanently(_campaign, character.CharacterId, "test cleanup", global::Odyssey.Application.Identity.DevIdentityProvider.AssignHost(), character.Revisions.LifecycleRevision, NewCommandId(), Corr);
 
             Assert.That(deleted.IsSuccess, Is.True);
             Assert.That(repo.GetCharacter(_campaign, character.CharacterId, Corr).IsFailure, Is.True);
@@ -172,7 +172,7 @@ namespace Odyssey.Tests.Persistence
             CreateInventory(CharacterId.NewId(Clock.GetUtcNow()));
             BreakItemInstanceOwnerColumn();
 
-            Result deleted = repo.DeleteCharacterPermanently(_campaign, character.CharacterId, "test cleanup", NewUserId(), actorIsMainGm: true, character.Revisions.LifecycleRevision, NewCommandId(), Corr);
+            Result deleted = repo.DeleteCharacterPermanently(_campaign, character.CharacterId, "test cleanup", global::Odyssey.Application.Identity.DevIdentityProvider.AssignHost(), character.Revisions.LifecycleRevision, NewCommandId(), Corr);
 
             Assert.That(deleted.IsFailure, Is.True);
             Assert.That(deleted.Error.Code, Is.EqualTo(ErrorCodes.PersistenceCharacterDeletionHasDependent));
@@ -239,7 +239,7 @@ namespace Odyssey.Tests.Persistence
         // ---------- helpers ----------
 
         private SqliteCharacterRepository CharactersWithInventoryChecker()
-            => new SqliteCharacterRepository(Clock, deletionDependencyCheckers: new ICharacterDeletionDependencyChecker[] { new InventoryCharacterDeletionDependencyChecker(_inventory) });
+            => new SqliteCharacterRepository(Clock, _campaigns, deletionDependencyCheckers: new ICharacterDeletionDependencyChecker[] { new InventoryCharacterDeletionDependencyChecker(_inventory) });
 
         private CharacterRecord CreateCharacter(SqliteCharacterRepository repo)
         {

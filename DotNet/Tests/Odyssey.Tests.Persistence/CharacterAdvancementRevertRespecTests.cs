@@ -59,7 +59,7 @@ namespace Odyssey.Tests.Persistence
             Result<CampaignHandle> created = _campaignRepository.Create(request, NewCommandId(), TestCorrelationId);
             Assert.That(created.IsSuccess, Is.True);
             _campaign = created.Value;
-            _characterRepository = new SqliteCharacterRepository(Clock);
+            _characterRepository = new SqliteCharacterRepository(Clock, _campaignRepository);
         }
 
         [TearDown]
@@ -82,7 +82,7 @@ namespace Odyssey.Tests.Persistence
 
         private CharacterRecord GrantPoints(CharacterRecord character, long amount)
         {
-            Result<CharacterRecord> granted = _characterRepository.GrantDevelopmentPoints(_campaign, character.CharacterId, amount, "Grant", NewUserId(), actorIsMainGm: true, character.Revisions.MechanicsRevision, NewCommandId(), TestCorrelationId);
+            Result<CharacterRecord> granted = _characterRepository.GrantDevelopmentPoints(_campaign, character.CharacterId, amount, "Grant", global::Odyssey.Application.Identity.DevIdentityProvider.AssignHost(), character.Revisions.MechanicsRevision, NewCommandId(), TestCorrelationId);
             Assert.That(granted.IsSuccess, Is.True);
             return granted.Value;
         }
@@ -123,7 +123,7 @@ namespace Odyssey.Tests.Persistence
             CharacterRecord character = CreateCharacter();
             CharacterRecord granted = GrantPoints(character, 20);
 
-            Result<CharacterRecord> purchased = CharacterAdvancementService.PurchaseAttributeIncrease(_characterRepository, _campaign, character.CharacterId, Strength, toValue: 3, NewUserId(), actorIsMainGm: true, granted.Revisions.MechanicsRevision, expectedAttributeRevision: 0, NewCommandId(), TestCorrelationId);
+            Result<CharacterRecord> purchased = CharacterAdvancementService.PurchaseAttributeIncrease(_characterRepository, _campaign, character.CharacterId, Strength, toValue: 3, global::Odyssey.Application.Identity.DevIdentityProvider.AssignHost(), granted.Revisions.MechanicsRevision, expectedAttributeRevision: 0, NewCommandId(), TestCorrelationId);
             Assert.That(purchased.IsSuccess, Is.True);
 
             Result<IReadOnlyList<AdvancementPurchase>> purchases = _characterRepository.GetAdvancementPurchases(_campaign, character.CharacterId, TestCorrelationId);
@@ -143,7 +143,7 @@ namespace Odyssey.Tests.Persistence
             CharacterRecord character = CreateCharacter();
             CharacterRecord granted = GrantPoints(character, 20);
 
-            Result<CharacterRecord> purchased = CharacterAdvancementService.PurchaseSkillLevel(_characterRepository, _campaign, character.CharacterId, Stealth, toLevel: 2, NewUserId(), actorIsMainGm: true, granted.Revisions.MechanicsRevision, expectedSkillRevision: 0, NewCommandId(), TestCorrelationId);
+            Result<CharacterRecord> purchased = CharacterAdvancementService.PurchaseSkillLevel(_characterRepository, _campaign, character.CharacterId, Stealth, toLevel: 2, global::Odyssey.Application.Identity.DevIdentityProvider.AssignHost(), granted.Revisions.MechanicsRevision, expectedSkillRevision: 0, NewCommandId(), TestCorrelationId);
             Assert.That(purchased.IsSuccess, Is.True);
 
             AdvancementPurchase purchase = _characterRepository.GetAdvancementPurchases(_campaign, character.CharacterId, TestCorrelationId).Value.Single();
@@ -161,12 +161,12 @@ namespace Odyssey.Tests.Persistence
             CharacterRecord granted = GrantPoints(character, 100);
             UserId gm = NewUserId();
 
-            Result<AdvancementRecommendationRecord> requested = CharacterAdvancementService.RequestSkillAdvancedRecommendation(_characterRepository, _campaign, character.CharacterId, Stealth, targetLevel: 5, Array.Empty<CriticalSuccessEvidenceId>(), gm, actorIsMainGm: true, granted.Revisions.MechanicsRevision, NewCommandId(), TestCorrelationId);
+            Result<AdvancementRecommendationRecord> requested = CharacterAdvancementService.RequestSkillAdvancedRecommendation(_characterRepository, _campaign, character.CharacterId, Stealth, targetLevel: 5, Array.Empty<CriticalSuccessEvidenceId>(), global::Odyssey.Application.Identity.DevIdentityProvider.AssignHost(), granted.Revisions.MechanicsRevision, NewCommandId(), TestCorrelationId);
             Assert.That(requested.IsSuccess, Is.True);
             AdvancementRecommendationRecord recommendation = requested.Value;
 
             Result<CharacterRecord> afterReserve = _characterRepository.GetCharacter(_campaign, character.CharacterId, TestCorrelationId);
-            Result<CharacterRecord> resolved = _characterRepository.ResolveAdvancementRecommendation(_campaign, character.CharacterId, recommendation.RecommendationId, approve: true, spendReservedPoints: true, gm, actorIsMainGm: true, afterReserve.Value.Revisions.MechanicsRevision, recommendation.Revision, NewCommandId(), TestCorrelationId);
+            Result<CharacterRecord> resolved = _characterRepository.ResolveAdvancementRecommendation(_campaign, character.CharacterId, recommendation.RecommendationId, approve: true, spendReservedPoints: true, global::Odyssey.Application.Identity.DevIdentityProvider.AssignHost(), afterReserve.Value.Revisions.MechanicsRevision, recommendation.Revision, NewCommandId(), TestCorrelationId);
             Assert.That(resolved.IsSuccess, Is.True);
 
             AdvancementPurchase purchase = _characterRepository.GetAdvancementPurchases(_campaign, character.CharacterId, TestCorrelationId).Value.Single();
@@ -183,12 +183,12 @@ namespace Odyssey.Tests.Persistence
             CharacterRecord granted = GrantPoints(character, 100);
             UserId gm = NewUserId();
 
-            Result<AdvancementRecommendationRecord> requested = CharacterAdvancementService.RequestSkillAdvancedRecommendation(_characterRepository, _campaign, character.CharacterId, Stealth, targetLevel: 5, Array.Empty<CriticalSuccessEvidenceId>(), gm, actorIsMainGm: true, granted.Revisions.MechanicsRevision, NewCommandId(), TestCorrelationId);
+            Result<AdvancementRecommendationRecord> requested = CharacterAdvancementService.RequestSkillAdvancedRecommendation(_characterRepository, _campaign, character.CharacterId, Stealth, targetLevel: 5, Array.Empty<CriticalSuccessEvidenceId>(), global::Odyssey.Application.Identity.DevIdentityProvider.AssignHost(), granted.Revisions.MechanicsRevision, NewCommandId(), TestCorrelationId);
             Assert.That(requested.IsSuccess, Is.True);
             AdvancementRecommendationRecord recommendation = requested.Value;
 
             Result<CharacterRecord> afterReserve = _characterRepository.GetCharacter(_campaign, character.CharacterId, TestCorrelationId);
-            Result<CharacterRecord> resolved = _characterRepository.ResolveAdvancementRecommendation(_campaign, character.CharacterId, recommendation.RecommendationId, approve: true, spendReservedPoints: false, gm, actorIsMainGm: true, afterReserve.Value.Revisions.MechanicsRevision, recommendation.Revision, NewCommandId(), TestCorrelationId);
+            Result<CharacterRecord> resolved = _characterRepository.ResolveAdvancementRecommendation(_campaign, character.CharacterId, recommendation.RecommendationId, approve: true, spendReservedPoints: false, global::Odyssey.Application.Identity.DevIdentityProvider.AssignHost(), afterReserve.Value.Revisions.MechanicsRevision, recommendation.Revision, NewCommandId(), TestCorrelationId);
             Assert.That(resolved.IsSuccess, Is.True);
 
             AdvancementPurchase purchase = _characterRepository.GetAdvancementPurchases(_campaign, character.CharacterId, TestCorrelationId).Value.Single();
@@ -204,11 +204,11 @@ namespace Odyssey.Tests.Persistence
             CharacterRecord granted = GrantPoints(character, 100);
             UserId gm = NewUserId();
 
-            Result<AdvancementRecommendationRecord> requested = CharacterAdvancementService.RequestSkillAdvancedRecommendation(_characterRepository, _campaign, character.CharacterId, Stealth, targetLevel: 5, Array.Empty<CriticalSuccessEvidenceId>(), gm, actorIsMainGm: true, granted.Revisions.MechanicsRevision, NewCommandId(), TestCorrelationId);
+            Result<AdvancementRecommendationRecord> requested = CharacterAdvancementService.RequestSkillAdvancedRecommendation(_characterRepository, _campaign, character.CharacterId, Stealth, targetLevel: 5, Array.Empty<CriticalSuccessEvidenceId>(), global::Odyssey.Application.Identity.DevIdentityProvider.AssignHost(), granted.Revisions.MechanicsRevision, NewCommandId(), TestCorrelationId);
             AdvancementRecommendationRecord recommendation = requested.Value;
 
             Result<CharacterRecord> afterReserve = _characterRepository.GetCharacter(_campaign, character.CharacterId, TestCorrelationId);
-            Result<CharacterRecord> resolved = _characterRepository.ResolveAdvancementRecommendation(_campaign, character.CharacterId, recommendation.RecommendationId, approve: false, spendReservedPoints: false, gm, actorIsMainGm: true, afterReserve.Value.Revisions.MechanicsRevision, recommendation.Revision, NewCommandId(), TestCorrelationId);
+            Result<CharacterRecord> resolved = _characterRepository.ResolveAdvancementRecommendation(_campaign, character.CharacterId, recommendation.RecommendationId, approve: false, spendReservedPoints: false, global::Odyssey.Application.Identity.DevIdentityProvider.AssignHost(), afterReserve.Value.Revisions.MechanicsRevision, recommendation.Revision, NewCommandId(), TestCorrelationId);
             Assert.That(resolved.IsSuccess, Is.True);
 
             Assert.That(_characterRepository.GetAdvancementPurchases(_campaign, character.CharacterId, TestCorrelationId).Value, Is.Empty);
@@ -221,7 +221,7 @@ namespace Odyssey.Tests.Persistence
         {
             CharacterRecord character = CreateCharacter();
             CharacterRecord granted = GrantPoints(character, 20);
-            Result<CharacterRecord> purchased = CharacterAdvancementService.PurchaseAttributeIncrease(_characterRepository, _campaign, character.CharacterId, Strength, toValue: 3, NewUserId(), actorIsMainGm: true, granted.Revisions.MechanicsRevision, expectedAttributeRevision: 0, NewCommandId(), TestCorrelationId);
+            Result<CharacterRecord> purchased = CharacterAdvancementService.PurchaseAttributeIncrease(_characterRepository, _campaign, character.CharacterId, Strength, toValue: 3, global::Odyssey.Application.Identity.DevIdentityProvider.AssignHost(), granted.Revisions.MechanicsRevision, expectedAttributeRevision: 0, NewCommandId(), TestCorrelationId);
             AdvancementPurchase purchase = _characterRepository.GetAdvancementPurchases(_campaign, character.CharacterId, TestCorrelationId).Value.Single();
 
             using (SqliteConnection connection = OpenReadOnly())
@@ -231,7 +231,7 @@ namespace Odyssey.Tests.Persistence
                 Assert.That(originalEventCountBefore, Is.EqualTo(1));
             }
 
-            Result<CharacterRecord> reverted = _characterRepository.RevertAdvancementPurchase(_campaign, character.CharacterId, purchase.PurchaseId, GmReason, NewUserId(), actorIsMainGm: true, purchased.Value.Revisions.MechanicsRevision, NewCommandId(), TestCorrelationId);
+            Result<CharacterRecord> reverted = _characterRepository.RevertAdvancementPurchase(_campaign, character.CharacterId, purchase.PurchaseId, GmReason, global::Odyssey.Application.Identity.DevIdentityProvider.AssignHost(), purchased.Value.Revisions.MechanicsRevision, NewCommandId(), TestCorrelationId);
 
             Assert.That(reverted.IsSuccess, Is.True);
             Assert.That(reverted.Value.Attributes.Single(a => a.AttributeDefinitionId.Equals(Strength)).BaseValue, Is.EqualTo(0));
@@ -263,12 +263,12 @@ namespace Odyssey.Tests.Persistence
         {
             CharacterRecord character = CreateCharacter();
             CharacterRecord granted = GrantPoints(character, 20);
-            Result<CharacterRecord> first = CharacterAdvancementService.PurchaseAttributeIncrease(_characterRepository, _campaign, character.CharacterId, Strength, toValue: 3, NewUserId(), actorIsMainGm: true, granted.Revisions.MechanicsRevision, expectedAttributeRevision: 0, NewCommandId(), TestCorrelationId);
+            Result<CharacterRecord> first = CharacterAdvancementService.PurchaseAttributeIncrease(_characterRepository, _campaign, character.CharacterId, Strength, toValue: 3, global::Odyssey.Application.Identity.DevIdentityProvider.AssignHost(), granted.Revisions.MechanicsRevision, expectedAttributeRevision: 0, NewCommandId(), TestCorrelationId);
             AdvancementPurchase firstPurchase = _characterRepository.GetAdvancementPurchases(_campaign, character.CharacterId, TestCorrelationId).Value.Single();
-            Result<CharacterRecord> second = CharacterAdvancementService.PurchaseAttributeIncrease(_characterRepository, _campaign, character.CharacterId, Strength, toValue: 5, NewUserId(), actorIsMainGm: true, first.Value.Revisions.MechanicsRevision, expectedAttributeRevision: 1, NewCommandId(), TestCorrelationId);
+            Result<CharacterRecord> second = CharacterAdvancementService.PurchaseAttributeIncrease(_characterRepository, _campaign, character.CharacterId, Strength, toValue: 5, global::Odyssey.Application.Identity.DevIdentityProvider.AssignHost(), first.Value.Revisions.MechanicsRevision, expectedAttributeRevision: 1, NewCommandId(), TestCorrelationId);
             Assert.That(second.IsSuccess, Is.True);
 
-            Result<CharacterRecord> reverted = _characterRepository.RevertAdvancementPurchase(_campaign, character.CharacterId, firstPurchase.PurchaseId, GmReason, NewUserId(), actorIsMainGm: true, second.Value.Revisions.MechanicsRevision, NewCommandId(), TestCorrelationId);
+            Result<CharacterRecord> reverted = _characterRepository.RevertAdvancementPurchase(_campaign, character.CharacterId, firstPurchase.PurchaseId, GmReason, global::Odyssey.Application.Identity.DevIdentityProvider.AssignHost(), second.Value.Revisions.MechanicsRevision, NewCommandId(), TestCorrelationId);
 
             Assert.That(reverted.IsFailure, Is.True);
             Assert.That(reverted.Error.Code, Is.EqualTo(ErrorCodes.PersistenceCharacterAdvancementPurchaseHasDependent));
@@ -282,10 +282,10 @@ namespace Odyssey.Tests.Persistence
         {
             CharacterRecord character = CreateCharacter();
             CharacterRecord granted = GrantPoints(character, 20);
-            Result<CharacterRecord> purchased = CharacterAdvancementService.PurchaseAttributeIncrease(_characterRepository, _campaign, character.CharacterId, Strength, toValue: 3, NewUserId(), actorIsMainGm: true, granted.Revisions.MechanicsRevision, expectedAttributeRevision: 0, NewCommandId(), TestCorrelationId);
+            Result<CharacterRecord> purchased = CharacterAdvancementService.PurchaseAttributeIncrease(_characterRepository, _campaign, character.CharacterId, Strength, toValue: 3, global::Odyssey.Application.Identity.DevIdentityProvider.AssignHost(), granted.Revisions.MechanicsRevision, expectedAttributeRevision: 0, NewCommandId(), TestCorrelationId);
             AdvancementPurchase purchase = _characterRepository.GetAdvancementPurchases(_campaign, character.CharacterId, TestCorrelationId).Value.Single();
 
-            Result<CharacterRecord> reverted = _characterRepository.RevertAdvancementPurchase(_campaign, character.CharacterId, purchase.PurchaseId, "", NewUserId(), actorIsMainGm: true, purchased.Value.Revisions.MechanicsRevision, NewCommandId(), TestCorrelationId);
+            Result<CharacterRecord> reverted = _characterRepository.RevertAdvancementPurchase(_campaign, character.CharacterId, purchase.PurchaseId, "", global::Odyssey.Application.Identity.DevIdentityProvider.AssignHost(), purchased.Value.Revisions.MechanicsRevision, NewCommandId(), TestCorrelationId);
 
             Assert.That(reverted.IsFailure, Is.True);
             Assert.That(reverted.Error.Code, Is.EqualTo(ErrorCodes.PersistenceCharacterAdvancementReasonRequired));
@@ -296,14 +296,14 @@ namespace Odyssey.Tests.Persistence
         {
             CharacterRecord character = CreateCharacter();
             CharacterRecord granted = GrantPoints(character, 20);
-            Result<CharacterRecord> purchased = CharacterAdvancementService.PurchaseAttributeIncrease(_characterRepository, _campaign, character.CharacterId, Strength, toValue: 3, NewUserId(), actorIsMainGm: true, granted.Revisions.MechanicsRevision, expectedAttributeRevision: 0, NewCommandId(), TestCorrelationId);
+            Result<CharacterRecord> purchased = CharacterAdvancementService.PurchaseAttributeIncrease(_characterRepository, _campaign, character.CharacterId, Strength, toValue: 3, global::Odyssey.Application.Identity.DevIdentityProvider.AssignHost(), granted.Revisions.MechanicsRevision, expectedAttributeRevision: 0, NewCommandId(), TestCorrelationId);
             AdvancementPurchase purchase = _characterRepository.GetAdvancementPurchases(_campaign, character.CharacterId, TestCorrelationId).Value.Single();
 
             CommandId revertCommandId = NewCommandId();
-            Result<CharacterRecord> first = _characterRepository.RevertAdvancementPurchase(_campaign, character.CharacterId, purchase.PurchaseId, GmReason, NewUserId(), actorIsMainGm: true, purchased.Value.Revisions.MechanicsRevision, revertCommandId, TestCorrelationId);
+            Result<CharacterRecord> first = _characterRepository.RevertAdvancementPurchase(_campaign, character.CharacterId, purchase.PurchaseId, GmReason, global::Odyssey.Application.Identity.DevIdentityProvider.AssignHost(), purchased.Value.Revisions.MechanicsRevision, revertCommandId, TestCorrelationId);
             Assert.That(first.IsSuccess, Is.True);
 
-            Result<CharacterRecord> replay = _characterRepository.RevertAdvancementPurchase(_campaign, character.CharacterId, purchase.PurchaseId, GmReason, NewUserId(), actorIsMainGm: true, purchased.Value.Revisions.MechanicsRevision, revertCommandId, TestCorrelationId);
+            Result<CharacterRecord> replay = _characterRepository.RevertAdvancementPurchase(_campaign, character.CharacterId, purchase.PurchaseId, GmReason, global::Odyssey.Application.Identity.DevIdentityProvider.AssignHost(), purchased.Value.Revisions.MechanicsRevision, revertCommandId, TestCorrelationId);
             Assert.That(replay.IsSuccess, Is.True);
 
             Result<CharacterRecord> reRead = _characterRepository.GetCharacter(_campaign, character.CharacterId, TestCorrelationId);
@@ -318,7 +318,7 @@ namespace Odyssey.Tests.Persistence
         {
             CharacterRecord character = CreateCharacter();
             CharacterRecord granted = GrantPoints(character, 20);
-            Result<CharacterRecord> purchased = CharacterAdvancementService.PurchaseAttributeIncrease(_characterRepository, _campaign, character.CharacterId, Strength, toValue: 3, NewUserId(), actorIsMainGm: true, granted.Revisions.MechanicsRevision, expectedAttributeRevision: 0, NewCommandId(), TestCorrelationId);
+            Result<CharacterRecord> purchased = CharacterAdvancementService.PurchaseAttributeIncrease(_characterRepository, _campaign, character.CharacterId, Strength, toValue: 3, global::Odyssey.Application.Identity.DevIdentityProvider.AssignHost(), granted.Revisions.MechanicsRevision, expectedAttributeRevision: 0, NewCommandId(), TestCorrelationId);
             long mechanicsRevisionBefore = purchased.Value.Revisions.MechanicsRevision;
             long availableBefore = purchased.Value.DevelopmentPool.Available;
 
@@ -355,8 +355,8 @@ namespace Odyssey.Tests.Persistence
         {
             CharacterRecord character = CreateCharacter();
             CharacterRecord granted = GrantPoints(character, 50);
-            Result<CharacterRecord> attrPurchase = CharacterAdvancementService.PurchaseAttributeIncrease(_characterRepository, _campaign, character.CharacterId, Strength, toValue: 3, NewUserId(), actorIsMainGm: true, granted.Revisions.MechanicsRevision, expectedAttributeRevision: 0, NewCommandId(), TestCorrelationId);
-            Result<CharacterRecord> skillPurchase = CharacterAdvancementService.PurchaseSkillLevel(_characterRepository, _campaign, character.CharacterId, Stealth, toLevel: 2, NewUserId(), actorIsMainGm: true, attrPurchase.Value.Revisions.MechanicsRevision, expectedSkillRevision: 0, NewCommandId(), TestCorrelationId);
+            Result<CharacterRecord> attrPurchase = CharacterAdvancementService.PurchaseAttributeIncrease(_characterRepository, _campaign, character.CharacterId, Strength, toValue: 3, global::Odyssey.Application.Identity.DevIdentityProvider.AssignHost(), granted.Revisions.MechanicsRevision, expectedAttributeRevision: 0, NewCommandId(), TestCorrelationId);
+            Result<CharacterRecord> skillPurchase = CharacterAdvancementService.PurchaseSkillLevel(_characterRepository, _campaign, character.CharacterId, Stealth, toLevel: 2, global::Odyssey.Application.Identity.DevIdentityProvider.AssignHost(), attrPurchase.Value.Revisions.MechanicsRevision, expectedSkillRevision: 0, NewCommandId(), TestCorrelationId);
             Assert.That(skillPurchase.IsSuccess, Is.True);
 
             var targets = new[]
@@ -366,7 +366,7 @@ namespace Odyssey.Tests.Persistence
             };
 
             CommandId applyCommandId = NewCommandId();
-            Result<CharacterRecord> applied = CharacterAdvancementService.ApplyCharacterRespec(_characterRepository, _campaign, character.CharacterId, targets, GmReason, NewUserId(), actorIsMainGm: true, skillPurchase.Value.Revisions.MechanicsRevision, applyCommandId, TestCorrelationId);
+            Result<CharacterRecord> applied = CharacterAdvancementService.ApplyCharacterRespec(_characterRepository, _campaign, character.CharacterId, targets, GmReason, global::Odyssey.Application.Identity.DevIdentityProvider.AssignHost(), skillPurchase.Value.Revisions.MechanicsRevision, applyCommandId, TestCorrelationId);
 
             Assert.That(applied.IsSuccess, Is.True);
             Assert.That(applied.Value.Attributes.Single(a => a.AttributeDefinitionId.Equals(Strength)).BaseValue, Is.EqualTo(5));
@@ -402,7 +402,7 @@ namespace Odyssey.Tests.Persistence
         {
             CharacterRecord character = CreateCharacter();
             CharacterRecord granted = GrantPoints(character, 50);
-            Result<CharacterRecord> attrPurchase = CharacterAdvancementService.PurchaseAttributeIncrease(_characterRepository, _campaign, character.CharacterId, Strength, toValue: 3, NewUserId(), actorIsMainGm: true, granted.Revisions.MechanicsRevision, expectedAttributeRevision: 0, NewCommandId(), TestCorrelationId);
+            Result<CharacterRecord> attrPurchase = CharacterAdvancementService.PurchaseAttributeIncrease(_characterRepository, _campaign, character.CharacterId, Strength, toValue: 3, global::Odyssey.Application.Identity.DevIdentityProvider.AssignHost(), granted.Revisions.MechanicsRevision, expectedAttributeRevision: 0, NewCommandId(), TestCorrelationId);
 
             var targets = new[] { new CharacterRespecTarget(AdvancementOperationKind.AttributeIncrease, Strength.ToString(), desiredValue: 5) };
 
@@ -414,10 +414,10 @@ namespace Odyssey.Tests.Persistence
             Assert.That(stalePreview.Value.TotalReturned, Is.EqualTo(6));
 
             // State changes after the preview was taken.
-            Result<CharacterRecord> secondPurchase = CharacterAdvancementService.PurchaseAttributeIncrease(_characterRepository, _campaign, character.CharacterId, Strength, toValue: 4, NewUserId(), actorIsMainGm: true, attrPurchase.Value.Revisions.MechanicsRevision, expectedAttributeRevision: 1, NewCommandId(), TestCorrelationId);
+            Result<CharacterRecord> secondPurchase = CharacterAdvancementService.PurchaseAttributeIncrease(_characterRepository, _campaign, character.CharacterId, Strength, toValue: 4, global::Odyssey.Application.Identity.DevIdentityProvider.AssignHost(), attrPurchase.Value.Revisions.MechanicsRevision, expectedAttributeRevision: 1, NewCommandId(), TestCorrelationId);
             Assert.That(secondPurchase.IsSuccess, Is.True);
 
-            Result<CharacterRecord> applied = CharacterAdvancementService.ApplyCharacterRespec(_characterRepository, _campaign, character.CharacterId, targets, GmReason, NewUserId(), actorIsMainGm: true, secondPurchase.Value.Revisions.MechanicsRevision, NewCommandId(), TestCorrelationId);
+            Result<CharacterRecord> applied = CharacterAdvancementService.ApplyCharacterRespec(_characterRepository, _campaign, character.CharacterId, targets, GmReason, global::Odyssey.Application.Identity.DevIdentityProvider.AssignHost(), secondPurchase.Value.Revisions.MechanicsRevision, NewCommandId(), TestCorrelationId);
 
             Assert.That(applied.IsSuccess, Is.True);
             Assert.That(applied.Value.Attributes.Single(a => a.AttributeDefinitionId.Equals(Strength)).BaseValue, Is.EqualTo(5));
@@ -430,15 +430,15 @@ namespace Odyssey.Tests.Persistence
         {
             CharacterRecord character = CreateCharacter();
             CharacterRecord granted = GrantPoints(character, 50);
-            Result<CharacterRecord> attrPurchase = CharacterAdvancementService.PurchaseAttributeIncrease(_characterRepository, _campaign, character.CharacterId, Strength, toValue: 3, NewUserId(), actorIsMainGm: true, granted.Revisions.MechanicsRevision, expectedAttributeRevision: 0, NewCommandId(), TestCorrelationId);
+            Result<CharacterRecord> attrPurchase = CharacterAdvancementService.PurchaseAttributeIncrease(_characterRepository, _campaign, character.CharacterId, Strength, toValue: 3, global::Odyssey.Application.Identity.DevIdentityProvider.AssignHost(), granted.Revisions.MechanicsRevision, expectedAttributeRevision: 0, NewCommandId(), TestCorrelationId);
 
             var targets = new[] { new CharacterRespecTarget(AdvancementOperationKind.AttributeIncrease, Strength.ToString(), desiredValue: 5) };
             CommandId applyCommandId = NewCommandId();
 
-            Result<CharacterRecord> first = CharacterAdvancementService.ApplyCharacterRespec(_characterRepository, _campaign, character.CharacterId, targets, GmReason, NewUserId(), actorIsMainGm: true, attrPurchase.Value.Revisions.MechanicsRevision, applyCommandId, TestCorrelationId);
+            Result<CharacterRecord> first = CharacterAdvancementService.ApplyCharacterRespec(_characterRepository, _campaign, character.CharacterId, targets, GmReason, global::Odyssey.Application.Identity.DevIdentityProvider.AssignHost(), attrPurchase.Value.Revisions.MechanicsRevision, applyCommandId, TestCorrelationId);
             Assert.That(first.IsSuccess, Is.True);
 
-            Result<CharacterRecord> replay = CharacterAdvancementService.ApplyCharacterRespec(_characterRepository, _campaign, character.CharacterId, targets, GmReason, NewUserId(), actorIsMainGm: true, attrPurchase.Value.Revisions.MechanicsRevision, applyCommandId, TestCorrelationId);
+            Result<CharacterRecord> replay = CharacterAdvancementService.ApplyCharacterRespec(_characterRepository, _campaign, character.CharacterId, targets, GmReason, global::Odyssey.Application.Identity.DevIdentityProvider.AssignHost(), attrPurchase.Value.Revisions.MechanicsRevision, applyCommandId, TestCorrelationId);
             Assert.That(replay.IsSuccess, Is.True);
 
             using SqliteConnection connection = OpenReadOnly();
@@ -463,8 +463,8 @@ namespace Odyssey.Tests.Persistence
         {
             CharacterRecord character = CreateCharacter();
             CharacterRecord granted = GrantPoints(character, 50);
-            Result<CharacterRecord> attrPurchase = CharacterAdvancementService.PurchaseAttributeIncrease(_characterRepository, _campaign, character.CharacterId, Strength, toValue: 3, NewUserId(), actorIsMainGm: true, granted.Revisions.MechanicsRevision, expectedAttributeRevision: 0, NewCommandId(), TestCorrelationId);
-            Result<CharacterRecord> skillPurchase = CharacterAdvancementService.PurchaseSkillLevel(_characterRepository, _campaign, character.CharacterId, Stealth, toLevel: 2, NewUserId(), actorIsMainGm: true, attrPurchase.Value.Revisions.MechanicsRevision, expectedSkillRevision: 0, NewCommandId(), TestCorrelationId);
+            Result<CharacterRecord> attrPurchase = CharacterAdvancementService.PurchaseAttributeIncrease(_characterRepository, _campaign, character.CharacterId, Strength, toValue: 3, global::Odyssey.Application.Identity.DevIdentityProvider.AssignHost(), granted.Revisions.MechanicsRevision, expectedAttributeRevision: 0, NewCommandId(), TestCorrelationId);
+            Result<CharacterRecord> skillPurchase = CharacterAdvancementService.PurchaseSkillLevel(_characterRepository, _campaign, character.CharacterId, Stealth, toLevel: 2, global::Odyssey.Application.Identity.DevIdentityProvider.AssignHost(), attrPurchase.Value.Revisions.MechanicsRevision, expectedSkillRevision: 0, NewCommandId(), TestCorrelationId);
             Assert.That(skillPurchase.IsSuccess, Is.True);
 
             var targets = new[]
@@ -472,7 +472,7 @@ namespace Odyssey.Tests.Persistence
                 new CharacterRespecTarget(AdvancementOperationKind.AttributeIncrease, Strength.ToString(), desiredValue: 5),
                 new CharacterRespecTarget(AdvancementOperationKind.SkillLevelPurchase, Stealth.ToString(), desiredValue: 0),
             };
-            Result<CharacterRecord> applied = CharacterAdvancementService.ApplyCharacterRespec(_characterRepository, _campaign, character.CharacterId, targets, GmReason, NewUserId(), actorIsMainGm: true, skillPurchase.Value.Revisions.MechanicsRevision, NewCommandId(), TestCorrelationId);
+            Result<CharacterRecord> applied = CharacterAdvancementService.ApplyCharacterRespec(_characterRepository, _campaign, character.CharacterId, targets, GmReason, global::Odyssey.Application.Identity.DevIdentityProvider.AssignHost(), skillPurchase.Value.Revisions.MechanicsRevision, NewCommandId(), TestCorrelationId);
             Assert.That(applied.IsSuccess, Is.True);
 
             Result<IReadOnlyList<CharacterHistoryEntry>> history = _characterRepository.GetCharacterHistory(_campaign, character.CharacterId, TestCorrelationId);

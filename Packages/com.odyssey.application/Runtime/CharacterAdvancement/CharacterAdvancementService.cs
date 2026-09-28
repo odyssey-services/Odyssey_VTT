@@ -46,7 +46,6 @@ namespace Odyssey.Application.CharacterAdvancement
             CharacterId characterId,
             ResourceDefinitionId resourceDefinitionId,
             UserId actorUserId,
-            bool actorIsMainGm,
             long expectedCharacterResourcesRevision,
             CommandId commandId,
             CorrelationId correlationId)
@@ -61,7 +60,6 @@ namespace Odyssey.Application.CharacterAdvancement
                 RulesResourceInitializationRules.DefaultMinimumValue,
                 RulesResourceInitializationRules.DefaultRecoveryRule,
                 actorUserId,
-                actorIsMainGm,
                 expectedCharacterResourcesRevision,
                 commandId,
                 correlationId);
@@ -81,7 +79,6 @@ namespace Odyssey.Application.CharacterAdvancement
             CharacterId characterId,
             AnatomyProfileDefinitionId anatomyProfileDefinitionId,
             UserId actorUserId,
-            bool actorIsMainGm,
             long expectedCharacterAnatomyRevision,
             CommandId commandId,
             CorrelationId correlationId)
@@ -95,7 +92,6 @@ namespace Odyssey.Application.CharacterAdvancement
                 RulesAnatomyInitializationRules.DefaultAnatomyProfileVersion,
                 RulesAnatomyInitializationRules.DefaultHumanoidBodyParts(),
                 actorUserId,
-                actorIsMainGm,
                 expectedCharacterAnatomyRevision,
                 commandId,
                 correlationId);
@@ -127,7 +123,6 @@ namespace Odyssey.Application.CharacterAdvancement
             AttributeDefinitionId attributeDefinitionId,
             long toValue,
             UserId actorUserId,
-            bool actorIsMainGm,
             long expectedMechanicsRevision,
             long expectedAttributeRevision,
             CommandId commandId,
@@ -159,7 +154,7 @@ namespace Odyssey.Application.CharacterAdvancement
 
             return characters.PurchaseAttributeIncrease(
                 campaign, characterId, attributeDefinitionId, toValue, fromValue, exceedsNormalCap, cost,
-                actorUserId, actorIsMainGm, expectedMechanicsRevision, expectedAttributeRevision, commandId, correlationId);
+                actorUserId, expectedMechanicsRevision, expectedAttributeRevision, commandId, correlationId);
         }
 
         /// <summary>
@@ -174,7 +169,6 @@ namespace Odyssey.Application.CharacterAdvancement
             SkillDefinitionId skillDefinitionId,
             long toLevel,
             UserId actorUserId,
-            bool actorIsMainGm,
             long expectedMechanicsRevision,
             long expectedSkillRevision,
             CommandId commandId,
@@ -201,7 +195,7 @@ namespace Odyssey.Application.CharacterAdvancement
 
             return characters.PurchaseSkillLevel(
                 campaign, characterId, skillDefinitionId, toLevel, fromLevel, requiresRecommendation, cost,
-                actorUserId, actorIsMainGm, expectedMechanicsRevision, expectedSkillRevision, commandId, correlationId);
+                actorUserId, expectedMechanicsRevision, expectedSkillRevision, commandId, correlationId);
         }
 
         /// <summary>
@@ -217,7 +211,6 @@ namespace Odyssey.Application.CharacterAdvancement
             long targetLevel,
             IReadOnlyList<CriticalSuccessEvidenceId> evidenceIds,
             UserId actorUserId,
-            bool actorIsMainGm,
             long expectedMechanicsRevision,
             CommandId commandId,
             CorrelationId correlationId)
@@ -237,7 +230,7 @@ namespace Odyssey.Application.CharacterAdvancement
 
             return characters.RequestSkillAdvancedRecommendation(
                 campaign, characterId, skillDefinitionId, targetLevel, fromLevel, reservedAmount, evidenceIds,
-                actorUserId, actorIsMainGm, expectedMechanicsRevision, commandId, correlationId);
+                actorUserId, expectedMechanicsRevision, commandId, correlationId);
         }
 
         /// <summary>
@@ -258,7 +251,6 @@ namespace Odyssey.Application.CharacterAdvancement
             string? namedRankKey,
             string configuration,
             UserId actorUserId,
-            bool actorIsMainGm,
             long? expectedMechanicsRevision,
             long expectedCharacterAbilitiesRevision,
             CommandId commandId,
@@ -270,7 +262,7 @@ namespace Odyssey.Application.CharacterAdvancement
 
             return characters.AcquireAbility(
                 campaign, characterId, abilityDefinitionId, sourceKind, sourceRef, rankMode, numericRank, namedRankKey,
-                configuration, cost, actorUserId, actorIsMainGm, expectedMechanicsRevision, expectedCharacterAbilitiesRevision,
+                configuration, cost, actorUserId, expectedMechanicsRevision, expectedCharacterAbilitiesRevision,
                 commandId, correlationId);
         }
 
@@ -347,7 +339,6 @@ namespace Odyssey.Application.CharacterAdvancement
             IReadOnlyList<CharacterRespecTarget> targets,
             string reasonCode,
             UserId actorUserId,
-            bool actorIsMainGm,
             long expectedMechanicsRevision,
             CommandId commandId,
             CorrelationId correlationId)
@@ -378,7 +369,7 @@ namespace Odyssey.Application.CharacterAdvancement
 
             return characters.ApplyCharacterRespec(
                 campaign, characterId, targets, plan, decidedMechanicsRevision, reasonCode,
-                actorUserId, actorIsMainGm, expectedMechanicsRevision, commandId, correlationId);
+                actorUserId, expectedMechanicsRevision, commandId, correlationId);
         }
 
         /// <summary>
@@ -502,7 +493,6 @@ namespace Odyssey.Application.CharacterAdvancement
             string targetRulesetVersion,
             RulesRulesetDefinitionCatalog targetCatalog,
             UserId actorUserId,
-            bool actorIsMainGm,
             CommandId commandId,
             CorrelationId correlationId)
         {
@@ -536,7 +526,7 @@ namespace Odyssey.Application.CharacterAdvancement
 
             return characters.ApplyCharacterRulesetMigration(
                 campaign, characterId, targetRulesetVersion, sourceVersion, mechanicsRevision, abilitiesRevision, resourcesRevision,
-                hasUnresolved, mappingCount, actorUserId, actorIsMainGm, commandId, correlationId);
+                hasUnresolved, mappingCount, actorUserId, commandId, correlationId);
         }
 
         private static RulesCharacterRulesetMigrationPlan BuildMigrationPlan(CampaignHandle campaign, CharacterRecord current, string targetRulesetId, string targetRulesetVersion, RulesRulesetDefinitionCatalog targetCatalog)

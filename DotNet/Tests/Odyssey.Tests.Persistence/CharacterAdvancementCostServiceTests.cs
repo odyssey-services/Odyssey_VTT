@@ -49,8 +49,8 @@ namespace Odyssey.Tests.Persistence
             Result<CampaignHandle> created = _campaignRepository.Create(request, NewCommandId(), TestCorrelationId);
             Assert.That(created.IsSuccess, Is.True);
             _campaign = created.Value;
-            _repo = new SqliteCharacterRepository(Clock);
-            _gm = NewUserId();
+            _repo = new SqliteCharacterRepository(Clock, _campaignRepository);
+            _gm = global::Odyssey.Application.Identity.DevIdentityProvider.AssignHost(); // ODY-S10-102: the campaign's host is its stored MainGm
         }
 
         [TearDown]
@@ -72,7 +72,7 @@ namespace Odyssey.Tests.Persistence
 
         private CharacterRecord Grant(CharacterRecord character, long amount)
         {
-            Result<CharacterRecord> granted = _repo.GrantDevelopmentPoints(_campaign, character.CharacterId, amount, "Grant", _gm, actorIsMainGm: true, character.Revisions.MechanicsRevision, NewCommandId(), TestCorrelationId);
+            Result<CharacterRecord> granted = _repo.GrantDevelopmentPoints(_campaign, character.CharacterId, amount, "Grant", global::Odyssey.Application.Identity.DevIdentityProvider.AssignHost(), character.Revisions.MechanicsRevision, NewCommandId(), TestCorrelationId);
             Assert.That(granted.IsSuccess, Is.True);
             return granted.Value;
         }
@@ -99,14 +99,14 @@ namespace Odyssey.Tests.Persistence
         {
             CharacterRecord c = Reload(character);
             long attrRevision = c.Attributes.FirstOrDefault(a => a.AttributeDefinitionId.Equals(Strength))?.Revision ?? 0;
-            return CharacterAdvancementService.PurchaseAttributeIncrease(repo, _campaign, c.CharacterId, Strength, toValue, asMainGm ? _gm : NewUserId(), asMainGm, c.Revisions.MechanicsRevision, attrRevision, NewCommandId(), TestCorrelationId);
+            return CharacterAdvancementService.PurchaseAttributeIncrease(repo, _campaign, c.CharacterId, Strength, toValue, asMainGm ? _gm : NewUserId(), c.Revisions.MechanicsRevision, attrRevision, NewCommandId(), TestCorrelationId);
         }
 
         private Result<CharacterRecord> BuySkill(ICharacterRepository repo, CharacterRecord character, long toLevel)
         {
             CharacterRecord c = Reload(character);
             long skillRevision = c.Skills.FirstOrDefault(s => s.SkillDefinitionId.Equals(Tactics))?.Revision ?? 0;
-            return CharacterAdvancementService.PurchaseSkillLevel(repo, _campaign, c.CharacterId, Tactics, toLevel, _gm, actorIsMainGm: true, c.Revisions.MechanicsRevision, skillRevision, NewCommandId(), TestCorrelationId);
+            return CharacterAdvancementService.PurchaseSkillLevel(repo, _campaign, c.CharacterId, Tactics, toLevel, global::Odyssey.Application.Identity.DevIdentityProvider.AssignHost(), c.Revisions.MechanicsRevision, skillRevision, NewCommandId(), TestCorrelationId);
         }
 
         // ------------------------------------------------------------------ attribute purchase
@@ -177,7 +177,7 @@ namespace Odyssey.Tests.Persistence
             CharacterRecord now = Reload(character);
             Result<CharacterRecord> stale = _repo.PurchaseAttributeIncrease(
                 _campaign, character.CharacterId, Strength, toValue: 3, decidedFromValue: 0, exceedsNormalCap: false, decidedCost: 6,
-                _gm, actorIsMainGm: true, now.Revisions.MechanicsRevision, now.Attributes.Single().Revision, NewCommandId(), TestCorrelationId);
+                global::Odyssey.Application.Identity.DevIdentityProvider.AssignHost(), now.Revisions.MechanicsRevision, now.Attributes.Single().Revision, NewCommandId(), TestCorrelationId);
 
             Assert.That(stale.IsFailure, Is.True);
             Assert.That(stale.Error.Code, Is.EqualTo(ErrorCodes.PersistenceCharacterRevisionConflict));
@@ -205,7 +205,7 @@ namespace Odyssey.Tests.Persistence
             });
 
             // First race: the caller only knows the revisions it started with, so the revision gate itself rejects.
-            Result<CharacterRecord> withStartRevisions = CharacterAdvancementService.PurchaseAttributeIncrease(racing, _campaign, character.CharacterId, Strength, 3, _gm, true, expectedAtStart.Revisions.MechanicsRevision, 0, NewCommandId(), TestCorrelationId);
+            Result<CharacterRecord> withStartRevisions = CharacterAdvancementService.PurchaseAttributeIncrease(racing, _campaign, character.CharacterId, Strength, 3, global::Odyssey.Application.Identity.DevIdentityProvider.AssignHost(), expectedAtStart.Revisions.MechanicsRevision, 0, NewCommandId(), TestCorrelationId);
             Assert.That(withStartRevisions.IsFailure, Is.True);
             Assert.That(withStartRevisions.Error.Code, Is.EqualTo(ErrorCodes.PersistenceCharacterRevisionConflict));
             Assert.That(Snapshot(character), Is.EqualTo(afterCompetitor));
@@ -221,7 +221,7 @@ namespace Odyssey.Tests.Persistence
                 if (method.Name != nameof(ICharacterRepository.GetCharacter)) return (false, null);
                 return (true, Result<CharacterRecord>.Success(expectedAtStart));
             });
-            Result<CharacterRecord> basisOnly = CharacterAdvancementService.PurchaseAttributeIncrease(staleReader, _campaign, character.CharacterId, Strength, 3, _gm, true, freshMechanics, freshAttr, NewCommandId(), TestCorrelationId);
+            Result<CharacterRecord> basisOnly = CharacterAdvancementService.PurchaseAttributeIncrease(staleReader, _campaign, character.CharacterId, Strength, 3, global::Odyssey.Application.Identity.DevIdentityProvider.AssignHost(), freshMechanics, freshAttr, NewCommandId(), TestCorrelationId);
             Assert.That(basisOnly.IsFailure, Is.True);
             Assert.That(basisOnly.Error.Code, Is.EqualTo(ErrorCodes.PersistenceCharacterRevisionConflict));
             Assert.That(Snapshot(character), Is.EqualTo(afterCompetitor));
@@ -277,13 +277,13 @@ namespace Odyssey.Tests.Persistence
 
             Result<CharacterRecord> direct = _repo.PurchaseSkillLevel(
                 _campaign, character.CharacterId, Tactics, toLevel: 3, decidedFromLevel: 0, requiresRecommendation: false, decidedCost: 9,
-                _gm, actorIsMainGm: true, now.Revisions.MechanicsRevision, now.Skills.Single().Revision, NewCommandId(), TestCorrelationId);
+                global::Odyssey.Application.Identity.DevIdentityProvider.AssignHost(), now.Revisions.MechanicsRevision, now.Skills.Single().Revision, NewCommandId(), TestCorrelationId);
             Assert.That(direct.Error.Code, Is.EqualTo(ErrorCodes.PersistenceCharacterRevisionConflict));
             Assert.That(Snapshot(character), Is.EqualTo(afterCompetitor));
 
             ICharacterRepository staleReader = InterceptingProxy.Create(_repo, (method, args) =>
                 method.Name == nameof(ICharacterRepository.GetCharacter) ? (true, Result<CharacterRecord>.Success(staleRead)) : (false, null));
-            Result<CharacterRecord> viaService = CharacterAdvancementService.PurchaseSkillLevel(staleReader, _campaign, character.CharacterId, Tactics, 3, _gm, true, now.Revisions.MechanicsRevision, now.Skills.Single().Revision, NewCommandId(), TestCorrelationId);
+            Result<CharacterRecord> viaService = CharacterAdvancementService.PurchaseSkillLevel(staleReader, _campaign, character.CharacterId, Tactics, 3, global::Odyssey.Application.Identity.DevIdentityProvider.AssignHost(), now.Revisions.MechanicsRevision, now.Skills.Single().Revision, NewCommandId(), TestCorrelationId);
             Assert.That(viaService.Error.Code, Is.EqualTo(ErrorCodes.PersistenceCharacterRevisionConflict));
             Assert.That(Snapshot(character), Is.EqualTo(afterCompetitor));
         }
@@ -295,7 +295,7 @@ namespace Odyssey.Tests.Persistence
             Result<CriticalSuccessEvidenceRecord> evidence = _repo.RecordCriticalSuccessEvidence(_campaign, character.CharacterId, Tactics, "roll_" + Guid.NewGuid().ToString("N"), null, NewCommandId(), TestCorrelationId);
             Assert.That(evidence.IsSuccess, Is.True);
             CharacterRecord c = Reload(character);
-            return CharacterAdvancementService.RequestSkillAdvancedRecommendation(repo, _campaign, c.CharacterId, Tactics, targetLevel, new[] { evidence.Value.EvidenceId }, _gm, actorIsMainGm: true, c.Revisions.MechanicsRevision, NewCommandId(), TestCorrelationId);
+            return CharacterAdvancementService.RequestSkillAdvancedRecommendation(repo, _campaign, c.CharacterId, Tactics, targetLevel, new[] { evidence.Value.EvidenceId }, global::Odyssey.Application.Identity.DevIdentityProvider.AssignHost(), c.Revisions.MechanicsRevision, NewCommandId(), TestCorrelationId);
         }
 
         [Test] // TC-CHAR-196
@@ -347,13 +347,13 @@ namespace Odyssey.Tests.Persistence
 
             Result<AdvancementRecommendationRecord> direct = _repo.RequestSkillAdvancedRecommendation(
                 _campaign, character.CharacterId, Tactics, targetLevel: 5, decidedFromLevel: 0, decidedReservedAmount: 15, new[] { evidence.Value.EvidenceId },
-                _gm, actorIsMainGm: true, now.Revisions.MechanicsRevision, NewCommandId(), TestCorrelationId);
+                global::Odyssey.Application.Identity.DevIdentityProvider.AssignHost(), now.Revisions.MechanicsRevision, NewCommandId(), TestCorrelationId);
             Assert.That(direct.Error.Code, Is.EqualTo(ErrorCodes.PersistenceCharacterRevisionConflict));
             Assert.That(Snapshot(character), Is.EqualTo(afterCompetitor));
 
             ICharacterRepository staleReader = InterceptingProxy.Create(_repo, (method, args) =>
                 method.Name == nameof(ICharacterRepository.GetCharacter) ? (true, Result<CharacterRecord>.Success(staleRead)) : (false, null));
-            Result<AdvancementRecommendationRecord> viaService = CharacterAdvancementService.RequestSkillAdvancedRecommendation(staleReader, _campaign, character.CharacterId, Tactics, 5, new[] { evidence.Value.EvidenceId }, _gm, true, now.Revisions.MechanicsRevision, NewCommandId(), TestCorrelationId);
+            Result<AdvancementRecommendationRecord> viaService = CharacterAdvancementService.RequestSkillAdvancedRecommendation(staleReader, _campaign, character.CharacterId, Tactics, 5, new[] { evidence.Value.EvidenceId }, global::Odyssey.Application.Identity.DevIdentityProvider.AssignHost(), now.Revisions.MechanicsRevision, NewCommandId(), TestCorrelationId);
             Assert.That(viaService.Error.Code, Is.EqualTo(ErrorCodes.PersistenceCharacterRevisionConflict));
             Assert.That(Snapshot(character), Is.EqualTo(afterCompetitor));
         }
@@ -363,7 +363,7 @@ namespace Odyssey.Tests.Persistence
         private Result<CharacterRecord> Acquire(ICharacterRepository repo, CharacterRecord character, SourceKind kind, CharacterRecord? basis = null)
         {
             CharacterRecord c = basis ?? Reload(character);
-            return CharacterAdvancementService.AcquireAbility(repo, _campaign, character.CharacterId, Fireball, kind, null, RankMode.None, null, null, "{}", _gm, actorIsMainGm: true, c.Revisions.MechanicsRevision, c.Revisions.CharacterAbilitiesRevision, NewCommandId(), TestCorrelationId);
+            return CharacterAdvancementService.AcquireAbility(repo, _campaign, character.CharacterId, Fireball, kind, null, RankMode.None, null, null, "{}", global::Odyssey.Application.Identity.DevIdentityProvider.AssignHost(), c.Revisions.MechanicsRevision, c.Revisions.CharacterAbilitiesRevision, NewCommandId(), TestCorrelationId);
         }
 
         [Test] // TC-CHAR-199
@@ -408,11 +408,11 @@ namespace Odyssey.Tests.Persistence
 
             // A GM grant charges nothing, whatever cost argument reaches the repository -- it is never read on that path.
             CharacterRecord now = Reload(character);
-            Result<CharacterRecord> grant = _repo.AcquireAbility(_campaign, character.CharacterId, AbilityDefinitionId.Parse("Grantable"), SourceKind.GMGrant, null, RankMode.None, null, null, "{}", progressionPurchaseCost: 999, _gm, actorIsMainGm: true, null, now.Revisions.CharacterAbilitiesRevision, NewCommandId(), TestCorrelationId);
+            Result<CharacterRecord> grant = _repo.AcquireAbility(_campaign, character.CharacterId, AbilityDefinitionId.Parse("Grantable"), SourceKind.GMGrant, null, RankMode.None, null, null, "{}", progressionPurchaseCost: 999, global::Odyssey.Application.Identity.DevIdentityProvider.AssignHost(), null, now.Revisions.CharacterAbilitiesRevision, NewCommandId(), TestCorrelationId);
             Assert.That(grant.IsSuccess, Is.True);
             Assert.That(grant.Value.DevelopmentPool.Spent, Is.EqualTo(now.DevelopmentPool.Spent));
 
-            Assert.Throws<ArgumentOutOfRangeException>(new Action(() => _repo.AcquireAbility(_campaign, character.CharacterId, Fireball, SourceKind.ProgressionPurchase, null, RankMode.None, null, null, "{}", progressionPurchaseCost: -1, _gm, true, now.Revisions.MechanicsRevision, now.Revisions.CharacterAbilitiesRevision, NewCommandId(), TestCorrelationId)));
+            Assert.Throws<ArgumentOutOfRangeException>(new Action(() => _repo.AcquireAbility(_campaign, character.CharacterId, Fireball, SourceKind.ProgressionPurchase, null, RankMode.None, null, null, "{}", progressionPurchaseCost: -1, global::Odyssey.Application.Identity.DevIdentityProvider.AssignHost(), now.Revisions.MechanicsRevision, now.Revisions.CharacterAbilitiesRevision, NewCommandId(), TestCorrelationId)));
         }
 
         // ------------------------------------------------------------------ the service depends only on the port
@@ -432,7 +432,7 @@ namespace Odyssey.Tests.Persistence
                 return (true, method.ReturnType.IsValueType ? Activator.CreateInstance(method.ReturnType) : null);
             });
 
-            CharacterAdvancementService.PurchaseAttributeIncrease(recording, _campaign, character.CharacterId, Strength, 20, _gm, true, c.Revisions.MechanicsRevision, 0, NewCommandId(), TestCorrelationId);
+            CharacterAdvancementService.PurchaseAttributeIncrease(recording, _campaign, character.CharacterId, Strength, 20, global::Odyssey.Application.Identity.DevIdentityProvider.AssignHost(), c.Revisions.MechanicsRevision, 0, NewCommandId(), TestCorrelationId);
             object?[] attr = calls.Single(x => x.Name == nameof(ICharacterRepository.PurchaseAttributeIncrease)).Args;
             Assert.That(attr[3], Is.EqualTo(20L), "toValue");
             Assert.That(attr[4], Is.EqualTo(0L), "decidedFromValue: attribute not yet purchased");
@@ -440,33 +440,33 @@ namespace Odyssey.Tests.Persistence
             Assert.That(attr[6], Is.EqualTo(40L), "decidedCost: 20 * 2");
 
             calls.Clear();
-            CharacterAdvancementService.PurchaseSkillLevel(recording, _campaign, character.CharacterId, Tactics, 5, _gm, true, c.Revisions.MechanicsRevision, 0, NewCommandId(), TestCorrelationId);
+            CharacterAdvancementService.PurchaseSkillLevel(recording, _campaign, character.CharacterId, Tactics, 5, global::Odyssey.Application.Identity.DevIdentityProvider.AssignHost(), c.Revisions.MechanicsRevision, 0, NewCommandId(), TestCorrelationId);
             object?[] skill = calls.Single(x => x.Name == nameof(ICharacterRepository.PurchaseSkillLevel)).Args;
             Assert.That(skill[5], Is.EqualTo(true), "requiresRecommendation: level 5");
             Assert.That(skill[6], Is.EqualTo(0L), "no cost is computed for a purchase the recommendation pipeline owns");
 
             calls.Clear();
-            CharacterAdvancementService.AcquireAbility(recording, _campaign, character.CharacterId, Fireball, SourceKind.ProgressionPurchase, null, RankMode.None, null, null, "{}", _gm, true, c.Revisions.MechanicsRevision, c.Revisions.CharacterAbilitiesRevision, NewCommandId(), TestCorrelationId);
+            CharacterAdvancementService.AcquireAbility(recording, _campaign, character.CharacterId, Fireball, SourceKind.ProgressionPurchase, null, RankMode.None, null, null, "{}", global::Odyssey.Application.Identity.DevIdentityProvider.AssignHost(), c.Revisions.MechanicsRevision, c.Revisions.CharacterAbilitiesRevision, NewCommandId(), TestCorrelationId);
             Assert.That(calls.Single().Args[9], Is.EqualTo(5L), "progressionPurchaseCost");
 
             calls.Clear();
-            CharacterAdvancementService.AcquireAbility(recording, _campaign, character.CharacterId, Fireball, SourceKind.GMGrant, null, RankMode.None, null, null, "{}", _gm, true, null, c.Revisions.CharacterAbilitiesRevision, NewCommandId(), TestCorrelationId);
+            CharacterAdvancementService.AcquireAbility(recording, _campaign, character.CharacterId, Fireball, SourceKind.GMGrant, null, RankMode.None, null, null, "{}", global::Odyssey.Application.Identity.DevIdentityProvider.AssignHost(), null, c.Revisions.CharacterAbilitiesRevision, NewCommandId(), TestCorrelationId);
             Assert.That(calls.Single().Args[9], Is.EqualTo(0L), "Rules is not consulted for a non-purchase source");
 
             calls.Clear();
-            CharacterAdvancementService.RequestSkillAdvancedRecommendation(recording, _campaign, character.CharacterId, Tactics, 3, new CriticalSuccessEvidenceId[0], _gm, true, c.Revisions.MechanicsRevision, NewCommandId(), TestCorrelationId);
+            CharacterAdvancementService.RequestSkillAdvancedRecommendation(recording, _campaign, character.CharacterId, Tactics, 3, new CriticalSuccessEvidenceId[0], global::Odyssey.Application.Identity.DevIdentityProvider.AssignHost(), c.Revisions.MechanicsRevision, NewCommandId(), TestCorrelationId);
             object?[] rec = calls.Single(x => x.Name == nameof(ICharacterRepository.RequestSkillAdvancedRecommendation)).Args;
             Assert.That(rec[4], Is.EqualTo(0L), "decidedFromLevel");
             Assert.That(rec[5], Is.EqualTo(9L), "decidedReservedAmount: 3 * 3");
 
             calls.Clear();
-            Assert.Throws<ArgumentException>(new Action(() => CharacterAdvancementService.PurchaseAttributeIncrease(recording, _campaign, character.CharacterId, default, 3, _gm, true, 1, 0, NewCommandId(), TestCorrelationId)));
+            Assert.Throws<ArgumentException>(new Action(() => CharacterAdvancementService.PurchaseAttributeIncrease(recording, _campaign, character.CharacterId, default, 3, global::Odyssey.Application.Identity.DevIdentityProvider.AssignHost(), 1, 0, NewCommandId(), TestCorrelationId)));
             Assert.That(calls, Is.Empty, "invalid input is rejected before any repository call, read included");
 
-            Assert.Throws<ArgumentNullException>(new Action(() => CharacterAdvancementService.PurchaseAttributeIncrease(null!, _campaign, character.CharacterId, Strength, 3, _gm, true, 1, 0, NewCommandId(), TestCorrelationId)));
-            Assert.Throws<ArgumentNullException>(new Action(() => CharacterAdvancementService.PurchaseSkillLevel(null!, _campaign, character.CharacterId, Tactics, 3, _gm, true, 1, 0, NewCommandId(), TestCorrelationId)));
-            Assert.Throws<ArgumentNullException>(new Action(() => CharacterAdvancementService.RequestSkillAdvancedRecommendation(null!, _campaign, character.CharacterId, Tactics, 3, new CriticalSuccessEvidenceId[0], _gm, true, 1, NewCommandId(), TestCorrelationId)));
-            Assert.Throws<ArgumentNullException>(new Action(() => CharacterAdvancementService.AcquireAbility(null!, _campaign, character.CharacterId, Fireball, SourceKind.ProgressionPurchase, null, RankMode.None, null, null, "{}", _gm, true, 1, 1, NewCommandId(), TestCorrelationId)));
+            Assert.Throws<ArgumentNullException>(new Action(() => CharacterAdvancementService.PurchaseAttributeIncrease(null!, _campaign, character.CharacterId, Strength, 3, global::Odyssey.Application.Identity.DevIdentityProvider.AssignHost(), 1, 0, NewCommandId(), TestCorrelationId)));
+            Assert.Throws<ArgumentNullException>(new Action(() => CharacterAdvancementService.PurchaseSkillLevel(null!, _campaign, character.CharacterId, Tactics, 3, global::Odyssey.Application.Identity.DevIdentityProvider.AssignHost(), 1, 0, NewCommandId(), TestCorrelationId)));
+            Assert.Throws<ArgumentNullException>(new Action(() => CharacterAdvancementService.RequestSkillAdvancedRecommendation(null!, _campaign, character.CharacterId, Tactics, 3, new CriticalSuccessEvidenceId[0], global::Odyssey.Application.Identity.DevIdentityProvider.AssignHost(), 1, NewCommandId(), TestCorrelationId)));
+            Assert.Throws<ArgumentNullException>(new Action(() => CharacterAdvancementService.AcquireAbility(null!, _campaign, character.CharacterId, Fireball, SourceKind.ProgressionPurchase, null, RankMode.None, null, null, "{}", global::Odyssey.Application.Identity.DevIdentityProvider.AssignHost(), 1, 1, NewCommandId(), TestCorrelationId)));
         }
 
         // ------------------------------------------------------------------ interception double

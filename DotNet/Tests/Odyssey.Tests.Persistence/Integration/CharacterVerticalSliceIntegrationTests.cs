@@ -98,7 +98,7 @@ namespace Odyssey.Tests.Persistence.Integration
 
             var draftRepository = new SqliteLocalCharacterDraftRepository(Clock);
             var templateRepository = new SqliteCharacterTemplateRepository(Clock);
-            var characterRepository = new SqliteCharacterRepository(Clock);
+            var characterRepository = new SqliteCharacterRepository(Clock, campaignRepository);
 
             // ---- Step 1: Player creates local Draft. ----
             // A local Draft has no CampaignId/CharacterId until bound
@@ -156,29 +156,29 @@ namespace Odyssey.Tests.Persistence.Integration
             // One call realizes both roadmap steps: ApproveCharacterDraft
             // transitions ApprovalState AND LifecycleStatus together
             // (ODY-S04-104's own established shape).
-            Result<CharacterRecord> approved = characterRepository.ApproveCharacterDraft(campaign, characterId, actorIsMainGm: true, submitted.Value.Revisions.LifecycleRevision, NewCommandId(), TestCorrelationId);
+            Result<CharacterRecord> approved = characterRepository.ApproveCharacterDraft(campaign, characterId, global::Odyssey.Application.Identity.DevIdentityProvider.AssignHost(), submitted.Value.Revisions.LifecycleRevision, NewCommandId(), TestCorrelationId);
             Assert.That(approved.IsSuccess, Is.True, "step 4: MainGM approval must succeed");
             Assert.That(approved.Value.ApprovalState, Is.EqualTo(CharacterApprovalState.Approved), "step 4: approval state must flip to Approved");
             Assert.That(approved.Value.LifecycleStatus, Is.EqualTo(CharacterLifecycleStatus.Active), "step 5: the Character must become Active");
 
             // ---- Step 6: MainGM grants development points. ----
-            Result<CharacterRecord> deniedGrant = characterRepository.GrantDevelopmentPoints(campaign, characterId, 50, "vertical slice grant", player, actorIsMainGm: false, approved.Value.Revisions.MechanicsRevision, NewCommandId(), TestCorrelationId);
+            Result<CharacterRecord> deniedGrant = characterRepository.GrantDevelopmentPoints(campaign, characterId, 50, "vertical slice grant", player, approved.Value.Revisions.MechanicsRevision, NewCommandId(), TestCorrelationId);
             Assert.That(deniedGrant.IsFailure, Is.True, "step 6: only MainGM may grant development points (roadmap section 13.9)");
 
-            Result<CharacterRecord> granted = characterRepository.GrantDevelopmentPoints(campaign, characterId, 50, "vertical slice grant", mainGm, actorIsMainGm: true, approved.Value.Revisions.MechanicsRevision, NewCommandId(), TestCorrelationId);
+            Result<CharacterRecord> granted = characterRepository.GrantDevelopmentPoints(campaign, characterId, 50, "vertical slice grant", global::Odyssey.Application.Identity.DevIdentityProvider.AssignHost(), approved.Value.Revisions.MechanicsRevision, NewCommandId(), TestCorrelationId);
             Assert.That(granted.IsSuccess, Is.True, "step 6: a MainGM-issued grant must succeed");
             Assert.That(granted.Value.DevelopmentPool.Earned, Is.EqualTo(50));
 
             // ---- Step 7: Player purchases an attribute immediately, no GM-approval step. ----
             var strength = AttributeDefinitionId.Parse("Strength");
             CommandId purchaseCommandId = NewCommandId();
-            Result<CharacterRecord> purchased = CharacterAdvancementService.PurchaseAttributeIncrease(characterRepository, campaign, characterId, strength, toValue: 2, player, actorIsMainGm: false, granted.Value.Revisions.MechanicsRevision, expectedAttributeRevision: 0, purchaseCommandId, TestCorrelationId);
+            Result<CharacterRecord> purchased = CharacterAdvancementService.PurchaseAttributeIncrease(characterRepository, campaign, characterId, strength, toValue: 2, player, granted.Value.Revisions.MechanicsRevision, expectedAttributeRevision: 0, purchaseCommandId, TestCorrelationId);
             Assert.That(purchased.IsSuccess, Is.True, "step 7: an ordinary valid purchase by the owner must succeed without a separate GM-approval step (roadmap section 13.9)");
             long spentAfterFirstPurchase = purchased.Value.DevelopmentPool.Spent;
 
             // Roadmap section 13.9's own "duplicate command does not spend
             // twice" exit criterion, using the SAME CommandId again.
-            Result<CharacterRecord> duplicatePurchase = CharacterAdvancementService.PurchaseAttributeIncrease(characterRepository, campaign, characterId, strength, toValue: 2, player, actorIsMainGm: false, granted.Value.Revisions.MechanicsRevision, expectedAttributeRevision: 0, purchaseCommandId, TestCorrelationId);
+            Result<CharacterRecord> duplicatePurchase = CharacterAdvancementService.PurchaseAttributeIncrease(characterRepository, campaign, characterId, strength, toValue: 2, player, granted.Value.Revisions.MechanicsRevision, expectedAttributeRevision: 0, purchaseCommandId, TestCorrelationId);
             Assert.That(duplicatePurchase.IsSuccess, Is.True);
             Assert.That(duplicatePurchase.Value.DevelopmentPool.Spent, Is.EqualTo(spentAfterFirstPurchase), "step 7: a replayed duplicate CommandId must not spend a second time");
 
@@ -190,13 +190,13 @@ namespace Odyssey.Tests.Persistence.Integration
 
             // ---- Step 9: GM resolves a skill 5+ recommendation, consuming the evidence. ----
             Result<CharacterRecord> beforeRecommendation = characterRepository.GetCharacter(campaign, characterId, TestCorrelationId);
-            Result<AdvancementRecommendationRecord> recommendation = CharacterAdvancementService.RequestSkillAdvancedRecommendation(characterRepository, campaign, characterId, stealth, targetLevel: 5, new[] { evidence.Value.EvidenceId }, mainGm, actorIsMainGm: true, beforeRecommendation.Value.Revisions.MechanicsRevision, NewCommandId(), TestCorrelationId);
+            Result<AdvancementRecommendationRecord> recommendation = CharacterAdvancementService.RequestSkillAdvancedRecommendation(characterRepository, campaign, characterId, stealth, targetLevel: 5, new[] { evidence.Value.EvidenceId }, global::Odyssey.Application.Identity.DevIdentityProvider.AssignHost(), beforeRecommendation.Value.Revisions.MechanicsRevision, NewCommandId(), TestCorrelationId);
             Assert.That(recommendation.IsSuccess, Is.True, "step 9: requesting the skill 5+ recommendation must succeed and reserve points");
 
             Result<CharacterRecord> afterRequest = characterRepository.GetCharacter(campaign, characterId, TestCorrelationId);
             Assert.That(afterRequest.Value.DevelopmentPool.Reserved, Is.GreaterThan(0), "step 9: requesting must reserve, not spend, points");
 
-            Result<CharacterRecord> resolved = characterRepository.ResolveAdvancementRecommendation(campaign, characterId, recommendation.Value.RecommendationId, approve: true, spendReservedPoints: true, mainGm, actorIsMainGm: true, afterRequest.Value.Revisions.MechanicsRevision, recommendation.Value.Revision, NewCommandId(), TestCorrelationId);
+            Result<CharacterRecord> resolved = characterRepository.ResolveAdvancementRecommendation(campaign, characterId, recommendation.Value.RecommendationId, approve: true, spendReservedPoints: true, global::Odyssey.Application.Identity.DevIdentityProvider.AssignHost(), afterRequest.Value.Revisions.MechanicsRevision, recommendation.Value.Revision, NewCommandId(), TestCorrelationId);
             Assert.That(resolved.IsSuccess, Is.True, "step 9: GM approval with spend must succeed");
             Assert.That(resolved.Value.Skills.Single(s => s.SkillDefinitionId.Equals(stealth)).Level, Is.EqualTo(5), "step 9: the approved recommendation must apply the target skill level");
 
@@ -210,10 +210,10 @@ namespace Odyssey.Tests.Persistence.Integration
             // the request itself is accepted as a candidate reference; the
             // resolve is where reuse is actually rejected).
             var otherSkill = SkillDefinitionId.Parse("Perception");
-            Result<AdvancementRecommendationRecord> reuseRequest = CharacterAdvancementService.RequestSkillAdvancedRecommendation(characterRepository, campaign, characterId, otherSkill, targetLevel: 5, new[] { evidence.Value.EvidenceId }, mainGm, actorIsMainGm: true, resolved.Value.Revisions.MechanicsRevision, NewCommandId(), TestCorrelationId);
+            Result<AdvancementRecommendationRecord> reuseRequest = CharacterAdvancementService.RequestSkillAdvancedRecommendation(characterRepository, campaign, characterId, otherSkill, targetLevel: 5, new[] { evidence.Value.EvidenceId }, global::Odyssey.Application.Identity.DevIdentityProvider.AssignHost(), resolved.Value.Revisions.MechanicsRevision, NewCommandId(), TestCorrelationId);
             Assert.That(reuseRequest.IsSuccess, Is.True);
             Result<CharacterRecord> afterReuseRequest = characterRepository.GetCharacter(campaign, characterId, TestCorrelationId);
-            Result<CharacterRecord> reuseResolve = characterRepository.ResolveAdvancementRecommendation(campaign, characterId, reuseRequest.Value.RecommendationId, approve: true, spendReservedPoints: true, mainGm, actorIsMainGm: true, afterReuseRequest.Value.Revisions.MechanicsRevision, reuseRequest.Value.Revision, NewCommandId(), TestCorrelationId);
+            Result<CharacterRecord> reuseResolve = characterRepository.ResolveAdvancementRecommendation(campaign, characterId, reuseRequest.Value.RecommendationId, approve: true, spendReservedPoints: true, global::Odyssey.Application.Identity.DevIdentityProvider.AssignHost(), afterReuseRequest.Value.Revisions.MechanicsRevision, reuseRequest.Value.Revision, NewCommandId(), TestCorrelationId);
             Assert.That(reuseResolve.IsFailure, Is.True, "step 9: already-consumed evidence must not be reusable by a second recommendation");
 
             // ---- Step 10: history and reconnect show authoritative state. ----
@@ -222,7 +222,7 @@ namespace Odyssey.Tests.Persistence.Integration
             // instance reopening the same campaign.db file, never a
             // networked reconnect protocol (no real network exists in this
             // revision).
-            var reconnectedCharacterRepository = new SqliteCharacterRepository(Clock);
+            var reconnectedCharacterRepository = new SqliteCharacterRepository(Clock, campaignRepository);
             Result<IReadOnlyList<CharacterHistoryEntry>> historyAtReconnect = reconnectedCharacterRepository.GetCharacterHistory(campaign, characterId, TestCorrelationId);
             Assert.That(historyAtReconnect.IsSuccess, Is.True, "step 10: history must be readable after reconnect");
 

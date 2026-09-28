@@ -1569,6 +1569,78 @@
                           "check":  "BoardMovementService authorizes a non-controller by the STORED membership: a user with no membership, a Player and an Observer are denied (position unchanged), an AddMember'd MainGm is allowed from the next call, and a failing membership lookup fails closed (the token's own controller, needing no lookup, is unaffected)"
                       },
                       {
+                          "testCaseId":  "TC-PERSIST-041",
+                          "taskId":  "ODY-S10-102",
+                          "authority":  "ODY-S10-102 test list (task contract section 9)",
+                          "runner":  "dotnet test",
+                          "path":  "DotNet/Tests/Odyssey.Tests.Persistence/SqliteCharacterRepositoryTests.cs",
+                          "check":  "Strictly-MainGM-only character gates -- one or more per logical group (ownership transfer and list, draft approval, deletion, ruleset migration, resource, anatomy, advancement): an unregistered user, a Player and an Observer are denied with the gate's own error code, while the campaign's host and an added MainGm pass the gate"
+                      },
+                      {
+                          "testCaseId":  "TC-PERSIST-042",
+                          "taskId":  "ODY-S10-102",
+                          "authority":  "ODY-S10-102 test list (task contract section 9)",
+                          "runner":  "dotnet test",
+                          "path":  "DotNet/Tests/Odyssey.Tests.Persistence/CharacterDeadRestoredTests.cs",
+                          "check":  "TransitionCharacterToDead keeps its conditional structure: GMOverride needs a stored MainGm (denied for an unregistered user, allowed for the host, fail-closed on an unreadable membership), while any other issuer kind succeeds with a membership lookup that would throw never being called"
+                      },
+                      {
+                          "testCaseId":  "TC-PERSIST-043",
+                          "taskId":  "ODY-S10-102",
+                          "authority":  "ODY-S10-102 test list (task contract section 9)",
+                          "runner":  "dotnet test",
+                          "path":  "DotNet/Tests/Odyssey.Tests.Persistence/SqliteCharacterRepositoryTests.cs",
+                          "check":  "Fail-closed: with a membership lookup that fails, every strictly-MainGM-only representative returns the lookup's own failure (PersistenceCampaignIoFailed) even for the campaign's host -- never a pass and never a fake denial -- and nothing is changed"
+                      },
+                      {
+                          "testCaseId":  "TC-PERSIST-044",
+                          "taskId":  "ODY-S10-102",
+                          "authority":  "ODY-S10-102 test list (task contract section 9)",
+                          "runner":  "dotnet test",
+                          "path":  "DotNet/Tests/Odyssey.Tests.Persistence/SqliteCharacterRepositoryTests.cs",
+                          "check":  "The seven operations that gained an actorUserId parameter (ApproveCharacterDraft, AssignPrimaryOwner, AddCharacterCoOwner, RemoveCharacterCoOwner, GrantPermanentCharacterControl, GrantTemporaryCharacterControl, RevokeCharacterControl) really use it: a non-MainGm actor is denied even when the target user is the MainGm, and the MainGm actor passes even when the target user is a stranger"
+                      },
+                      {
+                          "testCaseId":  "TC-PERSIST-045",
+                          "taskId":  "ODY-S10-102",
+                          "authority":  "ODY-S10-102 test list (task contract section 9)",
+                          "runner":  "dotnet test",
+                          "path":  "DotNet/Tests/Odyssey.Tests.Persistence/CharacterArchivePhysicalDeleteTests.cs",
+                          "check":  "ArchiveCharacter (owner-or-MainGM): the assigned owner succeeds without any membership lookup (a lookup that would throw is never called); a non-owner reaches the lookup and its failure is returned"
+                      },
+                      {
+                          "testCaseId":  "TC-PERSIST-046",
+                          "taskId":  "ODY-S10-102",
+                          "authority":  "ODY-S10-102 test list (task contract section 9)",
+                          "runner":  "dotnet test",
+                          "path":  "DotNet/Tests/Odyssey.Tests.Persistence/CharacterDevelopmentPoolAttributePurchaseTests.cs",
+                          "check":  "PurchaseAttributeIncrease (owner-or-MainGM): the assigned owner succeeds without any membership lookup; a non-owner reaches the lookup and its failure is returned"
+                      },
+                      {
+                          "testCaseId":  "TC-PERSIST-047",
+                          "taskId":  "ODY-S10-102",
+                          "authority":  "ODY-S10-102 test list (task contract section 9)",
+                          "runner":  "dotnet test",
+                          "path":  "DotNet/Tests/Odyssey.Tests.Persistence/CharacterSkillPurchaseCriticalEvidenceTests.cs",
+                          "check":  "PurchaseSkillLevel (owner-or-MainGM): the assigned owner succeeds without any membership lookup; a non-owner reaches the lookup and its failure is returned"
+                      },
+                      {
+                          "testCaseId":  "TC-PERSIST-048",
+                          "taskId":  "ODY-S10-102",
+                          "authority":  "ODY-S10-102 test list (task contract section 9)",
+                          "runner":  "dotnet test",
+                          "path":  "DotNet/Tests/Odyssey.Tests.Persistence/CharacterSkillPurchaseCriticalEvidenceTests.cs",
+                          "check":  "RequestSkillAdvancedRecommendation (owner-or-MainGM): the assigned owner succeeds without any membership lookup; a non-owner reaches the lookup and its failure is returned"
+                      },
+                      {
+                          "testCaseId":  "TC-PERSIST-049",
+                          "taskId":  "ODY-S10-102",
+                          "authority":  "ODY-S10-102 test list (task contract section 9)",
+                          "runner":  "dotnet test",
+                          "path":  "DotNet/Tests/Odyssey.Tests.Persistence/CharacterAbilityInstancesTests.cs",
+                          "check":  "AcquireAbility via ProgressionPurchase (owner-or-MainGM): the assigned owner succeeds without any membership lookup; a non-owner reaches the lookup and its failure is returned"
+                      },
+                      {
                           "testCaseId":  "TC-BOARD-001",
                           "taskId":  "ODY-S03-004",
                           "authority":  "ADR-020 section 5.1/5.3; ODY-S03-004",

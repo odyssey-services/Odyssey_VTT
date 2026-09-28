@@ -54,7 +54,7 @@ namespace Odyssey.Tests.Persistence
             Result<CampaignHandle> campaign = new SqliteCampaignRepository(_clock).Create(new CreateCampaignRequest(_root, "use-item", "ruleset.core", "1.0.0", "0.1.0", global::Odyssey.Application.Identity.DevIdentityProvider.AssignHost()), Command(), Corr);
             Assert.That(campaign.IsSuccess, Is.True);
             _campaign = campaign.Value;
-            _characters = new SqliteCharacterRepository(_clock);
+            _characters = new SqliteCharacterRepository(_clock, new SqliteCampaignRepository(_clock));
             _catalog = new SqliteContentCatalogRepository(_clock);
             _effects = new SqliteActiveEffectRepository(_clock);
             _inventory = new SqliteInventoryRepository(_clock);
@@ -443,7 +443,7 @@ namespace Odyssey.Tests.Persistence
         private void InitResource(CharacterId characterId, ResourceDefinitionId resourceKind)
         {
             CharacterRecord current = _characters.GetCharacter(_campaign, characterId, Corr).Value;
-            Result<CharacterRecord> result = CharacterAdvancementService.InitializeResourceWithDefaults(_characters, _campaign, characterId, resourceKind, User(), true, current.Revisions.CharacterResourcesRevision, Command(), Corr);
+            Result<CharacterRecord> result = CharacterAdvancementService.InitializeResourceWithDefaults(_characters, _campaign, characterId, resourceKind, global::Odyssey.Application.Identity.DevIdentityProvider.AssignHost(), current.Revisions.CharacterResourcesRevision, Command(), Corr);
             Assert.That(result.IsSuccess, Is.True);
         }
 
@@ -476,7 +476,7 @@ namespace Odyssey.Tests.Persistence
         {
             CharacterId id = _characters.CreateCharacter(new CreateCharacterRequest(_campaign, CharacterKind.PlayerCharacter, name), Command(), Corr).Value.CharacterId;
             CharacterRecord current = _characters.GetCharacter(_campaign, id, Corr).Value;
-            return _characters.ApproveCharacterDraft(_campaign, id, true, current.Revisions.LifecycleRevision, Command(), Corr).Value.CharacterId;
+            return _characters.ApproveCharacterDraft(_campaign, id, global::Odyssey.Application.Identity.DevIdentityProvider.AssignHost(), current.Revisions.LifecycleRevision, Command(), Corr).Value.CharacterId;
         }
 
         private static CommandId Command() => CommandId.Parse("cmd_" + Guid.NewGuid().ToString("N"));

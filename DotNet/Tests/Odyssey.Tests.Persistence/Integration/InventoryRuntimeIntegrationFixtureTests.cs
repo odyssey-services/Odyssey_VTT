@@ -61,7 +61,7 @@ namespace Odyssey.Tests.Persistence.Integration
             _campaign = created.Value;
             _catalog = new SqliteContentCatalogRepository(Clock);
             _inventory = new SqliteInventoryRepository(Clock);
-            _characters = new SqliteCharacterRepository(Clock, deletionDependencyCheckers: new ICharacterDeletionDependencyChecker[] { new InventoryCharacterDeletionDependencyChecker(_inventory) });
+            _characters = new SqliteCharacterRepository(Clock, _campaigns, deletionDependencyCheckers: new ICharacterDeletionDependencyChecker[] { new InventoryCharacterDeletionDependencyChecker(_inventory) });
         }
 
         [TearDown]
@@ -228,14 +228,14 @@ namespace Odyssey.Tests.Persistence.Integration
 
             // Character B still owns the stack -> permanent deletion is blocked.
             Result blockedB = _characters.DeleteCharacterPermanently(
-                _campaign, characterB.CharacterId, "cleanup", NewUserId(), actorIsMainGm: true, characterB.Revisions.LifecycleRevision, NewCommandId(), Corr);
+                _campaign, characterB.CharacterId, "cleanup", global::Odyssey.Application.Identity.DevIdentityProvider.AssignHost(), characterB.Revisions.LifecycleRevision, NewCommandId(), Corr);
             Assert.That(blockedB.IsFailure, Is.True);
             Assert.That(blockedB.Error.Code, Is.EqualTo(ErrorCodes.PersistenceCharacterDeletionHasDependent));
             Assert.That(_characters.GetCharacter(_campaign, characterB.CharacterId, Corr).IsSuccess, Is.True);
 
             // Character A was emptied by the move -> permanent deletion proceeds.
             Result allowedA = _characters.DeleteCharacterPermanently(
-                _campaign, characterA.CharacterId, "cleanup", NewUserId(), actorIsMainGm: true, characterA.Revisions.LifecycleRevision, NewCommandId(), Corr);
+                _campaign, characterA.CharacterId, "cleanup", global::Odyssey.Application.Identity.DevIdentityProvider.AssignHost(), characterA.Revisions.LifecycleRevision, NewCommandId(), Corr);
             Assert.That(allowedA.IsSuccess, Is.True);
             Assert.That(_characters.GetCharacter(_campaign, characterA.CharacterId, Corr).IsFailure, Is.True);
         }

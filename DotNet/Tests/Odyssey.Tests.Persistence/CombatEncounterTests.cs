@@ -30,7 +30,7 @@ namespace Odyssey.Tests.Persistence
             var clock = new SystemWallClock();
             Result<CampaignHandle> campaign = new SqliteCampaignRepository(clock).Create(new CreateCampaignRequest(_root, "Combat", "ruleset.core", "1.0.0", "0.1.0", global::Odyssey.Application.Identity.DevIdentityProvider.AssignHost()), Command(), Corr);
             Assert.That(campaign.IsSuccess, Is.True); _campaign = campaign.Value;
-            _characters = new SqliteCharacterRepository(clock); _encounters = new SqliteCombatEncounterRepository(clock);
+            _characters = new SqliteCharacterRepository(clock, new SqliteCampaignRepository(clock)); _encounters = new SqliteCombatEncounterRepository(clock);
         }
 
 
@@ -143,8 +143,8 @@ namespace Odyssey.Tests.Persistence
 
         private Result<CombatEncounterRecord> Create(params CharacterId[] ids) => CombatEncounterService.Create(_encounters, _campaign, new CreateCombatEncounterRequest(ids, User(), true, Command()), Corr);
         private Result<CombatEncounterRecord> Advance(CombatEncounterRecord record) => CombatEncounterService.Advance(_encounters, _campaign, new AdvanceCombatEncounterRequest(record.EncounterId, record.Revision, User(), true, Command()), Corr);
-        private CharacterId Active(string name) { CharacterId id = _characters.CreateCharacter(new CreateCharacterRequest(_campaign, CharacterKind.PlayerCharacter, name), Command(), Corr).Value.CharacterId; CharacterRecord current = _characters.GetCharacter(_campaign, id, Corr).Value; return _characters.ApproveCharacterDraft(_campaign, id, true, current.Revisions.LifecycleRevision, Command(), Corr).Value.CharacterId; }
-        private void Archive(CharacterId id) { CharacterRecord current = _characters.GetCharacter(_campaign, id, Corr).Value; Assert.That(_characters.ArchiveCharacter(_campaign, id, User(), true, current.Revisions.LifecycleRevision, Command(), Corr).IsSuccess, Is.True); }
+        private CharacterId Active(string name) { CharacterId id = _characters.CreateCharacter(new CreateCharacterRequest(_campaign, CharacterKind.PlayerCharacter, name), Command(), Corr).Value.CharacterId; CharacterRecord current = _characters.GetCharacter(_campaign, id, Corr).Value; return _characters.ApproveCharacterDraft(_campaign, id, global::Odyssey.Application.Identity.DevIdentityProvider.AssignHost(), current.Revisions.LifecycleRevision, Command(), Corr).Value.CharacterId; }
+        private void Archive(CharacterId id) { CharacterRecord current = _characters.GetCharacter(_campaign, id, Corr).Value; Assert.That(_characters.ArchiveCharacter(_campaign, id, global::Odyssey.Application.Identity.DevIdentityProvider.AssignHost(), current.Revisions.LifecycleRevision, Command(), Corr).IsSuccess, Is.True); }
         private List<string> Events(CombatEncounterId id) { var values = new List<string>(); using var c = new SqliteConnection("Data Source=" + Path.Combine(_root, "campaign.db")); c.Open(); using var q = c.CreateCommand(); q.CommandText = "SELECT EventKind FROM CombatEncounterLifecycleEvent WHERE EncounterId=$id ORDER BY EventId;"; q.Parameters.AddWithValue("$id", id.ToString()); using var r = q.ExecuteReader(); while (r.Read()) values.Add(r.GetString(0)); return values; }
         private void Seed(string sql, CommandId command) { using var c = new SqliteConnection("Data Source=" + Path.Combine(_root, "campaign.db")); c.Open(); using var q = c.CreateCommand(); q.CommandText = sql; q.Parameters.AddWithValue("$id", command.ToString()); q.ExecuteNonQuery(); }
         private int Count(string table) { using var c = new SqliteConnection("Data Source=" + Path.Combine(_root, "campaign.db")); c.Open(); using var q = c.CreateCommand(); q.CommandText = "SELECT COUNT(*) FROM " + table; return Convert.ToInt32(q.ExecuteScalar()); }

@@ -50,7 +50,7 @@ namespace Odyssey.Tests.Persistence
             Result<CampaignHandle> created = _campaignRepository.Create(request, NewCommandId(), TestCorrelationId);
             Assert.That(created.IsSuccess, Is.True);
             _campaign = created.Value;
-            _characterRepository = new SqliteCharacterRepository(Clock);
+            _characterRepository = new SqliteCharacterRepository(Clock, _campaignRepository);
         }
 
         [TearDown]
@@ -79,7 +79,7 @@ namespace Odyssey.Tests.Persistence
             CharacterRecord character = CreateCharacter();
             long revisionBefore = character.Revisions.CharacterResourcesRevision;
 
-            Result<CharacterRecord> initialized = CharacterAdvancementService.InitializeResourceWithDefaults(_characterRepository, _campaign, character.CharacterId, Health, NewUserId(), actorIsMainGm: true, revisionBefore, NewCommandId(), TestCorrelationId);
+            Result<CharacterRecord> initialized = CharacterAdvancementService.InitializeResourceWithDefaults(_characterRepository, _campaign, character.CharacterId, Health, global::Odyssey.Application.Identity.DevIdentityProvider.AssignHost(), revisionBefore, NewCommandId(), TestCorrelationId);
 
             Assert.That(initialized.IsSuccess, Is.True);
             Assert.That(initialized.Value.Resources, Has.Count.EqualTo(1));
@@ -91,7 +91,7 @@ namespace Odyssey.Tests.Persistence
         public void InitializeCharacterResource_ByNonMainGm_IsRejected()
         {
             CharacterRecord character = CreateCharacter();
-            Result<CharacterRecord> initialized = CharacterAdvancementService.InitializeResourceWithDefaults(_characterRepository, _campaign, character.CharacterId, Health, NewUserId(), actorIsMainGm: false, character.Revisions.CharacterResourcesRevision, NewCommandId(), TestCorrelationId);
+            Result<CharacterRecord> initialized = CharacterAdvancementService.InitializeResourceWithDefaults(_characterRepository, _campaign, character.CharacterId, Health, NewUserId(), character.Revisions.CharacterResourcesRevision, NewCommandId(), TestCorrelationId);
 
             Assert.That(initialized.IsFailure, Is.True);
             Assert.That(initialized.Error.Code, Is.EqualTo(ErrorCodes.PersistenceCharacterResourceOperationDenied));
@@ -101,14 +101,14 @@ namespace Odyssey.Tests.Persistence
         public void SetResourceCurrentValue_OutsideBounds_IsRejected_NoStateChange()
         {
             CharacterRecord character = CreateCharacter();
-            Result<CharacterRecord> initialized = CharacterAdvancementService.InitializeResourceWithDefaults(_characterRepository, _campaign, character.CharacterId, Health, NewUserId(), actorIsMainGm: true, character.Revisions.CharacterResourcesRevision, NewCommandId(), TestCorrelationId);
+            Result<CharacterRecord> initialized = CharacterAdvancementService.InitializeResourceWithDefaults(_characterRepository, _campaign, character.CharacterId, Health, global::Odyssey.Application.Identity.DevIdentityProvider.AssignHost(), character.Revisions.CharacterResourcesRevision, NewCommandId(), TestCorrelationId);
             CharacterResource resource = initialized.Value.Resources[0];
 
-            Result<CharacterRecord> tooHigh = _characterRepository.SetResourceCurrentValue(_campaign, character.CharacterId, resource.CharacterResourceId, resource.EffectiveMaximum + 1, NewUserId(), actorIsMainGm: true, initialized.Value.Revisions.CharacterResourcesRevision, NewCommandId(), TestCorrelationId);
+            Result<CharacterRecord> tooHigh = _characterRepository.SetResourceCurrentValue(_campaign, character.CharacterId, resource.CharacterResourceId, resource.EffectiveMaximum + 1, global::Odyssey.Application.Identity.DevIdentityProvider.AssignHost(), initialized.Value.Revisions.CharacterResourcesRevision, NewCommandId(), TestCorrelationId);
             Assert.That(tooHigh.IsFailure, Is.True);
             Assert.That(tooHigh.Error.Code, Is.EqualTo(ErrorCodes.PersistenceCharacterResourceValueOutOfRange));
 
-            Result<CharacterRecord> tooLow = _characterRepository.SetResourceCurrentValue(_campaign, character.CharacterId, resource.CharacterResourceId, resource.MinimumValue - 1, NewUserId(), actorIsMainGm: true, initialized.Value.Revisions.CharacterResourcesRevision, NewCommandId(), TestCorrelationId);
+            Result<CharacterRecord> tooLow = _characterRepository.SetResourceCurrentValue(_campaign, character.CharacterId, resource.CharacterResourceId, resource.MinimumValue - 1, global::Odyssey.Application.Identity.DevIdentityProvider.AssignHost(), initialized.Value.Revisions.CharacterResourcesRevision, NewCommandId(), TestCorrelationId);
             Assert.That(tooLow.IsFailure, Is.True);
             Assert.That(tooLow.Error.Code, Is.EqualTo(ErrorCodes.PersistenceCharacterResourceValueOutOfRange));
 
@@ -123,7 +123,7 @@ namespace Odyssey.Tests.Persistence
             // explicit command -- verified by reading it back unchanged
             // before any command runs, then changed only after the command.
             CharacterRecord character = CreateCharacter();
-            Result<CharacterRecord> initialized = CharacterAdvancementService.InitializeResourceWithDefaults(_characterRepository, _campaign, character.CharacterId, Health, NewUserId(), actorIsMainGm: true, character.Revisions.CharacterResourcesRevision, NewCommandId(), TestCorrelationId);
+            Result<CharacterRecord> initialized = CharacterAdvancementService.InitializeResourceWithDefaults(_characterRepository, _campaign, character.CharacterId, Health, global::Odyssey.Application.Identity.DevIdentityProvider.AssignHost(), character.Revisions.CharacterResourcesRevision, NewCommandId(), TestCorrelationId);
             CharacterResource resource = initialized.Value.Resources[0];
             long originalValue = resource.CurrentValue;
 
@@ -131,7 +131,7 @@ namespace Odyssey.Tests.Persistence
             Assert.That(reReadBefore.Value.Resources[0].CurrentValue, Is.EqualTo(originalValue), "no automatic change before any explicit command runs");
 
             long damagedValue = resource.MinimumValue;
-            Result<CharacterRecord> damaged = _characterRepository.SetResourceCurrentValue(_campaign, character.CharacterId, resource.CharacterResourceId, damagedValue, NewUserId(), actorIsMainGm: true, initialized.Value.Revisions.CharacterResourcesRevision, NewCommandId(), TestCorrelationId);
+            Result<CharacterRecord> damaged = _characterRepository.SetResourceCurrentValue(_campaign, character.CharacterId, resource.CharacterResourceId, damagedValue, global::Odyssey.Application.Identity.DevIdentityProvider.AssignHost(), initialized.Value.Revisions.CharacterResourcesRevision, NewCommandId(), TestCorrelationId);
             Assert.That(damaged.IsSuccess, Is.True);
             Assert.That(damaged.Value.Resources[0].CurrentValue, Is.EqualTo(damagedValue));
         }
@@ -141,13 +141,13 @@ namespace Odyssey.Tests.Persistence
         {
             // Requirement 44.
             CharacterRecord character = CreateCharacter();
-            Result<CharacterRecord> initialized = CharacterAdvancementService.InitializeResourceWithDefaults(_characterRepository, _campaign, character.CharacterId, Health, NewUserId(), actorIsMainGm: true, character.Revisions.CharacterResourcesRevision, NewCommandId(), TestCorrelationId);
+            Result<CharacterRecord> initialized = CharacterAdvancementService.InitializeResourceWithDefaults(_characterRepository, _campaign, character.CharacterId, Health, global::Odyssey.Application.Identity.DevIdentityProvider.AssignHost(), character.Revisions.CharacterResourcesRevision, NewCommandId(), TestCorrelationId);
             CharacterResource resource = initialized.Value.Resources[0];
             long originalEffectiveMaximum = resource.EffectiveMaximum;
             Assert.That(resource.CurrentValue, Is.EqualTo(originalEffectiveMaximum), "fixture starts at full health");
 
             long reducedMaximum = originalEffectiveMaximum - 5;
-            Result<CharacterRecord> reduced = _characterRepository.SetResourceMaximum(_campaign, character.CharacterId, resource.CharacterResourceId, reducedMaximum, 0, NewUserId(), actorIsMainGm: true, initialized.Value.Revisions.CharacterResourcesRevision, NewCommandId(), TestCorrelationId);
+            Result<CharacterRecord> reduced = _characterRepository.SetResourceMaximum(_campaign, character.CharacterId, resource.CharacterResourceId, reducedMaximum, 0, global::Odyssey.Application.Identity.DevIdentityProvider.AssignHost(), initialized.Value.Revisions.CharacterResourcesRevision, NewCommandId(), TestCorrelationId);
 
             Assert.That(reduced.IsSuccess, Is.True);
             CharacterResource updated = reduced.Value.Resources[0];
@@ -160,14 +160,14 @@ namespace Odyssey.Tests.Persistence
         {
             // Requirement 45.
             CharacterRecord character = CreateCharacter();
-            Result<CharacterRecord> initialized = CharacterAdvancementService.InitializeResourceWithDefaults(_characterRepository, _campaign, character.CharacterId, Health, NewUserId(), actorIsMainGm: true, character.Revisions.CharacterResourcesRevision, NewCommandId(), TestCorrelationId);
+            Result<CharacterRecord> initialized = CharacterAdvancementService.InitializeResourceWithDefaults(_characterRepository, _campaign, character.CharacterId, Health, global::Odyssey.Application.Identity.DevIdentityProvider.AssignHost(), character.Revisions.CharacterResourcesRevision, NewCommandId(), TestCorrelationId);
             CharacterResource resource = initialized.Value.Resources[0];
             long originalEffectiveMaximum = resource.EffectiveMaximum;
 
-            Result<CharacterRecord> reduced = _characterRepository.SetResourceMaximum(_campaign, character.CharacterId, resource.CharacterResourceId, originalEffectiveMaximum - 5, 0, NewUserId(), actorIsMainGm: true, initialized.Value.Revisions.CharacterResourcesRevision, NewCommandId(), TestCorrelationId);
+            Result<CharacterRecord> reduced = _characterRepository.SetResourceMaximum(_campaign, character.CharacterId, resource.CharacterResourceId, originalEffectiveMaximum - 5, 0, global::Odyssey.Application.Identity.DevIdentityProvider.AssignHost(), initialized.Value.Revisions.CharacterResourcesRevision, NewCommandId(), TestCorrelationId);
             long clampedValue = reduced.Value.Resources[0].CurrentValue;
 
-            Result<CharacterRecord> restoredMaximum = _characterRepository.SetResourceMaximum(_campaign, character.CharacterId, resource.CharacterResourceId, originalEffectiveMaximum, 0, NewUserId(), actorIsMainGm: true, reduced.Value.Revisions.CharacterResourcesRevision, NewCommandId(), TestCorrelationId);
+            Result<CharacterRecord> restoredMaximum = _characterRepository.SetResourceMaximum(_campaign, character.CharacterId, resource.CharacterResourceId, originalEffectiveMaximum, 0, global::Odyssey.Application.Identity.DevIdentityProvider.AssignHost(), reduced.Value.Revisions.CharacterResourcesRevision, NewCommandId(), TestCorrelationId);
 
             Assert.That(restoredMaximum.IsSuccess, Is.True);
             CharacterResource afterRestore = restoredMaximum.Value.Resources[0];
@@ -181,7 +181,7 @@ namespace Odyssey.Tests.Persistence
             CharacterRecord character = CreateCharacter();
             CharacterResourceId unknownId = CharacterResourceId.NewId(Clock.GetUtcNow());
 
-            Result<CharacterRecord> result = _characterRepository.SetResourceCurrentValue(_campaign, character.CharacterId, unknownId, 0, NewUserId(), actorIsMainGm: true, character.Revisions.CharacterResourcesRevision, NewCommandId(), TestCorrelationId);
+            Result<CharacterRecord> result = _characterRepository.SetResourceCurrentValue(_campaign, character.CharacterId, unknownId, 0, global::Odyssey.Application.Identity.DevIdentityProvider.AssignHost(), character.Revisions.CharacterResourcesRevision, NewCommandId(), TestCorrelationId);
 
             Assert.That(result.IsFailure, Is.True);
             Assert.That(result.Error.Code, Is.EqualTo(ErrorCodes.PersistenceCharacterResourceNotFound));
@@ -193,10 +193,10 @@ namespace Odyssey.Tests.Persistence
             CharacterRecord character = CreateCharacter();
             CommandId commandId = NewCommandId();
 
-            Result<CharacterRecord> first = CharacterAdvancementService.InitializeResourceWithDefaults(_characterRepository, _campaign, character.CharacterId, Health, NewUserId(), actorIsMainGm: true, character.Revisions.CharacterResourcesRevision, commandId, TestCorrelationId);
+            Result<CharacterRecord> first = CharacterAdvancementService.InitializeResourceWithDefaults(_characterRepository, _campaign, character.CharacterId, Health, global::Odyssey.Application.Identity.DevIdentityProvider.AssignHost(), character.Revisions.CharacterResourcesRevision, commandId, TestCorrelationId);
             Assert.That(first.IsSuccess, Is.True);
 
-            Result<CharacterRecord> replay = CharacterAdvancementService.InitializeResourceWithDefaults(_characterRepository, _campaign, character.CharacterId, Health, NewUserId(), actorIsMainGm: true, character.Revisions.CharacterResourcesRevision, commandId, TestCorrelationId);
+            Result<CharacterRecord> replay = CharacterAdvancementService.InitializeResourceWithDefaults(_characterRepository, _campaign, character.CharacterId, Health, global::Odyssey.Application.Identity.DevIdentityProvider.AssignHost(), character.Revisions.CharacterResourcesRevision, commandId, TestCorrelationId);
             Assert.That(replay.IsSuccess, Is.True);
 
             Result<CharacterRecord> reRead = _characterRepository.GetCharacter(_campaign, character.CharacterId, TestCorrelationId);
@@ -211,7 +211,7 @@ namespace Odyssey.Tests.Persistence
             CharacterRecord character = CreateCharacter();
             long revisionBefore = character.Revisions.CharacterAnatomyRevision;
 
-            Result<CharacterRecord> initialized = CharacterAdvancementService.InitializeAnatomyWithDefaults(_characterRepository, _campaign, character.CharacterId, Humanoid, NewUserId(), actorIsMainGm: true, revisionBefore, NewCommandId(), TestCorrelationId);
+            Result<CharacterRecord> initialized = CharacterAdvancementService.InitializeAnatomyWithDefaults(_characterRepository, _campaign, character.CharacterId, Humanoid, global::Odyssey.Application.Identity.DevIdentityProvider.AssignHost(), revisionBefore, NewCommandId(), TestCorrelationId);
 
             Assert.That(initialized.IsSuccess, Is.True);
             Assert.That(initialized.Value.Anatomy, Is.Not.Null);
@@ -224,10 +224,10 @@ namespace Odyssey.Tests.Persistence
         public void InitializeCharacterAnatomy_Twice_IsRejected()
         {
             CharacterRecord character = CreateCharacter();
-            Result<CharacterRecord> first = CharacterAdvancementService.InitializeAnatomyWithDefaults(_characterRepository, _campaign, character.CharacterId, Humanoid, NewUserId(), actorIsMainGm: true, character.Revisions.CharacterAnatomyRevision, NewCommandId(), TestCorrelationId);
+            Result<CharacterRecord> first = CharacterAdvancementService.InitializeAnatomyWithDefaults(_characterRepository, _campaign, character.CharacterId, Humanoid, global::Odyssey.Application.Identity.DevIdentityProvider.AssignHost(), character.Revisions.CharacterAnatomyRevision, NewCommandId(), TestCorrelationId);
             Assert.That(first.IsSuccess, Is.True);
 
-            Result<CharacterRecord> second = CharacterAdvancementService.InitializeAnatomyWithDefaults(_characterRepository, _campaign, character.CharacterId, Humanoid, NewUserId(), actorIsMainGm: true, first.Value.Revisions.CharacterAnatomyRevision, NewCommandId(), TestCorrelationId);
+            Result<CharacterRecord> second = CharacterAdvancementService.InitializeAnatomyWithDefaults(_characterRepository, _campaign, character.CharacterId, Humanoid, global::Odyssey.Application.Identity.DevIdentityProvider.AssignHost(), first.Value.Revisions.CharacterAnatomyRevision, NewCommandId(), TestCorrelationId);
             Assert.That(second.IsFailure, Is.True);
             Assert.That(second.Error.Code, Is.EqualTo(ErrorCodes.PersistenceCharacterAnatomyAlreadyInitialized));
         }
@@ -246,7 +246,7 @@ namespace Odyssey.Tests.Persistence
             // snapshot only changes via that explicit command, never a
             // side effect of the fixture itself changing.
             CharacterRecord character = CreateCharacter();
-            Result<CharacterRecord> initialized = CharacterAdvancementService.InitializeAnatomyWithDefaults(_characterRepository, _campaign, character.CharacterId, Humanoid, NewUserId(), actorIsMainGm: true, character.Revisions.CharacterAnatomyRevision, NewCommandId(), TestCorrelationId);
+            Result<CharacterRecord> initialized = CharacterAdvancementService.InitializeAnatomyWithDefaults(_characterRepository, _campaign, character.CharacterId, Humanoid, global::Odyssey.Application.Identity.DevIdentityProvider.AssignHost(), character.Revisions.CharacterAnatomyRevision, NewCommandId(), TestCorrelationId);
             string pinnedVersion = initialized.Value.Anatomy!.AnatomyProfileVersion;
             Assert.That(pinnedVersion, Is.EqualTo(Odyssey.Rules.Character.AnatomyInitializationRules.DefaultAnatomyProfileVersion));
 
@@ -262,17 +262,17 @@ namespace Odyssey.Tests.Persistence
         public void AddBodyPart_RequiresInitializedAnatomy_MainGmOnly()
         {
             CharacterRecord character = CreateCharacter();
-            Result<CharacterRecord> notInitialized = _characterRepository.AddBodyPart(_campaign, character.CharacterId, BodyPartId.Parse("Tail"), "Tail", 5, null, "{}", NewUserId(), actorIsMainGm: true, character.Revisions.CharacterAnatomyRevision, NewCommandId(), TestCorrelationId);
+            Result<CharacterRecord> notInitialized = _characterRepository.AddBodyPart(_campaign, character.CharacterId, BodyPartId.Parse("Tail"), "Tail", 5, null, "{}", global::Odyssey.Application.Identity.DevIdentityProvider.AssignHost(), character.Revisions.CharacterAnatomyRevision, NewCommandId(), TestCorrelationId);
             Assert.That(notInitialized.IsFailure, Is.True);
             Assert.That(notInitialized.Error.Code, Is.EqualTo(ErrorCodes.PersistenceCharacterAnatomyNotInitialized));
 
-            Result<CharacterRecord> initialized = CharacterAdvancementService.InitializeAnatomyWithDefaults(_characterRepository, _campaign, character.CharacterId, Humanoid, NewUserId(), actorIsMainGm: true, character.Revisions.CharacterAnatomyRevision, NewCommandId(), TestCorrelationId);
+            Result<CharacterRecord> initialized = CharacterAdvancementService.InitializeAnatomyWithDefaults(_characterRepository, _campaign, character.CharacterId, Humanoid, global::Odyssey.Application.Identity.DevIdentityProvider.AssignHost(), character.Revisions.CharacterAnatomyRevision, NewCommandId(), TestCorrelationId);
 
-            Result<CharacterRecord> byNonMainGm = _characterRepository.AddBodyPart(_campaign, character.CharacterId, BodyPartId.Parse("Tail"), "Tail", 5, null, "{}", NewUserId(), actorIsMainGm: false, initialized.Value.Revisions.CharacterAnatomyRevision, NewCommandId(), TestCorrelationId);
+            Result<CharacterRecord> byNonMainGm = _characterRepository.AddBodyPart(_campaign, character.CharacterId, BodyPartId.Parse("Tail"), "Tail", 5, null, "{}", NewUserId(), initialized.Value.Revisions.CharacterAnatomyRevision, NewCommandId(), TestCorrelationId);
             Assert.That(byNonMainGm.IsFailure, Is.True);
             Assert.That(byNonMainGm.Error.Code, Is.EqualTo(ErrorCodes.PersistenceCharacterAnatomyOperationDenied));
 
-            Result<CharacterRecord> added = _characterRepository.AddBodyPart(_campaign, character.CharacterId, BodyPartId.Parse("Tail"), "Tail", 5, null, "{}", NewUserId(), actorIsMainGm: true, initialized.Value.Revisions.CharacterAnatomyRevision, NewCommandId(), TestCorrelationId);
+            Result<CharacterRecord> added = _characterRepository.AddBodyPart(_campaign, character.CharacterId, BodyPartId.Parse("Tail"), "Tail", 5, null, "{}", global::Odyssey.Application.Identity.DevIdentityProvider.AssignHost(), initialized.Value.Revisions.CharacterAnatomyRevision, NewCommandId(), TestCorrelationId);
             Assert.That(added.IsSuccess, Is.True);
             Assert.That(added.Value.Anatomy!.BodyParts.Any(p => p.BodyPartId.Equals(BodyPartId.Parse("Tail"))), Is.True);
         }
@@ -281,9 +281,9 @@ namespace Odyssey.Tests.Persistence
         public void AddBodyPart_WithAlreadyExistingBodyPartId_IsRejected()
         {
             CharacterRecord character = CreateCharacter();
-            Result<CharacterRecord> initialized = CharacterAdvancementService.InitializeAnatomyWithDefaults(_characterRepository, _campaign, character.CharacterId, Humanoid, NewUserId(), actorIsMainGm: true, character.Revisions.CharacterAnatomyRevision, NewCommandId(), TestCorrelationId);
+            Result<CharacterRecord> initialized = CharacterAdvancementService.InitializeAnatomyWithDefaults(_characterRepository, _campaign, character.CharacterId, Humanoid, global::Odyssey.Application.Identity.DevIdentityProvider.AssignHost(), character.Revisions.CharacterAnatomyRevision, NewCommandId(), TestCorrelationId);
 
-            Result<CharacterRecord> duplicate = _characterRepository.AddBodyPart(_campaign, character.CharacterId, BodyPartId.Parse("Head"), "Second Head", 5, null, "{}", NewUserId(), actorIsMainGm: true, initialized.Value.Revisions.CharacterAnatomyRevision, NewCommandId(), TestCorrelationId);
+            Result<CharacterRecord> duplicate = _characterRepository.AddBodyPart(_campaign, character.CharacterId, BodyPartId.Parse("Head"), "Second Head", 5, null, "{}", global::Odyssey.Application.Identity.DevIdentityProvider.AssignHost(), initialized.Value.Revisions.CharacterAnatomyRevision, NewCommandId(), TestCorrelationId);
 
             Assert.That(duplicate.IsFailure, Is.True);
             Assert.That(duplicate.Error.Code, Is.EqualTo(ErrorCodes.PersistenceCharacterBodyPartAlreadyExists));
@@ -293,9 +293,9 @@ namespace Odyssey.Tests.Persistence
         public void RemoveBodyPart_OnUnknownBodyPartId_IsRejected()
         {
             CharacterRecord character = CreateCharacter();
-            Result<CharacterRecord> initialized = CharacterAdvancementService.InitializeAnatomyWithDefaults(_characterRepository, _campaign, character.CharacterId, Humanoid, NewUserId(), actorIsMainGm: true, character.Revisions.CharacterAnatomyRevision, NewCommandId(), TestCorrelationId);
+            Result<CharacterRecord> initialized = CharacterAdvancementService.InitializeAnatomyWithDefaults(_characterRepository, _campaign, character.CharacterId, Humanoid, global::Odyssey.Application.Identity.DevIdentityProvider.AssignHost(), character.Revisions.CharacterAnatomyRevision, NewCommandId(), TestCorrelationId);
 
-            Result<CharacterRecord> result = _characterRepository.RemoveBodyPart(_campaign, character.CharacterId, BodyPartId.Parse("Unknown"), NewUserId(), actorIsMainGm: true, initialized.Value.Revisions.CharacterAnatomyRevision, NewCommandId(), TestCorrelationId);
+            Result<CharacterRecord> result = _characterRepository.RemoveBodyPart(_campaign, character.CharacterId, BodyPartId.Parse("Unknown"), global::Odyssey.Application.Identity.DevIdentityProvider.AssignHost(), initialized.Value.Revisions.CharacterAnatomyRevision, NewCommandId(), TestCorrelationId);
 
             Assert.That(result.IsFailure, Is.True);
             Assert.That(result.Error.Code, Is.EqualTo(ErrorCodes.PersistenceCharacterBodyPartNotFound));
@@ -307,9 +307,9 @@ namespace Odyssey.Tests.Persistence
             // Requirement 51 (internal dependency substitute, section 1.3):
             // the fixture's Torso has LeftArm/RightArm attached to it.
             CharacterRecord character = CreateCharacter();
-            Result<CharacterRecord> initialized = CharacterAdvancementService.InitializeAnatomyWithDefaults(_characterRepository, _campaign, character.CharacterId, Humanoid, NewUserId(), actorIsMainGm: true, character.Revisions.CharacterAnatomyRevision, NewCommandId(), TestCorrelationId);
+            Result<CharacterRecord> initialized = CharacterAdvancementService.InitializeAnatomyWithDefaults(_characterRepository, _campaign, character.CharacterId, Humanoid, global::Odyssey.Application.Identity.DevIdentityProvider.AssignHost(), character.Revisions.CharacterAnatomyRevision, NewCommandId(), TestCorrelationId);
 
-            Result<CharacterRecord> removed = _characterRepository.RemoveBodyPart(_campaign, character.CharacterId, BodyPartId.Parse("Torso"), NewUserId(), actorIsMainGm: true, initialized.Value.Revisions.CharacterAnatomyRevision, NewCommandId(), TestCorrelationId);
+            Result<CharacterRecord> removed = _characterRepository.RemoveBodyPart(_campaign, character.CharacterId, BodyPartId.Parse("Torso"), global::Odyssey.Application.Identity.DevIdentityProvider.AssignHost(), initialized.Value.Revisions.CharacterAnatomyRevision, NewCommandId(), TestCorrelationId);
 
             Assert.That(removed.IsFailure, Is.True);
             Assert.That(removed.Error.Code, Is.EqualTo(ErrorCodes.PersistenceCharacterBodyPartHasDependent));
@@ -322,9 +322,9 @@ namespace Odyssey.Tests.Persistence
         public void RemoveBodyPart_WithoutDependent_Succeeds()
         {
             CharacterRecord character = CreateCharacter();
-            Result<CharacterRecord> initialized = CharacterAdvancementService.InitializeAnatomyWithDefaults(_characterRepository, _campaign, character.CharacterId, Humanoid, NewUserId(), actorIsMainGm: true, character.Revisions.CharacterAnatomyRevision, NewCommandId(), TestCorrelationId);
+            Result<CharacterRecord> initialized = CharacterAdvancementService.InitializeAnatomyWithDefaults(_characterRepository, _campaign, character.CharacterId, Humanoid, global::Odyssey.Application.Identity.DevIdentityProvider.AssignHost(), character.Revisions.CharacterAnatomyRevision, NewCommandId(), TestCorrelationId);
 
-            Result<CharacterRecord> removed = _characterRepository.RemoveBodyPart(_campaign, character.CharacterId, BodyPartId.Parse("Head"), NewUserId(), actorIsMainGm: true, initialized.Value.Revisions.CharacterAnatomyRevision, NewCommandId(), TestCorrelationId);
+            Result<CharacterRecord> removed = _characterRepository.RemoveBodyPart(_campaign, character.CharacterId, BodyPartId.Parse("Head"), global::Odyssey.Application.Identity.DevIdentityProvider.AssignHost(), initialized.Value.Revisions.CharacterAnatomyRevision, NewCommandId(), TestCorrelationId);
 
             Assert.That(removed.IsSuccess, Is.True);
             Assert.That(removed.Value.Anatomy!.BodyParts.Any(p => p.BodyPartId.Equals(BodyPartId.Parse("Head"))), Is.False);
@@ -334,11 +334,11 @@ namespace Odyssey.Tests.Persistence
         public void RemoveBodyPart_WithPermanentModificationDependent_IsRejected()
         {
             CharacterRecord character = CreateCharacter();
-            Result<CharacterRecord> initialized = CharacterAdvancementService.InitializeAnatomyWithDefaults(_characterRepository, _campaign, character.CharacterId, Humanoid, NewUserId(), actorIsMainGm: true, character.Revisions.CharacterAnatomyRevision, NewCommandId(), TestCorrelationId);
-            Result<CharacterRecord> modified = _characterRepository.ApplyPermanentModification(_campaign, character.CharacterId, BodyPartId.Parse("Head"), "Mutation", "Third eye", NewUserId(), actorIsMainGm: true, initialized.Value.Revisions.CharacterAnatomyRevision, NewCommandId(), TestCorrelationId);
+            Result<CharacterRecord> initialized = CharacterAdvancementService.InitializeAnatomyWithDefaults(_characterRepository, _campaign, character.CharacterId, Humanoid, global::Odyssey.Application.Identity.DevIdentityProvider.AssignHost(), character.Revisions.CharacterAnatomyRevision, NewCommandId(), TestCorrelationId);
+            Result<CharacterRecord> modified = _characterRepository.ApplyPermanentModification(_campaign, character.CharacterId, BodyPartId.Parse("Head"), "Mutation", "Third eye", global::Odyssey.Application.Identity.DevIdentityProvider.AssignHost(), initialized.Value.Revisions.CharacterAnatomyRevision, NewCommandId(), TestCorrelationId);
             Assert.That(modified.IsSuccess, Is.True);
 
-            Result<CharacterRecord> removed = _characterRepository.RemoveBodyPart(_campaign, character.CharacterId, BodyPartId.Parse("Head"), NewUserId(), actorIsMainGm: true, modified.Value.Revisions.CharacterAnatomyRevision, NewCommandId(), TestCorrelationId);
+            Result<CharacterRecord> removed = _characterRepository.RemoveBodyPart(_campaign, character.CharacterId, BodyPartId.Parse("Head"), global::Odyssey.Application.Identity.DevIdentityProvider.AssignHost(), modified.Value.Revisions.CharacterAnatomyRevision, NewCommandId(), TestCorrelationId);
 
             Assert.That(removed.IsFailure, Is.True);
             Assert.That(removed.Error.Code, Is.EqualTo(ErrorCodes.PersistenceCharacterBodyPartHasDependent));
@@ -348,9 +348,9 @@ namespace Odyssey.Tests.Persistence
         public void UpdateBodyPart_ChangesDamageLimitAndProperties()
         {
             CharacterRecord character = CreateCharacter();
-            Result<CharacterRecord> initialized = CharacterAdvancementService.InitializeAnatomyWithDefaults(_characterRepository, _campaign, character.CharacterId, Humanoid, NewUserId(), actorIsMainGm: true, character.Revisions.CharacterAnatomyRevision, NewCommandId(), TestCorrelationId);
+            Result<CharacterRecord> initialized = CharacterAdvancementService.InitializeAnatomyWithDefaults(_characterRepository, _campaign, character.CharacterId, Humanoid, global::Odyssey.Application.Identity.DevIdentityProvider.AssignHost(), character.Revisions.CharacterAnatomyRevision, NewCommandId(), TestCorrelationId);
 
-            Result<CharacterRecord> updated = _characterRepository.UpdateBodyPart(_campaign, character.CharacterId, BodyPartId.Parse("Head"), 99, "{\"armored\":true}", NewUserId(), actorIsMainGm: true, initialized.Value.Revisions.CharacterAnatomyRevision, NewCommandId(), TestCorrelationId);
+            Result<CharacterRecord> updated = _characterRepository.UpdateBodyPart(_campaign, character.CharacterId, BodyPartId.Parse("Head"), 99, "{\"armored\":true}", global::Odyssey.Application.Identity.DevIdentityProvider.AssignHost(), initialized.Value.Revisions.CharacterAnatomyRevision, NewCommandId(), TestCorrelationId);
 
             Assert.That(updated.IsSuccess, Is.True);
             BodyPart head = updated.Value.Anatomy!.BodyParts.Single(p => p.BodyPartId.Equals(BodyPartId.Parse("Head")));
@@ -362,11 +362,11 @@ namespace Odyssey.Tests.Persistence
         public void ReplaceAnatomyProfile_ReplacesBodyParts_PreservesPermanentModificationsAndHistory()
         {
             CharacterRecord character = CreateCharacter();
-            Result<CharacterRecord> initialized = CharacterAdvancementService.InitializeAnatomyWithDefaults(_characterRepository, _campaign, character.CharacterId, Humanoid, NewUserId(), actorIsMainGm: true, character.Revisions.CharacterAnatomyRevision, NewCommandId(), TestCorrelationId);
-            Result<CharacterRecord> modified = _characterRepository.ApplyPermanentModification(_campaign, character.CharacterId, BodyPartId.Parse("Head"), "Mutation", "Third eye", NewUserId(), actorIsMainGm: true, initialized.Value.Revisions.CharacterAnatomyRevision, NewCommandId(), TestCorrelationId);
+            Result<CharacterRecord> initialized = CharacterAdvancementService.InitializeAnatomyWithDefaults(_characterRepository, _campaign, character.CharacterId, Humanoid, global::Odyssey.Application.Identity.DevIdentityProvider.AssignHost(), character.Revisions.CharacterAnatomyRevision, NewCommandId(), TestCorrelationId);
+            Result<CharacterRecord> modified = _characterRepository.ApplyPermanentModification(_campaign, character.CharacterId, BodyPartId.Parse("Head"), "Mutation", "Third eye", global::Odyssey.Application.Identity.DevIdentityProvider.AssignHost(), initialized.Value.Revisions.CharacterAnatomyRevision, NewCommandId(), TestCorrelationId);
 
             var newBodyParts = new[] { new BodyPart(BodyPartId.Parse("Core"), "Core", 30, null, "{}") };
-            Result<CharacterRecord> replaced = _characterRepository.ReplaceAnatomyProfile(_campaign, character.CharacterId, AnatomyProfileDefinitionId.Parse("Construct"), "0.2.0-fixture", newBodyParts, NewUserId(), actorIsMainGm: true, modified.Value.Revisions.CharacterAnatomyRevision, NewCommandId(), TestCorrelationId);
+            Result<CharacterRecord> replaced = _characterRepository.ReplaceAnatomyProfile(_campaign, character.CharacterId, AnatomyProfileDefinitionId.Parse("Construct"), "0.2.0-fixture", newBodyParts, global::Odyssey.Application.Identity.DevIdentityProvider.AssignHost(), modified.Value.Revisions.CharacterAnatomyRevision, NewCommandId(), TestCorrelationId);
 
             Assert.That(replaced.IsSuccess, Is.True);
             Assert.That(replaced.Value.Anatomy!.AnatomyProfileDefinitionId, Is.EqualTo(AnatomyProfileDefinitionId.Parse("Construct")));
@@ -378,16 +378,16 @@ namespace Odyssey.Tests.Persistence
         public void MigrationHistory_AccumulatesOneEntryPerAnatomyCommand()
         {
             CharacterRecord character = CreateCharacter();
-            Result<CharacterRecord> initialized = CharacterAdvancementService.InitializeAnatomyWithDefaults(_characterRepository, _campaign, character.CharacterId, Humanoid, NewUserId(), actorIsMainGm: true, character.Revisions.CharacterAnatomyRevision, NewCommandId(), TestCorrelationId);
+            Result<CharacterRecord> initialized = CharacterAdvancementService.InitializeAnatomyWithDefaults(_characterRepository, _campaign, character.CharacterId, Humanoid, global::Odyssey.Application.Identity.DevIdentityProvider.AssignHost(), character.Revisions.CharacterAnatomyRevision, NewCommandId(), TestCorrelationId);
             Assert.That(initialized.Value.Anatomy!.MigrationHistory, Has.Count.EqualTo(1));
 
-            Result<CharacterRecord> added = _characterRepository.AddBodyPart(_campaign, character.CharacterId, BodyPartId.Parse("Tail"), "Tail", 5, null, "{}", NewUserId(), actorIsMainGm: true, initialized.Value.Revisions.CharacterAnatomyRevision, NewCommandId(), TestCorrelationId);
+            Result<CharacterRecord> added = _characterRepository.AddBodyPart(_campaign, character.CharacterId, BodyPartId.Parse("Tail"), "Tail", 5, null, "{}", global::Odyssey.Application.Identity.DevIdentityProvider.AssignHost(), initialized.Value.Revisions.CharacterAnatomyRevision, NewCommandId(), TestCorrelationId);
             Assert.That(added.Value.Anatomy!.MigrationHistory, Has.Count.EqualTo(2));
 
-            Result<CharacterRecord> removed = _characterRepository.RemoveBodyPart(_campaign, character.CharacterId, BodyPartId.Parse("Tail"), NewUserId(), actorIsMainGm: true, added.Value.Revisions.CharacterAnatomyRevision, NewCommandId(), TestCorrelationId);
+            Result<CharacterRecord> removed = _characterRepository.RemoveBodyPart(_campaign, character.CharacterId, BodyPartId.Parse("Tail"), global::Odyssey.Application.Identity.DevIdentityProvider.AssignHost(), added.Value.Revisions.CharacterAnatomyRevision, NewCommandId(), TestCorrelationId);
             Assert.That(removed.Value.Anatomy!.MigrationHistory, Has.Count.EqualTo(3));
 
-            Result<CharacterRecord> modified = _characterRepository.ApplyPermanentModification(_campaign, character.CharacterId, BodyPartId.Parse("Head"), "Prosthetic", "Mechanical eye", NewUserId(), actorIsMainGm: true, removed.Value.Revisions.CharacterAnatomyRevision, NewCommandId(), TestCorrelationId);
+            Result<CharacterRecord> modified = _characterRepository.ApplyPermanentModification(_campaign, character.CharacterId, BodyPartId.Parse("Head"), "Prosthetic", "Mechanical eye", global::Odyssey.Application.Identity.DevIdentityProvider.AssignHost(), removed.Value.Revisions.CharacterAnatomyRevision, NewCommandId(), TestCorrelationId);
             Assert.That(modified.Value.Anatomy!.MigrationHistory, Has.Count.EqualTo(4));
         }
 
@@ -397,10 +397,10 @@ namespace Odyssey.Tests.Persistence
             CharacterRecord character = CreateCharacter();
             CommandId commandId = NewCommandId();
 
-            Result<CharacterRecord> first = CharacterAdvancementService.InitializeAnatomyWithDefaults(_characterRepository, _campaign, character.CharacterId, Humanoid, NewUserId(), actorIsMainGm: true, character.Revisions.CharacterAnatomyRevision, commandId, TestCorrelationId);
+            Result<CharacterRecord> first = CharacterAdvancementService.InitializeAnatomyWithDefaults(_characterRepository, _campaign, character.CharacterId, Humanoid, global::Odyssey.Application.Identity.DevIdentityProvider.AssignHost(), character.Revisions.CharacterAnatomyRevision, commandId, TestCorrelationId);
             Assert.That(first.IsSuccess, Is.True);
 
-            Result<CharacterRecord> replay = CharacterAdvancementService.InitializeAnatomyWithDefaults(_characterRepository, _campaign, character.CharacterId, Humanoid, NewUserId(), actorIsMainGm: true, character.Revisions.CharacterAnatomyRevision, commandId, TestCorrelationId);
+            Result<CharacterRecord> replay = CharacterAdvancementService.InitializeAnatomyWithDefaults(_characterRepository, _campaign, character.CharacterId, Humanoid, global::Odyssey.Application.Identity.DevIdentityProvider.AssignHost(), character.Revisions.CharacterAnatomyRevision, commandId, TestCorrelationId);
             Assert.That(replay.IsSuccess, Is.True);
 
             Result<CharacterRecord> reRead = _characterRepository.GetCharacter(_campaign, character.CharacterId, TestCorrelationId);
@@ -414,8 +414,8 @@ namespace Odyssey.Tests.Persistence
         {
             CharacterRecord character = CreateCharacter();
 
-            Result<CharacterRecord> resourceResult = CharacterAdvancementService.InitializeResourceWithDefaults(_characterRepository, _campaign, character.CharacterId, Health, NewUserId(), actorIsMainGm: true, character.Revisions.CharacterResourcesRevision, NewCommandId(), TestCorrelationId);
-            Result<CharacterRecord> anatomyResult = CharacterAdvancementService.InitializeAnatomyWithDefaults(_characterRepository, _campaign, character.CharacterId, Humanoid, NewUserId(), actorIsMainGm: true, character.Revisions.CharacterAnatomyRevision, NewCommandId(), TestCorrelationId);
+            Result<CharacterRecord> resourceResult = CharacterAdvancementService.InitializeResourceWithDefaults(_characterRepository, _campaign, character.CharacterId, Health, global::Odyssey.Application.Identity.DevIdentityProvider.AssignHost(), character.Revisions.CharacterResourcesRevision, NewCommandId(), TestCorrelationId);
+            Result<CharacterRecord> anatomyResult = CharacterAdvancementService.InitializeAnatomyWithDefaults(_characterRepository, _campaign, character.CharacterId, Humanoid, global::Odyssey.Application.Identity.DevIdentityProvider.AssignHost(), character.Revisions.CharacterAnatomyRevision, NewCommandId(), TestCorrelationId);
 
             Assert.That(resourceResult.IsSuccess, Is.True);
             Assert.That(anatomyResult.IsSuccess, Is.True);
@@ -434,15 +434,15 @@ namespace Odyssey.Tests.Persistence
         public void GetCharacterHistory_AfterResourceAndAnatomyChanges_Succeeds_SurfacesAllFourEventTypes()
         {
             CharacterRecord character = CreateCharacter();
-            Result<CharacterRecord> resourceInitialized = CharacterAdvancementService.InitializeResourceWithDefaults(_characterRepository, _campaign, character.CharacterId, Health, NewUserId(), actorIsMainGm: true, character.Revisions.CharacterResourcesRevision, NewCommandId(), TestCorrelationId);
+            Result<CharacterRecord> resourceInitialized = CharacterAdvancementService.InitializeResourceWithDefaults(_characterRepository, _campaign, character.CharacterId, Health, global::Odyssey.Application.Identity.DevIdentityProvider.AssignHost(), character.Revisions.CharacterResourcesRevision, NewCommandId(), TestCorrelationId);
             Assert.That(resourceInitialized.IsSuccess, Is.True);
             CharacterResource resource = resourceInitialized.Value.Resources[0];
-            Result<CharacterRecord> resourceChanged = _characterRepository.SetResourceCurrentValue(_campaign, character.CharacterId, resource.CharacterResourceId, resource.MinimumValue, NewUserId(), actorIsMainGm: true, resourceInitialized.Value.Revisions.CharacterResourcesRevision, NewCommandId(), TestCorrelationId);
+            Result<CharacterRecord> resourceChanged = _characterRepository.SetResourceCurrentValue(_campaign, character.CharacterId, resource.CharacterResourceId, resource.MinimumValue, global::Odyssey.Application.Identity.DevIdentityProvider.AssignHost(), resourceInitialized.Value.Revisions.CharacterResourcesRevision, NewCommandId(), TestCorrelationId);
             Assert.That(resourceChanged.IsSuccess, Is.True);
 
-            Result<CharacterRecord> anatomyInitialized = CharacterAdvancementService.InitializeAnatomyWithDefaults(_characterRepository, _campaign, character.CharacterId, Humanoid, NewUserId(), actorIsMainGm: true, resourceChanged.Value.Revisions.CharacterAnatomyRevision, NewCommandId(), TestCorrelationId);
+            Result<CharacterRecord> anatomyInitialized = CharacterAdvancementService.InitializeAnatomyWithDefaults(_characterRepository, _campaign, character.CharacterId, Humanoid, global::Odyssey.Application.Identity.DevIdentityProvider.AssignHost(), resourceChanged.Value.Revisions.CharacterAnatomyRevision, NewCommandId(), TestCorrelationId);
             Assert.That(anatomyInitialized.IsSuccess, Is.True);
-            Result<CharacterRecord> anatomyChanged = _characterRepository.UpdateBodyPart(_campaign, character.CharacterId, BodyPartId.Parse("Head"), 99, "{\"armored\":true}", NewUserId(), actorIsMainGm: true, anatomyInitialized.Value.Revisions.CharacterAnatomyRevision, NewCommandId(), TestCorrelationId);
+            Result<CharacterRecord> anatomyChanged = _characterRepository.UpdateBodyPart(_campaign, character.CharacterId, BodyPartId.Parse("Head"), 99, "{\"armored\":true}", global::Odyssey.Application.Identity.DevIdentityProvider.AssignHost(), anatomyInitialized.Value.Revisions.CharacterAnatomyRevision, NewCommandId(), TestCorrelationId);
             Assert.That(anatomyChanged.IsSuccess, Is.True);
 
             Result<IReadOnlyList<CharacterHistoryEntry>> history = _characterRepository.GetCharacterHistory(_campaign, character.CharacterId, TestCorrelationId);
@@ -462,7 +462,7 @@ namespace Odyssey.Tests.Persistence
         {
             CharacterRecord character = CreateCharacter();
 
-            Result<CharacterRecord> initialized = CharacterAdvancementService.InitializeResourceWithDefaults(_characterRepository, _campaign, character.CharacterId, Health, NewUserId(), actorIsMainGm: true, character.Revisions.CharacterResourcesRevision, NewCommandId(), TestCorrelationId);
+            Result<CharacterRecord> initialized = CharacterAdvancementService.InitializeResourceWithDefaults(_characterRepository, _campaign, character.CharacterId, Health, global::Odyssey.Application.Identity.DevIdentityProvider.AssignHost(), character.Revisions.CharacterResourcesRevision, NewCommandId(), TestCorrelationId);
 
             Assert.That(initialized.IsSuccess, Is.True);
             CharacterResource resource = _characterRepository.GetCharacter(_campaign, character.CharacterId, TestCorrelationId).Value.Resources.Single();
@@ -488,7 +488,7 @@ namespace Odyssey.Tests.Persistence
         {
             CharacterRecord character = CreateCharacter();
 
-            Result<CharacterRecord> initialized = CharacterAdvancementService.InitializeAnatomyWithDefaults(_characterRepository, _campaign, character.CharacterId, Humanoid, NewUserId(), actorIsMainGm: true, character.Revisions.CharacterAnatomyRevision, NewCommandId(), TestCorrelationId);
+            Result<CharacterRecord> initialized = CharacterAdvancementService.InitializeAnatomyWithDefaults(_characterRepository, _campaign, character.CharacterId, Humanoid, global::Odyssey.Application.Identity.DevIdentityProvider.AssignHost(), character.Revisions.CharacterAnatomyRevision, NewCommandId(), TestCorrelationId);
 
             Assert.That(initialized.IsSuccess, Is.True);
             CharacterAnatomy anatomy = _characterRepository.GetCharacter(_campaign, character.CharacterId, TestCorrelationId).Value.Anatomy!;
@@ -525,7 +525,7 @@ namespace Odyssey.Tests.Persistence
         {
             CharacterRecord character = CreateCharacter();
 
-            Result<CharacterRecord> initialized = _characterRepository.InitializeCharacterResource(_campaign, character.CharacterId, Health, baseMaximum: 25, minimumValue: -3, RecoveryRule.OnRest, NewUserId(), actorIsMainGm: true, character.Revisions.CharacterResourcesRevision, NewCommandId(), TestCorrelationId);
+            Result<CharacterRecord> initialized = _characterRepository.InitializeCharacterResource(_campaign, character.CharacterId, Health, baseMaximum: 25, minimumValue: -3, RecoveryRule.OnRest, global::Odyssey.Application.Identity.DevIdentityProvider.AssignHost(), character.Revisions.CharacterResourcesRevision, NewCommandId(), TestCorrelationId);
 
             Assert.That(initialized.IsSuccess, Is.True);
             CharacterResource resource = _characterRepository.GetCharacter(_campaign, character.CharacterId, TestCorrelationId).Value.Resources.Single();
@@ -541,7 +541,7 @@ namespace Odyssey.Tests.Persistence
             CharacterRecord character = CreateCharacter();
             var customParts = new List<BodyPart> { new BodyPart(BodyPartId.Parse("Tail"), "Tail", 7, null, "{}") };
 
-            Result<CharacterRecord> initialized = _characterRepository.InitializeCharacterAnatomy(_campaign, character.CharacterId, AnatomyProfileDefinitionId.Parse("Construct"), "9.9.9-custom", customParts, NewUserId(), actorIsMainGm: true, character.Revisions.CharacterAnatomyRevision, NewCommandId(), TestCorrelationId);
+            Result<CharacterRecord> initialized = _characterRepository.InitializeCharacterAnatomy(_campaign, character.CharacterId, AnatomyProfileDefinitionId.Parse("Construct"), "9.9.9-custom", customParts, global::Odyssey.Application.Identity.DevIdentityProvider.AssignHost(), character.Revisions.CharacterAnatomyRevision, NewCommandId(), TestCorrelationId);
 
             Assert.That(initialized.IsSuccess, Is.True);
             CharacterAnatomy anatomy = _characterRepository.GetCharacter(_campaign, character.CharacterId, TestCorrelationId).Value.Anatomy!;
@@ -558,8 +558,8 @@ namespace Odyssey.Tests.Persistence
             CharacterRecord character = CreateCharacter();
             long revision = character.Revisions.CharacterResourcesRevision;
 
-            Assert.Throws<ArgumentException>(new Action(() => _characterRepository.InitializeCharacterResource(_campaign, character.CharacterId, Health, baseMaximum: 0, minimumValue: 1, RecoveryRule.Manual, NewUserId(), actorIsMainGm: true, revision, NewCommandId(), TestCorrelationId)));
-            Assert.Throws<ArgumentOutOfRangeException>(new Action(() => _characterRepository.InitializeCharacterResource(_campaign, character.CharacterId, Health, baseMaximum: 10, minimumValue: 0, (RecoveryRule)999, NewUserId(), actorIsMainGm: true, revision, NewCommandId(), TestCorrelationId)));
+            Assert.Throws<ArgumentException>(new Action(() => _characterRepository.InitializeCharacterResource(_campaign, character.CharacterId, Health, baseMaximum: 0, minimumValue: 1, RecoveryRule.Manual, global::Odyssey.Application.Identity.DevIdentityProvider.AssignHost(), revision, NewCommandId(), TestCorrelationId)));
+            Assert.Throws<ArgumentOutOfRangeException>(new Action(() => _characterRepository.InitializeCharacterResource(_campaign, character.CharacterId, Health, baseMaximum: 10, minimumValue: 0, (RecoveryRule)999, global::Odyssey.Application.Identity.DevIdentityProvider.AssignHost(), revision, NewCommandId(), TestCorrelationId)));
 
             CharacterRecord reread = _characterRepository.GetCharacter(_campaign, character.CharacterId, TestCorrelationId).Value;
             Assert.That(reread.Resources, Is.Empty);
@@ -572,8 +572,8 @@ namespace Odyssey.Tests.Persistence
             CharacterRecord character = CreateCharacter();
             long revision = character.Revisions.CharacterAnatomyRevision;
 
-            Assert.Throws<ArgumentException>(new Action(() => _characterRepository.InitializeCharacterAnatomy(_campaign, character.CharacterId, Humanoid, "  ", new List<BodyPart>(), NewUserId(), actorIsMainGm: true, revision, NewCommandId(), TestCorrelationId)));
-            Assert.Throws<ArgumentNullException>(new Action(() => _characterRepository.InitializeCharacterAnatomy(_campaign, character.CharacterId, Humanoid, "0.1.0", null!, NewUserId(), actorIsMainGm: true, revision, NewCommandId(), TestCorrelationId)));
+            Assert.Throws<ArgumentException>(new Action(() => _characterRepository.InitializeCharacterAnatomy(_campaign, character.CharacterId, Humanoid, "  ", new List<BodyPart>(), global::Odyssey.Application.Identity.DevIdentityProvider.AssignHost(), revision, NewCommandId(), TestCorrelationId)));
+            Assert.Throws<ArgumentNullException>(new Action(() => _characterRepository.InitializeCharacterAnatomy(_campaign, character.CharacterId, Humanoid, "0.1.0", null!, global::Odyssey.Application.Identity.DevIdentityProvider.AssignHost(), revision, NewCommandId(), TestCorrelationId)));
 
             CharacterRecord reread = _characterRepository.GetCharacter(_campaign, character.CharacterId, TestCorrelationId).Value;
             Assert.That(reread.Anatomy, Is.Null);
@@ -585,12 +585,13 @@ namespace Odyssey.Tests.Persistence
         {
             var recorder = new RecordingCharacterRepository(_characterRepository);
             CharacterRecord character = CreateCharacter();
-            UserId actor = NewUserId();
+            // ODY-S10-102: the wrapper forwards the actor unchanged; the actor is the campaign's host (a stored MainGm).
+            UserId actor = global::Odyssey.Application.Identity.DevIdentityProvider.AssignHost();
             CommandId resourceCommand = NewCommandId();
             CommandId anatomyCommand = NewCommandId();
 
-            Result<CharacterRecord> resource = CharacterAdvancementService.InitializeResourceWithDefaults(recorder, _campaign, character.CharacterId, Health, actor, actorIsMainGm: true, character.Revisions.CharacterResourcesRevision, resourceCommand, TestCorrelationId);
-            Result<CharacterRecord> anatomy = CharacterAdvancementService.InitializeAnatomyWithDefaults(recorder, _campaign, character.CharacterId, Humanoid, actor, actorIsMainGm: true, character.Revisions.CharacterAnatomyRevision, anatomyCommand, TestCorrelationId);
+            Result<CharacterRecord> resource = CharacterAdvancementService.InitializeResourceWithDefaults(recorder, _campaign, character.CharacterId, Health, actor, character.Revisions.CharacterResourcesRevision, resourceCommand, TestCorrelationId);
+            Result<CharacterRecord> anatomy = CharacterAdvancementService.InitializeAnatomyWithDefaults(recorder, _campaign, character.CharacterId, Humanoid, actor, character.Revisions.CharacterAnatomyRevision, anatomyCommand, TestCorrelationId);
 
             Assert.That(resource.IsSuccess, Is.True);
             Assert.That(anatomy.IsSuccess, Is.True);
@@ -604,7 +605,6 @@ namespace Odyssey.Tests.Persistence
             Assert.That(r.CharacterId, Is.EqualTo(character.CharacterId));
             Assert.That(r.ResourceDefinitionId, Is.EqualTo(Health));
             Assert.That(r.ActorUserId, Is.EqualTo(actor));
-            Assert.That(r.ActorIsMainGm, Is.True);
             Assert.That(r.ExpectedRevision, Is.EqualTo(character.Revisions.CharacterResourcesRevision));
             Assert.That(r.CommandId, Is.EqualTo(resourceCommand));
             Assert.That(r.CorrelationId, Is.EqualTo(TestCorrelationId));
@@ -617,13 +617,12 @@ namespace Odyssey.Tests.Persistence
             Assert.That(a.CharacterId, Is.EqualTo(character.CharacterId));
             Assert.That(a.AnatomyProfileDefinitionId, Is.EqualTo(Humanoid));
             Assert.That(a.ActorUserId, Is.EqualTo(actor));
-            Assert.That(a.ActorIsMainGm, Is.True);
             Assert.That(a.ExpectedRevision, Is.EqualTo(character.Revisions.CharacterAnatomyRevision));
             Assert.That(a.CommandId, Is.EqualTo(anatomyCommand));
             Assert.That(a.CorrelationId, Is.EqualTo(TestCorrelationId));
 
-            Assert.Throws<ArgumentNullException>(new Action(() => CharacterAdvancementService.InitializeResourceWithDefaults(null!, _campaign, character.CharacterId, Health, actor, true, 1, NewCommandId(), TestCorrelationId)));
-            Assert.Throws<ArgumentNullException>(new Action(() => CharacterAdvancementService.InitializeAnatomyWithDefaults(null!, _campaign, character.CharacterId, Humanoid, actor, true, 1, NewCommandId(), TestCorrelationId)));
+            Assert.Throws<ArgumentNullException>(new Action(() => CharacterAdvancementService.InitializeResourceWithDefaults(null!, _campaign, character.CharacterId, Health, actor, 1, NewCommandId(), TestCorrelationId)));
+            Assert.Throws<ArgumentNullException>(new Action(() => CharacterAdvancementService.InitializeAnatomyWithDefaults(null!, _campaign, character.CharacterId, Humanoid, actor, 1, NewCommandId(), TestCorrelationId)));
         }
 
         [Test] // TC-CHAR-188
@@ -656,10 +655,10 @@ namespace Odyssey.Tests.Persistence
 
             public sealed class ResourceCall
             {
-                public ResourceCall(CampaignHandle campaign, CharacterId characterId, ResourceDefinitionId resourceDefinitionId, long baseMaximum, long minimumValue, RecoveryRule recoveryRule, UserId actorUserId, bool actorIsMainGm, long expectedRevision, CommandId commandId, CorrelationId correlationId)
+                public ResourceCall(CampaignHandle campaign, CharacterId characterId, ResourceDefinitionId resourceDefinitionId, long baseMaximum, long minimumValue, RecoveryRule recoveryRule, UserId actorUserId, long expectedRevision, CommandId commandId, CorrelationId correlationId)
                 {
                     Campaign = campaign; CharacterId = characterId; ResourceDefinitionId = resourceDefinitionId; BaseMaximum = baseMaximum; MinimumValue = minimumValue; RecoveryRule = recoveryRule;
-                    ActorUserId = actorUserId; ActorIsMainGm = actorIsMainGm; ExpectedRevision = expectedRevision; CommandId = commandId; CorrelationId = correlationId;
+                    ActorUserId = actorUserId; ExpectedRevision = expectedRevision; CommandId = commandId; CorrelationId = correlationId;
                 }
 
                 public CampaignHandle Campaign { get; }
@@ -669,7 +668,6 @@ namespace Odyssey.Tests.Persistence
                 public long MinimumValue { get; }
                 public RecoveryRule RecoveryRule { get; }
                 public UserId ActorUserId { get; }
-                public bool ActorIsMainGm { get; }
                 public long ExpectedRevision { get; }
                 public CommandId CommandId { get; }
                 public CorrelationId CorrelationId { get; }
@@ -677,10 +675,10 @@ namespace Odyssey.Tests.Persistence
 
             public sealed class AnatomyCall
             {
-                public AnatomyCall(CampaignHandle campaign, CharacterId characterId, AnatomyProfileDefinitionId anatomyProfileDefinitionId, string anatomyProfileVersion, IReadOnlyList<BodyPart> bodyParts, UserId actorUserId, bool actorIsMainGm, long expectedRevision, CommandId commandId, CorrelationId correlationId)
+                public AnatomyCall(CampaignHandle campaign, CharacterId characterId, AnatomyProfileDefinitionId anatomyProfileDefinitionId, string anatomyProfileVersion, IReadOnlyList<BodyPart> bodyParts, UserId actorUserId, long expectedRevision, CommandId commandId, CorrelationId correlationId)
                 {
                     Campaign = campaign; CharacterId = characterId; AnatomyProfileDefinitionId = anatomyProfileDefinitionId; AnatomyProfileVersion = anatomyProfileVersion; BodyParts = bodyParts;
-                    ActorUserId = actorUserId; ActorIsMainGm = actorIsMainGm; ExpectedRevision = expectedRevision; CommandId = commandId; CorrelationId = correlationId;
+                    ActorUserId = actorUserId; ExpectedRevision = expectedRevision; CommandId = commandId; CorrelationId = correlationId;
                 }
 
                 public CampaignHandle Campaign { get; }
@@ -689,7 +687,6 @@ namespace Odyssey.Tests.Persistence
                 public string AnatomyProfileVersion { get; }
                 public IReadOnlyList<BodyPart> BodyParts { get; }
                 public UserId ActorUserId { get; }
-                public bool ActorIsMainGm { get; }
                 public long ExpectedRevision { get; }
                 public CommandId CommandId { get; }
                 public CorrelationId CorrelationId { get; }
@@ -703,56 +700,56 @@ namespace Odyssey.Tests.Persistence
             public Result<CharacterRecord> UpdateIdentity(CampaignHandle campaign, CharacterId characterId, string newDisplayName, long expectedIdentityRevision, CommandId commandId, CorrelationId correlationId) => _inner.UpdateIdentity(campaign, characterId, newDisplayName, expectedIdentityRevision, commandId, correlationId);
             public Result<CharacterRecord> UpdatePresentation(CampaignHandle campaign, CharacterId characterId, string? portraitReference, long expectedPresentationRevision, CommandId commandId, CorrelationId correlationId) => _inner.UpdatePresentation(campaign, characterId, portraitReference, expectedPresentationRevision, commandId, correlationId);
             public Result<IReadOnlyList<CharacterHistoryEntry>> GetCharacterHistory(CampaignHandle campaign, CharacterId characterId, CorrelationId correlationId) => _inner.GetCharacterHistory(campaign, characterId, correlationId);
-            public Result<CharacterRecord> AssignPrimaryOwner(CampaignHandle campaign, CharacterId characterId, UserId newPrimaryOwnerUserId, string reasonCode, bool actorIsMainGm, long expectedOwnershipRevision, CommandId commandId, CorrelationId correlationId) => _inner.AssignPrimaryOwner(campaign, characterId, newPrimaryOwnerUserId, reasonCode, actorIsMainGm, expectedOwnershipRevision, commandId, correlationId);
-            public Result<CharacterRecord> AddCharacterCoOwner(CampaignHandle campaign, CharacterId characterId, UserId coOwnerUserId, bool actorIsMainGm, long expectedOwnershipRevision, CommandId commandId, CorrelationId correlationId) => _inner.AddCharacterCoOwner(campaign, characterId, coOwnerUserId, actorIsMainGm, expectedOwnershipRevision, commandId, correlationId);
-            public Result<CharacterRecord> RemoveCharacterCoOwner(CampaignHandle campaign, CharacterId characterId, UserId coOwnerUserId, bool actorIsMainGm, long expectedOwnershipRevision, CommandId commandId, CorrelationId correlationId) => _inner.RemoveCharacterCoOwner(campaign, characterId, coOwnerUserId, actorIsMainGm, expectedOwnershipRevision, commandId, correlationId);
-            public Result<CharacterRecord> GrantPermanentCharacterControl(CampaignHandle campaign, CharacterId characterId, UserId controlUserId, bool actorIsMainGm, long expectedOwnershipRevision, CommandId commandId, CorrelationId correlationId) => _inner.GrantPermanentCharacterControl(campaign, characterId, controlUserId, actorIsMainGm, expectedOwnershipRevision, commandId, correlationId);
-            public Result<CharacterRecord> GrantTemporaryCharacterControl(CampaignHandle campaign, CharacterId characterId, UserId controlUserId, UtcInstant? expiresAt, bool actorIsMainGm, long expectedOwnershipRevision, CommandId commandId, CorrelationId correlationId) => _inner.GrantTemporaryCharacterControl(campaign, characterId, controlUserId, expiresAt, actorIsMainGm, expectedOwnershipRevision, commandId, correlationId);
-            public Result<CharacterRecord> RevokeCharacterControl(CampaignHandle campaign, CharacterId characterId, UserId controlUserId, bool actorIsMainGm, long expectedOwnershipRevision, CommandId commandId, CorrelationId correlationId) => _inner.RevokeCharacterControl(campaign, characterId, controlUserId, actorIsMainGm, expectedOwnershipRevision, commandId, correlationId);
+            public Result<CharacterRecord> AssignPrimaryOwner(CampaignHandle campaign, CharacterId characterId, UserId newPrimaryOwnerUserId, string reasonCode, UserId actorUserId, long expectedOwnershipRevision, CommandId commandId, CorrelationId correlationId) => _inner.AssignPrimaryOwner(campaign, characterId, newPrimaryOwnerUserId, reasonCode, actorUserId, expectedOwnershipRevision, commandId, correlationId);
+            public Result<CharacterRecord> AddCharacterCoOwner(CampaignHandle campaign, CharacterId characterId, UserId coOwnerUserId, UserId actorUserId, long expectedOwnershipRevision, CommandId commandId, CorrelationId correlationId) => _inner.AddCharacterCoOwner(campaign, characterId, coOwnerUserId, actorUserId, expectedOwnershipRevision, commandId, correlationId);
+            public Result<CharacterRecord> RemoveCharacterCoOwner(CampaignHandle campaign, CharacterId characterId, UserId coOwnerUserId, UserId actorUserId, long expectedOwnershipRevision, CommandId commandId, CorrelationId correlationId) => _inner.RemoveCharacterCoOwner(campaign, characterId, coOwnerUserId, actorUserId, expectedOwnershipRevision, commandId, correlationId);
+            public Result<CharacterRecord> GrantPermanentCharacterControl(CampaignHandle campaign, CharacterId characterId, UserId controlUserId, UserId actorUserId, long expectedOwnershipRevision, CommandId commandId, CorrelationId correlationId) => _inner.GrantPermanentCharacterControl(campaign, characterId, controlUserId, actorUserId, expectedOwnershipRevision, commandId, correlationId);
+            public Result<CharacterRecord> GrantTemporaryCharacterControl(CampaignHandle campaign, CharacterId characterId, UserId controlUserId, UtcInstant? expiresAt, UserId actorUserId, long expectedOwnershipRevision, CommandId commandId, CorrelationId correlationId) => _inner.GrantTemporaryCharacterControl(campaign, characterId, controlUserId, expiresAt, actorUserId, expectedOwnershipRevision, commandId, correlationId);
+            public Result<CharacterRecord> RevokeCharacterControl(CampaignHandle campaign, CharacterId characterId, UserId controlUserId, UserId actorUserId, long expectedOwnershipRevision, CommandId commandId, CorrelationId correlationId) => _inner.RevokeCharacterControl(campaign, characterId, controlUserId, actorUserId, expectedOwnershipRevision, commandId, correlationId);
             public Result<CharacterRecord> BindDraftToCampaign(BindDraftToCampaignRequest request, CommandId commandId, CorrelationId correlationId) => _inner.BindDraftToCampaign(request, commandId, correlationId);
             public Result<CharacterRecord> SubmitCharacterDraft(CampaignHandle campaign, CharacterId characterId, long expectedLifecycleRevision, CommandId commandId, CorrelationId correlationId) => _inner.SubmitCharacterDraft(campaign, characterId, expectedLifecycleRevision, commandId, correlationId);
             public Result<CharacterReviewCommentRecord> AddCharacterReviewComment(CampaignHandle campaign, CharacterId characterId, UserId authorUserId, string text, CommandId commandId, CorrelationId correlationId) => _inner.AddCharacterReviewComment(campaign, characterId, authorUserId, text, commandId, correlationId);
-            public Result<CharacterRecord> ApproveCharacterDraft(CampaignHandle campaign, CharacterId characterId, bool actorIsMainGm, long expectedLifecycleRevision, CommandId commandId, CorrelationId correlationId) => _inner.ApproveCharacterDraft(campaign, characterId, actorIsMainGm, expectedLifecycleRevision, commandId, correlationId);
+            public Result<CharacterRecord> ApproveCharacterDraft(CampaignHandle campaign, CharacterId characterId, UserId actorUserId, long expectedLifecycleRevision, CommandId commandId, CorrelationId correlationId) => _inner.ApproveCharacterDraft(campaign, characterId, actorUserId, expectedLifecycleRevision, commandId, correlationId);
             public Result<IReadOnlyList<CharacterReviewCommentRecord>> GetCharacterReviewComments(CampaignHandle campaign, CharacterId characterId, CorrelationId correlationId) => _inner.GetCharacterReviewComments(campaign, characterId, correlationId);
-            public Result<CharacterRecord> GrantDevelopmentPoints(CampaignHandle campaign, CharacterId characterId, long amount, string reason, UserId actorUserId, bool actorIsMainGm, long expectedMechanicsRevision, CommandId commandId, CorrelationId correlationId) => _inner.GrantDevelopmentPoints(campaign, characterId, amount, reason, actorUserId, actorIsMainGm, expectedMechanicsRevision, commandId, correlationId);
-            public Result<CharacterRecord> PurchaseAttributeIncrease(CampaignHandle campaign, CharacterId characterId, AttributeDefinitionId attributeDefinitionId, long toValue, long decidedFromValue, bool exceedsNormalCap, long decidedCost, UserId actorUserId, bool actorIsMainGm, long expectedMechanicsRevision, long expectedAttributeRevision, CommandId commandId, CorrelationId correlationId) => _inner.PurchaseAttributeIncrease(campaign, characterId, attributeDefinitionId, toValue, decidedFromValue, exceedsNormalCap, decidedCost, actorUserId, actorIsMainGm, expectedMechanicsRevision, expectedAttributeRevision, commandId, correlationId);
+            public Result<CharacterRecord> GrantDevelopmentPoints(CampaignHandle campaign, CharacterId characterId, long amount, string reason, UserId actorUserId, long expectedMechanicsRevision, CommandId commandId, CorrelationId correlationId) => _inner.GrantDevelopmentPoints(campaign, characterId, amount, reason, actorUserId, expectedMechanicsRevision, commandId, correlationId);
+            public Result<CharacterRecord> PurchaseAttributeIncrease(CampaignHandle campaign, CharacterId characterId, AttributeDefinitionId attributeDefinitionId, long toValue, long decidedFromValue, bool exceedsNormalCap, long decidedCost, UserId actorUserId, long expectedMechanicsRevision, long expectedAttributeRevision, CommandId commandId, CorrelationId correlationId) => _inner.PurchaseAttributeIncrease(campaign, characterId, attributeDefinitionId, toValue, decidedFromValue, exceedsNormalCap, decidedCost, actorUserId, expectedMechanicsRevision, expectedAttributeRevision, commandId, correlationId);
             public Result<IReadOnlyList<DevelopmentTransactionRecord>> GetDevelopmentLedger(CampaignHandle campaign, CharacterId characterId, CorrelationId correlationId) => _inner.GetDevelopmentLedger(campaign, characterId, correlationId);
-            public Result<CharacterRecord> PurchaseSkillLevel(CampaignHandle campaign, CharacterId characterId, SkillDefinitionId skillDefinitionId, long toLevel, long decidedFromLevel, bool requiresRecommendation, long decidedCost, UserId actorUserId, bool actorIsMainGm, long expectedMechanicsRevision, long expectedSkillRevision, CommandId commandId, CorrelationId correlationId) => _inner.PurchaseSkillLevel(campaign, characterId, skillDefinitionId, toLevel, decidedFromLevel, requiresRecommendation, decidedCost, actorUserId, actorIsMainGm, expectedMechanicsRevision, expectedSkillRevision, commandId, correlationId);
+            public Result<CharacterRecord> PurchaseSkillLevel(CampaignHandle campaign, CharacterId characterId, SkillDefinitionId skillDefinitionId, long toLevel, long decidedFromLevel, bool requiresRecommendation, long decidedCost, UserId actorUserId, long expectedMechanicsRevision, long expectedSkillRevision, CommandId commandId, CorrelationId correlationId) => _inner.PurchaseSkillLevel(campaign, characterId, skillDefinitionId, toLevel, decidedFromLevel, requiresRecommendation, decidedCost, actorUserId, expectedMechanicsRevision, expectedSkillRevision, commandId, correlationId);
             public Result<IReadOnlyList<CriticalSuccessEvidenceRecord>> GetCriticalSuccessEvidence(CampaignHandle campaign, CharacterId characterId, CorrelationId correlationId) => _inner.GetCriticalSuccessEvidence(campaign, characterId, correlationId);
-            public Result<AdvancementRecommendationRecord> RequestSkillAdvancedRecommendation(CampaignHandle campaign, CharacterId characterId, SkillDefinitionId skillDefinitionId, long targetLevel, long decidedFromLevel, long decidedReservedAmount, IReadOnlyList<CriticalSuccessEvidenceId> evidenceIds, UserId actorUserId, bool actorIsMainGm, long expectedMechanicsRevision, CommandId commandId, CorrelationId correlationId) => _inner.RequestSkillAdvancedRecommendation(campaign, characterId, skillDefinitionId, targetLevel, decidedFromLevel, decidedReservedAmount, evidenceIds, actorUserId, actorIsMainGm, expectedMechanicsRevision, commandId, correlationId);
-            public Result<CharacterRecord> ResolveAdvancementRecommendation(CampaignHandle campaign, CharacterId characterId, AdvancementRecommendationId recommendationId, bool approve, bool spendReservedPoints, UserId actorUserId, bool actorIsMainGm, long expectedMechanicsRevision, long expectedRecommendationRevision, CommandId commandId, CorrelationId correlationId) => _inner.ResolveAdvancementRecommendation(campaign, characterId, recommendationId, approve, spendReservedPoints, actorUserId, actorIsMainGm, expectedMechanicsRevision, expectedRecommendationRevision, commandId, correlationId);
+            public Result<AdvancementRecommendationRecord> RequestSkillAdvancedRecommendation(CampaignHandle campaign, CharacterId characterId, SkillDefinitionId skillDefinitionId, long targetLevel, long decidedFromLevel, long decidedReservedAmount, IReadOnlyList<CriticalSuccessEvidenceId> evidenceIds, UserId actorUserId, long expectedMechanicsRevision, CommandId commandId, CorrelationId correlationId) => _inner.RequestSkillAdvancedRecommendation(campaign, characterId, skillDefinitionId, targetLevel, decidedFromLevel, decidedReservedAmount, evidenceIds, actorUserId, expectedMechanicsRevision, commandId, correlationId);
+            public Result<CharacterRecord> ResolveAdvancementRecommendation(CampaignHandle campaign, CharacterId characterId, AdvancementRecommendationId recommendationId, bool approve, bool spendReservedPoints, UserId actorUserId, long expectedMechanicsRevision, long expectedRecommendationRevision, CommandId commandId, CorrelationId correlationId) => _inner.ResolveAdvancementRecommendation(campaign, characterId, recommendationId, approve, spendReservedPoints, actorUserId, expectedMechanicsRevision, expectedRecommendationRevision, commandId, correlationId);
             public Result<AdvancementRecommendationRecord> GetAdvancementRecommendation(CampaignHandle campaign, CharacterId characterId, AdvancementRecommendationId recommendationId, CorrelationId correlationId) => _inner.GetAdvancementRecommendation(campaign, characterId, recommendationId, correlationId);
             public Result<IReadOnlyList<AdvancementPurchase>> GetAdvancementPurchases(CampaignHandle campaign, CharacterId characterId, CorrelationId correlationId) => _inner.GetAdvancementPurchases(campaign, characterId, correlationId);
-            public Result<CharacterRecord> RevertAdvancementPurchase(CampaignHandle campaign, CharacterId characterId, AdvancementPurchaseId purchaseId, string reasonCode, UserId actorUserId, bool actorIsMainGm, long expectedMechanicsRevision, CommandId commandId, CorrelationId correlationId) => _inner.RevertAdvancementPurchase(campaign, characterId, purchaseId, reasonCode, actorUserId, actorIsMainGm, expectedMechanicsRevision, commandId, correlationId);
-            public Result<CharacterRecord> ApplyCharacterRespec(CampaignHandle campaign, CharacterId characterId, IReadOnlyList<CharacterRespecTarget> targets, CharacterRespecPreview decidedPlan, long decidedMechanicsRevision, string reasonCode, UserId actorUserId, bool actorIsMainGm, long expectedMechanicsRevision, CommandId commandId, CorrelationId correlationId) => _inner.ApplyCharacterRespec(campaign, characterId, targets, decidedPlan, decidedMechanicsRevision, reasonCode, actorUserId, actorIsMainGm, expectedMechanicsRevision, commandId, correlationId);
-            public Result<CharacterRecord> AcquireAbility(CampaignHandle campaign, CharacterId characterId, AbilityDefinitionId abilityDefinitionId, SourceKind sourceKind, string? sourceRef, RankMode rankMode, long? numericRank, string? namedRankKey, string configuration, long progressionPurchaseCost, UserId actorUserId, bool actorIsMainGm, long? expectedMechanicsRevision, long expectedCharacterAbilitiesRevision, CommandId commandId, CorrelationId correlationId) => _inner.AcquireAbility(campaign, characterId, abilityDefinitionId, sourceKind, sourceRef, rankMode, numericRank, namedRankKey, configuration, progressionPurchaseCost, actorUserId, actorIsMainGm, expectedMechanicsRevision, expectedCharacterAbilitiesRevision, commandId, correlationId);
-            public Result<CharacterRecord> RemoveAbility(CampaignHandle campaign, CharacterId characterId, CharacterAbilityId characterAbilityId, UserId actorUserId, bool actorIsMainGm, long expectedCharacterAbilitiesRevision, CommandId commandId, CorrelationId correlationId) => _inner.RemoveAbility(campaign, characterId, characterAbilityId, actorUserId, actorIsMainGm, expectedCharacterAbilitiesRevision, commandId, correlationId);
-            public Result<CharacterRecord> LinkAbilityActivationSource(CampaignHandle campaign, CharacterId characterId, CharacterAbilityId characterAbilityId, ContentDefinitionRef activationDefinitionRef, UserId actorUserId, bool actorIsMainGm, long expectedCharacterAbilitiesRevision, CommandId commandId, CorrelationId correlationId) => _inner.LinkAbilityActivationSource(campaign, characterId, characterAbilityId, activationDefinitionRef, actorUserId, actorIsMainGm, expectedCharacterAbilitiesRevision, commandId, correlationId);
-            public Result<CharacterRecord> InitializeCharacterResource(CampaignHandle campaign, CharacterId characterId, ResourceDefinitionId resourceDefinitionId, long baseMaximum, long minimumValue, RecoveryRule recoveryRule, UserId actorUserId, bool actorIsMainGm, long expectedCharacterResourcesRevision, CommandId commandId, CorrelationId correlationId)
+            public Result<CharacterRecord> RevertAdvancementPurchase(CampaignHandle campaign, CharacterId characterId, AdvancementPurchaseId purchaseId, string reasonCode, UserId actorUserId, long expectedMechanicsRevision, CommandId commandId, CorrelationId correlationId) => _inner.RevertAdvancementPurchase(campaign, characterId, purchaseId, reasonCode, actorUserId, expectedMechanicsRevision, commandId, correlationId);
+            public Result<CharacterRecord> ApplyCharacterRespec(CampaignHandle campaign, CharacterId characterId, IReadOnlyList<CharacterRespecTarget> targets, CharacterRespecPreview decidedPlan, long decidedMechanicsRevision, string reasonCode, UserId actorUserId, long expectedMechanicsRevision, CommandId commandId, CorrelationId correlationId) => _inner.ApplyCharacterRespec(campaign, characterId, targets, decidedPlan, decidedMechanicsRevision, reasonCode, actorUserId, expectedMechanicsRevision, commandId, correlationId);
+            public Result<CharacterRecord> AcquireAbility(CampaignHandle campaign, CharacterId characterId, AbilityDefinitionId abilityDefinitionId, SourceKind sourceKind, string? sourceRef, RankMode rankMode, long? numericRank, string? namedRankKey, string configuration, long progressionPurchaseCost, UserId actorUserId, long? expectedMechanicsRevision, long expectedCharacterAbilitiesRevision, CommandId commandId, CorrelationId correlationId) => _inner.AcquireAbility(campaign, characterId, abilityDefinitionId, sourceKind, sourceRef, rankMode, numericRank, namedRankKey, configuration, progressionPurchaseCost, actorUserId, expectedMechanicsRevision, expectedCharacterAbilitiesRevision, commandId, correlationId);
+            public Result<CharacterRecord> RemoveAbility(CampaignHandle campaign, CharacterId characterId, CharacterAbilityId characterAbilityId, UserId actorUserId, long expectedCharacterAbilitiesRevision, CommandId commandId, CorrelationId correlationId) => _inner.RemoveAbility(campaign, characterId, characterAbilityId, actorUserId, expectedCharacterAbilitiesRevision, commandId, correlationId);
+            public Result<CharacterRecord> LinkAbilityActivationSource(CampaignHandle campaign, CharacterId characterId, CharacterAbilityId characterAbilityId, ContentDefinitionRef activationDefinitionRef, UserId actorUserId, long expectedCharacterAbilitiesRevision, CommandId commandId, CorrelationId correlationId) => _inner.LinkAbilityActivationSource(campaign, characterId, characterAbilityId, activationDefinitionRef, actorUserId, expectedCharacterAbilitiesRevision, commandId, correlationId);
+            public Result<CharacterRecord> InitializeCharacterResource(CampaignHandle campaign, CharacterId characterId, ResourceDefinitionId resourceDefinitionId, long baseMaximum, long minimumValue, RecoveryRule recoveryRule, UserId actorUserId, long expectedCharacterResourcesRevision, CommandId commandId, CorrelationId correlationId)
             {
-                ResourceCalls.Add(new ResourceCall(campaign, characterId, resourceDefinitionId, baseMaximum, minimumValue, recoveryRule, actorUserId, actorIsMainGm, expectedCharacterResourcesRevision, commandId, correlationId));
-                return _inner.InitializeCharacterResource(campaign, characterId, resourceDefinitionId, baseMaximum, minimumValue, recoveryRule, actorUserId, actorIsMainGm, expectedCharacterResourcesRevision, commandId, correlationId);
+                ResourceCalls.Add(new ResourceCall(campaign, characterId, resourceDefinitionId, baseMaximum, minimumValue, recoveryRule, actorUserId, expectedCharacterResourcesRevision, commandId, correlationId));
+                return _inner.InitializeCharacterResource(campaign, characterId, resourceDefinitionId, baseMaximum, minimumValue, recoveryRule, actorUserId, expectedCharacterResourcesRevision, commandId, correlationId);
             }
-            public Result<CharacterRecord> SetResourceCurrentValue(CampaignHandle campaign, CharacterId characterId, CharacterResourceId characterResourceId, long newCurrentValue, UserId actorUserId, bool actorIsMainGm, long expectedCharacterResourcesRevision, CommandId commandId, CorrelationId correlationId) => _inner.SetResourceCurrentValue(campaign, characterId, characterResourceId, newCurrentValue, actorUserId, actorIsMainGm, expectedCharacterResourcesRevision, commandId, correlationId);
-            public Result<CharacterRecord> SetResourceMaximum(CampaignHandle campaign, CharacterId characterId, CharacterResourceId characterResourceId, long newBaseMaximum, long newPermanentMaximumAdjustment, UserId actorUserId, bool actorIsMainGm, long expectedCharacterResourcesRevision, CommandId commandId, CorrelationId correlationId) => _inner.SetResourceMaximum(campaign, characterId, characterResourceId, newBaseMaximum, newPermanentMaximumAdjustment, actorUserId, actorIsMainGm, expectedCharacterResourcesRevision, commandId, correlationId);
-            public Result<CharacterRecord> InitializeCharacterAnatomy(CampaignHandle campaign, CharacterId characterId, AnatomyProfileDefinitionId anatomyProfileDefinitionId, string anatomyProfileVersion, IReadOnlyList<BodyPart> bodyParts, UserId actorUserId, bool actorIsMainGm, long expectedCharacterAnatomyRevision, CommandId commandId, CorrelationId correlationId)
+            public Result<CharacterRecord> SetResourceCurrentValue(CampaignHandle campaign, CharacterId characterId, CharacterResourceId characterResourceId, long newCurrentValue, UserId actorUserId, long expectedCharacterResourcesRevision, CommandId commandId, CorrelationId correlationId) => _inner.SetResourceCurrentValue(campaign, characterId, characterResourceId, newCurrentValue, actorUserId, expectedCharacterResourcesRevision, commandId, correlationId);
+            public Result<CharacterRecord> SetResourceMaximum(CampaignHandle campaign, CharacterId characterId, CharacterResourceId characterResourceId, long newBaseMaximum, long newPermanentMaximumAdjustment, UserId actorUserId, long expectedCharacterResourcesRevision, CommandId commandId, CorrelationId correlationId) => _inner.SetResourceMaximum(campaign, characterId, characterResourceId, newBaseMaximum, newPermanentMaximumAdjustment, actorUserId, expectedCharacterResourcesRevision, commandId, correlationId);
+            public Result<CharacterRecord> InitializeCharacterAnatomy(CampaignHandle campaign, CharacterId characterId, AnatomyProfileDefinitionId anatomyProfileDefinitionId, string anatomyProfileVersion, IReadOnlyList<BodyPart> bodyParts, UserId actorUserId, long expectedCharacterAnatomyRevision, CommandId commandId, CorrelationId correlationId)
             {
-                AnatomyCalls.Add(new AnatomyCall(campaign, characterId, anatomyProfileDefinitionId, anatomyProfileVersion, bodyParts, actorUserId, actorIsMainGm, expectedCharacterAnatomyRevision, commandId, correlationId));
-                return _inner.InitializeCharacterAnatomy(campaign, characterId, anatomyProfileDefinitionId, anatomyProfileVersion, bodyParts, actorUserId, actorIsMainGm, expectedCharacterAnatomyRevision, commandId, correlationId);
+                AnatomyCalls.Add(new AnatomyCall(campaign, characterId, anatomyProfileDefinitionId, anatomyProfileVersion, bodyParts, actorUserId, expectedCharacterAnatomyRevision, commandId, correlationId));
+                return _inner.InitializeCharacterAnatomy(campaign, characterId, anatomyProfileDefinitionId, anatomyProfileVersion, bodyParts, actorUserId, expectedCharacterAnatomyRevision, commandId, correlationId);
             }
-            public Result<CharacterRecord> AddBodyPart(CampaignHandle campaign, CharacterId characterId, BodyPartId bodyPartId, string name, long damageLimit, BodyPartId? attachedToBodyPartId, string properties, UserId actorUserId, bool actorIsMainGm, long expectedCharacterAnatomyRevision, CommandId commandId, CorrelationId correlationId) => _inner.AddBodyPart(campaign, characterId, bodyPartId, name, damageLimit, attachedToBodyPartId, properties, actorUserId, actorIsMainGm, expectedCharacterAnatomyRevision, commandId, correlationId);
-            public Result<CharacterRecord> RemoveBodyPart(CampaignHandle campaign, CharacterId characterId, BodyPartId bodyPartId, UserId actorUserId, bool actorIsMainGm, long expectedCharacterAnatomyRevision, CommandId commandId, CorrelationId correlationId) => _inner.RemoveBodyPart(campaign, characterId, bodyPartId, actorUserId, actorIsMainGm, expectedCharacterAnatomyRevision, commandId, correlationId);
-            public Result<CharacterRecord> UpdateBodyPart(CampaignHandle campaign, CharacterId characterId, BodyPartId bodyPartId, long? newDamageLimit, string? newProperties, UserId actorUserId, bool actorIsMainGm, long expectedCharacterAnatomyRevision, CommandId commandId, CorrelationId correlationId) => _inner.UpdateBodyPart(campaign, characterId, bodyPartId, newDamageLimit, newProperties, actorUserId, actorIsMainGm, expectedCharacterAnatomyRevision, commandId, correlationId);
-            public Result<CharacterRecord> ReplaceAnatomyProfile(CampaignHandle campaign, CharacterId characterId, AnatomyProfileDefinitionId newAnatomyProfileDefinitionId, string newAnatomyProfileVersion, IReadOnlyList<BodyPart> newBodyParts, UserId actorUserId, bool actorIsMainGm, long expectedCharacterAnatomyRevision, CommandId commandId, CorrelationId correlationId) => _inner.ReplaceAnatomyProfile(campaign, characterId, newAnatomyProfileDefinitionId, newAnatomyProfileVersion, newBodyParts, actorUserId, actorIsMainGm, expectedCharacterAnatomyRevision, commandId, correlationId);
-            public Result<CharacterRecord> ApplyPermanentModification(CampaignHandle campaign, CharacterId characterId, BodyPartId attachedToBodyPartId, string kind, string description, UserId actorUserId, bool actorIsMainGm, long expectedCharacterAnatomyRevision, CommandId commandId, CorrelationId correlationId) => _inner.ApplyPermanentModification(campaign, characterId, attachedToBodyPartId, kind, description, actorUserId, actorIsMainGm, expectedCharacterAnatomyRevision, commandId, correlationId);
-            public Result<CharacterRecord> ArchiveCharacter(CampaignHandle campaign, CharacterId characterId, UserId actorUserId, bool actorIsMainGm, long expectedLifecycleRevision, CommandId commandId, CorrelationId correlationId) => _inner.ArchiveCharacter(campaign, characterId, actorUserId, actorIsMainGm, expectedLifecycleRevision, commandId, correlationId);
-            public Result DeleteCharacterPermanently(CampaignHandle campaign, CharacterId characterId, string reasonCode, UserId actorUserId, bool actorIsMainGm, long expectedLifecycleRevision, CommandId commandId, CorrelationId correlationId) => _inner.DeleteCharacterPermanently(campaign, characterId, reasonCode, actorUserId, actorIsMainGm, expectedLifecycleRevision, commandId, correlationId);
-            public Result<CharacterRecord> TransitionCharacterToDead(CampaignHandle campaign, CharacterId characterId, LifecycleDeathIssuerKind issuerKind, UserId actorUserId, bool actorIsMainGm, long expectedLifecycleRevision, CommandId commandId, CorrelationId correlationId) => _inner.TransitionCharacterToDead(campaign, characterId, issuerKind, actorUserId, actorIsMainGm, expectedLifecycleRevision, commandId, correlationId);
+            public Result<CharacterRecord> AddBodyPart(CampaignHandle campaign, CharacterId characterId, BodyPartId bodyPartId, string name, long damageLimit, BodyPartId? attachedToBodyPartId, string properties, UserId actorUserId, long expectedCharacterAnatomyRevision, CommandId commandId, CorrelationId correlationId) => _inner.AddBodyPart(campaign, characterId, bodyPartId, name, damageLimit, attachedToBodyPartId, properties, actorUserId, expectedCharacterAnatomyRevision, commandId, correlationId);
+            public Result<CharacterRecord> RemoveBodyPart(CampaignHandle campaign, CharacterId characterId, BodyPartId bodyPartId, UserId actorUserId, long expectedCharacterAnatomyRevision, CommandId commandId, CorrelationId correlationId) => _inner.RemoveBodyPart(campaign, characterId, bodyPartId, actorUserId, expectedCharacterAnatomyRevision, commandId, correlationId);
+            public Result<CharacterRecord> UpdateBodyPart(CampaignHandle campaign, CharacterId characterId, BodyPartId bodyPartId, long? newDamageLimit, string? newProperties, UserId actorUserId, long expectedCharacterAnatomyRevision, CommandId commandId, CorrelationId correlationId) => _inner.UpdateBodyPart(campaign, characterId, bodyPartId, newDamageLimit, newProperties, actorUserId, expectedCharacterAnatomyRevision, commandId, correlationId);
+            public Result<CharacterRecord> ReplaceAnatomyProfile(CampaignHandle campaign, CharacterId characterId, AnatomyProfileDefinitionId newAnatomyProfileDefinitionId, string newAnatomyProfileVersion, IReadOnlyList<BodyPart> newBodyParts, UserId actorUserId, long expectedCharacterAnatomyRevision, CommandId commandId, CorrelationId correlationId) => _inner.ReplaceAnatomyProfile(campaign, characterId, newAnatomyProfileDefinitionId, newAnatomyProfileVersion, newBodyParts, actorUserId, expectedCharacterAnatomyRevision, commandId, correlationId);
+            public Result<CharacterRecord> ApplyPermanentModification(CampaignHandle campaign, CharacterId characterId, BodyPartId attachedToBodyPartId, string kind, string description, UserId actorUserId, long expectedCharacterAnatomyRevision, CommandId commandId, CorrelationId correlationId) => _inner.ApplyPermanentModification(campaign, characterId, attachedToBodyPartId, kind, description, actorUserId, expectedCharacterAnatomyRevision, commandId, correlationId);
+            public Result<CharacterRecord> ArchiveCharacter(CampaignHandle campaign, CharacterId characterId, UserId actorUserId, long expectedLifecycleRevision, CommandId commandId, CorrelationId correlationId) => _inner.ArchiveCharacter(campaign, characterId, actorUserId, expectedLifecycleRevision, commandId, correlationId);
+            public Result DeleteCharacterPermanently(CampaignHandle campaign, CharacterId characterId, string reasonCode, UserId actorUserId, long expectedLifecycleRevision, CommandId commandId, CorrelationId correlationId) => _inner.DeleteCharacterPermanently(campaign, characterId, reasonCode, actorUserId, expectedLifecycleRevision, commandId, correlationId);
+            public Result<CharacterRecord> TransitionCharacterToDead(CampaignHandle campaign, CharacterId characterId, LifecycleDeathIssuerKind issuerKind, UserId actorUserId, long expectedLifecycleRevision, CommandId commandId, CorrelationId correlationId) => _inner.TransitionCharacterToDead(campaign, characterId, issuerKind, actorUserId, expectedLifecycleRevision, commandId, correlationId);
             public Result<CharacterRecord> RestoreDeadCharacter(RestoreDeadCharacterRequest request, CommandId commandId, CorrelationId correlationId) => _inner.RestoreDeadCharacter(request, commandId, correlationId);
             public Result<CharacterExportBundle> ExportCharacter(CampaignHandle campaign, CharacterId characterId, string bundleDirectoryPath, ExportActorContext actorContext, CorrelationId correlationId) => _inner.ExportCharacter(campaign, characterId, bundleDirectoryPath, actorContext, correlationId);
             public Result<CharacterRecord> ImportCharacter(ImportCharacterRequest request, CommandId bindCommandId, CommandId applyStateCommandId, CorrelationId correlationId) => _inner.ImportCharacter(request, bindCommandId, applyStateCommandId, correlationId);
-            public Result<CharacterRecord> ApplyCharacterRulesetMigration(CampaignHandle campaign, CharacterId characterId, string targetRulesetVersion, string decidedSourceRulesetVersion, long decidedMechanicsRevision, long decidedCharacterAbilitiesRevision, long decidedCharacterResourcesRevision, bool hasUnresolvedDecisions, int definitionMappingCount, UserId actorUserId, bool actorIsMainGm, CommandId commandId, CorrelationId correlationId) => _inner.ApplyCharacterRulesetMigration(campaign, characterId, targetRulesetVersion, decidedSourceRulesetVersion, decidedMechanicsRevision, decidedCharacterAbilitiesRevision, decidedCharacterResourcesRevision, hasUnresolvedDecisions, definitionMappingCount, actorUserId, actorIsMainGm, commandId, correlationId);
-            public Result<CharacterRecord> RevertCharacterRulesetMigration(CampaignHandle campaign, CharacterId characterId, CommandId migrationCommandId, string reasonCode, UserId actorUserId, bool actorIsMainGm, long expectedCharacterRevision, CommandId commandId, CorrelationId correlationId) => _inner.RevertCharacterRulesetMigration(campaign, characterId, migrationCommandId, reasonCode, actorUserId, actorIsMainGm, expectedCharacterRevision, commandId, correlationId);
+            public Result<CharacterRecord> ApplyCharacterRulesetMigration(CampaignHandle campaign, CharacterId characterId, string targetRulesetVersion, string decidedSourceRulesetVersion, long decidedMechanicsRevision, long decidedCharacterAbilitiesRevision, long decidedCharacterResourcesRevision, bool hasUnresolvedDecisions, int definitionMappingCount, UserId actorUserId, CommandId commandId, CorrelationId correlationId) => _inner.ApplyCharacterRulesetMigration(campaign, characterId, targetRulesetVersion, decidedSourceRulesetVersion, decidedMechanicsRevision, decidedCharacterAbilitiesRevision, decidedCharacterResourcesRevision, hasUnresolvedDecisions, definitionMappingCount, actorUserId, commandId, correlationId);
+            public Result<CharacterRecord> RevertCharacterRulesetMigration(CampaignHandle campaign, CharacterId characterId, CommandId migrationCommandId, string reasonCode, UserId actorUserId, long expectedCharacterRevision, CommandId commandId, CorrelationId correlationId) => _inner.RevertCharacterRulesetMigration(campaign, characterId, migrationCommandId, reasonCode, actorUserId, expectedCharacterRevision, commandId, correlationId);
         }
     }
 }

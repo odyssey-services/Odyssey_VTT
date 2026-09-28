@@ -46,8 +46,8 @@ namespace Odyssey.Tests.Persistence
             Result<CampaignHandle> created = _campaignRepository.Create(new CreateCampaignRequest(_campaignDir, "Migration Service Test Campaign", "ruleset.core", "1.0.0", "0.1.0", global::Odyssey.Application.Identity.DevIdentityProvider.AssignHost()), NewCommandId(), TestCorrelationId);
             Assert.That(created.IsSuccess, Is.True);
             _campaign = created.Value;
-            _repo = new SqliteCharacterRepository(Clock);
-            _gm = NewUserId();
+            _repo = new SqliteCharacterRepository(Clock, _campaignRepository);
+            _gm = global::Odyssey.Application.Identity.DevIdentityProvider.AssignHost(); // ODY-S10-102: the campaign's host is its stored MainGm
         }
 
         [TearDown]
@@ -70,11 +70,11 @@ namespace Odyssey.Tests.Persistence
             var bind = new BindDraftToCampaignRequest(_campaign, CharacterKind.PlayerCharacter, "Migration Character", "Humanoid", NewUserId(), CharacterCreationSeed.None(), null, null);
             Result<CharacterRecord> bound = _repo.BindDraftToCampaign(bind, NewCommandId(), TestCorrelationId);
             Assert.That(bound.IsSuccess, Is.True);
-            Result<CharacterRecord> granted = _repo.GrantDevelopmentPoints(_campaign, bound.Value.CharacterId, 30, "grant", _gm, true, bound.Value.Revisions.MechanicsRevision, NewCommandId(), TestCorrelationId);
+            Result<CharacterRecord> granted = _repo.GrantDevelopmentPoints(_campaign, bound.Value.CharacterId, 30, "grant", global::Odyssey.Application.Identity.DevIdentityProvider.AssignHost(), bound.Value.Revisions.MechanicsRevision, NewCommandId(), TestCorrelationId);
             Assert.That(granted.IsSuccess, Is.True);
-            Result<CharacterRecord> attr = CharacterAdvancementService.PurchaseAttributeIncrease(_repo, _campaign, bound.Value.CharacterId, Strength, 2, _gm, true, granted.Value.Revisions.MechanicsRevision, 0, NewCommandId(), TestCorrelationId);
+            Result<CharacterRecord> attr = CharacterAdvancementService.PurchaseAttributeIncrease(_repo, _campaign, bound.Value.CharacterId, Strength, 2, global::Odyssey.Application.Identity.DevIdentityProvider.AssignHost(), granted.Value.Revisions.MechanicsRevision, 0, NewCommandId(), TestCorrelationId);
             Assert.That(attr.IsSuccess, Is.True);
-            Result<CharacterRecord> skill = CharacterAdvancementService.PurchaseSkillLevel(_repo, _campaign, bound.Value.CharacterId, Tactics, 1, _gm, true, attr.Value.Revisions.MechanicsRevision, 0, NewCommandId(), TestCorrelationId);
+            Result<CharacterRecord> skill = CharacterAdvancementService.PurchaseSkillLevel(_repo, _campaign, bound.Value.CharacterId, Tactics, 1, global::Odyssey.Application.Identity.DevIdentityProvider.AssignHost(), attr.Value.Revisions.MechanicsRevision, 0, NewCommandId(), TestCorrelationId);
             Assert.That(skill.IsSuccess, Is.True);
             return skill.Value;
         }
@@ -82,7 +82,7 @@ namespace Odyssey.Tests.Persistence
         private void BuyStealth(CharacterRecord character)
         {
             CharacterRecord c = Reload(character);
-            Assert.That(CharacterAdvancementService.PurchaseSkillLevel(_repo, _campaign, c.CharacterId, Stealth, 1, _gm, true, c.Revisions.MechanicsRevision, 0, NewCommandId(), TestCorrelationId).IsSuccess, Is.True);
+            Assert.That(CharacterAdvancementService.PurchaseSkillLevel(_repo, _campaign, c.CharacterId, Stealth, 1, global::Odyssey.Application.Identity.DevIdentityProvider.AssignHost(), c.Revisions.MechanicsRevision, 0, NewCommandId(), TestCorrelationId).IsSuccess, Is.True);
         }
 
         private static RulesetDefinitionCatalog Catalog(params string[] recognizedIds) => new RulesetDefinitionCatalog(
@@ -96,7 +96,7 @@ namespace Odyssey.Tests.Persistence
         }
 
         private Result<CharacterRecord> Apply(ICharacterRepository repo, CharacterRecord character, string target, RulesetDefinitionCatalog catalog, bool asMainGm = true, CommandId? commandId = null) =>
-            CharacterAdvancementService.ApplyCharacterRulesetMigration(repo, _campaign, character.CharacterId, "ruleset.core", target, catalog, asMainGm ? _gm : NewUserId(), asMainGm, commandId ?? NewCommandId(), TestCorrelationId);
+            CharacterAdvancementService.ApplyCharacterRulesetMigration(repo, _campaign, character.CharacterId, "ruleset.core", target, catalog, asMainGm ? _gm : NewUserId(), commandId ?? NewCommandId(), TestCorrelationId);
 
         [Test] // TC-CHAR-210
         public void PreviewCharacterRulesetMigration_ReturnsTheExactPlan_AndIsAPureRead()
@@ -158,8 +158,8 @@ namespace Odyssey.Tests.Persistence
             Assert.That(Apply(_repo, character, "2.0.0", Catalog("Strength", "Tactics"), asMainGm: false).Error.Code, Is.EqualTo(ErrorCodes.PersistenceCharacterRulesetMigrationDenied));
 
             var missing = CharacterId.NewId(Clock.GetUtcNow());
-            Assert.That(CharacterAdvancementService.ApplyCharacterRulesetMigration(_repo, _campaign, missing, "ruleset.core", "2.0.0", Catalog("Strength"), NewUserId(), false, NewCommandId(), TestCorrelationId).Error.Code, Is.EqualTo(ErrorCodes.PersistenceCharacterRulesetMigrationDenied));
-            Assert.That(CharacterAdvancementService.ApplyCharacterRulesetMigration(_repo, _campaign, missing, "ruleset.core", "2.0.0", Catalog("Strength"), _gm, true, NewCommandId(), TestCorrelationId).Error.Code, Is.EqualTo(ErrorCodes.PersistenceCharacterNotFound));
+            Assert.That(CharacterAdvancementService.ApplyCharacterRulesetMigration(_repo, _campaign, missing, "ruleset.core", "2.0.0", Catalog("Strength"), NewUserId(), NewCommandId(), TestCorrelationId).Error.Code, Is.EqualTo(ErrorCodes.PersistenceCharacterRulesetMigrationDenied));
+            Assert.That(CharacterAdvancementService.ApplyCharacterRulesetMigration(_repo, _campaign, missing, "ruleset.core", "2.0.0", Catalog("Strength"), global::Odyssey.Application.Identity.DevIdentityProvider.AssignHost(), NewCommandId(), TestCorrelationId).Error.Code, Is.EqualTo(ErrorCodes.PersistenceCharacterNotFound));
 
             Assert.That(Snapshot(character), Is.EqualTo(before));
         }
@@ -224,7 +224,7 @@ namespace Odyssey.Tests.Persistence
             CharacterRecord read = Reload(character);
 
             // The repository takes no plan, catalog or hash: the flat values and the state they were built from suffice.
-            Result<CharacterRecord> direct = _repo.ApplyCharacterRulesetMigration(_campaign, character.CharacterId, "3.0.0", read.RulesetVersion, read.Revisions.MechanicsRevision, read.Revisions.CharacterAbilitiesRevision, read.Revisions.CharacterResourcesRevision, false, 2, _gm, true, NewCommandId(), TestCorrelationId);
+            Result<CharacterRecord> direct = _repo.ApplyCharacterRulesetMigration(_campaign, character.CharacterId, "3.0.0", read.RulesetVersion, read.Revisions.MechanicsRevision, read.Revisions.CharacterAbilitiesRevision, read.Revisions.CharacterResourcesRevision, false, 2, global::Odyssey.Application.Identity.DevIdentityProvider.AssignHost(), NewCommandId(), TestCorrelationId);
             Assert.That(direct.IsSuccess, Is.True);
             Assert.That(direct.Value.RulesetVersion, Is.EqualTo("3.0.0"));
 
@@ -268,16 +268,16 @@ namespace Odyssey.Tests.Persistence
             Assert.That(a[8], Is.EqualTo(1), "definitionMappingCount: Strength only");
 
             calls.Clear();
-            CharacterAdvancementService.ApplyCharacterRulesetMigration(recording, _campaign, CharacterId.NewId(Clock.GetUtcNow()), "ruleset.core", "2.0.0", Catalog("Strength"), _gm, true, NewCommandId(), TestCorrelationId);
+            CharacterAdvancementService.ApplyCharacterRulesetMigration(recording, _campaign, CharacterId.NewId(Clock.GetUtcNow()), "ruleset.core", "2.0.0", Catalog("Strength"), global::Odyssey.Application.Identity.DevIdentityProvider.AssignHost(), NewCommandId(), TestCorrelationId);
             Assert.That(calls.Last().Name, Is.EqualTo(nameof(ICharacterRepository.ApplyCharacterRulesetMigration)));
             Assert.That(calls.Last().Args[3], Is.EqualTo(string.Empty));
             Assert.That(calls.Last().Args[4], Is.EqualTo(0L), "a failed read still reaches the repository, with a basis no Character can have");
 
             calls.Clear();
-            Assert.Throws<ArgumentException>(new Action(() => CharacterAdvancementService.ApplyCharacterRulesetMigration(recording, _campaign, character.CharacterId, " ", "2.0.0", Catalog("Strength"), _gm, true, NewCommandId(), TestCorrelationId)));
+            Assert.Throws<ArgumentException>(new Action(() => CharacterAdvancementService.ApplyCharacterRulesetMigration(recording, _campaign, character.CharacterId, " ", "2.0.0", Catalog("Strength"), global::Odyssey.Application.Identity.DevIdentityProvider.AssignHost(), NewCommandId(), TestCorrelationId)));
             Assert.Throws<ArgumentNullException>(new Action(() => CharacterAdvancementService.PreviewCharacterRulesetMigration(recording, _campaign, character.CharacterId, "ruleset.core", "2.0.0", null!, TestCorrelationId)));
             Assert.That(calls, Is.Empty);
-            Assert.Throws<ArgumentNullException>(new Action(() => CharacterAdvancementService.ApplyCharacterRulesetMigration(null!, _campaign, character.CharacterId, "ruleset.core", "2.0.0", Catalog("Strength"), _gm, true, NewCommandId(), TestCorrelationId)));
+            Assert.Throws<ArgumentNullException>(new Action(() => CharacterAdvancementService.ApplyCharacterRulesetMigration(null!, _campaign, character.CharacterId, "ruleset.core", "2.0.0", Catalog("Strength"), global::Odyssey.Application.Identity.DevIdentityProvider.AssignHost(), NewCommandId(), TestCorrelationId)));
             Assert.Throws<ArgumentNullException>(new Action(() => CharacterAdvancementService.PreviewCharacterRulesetMigration(null!, _campaign, character.CharacterId, "ruleset.core", "2.0.0", Catalog("Strength"), TestCorrelationId)));
         }
     }

@@ -48,8 +48,8 @@ namespace Odyssey.Tests.Persistence
             Result<CampaignHandle> created = _campaignRepository.Create(request, NewCommandId(), TestCorrelationId);
             Assert.That(created.IsSuccess, Is.True);
             _campaign = created.Value;
-            _repo = new SqliteCharacterRepository(Clock);
-            _gm = NewUserId();
+            _repo = new SqliteCharacterRepository(Clock, _campaignRepository);
+            _gm = global::Odyssey.Application.Identity.DevIdentityProvider.AssignHost(); // ODY-S10-102: the campaign's host is its stored MainGm
         }
 
         [TearDown]
@@ -73,7 +73,7 @@ namespace Odyssey.Tests.Persistence
         {
             Result<CharacterRecord> created = _repo.CreateCharacter(new CreateCharacterRequest(_campaign, CharacterKind.PlayerCharacter, "Respec Character"), NewCommandId(), TestCorrelationId);
             Assert.That(created.IsSuccess, Is.True);
-            Result<CharacterRecord> granted = _repo.GrantDevelopmentPoints(_campaign, created.Value.CharacterId, points, "Grant", _gm, actorIsMainGm: true, created.Value.Revisions.MechanicsRevision, NewCommandId(), TestCorrelationId);
+            Result<CharacterRecord> granted = _repo.GrantDevelopmentPoints(_campaign, created.Value.CharacterId, points, "Grant", global::Odyssey.Application.Identity.DevIdentityProvider.AssignHost(), created.Value.Revisions.MechanicsRevision, NewCommandId(), TestCorrelationId);
             Assert.That(granted.IsSuccess, Is.True);
             return granted.Value;
         }
@@ -82,14 +82,14 @@ namespace Odyssey.Tests.Persistence
         {
             CharacterRecord c = Reload(character);
             long rev = c.Attributes.FirstOrDefault(a => a.AttributeDefinitionId.Equals(Strength))?.Revision ?? 0;
-            Assert.That(CharacterAdvancementService.PurchaseAttributeIncrease(_repo, _campaign, c.CharacterId, Strength, toValue, _gm, true, c.Revisions.MechanicsRevision, rev, NewCommandId(), TestCorrelationId).IsSuccess, Is.True);
+            Assert.That(CharacterAdvancementService.PurchaseAttributeIncrease(_repo, _campaign, c.CharacterId, Strength, toValue, global::Odyssey.Application.Identity.DevIdentityProvider.AssignHost(), c.Revisions.MechanicsRevision, rev, NewCommandId(), TestCorrelationId).IsSuccess, Is.True);
         }
 
         private void BuySkill(CharacterRecord character, SkillDefinitionId skill, long toLevel)
         {
             CharacterRecord c = Reload(character);
             long rev = c.Skills.FirstOrDefault(s => s.SkillDefinitionId.Equals(skill))?.Revision ?? 0;
-            Assert.That(CharacterAdvancementService.PurchaseSkillLevel(_repo, _campaign, c.CharacterId, skill, toLevel, _gm, true, c.Revisions.MechanicsRevision, rev, NewCommandId(), TestCorrelationId).IsSuccess, Is.True);
+            Assert.That(CharacterAdvancementService.PurchaseSkillLevel(_repo, _campaign, c.CharacterId, skill, toLevel, global::Odyssey.Application.Identity.DevIdentityProvider.AssignHost(), c.Revisions.MechanicsRevision, rev, NewCommandId(), TestCorrelationId).IsSuccess, Is.True);
         }
 
         // Strength bought 0->3 (cost 6) and 3->5 (cost 4); Tactics 0->2 (cost 6); Stealth 0->1 (cost 3).
@@ -124,7 +124,7 @@ namespace Odyssey.Tests.Persistence
         private Result<CharacterRecord> Apply(ICharacterRepository repo, CharacterRecord character, CharacterRespecTarget[] targets, bool asMainGm = true, string reason = Reason, CharacterRecord? revisionBasis = null)
         {
             CharacterRecord c = revisionBasis ?? Reload(character);
-            return CharacterAdvancementService.ApplyCharacterRespec(repo, _campaign, character.CharacterId, targets, reason, asMainGm ? _gm : NewUserId(), asMainGm, c.Revisions.MechanicsRevision, NewCommandId(), TestCorrelationId);
+            return CharacterAdvancementService.ApplyCharacterRespec(repo, _campaign, character.CharacterId, targets, reason, asMainGm ? _gm : NewUserId(), c.Revisions.MechanicsRevision, NewCommandId(), TestCorrelationId);
         }
 
         // ------------------------------------------------------------------ preview
@@ -222,8 +222,8 @@ namespace Odyssey.Tests.Persistence
 
             // Denied and reason-required are reported ahead of everything, exactly as before -- even for a missing character.
             var missing = CharacterId.NewId(Clock.GetUtcNow());
-            Assert.That(CharacterAdvancementService.ApplyCharacterRespec(_repo, _campaign, missing, MultiTargets(), Reason, NewUserId(), false, 1, NewCommandId(), TestCorrelationId).Error.Code, Is.EqualTo(ErrorCodes.PersistenceCharacterAdvancementOperationDenied));
-            Assert.That(CharacterAdvancementService.ApplyCharacterRespec(_repo, _campaign, missing, MultiTargets(), Reason, _gm, true, 1, NewCommandId(), TestCorrelationId).Error.Code, Is.EqualTo(ErrorCodes.PersistenceCharacterNotFound));
+            Assert.That(CharacterAdvancementService.ApplyCharacterRespec(_repo, _campaign, missing, MultiTargets(), Reason, NewUserId(), 1, NewCommandId(), TestCorrelationId).Error.Code, Is.EqualTo(ErrorCodes.PersistenceCharacterAdvancementOperationDenied));
+            Assert.That(CharacterAdvancementService.ApplyCharacterRespec(_repo, _campaign, missing, MultiTargets(), Reason, global::Odyssey.Application.Identity.DevIdentityProvider.AssignHost(), 1, NewCommandId(), TestCorrelationId).Error.Code, Is.EqualTo(ErrorCodes.PersistenceCharacterNotFound));
 
             Assert.That(Snapshot(character), Is.EqualTo(before));
         }
@@ -242,7 +242,7 @@ namespace Odyssey.Tests.Persistence
             CharacterRecord now = Reload(character);
 
             // (a) The stale plan with the revision it was computed at: the locked revision has moved.
-            Result<CharacterRecord> stale = _repo.ApplyCharacterRespec(_campaign, character.CharacterId, MultiTargets(), plan.Value, atPlanTime.Revisions.MechanicsRevision, Reason, _gm, true, now.Revisions.MechanicsRevision, NewCommandId(), TestCorrelationId);
+            Result<CharacterRecord> stale = _repo.ApplyCharacterRespec(_campaign, character.CharacterId, MultiTargets(), plan.Value, atPlanTime.Revisions.MechanicsRevision, Reason, global::Odyssey.Application.Identity.DevIdentityProvider.AssignHost(), now.Revisions.MechanicsRevision, NewCommandId(), TestCorrelationId);
             Assert.That(stale.Error.Code, Is.EqualTo(ErrorCodes.PersistenceCharacterRevisionConflict));
             Assert.That(Snapshot(character), Is.EqualTo(afterCompetitor));
 
@@ -253,7 +253,7 @@ namespace Odyssey.Tests.Persistence
             Assert.That(ok.IsSuccess, Is.True);
             string afterRespec = Snapshot(character);
             CharacterRecord afterRespecRecord = Reload(character);
-            Result<CharacterRecord> replayedOldPlan = _repo.ApplyCharacterRespec(_campaign, character.CharacterId, MultiTargets(), plan.Value, afterRespecRecord.Revisions.MechanicsRevision, Reason, _gm, true, afterRespecRecord.Revisions.MechanicsRevision, NewCommandId(), TestCorrelationId);
+            Result<CharacterRecord> replayedOldPlan = _repo.ApplyCharacterRespec(_campaign, character.CharacterId, MultiTargets(), plan.Value, afterRespecRecord.Revisions.MechanicsRevision, Reason, global::Odyssey.Application.Identity.DevIdentityProvider.AssignHost(), afterRespecRecord.Revisions.MechanicsRevision, NewCommandId(), TestCorrelationId);
             Assert.That(replayedOldPlan.Error.Code, Is.EqualTo(ErrorCodes.PersistenceCharacterRevisionConflict), "its Return entries point at purchases the respec already superseded");
             Assert.That(Snapshot(character), Is.EqualTo(afterRespec));
         }
@@ -317,7 +317,7 @@ namespace Odyssey.Tests.Persistence
                 return (false, null);
             });
 
-            CharacterAdvancementService.ApplyCharacterRespec(recording, _campaign, character.CharacterId, MultiTargets(), Reason, _gm, true, c.Revisions.MechanicsRevision, NewCommandId(), TestCorrelationId);
+            CharacterAdvancementService.ApplyCharacterRespec(recording, _campaign, character.CharacterId, MultiTargets(), Reason, global::Odyssey.Application.Identity.DevIdentityProvider.AssignHost(), c.Revisions.MechanicsRevision, NewCommandId(), TestCorrelationId);
             Assert.That(calls.Select(x => x.Name), Is.EqualTo(new[] { nameof(ICharacterRepository.GetCharacter), nameof(ICharacterRepository.GetAdvancementPurchases), nameof(ICharacterRepository.ApplyCharacterRespec) }));
             object?[] apply = calls.Last().Args;
             var plan = (CharacterRespecPreview)apply[3]!;
@@ -328,7 +328,7 @@ namespace Odyssey.Tests.Persistence
 
             // Unsupported kind: the repository is still called (nothing short-circuits), with an empty plan.
             calls.Clear();
-            CharacterAdvancementService.ApplyCharacterRespec(recording, _campaign, character.CharacterId, new[] { new CharacterRespecTarget(AdvancementOperationKind.AbilityAcquisition, "Fireball", 0) }, Reason, _gm, true, c.Revisions.MechanicsRevision, NewCommandId(), TestCorrelationId);
+            CharacterAdvancementService.ApplyCharacterRespec(recording, _campaign, character.CharacterId, new[] { new CharacterRespecTarget(AdvancementOperationKind.AbilityAcquisition, "Fireball", 0) }, Reason, global::Odyssey.Application.Identity.DevIdentityProvider.AssignHost(), c.Revisions.MechanicsRevision, NewCommandId(), TestCorrelationId);
             var emptyPlan = (CharacterRespecPreview)calls.Last().Args[3]!;
             Assert.That(emptyPlan.Entries, Is.Empty);
             Assert.That(calls.Last().Name, Is.EqualTo(nameof(ICharacterRepository.ApplyCharacterRespec)));
@@ -336,16 +336,16 @@ namespace Odyssey.Tests.Persistence
             // Missing character: still called, with a revision no Character can have.
             calls.Clear();
             var missing = CharacterId.NewId(Clock.GetUtcNow());
-            CharacterAdvancementService.ApplyCharacterRespec(recording, _campaign, missing, MultiTargets(), Reason, _gm, true, 1, NewCommandId(), TestCorrelationId);
+            CharacterAdvancementService.ApplyCharacterRespec(recording, _campaign, missing, MultiTargets(), Reason, global::Odyssey.Application.Identity.DevIdentityProvider.AssignHost(), 1, NewCommandId(), TestCorrelationId);
             Assert.That(calls.Last().Name, Is.EqualTo(nameof(ICharacterRepository.ApplyCharacterRespec)));
             Assert.That(calls.Last().Args[4], Is.EqualTo(0L));
 
             // Invalid input throws before any repository call; a null repository is rejected.
             calls.Clear();
-            Assert.Throws<ArgumentException>(new Action(() => CharacterAdvancementService.ApplyCharacterRespec(recording, _campaign, character.CharacterId, new CharacterRespecTarget[0], Reason, _gm, true, 1, NewCommandId(), TestCorrelationId)));
+            Assert.Throws<ArgumentException>(new Action(() => CharacterAdvancementService.ApplyCharacterRespec(recording, _campaign, character.CharacterId, new CharacterRespecTarget[0], Reason, global::Odyssey.Application.Identity.DevIdentityProvider.AssignHost(), 1, NewCommandId(), TestCorrelationId)));
             Assert.Throws<ArgumentException>(new Action(() => CharacterAdvancementService.PreviewCharacterRespec(recording, _campaign, character.CharacterId, new CharacterRespecTarget[0], TestCorrelationId)));
             Assert.That(calls, Is.Empty);
-            Assert.Throws<ArgumentNullException>(new Action(() => CharacterAdvancementService.ApplyCharacterRespec(null!, _campaign, character.CharacterId, MultiTargets(), Reason, _gm, true, 1, NewCommandId(), TestCorrelationId)));
+            Assert.Throws<ArgumentNullException>(new Action(() => CharacterAdvancementService.ApplyCharacterRespec(null!, _campaign, character.CharacterId, MultiTargets(), Reason, global::Odyssey.Application.Identity.DevIdentityProvider.AssignHost(), 1, NewCommandId(), TestCorrelationId)));
             Assert.Throws<ArgumentNullException>(new Action(() => CharacterAdvancementService.PreviewCharacterRespec(null!, _campaign, character.CharacterId, MultiTargets(), TestCorrelationId)));
         }
     }

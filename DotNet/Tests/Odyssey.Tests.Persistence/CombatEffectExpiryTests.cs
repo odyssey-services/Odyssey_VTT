@@ -44,7 +44,7 @@ namespace Odyssey.Tests.Persistence
             Result<CampaignHandle> campaign = new SqliteCampaignRepository(Clock).Create(new CreateCampaignRequest(_root, "combat-effect-expiry", "ruleset.core", "1.0.0", "0.1.0", global::Odyssey.Application.Identity.DevIdentityProvider.AssignHost()), Command(), Corr);
             Assert.That(campaign.IsSuccess, Is.True);
             _campaign = campaign.Value;
-            _characters = new SqliteCharacterRepository(Clock);
+            _characters = new SqliteCharacterRepository(Clock, new SqliteCampaignRepository(Clock));
             _encounters = new SqliteCombatEncounterRepository(Clock);
             _activeEffects = new SqliteActiveEffectRepository(Clock);
             _reader = new SqliteCombatEncounterLifecycleReader(_encounters);
@@ -245,7 +245,7 @@ namespace Odyssey.Tests.Persistence
         {
             CharacterId id = _characters.CreateCharacter(new CreateCharacterRequest(_campaign, CharacterKind.PlayerCharacter, name), Command(), Corr).Value.CharacterId;
             CharacterRecord current = _characters.GetCharacter(_campaign, id, Corr).Value;
-            return _characters.ApproveCharacterDraft(_campaign, id, true, current.Revisions.LifecycleRevision, Command(), Corr).Value.CharacterId;
+            return _characters.ApproveCharacterDraft(_campaign, id, global::Odyssey.Application.Identity.DevIdentityProvider.AssignHost(), current.Revisions.LifecycleRevision, Command(), Corr).Value.CharacterId;
         }
 
         private ActiveEffectRecord PersistCombatEffect(CombatEncounterId encounterId, CharacterId? source, CharacterId? target, long appliedRoundOrdinal, long appliedLifecycleEventId, int requiredCount)
