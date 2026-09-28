@@ -99,6 +99,16 @@ namespace Odyssey.Application.Persistence
         Result<TokenRecord> SetTokenPortrait(CampaignHandle campaign, TokenId tokenId, AssetId? portraitAssetId, long expectedRevision, CommandId commandId, CorrelationId correlationId);
 
         /// <summary>
+        /// ODY-S08-105: sets a token's draw order (<see cref="TokenRecord.ZOrder"/>), by exact precedent of <see cref="SetTokenPortrait"/>: a separate method, revision-gated (<c>TokenRevisionConflict</c>), idempotent per <paramref name="commandId"/>.
+        /// </summary>
+        Result<TokenRecord> SetTokenZOrder(CampaignHandle campaign, TokenId tokenId, long zOrder, long expectedRevision, CommandId commandId, CorrelationId correlationId);
+
+        /// <summary>
+        /// ODY-S08-105: sets a token's visual scale (<see cref="TokenRecord.Scale"/>), same shape as <see cref="SetTokenZOrder"/>. <paramref name="scale"/> outside [<see cref="TokenRecord.MinScale"/>, <see cref="TokenRecord.MaxScale"/>] or non-finite throws <see cref="ArgumentOutOfRangeException"/> (a caller bug: the UI clamps first).
+        /// </summary>
+        Result<TokenRecord> SetTokenScale(CampaignHandle campaign, TokenId tokenId, double scale, long expectedRevision, CommandId commandId, CorrelationId correlationId);
+
+        /// <summary>
         /// ODY-S08-101: read-only lookup of one Scene by id -- the counterpart of
         /// <see cref="GetToken"/> that did not exist until now. Needed so a client
         /// can read <see cref="SceneRecord.BackgroundAssetId"/> (there was no other
@@ -181,9 +191,10 @@ namespace Odyssey.Application.Persistence
 
     public sealed class TokenRecord
     {
-        public TokenRecord(TokenId tokenId, SceneId sceneId, CampaignId campaignId, TokenPosition position, UserId controllerUserId, long revision, UtcInstant createdAt, UtcInstant updatedAt, CharacterId? characterId = null, AssetId? portraitAssetId = null)
+        public TokenRecord(TokenId tokenId, SceneId sceneId, CampaignId campaignId, TokenPosition position, UserId controllerUserId, long revision, UtcInstant createdAt, UtcInstant updatedAt, CharacterId? characterId = null, AssetId? portraitAssetId = null, long zOrder = 0, double scale = 1.0)
         {
             if (!tokenId.IsValid) throw new ArgumentException("TokenId is required.", nameof(tokenId));
+            if (double.IsNaN(scale) || double.IsInfinity(scale) || scale < MinScale || scale > MaxScale) throw new ArgumentOutOfRangeException(nameof(scale));
             if (portraitAssetId.HasValue && !portraitAssetId.Value.IsValid) throw new ArgumentException("PortraitAssetId must be valid when supplied.", nameof(portraitAssetId));
             if (!sceneId.IsValid) throw new ArgumentException("SceneId is required.", nameof(sceneId));
             if (!campaignId.IsValid) throw new ArgumentException("CampaignId is required.", nameof(campaignId));
@@ -201,7 +212,15 @@ namespace Odyssey.Application.Persistence
             UpdatedAt = updatedAt;
             CharacterId = characterId;
             PortraitAssetId = portraitAssetId;
+            ZOrder = zOrder;
+            Scale = scale;
         }
+
+        /// <summary>ODY-S08-105: inclusive lower bound of <see cref="Scale"/>. Below half the base size a token is too small to hit or read.</summary>
+        public const double MinScale = 0.5;
+
+        /// <summary>ODY-S08-105: inclusive upper bound of <see cref="Scale"/>. Three times the base size covers a Large/Huge creature without one token swallowing the board.</summary>
+        public const double MaxScale = 3.0;
 
         public TokenId TokenId { get; }
         public SceneId SceneId { get; }
@@ -224,6 +243,12 @@ namespace Odyssey.Application.Persistence
 
         /// <summary>ODY-S07-106: the token's own validated portrait (set via <see cref="ISceneRepository.SetTokenPortrait"/>), or `null`. Independent of the linked Character's portrait -- never auto-inherited.</summary>
         public AssetId? PortraitAssetId { get; }
+
+        /// <summary>ODY-S08-105: draw order within the scene -- a higher value is drawn on top. A new token gets max+1 of its scene; set via <see cref="ISceneRepository.SetTokenZOrder"/>.</summary>
+        public long ZOrder { get; }
+
+        /// <summary>ODY-S08-105: visual size multiplier, in [<see cref="MinScale"/>, <see cref="MaxScale"/>], default 1.0; set via <see cref="ISceneRepository.SetTokenScale"/>. Purely visual -- no effect on movement or occupancy.</summary>
+        public double Scale { get; }
     }
 
     public sealed class AssetManifestEntryRecord

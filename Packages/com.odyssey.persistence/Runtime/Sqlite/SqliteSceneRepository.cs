@@ -129,8 +129,9 @@ namespace Odyssey.Persistence.Sqlite
                         using (var insert = connection.CreateCommand())
                         {
                             insert.Transaction = transaction;
-                            insert.CommandText = "INSERT INTO Token (TokenId, SceneId, CampaignId, PositionX, PositionY, ControllerUserId, Revision, CreatedAt, UpdatedAt, LastCommandId, CharacterId) " +
-                                                  "VALUES ($tokenId, $sceneId, $campaignId, $x, $y, $controllerUserId, $revision, $createdAt, $updatedAt, $lastCommandId, $characterId);";
+                            insert.CommandText = "INSERT INTO Token (TokenId, SceneId, CampaignId, PositionX, PositionY, ControllerUserId, Revision, CreatedAt, UpdatedAt, LastCommandId, CharacterId, ZOrder, Scale) " +
+                                                  "VALUES ($tokenId, $sceneId, $campaignId, $x, $y, $controllerUserId, $revision, $createdAt, $updatedAt, $lastCommandId, $characterId, " +
+                                                  "(SELECT COALESCE(MAX(ZOrder), 0) + 1 FROM Token WHERE SceneId = $sceneId), 1.0);";
                             insert.Parameters.AddWithValue("$tokenId", tokenId.ToString());
                             insert.Parameters.AddWithValue("$sceneId", sceneId.ToString());
                             insert.Parameters.AddWithValue("$campaignId", campaign.CampaignId.ToString());
@@ -145,7 +146,16 @@ namespace Odyssey.Persistence.Sqlite
                             insert.ExecuteNonQuery();
                         }
 
-                        var record = new TokenRecord(tokenId, sceneId, campaign.CampaignId, initialPosition, controllerUserId, revision, now, now, characterId);
+                        long zOrder;
+                        using (var readZ = connection.CreateCommand())
+                        {
+                            readZ.Transaction = transaction;
+                            readZ.CommandText = "SELECT ZOrder FROM Token WHERE TokenId = $tokenId;";
+                            readZ.Parameters.AddWithValue("$tokenId", tokenId.ToString());
+                            zOrder = Convert.ToInt64(readZ.ExecuteScalar(), CultureInfo.InvariantCulture);
+                        }
+
+                        var record = new TokenRecord(tokenId, sceneId, campaign.CampaignId, initialPosition, controllerUserId, revision, now, now, characterId, null, zOrder, 1.0);
                         string payloadJson = "{\"tokenId\":\"" + tokenId + "\",\"sceneId\":\"" + sceneId + "\",\"controllerUserId\":\"" + controllerUserId + "\",\"x\":" +
                                               initialPosition.X.ToString(CultureInfo.InvariantCulture) + ",\"y\":" + initialPosition.Y.ToString(CultureInfo.InvariantCulture) + "}";
                         return Result<PipelineWrite<TokenRecord>>.Success(new PipelineWrite<TokenRecord>(
@@ -200,7 +210,7 @@ namespace Odyssey.Persistence.Sqlite
                 EnsureSceneTokenTables(connection);
 
                 using var select = connection.CreateCommand();
-                select.CommandText = "SELECT TokenId, SceneId, PositionX, PositionY, ControllerUserId, Revision, CreatedAt, UpdatedAt, CharacterId, PortraitAssetId FROM Token WHERE TokenId = $tokenId LIMIT 1;";
+                select.CommandText = "SELECT TokenId, SceneId, PositionX, PositionY, ControllerUserId, Revision, CreatedAt, UpdatedAt, CharacterId, PortraitAssetId, ZOrder, Scale FROM Token WHERE TokenId = $tokenId LIMIT 1;";
                 select.Parameters.AddWithValue("$tokenId", tokenId.ToString());
                 using SqliteDataReader reader = select.ExecuteReader();
                 if (!reader.Read())
@@ -242,10 +252,12 @@ namespace Odyssey.Persistence.Sqlite
                         UtcInstant createdAt;
                         CharacterId? characterId;
                         AssetId? portraitAssetId;
+                        long zOrder;
+                        double scale;
                         using (var select = connection.CreateCommand())
                         {
                             select.Transaction = transaction;
-                            select.CommandText = "SELECT SceneId, ControllerUserId, Revision, CreatedAt, CharacterId, PortraitAssetId FROM Token WHERE TokenId = $tokenId LIMIT 1;";
+                            select.CommandText = "SELECT SceneId, ControllerUserId, Revision, CreatedAt, CharacterId, PortraitAssetId, ZOrder, Scale FROM Token WHERE TokenId = $tokenId LIMIT 1;";
                             select.Parameters.AddWithValue("$tokenId", tokenId.ToString());
                             using SqliteDataReader reader = select.ExecuteReader();
                             if (!reader.Read())
@@ -263,6 +275,8 @@ namespace Odyssey.Persistence.Sqlite
                             createdAt = UtcInstant.Parse(reader.GetString(3));
                             characterId = reader.IsDBNull(4) ? (CharacterId?)null : CharacterId.Parse(reader.GetString(4));
                             portraitAssetId = reader.IsDBNull(5) ? (AssetId?)null : AssetId.Parse(reader.GetString(5));
+                            zOrder = reader.GetInt64(6);
+                            scale = reader.GetDouble(7);
                         }
 
                         // ADR-002 section 10.2: the final, atomic optimistic-
@@ -291,7 +305,7 @@ namespace Odyssey.Persistence.Sqlite
                             update.ExecuteNonQuery();
                         }
 
-                        var record = new TokenRecord(tokenId, sceneId, campaign.CampaignId, newPosition, controllerUserId, newRevision, createdAt, now, characterId, portraitAssetId);
+                        var record = new TokenRecord(tokenId, sceneId, campaign.CampaignId, newPosition, controllerUserId, newRevision, createdAt, now, characterId, portraitAssetId, zOrder, scale);
                         string payloadJson = "{\"tokenId\":\"" + tokenId + "\",\"x\":" + newPosition.X.ToString(CultureInfo.InvariantCulture) +
                                               ",\"y\":" + newPosition.Y.ToString(CultureInfo.InvariantCulture) + "}";
                         return Result<PipelineWrite<TokenRecord>>.Success(new PipelineWrite<TokenRecord>(
@@ -453,7 +467,7 @@ namespace Odyssey.Persistence.Sqlite
                         using (var select = connection.CreateCommand())
                         {
                             select.Transaction = transaction;
-                            select.CommandText = "SELECT TokenId, SceneId, PositionX, PositionY, ControllerUserId, Revision, CreatedAt, UpdatedAt, CharacterId, PortraitAssetId FROM Token WHERE TokenId = $tokenId LIMIT 1;";
+                            select.CommandText = "SELECT TokenId, SceneId, PositionX, PositionY, ControllerUserId, Revision, CreatedAt, UpdatedAt, CharacterId, PortraitAssetId, ZOrder, Scale FROM Token WHERE TokenId = $tokenId LIMIT 1;";
                             select.Parameters.AddWithValue("$tokenId", tokenId.ToString());
                             using SqliteDataReader reader = select.ExecuteReader();
                             if (!reader.Read())
@@ -516,11 +530,148 @@ namespace Odyssey.Persistence.Sqlite
                             insertRef.ExecuteNonQuery();
                         }
 
-                        var record = new TokenRecord(tokenId, current.SceneId, campaign.CampaignId, current.Position, current.ControllerUserId, newRevision, current.CreatedAt, now, current.CharacterId, portraitAssetId);
+                        var record = new TokenRecord(tokenId, current.SceneId, campaign.CampaignId, current.Position, current.ControllerUserId, newRevision, current.CreatedAt, now, current.CharacterId, portraitAssetId, current.ZOrder, current.Scale);
                         string payloadJson = "{\"tokenId\":\"" + tokenId + "\",\"portraitAssetId\":" +
                                               (portraitAssetId.HasValue ? JsonString(portraitAssetId.Value.ToString()) : "null") + "}";
                         return Result<PipelineWrite<TokenRecord>>.Success(new PipelineWrite<TokenRecord>(
                             record, "odyssey.persistence.token_portrait_set", payloadJson, tokenId.ToString(),
+                            aggregateType: "token", aggregateId: tokenId.ToString(), aggregateRevision: newRevision));
+                    });
+            }
+            catch (Exception ex) when (ex is IOException || ex is UnauthorizedAccessException || ex is SqliteException)
+            {
+                return Result<TokenRecord>.Failure(PersistenceFailures.SceneIoFailed(correlationId));
+            }
+        }
+
+        public Result<TokenRecord> SetTokenZOrder(CampaignHandle campaign, TokenId tokenId, long zOrder, long expectedRevision, CommandId commandId, CorrelationId correlationId)
+        {
+            if (campaign == null) throw new ArgumentNullException(nameof(campaign));
+            if (!tokenId.IsValid) throw new ArgumentException("TokenId is required.", nameof(tokenId));
+            if (expectedRevision < 1) throw new ArgumentOutOfRangeException(nameof(expectedRevision));
+            if (!commandId.IsValid) throw new ArgumentException("CommandId is required.", nameof(commandId));
+
+            try
+            {
+                using SqliteConnection connection = OpenConnection(campaign.RootPath);
+                EnsureSceneTokenTables(connection);
+
+                return _pipeline.Execute(
+                    connection,
+                    campaign.CampaignId,
+                    commandId,
+                    correlationId,
+                    tryReplay: transaction => ReplayToken(connection, transaction, "TokenId = $tokenId", campaign.CampaignId, commandId, correlationId, tokenId),
+                    apply: transaction =>
+                    {
+                        TokenRecord current;
+                        using (var select = connection.CreateCommand())
+                        {
+                            select.Transaction = transaction;
+                            select.CommandText = "SELECT TokenId, SceneId, PositionX, PositionY, ControllerUserId, Revision, CreatedAt, UpdatedAt, CharacterId, PortraitAssetId, ZOrder, Scale FROM Token WHERE TokenId = $tokenId LIMIT 1;";
+                            select.Parameters.AddWithValue("$tokenId", tokenId.ToString());
+                            using SqliteDataReader reader = select.ExecuteReader();
+                            if (!reader.Read())
+                            {
+                                return Result<PipelineWrite<TokenRecord>>.Failure(PersistenceFailures.TokenNotFound(correlationId));
+                            }
+
+                            current = ReadTokenRecord(reader, campaign.CampaignId);
+                        }
+
+                        if (current.Revision != expectedRevision)
+                        {
+                            return Result<PipelineWrite<TokenRecord>>.Failure(PersistenceFailures.TokenRevisionConflict(correlationId));
+                        }
+
+                        UtcInstant now = _clock.GetUtcNow();
+                        long newRevision = current.Revision + 1;
+
+                        using (var update = connection.CreateCommand())
+                        {
+                            update.Transaction = transaction;
+                            update.CommandText = "UPDATE Token SET ZOrder = $zOrder, Revision = $revision, UpdatedAt = $updatedAt, LastCommandId = $lastCommandId WHERE TokenId = $tokenId;";
+                            update.Parameters.AddWithValue("$zOrder", zOrder);
+                            update.Parameters.AddWithValue("$revision", newRevision);
+                            update.Parameters.AddWithValue("$updatedAt", now.ToString());
+                            update.Parameters.AddWithValue("$lastCommandId", commandId.ToString());
+                            update.Parameters.AddWithValue("$tokenId", tokenId.ToString());
+                            update.ExecuteNonQuery();
+                        }
+
+                        var record = new TokenRecord(tokenId, current.SceneId, campaign.CampaignId, current.Position, current.ControllerUserId, newRevision, current.CreatedAt, now, current.CharacterId, current.PortraitAssetId, zOrder, current.Scale);
+                        string payloadJson = "{\"tokenId\":\"" + tokenId + "\",\"zOrder\":" + zOrder.ToString(CultureInfo.InvariantCulture) + "}";
+                        return Result<PipelineWrite<TokenRecord>>.Success(new PipelineWrite<TokenRecord>(
+                            record, "odyssey.persistence.token_z_order_set", payloadJson, tokenId.ToString(),
+                            aggregateType: "token", aggregateId: tokenId.ToString(), aggregateRevision: newRevision));
+                    });
+            }
+            catch (Exception ex) when (ex is IOException || ex is UnauthorizedAccessException || ex is SqliteException)
+            {
+                return Result<TokenRecord>.Failure(PersistenceFailures.SceneIoFailed(correlationId));
+            }
+        }
+
+        public Result<TokenRecord> SetTokenScale(CampaignHandle campaign, TokenId tokenId, double scale, long expectedRevision, CommandId commandId, CorrelationId correlationId)
+        {
+            if (campaign == null) throw new ArgumentNullException(nameof(campaign));
+            if (!tokenId.IsValid) throw new ArgumentException("TokenId is required.", nameof(tokenId));
+            if (expectedRevision < 1) throw new ArgumentOutOfRangeException(nameof(expectedRevision));
+            if (!commandId.IsValid) throw new ArgumentException("CommandId is required.", nameof(commandId));
+            if (double.IsNaN(scale) || double.IsInfinity(scale) || scale < TokenRecord.MinScale || scale > TokenRecord.MaxScale) throw new ArgumentOutOfRangeException(nameof(scale));
+
+            try
+            {
+                using SqliteConnection connection = OpenConnection(campaign.RootPath);
+                EnsureSceneTokenTables(connection);
+
+                return _pipeline.Execute(
+                    connection,
+                    campaign.CampaignId,
+                    commandId,
+                    correlationId,
+                    tryReplay: transaction => ReplayToken(connection, transaction, "TokenId = $tokenId", campaign.CampaignId, commandId, correlationId, tokenId),
+                    apply: transaction =>
+                    {
+                        TokenRecord current;
+                        using (var select = connection.CreateCommand())
+                        {
+                            select.Transaction = transaction;
+                            select.CommandText = "SELECT TokenId, SceneId, PositionX, PositionY, ControllerUserId, Revision, CreatedAt, UpdatedAt, CharacterId, PortraitAssetId, ZOrder, Scale FROM Token WHERE TokenId = $tokenId LIMIT 1;";
+                            select.Parameters.AddWithValue("$tokenId", tokenId.ToString());
+                            using SqliteDataReader reader = select.ExecuteReader();
+                            if (!reader.Read())
+                            {
+                                return Result<PipelineWrite<TokenRecord>>.Failure(PersistenceFailures.TokenNotFound(correlationId));
+                            }
+
+                            current = ReadTokenRecord(reader, campaign.CampaignId);
+                        }
+
+                        if (current.Revision != expectedRevision)
+                        {
+                            return Result<PipelineWrite<TokenRecord>>.Failure(PersistenceFailures.TokenRevisionConflict(correlationId));
+                        }
+
+                        UtcInstant now = _clock.GetUtcNow();
+                        long newRevision = current.Revision + 1;
+
+                        using (var update = connection.CreateCommand())
+                        {
+                            update.Transaction = transaction;
+                            update.CommandText = "UPDATE Token SET Scale = $scale, Revision = $revision, UpdatedAt = $updatedAt, LastCommandId = $lastCommandId WHERE TokenId = $tokenId;";
+                            update.Parameters.AddWithValue("$scale", scale);
+                            update.Parameters.AddWithValue("$revision", newRevision);
+                            update.Parameters.AddWithValue("$updatedAt", now.ToString());
+                            update.Parameters.AddWithValue("$lastCommandId", commandId.ToString());
+                            update.Parameters.AddWithValue("$tokenId", tokenId.ToString());
+                            update.ExecuteNonQuery();
+                        }
+
+                        var record = new TokenRecord(tokenId, current.SceneId, campaign.CampaignId, current.Position, current.ControllerUserId, newRevision, current.CreatedAt, now, current.CharacterId, current.PortraitAssetId, current.ZOrder, scale);
+                        string payloadJson = "{\"tokenId\":\"" + tokenId + "\",\"scale\":" + scale.ToString("R", CultureInfo.InvariantCulture) + "}";
+                        return Result<PipelineWrite<TokenRecord>>.Success(new PipelineWrite<TokenRecord>(
+                            record, "odyssey.persistence.token_scale_set", payloadJson, tokenId.ToString(),
                             aggregateType: "token", aggregateId: tokenId.ToString(), aggregateRevision: newRevision));
                     });
             }
@@ -548,7 +699,7 @@ namespace Odyssey.Persistence.Sqlite
                 var tokens = new List<TokenRecord>();
                 using (var select = connection.CreateCommand())
                 {
-                    select.CommandText = "SELECT TokenId, SceneId, PositionX, PositionY, ControllerUserId, Revision, CreatedAt, UpdatedAt, CharacterId, PortraitAssetId FROM Token WHERE SceneId = $sceneId ORDER BY CreatedAt;";
+                    select.CommandText = "SELECT TokenId, SceneId, PositionX, PositionY, ControllerUserId, Revision, CreatedAt, UpdatedAt, CharacterId, PortraitAssetId, ZOrder, Scale FROM Token WHERE SceneId = $sceneId ORDER BY CreatedAt;";
                     select.Parameters.AddWithValue("$sceneId", sceneId.ToString());
                     using SqliteDataReader reader = select.ExecuteReader();
                     while (reader.Read())
@@ -584,7 +735,7 @@ namespace Odyssey.Persistence.Sqlite
                 var tokens = new List<TokenRecord>();
                 using (var select = connection.CreateCommand())
                 {
-                    select.CommandText = "SELECT TokenId, SceneId, PositionX, PositionY, ControllerUserId, Revision, CreatedAt, UpdatedAt, CharacterId, PortraitAssetId FROM Token WHERE CampaignId = $campaignId AND CharacterId = $characterId ORDER BY CreatedAt;";
+                    select.CommandText = "SELECT TokenId, SceneId, PositionX, PositionY, ControllerUserId, Revision, CreatedAt, UpdatedAt, CharacterId, PortraitAssetId, ZOrder, Scale FROM Token WHERE CampaignId = $campaignId AND CharacterId = $characterId ORDER BY CreatedAt;";
                     select.Parameters.AddWithValue("$campaignId", campaign.CampaignId.ToString());
                     select.Parameters.AddWithValue("$characterId", characterId.ToString());
                     using SqliteDataReader reader = select.ExecuteReader();
@@ -813,7 +964,7 @@ namespace Odyssey.Persistence.Sqlite
         {
             using var select = connection.CreateCommand();
             select.Transaction = transaction;
-            select.CommandText = "SELECT TokenId, SceneId, PositionX, PositionY, ControllerUserId, Revision, CreatedAt, UpdatedAt, CharacterId, PortraitAssetId FROM Token WHERE " + whereClause + " LIMIT 1;";
+            select.CommandText = "SELECT TokenId, SceneId, PositionX, PositionY, ControllerUserId, Revision, CreatedAt, UpdatedAt, CharacterId, PortraitAssetId, ZOrder, Scale FROM Token WHERE " + whereClause + " LIMIT 1;";
             if (knownTokenId.HasValue)
             {
                 select.Parameters.AddWithValue("$tokenId", knownTokenId.Value.ToString());
@@ -851,7 +1002,9 @@ namespace Odyssey.Persistence.Sqlite
             UtcInstant updatedAt = UtcInstant.Parse(reader.GetString(7));
             CharacterId? characterId = reader.IsDBNull(8) ? (CharacterId?)null : CharacterId.Parse(reader.GetString(8));
             AssetId? portraitAssetId = reader.IsDBNull(9) ? (AssetId?)null : AssetId.Parse(reader.GetString(9));
-            return new TokenRecord(tokenId, sceneId, campaignId, position, controllerUserId, revision, createdAt, updatedAt, characterId, portraitAssetId);
+            long zOrder = reader.GetInt64(10);
+            double scale = reader.GetDouble(11);
+            return new TokenRecord(tokenId, sceneId, campaignId, position, controllerUserId, revision, createdAt, updatedAt, characterId, portraitAssetId, zOrder, scale);
         }
 
         private static Result<AssetManifestEntryRecord> ReplayAsset(SqliteConnection connection, SqliteTransaction transaction, CommandId commandId, CorrelationId correlationId)
@@ -915,7 +1068,9 @@ CREATE TABLE IF NOT EXISTS Token (
     UpdatedAt TEXT NOT NULL,
     LastCommandId TEXT NOT NULL,
     CharacterId TEXT,
-    PortraitAssetId TEXT
+    PortraitAssetId TEXT,
+    ZOrder INTEGER NOT NULL DEFAULT 0,
+    Scale REAL NOT NULL DEFAULT 1.0
 );";
             command.ExecuteNonQuery();
         }
