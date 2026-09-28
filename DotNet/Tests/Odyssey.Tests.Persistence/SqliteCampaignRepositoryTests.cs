@@ -426,5 +426,69 @@ namespace Odyssey.Tests.Persistence
                 repository.Close(campaign, TestCorrelationId);
             }
         }
+
+        private static long MembershipTableDdlExecutions()
+        {
+            System.Reflection.FieldInfo field = typeof(SqliteCampaignRepository).GetField("_membershipTableDdlExecutions", System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Static)!;
+            Assert.That(field, Is.Not.Null, "the DDL-execution counter of SqliteCampaignRepository must exist");
+            return (long)field.GetValue(null)!;
+        }
+
+        [Test] // TC-PERSIST-050
+        public void MembershipOperations_DoNotReExecuteTheCreateTableDdl_OnEveryCall()
+        {
+            var repository = new SqliteCampaignRepository(Clock);
+            UserId host = NewUserId();
+            // Create makes the table (the DDL runs here, once, for this campaign file).
+            CampaignHandle campaign = CreateCampaignFor(repository, _workDir, host);
+            try
+            {
+                long afterCreate = MembershipTableDdlExecutions();
+
+                for (int i = 0; i < 5; i++)
+                {
+                    Assert.That(repository.GetMemberRole(campaign, host, TestCorrelationId).IsSuccess, Is.True);
+                    Assert.That(repository.ListMembers(campaign, TestCorrelationId).IsSuccess, Is.True);
+                }
+
+                Assert.That(repository.AddMember(campaign, NewUserId(), CampaignMembershipRole.Player, NewCommandId(), TestCorrelationId).IsSuccess, Is.True);
+                Assert.That(repository.GetMemberRole(campaign, host, TestCorrelationId).IsSuccess, Is.True);
+
+                Assert.That(MembershipTableDdlExecutions(), Is.EqualTo(afterCreate), "eleven membership calls on a campaign whose table exists must execute the CREATE TABLE zero times");
+
+                // The counter really counts: dropping the table makes the very next read execute the DDL exactly once,
+                // and the calls after that execute it no more.
+                repository.Close(campaign, TestCorrelationId);
+                using (var connection = new SqliteConnection("Data Source=" + Path.Combine(_workDir, "campaign.db")))
+                {
+                    connection.Open();
+                    using var drop = connection.CreateCommand();
+                    drop.CommandText = "DROP TABLE CampaignMembership;";
+                    drop.ExecuteNonQuery();
+                }
+
+                var reader = new SqliteCampaignRepository(Clock);
+                CampaignHandle reopened = reader.Open(_workDir, TestCorrelationId).Value;
+                try
+                {
+                    long beforeRecreate = MembershipTableDdlExecutions();
+                    Result<CampaignMemberLookup> afterDrop = reader.GetMemberRole(reopened, host, TestCorrelationId);
+                    Assert.That(afterDrop.IsSuccess, Is.True, "behaviour is unchanged for a campaign file without the table: the answer is 'not a member', not an error");
+                    Assert.That(afterDrop.Value.IsMember, Is.False);
+                    Assert.That(MembershipTableDdlExecutions(), Is.EqualTo(beforeRecreate + 1), "the missing table is created by the first read");
+                    Assert.That(reader.ListMembers(reopened, TestCorrelationId).Value.Count, Is.EqualTo(0));
+                    Assert.That(reader.GetMemberRole(reopened, host, TestCorrelationId).IsSuccess, Is.True);
+                    Assert.That(MembershipTableDdlExecutions(), Is.EqualTo(beforeRecreate + 1), "and never again afterwards");
+                }
+                finally
+                {
+                    reader.Close(reopened, TestCorrelationId);
+                }
+            }
+            finally
+            {
+                repository.Close(campaign, TestCorrelationId);
+            }
+        }
     }
 }

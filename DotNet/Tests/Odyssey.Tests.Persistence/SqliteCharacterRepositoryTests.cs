@@ -750,7 +750,7 @@ namespace Odyssey.Tests.Persistence
         private CharacterRecord CreateDraftForGateTests(SqliteCharacterRepository repository) =>
             repository.CreateCharacter(new CreateCharacterRequest(_campaign, CharacterKind.PlayerCharacter, "Gate Character"), NewCommandId(), TestCorrelationId).Value;
 
-        // One representative per logical group of the 19 strictly-MainGM-only gates (ownership transfer, ownership
+        // One representative per logical group of the 18 strictly-MainGM-only gates (ownership transfer, ownership
         // list, draft approval, deletion, ruleset migration, resource, anatomy, advancement). Every gate runs before
         // any state legality, so a denial does not need a fully prepared character.
         private System.Collections.Generic.List<(string Name, ErrorCode DeniedCode, Func<SqliteCharacterRepository, CharacterId, UserId, UserId, ErrorCode?> Call)> StrictOperations() =>
