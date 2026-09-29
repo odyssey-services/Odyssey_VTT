@@ -191,5 +191,12 @@ namespace Odyssey.Application.Results
         public static readonly ErrorCode ObstacleAuthoringDenied = ErrorCode.Parse("obstacle.authoring.denied");
         public static readonly ErrorCode ObstacleToggleDenied = ErrorCode.Parse("obstacle.toggle.denied");
         public static readonly ErrorCode ObstacleToggleNotADoor = ErrorCode.Parse("obstacle.toggle.not_a_door");
+
+        public static readonly ErrorCode PersistenceTokenVisionNotFound = ErrorCode.Parse("persistence.token_vision.not_found");
+        public static readonly ErrorCode PersistenceTokenVisionIoFailed = ErrorCode.Parse("persistence.token_vision.io_failed");
+        public static readonly ErrorCode PersistenceTokenVisionRevisionConflict = ErrorCode.Parse("persistence.token_vision.revision_conflict");
+        public static readonly ErrorCode TokenVisionSetFacingDenied = ErrorCode.Parse("token_vision.set_facing.denied");
+        public static readonly ErrorCode TokenVisionSetVisionParametersDenied = ErrorCode.Parse("token_vision.set_vision_parameters.denied");
+        public static readonly ErrorCode TokenVisionObserverAndTargetNotInSameScene = ErrorCode.Parse("token_vision.observer_and_target.not_in_same_scene");
     }
 }
