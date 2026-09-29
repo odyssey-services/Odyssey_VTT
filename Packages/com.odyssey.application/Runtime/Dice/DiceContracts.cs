@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using Odyssey.Application.Commands;
+using Odyssey.Application.Persistence;
 using Odyssey.Application.Random;
 using Odyssey.Application.Results;
 using Odyssey.Application.Time;
@@ -347,22 +348,22 @@ namespace Odyssey.Application.Dice
 
     public sealed class DecideModifierRequest
     {
-        public DecideModifierRequest(string rollId, string modifierEntryId, UserId decidedByUserId, bool decidedByUserIsMainGm, ModifierDecision decision, int? changedValue, string? reason, CorrelationId correlationId)
+        public DecideModifierRequest(CampaignHandle campaign, string rollId, string modifierEntryId, UserId decidedByUserId, ModifierDecision decision, int? changedValue, string? reason, CorrelationId correlationId)
         {
+            Campaign = campaign ?? throw new ArgumentNullException(nameof(campaign));
             RollId = rollId;
             ModifierEntryId = modifierEntryId;
             DecidedByUserId = decidedByUserId;
-            DecidedByUserIsMainGm = decidedByUserIsMainGm;
             Decision = decision;
             ChangedValue = changedValue;
             Reason = reason;
             CorrelationId = correlationId;
         }
 
+        public CampaignHandle Campaign { get; }
         public string RollId { get; }
         public string ModifierEntryId { get; }
         public UserId DecidedByUserId { get; }
-        public bool DecidedByUserIsMainGm { get; }
         public ModifierDecision Decision { get; }
         public int? ChangedValue { get; }
         public string? Reason { get; }
@@ -371,20 +372,20 @@ namespace Odyssey.Application.Dice
 
     public sealed class ApplyOverrideRequest
     {
-        public ApplyOverrideRequest(string rollId, UserId actorUserId, bool actorIsMainGm, string originalInterpretation, string appliedInterpretation, string? reason, CorrelationId correlationId)
+        public ApplyOverrideRequest(CampaignHandle campaign, string rollId, UserId actorUserId, string originalInterpretation, string appliedInterpretation, string? reason, CorrelationId correlationId)
         {
+            Campaign = campaign ?? throw new ArgumentNullException(nameof(campaign));
             RollId = rollId;
             ActorUserId = actorUserId;
-            ActorIsMainGm = actorIsMainGm;
             OriginalInterpretation = originalInterpretation;
             AppliedInterpretation = appliedInterpretation;
             Reason = reason;
             CorrelationId = correlationId;
         }
 
+        public CampaignHandle Campaign { get; }
         public string RollId { get; }
         public UserId ActorUserId { get; }
-        public bool ActorIsMainGm { get; }
         public string OriginalInterpretation { get; }
         public CorrelationId CorrelationId { get; }
         public string AppliedInterpretation { get; }
@@ -393,20 +394,20 @@ namespace Odyssey.Application.Dice
 
     public sealed class RequestFullRerollRequest
     {
-        public RequestFullRerollRequest(string originalRollId, UserId actorUserId, bool actorIsMainGm, CommandId commandId, RulesetVersion rulesetVersion, RngKeyEpochId rngKeyEpochId, CorrelationId correlationId)
+        public RequestFullRerollRequest(CampaignHandle campaign, string originalRollId, UserId actorUserId, CommandId commandId, RulesetVersion rulesetVersion, RngKeyEpochId rngKeyEpochId, CorrelationId correlationId)
         {
+            Campaign = campaign ?? throw new ArgumentNullException(nameof(campaign));
             OriginalRollId = originalRollId;
             ActorUserId = actorUserId;
-            ActorIsMainGm = actorIsMainGm;
             CommandId = commandId;
             RulesetVersion = rulesetVersion;
             RngKeyEpochId = rngKeyEpochId;
             CorrelationId = correlationId;
         }
 
+        public CampaignHandle Campaign { get; }
         public string OriginalRollId { get; }
         public UserId ActorUserId { get; }
-        public bool ActorIsMainGm { get; }
         public CommandId CommandId { get; }
         public RulesetVersion RulesetVersion { get; }
         public RngKeyEpochId RngKeyEpochId { get; }
@@ -415,18 +416,18 @@ namespace Odyssey.Application.Dice
 
     public sealed class CancelRollRequest
     {
-        public CancelRollRequest(string rollId, UserId actorUserId, bool actorIsMainGm, string? reason, CorrelationId correlationId)
+        public CancelRollRequest(CampaignHandle campaign, string rollId, UserId actorUserId, string? reason, CorrelationId correlationId)
         {
+            Campaign = campaign ?? throw new ArgumentNullException(nameof(campaign));
             RollId = rollId;
             ActorUserId = actorUserId;
-            ActorIsMainGm = actorIsMainGm;
             Reason = reason;
             CorrelationId = correlationId;
         }
 
+        public CampaignHandle Campaign { get; }
         public string RollId { get; }
         public UserId ActorUserId { get; }
-        public bool ActorIsMainGm { get; }
         public string? Reason { get; }
         public CorrelationId CorrelationId { get; }
     }

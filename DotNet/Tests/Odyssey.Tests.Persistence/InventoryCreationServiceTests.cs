@@ -29,6 +29,7 @@ namespace Odyssey.Tests.Persistence
     {
         private static readonly CorrelationId TestCorrelationId = CorrelationId.Parse("corr_0123456789abcdef0123456789abcdef");
         private static readonly IWallClock Clock = new SystemWallClock();
+        private static readonly UserId Host = global::Odyssey.Application.Identity.DevIdentityProvider.AssignHost();
         private static CommandId NewCommandId() => CommandId.Parse("cmd_" + Guid.NewGuid().ToString("N"));
         private static UserId NewUserId() => UserId.Parse("user_" + Guid.NewGuid().ToString("N"));
 
@@ -47,7 +48,7 @@ namespace Odyssey.Tests.Persistence
             Assert.That(created.IsSuccess, Is.True);
             _campaign = created.Value;
             _catalogRepository = new SqliteContentCatalogRepository(Clock);
-            _inventoryRepository = new SqliteInventoryRepository(Clock);
+            _inventoryRepository = new SqliteInventoryRepository(Clock, _campaignRepository);
         }
 
         [TearDown]
@@ -63,7 +64,7 @@ namespace Odyssey.Tests.Persistence
             InventoryRecord inventory = CreateInventory();
             ContentDefinitionRecord item = PublishDefinition(ContentDefinitionType.Item, EncodeItem(isStackable: false));
 
-            Result<ItemInstanceRecord> created = InventoryCreationService.CreateItemInstanceFromDefinition(_catalogRepository, _inventoryRepository, Clock, InstanceRequest(inventory, item));
+            Result<ItemInstanceRecord> created = InventoryCreationService.CreateItemInstanceFromDefinition(_catalogRepository, _inventoryRepository, _campaignRepository, Clock, InstanceRequest(inventory, item));
 
             Assert.That(created.IsSuccess, Is.True);
             Assert.That(created.Value.InventoryId, Is.EqualTo(inventory.InventoryId));
@@ -76,7 +77,7 @@ namespace Odyssey.Tests.Persistence
             InventoryRecord inventory = CreateInventory();
             ContentDefinitionRecord weapon = PublishDefinition(ContentDefinitionType.Weapon, EncodeWeapon());
 
-            Result<ItemInstanceRecord> created = InventoryCreationService.CreateItemInstanceFromDefinition(_catalogRepository, _inventoryRepository, Clock, InstanceRequest(inventory, weapon));
+            Result<ItemInstanceRecord> created = InventoryCreationService.CreateItemInstanceFromDefinition(_catalogRepository, _inventoryRepository, _campaignRepository, Clock, InstanceRequest(inventory, weapon));
 
             Assert.That(created.IsSuccess, Is.True);
             Assert.That(created.Value.MechanicsSnapshot.ContentType, Is.EqualTo(ContentDefinitionType.Weapon));
@@ -88,7 +89,7 @@ namespace Odyssey.Tests.Persistence
             InventoryRecord inventory = CreateInventory();
             ContentDefinitionRecord ammo = PublishDefinition(ContentDefinitionType.Ammo, EncodeAmmo());
 
-            Result<ItemStackRecord> created = InventoryCreationService.CreateItemStackFromDefinition(_catalogRepository, _inventoryRepository, Clock, StackRequest(inventory, ammo, quantity: 7));
+            Result<ItemStackRecord> created = InventoryCreationService.CreateItemStackFromDefinition(_catalogRepository, _inventoryRepository, _campaignRepository, Clock, StackRequest(inventory, ammo, quantity: 7));
 
             Assert.That(created.IsSuccess, Is.True);
             Assert.That(created.Value.Quantity, Is.EqualTo(ItemStackQuantity.Create(7)));
@@ -101,7 +102,7 @@ namespace Odyssey.Tests.Persistence
             InventoryRecord inventory = CreateInventory();
             ContentDefinitionRecord item = PublishDefinition(ContentDefinitionType.Item, EncodeItem(isStackable: false));
 
-            Result<ItemInstanceRecord> created = InventoryCreationService.CreateItemInstanceFromDefinition(_catalogRepository, _inventoryRepository, Clock, InstanceRequest(inventory, item));
+            Result<ItemInstanceRecord> created = InventoryCreationService.CreateItemInstanceFromDefinition(_catalogRepository, _inventoryRepository, _campaignRepository, Clock, InstanceRequest(inventory, item));
 
             Assert.That(created.IsSuccess, Is.True);
             Assert.That(created.Value.SourceItemDefinitionRef.DefinitionId, Is.EqualTo(item.ContentDefinitionId));
@@ -117,7 +118,7 @@ namespace Odyssey.Tests.Persistence
             string propertiesJson = EncodeItem(isStackable: false);
             ContentDefinitionRecord item = PublishDefinition(ContentDefinitionType.Item, propertiesJson);
 
-            Result<ItemInstanceRecord> created = InventoryCreationService.CreateItemInstanceFromDefinition(_catalogRepository, _inventoryRepository, Clock, InstanceRequest(inventory, item));
+            Result<ItemInstanceRecord> created = InventoryCreationService.CreateItemInstanceFromDefinition(_catalogRepository, _inventoryRepository, _campaignRepository, Clock, InstanceRequest(inventory, item));
 
             Assert.That(created.IsSuccess, Is.True);
             Assert.That(created.Value.MechanicsSnapshot.Payload, Is.EqualTo(propertiesJson));
@@ -129,7 +130,7 @@ namespace Odyssey.Tests.Persistence
             InventoryRecord inventory = CreateInventory();
             ContentDefinitionRecord draft = CreateDraft(ContentDefinitionType.Item, EncodeItem(isStackable: false));
 
-            Result<ItemInstanceRecord> created = InventoryCreationService.CreateItemInstanceFromDefinition(_catalogRepository, _inventoryRepository, Clock, InstanceRequest(inventory, draft));
+            Result<ItemInstanceRecord> created = InventoryCreationService.CreateItemInstanceFromDefinition(_catalogRepository, _inventoryRepository, _campaignRepository, Clock, InstanceRequest(inventory, draft));
 
             Assert.That(created.IsFailure, Is.True);
             Assert.That(created.Error.Code, Is.EqualTo(ErrorCodes.InventoryCreateDefinitionNotPublished));
@@ -144,7 +145,7 @@ namespace Odyssey.Tests.Persistence
             Result<ContentDefinitionRecord> archived = ContentCatalogLifecycleService.ArchiveDefinition(_catalogRepository, _campaignRepository, new ArchiveDefinitionRequest(_campaign, published.ContentDefinitionId, "retired", global::Odyssey.Application.Identity.DevIdentityProvider.AssignHost(), NewCommandId(), TestCorrelationId));
             Assert.That(archived.IsSuccess, Is.True);
 
-            Result<ItemInstanceRecord> created = InventoryCreationService.CreateItemInstanceFromDefinition(_catalogRepository, _inventoryRepository, Clock, InstanceRequest(inventory, archived.Value));
+            Result<ItemInstanceRecord> created = InventoryCreationService.CreateItemInstanceFromDefinition(_catalogRepository, _inventoryRepository, _campaignRepository, Clock, InstanceRequest(inventory, archived.Value));
 
             Assert.That(created.IsFailure, Is.True);
             Assert.That(created.Error.Code, Is.EqualTo(ErrorCodes.InventoryCreateDefinitionNotPublished));
@@ -157,7 +158,7 @@ namespace Odyssey.Tests.Persistence
             InventoryRecord inventory = CreateInventory();
             ContentDefinitionId missingId = ContentDefinitionId.NewId(Clock.GetUtcNow());
 
-            Result<ItemInstanceRecord> created = InventoryCreationService.CreateItemInstanceFromDefinition(_catalogRepository, _inventoryRepository, Clock, InstanceRequest(inventory, missingId));
+            Result<ItemInstanceRecord> created = InventoryCreationService.CreateItemInstanceFromDefinition(_catalogRepository, _inventoryRepository, _campaignRepository, Clock, InstanceRequest(inventory, missingId));
 
             Assert.That(created.IsFailure, Is.True);
             Assert.That(created.Error.Code, Is.EqualTo(ErrorCodes.PersistenceContentDefinitionNotFound));
@@ -170,8 +171,8 @@ namespace Odyssey.Tests.Persistence
             InventoryRecord inventory = CreateInventory();
             ContentDefinitionRecord effect = PublishDefinition(ContentDefinitionType.Effect, EncodeEffect());
 
-            Result<ItemInstanceRecord> instance = InventoryCreationService.CreateItemInstanceFromDefinition(_catalogRepository, _inventoryRepository, Clock, InstanceRequest(inventory, effect));
-            Result<ItemStackRecord> stack = InventoryCreationService.CreateItemStackFromDefinition(_catalogRepository, _inventoryRepository, Clock, StackRequest(inventory, effect));
+            Result<ItemInstanceRecord> instance = InventoryCreationService.CreateItemInstanceFromDefinition(_catalogRepository, _inventoryRepository, _campaignRepository, Clock, InstanceRequest(inventory, effect));
+            Result<ItemStackRecord> stack = InventoryCreationService.CreateItemStackFromDefinition(_catalogRepository, _inventoryRepository, _campaignRepository, Clock, StackRequest(inventory, effect));
 
             Assert.That(instance.IsFailure, Is.True);
             Assert.That(instance.Error.Code, Is.EqualTo(ErrorCodes.InventoryCreateDefinitionTypeUnsupported));
@@ -188,7 +189,7 @@ namespace Odyssey.Tests.Persistence
             ContentDefinitionRecord draft = CreateDraft(ContentDefinitionType.Item, EncodeItem(isStackable: false), rulesetCompatibility: new[] { "other.ruleset@9.9.9" });
             MarkPublishedDirectly(draft.ContentDefinitionId, version: 1);
 
-            Result<ItemInstanceRecord> created = InventoryCreationService.CreateItemInstanceFromDefinition(_catalogRepository, _inventoryRepository, Clock, InstanceRequest(inventory, draft));
+            Result<ItemInstanceRecord> created = InventoryCreationService.CreateItemInstanceFromDefinition(_catalogRepository, _inventoryRepository, _campaignRepository, Clock, InstanceRequest(inventory, draft));
 
             Assert.That(created.IsFailure, Is.True);
             Assert.That(created.Error.Code, Is.EqualTo(ErrorCodes.InventoryCreateDefinitionValidationFailed));
@@ -201,7 +202,7 @@ namespace Odyssey.Tests.Persistence
             InventoryRecord inventory = CreateInventory();
             ContentDefinitionRecord item = PublishDefinition(ContentDefinitionType.Item, EncodeItem(isStackable: false));
 
-            Result<ItemInstanceRecord> created = InventoryCreationService.CreateItemInstanceFromDefinition(_catalogRepository, _inventoryRepository, Clock, InstanceRequest(inventory, item, actorIsMainGm: false));
+            Result<ItemInstanceRecord> created = InventoryCreationService.CreateItemInstanceFromDefinition(_catalogRepository, _inventoryRepository, _campaignRepository, Clock, InstanceRequest(inventory, item, actorIsMainGm: false));
 
             Assert.That(created.IsFailure, Is.True);
             Assert.That(created.Error.Code, Is.EqualTo(ErrorCodes.InventoryCreateDenied));
@@ -217,8 +218,8 @@ namespace Odyssey.Tests.Persistence
             ItemInstanceId itemInstanceId = ItemInstanceId.NewId(Clock.GetUtcNow());
             CreateItemInstanceFromDefinitionRequest request = InstanceRequest(inventory, item, commandId: commandId, itemInstanceId: itemInstanceId);
 
-            Result<ItemInstanceRecord> first = InventoryCreationService.CreateItemInstanceFromDefinition(_catalogRepository, _inventoryRepository, Clock, request);
-            Result<ItemInstanceRecord> replay = InventoryCreationService.CreateItemInstanceFromDefinition(_catalogRepository, _inventoryRepository, Clock, request);
+            Result<ItemInstanceRecord> first = InventoryCreationService.CreateItemInstanceFromDefinition(_catalogRepository, _inventoryRepository, _campaignRepository, Clock, request);
+            Result<ItemInstanceRecord> replay = InventoryCreationService.CreateItemInstanceFromDefinition(_catalogRepository, _inventoryRepository, _campaignRepository, Clock, request);
 
             Assert.That(first.IsSuccess, Is.True);
             Assert.That(replay.IsSuccess, Is.True);
@@ -233,8 +234,8 @@ namespace Odyssey.Tests.Persistence
             ContentDefinitionRecord item = PublishDefinition(ContentDefinitionType.Item, EncodeItem(isStackable: false));
             CommandId commandId = NewCommandId();
 
-            Result<ItemInstanceRecord> first = InventoryCreationService.CreateItemInstanceFromDefinition(_catalogRepository, _inventoryRepository, Clock, InstanceRequest(inventory, item, commandId: commandId));
-            Result<ItemInstanceRecord> second = InventoryCreationService.CreateItemInstanceFromDefinition(_catalogRepository, _inventoryRepository, Clock, InstanceRequest(inventory, item, commandId: commandId));
+            Result<ItemInstanceRecord> first = InventoryCreationService.CreateItemInstanceFromDefinition(_catalogRepository, _inventoryRepository, _campaignRepository, Clock, InstanceRequest(inventory, item, commandId: commandId));
+            Result<ItemInstanceRecord> second = InventoryCreationService.CreateItemInstanceFromDefinition(_catalogRepository, _inventoryRepository, _campaignRepository, Clock, InstanceRequest(inventory, item, commandId: commandId));
 
             Assert.That(first.IsSuccess, Is.True);
             Assert.That(second.IsFailure, Is.True);
@@ -248,9 +249,9 @@ namespace Odyssey.Tests.Persistence
             InventoryRecord inventory = CreateInventory();
             ContentDefinitionRecord published = PublishDefinition(ContentDefinitionType.Item, EncodeItem(isStackable: false));
             CreateItemInstanceFromDefinitionRequest request = InstanceRequest(inventory, published, commandId: NewCommandId(), itemInstanceId: ItemInstanceId.NewId(Clock.GetUtcNow()));
-            Result<ItemInstanceRecord> first = InventoryCreationService.CreateItemInstanceFromDefinition(_catalogRepository, _inventoryRepository, Clock, request);
+            Result<ItemInstanceRecord> first = InventoryCreationService.CreateItemInstanceFromDefinition(_catalogRepository, _inventoryRepository, _campaignRepository, Clock, request);
             Result<ContentDefinitionRecord> archived = ContentCatalogLifecycleService.ArchiveDefinition(_catalogRepository, _campaignRepository, new ArchiveDefinitionRequest(_campaign, published.ContentDefinitionId, "retired", global::Odyssey.Application.Identity.DevIdentityProvider.AssignHost(), NewCommandId(), TestCorrelationId));
-            Result<ItemInstanceRecord> replay = InventoryCreationService.CreateItemInstanceFromDefinition(_catalogRepository, _inventoryRepository, Clock, request);
+            Result<ItemInstanceRecord> replay = InventoryCreationService.CreateItemInstanceFromDefinition(_catalogRepository, _inventoryRepository, _campaignRepository, Clock, request);
 
             Assert.That(first.IsSuccess, Is.True);
             Assert.That(archived.IsSuccess, Is.True);
@@ -271,9 +272,9 @@ namespace Odyssey.Tests.Persistence
             InventoryRecord inventory = CreateInventory();
             ContentDefinitionRecord published = PublishDefinition(ContentDefinitionType.Ammo, EncodeAmmo());
             CreateItemStackFromDefinitionRequest request = StackRequest(inventory, published, commandId: NewCommandId(), itemStackId: ItemStackId.NewId(Clock.GetUtcNow()));
-            Result<ItemStackRecord> first = InventoryCreationService.CreateItemStackFromDefinition(_catalogRepository, _inventoryRepository, Clock, request);
+            Result<ItemStackRecord> first = InventoryCreationService.CreateItemStackFromDefinition(_catalogRepository, _inventoryRepository, _campaignRepository, Clock, request);
             Result<ContentDefinitionRecord> archived = ContentCatalogLifecycleService.ArchiveDefinition(_catalogRepository, _campaignRepository, new ArchiveDefinitionRequest(_campaign, published.ContentDefinitionId, "retired", global::Odyssey.Application.Identity.DevIdentityProvider.AssignHost(), NewCommandId(), TestCorrelationId));
-            Result<ItemStackRecord> replay = InventoryCreationService.CreateItemStackFromDefinition(_catalogRepository, _inventoryRepository, Clock, request);
+            Result<ItemStackRecord> replay = InventoryCreationService.CreateItemStackFromDefinition(_catalogRepository, _inventoryRepository, _campaignRepository, Clock, request);
 
             Assert.That(first.IsSuccess, Is.True);
             Assert.That(archived.IsSuccess, Is.True);
@@ -295,9 +296,9 @@ namespace Odyssey.Tests.Persistence
             InventoryRecord inventory = CreateInventory();
             ContentDefinitionRecord published = PublishDefinition(ContentDefinitionType.Item, EncodeItem(isStackable: false));
             CommandId commandId = NewCommandId();
-            Result<ItemInstanceRecord> first = InventoryCreationService.CreateItemInstanceFromDefinition(_catalogRepository, _inventoryRepository, Clock, InstanceRequest(inventory, published, commandId: commandId));
+            Result<ItemInstanceRecord> first = InventoryCreationService.CreateItemInstanceFromDefinition(_catalogRepository, _inventoryRepository, _campaignRepository, Clock, InstanceRequest(inventory, published, commandId: commandId));
             Result<ContentDefinitionRecord> archived = ContentCatalogLifecycleService.ArchiveDefinition(_catalogRepository, _campaignRepository, new ArchiveDefinitionRequest(_campaign, published.ContentDefinitionId, "retired", global::Odyssey.Application.Identity.DevIdentityProvider.AssignHost(), NewCommandId(), TestCorrelationId));
-            Result<ItemInstanceRecord> mismatch = InventoryCreationService.CreateItemInstanceFromDefinition(_catalogRepository, _inventoryRepository, Clock, InstanceRequest(inventory, published, commandId: commandId));
+            Result<ItemInstanceRecord> mismatch = InventoryCreationService.CreateItemInstanceFromDefinition(_catalogRepository, _inventoryRepository, _campaignRepository, Clock, InstanceRequest(inventory, published, commandId: commandId));
 
             Assert.That(first.IsSuccess, Is.True);
             Assert.That(archived.IsSuccess, Is.True);
@@ -312,7 +313,7 @@ namespace Odyssey.Tests.Persistence
             InventoryRecord inventory = CreateInventory();
             ContentDefinitionRecord item = PublishDefinition(ContentDefinitionType.Item, EncodeItem(isStackable: false));
 
-            Result<ItemStackRecord> created = InventoryCreationService.CreateItemStackFromDefinition(_catalogRepository, _inventoryRepository, Clock, StackRequest(inventory, item));
+            Result<ItemStackRecord> created = InventoryCreationService.CreateItemStackFromDefinition(_catalogRepository, _inventoryRepository, _campaignRepository, Clock, StackRequest(inventory, item));
 
             Assert.That(created.IsFailure, Is.True);
             Assert.That(created.Error.Code, Is.EqualTo(ErrorCodes.InventoryCreateDefinitionTypeUnsupported));
@@ -325,7 +326,7 @@ namespace Odyssey.Tests.Persistence
             InventoryRecord inventory = CreateInventory();
             ContentDefinitionRecord item = PublishDefinition(ContentDefinitionType.Item, EncodeItem(isStackable: true, maxStackSize: 2));
 
-            Result<ItemStackRecord> created = InventoryCreationService.CreateItemStackFromDefinition(_catalogRepository, _inventoryRepository, Clock, StackRequest(inventory, item, quantity: 3));
+            Result<ItemStackRecord> created = InventoryCreationService.CreateItemStackFromDefinition(_catalogRepository, _inventoryRepository, _campaignRepository, Clock, StackRequest(inventory, item, quantity: 3));
 
             Assert.That(created.IsFailure, Is.True);
             Assert.That(created.Error.Code, Is.EqualTo(ErrorCodes.InventoryCreateDefinitionTypeUnsupported));
@@ -431,8 +432,7 @@ namespace Odyssey.Tests.Persistence
                 inventory.OwnerRef,
                 InventoryLocationRef.Contained(inventory.InventoryId, "main"),
                 definitionId,
-                NewUserId(),
-                actorIsMainGm,
+                actorIsMainGm ? Host : NewUserId(),
                 commandId ?? NewCommandId(),
                 TestCorrelationId);
         }
@@ -454,8 +454,7 @@ namespace Odyssey.Tests.Persistence
                 InventoryLocationRef.Contained(inventory.InventoryId, "main"),
                 definition.ContentDefinitionId,
                 ItemStackQuantity.Create(quantity),
-                NewUserId(),
-                actorIsMainGm,
+                actorIsMainGm ? Host : NewUserId(),
                 commandId ?? NewCommandId(),
                 TestCorrelationId);
         }

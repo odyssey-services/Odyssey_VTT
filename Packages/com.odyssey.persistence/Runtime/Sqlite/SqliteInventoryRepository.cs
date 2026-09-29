@@ -6,6 +6,7 @@ using Newtonsoft.Json;
 using System.Linq;
 using Microsoft.Data.Sqlite;
 using Odyssey.Application.Commands;
+using Odyssey.Application.Identity;
 using Odyssey.Application.Inventory;
 using Odyssey.Application.Persistence;
 using Odyssey.Application.Results;
@@ -29,13 +30,18 @@ namespace Odyssey.Persistence.Sqlite
         private const string TargetItemInstance = "ItemInstance";
         private const string TargetItemStack = "ItemStack";
         private readonly IWallClock _clock;
+        private readonly ICampaignRepository _campaignRepository;
 
         private readonly IBackupRepository _backupRepository;
         private readonly SqliteSavingPipeline _pipeline;
 
-        public SqliteInventoryRepository(IWallClock clock, IBackupRepository? backupRepository = null)
+        public SqliteInventoryRepository(IWallClock clock, ICampaignRepository campaignRepository, IBackupRepository? backupRepository = null)
         {
             _clock = clock ?? throw new ArgumentNullException(nameof(clock));
+            // ODY-S10-105: MainGM-ness is looked up from the stored campaign membership (never trusted from the
+            // caller), so this identity-critical dependency is required -- the same rule SqliteCharacterRepository
+            // follows since ODY-S10-102.
+            _campaignRepository = campaignRepository ?? throw new ArgumentNullException(nameof(campaignRepository));
             _backupRepository = backupRepository ?? new SqliteBackupRepository(clock);
             _pipeline = new SqliteSavingPipeline(clock);
         }
@@ -49,12 +55,15 @@ namespace Odyssey.Persistence.Sqlite
         /// After successful migration there is no rollback command. A later correction
         /// requires a new ItemDefinition version and another confirmed migration.
         /// </summary>
-        public Result<ItemDefinitionMigrationApplyResult> ApplyItemDefinitionMigration(CampaignHandle campaign, ItemDefinitionMigrationTransition transition, UserId actorUserId, bool actorIsMainGm, CorrelationId correlationId)
+        public Result<ItemDefinitionMigrationApplyResult> ApplyItemDefinitionMigration(CampaignHandle campaign, ItemDefinitionMigrationTransition transition, UserId actorUserId, CorrelationId correlationId)
         {
-            if (!actorIsMainGm) return Result<ItemDefinitionMigrationApplyResult>.Failure(MigrationDenied(correlationId));
             if (campaign == null) throw new ArgumentNullException(nameof(campaign));
             if (transition == null) throw new ArgumentNullException(nameof(transition));
             if (!actorUserId.IsValid) throw new ArgumentException("ActorUserId is required.", nameof(actorUserId));
+
+            Result<bool> mainGmCheck = CampaignMembershipAuthorization.IsMainGm(_campaignRepository, campaign, actorUserId, correlationId);
+            if (mainGmCheck.IsFailure) return Result<ItemDefinitionMigrationApplyResult>.Failure(mainGmCheck.Error);
+            if (!mainGmCheck.Value) return Result<ItemDefinitionMigrationApplyResult>.Failure(MigrationDenied(correlationId));
 
             try
             {
@@ -930,11 +939,10 @@ namespace Odyssey.Persistence.Sqlite
         /// established elsewhere, since a fully-consumed row may no longer exist to re-select -- a small,
         /// dedicated `ItemConsumptionLedger` records the outcome itself, read back directly on replay.
         /// </summary>
-        public Result<ConsumeItemUnitOutcome> ConsumeItemUnit(CampaignHandle campaign, InventoryItemRef item, UserId actorUserId, bool actorIsMainGm, long expectedRevision, CommandId commandId, CorrelationId correlationId)
+        public Result<ConsumeItemUnitOutcome> ConsumeItemUnit(CampaignHandle campaign, InventoryItemRef item, long expectedRevision, CommandId commandId, CorrelationId correlationId)
         {
             if (campaign == null) throw new ArgumentNullException(nameof(campaign));
             if (!item.IsValid) throw new ArgumentException("Item reference is required.", nameof(item));
-            if (!actorUserId.IsValid) throw new ArgumentException("ActorUserId is required.", nameof(actorUserId));
             if (!commandId.IsValid) throw new ArgumentException("CommandId is required.", nameof(commandId));
             if (expectedRevision < 1) throw new ArgumentOutOfRangeException(nameof(expectedRevision));
 

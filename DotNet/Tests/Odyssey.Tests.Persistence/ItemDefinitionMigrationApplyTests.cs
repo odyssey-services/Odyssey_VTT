@@ -58,7 +58,7 @@ namespace Odyssey.Tests.Persistence
             Assert.That(created.IsSuccess, Is.True);
             _campaign = created.Value;
             _catalog = new SqliteContentCatalogRepository(Clock);
-            _inventory = new SqliteInventoryRepository(Clock);
+            _inventory = new SqliteInventoryRepository(Clock, _campaigns);
             _characters = new SqliteCharacterRepository(Clock, _campaigns,
                 deletionDependencyCheckers: new ICharacterDeletionDependencyChecker[] { new InventoryCharacterDeletionDependencyChecker(_inventory) },
                 bodyPartRemovalDependencyCheckers: new IBodyPartRemovalDependencyChecker[] { new InventoryBodyPartRemovalDependencyChecker(_inventory) });
@@ -237,16 +237,16 @@ namespace Odyssey.Tests.Persistence
             ItemInstanceRecord instance = CreateInstance(source, inventory);
             ItemDefinitionMigrationPreview preview = BuildRealPreview(source, target);
             CommandId commandId = NewCommandId();
-            UserId actor = NewUserId();
+            UserId actor = global::Odyssey.Application.Identity.DevIdentityProvider.AssignHost();
 
-            Result<ItemDefinitionMigrationApplyResult> first = _inventory.ApplyItemDefinitionMigration(_campaign, new ItemDefinitionMigrationTransition(preview, commandId), actor, actorIsMainGm: true, Corr);
+            Result<ItemDefinitionMigrationApplyResult> first = _inventory.ApplyItemDefinitionMigration(_campaign, new ItemDefinitionMigrationTransition(preview, commandId), actor, Corr);
             Assert.That(first.IsSuccess, Is.True, first.IsFailure ? first.Error.Code.ToString() : string.Empty);
             Assert.That(BackupCount(), Is.EqualTo(1));
 
             // A real replay is the same actor resubmitting the same CommandId --
             // a different actor reusing a CommandId is a distinct case (identity
             // mismatch), not idempotent replay.
-            Result<ItemDefinitionMigrationApplyResult> replay = _inventory.ApplyItemDefinitionMigration(_campaign, new ItemDefinitionMigrationTransition(preview, commandId), actor, actorIsMainGm: true, Corr);
+            Result<ItemDefinitionMigrationApplyResult> replay = _inventory.ApplyItemDefinitionMigration(_campaign, new ItemDefinitionMigrationTransition(preview, commandId), actor, Corr);
 
             Assert.That(replay.IsSuccess, Is.True);
             Assert.That(replay.Value.BackupId, Is.EqualTo(first.Value.BackupId));
@@ -263,10 +263,10 @@ namespace Odyssey.Tests.Persistence
             InventoryRecord inventory = CreateInventory();
             ItemInstanceRecord instance = CreateInstance(source, inventory);
             ItemDefinitionMigrationPreview preview = BuildRealPreview(source, target);
-            var failingBackupInventory = new SqliteInventoryRepository(Clock, new AlwaysFailingBackupRepository());
+            var failingBackupInventory = new SqliteInventoryRepository(Clock, _campaigns, new AlwaysFailingBackupRepository());
 
             Result<ItemDefinitionMigrationApplyResult> applied = failingBackupInventory.ApplyItemDefinitionMigration(
-                _campaign, new ItemDefinitionMigrationTransition(preview, NewCommandId()), NewUserId(), actorIsMainGm: true, Corr);
+                _campaign, new ItemDefinitionMigrationTransition(preview, NewCommandId()), global::Odyssey.Application.Identity.DevIdentityProvider.AssignHost(), Corr);
 
             Assert.That(applied.IsFailure, Is.True);
             Assert.That(BackupCount(), Is.EqualTo(0));
@@ -299,10 +299,10 @@ namespace Odyssey.Tests.Persistence
             // itself inside the transaction, which is exactly what this proves
             // is not decorative: it independently catches what the earlier,
             // already-passed pre-backup check could not have seen.
-            var raceRepository = new SqliteInventoryRepository(Clock, new BackupThenMutate(new SqliteBackupRepository(Clock), () => ReplaceEquipSlot(equipped, "head")));
+            var raceRepository = new SqliteInventoryRepository(Clock, _campaigns, new BackupThenMutate(new SqliteBackupRepository(Clock), () => ReplaceEquipSlot(equipped, "head")));
 
             Result<ItemDefinitionMigrationApplyResult> applied = raceRepository.ApplyItemDefinitionMigration(
-                _campaign, new ItemDefinitionMigrationTransition(preview, NewCommandId()), NewUserId(), actorIsMainGm: true, Corr);
+                _campaign, new ItemDefinitionMigrationTransition(preview, NewCommandId()), global::Odyssey.Application.Identity.DevIdentityProvider.AssignHost(), Corr);
 
             Assert.That(applied.IsFailure, Is.True);
             Assert.That(applied.Error.Code, Is.EqualTo(ErrorCodes.InventoryMigrationBlocked));
@@ -342,7 +342,8 @@ namespace Odyssey.Tests.Persistence
 
         private Result<ItemDefinitionMigrationApplyResult> Apply(ItemDefinitionMigrationPreview preview, CommandId commandId, bool actorIsMainGm = true)
         {
-            return _inventory.ApplyItemDefinitionMigration(_campaign, new ItemDefinitionMigrationTransition(preview, commandId), NewUserId(), actorIsMainGm, Corr);
+            UserId actorUserId = actorIsMainGm ? global::Odyssey.Application.Identity.DevIdentityProvider.AssignHost() : NewUserId();
+            return _inventory.ApplyItemDefinitionMigration(_campaign, new ItemDefinitionMigrationTransition(preview, commandId), actorUserId, Corr);
         }
 
         private ItemDefinitionMigrationPreview BuildRealPreview(ContentDefinitionRecord source, ContentDefinitionRecord target)
@@ -358,9 +359,9 @@ namespace Odyssey.Tests.Persistence
 
         private EquippedEntryRecord EquipReal(CharacterRecord character, InventoryRecord inventory, ItemInstanceRecord instance, string slot, BodyPartId bodyPart)
         {
-            Result<EquippedEntryRecord> equipped = EquipmentService.Equip(_inventory, _characters, new EquipRequest(
+            Result<EquippedEntryRecord> equipped = EquipmentService.Equip(_inventory, _characters, _campaigns, new EquipRequest(
                 _campaign, InventoryItemRef.ForInstance(instance.ItemInstanceId), inventory.InventoryId, instance.Revision,
-                slot, new[] { bodyPart }, NewUserId(), Clock.GetUtcNow(), NewUserId(), actorIsMainGm: true, NewCommandId(), Corr));
+                slot, new[] { bodyPart }, NewUserId(), Clock.GetUtcNow(), global::Odyssey.Application.Identity.DevIdentityProvider.AssignHost(), NewCommandId(), Corr));
             Assert.That(equipped.IsSuccess, Is.True, equipped.IsFailure ? equipped.Error.Code.ToString() : string.Empty);
             return equipped.Value;
         }
@@ -423,18 +424,18 @@ namespace Odyssey.Tests.Persistence
 
         private ItemInstanceRecord CreateInstance(ContentDefinitionRecord published, InventoryRecord inventory)
         {
-            Result<ItemInstanceRecord> created = InventoryCreationService.CreateItemInstanceFromDefinition(_catalog, _inventory, Clock, new CreateItemInstanceFromDefinitionRequest(
+            Result<ItemInstanceRecord> created = InventoryCreationService.CreateItemInstanceFromDefinition(_catalog, _inventory, _campaigns, Clock, new CreateItemInstanceFromDefinitionRequest(
                 _campaign, ItemInstanceId.NewId(Clock.GetUtcNow()), inventory.InventoryId, inventory.OwnerRef,
-                InventoryLocationRef.Contained(inventory.InventoryId, "main"), published.ContentDefinitionId, NewUserId(), actorIsMainGm: true, NewCommandId(), Corr));
+                InventoryLocationRef.Contained(inventory.InventoryId, "main"), published.ContentDefinitionId, global::Odyssey.Application.Identity.DevIdentityProvider.AssignHost(), NewCommandId(), Corr));
             Assert.That(created.IsSuccess, Is.True, created.IsFailure ? created.Error.Code.ToString() : string.Empty);
             return created.Value;
         }
 
         private ItemStackRecord CreateStack(ContentDefinitionRecord published, InventoryRecord inventory, long quantity)
         {
-            Result<ItemStackRecord> created = InventoryCreationService.CreateItemStackFromDefinition(_catalog, _inventory, Clock, new CreateItemStackFromDefinitionRequest(
+            Result<ItemStackRecord> created = InventoryCreationService.CreateItemStackFromDefinition(_catalog, _inventory, _campaigns, Clock, new CreateItemStackFromDefinitionRequest(
                 _campaign, ItemStackId.NewId(Clock.GetUtcNow()), inventory.InventoryId, inventory.OwnerRef,
-                InventoryLocationRef.Contained(inventory.InventoryId, "main"), published.ContentDefinitionId, ItemStackQuantity.Create(quantity), NewUserId(), actorIsMainGm: true, NewCommandId(), Corr));
+                InventoryLocationRef.Contained(inventory.InventoryId, "main"), published.ContentDefinitionId, ItemStackQuantity.Create(quantity), global::Odyssey.Application.Identity.DevIdentityProvider.AssignHost(), NewCommandId(), Corr));
             Assert.That(created.IsSuccess, Is.True, created.IsFailure ? created.Error.Code.ToString() : string.Empty);
             return created.Value;
         }

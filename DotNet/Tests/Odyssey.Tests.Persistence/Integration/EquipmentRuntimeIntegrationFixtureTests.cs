@@ -62,7 +62,7 @@ namespace Odyssey.Tests.Persistence.Integration
             Assert.That(created.IsSuccess, Is.True);
             _campaign = created.Value;
             _catalog = new SqliteContentCatalogRepository(Clock);
-            _inventory = new SqliteInventoryRepository(Clock);
+            _inventory = new SqliteInventoryRepository(Clock, _campaigns);
             _characters = new SqliteCharacterRepository(Clock, _campaigns,
                 deletionDependencyCheckers: new ICharacterDeletionDependencyChecker[] { new InventoryCharacterDeletionDependencyChecker(_inventory) },
                 bodyPartRemovalDependencyCheckers: new IBodyPartRemovalDependencyChecker[] { new InventoryBodyPartRemovalDependencyChecker(_inventory) });
@@ -109,10 +109,10 @@ namespace Odyssey.Tests.Persistence.Integration
             InventoryRecord inventory = CreateInventory(character.CharacterId);
             ItemInstanceRecord instance = CreateRuntimeItemInstance(published, inventory);
 
-            Result<EquippedEntryRecord> equipped = EquipmentService.Equip(_inventory, _characters, new EquipRequest(
+            Result<EquippedEntryRecord> equipped = EquipmentService.Equip(_inventory, _characters, _campaigns, new EquipRequest(
                 _campaign, InventoryItemRef.ForInstance(instance.ItemInstanceId), inventory.InventoryId, instance.Revision,
                 "chest_slot", new[] { BodyPartId.Parse("Head") }, NewUserId(), Clock.GetUtcNow(),
-                NewUserId(), actorIsMainGm: true, NewCommandId(), Corr));
+                global::Odyssey.Application.Identity.DevIdentityProvider.AssignHost(), NewCommandId(), Corr));
             Assert.That(equipped.IsSuccess, Is.True);
 
             // LeftArm has no internal Character-only dependent (nothing
@@ -144,16 +144,16 @@ namespace Odyssey.Tests.Persistence.Integration
             ItemInstanceRecord instance = CreateRuntimeItemInstance(published, inventory);
             BodyPartId bodyPart = BodyPartId.Parse("Head");
 
-            Result<EquippedEntryRecord> equipped = EquipmentService.Equip(_inventory, _characters, new EquipRequest(
+            Result<EquippedEntryRecord> equipped = EquipmentService.Equip(_inventory, _characters, _campaigns, new EquipRequest(
                 _campaign, InventoryItemRef.ForInstance(instance.ItemInstanceId), inventory.InventoryId, instance.Revision,
                 "chest_slot", new[] { bodyPart }, NewUserId(), Clock.GetUtcNow(),
-                NewUserId(), actorIsMainGm: true, NewCommandId(), Corr));
+                global::Odyssey.Application.Identity.DevIdentityProvider.AssignHost(), NewCommandId(), Corr));
             Assert.That(equipped.IsSuccess, Is.True);
 
-            Result<bool> unequipped = EquipmentService.Unequip(_inventory, new UnequipRequest(
+            Result<bool> unequipped = EquipmentService.Unequip(_inventory, _campaigns, new UnequipRequest(
                 _campaign, InventoryItemRef.ForInstance(instance.ItemInstanceId), inventory.InventoryId,
                 instance.Revision + 1, equipped.Value.Entry.Revision, "main",
-                NewUserId(), actorIsMainGm: true, NewCommandId(), Corr));
+                global::Odyssey.Application.Identity.DevIdentityProvider.AssignHost(), NewCommandId(), Corr));
             Assert.That(unequipped.IsSuccess, Is.True);
 
             Result<ItemInstanceRecord> reread = _inventory.GetItemInstance(_campaign, instance.ItemInstanceId, Corr);
@@ -165,10 +165,10 @@ namespace Odyssey.Tests.Persistence.Integration
 
         private void RunFullEquipRoundTrip(CharacterRecord character, InventoryRecord inventory, ItemInstanceRecord instance, BodyPartId bodyPart)
         {
-            Result<EquippedEntryRecord> equipped = EquipmentService.Equip(_inventory, _characters, new EquipRequest(
+            Result<EquippedEntryRecord> equipped = EquipmentService.Equip(_inventory, _characters, _campaigns, new EquipRequest(
                 _campaign, InventoryItemRef.ForInstance(instance.ItemInstanceId), inventory.InventoryId, instance.Revision,
                 "chest_slot", new[] { bodyPart }, NewUserId(), Clock.GetUtcNow(),
-                NewUserId(), actorIsMainGm: true, NewCommandId(), Corr));
+                global::Odyssey.Application.Identity.DevIdentityProvider.AssignHost(), NewCommandId(), Corr));
             Assert.That(equipped.IsSuccess, Is.True, "Equip must succeed through the real MainGM-gated EquipmentService");
             Assert.That(equipped.Value.Entry.BodyPartRefs, Is.EqualTo(new[] { bodyPart }));
 
@@ -184,10 +184,10 @@ namespace Odyssey.Tests.Persistence.Integration
             }
             Assert.That(stillHasBodyPart, Is.True, "a blocked RemoveBodyPart must not remove the body part");
 
-            Result<bool> unequipped = EquipmentService.Unequip(_inventory, new UnequipRequest(
+            Result<bool> unequipped = EquipmentService.Unequip(_inventory, _campaigns, new UnequipRequest(
                 _campaign, InventoryItemRef.ForInstance(instance.ItemInstanceId), inventory.InventoryId,
                 instance.Revision + 1, equipped.Value.Entry.Revision, "main",
-                NewUserId(), actorIsMainGm: true, NewCommandId(), Corr));
+                global::Odyssey.Application.Identity.DevIdentityProvider.AssignHost(), NewCommandId(), Corr));
             Assert.That(unequipped.IsSuccess, Is.True, "Unequip must succeed through the real MainGM-gated EquipmentService");
 
             Result<CharacterRecord> removed = _characters.RemoveBodyPart(
@@ -255,11 +255,11 @@ namespace Odyssey.Tests.Persistence.Integration
         private ItemInstanceRecord CreateRuntimeItemInstance(ContentDefinitionRecord published, InventoryRecord inventory)
         {
             Result<ItemInstanceRecord> created = InventoryCreationService.CreateItemInstanceFromDefinition(
-                _catalog, _inventory, Clock,
+                _catalog, _inventory, _campaigns, Clock,
                 new CreateItemInstanceFromDefinitionRequest(
                     _campaign, ItemInstanceId.NewId(Clock.GetUtcNow()), inventory.InventoryId, inventory.OwnerRef,
                     InventoryLocationRef.Contained(inventory.InventoryId, "main"), published.ContentDefinitionId,
-                    NewUserId(), actorIsMainGm: true, NewCommandId(), Corr));
+                    global::Odyssey.Application.Identity.DevIdentityProvider.AssignHost(), NewCommandId(), Corr));
             Assert.That(created.IsSuccess, Is.True, created.IsFailure ? created.Error.Code.ToString() : string.Empty);
             return created.Value;
         }

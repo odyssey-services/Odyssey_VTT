@@ -2321,6 +2321,46 @@
                           "check":  "ComputeAudienceViews omits any entry for a non-entitled participant entirely -- safe denial leaves no distinguishable trace (no null placeholder, no error) that a hidden roll exists"
                       },
                       {
+                          "testCaseId":  "TC-DICE-024",
+                          "taskId":  "ODY-S10-105",
+                          "authority":  "ODY-S10-105 test list (task contract section 9)",
+                          "runner":  "dotnet test",
+                          "path":  "DotNet/Tests/Odyssey.Tests.Unit/Dice/DiceRollServiceTests.cs",
+                          "check":  "DecideModifier is MainGM-only by the stored membership: an unregistered user, a registered Player and a registered Observer are denied, and the host and a separately-registered MainGm succeed"
+                      },
+                      {
+                          "testCaseId":  "TC-DICE-025",
+                          "taskId":  "ODY-S10-105",
+                          "authority":  "ODY-S10-105 test list (task contract section 9)",
+                          "runner":  "dotnet test",
+                          "path":  "DotNet/Tests/Odyssey.Tests.Unit/Dice/DiceRollServiceTests.cs",
+                          "check":  "Fail-closed: DecideModifier returns the lookup's own failure with an unreadable membership, even for the host, and leaves the modifier Proposed"
+                      },
+                      {
+                          "testCaseId":  "TC-DICE-026",
+                          "taskId":  "ODY-S10-105",
+                          "authority":  "ODY-S10-105 test list (task contract section 9)",
+                          "runner":  "dotnet test",
+                          "path":  "DotNet/Tests/Odyssey.Tests.Unit/Dice/DiceRollServiceTests.cs",
+                          "check":  "Fail-closed: ApplyOverride returns the lookup's own failure with an unreadable membership, even for the host, and creates no override record"
+                      },
+                      {
+                          "testCaseId":  "TC-DICE-027",
+                          "taskId":  "ODY-S10-105",
+                          "authority":  "ODY-S10-105 test list (task contract section 9)",
+                          "runner":  "dotnet test",
+                          "path":  "DotNet/Tests/Odyssey.Tests.Unit/Dice/DiceRollServiceTests.cs",
+                          "check":  "RequestFullReroll: a registered-but-not-MainGm Player is denied for someone else's roll; a real MainGm succeeds; the roll's own actor is authorized via the cheap fast path without ever calling the membership lookup"
+                      },
+                      {
+                          "testCaseId":  "TC-DICE-028",
+                          "taskId":  "ODY-S10-105",
+                          "authority":  "ODY-S10-105 test list (task contract section 9)",
+                          "runner":  "dotnet test",
+                          "path":  "DotNet/Tests/Odyssey.Tests.Unit/Dice/DiceRollServiceTests.cs",
+                          "check":  "CancelRoll: a registered-but-not-MainGm Player is denied for someone else's roll, and a real, separately-registered MainGm succeeds"
+                      },
+                      {
                           "testCaseId":  "TC-NET-001",
                           "taskId":  "ODY-S02-001",
                           "authority":  "ADR-004; ADR-015; ODY-S02-001",
@@ -6443,6 +6483,10 @@
                       { "testCaseId": "TC-INVENTORY-194", "taskId": "ODY-S06-107", "authority": "ADR-030 section 10; ItemStackQuantity cannot represent zero, confirmed by direct code read", "runner": "dotnet test", "path": "DotNet/Tests/Odyssey.Tests.Persistence/SqliteInventoryRepositoryTests.cs", "check": "ConsumeItemUnit on a stack with quantity one deletes the row entirely rather than writing an invalid zero quantity, verified by a subsequent GetItemStack failure" },
                       { "testCaseId": "TC-INVENTORY-195", "taskId": "ODY-S06-107", "authority": "ADR-030 section 10", "runner": "dotnet test", "path": "DotNet/Tests/Odyssey.Tests.Persistence/SqliteInventoryRepositoryTests.cs", "check": "ConsumeItemUnit on a non-stackable ItemInstanceRecord deletes it outright -- a single use consumes the whole item, verified by a subsequent GetItemInstance failure" },
                       { "testCaseId": "TC-INVENTORY-196", "taskId": "ODY-S06-107", "authority": "ADR-008", "runner": "dotnet test", "path": "DotNet/Tests/Odyssey.Tests.Persistence/SqliteInventoryRepositoryTests.cs", "check": "A repeated ConsumeItemUnit call with the same CommandId is idempotent -- no second unit consumed, verified via a dedicated ItemConsumptionLedger read-back since a fully-consumed row may no longer exist to re-select for the usual replay pattern" },
+                      { "testCaseId": "TC-INVENTORY-197", "taskId": "ODY-S10-105", "authority": "ODY-S10-105 test list (task contract section 9)", "runner": "dotnet test", "path": "DotNet/Tests/Odyssey.Tests.Persistence/InventoryStackOperationServiceTests.cs", "check": "The ActorUserId newly saved on SplitItemStackRequest/MergeItemStacksRequest is really read: a registered-but-not-MainGm Player is denied on both Split and Merge, and a real, separately-registered MainGm succeeds" },
+                      { "testCaseId": "TC-INVENTORY-198", "taskId": "ODY-S10-105", "authority": "ODY-S10-105 test list (task contract section 9)", "runner": "dotnet test", "path": "DotNet/Tests/Odyssey.Tests.Persistence/EquipmentServiceTests.cs", "check": "The ActorUserId newly saved on EquipRequest/UnequipRequest is really read: a registered-but-not-MainGm Player is denied on both Equip and Unequip, and a real, separately-registered MainGm succeeds" },
+                      { "testCaseId": "TC-INVENTORY-199", "taskId": "ODY-S10-105", "authority": "ODY-S10-105 test list (task contract section 9)", "runner": "dotnet test", "path": "DotNet/Tests/Odyssey.Tests.Persistence/InventoryMovementServiceTests.cs", "check": "MoveItemInstance is MainGM-only by the stored membership: a registered-but-not-MainGm Player is denied, and a real, separately-registered MainGm succeeds" },
+                      { "testCaseId": "TC-INVENTORY-200", "taskId": "ODY-S10-105", "authority": "ODY-S10-105 test list (task contract section 9)", "runner": "dotnet test", "path": "DotNet/Tests/Odyssey.Tests.Persistence/InventoryMovementServiceTests.cs", "check": "Fail-closed: MoveItemInstance returns the lookup's own failure with an unreadable membership, even for the host, and leaves the item's revision unchanged" },
                       { "testCaseId": "TC-USEITEM-001", "taskId": "ODY-S06-107", "authority": "ADR-030 section 10 (block D of the MVP roadmap)", "runner": "dotnet test", "path": "DotNet/Tests/Odyssey.Tests.Persistence/UseItemIntegrationTests.cs", "check": "A stackable item with quantity greater than one is used successfully -- exactly one unit is consumed and its own Instant AdjustResource effect is applied, verified by exact before/after values" },
                       { "testCaseId": "TC-USEITEM-002", "taskId": "ODY-S06-107", "authority": "ADR-030 section 10", "runner": "dotnet test", "path": "DotNet/Tests/Odyssey.Tests.Persistence/UseItemIntegrationTests.cs", "check": "A stackable item with quantity one is used successfully -- the stack row is deleted entirely rather than left at an invalid zero quantity" },
                       { "testCaseId": "TC-USEITEM-003", "taskId": "ODY-S06-107", "authority": "ADR-030 section 10 point 2.4", "runner": "dotnet test", "path": "DotNet/Tests/Odyssey.Tests.Persistence/UseItemIntegrationTests.cs", "check": "An item with two Instant built-in effects has BOTH applied atomically in one use, each interpreted independently and summed, verified by an exact combined resource value" },

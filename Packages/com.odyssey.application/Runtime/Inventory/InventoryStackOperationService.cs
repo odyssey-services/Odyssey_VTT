@@ -1,5 +1,6 @@
 using System;
 using Odyssey.Application.Commands;
+using Odyssey.Application.Identity;
 using Odyssey.Application.Persistence;
 using Odyssey.Application.Results;
 using Odyssey.Domain.Identity;
@@ -9,18 +10,34 @@ namespace Odyssey.Application.Inventory
 {
     public static class InventoryStackOperationService
     {
-        public static Result<ItemStackRecord> Split(IInventoryRepository repository, SplitItemStackRequest request)
+        public static Result<ItemStackRecord> Split(IInventoryRepository repository, ICampaignRepository campaignRepository, SplitItemStackRequest request)
         {
             if (repository == null) throw new ArgumentNullException(nameof(repository));
+            if (campaignRepository == null) throw new ArgumentNullException(nameof(campaignRepository));
             if (request == null) throw new ArgumentNullException(nameof(request));
-            return request.ActorIsMainGm ? repository.SplitItemStack(request.Campaign, request.Operation, request.CorrelationId) : Result<ItemStackRecord>.Failure(InventoryMovementFailures.Denied(request.CorrelationId));
+
+            Result<bool> mainGmCheck = CampaignMembershipAuthorization.IsMainGm(campaignRepository, request.Campaign, request.ActorUserId, request.CorrelationId);
+            if (mainGmCheck.IsFailure)
+            {
+                return Result<ItemStackRecord>.Failure(mainGmCheck.Error);
+            }
+
+            return mainGmCheck.Value ? repository.SplitItemStack(request.Campaign, request.Operation, request.CorrelationId) : Result<ItemStackRecord>.Failure(InventoryMovementFailures.Denied(request.CorrelationId));
         }
 
-        public static Result<ItemStackRecord> Merge(IInventoryRepository repository, MergeItemStacksRequest request)
+        public static Result<ItemStackRecord> Merge(IInventoryRepository repository, ICampaignRepository campaignRepository, MergeItemStacksRequest request)
         {
             if (repository == null) throw new ArgumentNullException(nameof(repository));
+            if (campaignRepository == null) throw new ArgumentNullException(nameof(campaignRepository));
             if (request == null) throw new ArgumentNullException(nameof(request));
-            return request.ActorIsMainGm ? repository.MergeItemStacks(request.Campaign, request.Operation, request.CorrelationId) : Result<ItemStackRecord>.Failure(InventoryMovementFailures.Denied(request.CorrelationId));
+
+            Result<bool> mainGmCheck = CampaignMembershipAuthorization.IsMainGm(campaignRepository, request.Campaign, request.ActorUserId, request.CorrelationId);
+            if (mainGmCheck.IsFailure)
+            {
+                return Result<ItemStackRecord>.Failure(mainGmCheck.Error);
+            }
+
+            return mainGmCheck.Value ? repository.MergeItemStacks(request.Campaign, request.Operation, request.CorrelationId) : Result<ItemStackRecord>.Failure(InventoryMovementFailures.Denied(request.CorrelationId));
         }
     }
 
@@ -49,20 +66,20 @@ namespace Odyssey.Application.Inventory
 
     public sealed class SplitItemStackRequest
     {
-        public SplitItemStackRequest(CampaignHandle campaign, ItemStackId sourceId, ItemStackId splitResultId, InventoryId inventoryId, long quantity, long expectedSourceRevision, long expectedInventoryRevision, UserId actorUserId, bool actorIsMainGm, CommandId commandId, CorrelationId correlationId)
-        { Campaign = campaign ?? throw new ArgumentNullException(nameof(campaign)); if (!actorUserId.IsValid) throw new ArgumentException("Actor is required."); ActorIsMainGm = actorIsMainGm; CorrelationId = correlationId; Operation = new InventoryStackOperation(sourceId, splitResultId, inventoryId, quantity, expectedSourceRevision, 0, expectedInventoryRevision, commandId, false); }
+        public SplitItemStackRequest(CampaignHandle campaign, ItemStackId sourceId, ItemStackId splitResultId, InventoryId inventoryId, long quantity, long expectedSourceRevision, long expectedInventoryRevision, UserId actorUserId, CommandId commandId, CorrelationId correlationId)
+        { Campaign = campaign ?? throw new ArgumentNullException(nameof(campaign)); if (!actorUserId.IsValid) throw new ArgumentException("Actor is required."); ActorUserId = actorUserId; CorrelationId = correlationId; Operation = new InventoryStackOperation(sourceId, splitResultId, inventoryId, quantity, expectedSourceRevision, 0, expectedInventoryRevision, commandId, false); }
         public CampaignHandle Campaign { get; }
-        public bool ActorIsMainGm { get; }
+        public UserId ActorUserId { get; }
         public CorrelationId CorrelationId { get; }
         public InventoryStackOperation Operation { get; }
     }
 
     public sealed class MergeItemStacksRequest
     {
-        public MergeItemStacksRequest(CampaignHandle campaign, ItemStackId sourceId, ItemStackId destinationId, InventoryId inventoryId, long expectedSourceRevision, long expectedDestinationRevision, long expectedInventoryRevision, UserId actorUserId, bool actorIsMainGm, CommandId commandId, CorrelationId correlationId)
-        { Campaign = campaign ?? throw new ArgumentNullException(nameof(campaign)); if (!actorUserId.IsValid) throw new ArgumentException("Actor is required."); ActorIsMainGm = actorIsMainGm; CorrelationId = correlationId; Operation = new InventoryStackOperation(sourceId, destinationId, inventoryId, 0, expectedSourceRevision, expectedDestinationRevision, expectedInventoryRevision, commandId, true); }
+        public MergeItemStacksRequest(CampaignHandle campaign, ItemStackId sourceId, ItemStackId destinationId, InventoryId inventoryId, long expectedSourceRevision, long expectedDestinationRevision, long expectedInventoryRevision, UserId actorUserId, CommandId commandId, CorrelationId correlationId)
+        { Campaign = campaign ?? throw new ArgumentNullException(nameof(campaign)); if (!actorUserId.IsValid) throw new ArgumentException("Actor is required."); ActorUserId = actorUserId; CorrelationId = correlationId; Operation = new InventoryStackOperation(sourceId, destinationId, inventoryId, 0, expectedSourceRevision, expectedDestinationRevision, expectedInventoryRevision, commandId, true); }
         public CampaignHandle Campaign { get; }
-        public bool ActorIsMainGm { get; }
+        public UserId ActorUserId { get; }
         public CorrelationId CorrelationId { get; }
         public InventoryStackOperation Operation { get; }
     }

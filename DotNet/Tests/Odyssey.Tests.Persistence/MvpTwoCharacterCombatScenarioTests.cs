@@ -76,7 +76,7 @@ namespace Odyssey.Tests.Persistence
             _characters = new SqliteCharacterRepository(_clock, _campaignRepository);
             _catalog = new SqliteContentCatalogRepository(_clock);
             _effects = new SqliteActiveEffectRepository(_clock, _campaignRepository);
-            _inventory = new SqliteInventoryRepository(_clock);
+            _inventory = new SqliteInventoryRepository(_clock, _campaignRepository);
             _scenes = new SqliteSceneRepository(_clock);
             _encounters = new SqliteCombatEncounterRepository(_clock);
             _abilityReader = new SqliteActivateAbilityStateReader(_characters, _catalog, _clock);
@@ -248,8 +248,8 @@ namespace Odyssey.Tests.Persistence
         /// <summary>Real runtime creation from an already-Published definition -- `InventoryCreationService` is the only permitted path (`ODY-S06-108` §1 item 4 / §3), never a hand-built `ItemInstanceRecord`.</summary>
         private ItemInstanceRecord CreateItemInstance(InventoryRecord inventory, ContentDefinitionRecord definition)
         {
-            var request = new CreateItemInstanceFromDefinitionRequest(_campaign, ItemInstanceId.NewId(_clock.GetUtcNow()), inventory.InventoryId, inventory.OwnerRef, InventoryLocationRef.Contained(inventory.InventoryId, "main"), definition.ContentDefinitionId, User(), actorIsMainGm: true, Command(), Corr);
-            Result<ItemInstanceRecord> result = InventoryCreationService.CreateItemInstanceFromDefinition(_catalog, _inventory, _clock, request);
+            var request = new CreateItemInstanceFromDefinitionRequest(_campaign, ItemInstanceId.NewId(_clock.GetUtcNow()), inventory.InventoryId, inventory.OwnerRef, InventoryLocationRef.Contained(inventory.InventoryId, "main"), definition.ContentDefinitionId, global::Odyssey.Application.Identity.DevIdentityProvider.AssignHost(), Command(), Corr);
+            Result<ItemInstanceRecord> result = InventoryCreationService.CreateItemInstanceFromDefinition(_catalog, _inventory, _campaignRepository, _clock, request);
             Assert.That(result.IsSuccess, Is.True, result.IsFailure ? result.Error.Code.ToString() : string.Empty);
             return result.Value;
         }
@@ -257,16 +257,16 @@ namespace Odyssey.Tests.Persistence
         /// <summary>Real runtime creation from an already-Published definition -- `InventoryCreationService` is the only permitted path (`ODY-S06-108` §1 item 4 / §3), never a hand-built `ItemStackRecord`.</summary>
         private ItemStackRecord CreateItemStack(InventoryRecord inventory, ContentDefinitionRecord definition, long quantity)
         {
-            var request = new CreateItemStackFromDefinitionRequest(_campaign, ItemStackId.NewId(_clock.GetUtcNow()), inventory.InventoryId, inventory.OwnerRef, InventoryLocationRef.Contained(inventory.InventoryId, "main"), definition.ContentDefinitionId, ItemStackQuantity.Create(quantity), User(), actorIsMainGm: true, Command(), Corr);
-            Result<ItemStackRecord> result = InventoryCreationService.CreateItemStackFromDefinition(_catalog, _inventory, _clock, request);
+            var request = new CreateItemStackFromDefinitionRequest(_campaign, ItemStackId.NewId(_clock.GetUtcNow()), inventory.InventoryId, inventory.OwnerRef, InventoryLocationRef.Contained(inventory.InventoryId, "main"), definition.ContentDefinitionId, ItemStackQuantity.Create(quantity), global::Odyssey.Application.Identity.DevIdentityProvider.AssignHost(), Command(), Corr);
+            Result<ItemStackRecord> result = InventoryCreationService.CreateItemStackFromDefinition(_catalog, _inventory, _campaignRepository, _clock, request);
             Assert.That(result.IsSuccess, Is.True, result.IsFailure ? result.Error.Code.ToString() : string.Empty);
             return result.Value;
         }
 
         private EquippedEntryRecord EquipInstance(ItemInstanceRecord item, InventoryRecord inventory, string equipmentSlotKey, IReadOnlyList<BodyPartId> bodyPartRefs)
         {
-            var request = new EquipRequest(_campaign, InventoryItemRef.ForInstance(item.ItemInstanceId), inventory.InventoryId, item.Revision, equipmentSlotKey, bodyPartRefs, User(), _clock.GetUtcNow(), User(), actorIsMainGm: true, Command(), Corr);
-            Result<EquippedEntryRecord> result = EquipmentService.Equip(_inventory, _characters, request);
+            var request = new EquipRequest(_campaign, InventoryItemRef.ForInstance(item.ItemInstanceId), inventory.InventoryId, item.Revision, equipmentSlotKey, bodyPartRefs, User(), _clock.GetUtcNow(), global::Odyssey.Application.Identity.DevIdentityProvider.AssignHost(), Command(), Corr);
+            Result<EquippedEntryRecord> result = EquipmentService.Equip(_inventory, _characters, _campaignRepository, request);
             Assert.That(result.IsSuccess, Is.True, result.IsFailure ? result.Error.Code.ToString() : string.Empty);
             return result.Value;
         }
@@ -312,14 +312,14 @@ namespace Odyssey.Tests.Persistence
         {
             CharacterRecord current = _characters.GetCharacter(_campaign, actor, Corr).Value;
             var intent = new ActivateAbilityIntent(actor, characterAbilityId, targets, current.Revisions.CharacterAbilitiesRevision, current.Revisions.CharacterResourcesRevision);
-            return new ActivateAbilityRequest(intent, User(), actorIsMainGm: true, Command(), Corr);
+            return new ActivateAbilityRequest(intent, global::Odyssey.Application.Identity.DevIdentityProvider.AssignHost(), actorIsMainGm: true, Command(), Corr);
         }
 
         private UseItemRequest BuildUseItemRequest(CharacterId actor, InventoryItemRef item, long expectedItemRevision, long expectedInventoryRevision)
         {
             CharacterRecord current = _characters.GetCharacter(_campaign, actor, Corr).Value;
             var intent = new UseItemIntent(actor, item, expectedItemRevision, expectedInventoryRevision, current.Revisions.CharacterResourcesRevision);
-            return new UseItemRequest(intent, User(), actorIsMainGm: true, Command(), Corr);
+            return new UseItemRequest(intent, global::Odyssey.Application.Identity.DevIdentityProvider.AssignHost(), actorIsMainGm: true, Command(), Corr);
         }
 
         private static AttackRequest BuildAttackRequest(CombatEncounterRecord encounter, CharacterId actor, CharacterId target, ItemInstanceRecord item)

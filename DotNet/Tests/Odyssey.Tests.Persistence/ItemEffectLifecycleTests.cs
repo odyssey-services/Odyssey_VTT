@@ -43,7 +43,7 @@ namespace Odyssey.Tests.Persistence
             var campaign = _campaigns.Create(new CreateCampaignRequest(_directory, "Item effect tests", "ruleset.core", "1.0.0", "0.1.0", global::Odyssey.Application.Identity.DevIdentityProvider.AssignHost()), Command(), Corr);
             Assert.That(campaign.IsSuccess, Is.True);
             _campaign = campaign.Value;
-            _inventory = new SqliteInventoryRepository(_clock);
+            _inventory = new SqliteInventoryRepository(_clock, _campaigns);
             _catalog = new SqliteContentCatalogRepository(_clock);
             _effects = new SqliteActiveEffectRepository(_clock, _campaigns);
             _bag = new InventoryRecord(InventoryId.NewId(Now), _campaign.CampaignId, InventoryOwnerRef.ForCharacter(CharacterId.NewId(Now)), 1, Now, Now);
@@ -323,8 +323,8 @@ namespace Odyssey.Tests.Persistence
         private EquippedEntryRecord Equip(InventoryItemRef item)
         {
             long revision = item.Kind == InventoryItemRefKind.ItemInstance ? _inventory.GetItemInstance(_campaign, item.ItemInstanceId, Corr).Value.Revision : _inventory.GetItemStack(_campaign, item.ItemStackId, Corr).Value.Revision;
-            var request = new EquipRequest(_campaign, item, _bag.InventoryId, revision, "slot", Array.Empty<BodyPartId>(), Actor, Now, Actor, true, Command(), Corr);
-            var result = EquipmentService.Equip(_inventory, new SqliteCharacterRepository(_clock, _campaigns), request);
+            var request = new EquipRequest(_campaign, item, _bag.InventoryId, revision, "slot", Array.Empty<BodyPartId>(), Actor, Now, global::Odyssey.Application.Identity.DevIdentityProvider.AssignHost(), Command(), Corr);
+            var result = EquipmentService.Equip(_inventory, new SqliteCharacterRepository(_clock, _campaigns), _campaigns, request);
             Assert.That(result.IsSuccess, Is.True);
             return result.Value;
         }
@@ -333,7 +333,7 @@ namespace Odyssey.Tests.Persistence
         {
             var item = equipped.Entry.ItemRef;
             long revision = item.Kind == InventoryItemRefKind.ItemInstance ? _inventory.GetItemInstance(_campaign, item.ItemInstanceId, Corr).Value.Revision : _inventory.GetItemStack(_campaign, item.ItemStackId, Corr).Value.Revision;
-            var result = EquipmentService.Unequip(_inventory, new UnequipRequest(_campaign, item, _bag.InventoryId, revision, equipped.Entry.Revision, "main", Actor, true, Command(), Corr));
+            var result = EquipmentService.Unequip(_inventory, _campaigns, new UnequipRequest(_campaign, item, _bag.InventoryId, revision, equipped.Entry.Revision, "main", global::Odyssey.Application.Identity.DevIdentityProvider.AssignHost(), Command(), Corr));
             Assert.That(result.IsSuccess, Is.True);
         }
 

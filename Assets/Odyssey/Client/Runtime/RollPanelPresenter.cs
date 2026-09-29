@@ -5,6 +5,7 @@ using Odyssey.Application.Audience;
 using Odyssey.Application.Commands;
 using Odyssey.Application.Dice;
 using Odyssey.Application.Networking.Session;
+using Odyssey.Application.Persistence;
 using Odyssey.Application.Random;
 using Odyssey.Application.Results;
 using Odyssey.Application.Time;
@@ -31,6 +32,8 @@ namespace Odyssey.Unity.Client
         private readonly IWallClock _clock;
         private readonly ICampaignUserGroupDirectory _groups;
         private readonly CampaignId _campaignId;
+        private readonly CampaignHandle _campaign;
+        private readonly ICampaignRepository _campaignRepository;
         private readonly RulesetVersion _rulesetVersion;
         private readonly RngKeyEpochId _rngKeyEpochId;
         private RoleSelectorPresenter? _roleSelectorPresenter;
@@ -60,18 +63,19 @@ namespace Odyssey.Unity.Client
                 NewDefaultRngFactory(),
                 new UnityWallClock(),
                 NewDefaultGroups(roleSelection),
-                DefaultCampaignId,
+                NewDefaultCampaign(out ICampaignRepository defaultCampaignRepository),
+                defaultCampaignRepository,
                 DefaultRulesetVersion,
                 DefaultRngKeyEpochId)
         {
         }
 
-        public RollPanelPresenter(RoleSelection roleSelection, PresentationRuntime presentationRuntime, DiceRollStore store, IAuthoritativeRandomStreamFactory rngFactory, IWallClock clock, CampaignId campaignId, RulesetVersion rulesetVersion, RngKeyEpochId rngKeyEpochId)
-            : this(roleSelection, presentationRuntime, store, rngFactory, clock, NewDefaultGroups(roleSelection), campaignId, rulesetVersion, rngKeyEpochId)
+        public RollPanelPresenter(RoleSelection roleSelection, PresentationRuntime presentationRuntime, DiceRollStore store, IAuthoritativeRandomStreamFactory rngFactory, IWallClock clock, CampaignHandle campaign, ICampaignRepository campaignRepository, RulesetVersion rulesetVersion, RngKeyEpochId rngKeyEpochId)
+            : this(roleSelection, presentationRuntime, store, rngFactory, clock, NewDefaultGroups(roleSelection), campaign, campaignRepository, rulesetVersion, rngKeyEpochId)
         {
         }
 
-        public RollPanelPresenter(RoleSelection roleSelection, PresentationRuntime presentationRuntime, DiceRollStore store, IAuthoritativeRandomStreamFactory rngFactory, IWallClock clock, ICampaignUserGroupDirectory groups, CampaignId campaignId, RulesetVersion rulesetVersion, RngKeyEpochId rngKeyEpochId, bool includeRoleSelector = true)
+        public RollPanelPresenter(RoleSelection roleSelection, PresentationRuntime presentationRuntime, DiceRollStore store, IAuthoritativeRandomStreamFactory rngFactory, IWallClock clock, ICampaignUserGroupDirectory groups, CampaignHandle campaign, ICampaignRepository campaignRepository, RulesetVersion rulesetVersion, RngKeyEpochId rngKeyEpochId, bool includeRoleSelector = true)
         {
             _roleSelection = roleSelection ?? throw new ArgumentNullException(nameof(roleSelection));
             _presentationRuntime = presentationRuntime ?? throw new ArgumentNullException(nameof(presentationRuntime));
@@ -79,10 +83,24 @@ namespace Odyssey.Unity.Client
             _rngFactory = rngFactory ?? throw new ArgumentNullException(nameof(rngFactory));
             _clock = clock ?? throw new ArgumentNullException(nameof(clock));
             _groups = groups ?? throw new ArgumentNullException(nameof(groups));
-            _campaignId = campaignId.IsValid ? campaignId : throw new ArgumentException("Campaign id is required.", nameof(campaignId));
+            _campaign = campaign ?? throw new ArgumentNullException(nameof(campaign));
+            _campaignRepository = campaignRepository ?? throw new ArgumentNullException(nameof(campaignRepository));
+            _campaignId = campaign.CampaignId;
             _rulesetVersion = rulesetVersion.IsValid ? rulesetVersion : throw new ArgumentException("Ruleset version is required.", nameof(rulesetVersion));
             _rngKeyEpochId = rngKeyEpochId.IsValid ? rngKeyEpochId : throw new ArgumentException("RNG key epoch id is required.", nameof(rngKeyEpochId));
             _includeRoleSelector = includeRoleSelector;
+        }
+
+        /// <summary>ODY-S10-105: this ctor is not wired into any current UI flow; it still needs a real, registered <see cref="CampaignHandle"/>/<see cref="ICampaignRepository"/> pair rather than a bare id, so it builds one the same way <see cref="BoardScreenDemoCampaign.CreateFresh"/> already does for the trial screen.</summary>
+        private static CampaignHandle NewDefaultCampaign(out ICampaignRepository campaignRepository)
+        {
+            var repository = new Odyssey.Persistence.Sqlite.SqliteCampaignRepository(new UnityWallClock());
+            string root = System.IO.Path.Combine(System.IO.Path.GetTempPath(), "ody-rollpanel-default-" + Guid.NewGuid().ToString("N"));
+            var createRequest = new CreateCampaignRequest(root, "Roll Panel Default Campaign", "ruleset.core", "1.0.0", "0.1.0", global::Odyssey.Application.Identity.DevIdentityProvider.AssignHost());
+            Result<CampaignHandle> created = repository.Create(createRequest, CommandId.Parse("cmd_" + Guid.NewGuid().ToString("N")), CorrelationId.Parse("corr_" + Guid.NewGuid().ToString("N")));
+            if (created.IsFailure) throw new InvalidOperationException("Failed to create the default roll panel campaign: " + created.Error.Code);
+            campaignRepository = repository;
+            return created.Value;
         }
 
         public DiceRoll? LastRoll { get; private set; }
@@ -221,8 +239,9 @@ namespace Odyssey.Unity.Client
             RoleSelectionSnapshot role = _roleSelection.Current;
             Result<RollOverride> applied = DiceRollService.ApplyOverride(
                 _store,
+                _campaignRepository,
                 _clock,
-                new ApplyOverrideRequest(LastRoll.RollId, role.ActorUserId, role.ActorIsMainGm, FormatRoll(LastRoll), "GM override", reason, NewCorrelationId()));
+                new ApplyOverrideRequest(_campaign, LastRoll.RollId, role.ActorUserId, FormatRoll(LastRoll), "GM override", reason, NewCorrelationId()));
 
             if (applied.IsFailure)
             {
@@ -254,9 +273,10 @@ namespace Odyssey.Unity.Client
             RoleSelectionSnapshot role = _roleSelection.Current;
             Result<DiceRoll> rerolled = DiceRollService.RequestFullReroll(
                 _store,
+                _campaignRepository,
                 _rngFactory,
                 _clock,
-                new RequestFullRerollRequest(LastRoll.RollId, role.ActorUserId, role.ActorIsMainGm, NewCommandId(), _rulesetVersion, _rngKeyEpochId, NewCorrelationId()));
+                new RequestFullRerollRequest(_campaign, LastRoll.RollId, role.ActorUserId, NewCommandId(), _rulesetVersion, _rngKeyEpochId, NewCorrelationId()));
 
             return StoreOrShowFailure(rerolled, "Reroll");
         }
@@ -271,7 +291,8 @@ namespace Odyssey.Unity.Client
             RoleSelectionSnapshot role = _roleSelection.Current;
             Result<DiceRoll> cancelled = DiceRollService.CancelRoll(
                 _store,
-                new CancelRollRequest(LastRoll.RollId, role.ActorUserId, role.ActorIsMainGm, reason, NewCorrelationId()));
+                _campaignRepository,
+                new CancelRollRequest(_campaign, LastRoll.RollId, role.ActorUserId, reason, NewCorrelationId()));
 
             return StoreOrShowFailure(cancelled, "Cancel");
         }
@@ -298,7 +319,8 @@ namespace Odyssey.Unity.Client
             RoleSelectionSnapshot role = _roleSelection.Current;
             Result<DiceRoll> decided = DiceRollService.DecideModifier(
                 _store,
-                new DecideModifierRequest(LastRoll.RollId, _latestModifierEntryId, role.ActorUserId, role.ActorIsMainGm, decision, changedValue, reason, NewCorrelationId()));
+                _campaignRepository,
+                new DecideModifierRequest(_campaign, LastRoll.RollId, _latestModifierEntryId, role.ActorUserId, decision, changedValue, reason, NewCorrelationId()));
 
             return StoreOrShowFailure(decided, "Decision");
         }

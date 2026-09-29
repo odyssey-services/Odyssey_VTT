@@ -20,8 +20,13 @@ namespace Odyssey.Application.Persistence
     /// </summary>
     public interface IInventoryRepository
     {
-        /// <summary>MainGM-only confirmation with backup, live revision checks and atomic journal/snapshot commit. No post-success rollback command.</summary>
-        Result<ItemDefinitionMigrationApplyResult> ApplyItemDefinitionMigration(CampaignHandle campaign, ItemDefinitionMigrationTransition transition, UserId actorUserId, bool actorIsMainGm, CorrelationId correlationId);
+        /// <summary>
+        /// MainGM-only confirmation with backup, live revision checks and atomic journal/snapshot commit. No
+        /// post-success rollback command. ODY-S10-105: MainGM-ness is looked up from the stored campaign
+        /// membership (<see cref="Odyssey.Application.Identity.CampaignMembershipAuthorization.IsMainGm"/>),
+        /// never trusted from the caller.
+        /// </summary>
+        Result<ItemDefinitionMigrationApplyResult> ApplyItemDefinitionMigration(CampaignHandle campaign, ItemDefinitionMigrationTransition transition, UserId actorUserId, CorrelationId correlationId);
 
         Result<InventoryRecord> CreateInventory(CampaignHandle campaign, InventoryRecord record, CommandId commandId, CorrelationId correlationId);
         Result<InventoryRecord> GetInventory(CampaignHandle campaign, InventoryId inventoryId, CorrelationId correlationId);
@@ -174,14 +179,16 @@ namespace Odyssey.Application.Persistence
         /// zero -- confirmed by direct code read before designing this method). For a non-stackable
         /// <see cref="ItemInstanceRecord"/>, deletes it outright -- a single use consumes the whole item.
         /// This port's own class doc comment ("deliberately does not... check permissions") is honored: this
-        /// method accepts <paramref name="actorUserId"/>/<paramref name="actorIsMainGm"/> for interface parity
-        /// with every other actor-carrying command in this codebase, but performs no permission gate itself
-        /// -- the caller (`UseItemService`) is responsible for authorization before ever reaching this call.
+        /// method performs no permission gate itself -- the caller (`UseItemService`) is responsible for
+        /// authorization before ever reaching this call. ODY-S10-105: it used to also accept an
+        /// <c>actorUserId</c>/<c>actorIsMainGm</c> pair "for interface parity", but neither was ever read by
+        /// this method beyond a bare validity check -- no audit trail, no ledger row, nothing -- so both were
+        /// dead parameters and were removed rather than given a gate that does not belong at this layer.
         /// CAS-guarded against <paramref name="expectedRevision"/> (the stack/instance row's own `Revision`),
         /// idempotent by <paramref name="commandId"/> via a dedicated ledger (a re-select-based replay is not
         /// possible here, since a fully-consumed row's own record may no longer exist to re-select).
         /// </summary>
-        Result<ConsumeItemUnitOutcome> ConsumeItemUnit(CampaignHandle campaign, InventoryItemRef item, UserId actorUserId, bool actorIsMainGm, long expectedRevision, CommandId commandId, CorrelationId correlationId);
+        Result<ConsumeItemUnitOutcome> ConsumeItemUnit(CampaignHandle campaign, InventoryItemRef item, long expectedRevision, CommandId commandId, CorrelationId correlationId);
     }
 
     /// <summary>ODY-S06-107: `IInventoryRepository.ConsumeItemUnit`'s own outcome -- <see cref="RemainingQuantity"/> is null when the row was deleted entirely (a non-stackable instance, or a stack's own last unit).</summary>

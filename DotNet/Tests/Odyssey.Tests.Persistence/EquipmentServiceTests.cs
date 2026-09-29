@@ -49,7 +49,7 @@ namespace Odyssey.Tests.Persistence
             Result<CampaignHandle> created = _campaignRepository.Create(new CreateCampaignRequest(_campaignDir, "Equip Command Test Campaign", "ruleset.core", "1.0.0", "0.1.0", global::Odyssey.Application.Identity.DevIdentityProvider.AssignHost()), NewCommandId(), TestCorrelationId);
             Assert.That(created.IsSuccess, Is.True);
             _campaign = created.Value;
-            _inventoryRepository = new SqliteInventoryRepository(Clock);
+            _inventoryRepository = new SqliteInventoryRepository(Clock, _campaignRepository);
             _characterRepository = new SqliteCharacterRepository(Clock, _campaignRepository);
         }
 
@@ -204,9 +204,9 @@ namespace Odyssey.Tests.Persistence
         public void EquipmentService_Equip_DeniesNonMainGmActor_BeforeAnyRepositoryCall()
         {
             InventoryId nonExistentInventoryId = InventoryId.NewId(Clock.GetUtcNow());
-            EquipRequest request = new EquipRequest(_campaign, InventoryItemRef.ForInstance(ItemInstanceId.NewId(Clock.GetUtcNow())), nonExistentInventoryId, 1, "chest_slot", Array.Empty<BodyPartId>(), NewUserId(), Clock.GetUtcNow(), NewUserId(), actorIsMainGm: false, NewCommandId(), TestCorrelationId);
+            EquipRequest request = new EquipRequest(_campaign, InventoryItemRef.ForInstance(ItemInstanceId.NewId(Clock.GetUtcNow())), nonExistentInventoryId, 1, "chest_slot", Array.Empty<BodyPartId>(), NewUserId(), Clock.GetUtcNow(), NewUserId(), NewCommandId(), TestCorrelationId);
 
-            Result<EquippedEntryRecord> result = EquipmentService.Equip(_inventoryRepository, _characterRepository, request);
+            Result<EquippedEntryRecord> result = EquipmentService.Equip(_inventoryRepository, _characterRepository, _campaignRepository, request);
 
             Assert.That(result.IsFailure, Is.True);
             Assert.That(result.Error.Code, Is.EqualTo(ErrorCodes.InventoryMoveDenied), "MainGM denial must precede the GetInventory call that would otherwise return InventoryNotFound for this nonexistent InventoryId");
@@ -219,9 +219,9 @@ namespace Odyssey.Tests.Persistence
             InventoryRecord inventory = CreateInventory(character.CharacterId);
             ItemInstanceRecord instance = CreateItemInstance(inventory);
 
-            EquipRequest request = new EquipRequest(_campaign, InventoryItemRef.ForInstance(instance.ItemInstanceId), inventory.InventoryId, instance.Revision, "chest_slot", new[] { BodyPartId.Parse("Tail") }, NewUserId(), Clock.GetUtcNow(), NewUserId(), actorIsMainGm: true, NewCommandId(), TestCorrelationId);
+            EquipRequest request = new EquipRequest(_campaign, InventoryItemRef.ForInstance(instance.ItemInstanceId), inventory.InventoryId, instance.Revision, "chest_slot", new[] { BodyPartId.Parse("Tail") }, NewUserId(), Clock.GetUtcNow(), global::Odyssey.Application.Identity.DevIdentityProvider.AssignHost(), NewCommandId(), TestCorrelationId);
 
-            Result<EquippedEntryRecord> result = EquipmentService.Equip(_inventoryRepository, _characterRepository, request);
+            Result<EquippedEntryRecord> result = EquipmentService.Equip(_inventoryRepository, _characterRepository, _campaignRepository, request);
 
             Assert.That(result.IsFailure, Is.True);
             Assert.That(result.Error.Code, Is.EqualTo(ErrorCodes.InventoryEquipBodyPartNotFound));
@@ -238,9 +238,9 @@ namespace Odyssey.Tests.Persistence
             InventoryRecord inventory = CreateInventory(character.Value.CharacterId);
             ItemInstanceRecord instance = CreateItemInstance(inventory);
 
-            EquipRequest equipRequest = new EquipRequest(_campaign, InventoryItemRef.ForInstance(instance.ItemInstanceId), inventory.InventoryId, instance.Revision, "chest_slot", new[] { BodyPartId.Parse("Torso") }, NewUserId(), Clock.GetUtcNow(), NewUserId(), actorIsMainGm: true, NewCommandId(), TestCorrelationId);
+            EquipRequest equipRequest = new EquipRequest(_campaign, InventoryItemRef.ForInstance(instance.ItemInstanceId), inventory.InventoryId, instance.Revision, "chest_slot", new[] { BodyPartId.Parse("Torso") }, NewUserId(), Clock.GetUtcNow(), global::Odyssey.Application.Identity.DevIdentityProvider.AssignHost(), NewCommandId(), TestCorrelationId);
 
-            Result<EquippedEntryRecord> result = EquipmentService.Equip(_inventoryRepository, _characterRepository, equipRequest);
+            Result<EquippedEntryRecord> result = EquipmentService.Equip(_inventoryRepository, _characterRepository, _campaignRepository, equipRequest);
 
             Assert.That(result.IsFailure, Is.True);
             Assert.That(result.Error.Code, Is.EqualTo(ErrorCodes.PersistenceCharacterAnatomyNotInitialized));
@@ -252,9 +252,9 @@ namespace Odyssey.Tests.Persistence
             InventoryRecord inventory = CreateSceneOwnedInventory();
             ItemInstanceRecord instance = CreateItemInstance(inventory);
 
-            EquipRequest request = new EquipRequest(_campaign, InventoryItemRef.ForInstance(instance.ItemInstanceId), inventory.InventoryId, instance.Revision, "chest_slot", new[] { BodyPartId.Parse("Torso") }, NewUserId(), Clock.GetUtcNow(), NewUserId(), actorIsMainGm: true, NewCommandId(), TestCorrelationId);
+            EquipRequest request = new EquipRequest(_campaign, InventoryItemRef.ForInstance(instance.ItemInstanceId), inventory.InventoryId, instance.Revision, "chest_slot", new[] { BodyPartId.Parse("Torso") }, NewUserId(), Clock.GetUtcNow(), global::Odyssey.Application.Identity.DevIdentityProvider.AssignHost(), NewCommandId(), TestCorrelationId);
 
-            Result<EquippedEntryRecord> result = EquipmentService.Equip(_inventoryRepository, _characterRepository, request);
+            Result<EquippedEntryRecord> result = EquipmentService.Equip(_inventoryRepository, _characterRepository, _campaignRepository, request);
 
             Assert.That(result.IsFailure, Is.True);
             Assert.That(result.Error.Code, Is.EqualTo(ErrorCodes.InventoryEquipBodyPartRefsRequireCharacterOwner));
@@ -266,9 +266,9 @@ namespace Odyssey.Tests.Persistence
             InventoryRecord inventory = CreateSceneOwnedInventory();
             ItemInstanceRecord instance = CreateItemInstance(inventory);
 
-            EquipRequest request = new EquipRequest(_campaign, InventoryItemRef.ForInstance(instance.ItemInstanceId), inventory.InventoryId, instance.Revision, "held_slot", Array.Empty<BodyPartId>(), NewUserId(), Clock.GetUtcNow(), NewUserId(), actorIsMainGm: true, NewCommandId(), TestCorrelationId);
+            EquipRequest request = new EquipRequest(_campaign, InventoryItemRef.ForInstance(instance.ItemInstanceId), inventory.InventoryId, instance.Revision, "held_slot", Array.Empty<BodyPartId>(), NewUserId(), Clock.GetUtcNow(), global::Odyssey.Application.Identity.DevIdentityProvider.AssignHost(), NewCommandId(), TestCorrelationId);
 
-            Result<EquippedEntryRecord> result = EquipmentService.Equip(_inventoryRepository, _characterRepository, request);
+            Result<EquippedEntryRecord> result = EquipmentService.Equip(_inventoryRepository, _characterRepository, _campaignRepository, request);
 
             Assert.That(result.IsSuccess, Is.True, "empty BodyPartRefs must skip rule 4 entirely, even for a non-Character owner");
         }
@@ -410,9 +410,9 @@ namespace Odyssey.Tests.Persistence
         public void EquipmentService_Unequip_DeniesNonMainGmActor_BeforeAnyRepositoryCall()
         {
             InventoryId nonExistentInventoryId = InventoryId.NewId(Clock.GetUtcNow());
-            UnequipRequest request = new UnequipRequest(_campaign, InventoryItemRef.ForInstance(ItemInstanceId.NewId(Clock.GetUtcNow())), nonExistentInventoryId, 1, 1, "backpack", NewUserId(), actorIsMainGm: false, NewCommandId(), TestCorrelationId);
+            UnequipRequest request = new UnequipRequest(_campaign, InventoryItemRef.ForInstance(ItemInstanceId.NewId(Clock.GetUtcNow())), nonExistentInventoryId, 1, 1, "backpack", NewUserId(), NewCommandId(), TestCorrelationId);
 
-            Result<bool> result = EquipmentService.Unequip(_inventoryRepository, request);
+            Result<bool> result = EquipmentService.Unequip(_inventoryRepository, _campaignRepository, request);
 
             Assert.That(result.IsFailure, Is.True);
             Assert.That(result.Error.Code, Is.EqualTo(ErrorCodes.InventoryMoveDenied), "MainGM denial must precede any repository call that would otherwise return a different error for this nonexistent InventoryId/item");
@@ -470,6 +470,36 @@ namespace Odyssey.Tests.Persistence
                     Assert.That(typeName, Does.Not.Contain(forbidden));
                 }
             }
+        }
+
+        [Test] // ODY-S10-105: TC-INVENTORY-198 -- the ActorUserId newly saved on EquipRequest/UnequipRequest is really read: a registered-but-not-MainGm Player is denied on both, and a real, separately-registered MainGm succeeds.
+        public void Equip_And_Unequip_ReallyUseTheirActorUserId_NotJustAcceptAnyValue()
+        {
+            UserId player = NewUserId();
+            Assert.That(_campaignRepository.AddMember(_campaign, player, CampaignMembershipRole.Player, NewCommandId(), TestCorrelationId).IsSuccess, Is.True);
+            UserId realGm = NewUserId();
+            Assert.That(_campaignRepository.AddMember(_campaign, realGm, CampaignMembershipRole.MainGm, NewCommandId(), TestCorrelationId).IsSuccess, Is.True);
+
+            CharacterRecord character = CreateInitializedCharacter();
+            InventoryRecord inventory = CreateInventory(character.CharacterId);
+            ItemInstanceRecord instance = CreateItemInstance(inventory);
+
+            var deniedEquipRequest = new EquipRequest(_campaign, InventoryItemRef.ForInstance(instance.ItemInstanceId), inventory.InventoryId, instance.Revision, "chest_slot", Array.Empty<BodyPartId>(), NewUserId(), Clock.GetUtcNow(), player, NewCommandId(), TestCorrelationId);
+            Result<EquippedEntryRecord> deniedEquip = EquipmentService.Equip(_inventoryRepository, _characterRepository, _campaignRepository, deniedEquipRequest);
+            Assert.That(deniedEquip.IsFailure, Is.True, "a registered Player is not a MainGm and must still be denied");
+            Assert.That(deniedEquip.Error.Code, Is.EqualTo(ErrorCodes.InventoryMoveDenied));
+
+            var equipRequest = new EquipRequest(_campaign, InventoryItemRef.ForInstance(instance.ItemInstanceId), inventory.InventoryId, instance.Revision, "chest_slot", Array.Empty<BodyPartId>(), NewUserId(), Clock.GetUtcNow(), realGm, NewCommandId(), TestCorrelationId);
+            Result<EquippedEntryRecord> equipped = EquipmentService.Equip(_inventoryRepository, _characterRepository, _campaignRepository, equipRequest);
+            Assert.That(equipped.IsSuccess, Is.True, "a genuinely registered MainGm must be authorized");
+
+            var deniedUnequipRequest = new UnequipRequest(_campaign, InventoryItemRef.ForInstance(instance.ItemInstanceId), inventory.InventoryId, instance.Revision + 1, equipped.Value.Entry.Revision, "main", player, NewCommandId(), TestCorrelationId);
+            Result<bool> deniedUnequip = EquipmentService.Unequip(_inventoryRepository, _campaignRepository, deniedUnequipRequest);
+            Assert.That(deniedUnequip.IsFailure, Is.True, "a registered Player is not a MainGm and must still be denied");
+            Assert.That(deniedUnequip.Error.Code, Is.EqualTo(ErrorCodes.InventoryMoveDenied));
+
+            var unequipRequest = new UnequipRequest(_campaign, InventoryItemRef.ForInstance(instance.ItemInstanceId), inventory.InventoryId, instance.Revision + 1, equipped.Value.Entry.Revision, "main", realGm, NewCommandId(), TestCorrelationId);
+            Assert.That(EquipmentService.Unequip(_inventoryRepository, _campaignRepository, unequipRequest).IsSuccess, Is.True, "a genuinely registered MainGm must be authorized");
         }
 
         private EquippedEntryRecord EquipItemDirectly(InventoryRecord inventory, InventoryItemRef itemRef, long expectedItemRevision)

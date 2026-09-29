@@ -88,7 +88,7 @@ namespace Odyssey.Unity.Client
                 var assetPool = new AssetPoolPresenter(_document, sceneRepository, demo.Value.Campaign, board);
                 controlsColumn.Add(assetPool.BuildView());
 
-                var rollPanel = new RollPanelPresenter(selection, _presentationRuntime, rollStore, rngFactory, _clock, groups, demo.Value.Campaign.CampaignId, TestRulesetVersion, TestEpoch, includeRoleSelector: false);
+                var rollPanel = new RollPanelPresenter(selection, _presentationRuntime, rollStore, rngFactory, _clock, groups, demo.Value.Campaign, demo.Value.CampaignRepository, TestRulesetVersion, TestEpoch, includeRoleSelector: false);
                 controlsColumn.Add(rollPanel.BuildView());
 
                 var gameLog = new GameLogPresenter(selection, _presentationRuntime, rollPanel, demo.Value.Campaign, _clock, groups);
