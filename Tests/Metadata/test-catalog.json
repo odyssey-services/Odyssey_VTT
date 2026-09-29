@@ -1761,6 +1761,126 @@
                           "check":  "The three newly added actorUserId parameters (ArchiveDefinition, DeleteDraftDefinition, ListArchivedDefinitions) really decide the outcome: a registered-but-not-MainGm Player is denied on all three, and the same three calls succeed once the actor really is a stored MainGm"
                       },
                       {
+                          "testCaseId":  "TC-PERSIST-065",
+                          "taskId":  "ODY-S10-107",
+                          "authority":  "SLICE-10 Block 2 task contract section 4/9",
+                          "runner":  "dotnet test",
+                          "path":  "DotNet/Tests/Odyssey.Tests.Persistence/SqliteObstacleRepositoryTests.cs",
+                          "check":  "CreateObstacle round-trips for each ObstacleKind: a Door starts closed (IsOpen=false), Wall/Window have IsOpen=null"
+                      },
+                      {
+                          "testCaseId":  "TC-PERSIST-066",
+                          "taskId":  "ODY-S10-107",
+                          "authority":  "SLICE-10 Block 2 task contract section 4/9",
+                          "runner":  "dotnet test",
+                          "path":  "DotNet/Tests/Odyssey.Tests.Persistence/SqliteObstacleRepositoryTests.cs",
+                          "check":  "CreateObstacle retried with the same CommandId is idempotent -- no duplicate row"
+                      },
+                      {
+                          "testCaseId":  "TC-PERSIST-067",
+                          "taskId":  "ODY-S10-107",
+                          "authority":  "SLICE-10 Block 2 task contract section 4/9",
+                          "runner":  "dotnet test",
+                          "path":  "DotNet/Tests/Odyssey.Tests.Persistence/SqliteObstacleRepositoryTests.cs",
+                          "check":  "ToggleDoorState opens and closes a door, Revision incrementing each time"
+                      },
+                      {
+                          "testCaseId":  "TC-PERSIST-068",
+                          "taskId":  "ODY-S10-107",
+                          "authority":  "SLICE-10 Block 2 task contract section 4/9",
+                          "runner":  "dotnet test",
+                          "path":  "DotNet/Tests/Odyssey.Tests.Persistence/SqliteObstacleRepositoryTests.cs",
+                          "check":  "ToggleDoorState with a stale expectedRevision is rejected with PersistenceObstacleRevisionConflict, not a silent overwrite -- the row is unchanged"
+                      },
+                      {
+                          "testCaseId":  "TC-PERSIST-069",
+                          "taskId":  "ODY-S10-107",
+                          "authority":  "SLICE-10 Block 2 task contract section 4/9",
+                          "runner":  "dotnet test",
+                          "path":  "DotNet/Tests/Odyssey.Tests.Persistence/SqliteObstacleRepositoryTests.cs",
+                          "check":  "ToggleDoorState on a Wall or Window is a typed rejection (ObstacleToggleNotADoor), not an exception"
+                      },
+                      {
+                          "testCaseId":  "TC-PERSIST-070",
+                          "taskId":  "ODY-S10-107",
+                          "authority":  "SLICE-10 Block 2 task contract section 4/9",
+                          "runner":  "dotnet test",
+                          "path":  "DotNet/Tests/Odyssey.Tests.Persistence/SqliteObstacleRepositoryTests.cs",
+                          "check":  "ToggleDoorState against an unknown ObstacleId returns PersistenceObstacleNotFound"
+                      },
+                      {
+                          "testCaseId":  "TC-PERSIST-071",
+                          "taskId":  "ODY-S10-107",
+                          "authority":  "SLICE-10 Block 2 task contract section 4/9",
+                          "runner":  "dotnet test",
+                          "path":  "DotNet/Tests/Odyssey.Tests.Persistence/SqliteObstacleRepositoryTests.cs",
+                          "check":  "ListObstacles round-trips several obstacles of different kinds, scoped to one Scene -- another Scene's obstacles are not returned"
+                      },
+                      {
+                          "testCaseId":  "TC-PERSIST-072",
+                          "taskId":  "ODY-S10-107",
+                          "authority":  "SLICE-10 Block 2 task contract section 4/9",
+                          "runner":  "dotnet test",
+                          "path":  "DotNet/Tests/Odyssey.Tests.Persistence/SqliteObstacleRepositoryTests.cs",
+                          "check":  "Regression: existing SqliteSceneRepository Scene/Token operations are unaffected by the new Obstacle table"
+                      },
+                      {
+                          "testCaseId":  "TC-PERSIST-073",
+                          "taskId":  "ODY-S10-107",
+                          "authority":  "SLICE-10 Block 2 task contract section 4/9",
+                          "runner":  "dotnet test",
+                          "path":  "DotNet/Tests/Odyssey.Tests.Persistence/Board/ObstacleAuthoringServiceTests.cs",
+                          "check":  "CreateObstacle is MainGM-only by the stored membership, for every ObstacleKind: an unregistered user and a registered Player are denied with no repository state change; the host and a second, separately-registered MainGm succeed"
+                      },
+                      {
+                          "testCaseId":  "TC-PERSIST-074",
+                          "taskId":  "ODY-S10-107",
+                          "authority":  "SLICE-10 Block 2 task contract section 4/9",
+                          "runner":  "dotnet test",
+                          "path":  "DotNet/Tests/Odyssey.Tests.Persistence/Board/ObstacleAuthoringServiceTests.cs",
+                          "check":  "Fail-closed: CreateObstacle returns the membership lookup's own failure with an unreadable membership, even for the host"
+                      },
+                      {
+                          "testCaseId":  "TC-PERSIST-075",
+                          "taskId":  "ODY-S10-107",
+                          "authority":  "SLICE-10 Block 2 task contract section 4/9",
+                          "runner":  "dotnet test",
+                          "path":  "DotNet/Tests/Odyssey.Tests.Persistence/Board/ObstacleAuthoringServiceTests.cs",
+                          "check":  "ToggleDoorState is open to any registered campaign participant (Player, Observer, MainGm all succeed), not MainGM-only; an unregistered actor is denied, fail-closed"
+                      },
+                      {
+                          "testCaseId":  "TC-PERSIST-076",
+                          "taskId":  "ODY-S10-107",
+                          "authority":  "SLICE-10 Block 2 task contract section 4/9",
+                          "runner":  "dotnet test",
+                          "path":  "DotNet/Tests/Odyssey.Tests.Persistence/Board/ObstacleAuthoringServiceTests.cs",
+                          "check":  "Fail-closed: ToggleDoorState returns the membership lookup's own failure with an unreadable membership, even for the host, and the door remains closed"
+                      },
+                      {
+                          "testCaseId":  "TC-PERSIST-077",
+                          "taskId":  "ODY-S10-107",
+                          "authority":  "SLICE-10 Block 2 task contract section 4/9",
+                          "runner":  "dotnet test",
+                          "path":  "DotNet/Tests/Odyssey.Tests.Persistence/Board/ObstacleAuthoringServiceTests.cs",
+                          "check":  "ToggleDoorState on a Wall/Window is still a typed rejection even for a genuinely registered MainGm -- authorization success does not bypass the Kind check"
+                      },
+                      {
+                          "testCaseId":  "TC-PERSIST-078",
+                          "taskId":  "ODY-S10-107",
+                          "authority":  "SLICE-10 Block 2 task contract section 4/9",
+                          "runner":  "dotnet test",
+                          "path":  "DotNet/Tests/Odyssey.Tests.Persistence/Board/ObstacleAuthoringServiceTests.cs",
+                          "check":  "ListObstacles performs no authorization at all, by ODY-S10-104's own precedent for catalog reads"
+                      },
+                      {
+                          "testCaseId":  "TC-PERSIST-079",
+                          "taskId":  "ODY-S10-107",
+                          "authority":  "SLICE-10 Block 2 task contract section 4/9",
+                          "runner":  "dotnet test",
+                          "path":  "DotNet/Tests/Odyssey.Tests.Unit/Geometry/ObstacleGeometryTests.cs",
+                          "check":  "ObstacleGeometry.BlocksVision/BlocksMovement truth table for every ObstacleKind x IsOpen combination -- pure functions, no repository/database involved"
+                      },
+                      {
                           "testCaseId":  "TC-BOARD-001",
                           "taskId":  "ODY-S03-004",
                           "authority":  "ADR-020 section 5.1/5.3; ODY-S03-004",

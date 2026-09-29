@@ -475,6 +475,26 @@ namespace Odyssey.Domain.Identity
         public static bool operator !=(TokenId left, TokenId right) => !left.Equals(right);
     }
 
+    /// <summary>SLICE-10 Block 2: identifies one obstacle (wall/door/window segment) row, scoped to a Scene the same way <see cref="TokenId"/> is -- a plain <see cref="SceneId"/> field, not a database foreign key.</summary>
+    public readonly struct ObstacleId : IEquatable<ObstacleId>
+    {
+        private const string Prefix = "obst_";
+        private const int HexLength = 32;
+        private readonly string _value;
+
+        private ObstacleId(string value) => _value = value;
+        public bool IsValid => _value != null;
+        public static ObstacleId NewId(Odyssey.Domain.Time.UtcInstant now) => new ObstacleId(Prefix + Uuid7.NewHex32(now));
+        public static bool TryParse(string? value, out ObstacleId id) => CanonicalId.TryParse(value, Prefix, HexLength, out id, static v => new ObstacleId(v));
+        public static ObstacleId Parse(string value) => TryParse(value, out ObstacleId id) ? id : throw new FormatException("ObstacleId is not canonical.");
+        public override string ToString() => _value ?? string.Empty;
+        public bool Equals(ObstacleId other) => string.Equals(_value, other._value, StringComparison.Ordinal);
+        public override bool Equals(object? obj) => obj is ObstacleId other && Equals(other);
+        public override int GetHashCode() => _value == null ? 0 : StringComparer.Ordinal.GetHashCode(_value);
+        public static bool operator ==(ObstacleId left, ObstacleId right) => left.Equals(right);
+        public static bool operator !=(ObstacleId left, ObstacleId right) => !left.Equals(right);
+    }
+
     /// <summary>
     /// Identifies a row in the AssetManifestEntries system table (ADR-011 section
     /// 8.2, created by ODY-S01-007). Not the full asset pipeline (staging,

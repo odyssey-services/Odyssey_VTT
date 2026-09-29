@@ -184,5 +184,12 @@ namespace Odyssey.Application.Results
         public static readonly ErrorCode CheckFormulaRequiresAtMostOneAttributeReference = ErrorCode.Parse("check.formula.requires_at_most_one_attribute_reference");
         public static readonly ErrorCode CheckFormulaAmbiguousReference = ErrorCode.Parse("check.formula.ambiguous_reference");
         public static readonly ErrorCode CheckFormulaUnresolvedReference = ErrorCode.Parse("check.formula.unresolved_reference");
+
+        public static readonly ErrorCode PersistenceObstacleNotFound = ErrorCode.Parse("persistence.obstacle.not_found");
+        public static readonly ErrorCode PersistenceObstacleIoFailed = ErrorCode.Parse("persistence.obstacle.io_failed");
+        public static readonly ErrorCode PersistenceObstacleRevisionConflict = ErrorCode.Parse("persistence.obstacle.revision_conflict");
+        public static readonly ErrorCode ObstacleAuthoringDenied = ErrorCode.Parse("obstacle.authoring.denied");
+        public static readonly ErrorCode ObstacleToggleDenied = ErrorCode.Parse("obstacle.toggle.denied");
+        public static readonly ErrorCode ObstacleToggleNotADoor = ErrorCode.Parse("obstacle.toggle.not_a_door");
     }
 }
