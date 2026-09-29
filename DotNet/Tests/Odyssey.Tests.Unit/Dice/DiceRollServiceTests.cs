@@ -418,6 +418,27 @@ namespace Odyssey.Tests.Unit.Dice
             Assert.That(DiceRollService.CancelRoll(store, campaigns, new CancelRollRequest(TestCampaign, roll.RollId, secondGm, "GM call", NewCorrelationId())).IsSuccess, Is.True, "a genuinely registered MainGm must be authorized");
         }
 
+        [Test] // ODY-S10-105 follow-up: TC-DICE-029 -- the same fast-path proof RequestFullReroll already has: cancelling one's own roll must never call the membership lookup at all.
+        public void CancelRoll_ByOwnActor_NeedsNoLookup()
+        {
+            var store = new DiceRollStore();
+            UserId actor = NewUserId();
+            DiceRoll roll = DiceRollService.SubmitRoll(store, NewRngFactory(), Clock, new SubmitRollRequest(actor, true, "AttributeCheck", "1d20", DiceRollAudience.Public(), TestCampaignId, NewCommandId(), TestRulesetVersion, TestEpoch, NewCorrelationId())).Value;
+
+            var poisonedForOwnActor = PoisonedCampaignRepository.FailsOnLookup();
+            Result<DiceRoll> ownActorResult = DiceRollService.CancelRoll(store, poisonedForOwnActor, new CancelRollRequest(TestCampaign, roll.RollId, actor, "player disconnected", NewCorrelationId()));
+            Assert.That(ownActorResult.IsSuccess, Is.True, "the roll's own actor must succeed via the cheap fast path, never reaching the (here, poisoned) membership lookup");
+            Assert.That(poisonedForOwnActor.LookupCalls, Is.EqualTo(0), "cancelling one's own roll must never call the membership lookup at all");
+
+            var poisonedForOtherActor = PoisonedCampaignRepository.FailsOnLookup();
+            UserId other = NewUserId();
+            DiceRoll otherRoll = DiceRollService.SubmitRoll(store, NewRngFactory(), Clock, new SubmitRollRequest(other, true, "AttributeCheck", "1d20", DiceRollAudience.Public(), TestCampaignId, NewCommandId(), TestRulesetVersion, TestEpoch, NewCorrelationId())).Value;
+            Result<DiceRoll> otherActorResult = DiceRollService.CancelRoll(store, poisonedForOtherActor, new CancelRollRequest(TestCampaign, otherRoll.RollId, actor, "trying to cancel someone else's roll", NewCorrelationId()));
+            Assert.That(otherActorResult.IsFailure, Is.True, "cancelling someone else's roll must go through the (here, poisoned) membership lookup and fail closed");
+            Assert.That(otherActorResult.Error.Code, Is.EqualTo(ErrorCodes.PersistenceCampaignIoFailed));
+            Assert.That(poisonedForOtherActor.LookupCalls, Is.EqualTo(1), "cancelling someone else's roll must call the membership lookup exactly once");
+        }
+
         private sealed class SystemWallClock : IWallClock
         {
             public UtcInstant GetUtcNow() => UtcInstant.FromDateTimeOffset(DateTimeOffset.UtcNow);

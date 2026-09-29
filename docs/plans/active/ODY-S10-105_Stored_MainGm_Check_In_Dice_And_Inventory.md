@@ -19,7 +19,9 @@ Application services receive an `ICampaignRepository` parameter (the `ODY-S10-10
 See task contract §9 and §18.
 
 ## 9. Validation and acceptance evidence
-`dotnet test` (full: Unit 183/183, Persistence 883/883); `verify-format`/`verify-repository`/`verify-test-structure`; a mutation proving `TC-DICE-024` bites; `git diff --name-status origin/main` reviewed against the forbidden-path list, including a targeted grep for `actorIsMainGm`/`ActorIsMainGm` to confirm the one caught-and-reverted `MG-3b` scoping mistake did not survive into the final diff.
+`dotnet test` (full: Unit 183/183 [was 179, +4], Persistence 883/883 [was 879, +4]); `verify-format`/`verify-repository`/`verify-test-structure`; a mutation proving `TC-DICE-024` bites; `git diff --name-status origin/main` reviewed against the forbidden-path list, including a targeted grep for `actorIsMainGm`/`ActorIsMainGm` to confirm the one caught-and-reverted `MG-3b` scoping mistake did not survive into the final diff.
+
+**Follow-up (independent review of PR #194):** added `TC-DICE-029` (`CancelRoll`'s own no-lookup-for-own-roll proof, mirroring `RequestFullReroll`'s `TC-DICE-027`), bringing Unit to 184/184; a mutation (short-circuiting `CancelRoll`'s own-roll fast-path check) made it fail as expected, then was reverted.
 
 ## 10. Recovery and rollback
 Revert the PR; no schema or data change.
