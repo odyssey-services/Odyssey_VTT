@@ -74,7 +74,7 @@ namespace Odyssey.Tests.Persistence
             var rules = new Rules(requiresIntervention: true, damageDeltas: new[] { new AttackDelta(targetRef, -3) }, costDeltas: Array.Empty<AttackDelta>());
             AttackRequest request = Request(encounter, actor, target, item);
 
-            Result<AttackOutcomeRecord> pending = AttackApplyService.ResolveAttack(_reader, rules, new CountingRandomFactory(), _apply, _campaign, Epoch, request);
+            Result<AttackOutcomeRecord> pending = AttackApplyService.ResolveAttack(_reader, new SqliteCampaignRepository(_clock), rules, new CountingRandomFactory(), _apply, _campaign, Epoch, request);
 
             Assert.That(pending.IsSuccess, Is.True);
             Assert.That(pending.Value.OutcomeKind, Is.EqualTo(AttackOutcomeKind.Pending));
@@ -97,7 +97,7 @@ namespace Odyssey.Tests.Persistence
             ItemInstanceRecord item = ItemFor(actor);
             var rules = new Rules(requiresIntervention: false, damageDeltas: new[] { new AttackDelta(CharacterTargetRef(target, Health), -3) }, costDeltas: Array.Empty<AttackDelta>());
 
-            Result<AttackOutcomeRecord> result = AttackApplyService.ResolveAttack(_reader, rules, new CountingRandomFactory(), _apply, _campaign, Epoch, Request(encounter, actor, target, item));
+            Result<AttackOutcomeRecord> result = AttackApplyService.ResolveAttack(_reader, new SqliteCampaignRepository(_clock), rules, new CountingRandomFactory(), _apply, _campaign, Epoch, Request(encounter, actor, target, item));
 
             Assert.That(result.IsSuccess, Is.True);
             Assert.That(result.Value.OutcomeKind, Is.EqualTo(AttackOutcomeKind.Accepted));
@@ -114,7 +114,7 @@ namespace Odyssey.Tests.Persistence
             var rules = new Rules(requiresIntervention: true, damageDeltas: new[] { new AttackDelta(CharacterTargetRef(target, Health), -4) }, costDeltas: Array.Empty<AttackDelta>());
             AttackRequest request = Request(encounter, actor, target, item);
 
-            Result<AttackOutcomeRecord> pending = AttackApplyService.ResolveAttack(_reader, rules, new CountingRandomFactory(), _apply, _campaign, Epoch, request);
+            Result<AttackOutcomeRecord> pending = AttackApplyService.ResolveAttack(_reader, new SqliteCampaignRepository(_clock), rules, new CountingRandomFactory(), _apply, _campaign, Epoch, request);
             Assert.That(pending.IsSuccess, Is.True);
             Assert.That(CurrentValue(target, Health), Is.EqualTo(10), "No delta on the original, pending step.");
 
@@ -133,7 +133,7 @@ namespace Odyssey.Tests.Persistence
             ItemInstanceRecord item = ItemFor(actor);
             var rules = new Rules(requiresIntervention: true, damageDeltas: new[] { new AttackDelta(CharacterTargetRef(target, Health), -4) }, costDeltas: Array.Empty<AttackDelta>());
             AttackRequest request = Request(encounter, actor, target, item);
-            Assert.That(AttackApplyService.ResolveAttack(_reader, rules, new CountingRandomFactory(), _apply, _campaign, Epoch, request).IsSuccess, Is.True);
+            Assert.That(AttackApplyService.ResolveAttack(_reader, new SqliteCampaignRepository(_clock), rules, new CountingRandomFactory(), _apply, _campaign, Epoch, request).IsSuccess, Is.True);
 
             Result<AttackOutcomeRecord> rejected = AttackApplyService.ResolveAttackIntervention(_apply, _campaign, request.CommandId, AttackInterventionResolution.Reject, global::Odyssey.Application.Identity.DevIdentityProvider.AssignHost(), Command(), Corr);
 
@@ -158,7 +158,7 @@ namespace Odyssey.Tests.Persistence
                 damageDeltas: new[] { new AttackDelta(CharacterTargetRef(target, Health), -3) },
                 costDeltas: new[] { new AttackDelta(CharacterTargetRef(actor, Health), -2) });
 
-            Result<AttackOutcomeRecord> result = AttackApplyService.ResolveAttack(_reader, rules, new CountingRandomFactory(), _apply, _campaign, Epoch, Request(encounter, actor, target, item));
+            Result<AttackOutcomeRecord> result = AttackApplyService.ResolveAttack(_reader, new SqliteCampaignRepository(_clock), rules, new CountingRandomFactory(), _apply, _campaign, Epoch, Request(encounter, actor, target, item));
 
             Assert.That(result.IsSuccess, Is.True);
             Assert.That(CurrentValue(target, Health), Is.EqualTo(7));
@@ -177,7 +177,7 @@ namespace Odyssey.Tests.Persistence
                 damageDeltas: new[] { new AttackDelta(targetRef, -3) },
                 costDeltas: new[] { new AttackDelta(targetRef, -2) });
 
-            Result<AttackOutcomeRecord> result = AttackApplyService.ResolveAttack(_reader, rules, new CountingRandomFactory(), _apply, _campaign, Epoch, Request(encounter, actor, target, item));
+            Result<AttackOutcomeRecord> result = AttackApplyService.ResolveAttack(_reader, new SqliteCampaignRepository(_clock), rules, new CountingRandomFactory(), _apply, _campaign, Epoch, Request(encounter, actor, target, item));
 
             Assert.That(result.IsSuccess, Is.True);
             Assert.That(CurrentValue(target, Health), Is.EqualTo(5), "Both -3 and -2 apply sequentially to the same resource: 10-3-2=5.");
@@ -192,7 +192,7 @@ namespace Odyssey.Tests.Persistence
             long before = TotalRowCount();
             var rules = new Rules(requiresIntervention: false, damageDeltas: new[] { new AttackDelta("item:" + item.ItemInstanceId + ":durability", -1) }, costDeltas: Array.Empty<AttackDelta>());
 
-            Result<AttackOutcomeRecord> result = AttackApplyService.ResolveAttack(_reader, rules, new CountingRandomFactory(), _apply, _campaign, Epoch, Request(encounter, actor, target, item));
+            Result<AttackOutcomeRecord> result = AttackApplyService.ResolveAttack(_reader, new SqliteCampaignRepository(_clock), rules, new CountingRandomFactory(), _apply, _campaign, Epoch, Request(encounter, actor, target, item));
 
             Assert.That(result.IsFailure, Is.True);
             Assert.That(TotalRowCount(), Is.EqualTo(before), "No partial commit -- not even the AttackOutcome row itself.");
@@ -207,7 +207,7 @@ namespace Odyssey.Tests.Persistence
             long before = TotalRowCount();
             var rules = new Rules(requiresIntervention: false, damageDeltas: new[] { new AttackDelta("not-a-recognized-target-ref", -1) }, costDeltas: Array.Empty<AttackDelta>());
 
-            Result<AttackOutcomeRecord> result = AttackApplyService.ResolveAttack(_reader, rules, new CountingRandomFactory(), _apply, _campaign, Epoch, Request(encounter, actor, target, item));
+            Result<AttackOutcomeRecord> result = AttackApplyService.ResolveAttack(_reader, new SqliteCampaignRepository(_clock), rules, new CountingRandomFactory(), _apply, _campaign, Epoch, Request(encounter, actor, target, item));
 
             Assert.That(result.IsFailure, Is.True);
             Assert.That(TotalRowCount(), Is.EqualTo(before));
@@ -225,7 +225,7 @@ namespace Odyssey.Tests.Persistence
             // CurrentValue below the floor.
             var rules = new Rules(requiresIntervention: false, damageDeltas: new[] { new AttackDelta(CharacterTargetRef(target, Health), -15) }, costDeltas: Array.Empty<AttackDelta>());
 
-            Result<AttackOutcomeRecord> result = AttackApplyService.ResolveAttack(_reader, rules, new CountingRandomFactory(), _apply, _campaign, Epoch, Request(encounter, actor, target, item));
+            Result<AttackOutcomeRecord> result = AttackApplyService.ResolveAttack(_reader, new SqliteCampaignRepository(_clock), rules, new CountingRandomFactory(), _apply, _campaign, Epoch, Request(encounter, actor, target, item));
 
             Assert.That(result.IsFailure, Is.True);
             Assert.That(TotalRowCount(), Is.EqualTo(before), "The AttackOutcome row itself (inserted before delta application in the same transaction) is also rolled back.");
@@ -294,7 +294,7 @@ namespace Odyssey.Tests.Persistence
             => CombatEncounterService.Create(_encounters, new SqliteCampaignRepository(_clock), _campaign, new CreateCombatEncounterRequest(new[] { actor, target }, global::Odyssey.Application.Identity.DevIdentityProvider.AssignHost(), Command()), Corr).Value;
 
         private static AttackRequest Request(CombatEncounterRecord encounter, CharacterId actor, CharacterId target, ItemInstanceRecord item)
-            => new AttackRequest(new AttackIntent(encounter.EncounterId, actor, new[] { target }, item.ItemInstanceId, encounter.Revision), User(), true, Command(), Corr);
+            => new AttackRequest(new AttackIntent(encounter.EncounterId, actor, new[] { target }, item.ItemInstanceId, encounter.Revision), global::Odyssey.Application.Identity.DevIdentityProvider.AssignHost(), Command(), Corr);
 
         private CharacterId Active(string name)
         {

@@ -75,7 +75,7 @@ namespace Odyssey.Tests.Persistence
             var binding = new CombatDurationBinding(encounter.EncounterId, actor, target, encounter.RoundOrdinal, 0, 1);
             var rules = new Rules(_ => new[] { Candidate(target, effectRef, EffectApplicationDecision.Apply, binding) });
 
-            Result<AttackOutcomeRecord> result = AttackApplyService.ResolveAttack(_reader, rules, new CountingRandomFactory(), _apply, _campaign, Epoch, Request(encounter, actor, target, item));
+            Result<AttackOutcomeRecord> result = AttackApplyService.ResolveAttack(_reader, new SqliteCampaignRepository(_clock), rules, new CountingRandomFactory(), _apply, _campaign, Epoch, Request(encounter, actor, target, item));
 
             Assert.That(result.IsSuccess, Is.True);
             Assert.That(result.Value.OutcomeKind, Is.EqualTo(AttackOutcomeKind.Accepted));
@@ -100,7 +100,7 @@ namespace Odyssey.Tests.Persistence
             ItemInstanceRecord item = ItemFor(actor);
             var rules = new Rules(_ => new[] { Candidate(target, EffectRef(), EffectApplicationDecision.DoNotApply, null) });
 
-            Result<AttackOutcomeRecord> result = AttackApplyService.ResolveAttack(_reader, rules, new CountingRandomFactory(), _apply, _campaign, Epoch, Request(encounter, actor, target, item));
+            Result<AttackOutcomeRecord> result = AttackApplyService.ResolveAttack(_reader, new SqliteCampaignRepository(_clock), rules, new CountingRandomFactory(), _apply, _campaign, Epoch, Request(encounter, actor, target, item));
 
             Assert.That(result.IsSuccess, Is.True);
             Assert.That(result.Value.OutcomeKind, Is.EqualTo(AttackOutcomeKind.Accepted));
@@ -117,7 +117,7 @@ namespace Odyssey.Tests.Persistence
             var rules = new Rules(_ => new[] { Candidate(target, effectRef, EffectApplicationDecision.RequiresIntervention, null) });
             AttackRequest request = Request(encounter, actor, target, item);
 
-            Result<AttackOutcomeRecord> pending = AttackApplyService.ResolveAttack(_reader, rules, new CountingRandomFactory(), _apply, _campaign, Epoch, request);
+            Result<AttackOutcomeRecord> pending = AttackApplyService.ResolveAttack(_reader, new SqliteCampaignRepository(_clock), rules, new CountingRandomFactory(), _apply, _campaign, Epoch, request);
             Assert.That(pending.IsSuccess, Is.True);
             Assert.That(pending.Value.OutcomeKind, Is.EqualTo(AttackOutcomeKind.Pending));
             Assert.That(ActiveEffectsFor(target).Count, Is.Zero, "No row on the original, pending step.");
@@ -136,7 +136,7 @@ namespace Odyssey.Tests.Persistence
             ItemInstanceRecord item = ItemFor(actor);
             var rules = new Rules(_ => new[] { Candidate(target, EffectRef(), EffectApplicationDecision.RequiresIntervention, null) });
             AttackRequest request = Request(encounter, actor, target, item);
-            Assert.That(AttackApplyService.ResolveAttack(_reader, rules, new CountingRandomFactory(), _apply, _campaign, Epoch, request).IsSuccess, Is.True);
+            Assert.That(AttackApplyService.ResolveAttack(_reader, new SqliteCampaignRepository(_clock), rules, new CountingRandomFactory(), _apply, _campaign, Epoch, request).IsSuccess, Is.True);
 
             Result<AttackOutcomeRecord> rejected = AttackApplyService.ResolveAttackIntervention(_apply, _campaign, request.CommandId, AttackInterventionResolution.Reject, global::Odyssey.Application.Identity.DevIdentityProvider.AssignHost(), Command(), Corr);
 
@@ -154,7 +154,7 @@ namespace Odyssey.Tests.Persistence
             ContentDefinitionRef effectRef = EffectRef();
             var rules = new Rules(_ => new[] { Candidate(target, effectRef, EffectApplicationDecision.RequiresIntervention, null) });
             AttackRequest request = Request(encounter, actor, target, item);
-            Assert.That(AttackApplyService.ResolveAttack(_reader, rules, new CountingRandomFactory(), _apply, _campaign, Epoch, request).IsSuccess, Is.True);
+            Assert.That(AttackApplyService.ResolveAttack(_reader, new SqliteCampaignRepository(_clock), rules, new CountingRandomFactory(), _apply, _campaign, Epoch, request).IsSuccess, Is.True);
 
             string json = EffectCandidatesJsonColumn(request.CommandId);
 
@@ -175,10 +175,10 @@ namespace Odyssey.Tests.Persistence
             ItemInstanceRecord item = ItemFor(actor);
             var rules = new Rules(_ => new[] { Candidate(target, EffectRef(), EffectApplicationDecision.Apply, null) });
             AttackIntent staleIntent = new AttackIntent(encounter.EncounterId, actor, new[] { target }, item.ItemInstanceId, encounter.Revision + 1);
-            AttackRequest request = new AttackRequest(staleIntent, User(), true, Command(), Corr);
+            AttackRequest request = new AttackRequest(staleIntent, global::Odyssey.Application.Identity.DevIdentityProvider.AssignHost(), Command(), Corr);
             long before = TotalRowCount();
 
-            Result<AttackOutcomeRecord> result = AttackApplyService.ResolveAttack(_reader, rules, new CountingRandomFactory(), _apply, _campaign, Epoch, request);
+            Result<AttackOutcomeRecord> result = AttackApplyService.ResolveAttack(_reader, new SqliteCampaignRepository(_clock), rules, new CountingRandomFactory(), _apply, _campaign, Epoch, request);
 
             Assert.That(result.IsFailure, Is.True);
             Assert.That(TotalRowCount(), Is.EqualTo(before));
@@ -195,7 +195,7 @@ namespace Odyssey.Tests.Persistence
 
             // First application: creates the row (nothing to stack against yet).
             var firstRules = new Rules(_ => new[] { Candidate(target, effectRef, EffectApplicationDecision.Apply, null, EffectStackPolicy.IncreaseStacks) });
-            Assert.That(AttackApplyService.ResolveAttack(_reader, firstRules, new CountingRandomFactory(), _apply, _campaign, Epoch, Request(encounter, actor, target, item)).IsSuccess, Is.True);
+            Assert.That(AttackApplyService.ResolveAttack(_reader, new SqliteCampaignRepository(_clock), firstRules, new CountingRandomFactory(), _apply, _campaign, Epoch, Request(encounter, actor, target, item)).IsSuccess, Is.True);
             IReadOnlyList<ActiveEffectRecord> afterFirst = ActiveEffectsFor(target);
             Assert.That(afterFirst.Count, Is.EqualTo(1));
             Assert.That(afterFirst[0].Effect.StackCount, Is.EqualTo(1));
@@ -205,7 +205,7 @@ namespace Odyssey.Tests.Persistence
             // (ODY-S05-503), not a new/duplicated decision.
             encounter = Advance(Advance(encounter));
             var secondRules = new Rules(_ => new[] { Candidate(target, effectRef, EffectApplicationDecision.Apply, null, EffectStackPolicy.IncreaseStacks) });
-            Assert.That(AttackApplyService.ResolveAttack(_reader, secondRules, new CountingRandomFactory(), _apply, _campaign, Epoch, Request(encounter, actor, target, item)).IsSuccess, Is.True);
+            Assert.That(AttackApplyService.ResolveAttack(_reader, new SqliteCampaignRepository(_clock), secondRules, new CountingRandomFactory(), _apply, _campaign, Epoch, Request(encounter, actor, target, item)).IsSuccess, Is.True);
 
             IReadOnlyList<ActiveEffectRecord> afterSecond = ActiveEffectsFor(target);
             Assert.That(afterSecond.Count, Is.EqualTo(1), "IncreaseStacks must not create a second row.");
@@ -221,12 +221,12 @@ namespace Odyssey.Tests.Persistence
             ItemInstanceRecord item = ItemFor(actor);
             ContentDefinitionRef effectRef = EffectRef();
             var firstRules = new Rules(_ => new[] { Candidate(target, effectRef, EffectApplicationDecision.Apply, null, EffectStackPolicy.RequestGMResolution) });
-            Assert.That(AttackApplyService.ResolveAttack(_reader, firstRules, new CountingRandomFactory(), _apply, _campaign, Epoch, Request(encounter, actor, target, item)).IsSuccess, Is.True);
+            Assert.That(AttackApplyService.ResolveAttack(_reader, new SqliteCampaignRepository(_clock), firstRules, new CountingRandomFactory(), _apply, _campaign, Epoch, Request(encounter, actor, target, item)).IsSuccess, Is.True);
             Assert.That(ActiveEffectsFor(target).Count, Is.EqualTo(1));
 
             encounter = Advance(Advance(encounter));
             var secondRules = new Rules(_ => new[] { Candidate(target, effectRef, EffectApplicationDecision.Apply, null, EffectStackPolicy.RequestGMResolution) });
-            Result<AttackOutcomeRecord> second = AttackApplyService.ResolveAttack(_reader, secondRules, new CountingRandomFactory(), _apply, _campaign, Epoch, Request(encounter, actor, target, item));
+            Result<AttackOutcomeRecord> second = AttackApplyService.ResolveAttack(_reader, new SqliteCampaignRepository(_clock), secondRules, new CountingRandomFactory(), _apply, _campaign, Epoch, Request(encounter, actor, target, item));
 
             Assert.That(second.IsSuccess, Is.True, "The overall attack outcome still commits even though this candidate's own stacking conflict is deferred.");
             Assert.That(ActiveEffectsFor(target).Count, Is.EqualTo(1), "No second row -- RequestGMResolution has no durable conflict persistence in this codebase (a disclosed limitation).");
@@ -241,7 +241,7 @@ namespace Odyssey.Tests.Persistence
             => CombatEncounterService.Advance(_encounters, new SqliteCampaignRepository(_clock), _campaign, new AdvanceCombatEncounterRequest(encounter.EncounterId, encounter.Revision, global::Odyssey.Application.Identity.DevIdentityProvider.AssignHost(), Command()), Corr).Value;
 
         private static AttackRequest Request(CombatEncounterRecord encounter, CharacterId actor, CharacterId target, ItemInstanceRecord item)
-            => new AttackRequest(new AttackIntent(encounter.EncounterId, actor, new[] { target }, item.ItemInstanceId, encounter.Revision), User(), true, Command(), Corr);
+            => new AttackRequest(new AttackIntent(encounter.EncounterId, actor, new[] { target }, item.ItemInstanceId, encounter.Revision), global::Odyssey.Application.Identity.DevIdentityProvider.AssignHost(), Command(), Corr);
 
         private CharacterId Active(string name)
         {

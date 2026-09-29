@@ -62,7 +62,7 @@ namespace Odyssey.Tests.Persistence
             long domainEventsBefore = Count("DomainEvents");
             long appliedCommandsBefore = Count("AppliedCommands");
 
-            Result<AttackOutcomeRecord> result = AttackApplyService.ResolveAttack(_reader, new Rules(requiresIntervention: false), random, _apply, _campaign, Epoch, request);
+            Result<AttackOutcomeRecord> result = AttackApplyService.ResolveAttack(_reader, new SqliteCampaignRepository(_clock), new Rules(requiresIntervention: false), random, _apply, _campaign, Epoch, request);
 
             Assert.That(result.IsSuccess, Is.True);
             Assert.That(result.Value.OutcomeKind, Is.EqualTo(AttackOutcomeKind.Accepted));
@@ -89,7 +89,7 @@ namespace Odyssey.Tests.Persistence
             AttackRequest request = Request(encounter, actor, target, item);
             var random = new CountingRandomFactory();
 
-            Result<AttackOutcomeRecord> result = AttackApplyService.ResolveAttack(_reader, new Rules(requiresIntervention: true), random, _apply, _campaign, Epoch, request);
+            Result<AttackOutcomeRecord> result = AttackApplyService.ResolveAttack(_reader, new SqliteCampaignRepository(_clock), new Rules(requiresIntervention: true), random, _apply, _campaign, Epoch, request);
 
             Assert.That(result.IsSuccess, Is.True);
             Assert.That(result.Value.OutcomeKind, Is.EqualTo(AttackOutcomeKind.Pending));
@@ -109,7 +109,7 @@ namespace Odyssey.Tests.Persistence
             ItemInstanceRecord item = ItemFor(actor);
             AttackRequest request = Request(encounter, actor, target, item);
             var random = new CountingRandomFactory();
-            Result<AttackOutcomeRecord> pending = AttackApplyService.ResolveAttack(_reader, new Rules(requiresIntervention: true), random, _apply, _campaign, Epoch, request);
+            Result<AttackOutcomeRecord> pending = AttackApplyService.ResolveAttack(_reader, new SqliteCampaignRepository(_clock), new Rules(requiresIntervention: true), random, _apply, _campaign, Epoch, request);
             Assert.That(pending.IsSuccess, Is.True);
             int savedSample = pending.Value.RandomSampleValue;
 
@@ -136,9 +136,9 @@ namespace Odyssey.Tests.Persistence
             var random = new CountingRandomFactory();
             long appliedCommandsBefore = Count("AppliedCommands");
 
-            Result<AttackOutcomeRecord> first = AttackApplyService.ResolveAttack(_reader, new Rules(requiresIntervention: false), random, _apply, _campaign, Epoch, request);
+            Result<AttackOutcomeRecord> first = AttackApplyService.ResolveAttack(_reader, new SqliteCampaignRepository(_clock), new Rules(requiresIntervention: false), random, _apply, _campaign, Epoch, request);
             Assert.That(first.IsSuccess, Is.True);
-            Result<AttackOutcomeRecord> retry = AttackApplyService.ResolveAttack(_reader, new Rules(requiresIntervention: false), random, _apply, _campaign, Epoch, request);
+            Result<AttackOutcomeRecord> retry = AttackApplyService.ResolveAttack(_reader, new SqliteCampaignRepository(_clock), new Rules(requiresIntervention: false), random, _apply, _campaign, Epoch, request);
 
             Assert.That(retry.IsSuccess, Is.True);
             Assert.That(retry.Value.RandomSampleValue, Is.EqualTo(first.Value.RandomSampleValue));
@@ -156,11 +156,11 @@ namespace Odyssey.Tests.Persistence
             CombatEncounterRecord encounter = CreateEncounter(actor, target);
             ItemInstanceRecord item = ItemFor(actor);
             AttackIntent staleIntent = new AttackIntent(encounter.EncounterId, actor, new[] { target }, item.ItemInstanceId, encounter.Revision + 1);
-            AttackRequest request = new AttackRequest(staleIntent, User(), true, Command(), Corr);
+            AttackRequest request = new AttackRequest(staleIntent, global::Odyssey.Application.Identity.DevIdentityProvider.AssignHost(), Command(), Corr);
             var random = new CountingRandomFactory();
             long before = TotalRowCount();
 
-            Result<AttackOutcomeRecord> result = AttackApplyService.ResolveAttack(_reader, new Rules(requiresIntervention: false), random, _apply, _campaign, Epoch, request);
+            Result<AttackOutcomeRecord> result = AttackApplyService.ResolveAttack(_reader, new SqliteCampaignRepository(_clock), new Rules(requiresIntervention: false), random, _apply, _campaign, Epoch, request);
 
             Assert.That(result.IsFailure, Is.True);
             Assert.That(random.CreateCalls, Is.Zero, "A guard failure inside the unmodified reader must reject before any RNG draw.");
@@ -175,7 +175,7 @@ namespace Odyssey.Tests.Persistence
             ItemInstanceRecord item = ItemFor(actor);
             AttackRequest request = Request(encounter, actor, target, item);
             var random = new CountingRandomFactory();
-            Assert.That(AttackApplyService.ResolveAttack(_reader, new Rules(requiresIntervention: true), random, _apply, _campaign, Epoch, request).IsSuccess, Is.True);
+            Assert.That(AttackApplyService.ResolveAttack(_reader, new SqliteCampaignRepository(_clock), new Rules(requiresIntervention: true), random, _apply, _campaign, Epoch, request).IsSuccess, Is.True);
             Assert.That(AttackApplyService.ResolveAttackIntervention(_apply, _campaign, request.CommandId, AttackInterventionResolution.Reject, global::Odyssey.Application.Identity.DevIdentityProvider.AssignHost(), Command(), Corr).IsSuccess, Is.True);
             Assert.That(Count("GameLogEntries"), Is.EqualTo(0), "A Rejected outcome commits no Game Log entry.");
 
@@ -189,7 +189,7 @@ namespace Odyssey.Tests.Persistence
             => CombatEncounterService.Create(_encounters, new SqliteCampaignRepository(_clock), _campaign, new CreateCombatEncounterRequest(new[] { actor, target }, global::Odyssey.Application.Identity.DevIdentityProvider.AssignHost(), Command()), Corr).Value;
 
         private static AttackRequest Request(CombatEncounterRecord encounter, CharacterId actor, CharacterId target, ItemInstanceRecord item)
-            => new AttackRequest(new AttackIntent(encounter.EncounterId, actor, new[] { target }, item.ItemInstanceId, encounter.Revision), User(), true, Command(), Corr);
+            => new AttackRequest(new AttackIntent(encounter.EncounterId, actor, new[] { target }, item.ItemInstanceId, encounter.Revision), global::Odyssey.Application.Identity.DevIdentityProvider.AssignHost(), Command(), Corr);
 
         private CharacterId Active(string name)
         {

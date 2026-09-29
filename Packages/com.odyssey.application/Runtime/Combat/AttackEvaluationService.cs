@@ -1,6 +1,7 @@
 using System;
 using Odyssey.Application.Commands;
 using Odyssey.Application.Content;
+using Odyssey.Application.Identity;
 using Odyssey.Application.Random;
 using Odyssey.Application.Results;
 using Odyssey.Application.Persistence;
@@ -33,15 +34,14 @@ namespace Odyssey.Application.Combat
 
     public sealed class AttackRequest
     {
-        public AttackRequest(AttackIntent intent, UserId actorUserId, bool actorIsMainGm, CommandId commandId, CorrelationId correlationId)
+        public AttackRequest(AttackIntent intent, UserId actorUserId, CommandId commandId, CorrelationId correlationId)
         {
             Intent = intent ?? throw new ArgumentNullException(nameof(intent));
             if (!actorUserId.IsValid || !commandId.IsValid || !correlationId.IsValid) throw new ArgumentException("Actor, command and correlation identities are required.");
-            ActorUserId = actorUserId; ActorIsMainGm = actorIsMainGm; CommandId = commandId; CorrelationId = correlationId;
+            ActorUserId = actorUserId; CommandId = commandId; CorrelationId = correlationId;
         }
         public AttackIntent Intent { get; }
         public UserId ActorUserId { get; }
-        public bool ActorIsMainGm { get; }
         public CommandId CommandId { get; }
         public CorrelationId CorrelationId { get; }
     }
@@ -56,16 +56,16 @@ namespace Odyssey.Application.Combat
         // since this draws BEFORE the weapon's formula is known to have been decoded successfully.
         private const int MaxRandomDraws = 4;
 
-        public static Result<ProposedAttackResolution> PreviewAttack(IAttackStateReader reader, IAttackRulesEvaluator rules, CampaignHandle campaign, AttackRequest request)
+        public static Result<ProposedAttackResolution> PreviewAttack(IAttackStateReader reader, ICampaignRepository campaignRepository, IAttackRulesEvaluator rules, CampaignHandle campaign, AttackRequest request)
         {
-            Result<AttackEvaluationState> state = AuthorizeAndRead(reader, campaign, request);
+            Result<AttackEvaluationState> state = AuthorizeAndRead(reader, campaignRepository, campaign, request);
             return state.IsFailure ? Result<ProposedAttackResolution>.Failure(state.Error) : Result<ProposedAttackResolution>.Success(rules.Preview(request.Intent, WithDecodedWeapon(state.Value.Snapshot, request.CorrelationId)));
         }
 
-        public static Result<ProposedAttackResolution> EvaluateAttack(IAttackStateReader reader, IAttackRulesEvaluator rules, IAuthoritativeRandomStreamFactory random, CampaignHandle campaign, RngKeyEpochId keyEpochId, AttackRequest request)
+        public static Result<ProposedAttackResolution> EvaluateAttack(IAttackStateReader reader, ICampaignRepository campaignRepository, IAttackRulesEvaluator rules, IAuthoritativeRandomStreamFactory random, CampaignHandle campaign, RngKeyEpochId keyEpochId, AttackRequest request)
         {
             if (rules == null || random == null) throw new ArgumentNullException(rules == null ? nameof(rules) : nameof(random));
-            Result<AttackEvaluationState> state = AuthorizeAndRead(reader, campaign, request);
+            Result<AttackEvaluationState> state = AuthorizeAndRead(reader, campaignRepository, campaign, request);
             if (state.IsFailure) return Result<ProposedAttackResolution>.Failure(state.Error);
             RulesetVersion version = RulesetVersion.Parse(state.Value.Snapshot.RulesetVersion);
             RandomDecisionContext context = RandomDecisionContext.Create(campaign.CampaignId, request.CommandId, 0, CombatRollPurpose, version, keyEpochId, request.CorrelationId);
@@ -107,10 +107,13 @@ namespace Odyssey.Application.Combat
             return new AttackEvaluationSnapshot(snapshot.Fingerprint, snapshot.RulesetId, snapshot.RulesetVersion, snapshot.EncounterRevision, snapshot.ActionSourceRef, snapshot.ActionMechanics, snapshot.Actor, snapshot.Targets, snapshot.Topology, snapshot.ArmorAndEffects, weapon.Value);
         }
 
-        private static Result<AttackEvaluationState> AuthorizeAndRead(IAttackStateReader reader, CampaignHandle campaign, AttackRequest request)
+        private static Result<AttackEvaluationState> AuthorizeAndRead(IAttackStateReader reader, ICampaignRepository campaignRepository, CampaignHandle campaign, AttackRequest request)
         {
             if (reader == null || campaign == null || request == null) throw new ArgumentNullException(reader == null ? nameof(reader) : campaign == null ? nameof(campaign) : nameof(request));
-            if (!request.ActorIsMainGm)
+            if (campaignRepository == null) throw new ArgumentNullException(nameof(campaignRepository));
+            Result<bool> mainGmCheck = CampaignMembershipAuthorization.IsMainGm(campaignRepository, campaign, request.ActorUserId, request.CorrelationId);
+            if (mainGmCheck.IsFailure) return Result<AttackEvaluationState>.Failure(mainGmCheck.Error);
+            if (!mainGmCheck.Value)
             {
                 Result<bool> control = reader.CanControlActor(campaign, request.Intent.ActorId, request.ActorUserId, request.CorrelationId);
                 if (control.IsFailure) return Result<AttackEvaluationState>.Failure(control.Error);

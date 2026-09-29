@@ -70,7 +70,7 @@ namespace Odyssey.Tests.Persistence
             CombatEncounterRecord encounter = CreateEncounter(actor, target);
             ItemInstanceRecord weapon = WeaponFor(actor, "1d6", range: 100);
 
-            Result<ProposedAttackResolution> evaluated = AttackEvaluationService.EvaluateAttack(_reader, new CoreAttackRulesEvaluator(), new FixedRandomStreamFactory(10, 20, 30, 40), _campaign, Epoch, Request(encounter, actor, target, weapon));
+            Result<ProposedAttackResolution> evaluated = AttackEvaluationService.EvaluateAttack(_reader, new SqliteCampaignRepository(_clock), new CoreAttackRulesEvaluator(), new FixedRandomStreamFactory(10, 20, 30, 40), _campaign, Epoch, Request(encounter, actor, target, weapon));
 
             Assert.That(evaluated.IsSuccess, Is.True);
             Assert.That(evaluated.Value.Range.IsInRange, Is.True);
@@ -92,7 +92,7 @@ namespace Odyssey.Tests.Persistence
             CombatEncounterRecord encounter = CreateEncounter(actor, target);
             ItemInstanceRecord weapon = WeaponFor(actor, "1d6", range: 5);
 
-            Result<ProposedAttackResolution> evaluated = AttackEvaluationService.EvaluateAttack(_reader, new CoreAttackRulesEvaluator(), new FixedRandomStreamFactory(10, 20, 30, 40), _campaign, Epoch, Request(encounter, actor, target, weapon));
+            Result<ProposedAttackResolution> evaluated = AttackEvaluationService.EvaluateAttack(_reader, new SqliteCampaignRepository(_clock), new CoreAttackRulesEvaluator(), new FixedRandomStreamFactory(10, 20, 30, 40), _campaign, Epoch, Request(encounter, actor, target, weapon));
 
             Assert.That(evaluated.IsSuccess, Is.True);
             Assert.That(evaluated.Value.Range.IsInRange, Is.False);
@@ -111,7 +111,7 @@ namespace Odyssey.Tests.Persistence
             // unconditional, this attack would incorrectly miss.
             ItemInstanceRecord weapon = WeaponFor(actor, "1d6", range: 1);
 
-            Result<ProposedAttackResolution> evaluated = AttackEvaluationService.EvaluateAttack(_reader, new CoreAttackRulesEvaluator(), new FixedRandomStreamFactory(10, 20, 30, 40), _campaign, Epoch, Request(encounter, actor, target, weapon));
+            Result<ProposedAttackResolution> evaluated = AttackEvaluationService.EvaluateAttack(_reader, new SqliteCampaignRepository(_clock), new CoreAttackRulesEvaluator(), new FixedRandomStreamFactory(10, 20, 30, 40), _campaign, Epoch, Request(encounter, actor, target, weapon));
 
             Assert.That(evaluated.IsSuccess, Is.True);
             Assert.That(evaluated.Value.Range.IsInRange, Is.True);
@@ -128,7 +128,7 @@ namespace Odyssey.Tests.Persistence
             CombatEncounterRecord encounter = CreateEncounter(actor, target);
             ItemInstanceRecord weapon = WeaponFor(actor, "1d6+Strength", range: 100);
 
-            Result<ProposedAttackResolution> evaluated = AttackEvaluationService.EvaluateAttack(_reader, new CoreAttackRulesEvaluator(), new FixedRandomStreamFactory(10, 20, 30, 40), _campaign, Epoch, Request(encounter, actor, target, weapon));
+            Result<ProposedAttackResolution> evaluated = AttackEvaluationService.EvaluateAttack(_reader, new SqliteCampaignRepository(_clock), new CoreAttackRulesEvaluator(), new FixedRandomStreamFactory(10, 20, 30, 40), _campaign, Epoch, Request(encounter, actor, target, weapon));
 
             Assert.That(evaluated.IsSuccess, Is.True);
             // raw=10 mapped onto a d6 is 4; +10 Strength => 14.
@@ -144,7 +144,7 @@ namespace Odyssey.Tests.Persistence
             CombatEncounterRecord encounter = CreateEncounter(actor, target);
             ItemInstanceRecord weapon = WeaponFor(actor, "5", range: 100);
 
-            Result<ProposedAttackResolution> evaluated = AttackEvaluationService.EvaluateAttack(_reader, new CoreAttackRulesEvaluator(), new FixedRandomStreamFactory(10, 20, 30, 40), _campaign, Epoch, Request(encounter, actor, target, weapon));
+            Result<ProposedAttackResolution> evaluated = AttackEvaluationService.EvaluateAttack(_reader, new SqliteCampaignRepository(_clock), new CoreAttackRulesEvaluator(), new FixedRandomStreamFactory(10, 20, 30, 40), _campaign, Epoch, Request(encounter, actor, target, weapon));
 
             Assert.That(evaluated.IsSuccess, Is.True);
             // Constant formula "5" minus 3 Protection = 2, never negative.
@@ -163,7 +163,7 @@ namespace Odyssey.Tests.Persistence
             CombatEncounterRecord encounter = CreateEncounter(actor, target);
             ItemInstanceRecord weapon = WeaponFor(actor, "10", range: 100);
 
-            Result<ProposedAttackResolution> evaluated = AttackEvaluationService.EvaluateAttack(_reader, new CoreAttackRulesEvaluator(), new FixedRandomStreamFactory(10, 20, 30, 40), _campaign, Epoch, Request(encounter, actor, target, weapon));
+            Result<ProposedAttackResolution> evaluated = AttackEvaluationService.EvaluateAttack(_reader, new SqliteCampaignRepository(_clock), new CoreAttackRulesEvaluator(), new FixedRandomStreamFactory(10, 20, 30, 40), _campaign, Epoch, Request(encounter, actor, target, weapon));
 
             Assert.That(evaluated.IsSuccess, Is.True);
             // Constant formula "10" minus (3+4)=7 summed Protection = 3 -- not 10-3=7 or 10-4=6.
@@ -178,7 +178,7 @@ namespace Odyssey.Tests.Persistence
             CombatEncounterRecord encounter = CreateEncounter(actor, target);
             ItemInstanceRecord weapon = WeaponFor(actor, "2d6+3", range: 100);
 
-            Result<ProposedAttackResolution> evaluated = AttackEvaluationService.EvaluateAttack(_reader, new CoreAttackRulesEvaluator(), new FixedRandomStreamFactory(10, 20, 30, 40), _campaign, Epoch, Request(encounter, actor, target, weapon));
+            Result<ProposedAttackResolution> evaluated = AttackEvaluationService.EvaluateAttack(_reader, new SqliteCampaignRepository(_clock), new CoreAttackRulesEvaluator(), new FixedRandomStreamFactory(10, 20, 30, 40), _campaign, Epoch, Request(encounter, actor, target, weapon));
 
             Assert.That(evaluated.IsSuccess, Is.True);
             // raw=10 -> ((10-1)%6)+1=4; raw=20 -> ((20-1)%6)+1=2 -- two DIFFERENT draws, not the same value
@@ -194,8 +194,8 @@ namespace Odyssey.Tests.Persistence
             CombatEncounterRecord encounter = CreateEncounter(actor, target);
             ItemInstanceRecord weapon = WeaponFor(actor, "1d6", range: 100);
 
-            Result<ProposedAttackResolution> first = AttackEvaluationService.PreviewAttack(_reader, new CoreAttackRulesEvaluator(), _campaign, Request(encounter, actor, target, weapon));
-            Result<ProposedAttackResolution> second = AttackEvaluationService.PreviewAttack(_reader, new CoreAttackRulesEvaluator(), _campaign, Request(encounter, actor, target, weapon));
+            Result<ProposedAttackResolution> first = AttackEvaluationService.PreviewAttack(_reader, new SqliteCampaignRepository(_clock), new CoreAttackRulesEvaluator(), _campaign, Request(encounter, actor, target, weapon));
+            Result<ProposedAttackResolution> second = AttackEvaluationService.PreviewAttack(_reader, new SqliteCampaignRepository(_clock), new CoreAttackRulesEvaluator(), _campaign, Request(encounter, actor, target, weapon));
 
             Assert.That(first.IsSuccess, Is.True);
             Assert.That(second.IsSuccess, Is.True);
@@ -212,7 +212,7 @@ namespace Odyssey.Tests.Persistence
             CombatEncounterRecord encounter = CreateEncounter(actor, target);
             ItemInstanceRecord weapon = WeaponFor(actor, "5", range: 100);
 
-            Result<AttackOutcomeRecord> resolved = AttackApplyService.ResolveAttack(_reader, new CoreAttackRulesEvaluator(), new FixedRandomStreamFactory(10, 20, 30, 40), _apply, _campaign, Epoch, Request(encounter, actor, target, weapon));
+            Result<AttackOutcomeRecord> resolved = AttackApplyService.ResolveAttack(_reader, new SqliteCampaignRepository(_clock), new CoreAttackRulesEvaluator(), new FixedRandomStreamFactory(10, 20, 30, 40), _apply, _campaign, Epoch, Request(encounter, actor, target, weapon));
 
             Assert.That(resolved.IsSuccess, Is.True);
             Assert.That(CurrentValue(target, Health), Is.EqualTo(5), "Constant formula '5' with no armor: 10 - 5 = 5.");
@@ -253,7 +253,7 @@ namespace Odyssey.Tests.Persistence
             => CombatEncounterService.Create(_encounters, new SqliteCampaignRepository(_clock), _campaign, new CreateCombatEncounterRequest(new[] { actor, target }, global::Odyssey.Application.Identity.DevIdentityProvider.AssignHost(), Command()), Corr).Value;
 
         private static AttackRequest Request(CombatEncounterRecord encounter, CharacterId actor, CharacterId target, ItemInstanceRecord item)
-            => new AttackRequest(new AttackIntent(encounter.EncounterId, actor, new[] { target }, item.ItemInstanceId, encounter.Revision), User(), true, Command(), Corr);
+            => new AttackRequest(new AttackIntent(encounter.EncounterId, actor, new[] { target }, item.ItemInstanceId, encounter.Revision), global::Odyssey.Application.Identity.DevIdentityProvider.AssignHost(), Command(), Corr);
 
         private CharacterId Active(string name)
         {

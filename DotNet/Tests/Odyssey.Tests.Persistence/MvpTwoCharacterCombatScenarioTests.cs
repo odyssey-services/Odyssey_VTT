@@ -139,13 +139,13 @@ namespace Odyssey.Tests.Persistence
             CombatEncounterRecord encounter = CreateEncounter(attacker, defender);
 
             // Attack #1: distance 3 <= weapon range 5 -- in range, real damage through the full apply pipeline.
-            Result<AttackOutcomeRecord> firstAttack = AttackApplyService.ResolveAttack(_attackReader, new CoreAttackRulesEvaluator(), new FixedRandomStreamFactory(10, 20, 30, 40), _attackApply, _campaign, Epoch, BuildAttackRequest(encounter, attacker, defender, weapon));
+            Result<AttackOutcomeRecord> firstAttack = AttackApplyService.ResolveAttack(_attackReader, _campaignRepository, new CoreAttackRulesEvaluator(), new FixedRandomStreamFactory(10, 20, 30, 40), _attackApply, _campaign, Epoch, BuildAttackRequest(encounter, attacker, defender, weapon));
             Assert.That(firstAttack.IsSuccess, Is.True, firstAttack.IsFailure ? firstAttack.Error.Code.ToString() : string.Empty);
             // raw=10 mapped onto a d6: ((10-1)%6)+1=4; +2 Strength = 6 weapon damage; -2 armor protection = 4.
             Assert.That(CurrentValue(defender, Health), Is.EqualTo(6), "10 - (6 weapon damage - 2 armor protection) = 6.");
 
             // Ability activation: self-targeted, deterministic (no dice), real Mana cost and real self-inflicted AdjustResource.
-            Result<AbilityActivationRecord> activated = ActivateAbilityService.ActivateAbility(_abilityReader, _abilityApply, _catalog, _effects, new ThrowingRandomFactory(), _clock, _campaign, Epoch, BuildActivateAbilityRequest(attacker, ability.CharacterAbilityId, attacker));
+            Result<AbilityActivationRecord> activated = ActivateAbilityService.ActivateAbility(_abilityReader, _campaignRepository, _abilityApply, _catalog, _effects, new ThrowingRandomFactory(), _clock, _campaign, Epoch, BuildActivateAbilityRequest(attacker, ability.CharacterAbilityId, attacker));
             Assert.That(activated.IsSuccess, Is.True, activated.IsFailure ? activated.Error.Code.ToString() : string.Empty);
             Assert.That(CurrentValue(attacker, Mana), Is.EqualTo(8), "10 - 2 Mana cost = 8.");
             Assert.That(CurrentValue(attacker, Health), Is.EqualTo(7), "10 - 3 self-inflicted AdjustResource = 7.");
@@ -159,7 +159,7 @@ namespace Odyssey.Tests.Persistence
             Assert.That(grantedCount, Is.EqualTo(1), "Activation must not duplicate or remove the character's own ability grant.");
 
             // Item use: heals the self-inflicted damage back up, without ever exceeding the 10-point maximum.
-            Result<ItemUsageRecord> used = UseItemService.UseItem(_useItemReader, _useItemApply, _catalog, _effects, new ThrowingRandomFactory(), _clock, _campaign, Epoch, BuildUseItemRequest(attacker, InventoryItemRef.ForStack(potionStack.ItemStackId), potionStack.Revision, attackerInventory.Revision));
+            Result<ItemUsageRecord> used = UseItemService.UseItem(_useItemReader, _campaignRepository, _useItemApply, _catalog, _effects, new ThrowingRandomFactory(), _clock, _campaign, Epoch, BuildUseItemRequest(attacker, InventoryItemRef.ForStack(potionStack.ItemStackId), potionStack.Revision, attackerInventory.Revision));
             Assert.That(used.IsSuccess, Is.True, used.IsFailure ? used.Error.Code.ToString() : string.Empty);
             Assert.That(CurrentValue(attacker, Health), Is.EqualTo(9), "7 + 2 AdjustResource heal = 9.");
             Result<ItemStackRecord> potionAfterUse = _inventory.GetItemStack(_campaign, potionStack.ItemStackId, Corr);
@@ -173,7 +173,7 @@ namespace Odyssey.Tests.Persistence
             // Attack #2: same weapon, same encounter -- now out of range. The move alone must be what makes
             // this attack miss (proving movement genuinely changes the outcome, not a decorative distance).
             CombatEncounterRecord encounterAfterMove = _encounters.Get(_campaign, encounter.EncounterId, Corr).Value;
-            Result<ProposedAttackResolution> secondAttack = AttackEvaluationService.EvaluateAttack(_attackReader, new CoreAttackRulesEvaluator(), new FixedRandomStreamFactory(10, 20, 30, 40), _campaign, Epoch, BuildAttackRequest(encounterAfterMove, attacker, defender, weapon));
+            Result<ProposedAttackResolution> secondAttack = AttackEvaluationService.EvaluateAttack(_attackReader, _campaignRepository, new CoreAttackRulesEvaluator(), new FixedRandomStreamFactory(10, 20, 30, 40), _campaign, Epoch, BuildAttackRequest(encounterAfterMove, attacker, defender, weapon));
             Assert.That(secondAttack.IsSuccess, Is.True, secondAttack.IsFailure ? secondAttack.Error.Code.ToString() : string.Empty);
             Assert.That(secondAttack.Value.Range.IsInRange, Is.False, "Distance 10 exceeds the weapon's own range of 5.");
             Assert.That(secondAttack.Value.Hit.IsHit, Is.False);
@@ -312,18 +312,18 @@ namespace Odyssey.Tests.Persistence
         {
             CharacterRecord current = _characters.GetCharacter(_campaign, actor, Corr).Value;
             var intent = new ActivateAbilityIntent(actor, characterAbilityId, targets, current.Revisions.CharacterAbilitiesRevision, current.Revisions.CharacterResourcesRevision);
-            return new ActivateAbilityRequest(intent, global::Odyssey.Application.Identity.DevIdentityProvider.AssignHost(), actorIsMainGm: true, Command(), Corr);
+            return new ActivateAbilityRequest(intent, global::Odyssey.Application.Identity.DevIdentityProvider.AssignHost(), Command(), Corr);
         }
 
         private UseItemRequest BuildUseItemRequest(CharacterId actor, InventoryItemRef item, long expectedItemRevision, long expectedInventoryRevision)
         {
             CharacterRecord current = _characters.GetCharacter(_campaign, actor, Corr).Value;
             var intent = new UseItemIntent(actor, item, expectedItemRevision, expectedInventoryRevision, current.Revisions.CharacterResourcesRevision);
-            return new UseItemRequest(intent, global::Odyssey.Application.Identity.DevIdentityProvider.AssignHost(), actorIsMainGm: true, Command(), Corr);
+            return new UseItemRequest(intent, global::Odyssey.Application.Identity.DevIdentityProvider.AssignHost(), Command(), Corr);
         }
 
         private static AttackRequest BuildAttackRequest(CombatEncounterRecord encounter, CharacterId actor, CharacterId target, ItemInstanceRecord item)
-            => new AttackRequest(new AttackIntent(encounter.EncounterId, actor, new[] { target }, item.ItemInstanceId, encounter.Revision), User(), true, Command(), Corr);
+            => new AttackRequest(new AttackIntent(encounter.EncounterId, actor, new[] { target }, item.ItemInstanceId, encounter.Revision), global::Odyssey.Application.Identity.DevIdentityProvider.AssignHost(), Command(), Corr);
 
         private CombatEncounterRecord CreateEncounter(CharacterId actor, CharacterId target)
             => CombatEncounterService.Create(_encounters, _campaignRepository, _campaign, new CreateCombatEncounterRequest(new[] { actor, target }, global::Odyssey.Application.Identity.DevIdentityProvider.AssignHost(), Command()), Corr).Value;

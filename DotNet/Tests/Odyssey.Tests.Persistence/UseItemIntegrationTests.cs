@@ -71,7 +71,7 @@ namespace Odyssey.Tests.Persistence
             ContentDefinitionRecord effect = PublishInstantEffect(Health, "-3");
             ItemStackRecord stack = CreateStack(inventory, quantity: 4, effect);
 
-            Result<ItemUsageRecord> result = UseItemService.UseItem(_reader, _apply, _catalog, _effects, new ThrowingRandomFactory(), _clock, _campaign, Epoch, Request(actor, InventoryItemRef.ForStack(stack.ItemStackId), stack.Revision, inventory.Revision));
+            Result<ItemUsageRecord> result = UseItemService.UseItem(_reader, new SqliteCampaignRepository(_clock), _apply, _catalog, _effects, new ThrowingRandomFactory(), _clock, _campaign, Epoch, Request(actor, InventoryItemRef.ForStack(stack.ItemStackId), stack.Revision, inventory.Revision));
 
             Assert.That(result.IsSuccess, Is.True, result.IsFailure ? result.Error.Code.ToString() : string.Empty);
             Assert.That(CurrentValue(actor, Health), Is.EqualTo(7), "10 - 3 = 7.");
@@ -89,7 +89,7 @@ namespace Odyssey.Tests.Persistence
             ContentDefinitionRecord effect = PublishInstantEffect(Health, "-2");
             ItemStackRecord stack = CreateStack(inventory, quantity: 1, effect);
 
-            Result<ItemUsageRecord> result = UseItemService.UseItem(_reader, _apply, _catalog, _effects, new ThrowingRandomFactory(), _clock, _campaign, Epoch, Request(actor, InventoryItemRef.ForStack(stack.ItemStackId), stack.Revision, inventory.Revision));
+            Result<ItemUsageRecord> result = UseItemService.UseItem(_reader, new SqliteCampaignRepository(_clock), _apply, _catalog, _effects, new ThrowingRandomFactory(), _clock, _campaign, Epoch, Request(actor, InventoryItemRef.ForStack(stack.ItemStackId), stack.Revision, inventory.Revision));
 
             Assert.That(result.IsSuccess, Is.True, result.IsFailure ? result.Error.Code.ToString() : string.Empty);
             Assert.That(CurrentValue(actor, Health), Is.EqualTo(8));
@@ -107,7 +107,7 @@ namespace Odyssey.Tests.Persistence
             ContentDefinitionRecord second = PublishInstantEffect(Health, "-1");
             ItemStackRecord stack = CreateStack(inventory, quantity: 1, first, second);
 
-            Result<ItemUsageRecord> result = UseItemService.UseItem(_reader, _apply, _catalog, _effects, new ThrowingRandomFactory(), _clock, _campaign, Epoch, Request(actor, InventoryItemRef.ForStack(stack.ItemStackId), stack.Revision, inventory.Revision));
+            Result<ItemUsageRecord> result = UseItemService.UseItem(_reader, new SqliteCampaignRepository(_clock), _apply, _catalog, _effects, new ThrowingRandomFactory(), _clock, _campaign, Epoch, Request(actor, InventoryItemRef.ForStack(stack.ItemStackId), stack.Revision, inventory.Revision));
 
             Assert.That(result.IsSuccess, Is.True, result.IsFailure ? result.Error.Code.ToString() : string.Empty);
             Assert.That(CurrentValue(actor, Health), Is.EqualTo(7), "10 - 2 - 1 = 7 -- both Instant effects applied.");
@@ -123,7 +123,7 @@ namespace Odyssey.Tests.Persistence
             ContentDefinitionRecord whileEquipped = PublishWhileEquippedEffect();
             ItemStackRecord stack = CreateStack(inventory, quantity: 1, instant, whileEquipped);
 
-            Result<ItemUsageRecord> result = UseItemService.UseItem(_reader, _apply, _catalog, _effects, new ThrowingRandomFactory(), _clock, _campaign, Epoch, Request(actor, InventoryItemRef.ForStack(stack.ItemStackId), stack.Revision, inventory.Revision));
+            Result<ItemUsageRecord> result = UseItemService.UseItem(_reader, new SqliteCampaignRepository(_clock), _apply, _catalog, _effects, new ThrowingRandomFactory(), _clock, _campaign, Epoch, Request(actor, InventoryItemRef.ForStack(stack.ItemStackId), stack.Revision, inventory.Revision));
 
             Assert.That(result.IsSuccess, Is.True, result.IsFailure ? result.Error.Code.ToString() : string.Empty);
             Assert.That(CurrentValue(actor, Health), Is.EqualTo(6), "Only the Instant effect's own -4 applies.");
@@ -145,7 +145,7 @@ namespace Odyssey.Tests.Persistence
             Assert.That(archived.IsSuccess, Is.True, archived.IsFailure ? archived.Error.Code.ToString() : string.Empty);
 
             UseItemRequest request = Request(actor, InventoryItemRef.ForStack(stack.ItemStackId), stack.Revision, inventory.Revision);
-            Result<ItemUsageRecord> result = UseItemService.UseItem(_reader, _apply, _catalog, _effects, new ThrowingRandomFactory(), _clock, _campaign, Epoch, request);
+            Result<ItemUsageRecord> result = UseItemService.UseItem(_reader, new SqliteCampaignRepository(_clock), _apply, _catalog, _effects, new ThrowingRandomFactory(), _clock, _campaign, Epoch, request);
 
             Assert.That(result.IsFailure, Is.True, "The second, archived ApplyEffect must fail the whole use.");
             Result<ItemStackRecord> reread = _inventory.GetItemStack(_campaign, stack.ItemStackId, Corr);
@@ -153,7 +153,7 @@ namespace Odyssey.Tests.Persistence
             Assert.That(reread.Value.Quantity.Value, Is.EqualTo(2), "The consumed unit must be restored -- consume decrements then restore increments back, so the row's own Revision legitimately advances by 2 (like any other reversed delta in this codebase, e.g. ActivateAbility's own resource-delta reversal), even though the observable Quantity is identical to before.");
             Assert.That(CountStillAttached(actor), Is.EqualTo(0), "The FIRST effect, already successfully created, must be removed too -- not left behind.");
 
-            Result<ItemUsageRecord> retried = UseItemService.UseItem(_reader, _apply, _catalog, _effects, new ThrowingRandomFactory(), _clock, _campaign, Epoch, request);
+            Result<ItemUsageRecord> retried = UseItemService.UseItem(_reader, new SqliteCampaignRepository(_clock), _apply, _catalog, _effects, new ThrowingRandomFactory(), _clock, _campaign, Epoch, request);
             Assert.That(retried.IsFailure, Is.True, "A retry of a compensated CommandId must remain a permanent failure -- never a silent success.");
         }
 
@@ -177,7 +177,7 @@ namespace Odyssey.Tests.Persistence
 
             var failingEffects = new FailsNthRemovalActiveEffectRepository(_effects, failOnCallNumber: 2);
             var apply1 = new SqliteUseItemRepository(_clock, failingEffects);
-            Result<ItemUsageRecord> first = UseItemService.UseItem(_reader, apply1, _catalog, _effects, new ThrowingRandomFactory(), _clock, _campaign, Epoch, request);
+            Result<ItemUsageRecord> first = UseItemService.UseItem(_reader, new SqliteCampaignRepository(_clock), apply1, _catalog, _effects, new ThrowingRandomFactory(), _clock, _campaign, Epoch, request);
             Assert.That(first.IsFailure, Is.True);
             Assert.That(CountStillAttached(actor), Is.EqualTo(1), "The second effect's own removal was made to fail -- exactly one of the two already-created effects must still be attached.");
             Result<ItemStackRecord> midway = _inventory.GetItemStack(_campaign, stack.ItemStackId, Corr);
@@ -185,7 +185,7 @@ namespace Odyssey.Tests.Persistence
             Assert.That(midway.Value.Quantity.Value, Is.EqualTo(1), "Compensation failed before ever reaching item restoration -- the unit is still consumed.");
 
             var apply2 = new SqliteUseItemRepository(_clock, _effects);
-            Result<ItemUsageRecord> retried = UseItemService.UseItem(_reader, apply2, _catalog, _effects, new ThrowingRandomFactory(), _clock, _campaign, Epoch, request);
+            Result<ItemUsageRecord> retried = UseItemService.UseItem(_reader, new SqliteCampaignRepository(_clock), apply2, _catalog, _effects, new ThrowingRandomFactory(), _clock, _campaign, Epoch, request);
             Assert.That(retried.IsFailure, Is.True, "A retry after an incomplete compensation attempt must never be reported as Success, even once the resumed compensation now completes.");
             Assert.That(CountStillAttached(actor), Is.EqualTo(0), "The resumed compensation must finish removing the second effect too.");
             Result<ItemStackRecord> final = _inventory.GetItemStack(_campaign, stack.ItemStackId, Corr);
@@ -217,7 +217,7 @@ namespace Odyssey.Tests.Persistence
             Assert.That(archived.IsSuccess, Is.True, archived.IsFailure ? archived.Error.Code.ToString() : string.Empty);
 
             UseItemRequest request = Request(actor, InventoryItemRef.ForStack(stack.ItemStackId), stack.Revision, inventory.Revision);
-            Result<ItemUsageRecord> result = UseItemService.UseItem(_reader, _apply, _catalog, _effects, new ThrowingRandomFactory(), _clock, _campaign, Epoch, request);
+            Result<ItemUsageRecord> result = UseItemService.UseItem(_reader, new SqliteCampaignRepository(_clock), _apply, _catalog, _effects, new ThrowingRandomFactory(), _clock, _campaign, Epoch, request);
 
             Assert.That(result.IsFailure, Is.True, "The second, archived ApplyEffect must fail the whole use.");
             Result<ItemStackRecord> reread = _inventory.GetItemStack(_campaign, stack.ItemStackId, Corr);
@@ -229,7 +229,7 @@ namespace Odyssey.Tests.Persistence
             Assert.That(reread.Value.Revision, Is.EqualTo(stack.Revision), "The delete-and-reinsert restore branch writes back prior.Revision exactly -- unlike the decrement/increment branch (TC-USEITEM-005/006), which legitimately advances by 2, this branch never artificially advances the revision at all.");
             Assert.That(CountStillAttached(actor), Is.EqualTo(0), "The already-created first effect must be removed too.");
 
-            Result<ItemUsageRecord> retried = UseItemService.UseItem(_reader, _apply, _catalog, _effects, new ThrowingRandomFactory(), _clock, _campaign, Epoch, request);
+            Result<ItemUsageRecord> retried = UseItemService.UseItem(_reader, new SqliteCampaignRepository(_clock), _apply, _catalog, _effects, new ThrowingRandomFactory(), _clock, _campaign, Epoch, request);
             Assert.That(retried.IsFailure, Is.True, "A retry of a compensated CommandId must remain a permanent failure -- never a silent success.");
         }
 
@@ -257,7 +257,7 @@ namespace Odyssey.Tests.Persistence
             Assert.That(archived.IsSuccess, Is.True, archived.IsFailure ? archived.Error.Code.ToString() : string.Empty);
 
             UseItemRequest request = Request(actor, InventoryItemRef.ForInstance(instance.ItemInstanceId), instance.Revision, inventory.Revision);
-            Result<ItemUsageRecord> result = UseItemService.UseItem(_reader, _apply, _catalog, _effects, new ThrowingRandomFactory(), _clock, _campaign, Epoch, request);
+            Result<ItemUsageRecord> result = UseItemService.UseItem(_reader, new SqliteCampaignRepository(_clock), _apply, _catalog, _effects, new ThrowingRandomFactory(), _clock, _campaign, Epoch, request);
 
             Assert.That(result.IsFailure, Is.True, "The second, archived ApplyEffect must fail the whole use.");
             Result<ItemInstanceRecord> reread = _inventory.GetItemInstance(_campaign, instance.ItemInstanceId, Corr);
@@ -268,7 +268,7 @@ namespace Odyssey.Tests.Persistence
             Assert.That(reread.Value.Revision, Is.EqualTo(instance.Revision), "The delete-and-reinsert restore branch writes back prior.Revision exactly for instances too.");
             Assert.That(CountStillAttached(actor), Is.EqualTo(0), "The already-created first effect must be removed too.");
 
-            Result<ItemUsageRecord> retried = UseItemService.UseItem(_reader, _apply, _catalog, _effects, new ThrowingRandomFactory(), _clock, _campaign, Epoch, request);
+            Result<ItemUsageRecord> retried = UseItemService.UseItem(_reader, new SqliteCampaignRepository(_clock), _apply, _catalog, _effects, new ThrowingRandomFactory(), _clock, _campaign, Epoch, request);
             Assert.That(retried.IsFailure, Is.True, "A retry of a compensated CommandId must remain a permanent failure -- never a silent success.");
         }
 
@@ -281,7 +281,7 @@ namespace Odyssey.Tests.Persistence
             var itemDefinition = new ItemDefinition(ItemCategory.Consumable, false, null, 1, false, null, true, 3, Array.Empty<ContentDefinitionRef>(), new[] { new ContentDefinitionRef(effect.ContentDefinitionId, effect.Version) });
             ItemInstanceRecord instance = CreateInstance(inventory, itemDefinition);
 
-            Result<ItemUsageRecord> result = UseItemService.UseItem(_reader, _apply, _catalog, _effects, new ThrowingRandomFactory(), _clock, _campaign, Epoch, Request(actor, InventoryItemRef.ForInstance(instance.ItemInstanceId), instance.Revision, inventory.Revision));
+            Result<ItemUsageRecord> result = UseItemService.UseItem(_reader, new SqliteCampaignRepository(_clock), _apply, _catalog, _effects, new ThrowingRandomFactory(), _clock, _campaign, Epoch, Request(actor, InventoryItemRef.ForInstance(instance.ItemInstanceId), instance.Revision, inventory.Revision));
 
             Assert.That(result.IsFailure, Is.True);
             Result<ItemInstanceRecord> reread = _inventory.GetItemInstance(_campaign, instance.ItemInstanceId, Corr);
@@ -297,7 +297,7 @@ namespace Odyssey.Tests.Persistence
             ContentDefinitionRecord effect = PublishInstantEffect(Health, "-1");
             ItemStackRecord stack = CreateStack(inventory, quantity: 3, effect);
 
-            Result<ItemUsageRecord> result = UseItemService.UseItem(_reader, _apply, _catalog, _effects, new ThrowingRandomFactory(), _clock, _campaign, Epoch, Request(actor, InventoryItemRef.ForStack(stack.ItemStackId), stack.Revision + 1, inventory.Revision));
+            Result<ItemUsageRecord> result = UseItemService.UseItem(_reader, new SqliteCampaignRepository(_clock), _apply, _catalog, _effects, new ThrowingRandomFactory(), _clock, _campaign, Epoch, Request(actor, InventoryItemRef.ForStack(stack.ItemStackId), stack.Revision + 1, inventory.Revision));
 
             Assert.That(result.IsFailure, Is.True);
             Assert.That(CurrentValue(actor, Health), Is.EqualTo(10), "Nothing must be applied when the revision check fails.");
@@ -317,11 +317,11 @@ namespace Odyssey.Tests.Persistence
             UseItemRequest request = Request(actor, InventoryItemRef.ForStack(stack.ItemStackId), stack.Revision, inventory.Revision);
             var random = new CountingRandomFactory();
 
-            Result<ItemUsageRecord> first = UseItemService.UseItem(_reader, _apply, _catalog, _effects, random, _clock, _campaign, Epoch, request);
+            Result<ItemUsageRecord> first = UseItemService.UseItem(_reader, new SqliteCampaignRepository(_clock), _apply, _catalog, _effects, random, _clock, _campaign, Epoch, request);
             Assert.That(first.IsSuccess, Is.True, first.IsFailure ? first.Error.Code.ToString() : string.Empty);
             long healthAfterFirst = CurrentValue(actor, Health);
 
-            Result<ItemUsageRecord> second = UseItemService.UseItem(_reader, _apply, _catalog, _effects, random, _clock, _campaign, Epoch, request);
+            Result<ItemUsageRecord> second = UseItemService.UseItem(_reader, new SqliteCampaignRepository(_clock), _apply, _catalog, _effects, random, _clock, _campaign, Epoch, request);
 
             Assert.That(second.IsSuccess, Is.True);
             Assert.That(random.CreateCalls, Is.EqualTo(1), "A retry with the same CommandId must not re-derive the random stream.");
@@ -344,7 +344,7 @@ namespace Odyssey.Tests.Persistence
             Assert.That(equipped.IsSuccess, Is.True);
             Assert.That(equipped.Value.Count, Is.EqualTo(0), "The item is deliberately never equipped in this test.");
 
-            Result<ItemUsageRecord> result = UseItemService.UseItem(_reader, _apply, _catalog, _effects, new ThrowingRandomFactory(), _clock, _campaign, Epoch, Request(actor, InventoryItemRef.ForStack(stack.ItemStackId), stack.Revision, inventory.Revision));
+            Result<ItemUsageRecord> result = UseItemService.UseItem(_reader, new SqliteCampaignRepository(_clock), _apply, _catalog, _effects, new ThrowingRandomFactory(), _clock, _campaign, Epoch, Request(actor, InventoryItemRef.ForStack(stack.ItemStackId), stack.Revision, inventory.Revision));
 
             Assert.That(result.IsSuccess, Is.True, result.IsFailure ? result.Error.Code.ToString() : string.Empty);
             Assert.That(CurrentValue(actor, Health), Is.EqualTo(8));
@@ -437,7 +437,7 @@ namespace Odyssey.Tests.Persistence
         {
             CharacterRecord current = _characters.GetCharacter(_campaign, actor, Corr).Value;
             var intent = new UseItemIntent(actor, item, expectedItemRevision, expectedInventoryRevision, current.Revisions.CharacterResourcesRevision);
-            return new UseItemRequest(intent, User(), actorIsMainGm: true, Command(), Corr);
+            return new UseItemRequest(intent, global::Odyssey.Application.Identity.DevIdentityProvider.AssignHost(), Command(), Corr);
         }
 
         private void InitResource(CharacterId characterId, ResourceDefinitionId resourceKind)
@@ -570,13 +570,76 @@ namespace Odyssey.Tests.Persistence
 
             CharacterRecord current = _characters.GetCharacter(_campaign, actor, Corr).Value;
             var intent = new UseItemIntent(actor, InventoryItemRef.ForStack(stack.ItemStackId), stack.Revision, inventory.Revision, current.Revisions.CharacterResourcesRevision);
-            var request = new UseItemRequest(intent, player, actorIsMainGm: false, Command(), Corr);
+            var request = new UseItemRequest(intent, player, Command(), Corr);
 
-            Result<ItemUsageRecord> result = UseItemService.UseItem(_reader, _apply, _catalog, _effects, new ThrowingRandomFactory(), _clock, _campaign, Epoch, request);
+            Result<ItemUsageRecord> result = UseItemService.UseItem(_reader, new SqliteCampaignRepository(_clock), _apply, _catalog, _effects, new ThrowingRandomFactory(), _clock, _campaign, Epoch, request);
 
             Assert.That(result.IsFailure, Is.True, "the second, archived ApplyEffect fails the whole use");
             Assert.That(CountStillAttached(actor), Is.EqualTo(0), "the effect created before the failure is rolled back even though the actor is not a MainGm");
             Assert.That(_inventory.GetItemStack(_campaign, stack.ItemStackId, Corr).Value.Quantity.Value, Is.EqualTo(2), "and the consumed unit is restored");
+        }
+
+        [Test] // MG-3b: TC-USEITEM-013 -- a registered-but-not-owning, non-MainGm Player is denied; a real MainGm is authorized even without owning the character.
+        public void UseItem_RegisteredNonOwningPlayer_IsDenied_RealMainGmSucceedsRegardlessOfOwnership()
+        {
+            CharacterId actor = Active("actor");
+            InitResource(actor, Health);
+            InventoryRecord inventory = CreateInventory(actor);
+            ContentDefinitionRecord effect = PublishInstantEffect(Health, "0");
+            ItemStackRecord stack = CreateStack(inventory, quantity: 4, effect);
+
+            var campaigns = new SqliteCampaignRepository(_clock);
+            UserId bystander = User();
+            Assert.That(campaigns.AddMember(_campaign, bystander, CampaignMembershipRole.Player, Command(), Corr).IsSuccess, Is.True);
+            UserId realGm = User();
+            Assert.That(campaigns.AddMember(_campaign, realGm, CampaignMembershipRole.MainGm, Command(), Corr).IsSuccess, Is.True);
+
+            CharacterRecord current = _characters.GetCharacter(_campaign, actor, Corr).Value;
+            var intent = new UseItemIntent(actor, InventoryItemRef.ForStack(stack.ItemStackId), stack.Revision, inventory.Revision, current.Revisions.CharacterResourcesRevision);
+
+            Result<ItemUsageRecord> deniedForBystander = UseItemService.UseItem(_reader, new SqliteCampaignRepository(_clock), _apply, _catalog, _effects, new ThrowingRandomFactory(), _clock, _campaign, Epoch, new UseItemRequest(intent, bystander, Command(), Corr));
+            Assert.That(deniedForBystander.IsFailure, Is.True, "a registered Player who neither owns the actor nor is MainGm must be denied");
+
+            Result<ItemUsageRecord> succeedsForGm = UseItemService.UseItem(_reader, new SqliteCampaignRepository(_clock), _apply, _catalog, _effects, new ThrowingRandomFactory(), _clock, _campaign, Epoch, new UseItemRequest(intent, realGm, Command(), Corr));
+            Assert.That(succeedsForGm.IsSuccess, Is.True, "a genuinely registered MainGm must be authorized even without owning the actor");
+        }
+
+        [Test] // MG-3b: TC-USEITEM-014 -- fail-closed when the membership lookup itself cannot be read.
+        public void UseItem_FailsClosed_WhenTheMembershipLookupFails()
+        {
+            CharacterId actor = Active("actor");
+            InitResource(actor, Health);
+            InventoryRecord inventory = CreateInventory(actor);
+            ContentDefinitionRecord effect = PublishInstantEffect(Health, "0");
+            ItemStackRecord stack = CreateStack(inventory, quantity: 4, effect);
+            CharacterRecord current = _characters.GetCharacter(_campaign, actor, Corr).Value;
+            var intent = new UseItemIntent(actor, InventoryItemRef.ForStack(stack.ItemStackId), stack.Revision, inventory.Revision, current.Revisions.CharacterResourcesRevision);
+            var poisoned = PoisonedCampaignRepository.FailsOnLookup();
+
+            Result<ItemUsageRecord> result = UseItemService.UseItem(_reader, poisoned, _apply, _catalog, _effects, new ThrowingRandomFactory(), _clock, _campaign, Epoch, new UseItemRequest(intent, global::Odyssey.Application.Identity.DevIdentityProvider.AssignHost(), Command(), Corr));
+
+            Assert.That(result.IsFailure, Is.True);
+            Assert.That(result.Error.Code, Is.EqualTo(ErrorCodes.PersistenceCampaignIoFailed), "an unreadable membership is the lookup's own failure, not a pass and not a fake denial -- even for the host");
+            Assert.That(poisoned.LookupCalls, Is.EqualTo(1));
+        }
+
+        private sealed class PoisonedCampaignRepository : ICampaignRepository
+        {
+            public static PoisonedCampaignRepository FailsOnLookup() => new PoisonedCampaignRepository();
+
+            public int LookupCalls { get; private set; }
+
+            public Result<CampaignMemberLookup> GetMemberRole(CampaignHandle campaign, UserId userId, CorrelationId correlationId)
+            {
+                LookupCalls++;
+                return Result<CampaignMemberLookup>.Failure(PersistenceFailures.CampaignIoFailed(correlationId));
+            }
+
+            public Result<CampaignHandle> Create(CreateCampaignRequest request, CommandId commandId, CorrelationId correlationId) => throw new NotSupportedException();
+            public Result<CampaignHandle> Open(string campaignFolderPath, CorrelationId correlationId) => throw new NotSupportedException();
+            public Result Close(CampaignHandle handle, CorrelationId correlationId) => throw new NotSupportedException();
+            public Result<CampaignMembership> AddMember(CampaignHandle campaign, UserId userId, CampaignMembershipRole role, CommandId commandId, CorrelationId correlationId) => throw new NotSupportedException();
+            public Result<IReadOnlyList<CampaignMembership>> ListMembers(CampaignHandle campaign, CorrelationId correlationId) => throw new NotSupportedException();
         }
     }
 }

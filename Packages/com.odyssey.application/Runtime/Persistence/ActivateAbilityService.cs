@@ -6,6 +6,7 @@ using System.Text;
 using Odyssey.Application.Commands;
 using Odyssey.Application.Content;
 using Odyssey.Application.Effects;
+using Odyssey.Application.Identity;
 using Odyssey.Application.Mechanics;
 using Odyssey.Application.Random;
 using Odyssey.Application.Results;
@@ -50,9 +51,10 @@ namespace Odyssey.Application.Persistence
         // established for the identical reason: a formula is not decoded until after these draws happen.
         private const int MaxRandomDraws = 4;
 
-        public static Result<AbilityActivationRecord> ActivateAbility(IActivateAbilityStateReader reader, IActivateAbilityRepository apply, IContentCatalogRepository catalog, IActiveEffectRepository effects, IAuthoritativeRandomStreamFactory random, IWallClock clock, CampaignHandle campaign, RngKeyEpochId keyEpochId, ActivateAbilityRequest request)
+        public static Result<AbilityActivationRecord> ActivateAbility(IActivateAbilityStateReader reader, ICampaignRepository campaignRepository, IActivateAbilityRepository apply, IContentCatalogRepository catalog, IActiveEffectRepository effects, IAuthoritativeRandomStreamFactory random, IWallClock clock, CampaignHandle campaign, RngKeyEpochId keyEpochId, ActivateAbilityRequest request)
         {
             if (reader == null || apply == null || catalog == null || effects == null || random == null || clock == null) throw new ArgumentNullException(nameof(reader));
+            if (campaignRepository == null) throw new ArgumentNullException(nameof(campaignRepository));
             if (campaign == null || request == null) throw new ArgumentNullException(nameof(campaign));
 
             // ADR-008 rule 14: a retry never re-queries the authoritative random stream -- checked BEFORE
@@ -89,7 +91,7 @@ namespace Odyssey.Application.Persistence
                 return existing;
             }
 
-            Result<bool> authorized = Authorize(reader, campaign, request);
+            Result<bool> authorized = Authorize(reader, campaignRepository, campaign, request);
             if (authorized.IsFailure) return Result<AbilityActivationRecord>.Failure(authorized.Error);
             if (!authorized.Value) return Result<AbilityActivationRecord>.Failure(Denied(request.CorrelationId));
 
@@ -178,9 +180,11 @@ namespace Odyssey.Application.Persistence
             return Result<AbilityActivationRecord>.Success(recorded.Value);
         }
 
-        private static Result<bool> Authorize(IActivateAbilityStateReader reader, CampaignHandle campaign, ActivateAbilityRequest request)
+        private static Result<bool> Authorize(IActivateAbilityStateReader reader, ICampaignRepository campaignRepository, CampaignHandle campaign, ActivateAbilityRequest request)
         {
-            if (request.ActorIsMainGm) return Result<bool>.Success(true);
+            Result<bool> mainGmCheck = CampaignMembershipAuthorization.IsMainGm(campaignRepository, campaign, request.ActorUserId, request.CorrelationId);
+            if (mainGmCheck.IsFailure) return mainGmCheck;
+            if (mainGmCheck.Value) return Result<bool>.Success(true);
             return reader.CanControlActor(campaign, request.Intent.ActorId, request.ActorUserId, request.CorrelationId);
         }
 

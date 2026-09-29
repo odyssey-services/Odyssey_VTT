@@ -35,7 +35,7 @@ namespace Odyssey.Application.Combat
         /// <see cref="AttackRandomSample"/> to <see cref="IAttackApplyRepository.RecordAttackOutcome"/>
         /// for the one atomic-apply transaction.
         /// </summary>
-        public static Result<AttackOutcomeRecord> ResolveAttack(IAttackStateReader reader, IAttackRulesEvaluator rules, IAuthoritativeRandomStreamFactory random, IAttackApplyRepository apply, CampaignHandle campaign, RngKeyEpochId keyEpochId, AttackRequest request)
+        public static Result<AttackOutcomeRecord> ResolveAttack(IAttackStateReader reader, ICampaignRepository campaignRepository, IAttackRulesEvaluator rules, IAuthoritativeRandomStreamFactory random, IAttackApplyRepository apply, CampaignHandle campaign, RngKeyEpochId keyEpochId, AttackRequest request)
         {
             if (apply == null) throw new ArgumentNullException(nameof(apply));
             if (request == null) throw new ArgumentNullException(nameof(request));
@@ -46,7 +46,7 @@ namespace Odyssey.Application.Combat
                 return existing;
             }
 
-            Result<ProposedAttackResolution> evaluated = AttackEvaluationService.EvaluateAttack(reader, rules, random, campaign, keyEpochId, request);
+            Result<ProposedAttackResolution> evaluated = AttackEvaluationService.EvaluateAttack(reader, campaignRepository, rules, random, campaign, keyEpochId, request);
             if (evaluated.IsFailure)
             {
                 // Guard/authorization/revision failed inside the unmodified
