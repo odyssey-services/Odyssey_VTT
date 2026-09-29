@@ -42,7 +42,7 @@ namespace Odyssey.Tests.Persistence
             Result<CampaignHandle> created = _campaignRepository.Create(new CreateCampaignRequest(_campaignDir, "Inventory Persistence Test Campaign", "ruleset.core", "1.0.0", "0.1.0", global::Odyssey.Application.Identity.DevIdentityProvider.AssignHost()), NewCommandId(), TestCorrelationId);
             Assert.That(created.IsSuccess, Is.True);
             _campaign = created.Value;
-            _inventoryRepository = new SqliteInventoryRepository(Clock);
+            _inventoryRepository = new SqliteInventoryRepository(Clock, _campaignRepository);
         }
 
         [TearDown]
@@ -428,7 +428,7 @@ namespace Odyssey.Tests.Persistence
             ItemStackRecord stack = CreateItemStack(inventory, "main");
             Assert.That(stack.Quantity.Value, Is.EqualTo(4));
 
-            Result<ConsumeItemUnitOutcome> result = _inventoryRepository.ConsumeItemUnit(_campaign, InventoryItemRef.ForStack(stack.ItemStackId), UserId.Parse("user_" + Guid.NewGuid().ToString("N")), true, stack.Revision, NewCommandId(), TestCorrelationId);
+            Result<ConsumeItemUnitOutcome> result = _inventoryRepository.ConsumeItemUnit(_campaign, InventoryItemRef.ForStack(stack.ItemStackId), stack.Revision, NewCommandId(), TestCorrelationId);
 
             Assert.That(result.IsSuccess, Is.True);
             Assert.That(result.Value.WasFullyConsumed, Is.False);
@@ -446,7 +446,7 @@ namespace Odyssey.Tests.Persistence
             ItemStackRecord stack = CreateItemStackWithDefinition(inventory, new ContentDefinitionRef(ContentDefinitionId.NewId(Clock.GetUtcNow()), 1));
             Assert.That(stack.Quantity.Value, Is.EqualTo(1));
 
-            Result<ConsumeItemUnitOutcome> result = _inventoryRepository.ConsumeItemUnit(_campaign, InventoryItemRef.ForStack(stack.ItemStackId), UserId.Parse("user_" + Guid.NewGuid().ToString("N")), true, stack.Revision, NewCommandId(), TestCorrelationId);
+            Result<ConsumeItemUnitOutcome> result = _inventoryRepository.ConsumeItemUnit(_campaign, InventoryItemRef.ForStack(stack.ItemStackId), stack.Revision, NewCommandId(), TestCorrelationId);
 
             Assert.That(result.IsSuccess, Is.True);
             Assert.That(result.Value.WasFullyConsumed, Is.True);
@@ -461,7 +461,7 @@ namespace Odyssey.Tests.Persistence
             InventoryRecord inventory = CreateInventory();
             ItemInstanceRecord instance = CreateItemInstance(inventory, "main");
 
-            Result<ConsumeItemUnitOutcome> result = _inventoryRepository.ConsumeItemUnit(_campaign, InventoryItemRef.ForInstance(instance.ItemInstanceId), UserId.Parse("user_" + Guid.NewGuid().ToString("N")), true, instance.Revision, NewCommandId(), TestCorrelationId);
+            Result<ConsumeItemUnitOutcome> result = _inventoryRepository.ConsumeItemUnit(_campaign, InventoryItemRef.ForInstance(instance.ItemInstanceId), instance.Revision, NewCommandId(), TestCorrelationId);
 
             Assert.That(result.IsSuccess, Is.True);
             Assert.That(result.Value.WasFullyConsumed, Is.True);
@@ -477,8 +477,8 @@ namespace Odyssey.Tests.Persistence
             CommandId commandId = NewCommandId();
             UserId user = UserId.Parse("user_" + Guid.NewGuid().ToString("N"));
 
-            Result<ConsumeItemUnitOutcome> first = _inventoryRepository.ConsumeItemUnit(_campaign, InventoryItemRef.ForStack(stack.ItemStackId), user, true, stack.Revision, commandId, TestCorrelationId);
-            Result<ConsumeItemUnitOutcome> second = _inventoryRepository.ConsumeItemUnit(_campaign, InventoryItemRef.ForStack(stack.ItemStackId), user, true, stack.Revision, commandId, TestCorrelationId);
+            Result<ConsumeItemUnitOutcome> first = _inventoryRepository.ConsumeItemUnit(_campaign, InventoryItemRef.ForStack(stack.ItemStackId), stack.Revision, commandId, TestCorrelationId);
+            Result<ConsumeItemUnitOutcome> second = _inventoryRepository.ConsumeItemUnit(_campaign, InventoryItemRef.ForStack(stack.ItemStackId), stack.Revision, commandId, TestCorrelationId);
 
             Assert.That(first.IsSuccess, Is.True);
             Assert.That(second.IsSuccess, Is.True);

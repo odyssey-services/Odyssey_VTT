@@ -60,7 +60,7 @@ namespace Odyssey.Tests.Persistence.Integration
             Assert.That(created.IsSuccess, Is.True);
             _campaign = created.Value;
             _catalog = new SqliteContentCatalogRepository(Clock);
-            _inventory = new SqliteInventoryRepository(Clock);
+            _inventory = new SqliteInventoryRepository(Clock, _campaigns);
             _characters = new SqliteCharacterRepository(Clock, _campaigns, deletionDependencyCheckers: new ICharacterDeletionDependencyChecker[] { new InventoryCharacterDeletionDependencyChecker(_inventory) });
         }
 
@@ -87,11 +87,11 @@ namespace Odyssey.Tests.Persistence.Integration
             InventoryRecord inventoryB = CreateInventory(characterB.CharacterId);
 
             Result<ItemStackRecord> createdStack = InventoryCreationService.CreateItemStackFromDefinition(
-                _catalog, _inventory, Clock,
+                _catalog, _inventory, _campaigns, Clock,
                 new CreateItemStackFromDefinitionRequest(
                     _campaign, ItemStackId.NewId(Clock.GetUtcNow()), inventoryA.InventoryId, inventoryA.OwnerRef,
                     InventoryLocationRef.Contained(inventoryA.InventoryId, "main"), published.ContentDefinitionId,
-                    ItemStackQuantity.Create(8), NewUserId(), actorIsMainGm: true, NewCommandId(), Corr));
+                    ItemStackQuantity.Create(8), global::Odyssey.Application.Identity.DevIdentityProvider.AssignHost(), NewCommandId(), Corr));
 
             Assert.That(createdStack.IsSuccess, Is.True);
             ItemStackRecord stack = createdStack.Value;
@@ -104,10 +104,10 @@ namespace Odyssey.Tests.Persistence.Integration
 
             // 3. Move the stack from A's inventory to B's inventory.
             Result<ItemStackRecord> moved = InventoryMovementService.MoveItemStack(
-                _inventory,
+                _inventory, _campaigns,
                 new MoveItemStackRequest(
                     _campaign, stack.ItemStackId, expectedTargetRevision: 1, inventoryA.InventoryId, expectedSourceRevision: 1,
-                    inventoryB.InventoryId, expectedDestinationRevision: 1, "main", NewUserId(), actorIsMainGm: true, NewCommandId(), Corr));
+                    inventoryB.InventoryId, expectedDestinationRevision: 1, "main", global::Odyssey.Application.Identity.DevIdentityProvider.AssignHost(), NewCommandId(), Corr));
 
             Assert.That(moved.IsSuccess, Is.True);
             Assert.That(moved.Value.InventoryId, Is.EqualTo(inventoryB.InventoryId));
@@ -118,10 +118,10 @@ namespace Odyssey.Tests.Persistence.Integration
             // 4a. Split the stack (now in inventory B) into a 3-unit part.
             ItemStackId splitOffId = ItemStackId.NewId(Clock.GetUtcNow());
             Result<ItemStackRecord> split = InventoryStackOperationService.Split(
-                _inventory,
+                _inventory, _campaigns,
                 new SplitItemStackRequest(
                     _campaign, stack.ItemStackId, splitOffId, inventoryB.InventoryId, quantity: 3,
-                    expectedSourceRevision: 2, expectedInventoryRevision: 2, NewUserId(), actorIsMainGm: true, NewCommandId(), Corr));
+                    expectedSourceRevision: 2, expectedInventoryRevision: 2, global::Odyssey.Application.Identity.DevIdentityProvider.AssignHost(), NewCommandId(), Corr));
 
             Assert.That(split.IsSuccess, Is.True);
             ItemStackRecord splitOff = split.Value;
@@ -135,11 +135,11 @@ namespace Odyssey.Tests.Persistence.Integration
 
             // 4b. Merge the split-off part back into the original stack.
             Result<ItemStackRecord> merged = InventoryStackOperationService.Merge(
-                _inventory,
+                _inventory, _campaigns,
                 new MergeItemStacksRequest(
                     _campaign, splitOffId, stack.ItemStackId, inventoryB.InventoryId,
                     expectedSourceRevision: 1, expectedDestinationRevision: 3, expectedInventoryRevision: 2,
-                    NewUserId(), actorIsMainGm: true, NewCommandId(), Corr));
+                    global::Odyssey.Application.Identity.DevIdentityProvider.AssignHost(), NewCommandId(), Corr));
 
             Assert.That(merged.IsSuccess, Is.True);
             Assert.That(merged.Value.ItemStackId, Is.EqualTo(stack.ItemStackId));
@@ -160,11 +160,11 @@ namespace Odyssey.Tests.Persistence.Integration
             CharacterRecord character = CreateCharacter("Snapshot Owner");
             InventoryRecord inventory = CreateInventory(character.CharacterId);
             Result<ItemStackRecord> created = InventoryCreationService.CreateItemStackFromDefinition(
-                _catalog, _inventory, Clock,
+                _catalog, _inventory, _campaigns, Clock,
                 new CreateItemStackFromDefinitionRequest(
                     _campaign, ItemStackId.NewId(Clock.GetUtcNow()), inventory.InventoryId, inventory.OwnerRef,
                     InventoryLocationRef.Contained(inventory.InventoryId, "main"), original.ContentDefinitionId,
-                    ItemStackQuantity.Create(4), NewUserId(), actorIsMainGm: true, NewCommandId(), Corr));
+                    ItemStackQuantity.Create(4), global::Odyssey.Application.Identity.DevIdentityProvider.AssignHost(), NewCommandId(), Corr));
             Assert.That(created.IsSuccess, Is.True);
             ItemStackId stackId = created.Value.ItemStackId;
 
@@ -211,19 +211,19 @@ namespace Odyssey.Tests.Persistence.Integration
             InventoryRecord inventoryB = CreateInventory(characterB.CharacterId);
 
             Result<ItemStackRecord> created = InventoryCreationService.CreateItemStackFromDefinition(
-                _catalog, _inventory, Clock,
+                _catalog, _inventory, _campaigns, Clock,
                 new CreateItemStackFromDefinitionRequest(
                     _campaign, ItemStackId.NewId(Clock.GetUtcNow()), inventoryA.InventoryId, inventoryA.OwnerRef,
                     InventoryLocationRef.Contained(inventoryA.InventoryId, "main"), published.ContentDefinitionId,
-                    ItemStackQuantity.Create(5), NewUserId(), actorIsMainGm: true, NewCommandId(), Corr));
+                    ItemStackQuantity.Create(5), global::Odyssey.Application.Identity.DevIdentityProvider.AssignHost(), NewCommandId(), Corr));
             Assert.That(created.IsSuccess, Is.True);
 
             // The whole stack moves from A to B, so its OwnerRef becomes B's.
             Result<ItemStackRecord> moved = InventoryMovementService.MoveItemStack(
-                _inventory,
+                _inventory, _campaigns,
                 new MoveItemStackRequest(
                     _campaign, created.Value.ItemStackId, 1, inventoryA.InventoryId, 1, inventoryB.InventoryId, 1, "main",
-                    NewUserId(), actorIsMainGm: true, NewCommandId(), Corr));
+                    global::Odyssey.Application.Identity.DevIdentityProvider.AssignHost(), NewCommandId(), Corr));
             Assert.That(moved.IsSuccess, Is.True);
 
             // Character B still owns the stack -> permanent deletion is blocked.
@@ -255,11 +255,11 @@ namespace Odyssey.Tests.Persistence.Integration
             InventoryRecord inventory = CreateInventory(character.CharacterId);
 
             Result<ItemStackRecord> result = InventoryCreationService.CreateItemStackFromDefinition(
-                _catalog, _inventory, Clock,
+                _catalog, _inventory, _campaigns, Clock,
                 new CreateItemStackFromDefinitionRequest(
                     _campaign, ItemStackId.NewId(Clock.GetUtcNow()), inventory.InventoryId, inventory.OwnerRef,
                     InventoryLocationRef.Contained(inventory.InventoryId, "main"), draft.Value.ContentDefinitionId,
-                    ItemStackQuantity.Create(1), NewUserId(), actorIsMainGm: true, NewCommandId(), Corr));
+                    ItemStackQuantity.Create(1), global::Odyssey.Application.Identity.DevIdentityProvider.AssignHost(), NewCommandId(), Corr));
 
             Assert.That(result.IsFailure, Is.True);
             Assert.That(result.Error.Code, Is.EqualTo(ErrorCodes.InventoryCreateDefinitionNotPublished));

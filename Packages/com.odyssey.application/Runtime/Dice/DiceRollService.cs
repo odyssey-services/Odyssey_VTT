@@ -1,5 +1,7 @@
 using System;
 using System.Collections.Generic;
+using Odyssey.Application.Identity;
+using Odyssey.Application.Persistence;
 using Odyssey.Application.Random;
 using Odyssey.Application.Results;
 using Odyssey.Application.Time;
@@ -107,16 +109,23 @@ namespace Odyssey.Application.Dice
         }
 
         /// <summary>Section 12.2: GM (or an equivalently authorized actor) accepts, changes with reason, or rejects with reason -- every decision stays a visible, sourced ModifierEntry.</summary>
-        public static Result<DiceRoll> DecideModifier(DiceRollStore store, DecideModifierRequest request)
+        public static Result<DiceRoll> DecideModifier(DiceRollStore store, ICampaignRepository campaignRepository, DecideModifierRequest request)
         {
             if (store == null) throw new ArgumentNullException(nameof(store));
+            if (campaignRepository == null) throw new ArgumentNullException(nameof(campaignRepository));
             if (request == null) throw new ArgumentNullException(nameof(request));
             if (!store.TryGet(request.RollId, out DiceRoll roll))
             {
                 return Result<DiceRoll>.Failure(DiceFailures.RollNotFound(request.CorrelationId));
             }
 
-            if (!request.DecidedByUserIsMainGm)
+            Result<bool> mainGmCheck = CampaignMembershipAuthorization.IsMainGm(campaignRepository, request.Campaign, request.DecidedByUserId, request.CorrelationId);
+            if (mainGmCheck.IsFailure)
+            {
+                return Result<DiceRoll>.Failure(mainGmCheck.Error);
+            }
+
+            if (!mainGmCheck.Value)
             {
                 return Result<DiceRoll>.Failure(DiceFailures.ModifierDecisionDenied(request.CorrelationId));
             }
@@ -161,9 +170,10 @@ namespace Odyssey.Application.Dice
         }
 
         /// <summary>Section 19: a separate, immutable record; the original roll's NaturalResults/FinalTotal are never rewritten -- only its Status marker flips.</summary>
-        public static Result<RollOverride> ApplyOverride(DiceRollStore store, IWallClock clock, ApplyOverrideRequest request)
+        public static Result<RollOverride> ApplyOverride(DiceRollStore store, ICampaignRepository campaignRepository, IWallClock clock, ApplyOverrideRequest request)
         {
             if (store == null) throw new ArgumentNullException(nameof(store));
+            if (campaignRepository == null) throw new ArgumentNullException(nameof(campaignRepository));
             if (clock == null) throw new ArgumentNullException(nameof(clock));
             if (request == null) throw new ArgumentNullException(nameof(request));
             if (!store.TryGet(request.RollId, out DiceRoll roll))
@@ -171,7 +181,13 @@ namespace Odyssey.Application.Dice
                 return Result<RollOverride>.Failure(DiceFailures.RollNotFound(request.CorrelationId));
             }
 
-            if (!request.ActorIsMainGm)
+            Result<bool> mainGmCheck = CampaignMembershipAuthorization.IsMainGm(campaignRepository, request.Campaign, request.ActorUserId, request.CorrelationId);
+            if (mainGmCheck.IsFailure)
+            {
+                return Result<RollOverride>.Failure(mainGmCheck.Error);
+            }
+
+            if (!mainGmCheck.Value)
             {
                 return Result<RollOverride>.Failure(DiceFailures.OverrideDenied(request.CorrelationId));
             }
@@ -189,9 +205,10 @@ namespace Odyssey.Application.Dice
         }
 
         /// <summary>Section 17: the whole roll is redone -- never a partial/per-die reroll. A new DiceRoll, chained via PreviousRollId; the original is preserved, only its Status flips to SupersededByReroll.</summary>
-        public static Result<DiceRoll> RequestFullReroll(DiceRollStore store, IAuthoritativeRandomStreamFactory rngFactory, IWallClock clock, RequestFullRerollRequest request)
+        public static Result<DiceRoll> RequestFullReroll(DiceRollStore store, ICampaignRepository campaignRepository, IAuthoritativeRandomStreamFactory rngFactory, IWallClock clock, RequestFullRerollRequest request)
         {
             if (store == null) throw new ArgumentNullException(nameof(store));
+            if (campaignRepository == null) throw new ArgumentNullException(nameof(campaignRepository));
             if (rngFactory == null) throw new ArgumentNullException(nameof(rngFactory));
             if (clock == null) throw new ArgumentNullException(nameof(clock));
             if (request == null) throw new ArgumentNullException(nameof(request));
@@ -200,10 +217,21 @@ namespace Odyssey.Application.Dice
                 return Result<DiceRoll>.Failure(DiceFailures.RollNotFound(request.CorrelationId));
             }
 
-            // Section 17.3: the acting player of the original roll, or MainGM.
-            if (!original.ActorUserId.Equals(request.ActorUserId) && !request.ActorIsMainGm)
+            // Section 17.3: the acting player of the original roll, or MainGM. The cheap
+            // "is this my own roll" check runs first, exactly as before -- the real,
+            // fail-closed MainGM lookup only runs when that check does not already pass.
+            if (!original.ActorUserId.Equals(request.ActorUserId))
             {
-                return Result<DiceRoll>.Failure(DiceFailures.RerollDenied(request.CorrelationId));
+                Result<bool> mainGmCheck = CampaignMembershipAuthorization.IsMainGm(campaignRepository, request.Campaign, request.ActorUserId, request.CorrelationId);
+                if (mainGmCheck.IsFailure)
+                {
+                    return Result<DiceRoll>.Failure(mainGmCheck.Error);
+                }
+
+                if (!mainGmCheck.Value)
+                {
+                    return Result<DiceRoll>.Failure(DiceFailures.RerollDenied(request.CorrelationId));
+                }
             }
 
             if (!DiceFormulaParser.TryParse(original.FormulaOriginal, out DiceFormula formula, out _))
@@ -246,18 +274,30 @@ namespace Odyssey.Application.Dice
         }
 
         /// <summary>Section 18: the DiceRoll is never deleted -- only its Status flips to Cancelled, with a mandatory reason for an already-resolved roll (section 18.3).</summary>
-        public static Result<DiceRoll> CancelRoll(DiceRollStore store, CancelRollRequest request)
+        public static Result<DiceRoll> CancelRoll(DiceRollStore store, ICampaignRepository campaignRepository, CancelRollRequest request)
         {
             if (store == null) throw new ArgumentNullException(nameof(store));
+            if (campaignRepository == null) throw new ArgumentNullException(nameof(campaignRepository));
             if (request == null) throw new ArgumentNullException(nameof(request));
             if (!store.TryGet(request.RollId, out DiceRoll roll))
             {
                 return Result<DiceRoll>.Failure(DiceFailures.RollNotFound(request.CorrelationId));
             }
 
-            if (!roll.ActorUserId.Equals(request.ActorUserId) && !request.ActorIsMainGm)
+            // The cheap "is this my own roll" check runs first, exactly as before -- the
+            // real, fail-closed MainGM lookup only runs when that check does not already pass.
+            if (!roll.ActorUserId.Equals(request.ActorUserId))
             {
-                return Result<DiceRoll>.Failure(DiceFailures.CancelDenied(request.CorrelationId));
+                Result<bool> mainGmCheck = CampaignMembershipAuthorization.IsMainGm(campaignRepository, request.Campaign, request.ActorUserId, request.CorrelationId);
+                if (mainGmCheck.IsFailure)
+                {
+                    return Result<DiceRoll>.Failure(mainGmCheck.Error);
+                }
+
+                if (!mainGmCheck.Value)
+                {
+                    return Result<DiceRoll>.Failure(DiceFailures.CancelDenied(request.CorrelationId));
+                }
             }
 
             // Section 18.3: cancelling an already-resolved roll requires a reason.

@@ -1,5 +1,6 @@
 using System;
 using Odyssey.Application.Commands;
+using Odyssey.Application.Identity;
 using Odyssey.Application.Persistence;
 using Odyssey.Application.Results;
 using Odyssey.Domain.Identity;
@@ -9,22 +10,36 @@ namespace Odyssey.Application.Inventory
 {
     public static class InventoryMovementService
     {
-        public static Result<ItemInstanceRecord> MoveItemInstance(IInventoryRepository repository, MoveItemInstanceRequest request)
+        public static Result<ItemInstanceRecord> MoveItemInstance(IInventoryRepository repository, ICampaignRepository campaignRepository, MoveItemInstanceRequest request)
         {
             if (repository == null) throw new ArgumentNullException(nameof(repository));
+            if (campaignRepository == null) throw new ArgumentNullException(nameof(campaignRepository));
             if (request == null) throw new ArgumentNullException(nameof(request));
 
-            return request.ActorIsMainGm
+            Result<bool> mainGmCheck = CampaignMembershipAuthorization.IsMainGm(campaignRepository, request.Campaign, request.ActorUserId, request.CorrelationId);
+            if (mainGmCheck.IsFailure)
+            {
+                return Result<ItemInstanceRecord>.Failure(mainGmCheck.Error);
+            }
+
+            return mainGmCheck.Value
                 ? repository.MoveItemInstance(request.Campaign, request.Move, request.CorrelationId)
                 : Result<ItemInstanceRecord>.Failure(InventoryMovementFailures.Denied(request.CorrelationId));
         }
 
-        public static Result<ItemStackRecord> MoveItemStack(IInventoryRepository repository, MoveItemStackRequest request)
+        public static Result<ItemStackRecord> MoveItemStack(IInventoryRepository repository, ICampaignRepository campaignRepository, MoveItemStackRequest request)
         {
             if (repository == null) throw new ArgumentNullException(nameof(repository));
+            if (campaignRepository == null) throw new ArgumentNullException(nameof(campaignRepository));
             if (request == null) throw new ArgumentNullException(nameof(request));
 
-            return request.ActorIsMainGm
+            Result<bool> mainGmCheck = CampaignMembershipAuthorization.IsMainGm(campaignRepository, request.Campaign, request.ActorUserId, request.CorrelationId);
+            if (mainGmCheck.IsFailure)
+            {
+                return Result<ItemStackRecord>.Failure(mainGmCheck.Error);
+            }
+
+            return mainGmCheck.Value
                 ? repository.MoveItemStack(request.Campaign, request.Move, request.CorrelationId)
                 : Result<ItemStackRecord>.Failure(InventoryMovementFailures.Denied(request.CorrelationId));
         }
@@ -50,20 +65,20 @@ namespace Odyssey.Application.Inventory
 
     public sealed class MoveItemInstanceRequest
     {
-        public MoveItemInstanceRequest(CampaignHandle campaign, ItemInstanceId targetId, long expectedTargetRevision, InventoryId sourceInventoryId, long expectedSourceRevision, InventoryId destinationInventoryId, long expectedDestinationRevision, string destinationContainerKey, UserId actorUserId, bool actorIsMainGm, CommandId commandId, CorrelationId correlationId)
-        { if (campaign == null || !targetId.IsValid || !actorUserId.IsValid) throw new ArgumentException("Campaign, target, and actor are required."); Campaign = campaign; ActorIsMainGm = actorIsMainGm; CorrelationId = correlationId; Move = new InventoryMove(InventoryItemRef.ForInstance(targetId), sourceInventoryId, expectedTargetRevision, expectedSourceRevision, destinationInventoryId, expectedDestinationRevision, destinationContainerKey, commandId); }
+        public MoveItemInstanceRequest(CampaignHandle campaign, ItemInstanceId targetId, long expectedTargetRevision, InventoryId sourceInventoryId, long expectedSourceRevision, InventoryId destinationInventoryId, long expectedDestinationRevision, string destinationContainerKey, UserId actorUserId, CommandId commandId, CorrelationId correlationId)
+        { if (campaign == null || !targetId.IsValid || !actorUserId.IsValid) throw new ArgumentException("Campaign, target, and actor are required."); Campaign = campaign; ActorUserId = actorUserId; CorrelationId = correlationId; Move = new InventoryMove(InventoryItemRef.ForInstance(targetId), sourceInventoryId, expectedTargetRevision, expectedSourceRevision, destinationInventoryId, expectedDestinationRevision, destinationContainerKey, commandId); }
         public CampaignHandle Campaign { get; }
-        public bool ActorIsMainGm { get; }
+        public UserId ActorUserId { get; }
         public CorrelationId CorrelationId { get; }
         public InventoryMove Move { get; }
     }
 
     public sealed class MoveItemStackRequest
     {
-        public MoveItemStackRequest(CampaignHandle campaign, ItemStackId targetId, long expectedTargetRevision, InventoryId sourceInventoryId, long expectedSourceRevision, InventoryId destinationInventoryId, long expectedDestinationRevision, string destinationContainerKey, UserId actorUserId, bool actorIsMainGm, CommandId commandId, CorrelationId correlationId)
-        { if (campaign == null || !targetId.IsValid || !actorUserId.IsValid) throw new ArgumentException("Campaign, target, and actor are required."); Campaign = campaign; ActorIsMainGm = actorIsMainGm; CorrelationId = correlationId; Move = new InventoryMove(InventoryItemRef.ForStack(targetId), sourceInventoryId, expectedTargetRevision, expectedSourceRevision, destinationInventoryId, expectedDestinationRevision, destinationContainerKey, commandId); }
+        public MoveItemStackRequest(CampaignHandle campaign, ItemStackId targetId, long expectedTargetRevision, InventoryId sourceInventoryId, long expectedSourceRevision, InventoryId destinationInventoryId, long expectedDestinationRevision, string destinationContainerKey, UserId actorUserId, CommandId commandId, CorrelationId correlationId)
+        { if (campaign == null || !targetId.IsValid || !actorUserId.IsValid) throw new ArgumentException("Campaign, target, and actor are required."); Campaign = campaign; ActorUserId = actorUserId; CorrelationId = correlationId; Move = new InventoryMove(InventoryItemRef.ForStack(targetId), sourceInventoryId, expectedTargetRevision, expectedSourceRevision, destinationInventoryId, expectedDestinationRevision, destinationContainerKey, commandId); }
         public CampaignHandle Campaign { get; }
-        public bool ActorIsMainGm { get; }
+        public UserId ActorUserId { get; }
         public CorrelationId CorrelationId { get; }
         public InventoryMove Move { get; }
     }

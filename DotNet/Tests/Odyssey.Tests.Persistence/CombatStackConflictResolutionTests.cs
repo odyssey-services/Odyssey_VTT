@@ -59,7 +59,7 @@ namespace Odyssey.Tests.Persistence
             _campaign = campaign.Value;
             _characters = new SqliteCharacterRepository(_clock, new SqliteCampaignRepository(_clock));
             _encounters = new SqliteCombatEncounterRepository(_clock);
-            _inventory = new SqliteInventoryRepository(_clock);
+            _inventory = new SqliteInventoryRepository(_clock, new SqliteCampaignRepository(_clock));
             _scenes = new SqliteSceneRepository(_clock);
             _activeEffects = new SqliteActiveEffectRepository(_clock, new SqliteCampaignRepository(_clock));
             _reader = new SqliteAttackStateReader(_encounters, _inventory, _characters, _clock, _scenes);

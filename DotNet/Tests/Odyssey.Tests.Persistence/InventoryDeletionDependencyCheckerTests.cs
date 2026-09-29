@@ -49,7 +49,7 @@ namespace Odyssey.Tests.Persistence
             _campaign = created.Value;
             _characters = new SqliteCharacterRepository(Clock, _campaigns);
             _catalog = new SqliteContentCatalogRepository(Clock);
-            _inventory = new SqliteInventoryRepository(Clock);
+            _inventory = new SqliteInventoryRepository(Clock, _campaigns);
         }
 
         [TearDown]

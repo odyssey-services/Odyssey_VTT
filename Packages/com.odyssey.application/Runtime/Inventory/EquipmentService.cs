@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using Odyssey.Application.Commands;
+using Odyssey.Application.Identity;
 using Odyssey.Application.Persistence;
 using Odyssey.Application.Results;
 using Odyssey.Domain.Character;
@@ -22,13 +23,20 @@ namespace Odyssey.Application.Inventory
     /// </summary>
     public static class EquipmentService
     {
-        public static Result<EquippedEntryRecord> Equip(IInventoryRepository inventoryRepository, ICharacterRepository characterRepository, EquipRequest request)
+        public static Result<EquippedEntryRecord> Equip(IInventoryRepository inventoryRepository, ICharacterRepository characterRepository, ICampaignRepository campaignRepository, EquipRequest request)
         {
             if (inventoryRepository == null) throw new ArgumentNullException(nameof(inventoryRepository));
             if (characterRepository == null) throw new ArgumentNullException(nameof(characterRepository));
+            if (campaignRepository == null) throw new ArgumentNullException(nameof(campaignRepository));
             if (request == null) throw new ArgumentNullException(nameof(request));
 
-            if (!request.ActorIsMainGm)
+            Result<bool> mainGmCheck = CampaignMembershipAuthorization.IsMainGm(campaignRepository, request.Campaign, request.ActorUserId, request.CorrelationId);
+            if (mainGmCheck.IsFailure)
+            {
+                return Result<EquippedEntryRecord>.Failure(mainGmCheck.Error);
+            }
+
+            if (!mainGmCheck.Value)
             {
                 return Result<EquippedEntryRecord>.Failure(InventoryMovementFailures.Denied(request.CorrelationId));
             }
@@ -84,12 +92,19 @@ namespace Odyssey.Application.Inventory
         /// anatomy. No new Equip semantics beyond the reverse transition; no
         /// `RemoveBodyPart` check.
         /// </summary>
-        public static Result<bool> Unequip(IInventoryRepository inventoryRepository, UnequipRequest request)
+        public static Result<bool> Unequip(IInventoryRepository inventoryRepository, ICampaignRepository campaignRepository, UnequipRequest request)
         {
             if (inventoryRepository == null) throw new ArgumentNullException(nameof(inventoryRepository));
+            if (campaignRepository == null) throw new ArgumentNullException(nameof(campaignRepository));
             if (request == null) throw new ArgumentNullException(nameof(request));
 
-            if (!request.ActorIsMainGm)
+            Result<bool> mainGmCheck = CampaignMembershipAuthorization.IsMainGm(campaignRepository, request.Campaign, request.ActorUserId, request.CorrelationId);
+            if (mainGmCheck.IsFailure)
+            {
+                return Result<bool>.Failure(mainGmCheck.Error);
+            }
+
+            if (!mainGmCheck.Value)
             {
                 return Result<bool>.Failure(InventoryMovementFailures.Denied(request.CorrelationId));
             }
@@ -171,7 +186,6 @@ namespace Odyssey.Application.Inventory
             long expectedEquippedEntryRevision,
             string destinationContainerKey,
             UserId actorUserId,
-            bool actorIsMainGm,
             CommandId commandId,
             CorrelationId correlationId)
         {
@@ -184,7 +198,7 @@ namespace Odyssey.Application.Inventory
             ExpectedTargetRevision = expectedTargetRevision;
             ExpectedEquippedEntryRevision = expectedEquippedEntryRevision;
             DestinationContainerKey = destinationContainerKey;
-            ActorIsMainGm = actorIsMainGm;
+            ActorUserId = actorUserId;
             CommandId = commandId;
             CorrelationId = correlationId;
         }
@@ -195,7 +209,7 @@ namespace Odyssey.Application.Inventory
         public long ExpectedTargetRevision { get; }
         public long ExpectedEquippedEntryRevision { get; }
         public string DestinationContainerKey { get; }
-        public bool ActorIsMainGm { get; }
+        public UserId ActorUserId { get; }
         public CommandId CommandId { get; }
         public CorrelationId CorrelationId { get; }
     }
@@ -212,7 +226,6 @@ namespace Odyssey.Application.Inventory
             UserId equippedByUserId,
             UtcInstant equippedAt,
             UserId actorUserId,
-            bool actorIsMainGm,
             CommandId commandId,
             CorrelationId correlationId)
         {
@@ -227,7 +240,7 @@ namespace Odyssey.Application.Inventory
             BodyPartRefs = bodyPartRefs ?? throw new ArgumentNullException(nameof(bodyPartRefs));
             EquippedByUserId = equippedByUserId;
             EquippedAt = equippedAt;
-            ActorIsMainGm = actorIsMainGm;
+            ActorUserId = actorUserId;
             CommandId = commandId;
             CorrelationId = correlationId;
         }
@@ -240,7 +253,7 @@ namespace Odyssey.Application.Inventory
         public IReadOnlyList<BodyPartId> BodyPartRefs { get; }
         public UserId EquippedByUserId { get; }
         public UtcInstant EquippedAt { get; }
-        public bool ActorIsMainGm { get; }
+        public UserId ActorUserId { get; }
         public CommandId CommandId { get; }
         public CorrelationId CorrelationId { get; }
     }

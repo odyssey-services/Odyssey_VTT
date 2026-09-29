@@ -57,7 +57,7 @@ namespace Odyssey.Tests.Persistence
             _characters = new SqliteCharacterRepository(_clock, new SqliteCampaignRepository(_clock));
             _catalog = new SqliteContentCatalogRepository(_clock);
             _effects = new SqliteActiveEffectRepository(_clock, new SqliteCampaignRepository(_clock));
-            _inventory = new SqliteInventoryRepository(_clock);
+            _inventory = new SqliteInventoryRepository(_clock, new SqliteCampaignRepository(_clock));
             _reader = new SqliteUseItemStateReader(_characters, _inventory, _catalog, _clock);
             _apply = new SqliteUseItemRepository(_clock, _effects);
         }

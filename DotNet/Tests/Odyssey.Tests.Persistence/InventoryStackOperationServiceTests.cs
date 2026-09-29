@@ -43,7 +43,8 @@ namespace Odyssey.Tests.Persistence
             Result<CampaignHandle> created = _campaigns.Create(new CreateCampaignRequest(_campaignDir, "Inventory Stack Split/Merge Test", "ruleset.core", "1.0.0", "0.1.0", global::Odyssey.Application.Identity.DevIdentityProvider.AssignHost()), NewCommandId(), CorrelationId);
             Assert.That(created.IsSuccess, Is.True);
             _campaign = created.Value;
-            _repository = new SqliteInventoryRepository(Clock);
+            Assert.That(_campaigns.AddMember(_campaign, Actor, CampaignMembershipRole.MainGm, NewCommandId(), CorrelationId).IsSuccess, Is.True);
+            _repository = new SqliteInventoryRepository(Clock, _campaigns);
         }
 
         [TearDown]
@@ -62,7 +63,7 @@ namespace Odyssey.Tests.Persistence
             ItemStackRecord source = CreateStack(inventory, "main", quantity: 10);
 
             ItemStackId resultId = ItemStackId.NewId(Clock.GetUtcNow());
-            Result<ItemStackRecord> split = InventoryStackOperationService.Split(_repository, SplitRequest(inventory, source, resultId, quantity: 3));
+            Result<ItemStackRecord> split = InventoryStackOperationService.Split(_repository, _campaigns, SplitRequest(inventory, source, resultId, quantity: 3));
 
             Assert.That(split.IsSuccess, Is.True);
             ItemStackRecord newStack = split.Value;
@@ -88,15 +89,15 @@ namespace Odyssey.Tests.Persistence
         public void Split_DeniedForNonMainGm_BeforeAnyRepositoryCall_AndNullArgumentsThrow()
         {
             var probe = new ThrowingInventoryRepository();
-            SplitItemStackRequest request = new SplitItemStackRequest(_campaign, ItemStackId.NewId(Clock.GetUtcNow()), ItemStackId.NewId(Clock.GetUtcNow()), InventoryId.NewId(Clock.GetUtcNow()), 1, 1, 1, Actor, actorIsMainGm: false, NewCommandId(), CorrelationId);
+            SplitItemStackRequest request = new SplitItemStackRequest(_campaign, ItemStackId.NewId(Clock.GetUtcNow()), ItemStackId.NewId(Clock.GetUtcNow()), InventoryId.NewId(Clock.GetUtcNow()), 1, 1, 1, UserId.Parse("user_" + Guid.NewGuid().ToString("N")), NewCommandId(), CorrelationId);
 
-            Result<ItemStackRecord> denied = InventoryStackOperationService.Split(probe, request);
+            Result<ItemStackRecord> denied = InventoryStackOperationService.Split(probe, _campaigns, request);
 
             Assert.That(denied.IsFailure, Is.True);
             Assert.That(denied.Error.Code, Is.EqualTo(ErrorCodes.InventoryMoveDenied));
             Assert.That(probe.CallCount, Is.EqualTo(0));
-            Assert.Throws<ArgumentNullException>(new Action(() => InventoryStackOperationService.Split(null!, request)));
-            Assert.Throws<ArgumentNullException>(new Action(() => InventoryStackOperationService.Split(probe, null!)));
+            Assert.Throws<ArgumentNullException>(new Action(() => InventoryStackOperationService.Split(null!, _campaigns, request)));
+            Assert.Throws<ArgumentNullException>(new Action(() => InventoryStackOperationService.Split(probe, _campaigns, null!)));
         }
 
         [Test] // TC-INVENTORY-063
@@ -105,7 +106,7 @@ namespace Odyssey.Tests.Persistence
             InventoryRecord inventory = CreateInventory();
             ItemStackRecord source = CreateStack(inventory, "main", quantity: 5);
 
-            Result<ItemStackRecord> split = InventoryStackOperationService.Split(_repository, SplitRequest(inventory, source, ItemStackId.NewId(Clock.GetUtcNow()), quantity: 5));
+            Result<ItemStackRecord> split = InventoryStackOperationService.Split(_repository, _campaigns, SplitRequest(inventory, source, ItemStackId.NewId(Clock.GetUtcNow()), quantity: 5));
 
             Assert.That(split.IsFailure, Is.True);
             Assert.That(split.Error.Code, Is.EqualTo(ErrorCodes.InventoryStackSplitQuantityInvalid));
@@ -119,7 +120,7 @@ namespace Odyssey.Tests.Persistence
             InventoryRecord inventory = CreateInventory();
             ItemStackRecord source = CreateStack(inventory, "main", quantity: 4);
 
-            Result<ItemStackRecord> split = InventoryStackOperationService.Split(_repository, SplitRequest(inventory, source, ItemStackId.NewId(Clock.GetUtcNow()), quantity: 9));
+            Result<ItemStackRecord> split = InventoryStackOperationService.Split(_repository, _campaigns, SplitRequest(inventory, source, ItemStackId.NewId(Clock.GetUtcNow()), quantity: 9));
 
             Assert.That(split.IsFailure, Is.True);
             Assert.That(split.Error.Code, Is.EqualTo(ErrorCodes.InventoryStackSplitQuantityInvalid));
@@ -132,7 +133,7 @@ namespace Odyssey.Tests.Persistence
             InventoryRecord inventory = CreateInventory();
             ItemStackRecord source = CreateStack(inventory, "main", quantity: 6);
 
-            Result<ItemStackRecord> split = InventoryStackOperationService.Split(_repository, SplitRequest(inventory, source, ItemStackId.NewId(Clock.GetUtcNow()), quantity: 2, expectedSourceRevision: 2));
+            Result<ItemStackRecord> split = InventoryStackOperationService.Split(_repository, _campaigns, SplitRequest(inventory, source, ItemStackId.NewId(Clock.GetUtcNow()), quantity: 2, expectedSourceRevision: 2));
 
             Assert.That(split.IsFailure, Is.True);
             Assert.That(split.Error.Code, Is.EqualTo(ErrorCodes.PersistenceInventoryItemRevisionConflict));
@@ -146,8 +147,8 @@ namespace Odyssey.Tests.Persistence
             InventoryRecord inventory = CreateInventory();
             ItemStackId missing = ItemStackId.NewId(Clock.GetUtcNow());
 
-            SplitItemStackRequest request = new SplitItemStackRequest(_campaign, missing, ItemStackId.NewId(Clock.GetUtcNow()), inventory.InventoryId, 1, 1, 1, Actor, actorIsMainGm: true, NewCommandId(), CorrelationId);
-            Result<ItemStackRecord> split = InventoryStackOperationService.Split(_repository, request);
+            SplitItemStackRequest request = new SplitItemStackRequest(_campaign, missing, ItemStackId.NewId(Clock.GetUtcNow()), inventory.InventoryId, 1, 1, 1, Actor, NewCommandId(), CorrelationId);
+            Result<ItemStackRecord> split = InventoryStackOperationService.Split(_repository, _campaigns, request);
 
             Assert.That(split.IsFailure, Is.True);
             Assert.That(split.Error.Code, Is.EqualTo(ErrorCodes.PersistenceItemStackNotFound));
@@ -159,7 +160,7 @@ namespace Odyssey.Tests.Persistence
             InventoryRecord inventory = CreateInventory();
             ItemStackRecord source = CreateStack(inventory, "main", quantity: 6);
 
-            Result<ItemStackRecord> split = InventoryStackOperationService.Split(_repository, SplitRequest(inventory, source, ItemStackId.NewId(Clock.GetUtcNow()), quantity: 2, expectedInventoryRevision: 2));
+            Result<ItemStackRecord> split = InventoryStackOperationService.Split(_repository, _campaigns, SplitRequest(inventory, source, ItemStackId.NewId(Clock.GetUtcNow()), quantity: 2, expectedInventoryRevision: 2));
 
             Assert.That(split.IsFailure, Is.True);
             Assert.That(split.Error.Code, Is.EqualTo(ErrorCodes.PersistenceInventoryRevisionConflict));
@@ -174,8 +175,8 @@ namespace Odyssey.Tests.Persistence
             ItemStackId resultId = ItemStackId.NewId(Clock.GetUtcNow());
             CommandId commandId = NewCommandId();
 
-            Result<ItemStackRecord> first = InventoryStackOperationService.Split(_repository, SplitRequest(inventory, source, resultId, quantity: 4, commandId: commandId));
-            Result<ItemStackRecord> replay = InventoryStackOperationService.Split(_repository, SplitRequest(inventory, source, resultId, quantity: 4, commandId: commandId));
+            Result<ItemStackRecord> first = InventoryStackOperationService.Split(_repository, _campaigns, SplitRequest(inventory, source, resultId, quantity: 4, commandId: commandId));
+            Result<ItemStackRecord> replay = InventoryStackOperationService.Split(_repository, _campaigns, SplitRequest(inventory, source, resultId, quantity: 4, commandId: commandId));
 
             Assert.That(first.IsSuccess, Is.True);
             Assert.That(replay.IsSuccess, Is.True);
@@ -194,8 +195,8 @@ namespace Odyssey.Tests.Persistence
             ItemStackRecord source = CreateStack(inventory, "main", quantity: 10);
             CommandId commandId = NewCommandId();
 
-            Result<ItemStackRecord> first = InventoryStackOperationService.Split(_repository, SplitRequest(inventory, source, ItemStackId.NewId(Clock.GetUtcNow()), quantity: 4, commandId: commandId));
-            Result<ItemStackRecord> mismatch = InventoryStackOperationService.Split(_repository, SplitRequest(inventory, source, ItemStackId.NewId(Clock.GetUtcNow()), quantity: 5, commandId: commandId));
+            Result<ItemStackRecord> first = InventoryStackOperationService.Split(_repository, _campaigns, SplitRequest(inventory, source, ItemStackId.NewId(Clock.GetUtcNow()), quantity: 4, commandId: commandId));
+            Result<ItemStackRecord> mismatch = InventoryStackOperationService.Split(_repository, _campaigns, SplitRequest(inventory, source, ItemStackId.NewId(Clock.GetUtcNow()), quantity: 5, commandId: commandId));
 
             Assert.That(first.IsSuccess, Is.True);
             Assert.That(mismatch.IsFailure, Is.True);
@@ -212,7 +213,7 @@ namespace Odyssey.Tests.Persistence
             InventoryRecord inventory = CreateInventory();
             (ItemStackRecord survivor, ItemStackRecord consumed) = CreateIdenticalPair(inventory, "main", survivorQuantity: 8, consumedQuantity: 5);
 
-            Result<ItemStackRecord> merge = InventoryStackOperationService.Merge(_repository, MergeRequest(inventory, consumed, survivor));
+            Result<ItemStackRecord> merge = InventoryStackOperationService.Merge(_repository, _campaigns, MergeRequest(inventory, consumed, survivor));
 
             Assert.That(merge.IsSuccess, Is.True);
             Assert.That(merge.Value.ItemStackId, Is.EqualTo(survivor.ItemStackId));
@@ -231,7 +232,7 @@ namespace Odyssey.Tests.Persistence
             InventoryRecord inventory = CreateInventory();
             (ItemStackRecord survivor, ItemStackRecord consumed) = CreateIdenticalPair(inventory, "main", survivorQuantity: 2, consumedQuantity: 2);
 
-            Assert.That(InventoryStackOperationService.Merge(_repository, MergeRequest(inventory, consumed, survivor)).IsSuccess, Is.True);
+            Assert.That(InventoryStackOperationService.Merge(_repository, _campaigns, MergeRequest(inventory, consumed, survivor)).IsSuccess, Is.True);
 
             Assert.That(CountRows("InventoryStackCommandLedger"), Is.EqualTo(1));
             Assert.That(ReadLedgerScalar("OperationKind"), Is.EqualTo("Merge"));
@@ -245,7 +246,7 @@ namespace Odyssey.Tests.Persistence
             ItemStackRecord survivor = CreateStack(inventory, "main", quantity: 3);
             ItemStackRecord consumed = CreateStack(inventory, "main", quantity: 3, payload: "{\"damage\":\"divergent\"}");
 
-            Result<ItemStackRecord> merge = InventoryStackOperationService.Merge(_repository, MergeRequest(inventory, consumed, survivor));
+            Result<ItemStackRecord> merge = InventoryStackOperationService.Merge(_repository, _campaigns, MergeRequest(inventory, consumed, survivor));
 
             Assert.That(merge.IsFailure, Is.True);
             Assert.That(merge.Error.Code, Is.EqualTo(ErrorCodes.InventoryStackMergeMismatch));
@@ -261,7 +262,7 @@ namespace Odyssey.Tests.Persistence
             ItemStackRecord survivor = CreateStack(inventory, "main", quantity: 3);
             ItemStackRecord consumed = CreateStack(inventory, "pack", quantity: 3);
 
-            Result<ItemStackRecord> merge = InventoryStackOperationService.Merge(_repository, MergeRequest(inventory, consumed, survivor));
+            Result<ItemStackRecord> merge = InventoryStackOperationService.Merge(_repository, _campaigns, MergeRequest(inventory, consumed, survivor));
 
             Assert.That(merge.IsFailure, Is.True);
             Assert.That(merge.Error.Code, Is.EqualTo(ErrorCodes.InventoryStackMergeMismatch));
@@ -275,7 +276,7 @@ namespace Odyssey.Tests.Persistence
             InventoryRecord inventory = CreateInventory();
             (ItemStackRecord survivor, ItemStackRecord consumed) = CreateIdenticalPair(inventory, "main", survivorQuantity: 4, consumedQuantity: 4);
 
-            Result<ItemStackRecord> merge = InventoryStackOperationService.Merge(_repository, MergeRequest(inventory, consumed, survivor, expectedSourceRevision: 2));
+            Result<ItemStackRecord> merge = InventoryStackOperationService.Merge(_repository, _campaigns, MergeRequest(inventory, consumed, survivor, expectedSourceRevision: 2));
 
             Assert.That(merge.IsFailure, Is.True);
             Assert.That(merge.Error.Code, Is.EqualTo(ErrorCodes.PersistenceInventoryItemRevisionConflict));
@@ -289,7 +290,7 @@ namespace Odyssey.Tests.Persistence
             InventoryRecord inventory = CreateInventory();
             (ItemStackRecord survivor, ItemStackRecord consumed) = CreateIdenticalPair(inventory, "main", survivorQuantity: 4, consumedQuantity: 4);
 
-            Result<ItemStackRecord> merge = InventoryStackOperationService.Merge(_repository, MergeRequest(inventory, consumed, survivor, expectedDestinationRevision: 2));
+            Result<ItemStackRecord> merge = InventoryStackOperationService.Merge(_repository, _campaigns, MergeRequest(inventory, consumed, survivor, expectedDestinationRevision: 2));
 
             Assert.That(merge.IsFailure, Is.True);
             Assert.That(merge.Error.Code, Is.EqualTo(ErrorCodes.PersistenceInventoryItemRevisionConflict));
@@ -304,7 +305,7 @@ namespace Odyssey.Tests.Persistence
             (ItemStackRecord survivor, ItemStackRecord consumed) = CreateIdenticalPair(inventory, "main", survivorQuantity: 5, consumedQuantity: 5);
             SetStackQuantityDirectly(survivor.ItemStackId, long.MaxValue);
 
-            Result<ItemStackRecord> merge = InventoryStackOperationService.Merge(_repository, MergeRequest(inventory, consumed, survivor));
+            Result<ItemStackRecord> merge = InventoryStackOperationService.Merge(_repository, _campaigns, MergeRequest(inventory, consumed, survivor));
 
             Assert.That(merge.IsFailure, Is.True);
             Assert.That(merge.Error.Code, Is.EqualTo(ErrorCodes.InventoryStackMergeExceedsMaxQuantity));
@@ -320,8 +321,8 @@ namespace Odyssey.Tests.Persistence
             (ItemStackRecord survivor, ItemStackRecord consumed) = CreateIdenticalPair(inventory, "main", survivorQuantity: 6, consumedQuantity: 4);
             CommandId commandId = NewCommandId();
 
-            Result<ItemStackRecord> first = InventoryStackOperationService.Merge(_repository, MergeRequest(inventory, consumed, survivor, commandId: commandId));
-            Result<ItemStackRecord> replay = InventoryStackOperationService.Merge(_repository, MergeRequest(inventory, consumed, survivor, commandId: commandId));
+            Result<ItemStackRecord> first = InventoryStackOperationService.Merge(_repository, _campaigns, MergeRequest(inventory, consumed, survivor, commandId: commandId));
+            Result<ItemStackRecord> replay = InventoryStackOperationService.Merge(_repository, _campaigns, MergeRequest(inventory, consumed, survivor, commandId: commandId));
 
             Assert.That(first.IsSuccess, Is.True);
             Assert.That(replay.IsSuccess, Is.True);
@@ -343,7 +344,7 @@ namespace Odyssey.Tests.Persistence
                 trigger.ExecuteNonQuery();
             }
 
-            Result<ItemStackRecord> merge = InventoryStackOperationService.Merge(_repository, MergeRequest(inventory, consumed, survivor));
+            Result<ItemStackRecord> merge = InventoryStackOperationService.Merge(_repository, _campaigns, MergeRequest(inventory, consumed, survivor));
 
             Assert.That(merge.IsFailure, Is.True);
             Assert.That(merge.Error.Code, Is.EqualTo(ErrorCodes.PersistenceInventoryIoFailed));
@@ -414,11 +415,39 @@ namespace Odyssey.Tests.Persistence
             return (survivor, consumed);
         }
 
-        private SplitItemStackRequest SplitRequest(InventoryRecord inventory, ItemStackRecord source, ItemStackId resultId, long quantity, long expectedSourceRevision = 1, long expectedInventoryRevision = 1, CommandId? commandId = null)
-            => new SplitItemStackRequest(_campaign, source.ItemStackId, resultId, inventory.InventoryId, quantity, expectedSourceRevision, expectedInventoryRevision, Actor, actorIsMainGm: true, commandId ?? NewCommandId(), CorrelationId);
+        private SplitItemStackRequest SplitRequest(InventoryRecord inventory, ItemStackRecord source, ItemStackId resultId, long quantity, long expectedSourceRevision = 1, long expectedInventoryRevision = 1, CommandId? commandId = null, UserId? actor = null)
+            => new SplitItemStackRequest(_campaign, source.ItemStackId, resultId, inventory.InventoryId, quantity, expectedSourceRevision, expectedInventoryRevision, actor ?? Actor, commandId ?? NewCommandId(), CorrelationId);
 
-        private MergeItemStacksRequest MergeRequest(InventoryRecord inventory, ItemStackRecord source, ItemStackRecord destination, long expectedSourceRevision = 1, long expectedDestinationRevision = 1, long expectedInventoryRevision = 1, CommandId? commandId = null)
-            => new MergeItemStacksRequest(_campaign, source.ItemStackId, destination.ItemStackId, inventory.InventoryId, expectedSourceRevision, expectedDestinationRevision, expectedInventoryRevision, Actor, actorIsMainGm: true, commandId ?? NewCommandId(), CorrelationId);
+        private MergeItemStacksRequest MergeRequest(InventoryRecord inventory, ItemStackRecord source, ItemStackRecord destination, long expectedSourceRevision = 1, long expectedDestinationRevision = 1, long expectedInventoryRevision = 1, CommandId? commandId = null, UserId? actor = null)
+            => new MergeItemStacksRequest(_campaign, source.ItemStackId, destination.ItemStackId, inventory.InventoryId, expectedSourceRevision, expectedDestinationRevision, expectedInventoryRevision, actor ?? Actor, commandId ?? NewCommandId(), CorrelationId);
+
+        [Test] // ODY-S10-105: TC-INVENTORY-197 -- the ActorUserId newly saved on SplitItemStackRequest/MergeItemStacksRequest is really read: a registered-but-not-MainGm Player is denied on both, and a real, separately-registered MainGm succeeds.
+        public void Split_And_Merge_ReallyUseTheirActorUserId_NotJustAcceptAnyValue()
+        {
+            UserId player = UserId.Parse("user_" + Guid.NewGuid().ToString("N"));
+            Assert.That(_campaigns.AddMember(_campaign, player, CampaignMembershipRole.Player, NewCommandId(), CorrelationId).IsSuccess, Is.True);
+            UserId realGm = UserId.Parse("user_" + Guid.NewGuid().ToString("N"));
+            Assert.That(_campaigns.AddMember(_campaign, realGm, CampaignMembershipRole.MainGm, NewCommandId(), CorrelationId).IsSuccess, Is.True);
+
+            InventoryRecord inventory = CreateInventory();
+            ItemStackRecord source = CreateStack(inventory, "main", quantity: 10);
+            ItemStackId splitOffId = ItemStackId.NewId(Clock.GetUtcNow());
+
+            Result<ItemStackRecord> deniedSplit = InventoryStackOperationService.Split(_repository, _campaigns, SplitRequest(inventory, source, splitOffId, quantity: 3, actor: player));
+            Assert.That(deniedSplit.IsFailure, Is.True, "a registered Player is not a MainGm and must still be denied");
+            Assert.That(deniedSplit.Error.Code, Is.EqualTo(ErrorCodes.InventoryMoveDenied));
+
+            Result<ItemStackRecord> split = InventoryStackOperationService.Split(_repository, _campaigns, SplitRequest(inventory, source, splitOffId, quantity: 3, actor: realGm));
+            Assert.That(split.IsSuccess, Is.True, "a genuinely registered MainGm must be authorized");
+            ItemStackRecord splitOff = split.Value;
+            ItemStackRecord remainder = _repository.GetItemStack(_campaign, source.ItemStackId, CorrelationId).Value;
+
+            Result<ItemStackRecord> deniedMerge = InventoryStackOperationService.Merge(_repository, _campaigns, MergeRequest(inventory, splitOff, remainder, expectedSourceRevision: splitOff.Revision, expectedDestinationRevision: remainder.Revision, actor: player));
+            Assert.That(deniedMerge.IsFailure, Is.True, "a registered Player is not a MainGm and must still be denied");
+            Assert.That(deniedMerge.Error.Code, Is.EqualTo(ErrorCodes.InventoryMoveDenied));
+
+            Assert.That(InventoryStackOperationService.Merge(_repository, _campaigns, MergeRequest(inventory, splitOff, remainder, expectedSourceRevision: splitOff.Revision, expectedDestinationRevision: remainder.Revision, actor: realGm)).IsSuccess, Is.True, "a genuinely registered MainGm must be authorized");
+        }
 
         private void AssertStackUnchanged(ItemStackRecord stack)
         {
@@ -490,7 +519,7 @@ namespace Odyssey.Tests.Persistence
                 return new InvalidOperationException("The repository must not be reached when authorization fails.");
             }
 
-            public Result<ItemDefinitionMigrationApplyResult> ApplyItemDefinitionMigration(CampaignHandle campaign, ItemDefinitionMigrationTransition transition, UserId actorUserId, bool actorIsMainGm, CorrelationId correlationId) => throw Reached();
+            public Result<ItemDefinitionMigrationApplyResult> ApplyItemDefinitionMigration(CampaignHandle campaign, ItemDefinitionMigrationTransition transition, UserId actorUserId, CorrelationId correlationId) => throw Reached();
             public Result<InventoryRecord> CreateInventory(CampaignHandle campaign, InventoryRecord record, CommandId commandId, CorrelationId correlationId) => throw Reached();
             public Result<InventoryRecord> GetInventory(CampaignHandle campaign, InventoryId inventoryId, CorrelationId correlationId) => throw Reached();
             public Result<ItemInstanceRecord> CreateItemInstance(CampaignHandle campaign, ItemInstanceRecord record, CommandId commandId, CorrelationId correlationId) => throw Reached();
@@ -518,7 +547,7 @@ namespace Odyssey.Tests.Persistence
             public Result<bool> UnequipItem(CampaignHandle campaign, UnequipTransition transition, CorrelationId correlationId) => throw Reached();
             public Result<bool> HasAnyEquippedEntryReferencingBodyPart(CampaignHandle campaign, CampaignId campaignId, CharacterId characterId, BodyPartId bodyPartId, CorrelationId correlationId) => throw Reached();
             public Result<IReadOnlyList<EquippedEntryRecord>> ListEquippedEntriesByCharacter(CampaignHandle campaign, CampaignId campaignId, CharacterId characterId, CorrelationId correlationId) => throw Reached();
-            public Result<ConsumeItemUnitOutcome> ConsumeItemUnit(CampaignHandle campaign, InventoryItemRef item, UserId actorUserId, bool actorIsMainGm, long expectedRevision, CommandId commandId, CorrelationId correlationId) => throw Reached();
+            public Result<ConsumeItemUnitOutcome> ConsumeItemUnit(CampaignHandle campaign, InventoryItemRef item, long expectedRevision, CommandId commandId, CorrelationId correlationId) => throw Reached();
         }
     }
 }

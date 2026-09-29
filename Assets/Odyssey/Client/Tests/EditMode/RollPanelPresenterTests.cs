@@ -1,12 +1,16 @@
 using System;
+using System.IO;
 using NUnit.Framework;
+using Odyssey.Application.Commands;
 using Odyssey.Application.Dice;
 using Odyssey.Application.Networking.Session;
+using Odyssey.Application.Persistence;
 using Odyssey.Application.Random;
 using Odyssey.Application.Results;
 using Odyssey.Application.Time;
 using Odyssey.Domain.Identity;
 using Odyssey.Domain.Time;
+using Odyssey.Persistence.Sqlite;
 using Odyssey.Rules.Versions;
 using Odyssey.Unity.Client;
 using UnityEngine;
@@ -16,9 +20,10 @@ namespace Odyssey.Tests.Unity.EditMode
 {
     public sealed class RollPanelPresenterTests
     {
-        private static readonly CampaignId TestCampaignId = CampaignId.Parse("camp_0123456789abcdef0123456789abcdef");
+        private static readonly CorrelationId TestCorrelationId = CorrelationId.Parse("corr_0123456789abcdef0123456789abcdef");
         private static readonly RulesetVersion TestRulesetVersion = RulesetVersion.Parse("1.0.0");
         private static readonly RngKeyEpochId TestEpoch = RngKeyEpochId.Parse("epoch-001");
+        private static CommandId NewCommandId() => CommandId.Parse("cmd_" + Guid.NewGuid().ToString("N"));
         private static UserId User(string suffix) => UserId.Parse("user_0000000000000000000000000000000" + suffix);
 
         [Test]
@@ -255,13 +260,15 @@ namespace Odyssey.Tests.Unity.EditMode
         {
             private readonly GameObject _gameObject;
             private readonly PresentationRuntime _presentationRuntime;
+            private readonly TemporaryDirectory _directory;
             private bool _disposed;
 
-            private TestPanel(GameObject gameObject, UIDocument document, PresentationRuntime presentationRuntime, RoleSelection selection, RollPanelPresenter presenter)
+            private TestPanel(GameObject gameObject, UIDocument document, PresentationRuntime presentationRuntime, TemporaryDirectory directory, RoleSelection selection, RollPanelPresenter presenter)
             {
                 _gameObject = gameObject;
                 Document = document;
                 _presentationRuntime = presentationRuntime;
+                _directory = directory;
                 Selection = selection;
                 Presenter = presenter;
             }
@@ -270,15 +277,21 @@ namespace Odyssey.Tests.Unity.EditMode
             public RoleSelection Selection { get; }
             public RollPanelPresenter Presenter { get; }
 
+            /// <summary>ODY-S10-105: MainGM-only dice operations now look the actor up in a real, registered campaign membership, not a bare id -- User("1") is the same fixed dev host id <see cref="global::Odyssey.Application.Identity.DevIdentityProvider.AssignHost"/> returns, so registering it as MainGm here keeps every existing "MainGM" scenario in this file real rather than claimed.</summary>
             public static TestPanel Create(BaselineRole initialRole)
             {
+                var directory = new TemporaryDirectory();
+                var campaignRepository = new SqliteCampaignRepository(new FixedClock());
+                var createRequest = new CreateCampaignRequest(directory.Path, "Roll Panel UI Test Campaign", "ruleset.core", "1.0.0", "0.1.0", User("1"));
+                CampaignHandle campaign = campaignRepository.Create(createRequest, NewCommandId(), TestCorrelationId).Value;
+
                 GameObject gameObject = new GameObject("Roll Panel Document");
                 UIDocument document = gameObject.AddComponent<UIDocument>();
                 PresentationRuntime presentationRuntime = new PresentationRuntime();
                 RoleSelection selection = new RoleSelection(User("2"), User("1"), User("3"), initialRole);
-                var presenter = new RollPanelPresenter(selection, presentationRuntime, new DiceRollStore(), NewRngFactory(), new FixedClock(), TestCampaignId, TestRulesetVersion, TestEpoch);
+                var presenter = new RollPanelPresenter(selection, presentationRuntime, new DiceRollStore(), NewRngFactory(), new FixedClock(), campaign, campaignRepository, TestRulesetVersion, TestEpoch);
                 document.rootVisualElement.Add(presenter.BuildView());
-                return new TestPanel(gameObject, document, presentationRuntime, selection, presenter);
+                return new TestPanel(gameObject, document, presentationRuntime, directory, selection, presenter);
             }
 
             public string Text(string name)
@@ -308,7 +321,35 @@ namespace Odyssey.Tests.Unity.EditMode
                 Presenter.Dispose();
                 _presentationRuntime.Dispose();
                 UnityEngine.Object.DestroyImmediate(_gameObject);
+                _directory.Dispose();
                 _disposed = true;
+            }
+        }
+
+        private sealed class TemporaryDirectory : IDisposable
+        {
+            public TemporaryDirectory()
+            {
+                Path = System.IO.Path.Combine(System.IO.Path.GetTempPath(), "odyssey-roll-panel-ui-" + Guid.NewGuid().ToString("N"));
+                Directory.CreateDirectory(Path);
+            }
+
+            public string Path { get; }
+
+            public void Dispose()
+            {
+                for (int attempt = 0; attempt < 10; attempt++)
+                {
+                    try
+                    {
+                        if (Directory.Exists(Path)) Directory.Delete(Path, true);
+                        return;
+                    }
+                    catch (IOException)
+                    {
+                        System.Threading.Thread.Sleep(100);
+                    }
+                }
             }
         }
 

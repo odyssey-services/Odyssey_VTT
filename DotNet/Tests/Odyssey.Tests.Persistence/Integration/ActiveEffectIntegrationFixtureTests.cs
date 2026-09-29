@@ -84,8 +84,9 @@ namespace Odyssey.Tests.Persistence.Integration
             Result<CampaignHandle> created = _campaigns.Create(new CreateCampaignRequest(_campaignDir, "ActiveEffect Integration Fixture", "ruleset.core", "1.0.0", "0.1.0", global::Odyssey.Application.Identity.DevIdentityProvider.AssignHost()), NewCommandId(), Corr);
             Assert.That(created.IsSuccess, Is.True);
             _campaign = created.Value;
+            Assert.That(_campaigns.AddMember(_campaign, MainGm, CampaignMembershipRole.MainGm, NewCommandId(), Corr).IsSuccess, Is.True);
             _catalog = new SqliteContentCatalogRepository(Clock);
-            _inventory = new SqliteInventoryRepository(Clock);
+            _inventory = new SqliteInventoryRepository(Clock, _campaigns);
             _characters = new SqliteCharacterRepository(Clock, _campaigns,
                 deletionDependencyCheckers: new ICharacterDeletionDependencyChecker[] { new InventoryCharacterDeletionDependencyChecker(_inventory) },
                 bodyPartRemovalDependencyCheckers: new IBodyPartRemovalDependencyChecker[] { new InventoryBodyPartRemovalDependencyChecker(_inventory) });
@@ -307,9 +308,9 @@ namespace Odyssey.Tests.Persistence.Integration
             var item = new ItemDefinition(ItemCategory.Generic, isStackable: false, maxStackSize: null, weight: 1, hasDurability: false, maxDurability: null, hasCharges: false, maxCharges: null, Array.Empty<ContentDefinitionRef>(), effectRefs);
             ContentDefinitionRecord published = PublishDefinition(ContentDefinitionType.Item, "Integration Fixture Item " + tag, TypedDefinitionCodec.EncodeItem(item));
 
-            Result<ItemInstanceRecord> created = InventoryCreationService.CreateItemInstanceFromDefinition(_catalog, _inventory, Clock, new CreateItemInstanceFromDefinitionRequest(
+            Result<ItemInstanceRecord> created = InventoryCreationService.CreateItemInstanceFromDefinition(_catalog, _inventory, _campaigns, Clock, new CreateItemInstanceFromDefinitionRequest(
                 _campaign, ItemInstanceId.NewId(Clock.GetUtcNow()), _bag.InventoryId, _bag.OwnerRef,
-                InventoryLocationRef.Contained(_bag.InventoryId, "main"), published.ContentDefinitionId, NewUserId(), actorIsMainGm: true, NewCommandId(), Corr));
+                InventoryLocationRef.Contained(_bag.InventoryId, "main"), published.ContentDefinitionId, MainGm, NewCommandId(), Corr));
             Assert.That(created.IsSuccess, Is.True, created.IsFailure ? created.Error.Code.ToString() : string.Empty);
             return created.Value;
         }
@@ -336,9 +337,9 @@ namespace Odyssey.Tests.Persistence.Integration
 
         private EquippedEntryRecord Equip(ItemInstanceRecord instance, string slotKey, BodyPartId[] bodyParts)
         {
-            Result<EquippedEntryRecord> result = EquipmentService.Equip(_inventory, _characters, new EquipRequest(
+            Result<EquippedEntryRecord> result = EquipmentService.Equip(_inventory, _characters, _campaigns, new EquipRequest(
                 _campaign, InventoryItemRef.ForInstance(instance.ItemInstanceId), _bag.InventoryId, instance.Revision,
-                slotKey, bodyParts, MainGm, Clock.GetUtcNow(), MainGm, actorIsMainGm: true, NewCommandId(), Corr));
+                slotKey, bodyParts, MainGm, Clock.GetUtcNow(), MainGm, NewCommandId(), Corr));
             Assert.That(result.IsSuccess, Is.True, result.IsFailure ? result.Error.Code.ToString() : string.Empty);
             return result.Value;
         }
@@ -346,9 +347,9 @@ namespace Odyssey.Tests.Persistence.Integration
         private void Unequip(ItemInstanceRecord instance, EquippedEntryRecord equipped)
         {
             ItemInstanceRecord current = _inventory.GetItemInstance(_campaign, instance.ItemInstanceId, Corr).Value;
-            Result<bool> result = EquipmentService.Unequip(_inventory, new UnequipRequest(
+            Result<bool> result = EquipmentService.Unequip(_inventory, _campaigns, new UnequipRequest(
                 _campaign, InventoryItemRef.ForInstance(instance.ItemInstanceId), _bag.InventoryId,
-                current.Revision, equipped.Entry.Revision, "main", MainGm, actorIsMainGm: true, NewCommandId(), Corr));
+                current.Revision, equipped.Entry.Revision, "main", MainGm, NewCommandId(), Corr));
             Assert.That(result.IsSuccess, Is.True, result.IsFailure ? result.Error.Code.ToString() : string.Empty);
         }
 

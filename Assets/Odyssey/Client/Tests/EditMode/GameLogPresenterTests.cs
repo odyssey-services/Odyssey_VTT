@@ -86,7 +86,7 @@ namespace Odyssey.Tests.Unity.EditMode
             Result<BoardScreenDemoCampaignHandle> demo = BoardScreenDemoCampaign.CreateFresh(directory.Path, clock);
             Assert.That(demo.IsSuccess, Is.True);
 
-            using TestPanel panel = TestPanel.Create(BaselineRole.Player, demo.Value.Campaign, clock);
+            using TestPanel panel = TestPanel.Create(BaselineRole.Player, demo.Value.Campaign, demo.Value.CampaignRepository, clock);
             panel.RollPanel.SubmitRoll("1d20");
             Result<GameLogEntryRecord> saved = panel.GameLog.SaveAndReopen(NewCommandId());
 
@@ -129,22 +129,22 @@ namespace Odyssey.Tests.Unity.EditMode
                 var campaignRepository = new SqliteCampaignRepository(clock);
                 var request = new CreateCampaignRequest(directory.Path, "Game Log UI Test Campaign", "ruleset.core", "1.0.0", "0.1.0", global::Odyssey.Application.Identity.DevIdentityProvider.AssignHost());
                 CampaignHandle campaign = campaignRepository.Create(request, NewCommandId(), TestCorrelationId).Value;
-                return Create(initialRole, campaign, clock, directory, campaignRepository);
+                return Create(initialRole, campaign, campaignRepository, clock, directory, campaignRepository);
             }
 
-            public static TestPanel Create(BaselineRole initialRole, CampaignHandle campaign, IWallClock clock)
+            public static TestPanel Create(BaselineRole initialRole, CampaignHandle campaign, ICampaignRepository campaignRepository, IWallClock clock)
             {
-                return Create(initialRole, campaign, clock, ownedDirectory: null, ownedCampaignRepository: null);
+                return Create(initialRole, campaign, campaignRepository, clock, ownedDirectory: null, ownedCampaignRepository: null);
             }
 
-            private static TestPanel Create(BaselineRole initialRole, CampaignHandle campaign, IWallClock clock, TemporaryDirectory? ownedDirectory, SqliteCampaignRepository? ownedCampaignRepository)
+            private static TestPanel Create(BaselineRole initialRole, CampaignHandle campaign, ICampaignRepository campaignRepository, IWallClock clock, TemporaryDirectory? ownedDirectory, SqliteCampaignRepository? ownedCampaignRepository)
             {
                 GameObject gameObject = new GameObject("Game Log Document");
                 UIDocument document = gameObject.AddComponent<UIDocument>();
                 PresentationRuntime presentationRuntime = new PresentationRuntime();
                 RoleSelection selection = new RoleSelection(User("2"), User("1"), User("3"), initialRole);
                 ICampaignUserGroupDirectory groups = NewGroups(campaign.CampaignId, selection.PlayerUserId);
-                var rollPanel = new RollPanelPresenter(selection, presentationRuntime, new DiceRollStore(), NewRngFactory(), clock, groups, campaign.CampaignId, TestRulesetVersion, TestEpoch);
+                var rollPanel = new RollPanelPresenter(selection, presentationRuntime, new DiceRollStore(), NewRngFactory(), clock, groups, campaign, campaignRepository, TestRulesetVersion, TestEpoch);
                 var gameLog = new GameLogPresenter(selection, presentationRuntime, rollPanel, campaign, clock, groups);
                 document.rootVisualElement.Add(rollPanel.BuildView());
                 document.rootVisualElement.Add(gameLog.BuildView());

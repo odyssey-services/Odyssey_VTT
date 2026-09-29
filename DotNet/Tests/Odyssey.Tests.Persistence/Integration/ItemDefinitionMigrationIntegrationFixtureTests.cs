@@ -68,7 +68,7 @@ namespace Odyssey.Tests.Persistence.Integration
             Assert.That(created.IsSuccess, Is.True);
             _campaign = created.Value;
             _catalog = new SqliteContentCatalogRepository(Clock);
-            _inventory = new SqliteInventoryRepository(Clock);
+            _inventory = new SqliteInventoryRepository(Clock, _campaigns);
             _characters = new SqliteCharacterRepository(Clock, _campaigns,
                 deletionDependencyCheckers: new ICharacterDeletionDependencyChecker[] { new InventoryCharacterDeletionDependencyChecker(_inventory) },
                 bodyPartRemovalDependencyCheckers: new IBodyPartRemovalDependencyChecker[] { new InventoryBodyPartRemovalDependencyChecker(_inventory) });
@@ -98,9 +98,9 @@ namespace Odyssey.Tests.Persistence.Integration
             // 2. Equip it for real through ODY-S05-303's EquipmentService,
             //    into the slot the source (and, so far, only) definition
             //    defines.
-            Result<EquippedEntryRecord> equipped = EquipmentService.Equip(_inventory, _characters, new EquipRequest(
+            Result<EquippedEntryRecord> equipped = EquipmentService.Equip(_inventory, _characters, _campaigns, new EquipRequest(
                 _campaign, InventoryItemRef.ForInstance(instance.ItemInstanceId), inventory.InventoryId, instance.Revision,
-                "chest_slot", new[] { BodyPartId.Parse("Torso") }, NewUserId(), Clock.GetUtcNow(), NewUserId(), actorIsMainGm: true, NewCommandId(), Corr));
+                "chest_slot", new[] { BodyPartId.Parse("Torso") }, NewUserId(), Clock.GetUtcNow(), global::Odyssey.Application.Identity.DevIdentityProvider.AssignHost(), NewCommandId(), Corr));
             Assert.That(equipped.IsSuccess, Is.True, equipped.IsFailure ? equipped.Error.Code.ToString() : string.Empty);
 
             // 3. Publish a target version whose armor slot has moved --
@@ -129,7 +129,7 @@ namespace Odyssey.Tests.Persistence.Integration
             //    ComputeBlockingIssues recheck, not merely this test
             //    skipping the attempt.
             Result<ItemDefinitionMigrationApplyResult> rejectedApply = _inventory.ApplyItemDefinitionMigration(
-                _campaign, new ItemDefinitionMigrationTransition(blockedPreview, NewCommandId()), NewUserId(), actorIsMainGm: true, Corr);
+                _campaign, new ItemDefinitionMigrationTransition(blockedPreview, NewCommandId()), global::Odyssey.Application.Identity.DevIdentityProvider.AssignHost(), Corr);
             Assert.That(rejectedApply.IsFailure, Is.True);
             Assert.That(rejectedApply.Error.Code, Is.EqualTo(ErrorCodes.InventoryMigrationBlocked));
             Assert.That(_inventory.GetItemInstance(_campaign, instance.ItemInstanceId, Corr).Value.SourceItemDefinitionRef, Is.EqualTo(instance.SourceItemDefinitionRef), "a rejected apply attempt must not touch the item");
@@ -137,9 +137,9 @@ namespace Odyssey.Tests.Persistence.Integration
             // 7. Resolve it through the existing Equipment runtime
             //    (ODY-S05-304's Unequip) -- not by deleting/faking the
             //    EquippedEntry row directly.
-            Result<bool> unequipped = EquipmentService.Unequip(_inventory, new UnequipRequest(
+            Result<bool> unequipped = EquipmentService.Unequip(_inventory, _campaigns, new UnequipRequest(
                 _campaign, InventoryItemRef.ForInstance(instance.ItemInstanceId), inventory.InventoryId,
-                instance.Revision + 1, equipped.Value.Entry.Revision, "main", NewUserId(), actorIsMainGm: true, NewCommandId(), Corr));
+                instance.Revision + 1, equipped.Value.Entry.Revision, "main", global::Odyssey.Application.Identity.DevIdentityProvider.AssignHost(), NewCommandId(), Corr));
             Assert.That(unequipped.IsSuccess, Is.True, unequipped.IsFailure ? unequipped.Error.Code.ToString() : string.Empty);
 
             // 8. Unequip changed the item's own Revision, so the original
@@ -155,7 +155,7 @@ namespace Odyssey.Tests.Persistence.Integration
 
             // 9. Confirm and apply for real.
             Result<ItemDefinitionMigrationApplyResult> applied = _inventory.ApplyItemDefinitionMigration(
-                _campaign, new ItemDefinitionMigrationTransition(freshPreview, NewCommandId()), NewUserId(), actorIsMainGm: true, Corr);
+                _campaign, new ItemDefinitionMigrationTransition(freshPreview, NewCommandId()), global::Odyssey.Application.Identity.DevIdentityProvider.AssignHost(), Corr);
             Assert.That(applied.IsSuccess, Is.True, applied.IsFailure ? applied.Error.Code.ToString() : string.Empty);
             Assert.That(applied.Value.UpdatedInstanceCount, Is.EqualTo(1));
 
@@ -180,18 +180,18 @@ namespace Odyssey.Tests.Persistence.Integration
             CharacterRecord character = CreateInitializedCharacter();
             InventoryRecord inventory = CreateInventory(character.CharacterId);
             ItemInstanceRecord instance = CreateArmorInstance(source, inventory);
-            EquipmentService.Equip(_inventory, _characters, new EquipRequest(
+            EquipmentService.Equip(_inventory, _characters, _campaigns, new EquipRequest(
                 _campaign, InventoryItemRef.ForInstance(instance.ItemInstanceId), inventory.InventoryId, instance.Revision,
-                "chest_slot", new[] { BodyPartId.Parse("Torso") }, NewUserId(), Clock.GetUtcNow(), NewUserId(), actorIsMainGm: true, NewCommandId(), Corr));
+                "chest_slot", new[] { BodyPartId.Parse("Torso") }, NewUserId(), Clock.GetUtcNow(), global::Odyssey.Application.Identity.DevIdentityProvider.AssignHost(), NewCommandId(), Corr));
             ContentDefinitionRecord target = PublishArmor("Target", slot: "head_slot");
             ItemDefinitionMigrationPreview preview = BuildRealPreview(source, target);
 
             long before = CountRows("SELECT COUNT(*) FROM DomainEvents;");
 
             Result<ItemDefinitionMigrationApplyResult> firstAttempt = _inventory.ApplyItemDefinitionMigration(
-                _campaign, new ItemDefinitionMigrationTransition(preview, NewCommandId()), NewUserId(), actorIsMainGm: true, Corr);
+                _campaign, new ItemDefinitionMigrationTransition(preview, NewCommandId()), global::Odyssey.Application.Identity.DevIdentityProvider.AssignHost(), Corr);
             Result<ItemDefinitionMigrationApplyResult> secondAttempt = _inventory.ApplyItemDefinitionMigration(
-                _campaign, new ItemDefinitionMigrationTransition(preview, NewCommandId()), NewUserId(), actorIsMainGm: true, Corr);
+                _campaign, new ItemDefinitionMigrationTransition(preview, NewCommandId()), global::Odyssey.Application.Identity.DevIdentityProvider.AssignHost(), Corr);
 
             Assert.That(firstAttempt.IsFailure, Is.True);
             Assert.That(secondAttempt.IsFailure, Is.True);
@@ -213,7 +213,7 @@ namespace Odyssey.Tests.Persistence.Integration
             Assert.That(ItemDefinitionMigrationRules.ComputeBlockingIssues(preview, target, Array.Empty<EquippedEntryRecord>()).HasBlockingIssues, Is.False);
 
             Result<ItemDefinitionMigrationApplyResult> applied = _inventory.ApplyItemDefinitionMigration(
-                _campaign, new ItemDefinitionMigrationTransition(preview, NewCommandId()), NewUserId(), actorIsMainGm: true, Corr);
+                _campaign, new ItemDefinitionMigrationTransition(preview, NewCommandId()), global::Odyssey.Application.Identity.DevIdentityProvider.AssignHost(), Corr);
             Assert.That(applied.IsSuccess, Is.True, applied.IsFailure ? applied.Error.Code.ToString() : string.Empty);
 
             Result<ContentDefinitionRecord> reread = _catalog.GetContentDefinition(_campaign, source.ContentDefinitionId, Corr);
@@ -240,16 +240,16 @@ namespace Odyssey.Tests.Persistence.Integration
             Assert.That(blockedReport.Issues[0].IssueCode, Is.EqualTo(ItemDefinitionMigrationBlockingIssueCode.StackCapacityReducedBelowCurrentContent));
 
             Result<ItemDefinitionMigrationApplyResult> rejected = _inventory.ApplyItemDefinitionMigration(
-                _campaign, new ItemDefinitionMigrationTransition(blockedPreview, NewCommandId()), NewUserId(), actorIsMainGm: true, Corr);
+                _campaign, new ItemDefinitionMigrationTransition(blockedPreview, NewCommandId()), global::Odyssey.Application.Identity.DevIdentityProvider.AssignHost(), Corr);
             Assert.That(rejected.IsFailure, Is.True);
             Assert.That(rejected.Error.Code, Is.EqualTo(ErrorCodes.InventoryMigrationBlocked));
 
             // Resolve by splitting 3 units off, leaving both resulting
             // stacks (5 and 3) at or under the new capacity of 5.
             Result<ItemStackRecord> split = InventoryStackOperationService.Split(
-                _inventory, new SplitItemStackRequest(
+                _inventory, _campaigns, new SplitItemStackRequest(
                     _campaign, stack.ItemStackId, ItemStackId.NewId(Clock.GetUtcNow()), inventory.InventoryId, quantity: 3,
-                    expectedSourceRevision: stack.Revision, expectedInventoryRevision: inventory.Revision, NewUserId(), actorIsMainGm: true, NewCommandId(), Corr));
+                    expectedSourceRevision: stack.Revision, expectedInventoryRevision: inventory.Revision, global::Odyssey.Application.Identity.DevIdentityProvider.AssignHost(), NewCommandId(), Corr));
             Assert.That(split.IsSuccess, Is.True, split.IsFailure ? split.Error.Code.ToString() : string.Empty);
 
             ItemDefinitionMigrationPreview freshPreview = BuildRealPreview(source, target);
@@ -257,7 +257,7 @@ namespace Odyssey.Tests.Persistence.Integration
             Assert.That(ItemDefinitionMigrationRules.ComputeBlockingIssues(freshPreview, target, Array.Empty<EquippedEntryRecord>()).HasBlockingIssues, Is.False);
 
             Result<ItemDefinitionMigrationApplyResult> applied = _inventory.ApplyItemDefinitionMigration(
-                _campaign, new ItemDefinitionMigrationTransition(freshPreview, NewCommandId()), NewUserId(), actorIsMainGm: true, Corr);
+                _campaign, new ItemDefinitionMigrationTransition(freshPreview, NewCommandId()), global::Odyssey.Application.Identity.DevIdentityProvider.AssignHost(), Corr);
             Assert.That(applied.IsSuccess, Is.True, applied.IsFailure ? applied.Error.Code.ToString() : string.Empty);
             Assert.That(applied.Value.UpdatedStackCount, Is.EqualTo(2));
         }
@@ -294,18 +294,18 @@ namespace Odyssey.Tests.Persistence.Integration
 
         private ItemInstanceRecord CreateArmorInstance(ContentDefinitionRecord published, InventoryRecord inventory)
         {
-            Result<ItemInstanceRecord> created = InventoryCreationService.CreateItemInstanceFromDefinition(_catalog, _inventory, Clock, new CreateItemInstanceFromDefinitionRequest(
+            Result<ItemInstanceRecord> created = InventoryCreationService.CreateItemInstanceFromDefinition(_catalog, _inventory, _campaigns, Clock, new CreateItemInstanceFromDefinitionRequest(
                 _campaign, ItemInstanceId.NewId(Clock.GetUtcNow()), inventory.InventoryId, inventory.OwnerRef,
-                InventoryLocationRef.Contained(inventory.InventoryId, "main"), published.ContentDefinitionId, NewUserId(), actorIsMainGm: true, NewCommandId(), Corr));
+                InventoryLocationRef.Contained(inventory.InventoryId, "main"), published.ContentDefinitionId, global::Odyssey.Application.Identity.DevIdentityProvider.AssignHost(), NewCommandId(), Corr));
             Assert.That(created.IsSuccess, Is.True, created.IsFailure ? created.Error.Code.ToString() : string.Empty);
             return created.Value;
         }
 
         private ItemStackRecord CreateStack(ContentDefinitionRecord published, InventoryRecord inventory, long quantity)
         {
-            Result<ItemStackRecord> created = InventoryCreationService.CreateItemStackFromDefinition(_catalog, _inventory, Clock, new CreateItemStackFromDefinitionRequest(
+            Result<ItemStackRecord> created = InventoryCreationService.CreateItemStackFromDefinition(_catalog, _inventory, _campaigns, Clock, new CreateItemStackFromDefinitionRequest(
                 _campaign, ItemStackId.NewId(Clock.GetUtcNow()), inventory.InventoryId, inventory.OwnerRef,
-                InventoryLocationRef.Contained(inventory.InventoryId, "main"), published.ContentDefinitionId, ItemStackQuantity.Create(quantity), NewUserId(), actorIsMainGm: true, NewCommandId(), Corr));
+                InventoryLocationRef.Contained(inventory.InventoryId, "main"), published.ContentDefinitionId, ItemStackQuantity.Create(quantity), global::Odyssey.Application.Identity.DevIdentityProvider.AssignHost(), NewCommandId(), Corr));
             Assert.That(created.IsSuccess, Is.True, created.IsFailure ? created.Error.Code.ToString() : string.Empty);
             return created.Value;
         }

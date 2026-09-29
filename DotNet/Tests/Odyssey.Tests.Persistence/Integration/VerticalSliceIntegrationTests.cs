@@ -93,6 +93,7 @@ namespace Odyssey.Tests.Persistence.Integration
 
             UserId player = NewUserId();
             UserId mainGm = NewUserId();
+            Assert.That(campaignRepository.AddMember(campaign, mainGm, CampaignMembershipRole.MainGm, NewCommandId(), TestCorrelationId).IsSuccess, Is.True);
             UserId excludedObserver = NewUserId();
             const string groupId = "group_selected_participants";
 
@@ -145,19 +146,19 @@ namespace Odyssey.Tests.Persistence.Integration
             Assert.That(proposed.IsSuccess, Is.True, "step 5: proposing a modifier must succeed");
             string modifierEntryId = proposed.Value.ModifierEntries[0].ModifierEntryId;
 
-            var decided = DiceRollService.DecideModifier(store, new DecideModifierRequest(rollId, modifierEntryId, mainGm, decidedByUserIsMainGm: true, ModifierDecision.Accepted, changedValue: null, reason: null, TestCorrelationId));
+            var decided = DiceRollService.DecideModifier(store, campaignRepository, new DecideModifierRequest(campaign, rollId, modifierEntryId, mainGm, ModifierDecision.Accepted, changedValue: null, reason: null, TestCorrelationId));
             Assert.That(decided.IsSuccess, Is.True, "step 5: MainGM accepting a proposed modifier must succeed");
             Assert.That(decided.Value.ModifierEntries[0].Decision, Is.EqualTo(ModifierDecision.Accepted));
             Assert.That(decided.Value.FinalTotal, Is.EqualTo(originalBaseTotal + 2), "step 5: the accepted modifier's value must count toward FinalTotal, visibly (no hidden GM adjustment)");
 
             // ---- Step 6: GM overrides with a mandatory reason. ----
-            var overrideWithoutReason = new ApplyOverrideRequest(rollId, mainGm, actorIsMainGm: true, "natural 14", "natural 18", reason: null, TestCorrelationId);
-            Result<RollOverride> overrideDeniedResult = DiceRollService.ApplyOverride(store, Clock, overrideWithoutReason);
+            var overrideWithoutReason = new ApplyOverrideRequest(campaign, rollId, mainGm, "natural 14", "natural 18", reason: null, TestCorrelationId);
+            Result<RollOverride> overrideDeniedResult = DiceRollService.ApplyOverride(store, campaignRepository, Clock, overrideWithoutReason);
             Assert.That(overrideDeniedResult.IsFailure, Is.True, "step 6: an override without a reason must be rejected");
             Assert.That(overrideDeniedResult.Error.Code, Is.EqualTo(ErrorCodes.DiceOverrideReasonRequired));
 
-            var overrideWithReason = new ApplyOverrideRequest(rollId, mainGm, actorIsMainGm: true, "natural 14", "natural 18", "narratively more dramatic for the scene", TestCorrelationId);
-            Result<RollOverride> overrideResult = DiceRollService.ApplyOverride(store, Clock, overrideWithReason);
+            var overrideWithReason = new ApplyOverrideRequest(campaign, rollId, mainGm, "natural 14", "natural 18", "narratively more dramatic for the scene", TestCorrelationId);
+            Result<RollOverride> overrideResult = DiceRollService.ApplyOverride(store, campaignRepository, Clock, overrideWithReason);
             Assert.That(overrideResult.IsSuccess, Is.True, "step 6: an override with a reason must succeed");
 
             store.TryGet(rollId, out DiceRoll overriddenRoll);
@@ -205,8 +206,8 @@ namespace Odyssey.Tests.Persistence.Integration
             Assert.That(gmViewAfterRevoke.Count, Is.EqualTo(1), "step 9: MainGM's own visibility is unaffected by the player's revoked membership");
 
             // ---- Step 10: after a reroll, the original event remains in the journal, unchanged. ----
-            var rerollRequest = new RequestFullRerollRequest(rollId, player, actorIsMainGm: false, NewCommandId(), TestRulesetVersion, TestEpoch, TestCorrelationId);
-            Result<DiceRoll> rerollResult = DiceRollService.RequestFullReroll(store, NewRngFactory(), Clock, rerollRequest);
+            var rerollRequest = new RequestFullRerollRequest(campaign, rollId, player, NewCommandId(), TestRulesetVersion, TestEpoch, TestCorrelationId);
+            Result<DiceRoll> rerollResult = DiceRollService.RequestFullReroll(store, campaignRepository, NewRngFactory(), Clock, rerollRequest);
             Assert.That(rerollResult.IsSuccess, Is.True, "step 10: the original actor must be authorized to request a full reroll");
             DiceRoll reroll = rerollResult.Value;
             Assert.That(reroll.PreviousRollId, Is.EqualTo(rollId), "step 10: the reroll must be chained to the original via PreviousRollId");

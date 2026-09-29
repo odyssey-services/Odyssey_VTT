@@ -1,6 +1,7 @@
 using System;
 using Odyssey.Application.Commands;
 using Odyssey.Application.Content;
+using Odyssey.Application.Identity;
 using Odyssey.Application.Persistence;
 using Odyssey.Application.Results;
 using Odyssey.Application.Time;
@@ -25,15 +26,23 @@ namespace Odyssey.Application.Inventory
         public static Result<ItemInstanceRecord> CreateItemInstanceFromDefinition(
             IContentCatalogRepository catalogRepository,
             IInventoryRepository inventoryRepository,
+            ICampaignRepository campaignRepository,
             IWallClock clock,
             CreateItemInstanceFromDefinitionRequest request)
         {
             if (catalogRepository == null) throw new ArgumentNullException(nameof(catalogRepository));
             if (inventoryRepository == null) throw new ArgumentNullException(nameof(inventoryRepository));
+            if (campaignRepository == null) throw new ArgumentNullException(nameof(campaignRepository));
             if (clock == null) throw new ArgumentNullException(nameof(clock));
             if (request == null) throw new ArgumentNullException(nameof(request));
 
-            if (!request.ActorIsMainGm)
+            Result<bool> mainGmCheck = CampaignMembershipAuthorization.IsMainGm(campaignRepository, request.Campaign, request.ActorUserId, request.CorrelationId);
+            if (mainGmCheck.IsFailure)
+            {
+                return Result<ItemInstanceRecord>.Failure(mainGmCheck.Error);
+            }
+
+            if (!mainGmCheck.Value)
             {
                 return Result<ItemInstanceRecord>.Failure(InventoryCreationFailures.NotMainGm(request.CorrelationId));
             }
@@ -77,15 +86,23 @@ namespace Odyssey.Application.Inventory
         public static Result<ItemStackRecord> CreateItemStackFromDefinition(
             IContentCatalogRepository catalogRepository,
             IInventoryRepository inventoryRepository,
+            ICampaignRepository campaignRepository,
             IWallClock clock,
             CreateItemStackFromDefinitionRequest request)
         {
             if (catalogRepository == null) throw new ArgumentNullException(nameof(catalogRepository));
             if (inventoryRepository == null) throw new ArgumentNullException(nameof(inventoryRepository));
+            if (campaignRepository == null) throw new ArgumentNullException(nameof(campaignRepository));
             if (clock == null) throw new ArgumentNullException(nameof(clock));
             if (request == null) throw new ArgumentNullException(nameof(request));
 
-            if (!request.ActorIsMainGm)
+            Result<bool> mainGmCheck = CampaignMembershipAuthorization.IsMainGm(campaignRepository, request.Campaign, request.ActorUserId, request.CorrelationId);
+            if (mainGmCheck.IsFailure)
+            {
+                return Result<ItemStackRecord>.Failure(mainGmCheck.Error);
+            }
+
+            if (!mainGmCheck.Value)
             {
                 return Result<ItemStackRecord>.Failure(InventoryCreationFailures.NotMainGm(request.CorrelationId));
             }
@@ -217,7 +234,6 @@ namespace Odyssey.Application.Inventory
             InventoryLocationRef locationRef,
             ContentDefinitionId contentDefinitionId,
             UserId actorUserId,
-            bool actorIsMainGm,
             CommandId commandId,
             CorrelationId correlationId)
         {
@@ -236,7 +252,6 @@ namespace Odyssey.Application.Inventory
             LocationRef = locationRef;
             ContentDefinitionId = contentDefinitionId;
             ActorUserId = actorUserId;
-            ActorIsMainGm = actorIsMainGm;
             CommandId = commandId;
             CorrelationId = correlationId;
         }
@@ -248,7 +263,6 @@ namespace Odyssey.Application.Inventory
         public InventoryLocationRef LocationRef { get; }
         public ContentDefinitionId ContentDefinitionId { get; }
         public UserId ActorUserId { get; }
-        public bool ActorIsMainGm { get; }
         public CommandId CommandId { get; }
         public CorrelationId CorrelationId { get; }
     }
@@ -264,7 +278,6 @@ namespace Odyssey.Application.Inventory
             ContentDefinitionId contentDefinitionId,
             ItemStackQuantity quantity,
             UserId actorUserId,
-            bool actorIsMainGm,
             CommandId commandId,
             CorrelationId correlationId)
         {
@@ -285,7 +298,6 @@ namespace Odyssey.Application.Inventory
             ContentDefinitionId = contentDefinitionId;
             Quantity = quantity;
             ActorUserId = actorUserId;
-            ActorIsMainGm = actorIsMainGm;
             CommandId = commandId;
             CorrelationId = correlationId;
         }
@@ -298,7 +310,6 @@ namespace Odyssey.Application.Inventory
         public ContentDefinitionId ContentDefinitionId { get; }
         public ItemStackQuantity Quantity { get; }
         public UserId ActorUserId { get; }
-        public bool ActorIsMainGm { get; }
         public CommandId CommandId { get; }
         public CorrelationId CorrelationId { get; }
     }
