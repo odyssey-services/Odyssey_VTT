@@ -201,5 +201,7 @@ namespace Odyssey.Application.Results
 
         public static readonly ErrorCode PersistenceFogOfWarIoFailed = ErrorCode.Parse("persistence.fog_of_war.io_failed");
         public static readonly ErrorCode PlayerVisibilityTargetUserDenied = ErrorCode.Parse("player_visibility.target_user.denied");
+
+        public static readonly ErrorCode CoverSuggestionAttackerAndTargetNotInSameScene = ErrorCode.Parse("cover_suggestion.attacker_and_target.not_in_same_scene");
     }
 }

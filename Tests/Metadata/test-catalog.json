@@ -2201,6 +2201,86 @@
                           "check":  "Self-scoped read fails closed when the membership lookup itself fails, even though requester and target differ"
                       },
                       {
+                          "testCaseId":  "TC-PERSIST-120",
+                          "taskId":  "ODY-S10-110",
+                          "authority":  "SLICE-10 Block 5 task contract section 4/9",
+                          "runner":  "dotnet test",
+                          "path":  "DotNet/Tests/Odyssey.Tests.Unit/Geometry/CoverTests.cs",
+                          "check":  "ComputeCoverDegree with no obstacles on the path is None"
+                      },
+                      {
+                          "testCaseId":  "TC-PERSIST-121",
+                          "taskId":  "ODY-S10-110",
+                          "authority":  "SLICE-10 Block 5 task contract section 4/9",
+                          "runner":  "dotnet test",
+                          "path":  "DotNet/Tests/Odyssey.Tests.Unit/Geometry/CoverTests.cs",
+                          "check":  "ComputeCoverDegree with a Wall blocking all four target samples is Full"
+                      },
+                      {
+                          "testCaseId":  "TC-PERSIST-122",
+                          "taskId":  "ODY-S10-110",
+                          "authority":  "SLICE-10 Block 5 task contract section 4/9",
+                          "runner":  "dotnet test",
+                          "path":  "DotNet/Tests/Odyssey.Tests.Unit/Geometry/CoverTests.cs",
+                          "check":  "ComputeCoverDegree with an open Door geometrically on the path is None -- uses ObstacleGeometry.BlocksVision, not raw geometry"
+                      },
+                      {
+                          "testCaseId":  "TC-PERSIST-123",
+                          "taskId":  "ODY-S10-110",
+                          "authority":  "SLICE-10 Block 5 task contract section 4/9",
+                          "runner":  "dotnet test",
+                          "path":  "DotNet/Tests/Odyssey.Tests.Unit/Geometry/CoverTests.cs",
+                          "check":  "ComputeCoverDegree with a Window geometrically on the path is None"
+                      },
+                      {
+                          "testCaseId":  "TC-PERSIST-124",
+                          "taskId":  "ODY-S10-110",
+                          "authority":  "SLICE-10 Block 5 task contract section 4/9",
+                          "runner":  "dotnet test",
+                          "path":  "DotNet/Tests/Odyssey.Tests.Unit/Geometry/CoverTests.cs",
+                          "check":  "ComputeCoverDegree with a closed Door blocking all four target samples is Full"
+                      },
+                      {
+                          "testCaseId":  "TC-PERSIST-125",
+                          "taskId":  "ODY-S10-110",
+                          "authority":  "SLICE-10 Block 5 task contract section 4/9",
+                          "runner":  "dotnet test",
+                          "path":  "DotNet/Tests/Odyssey.Tests.Unit/Geometry/CoverTests.cs",
+                          "check":  "ComputeCoverDegree: the full 0/1/2/3/4-blocked-samples table maps to None/Half/Half/ThreeQuarters/Full"
+                      },
+                      {
+                          "testCaseId":  "TC-PERSIST-126",
+                          "taskId":  "ODY-S10-110",
+                          "authority":  "SLICE-10 Block 5 task contract section 4/9",
+                          "runner":  "dotnet test",
+                          "path":  "DotNet/Tests/Odyssey.Tests.Persistence/Board/CoverSuggestionServiceTests.cs",
+                          "check":  "SuggestCover with no obstacles matches a direct CoverGeometry.ComputeCoverDegree call -- None"
+                      },
+                      {
+                          "testCaseId":  "TC-PERSIST-127",
+                          "taskId":  "ODY-S10-110",
+                          "authority":  "SLICE-10 Block 5 task contract section 4/9",
+                          "runner":  "dotnet test",
+                          "path":  "DotNet/Tests/Odyssey.Tests.Persistence/Board/CoverSuggestionServiceTests.cs",
+                          "check":  "SuggestCover with a wall blocking all samples matches a direct CoverGeometry.ComputeCoverDegree call on the same coordinates/obstacles -- Full"
+                      },
+                      {
+                          "testCaseId":  "TC-PERSIST-128",
+                          "taskId":  "ODY-S10-110",
+                          "authority":  "SLICE-10 Block 5 task contract section 4/9",
+                          "runner":  "dotnet test",
+                          "path":  "DotNet/Tests/Odyssey.Tests.Persistence/Board/CoverSuggestionServiceTests.cs",
+                          "check":  "SuggestCover returns a typed error when attacker and target tokens are in different scenes"
+                      },
+                      {
+                          "testCaseId":  "TC-PERSIST-129",
+                          "taskId":  "ODY-S10-110",
+                          "authority":  "SLICE-10 Block 5 task contract section 4/9",
+                          "runner":  "dotnet test",
+                          "path":  "DotNet/Tests/Odyssey.Tests.Persistence/Board/CoverSuggestionServiceTests.cs",
+                          "check":  "SuggestCover performs no mutation of token or obstacle state -- a pure read"
+                      },
+                      {
                           "testCaseId":  "TC-BOARD-001",
                           "taskId":  "ODY-S03-004",
                           "authority":  "ADR-020 section 5.1/5.3; ODY-S03-004",
