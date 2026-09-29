@@ -198,5 +198,8 @@ namespace Odyssey.Application.Results
         public static readonly ErrorCode TokenVisionSetFacingDenied = ErrorCode.Parse("token_vision.set_facing.denied");
         public static readonly ErrorCode TokenVisionSetVisionParametersDenied = ErrorCode.Parse("token_vision.set_vision_parameters.denied");
         public static readonly ErrorCode TokenVisionObserverAndTargetNotInSameScene = ErrorCode.Parse("token_vision.observer_and_target.not_in_same_scene");
+
+        public static readonly ErrorCode PersistenceFogOfWarIoFailed = ErrorCode.Parse("persistence.fog_of_war.io_failed");
+        public static readonly ErrorCode PlayerVisibilityTargetUserDenied = ErrorCode.Parse("player_visibility.target_user.denied");
     }
 }

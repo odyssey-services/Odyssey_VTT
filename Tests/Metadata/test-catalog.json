@@ -2113,6 +2113,94 @@
                           "check":  "CreateToken seeds a default, omnidirectional TokenVisionSettings row atomically in the same transaction (Path A)"
                       },
                       {
+                          "testCaseId":  "TC-PERSIST-109",
+                          "taskId":  "ODY-S10-109",
+                          "authority":  "SLICE-10 Block 4 task contract section 4/9",
+                          "runner":  "dotnet test",
+                          "path":  "DotNet/Tests/Odyssey.Tests.Persistence/Board/PlayerVisibilityServiceTests.cs",
+                          "check":  "ComputeVisibleTokens uses live TokenVisionService.ComputeLineOfSight per observer/candidate pair: own token always visible, an unobstructed token in range/FOV is visible, a token behind a wall is not"
+                      },
+                      {
+                          "testCaseId":  "TC-PERSIST-110",
+                          "taskId":  "ODY-S10-109",
+                          "authority":  "SLICE-10 Block 4 task contract section 4/9",
+                          "runner":  "dotnet test",
+                          "path":  "DotNet/Tests/Odyssey.Tests.Persistence/Board/PlayerVisibilityServiceTests.cs",
+                          "check":  "ComputeVisibleTokens for a target with no own token in the Scene returns an empty result, not an error"
+                      },
+                      {
+                          "testCaseId":  "TC-PERSIST-111",
+                          "taskId":  "ODY-S10-109",
+                          "authority":  "SLICE-10 Block 4 task contract section 4/9",
+                          "runner":  "dotnet test",
+                          "path":  "DotNet/Tests/Odyssey.Tests.Persistence/Board/PlayerVisibilityServiceTests.cs",
+                          "check":  "ComputeVisibleTokens for a MainGm target sees every token in the Scene unconditionally, including one far outside any live LOS/range, without touching stored fog data"
+                      },
+                      {
+                          "testCaseId":  "TC-PERSIST-112",
+                          "taskId":  "ODY-S10-109",
+                          "authority":  "SLICE-10 Block 4 task contract section 4/9",
+                          "runner":  "dotnet test",
+                          "path":  "DotNet/Tests/Odyssey.Tests.Persistence/Board/PlayerVisibilityServiceTests.cs",
+                          "check":  "RecordExploration: the first call inserts a reveal; a second call from the same, already-covered position does not insert a duplicate row"
+                      },
+                      {
+                          "testCaseId":  "TC-PERSIST-113",
+                          "taskId":  "ODY-S10-109",
+                          "authority":  "SLICE-10 Block 4 task contract section 4/9",
+                          "runner":  "dotnet test",
+                          "path":  "DotNet/Tests/Odyssey.Tests.Persistence/Board/PlayerVisibilityServiceTests.cs",
+                          "check":  "RecordExploration: moving beyond the already-covered area inserts a genuinely new reveal row, not silently dropped by the coverage check"
+                      },
+                      {
+                          "testCaseId":  "TC-PERSIST-114",
+                          "taskId":  "ODY-S10-109",
+                          "authority":  "SLICE-10 Block 4 task contract section 4/9",
+                          "runner":  "dotnet test",
+                          "path":  "DotNet/Tests/Odyssey.Tests.Persistence/Board/PlayerVisibilityServiceTests.cs",
+                          "check":  "IsPointExplored: a point inside a recorded reveal is true; a point outside every reveal is false"
+                      },
+                      {
+                          "testCaseId":  "TC-PERSIST-115",
+                          "taskId":  "ODY-S10-109",
+                          "authority":  "SLICE-10 Block 4 task contract section 4/9",
+                          "runner":  "dotnet test",
+                          "path":  "DotNet/Tests/Odyssey.Tests.Persistence/Board/PlayerVisibilityServiceTests.cs",
+                          "check":  "IsPointExplored for a MainGm target is always true, with zero reveals ever recorded for that user"
+                      },
+                      {
+                          "testCaseId":  "TC-PERSIST-116",
+                          "taskId":  "ODY-S10-109",
+                          "authority":  "SLICE-10 Block 4 task contract section 4/9",
+                          "runner":  "dotnet test",
+                          "path":  "DotNet/Tests/Odyssey.Tests.Persistence/Board/PlayerVisibilityServiceTests.cs",
+                          "check":  "Self-scoped read: an ordinary player asking about another ordinary player's state is denied, for both ComputeVisibleTokens and IsPointExplored"
+                      },
+                      {
+                          "testCaseId":  "TC-PERSIST-117",
+                          "taskId":  "ODY-S10-109",
+                          "authority":  "SLICE-10 Block 4 task contract section 4/9",
+                          "runner":  "dotnet test",
+                          "path":  "DotNet/Tests/Odyssey.Tests.Persistence/Board/PlayerVisibilityServiceTests.cs",
+                          "check":  "Self-scoped read: an ordinary player asking about the MainGm's own state is denied -- the requester's role gates the read, not who the target is"
+                      },
+                      {
+                          "testCaseId":  "TC-PERSIST-118",
+                          "taskId":  "ODY-S10-109",
+                          "authority":  "SLICE-10 Block 4 task contract section 4/9",
+                          "runner":  "dotnet test",
+                          "path":  "DotNet/Tests/Odyssey.Tests.Persistence/Board/PlayerVisibilityServiceTests.cs",
+                          "check":  "Self-scoped read: the registered MainGm asking about another participant's own state succeeds"
+                      },
+                      {
+                          "testCaseId":  "TC-PERSIST-119",
+                          "taskId":  "ODY-S10-109",
+                          "authority":  "SLICE-10 Block 4 task contract section 4/9",
+                          "runner":  "dotnet test",
+                          "path":  "DotNet/Tests/Odyssey.Tests.Persistence/Board/PlayerVisibilityServiceTests.cs",
+                          "check":  "Self-scoped read fails closed when the membership lookup itself fails, even though requester and target differ"
+                      },
+                      {
                           "testCaseId":  "TC-BOARD-001",
                           "taskId":  "ODY-S03-004",
                           "authority":  "ADR-020 section 5.1/5.3; ODY-S03-004",

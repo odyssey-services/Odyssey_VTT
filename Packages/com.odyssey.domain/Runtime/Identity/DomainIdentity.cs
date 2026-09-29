@@ -495,6 +495,26 @@ namespace Odyssey.Domain.Identity
         public static bool operator !=(ObstacleId left, ObstacleId right) => !left.Equals(right);
     }
 
+    /// <summary>SLICE-10 Block 4: identifies one persistent map-memory "reveal" row (a circle a player has explored), scoped to a Scene/UserId the same plain-field way <see cref="ObstacleId"/> is -- not a database foreign key. INSERT-only: no method ever updates or deletes an existing row by this id (map memory is monotonic).</summary>
+    public readonly struct FogRevealId : IEquatable<FogRevealId>
+    {
+        private const string Prefix = "freveal_";
+        private const int HexLength = 32;
+        private readonly string _value;
+
+        private FogRevealId(string value) => _value = value;
+        public bool IsValid => _value != null;
+        public static FogRevealId NewId(Odyssey.Domain.Time.UtcInstant now) => new FogRevealId(Prefix + Uuid7.NewHex32(now));
+        public static bool TryParse(string? value, out FogRevealId id) => CanonicalId.TryParse(value, Prefix, HexLength, out id, static v => new FogRevealId(v));
+        public static FogRevealId Parse(string value) => TryParse(value, out FogRevealId id) ? id : throw new FormatException("FogRevealId is not canonical.");
+        public override string ToString() => _value ?? string.Empty;
+        public bool Equals(FogRevealId other) => string.Equals(_value, other._value, StringComparison.Ordinal);
+        public override bool Equals(object? obj) => obj is FogRevealId other && Equals(other);
+        public override int GetHashCode() => _value == null ? 0 : StringComparer.Ordinal.GetHashCode(_value);
+        public static bool operator ==(FogRevealId left, FogRevealId right) => left.Equals(right);
+        public static bool operator !=(FogRevealId left, FogRevealId right) => !left.Equals(right);
+    }
+
     /// <summary>
     /// Identifies a row in the AssetManifestEntries system table (ADR-011 section
     /// 8.2, created by ODY-S01-007). Not the full asset pipeline (staging,
