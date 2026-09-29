@@ -15,6 +15,27 @@ namespace Odyssey.Tests.Unity.PlayMode
 {
     public sealed class OdysseyPlayModeFoundationSmokeTests
     {
+        /// <summary>
+        /// SLICE-10 Block 6 part 1 finding: <c>AssertUiInputActionsConfigured</c> checks a static project
+        /// configuration fact (the project-wide Input Actions asset), but <c>InputTestFixture.Setup()</c>
+        /// (called by any test that uses one, including this task's own new drawing-tool test) resets
+        /// <c>InputSystem.actions</c> to null for the rest of the run -- Unity's own <c>InputTestFixture</c>
+        /// save/restore does not cover it (confirmed by reading the package's own source). The pre-existing
+        /// inline call at the top of <c>RealMouseClick_RoutesThroughUiToolkitInputToDeveloperShellAndTrialScreenElements</c>
+        /// only ever passed because that test happened to be the first one in this class to touch
+        /// <c>InputTestFixture</c>; adding this task's own new <see cref="RealMouseClick_DrawWallTool_RealPointerDownMoveUp_CreatesAnObstacle"/>
+        /// test (which sorts earlier and also uses one) exposed that pre-existing order-dependency as a
+        /// real, reproducible failure. Fixed here, not by renaming/reordering tests to dodge it: the check
+        /// is moved to <c>[OneTimeSetUp]</c>, which NUnit guarantees runs once, before every test (and
+        /// therefore before any test's own <c>InputTestFixture.Setup()</c>) -- order-independent by
+        /// construction, and still exactly the same assertion.
+        /// </summary>
+        [OneTimeSetUp]
+        public void OneTimeSetUp()
+        {
+            AssertUiInputActionsConfigured();
+        }
+
         [UnityTest]
         public IEnumerator DeveloperShellBootstrapsAndRunsTechnicalActions()
         {
@@ -122,7 +143,7 @@ namespace Odyssey.Tests.Unity.PlayMode
         {
             const string bootstrapPath = "Assets/Odyssey/Client/Scenes/Bootstrap.unity";
 
-            AssertUiInputActionsConfigured();
+            // Checked once, order-independently, in OneTimeSetUp -- see its own remarks.
             InputTestFixture input = new();
             Mouse mouse = null;
             try
@@ -149,6 +170,63 @@ namespace Odyssey.Tests.Unity.PlayMode
 
                 yield return ClickWithMouse(document, input, mouse, FirstToken(document)!);
                 yield return WaitUntil(() => Text(document, "board-status").StartsWith("Selected token", StringComparison.Ordinal));
+
+                OdysseyRuntimeHost host = FindAcceptedHost()!;
+                host.Runtime!.Shutdown();
+                Object.Destroy(host.gameObject);
+                yield return null;
+                Assert.That(RuntimeHostLease.IsHeld, Is.False);
+            }
+            finally
+            {
+                if (mouse != null && mouse.added) InputSystem.RemoveDevice(mouse);
+                input.TearDown();
+            }
+        }
+
+        [UnityTest] // TC-BOARD-121
+        public IEnumerator RealMouseClick_DrawWallTool_RealPointerDownMoveUp_CreatesAnObstacle()
+        {
+            const string bootstrapPath = "Assets/Odyssey/Client/Scenes/Bootstrap.unity";
+
+            InputTestFixture input = new();
+            Mouse mouse = null;
+            try
+            {
+                input.Setup();
+                mouse = InputSystem.AddDevice<Mouse>();
+
+                yield return SceneManager.LoadSceneAsync(bootstrapPath, LoadSceneMode.Single);
+                yield return WaitUntil(() => FindAcceptedHosts() == 1);
+                yield return WaitUntil(() => SceneManager.GetSceneByName("AppShell").isLoaded);
+                yield return WaitUntil(() => FindEntryPoint() != null && FindEntryPoint()!.IsInitialized);
+
+                AppShellEntryPoint entryPoint = FindEntryPoint()!;
+                UIDocument document = entryPoint.GetComponent<UIDocument>();
+                yield return WaitUntil(() => ButtonReady(document, "trial-ui-button"));
+                yield return ClickWithMouse(document, input, mouse, "trial-ui-button");
+                yield return WaitUntil(() => document.rootVisualElement.Q<VisualElement>("trial-screen") != null);
+
+                // SLICE-10 Block 6 part 1: drawing (CreateObstacle) is MainGM-only server-side, and
+                // RoleSelection.DefaultMainGmUserId is exactly DevIdentityProvider.AssignHost() -- the demo
+                // campaign's own registered MainGm -- so the local actor must first be switched to that role.
+                // A direct DropdownField value assignment (not a real mouse interaction) is used for this
+                // setup step; the real-mouse requirement this test exists to prove is specifically the
+                // drawing gesture's own pointer-event routing below, not the pre-existing role selector.
+                DropdownField roleDropdown = document.rootVisualElement.Q<DropdownField>("role-selector-dropdown");
+                Assert.That(roleDropdown, Is.Not.Null);
+                roleDropdown.value = "MainGM";
+                yield return null;
+
+                yield return WaitUntil(() => ButtonReady(document, "board-tool-drawwall"));
+                yield return ClickWithMouse(document, input, mouse, "board-tool-drawwall");
+
+                VisualElement boardArea = document.rootVisualElement.Q<VisualElement>("board-area");
+                Assert.That(boardArea, Is.Not.Null);
+                yield return DragWithMouse(input, mouse, boardArea, new Vector2(40f, 40f), new Vector2(140f, 40f));
+
+                yield return WaitUntil(() => FirstObstacleElement(document) != null);
+                Assert.That(Text(document, "board-status"), Does.StartWith("Created Wall obstacle."));
 
                 OdysseyRuntimeHost host = FindAcceptedHost()!;
                 host.Runtime!.Shutdown();
@@ -332,6 +410,42 @@ namespace Odyssey.Tests.Unity.PlayMode
         private static VisualElement? FirstToken(UIDocument document)
         {
             return document.rootVisualElement.Query<VisualElement>().Where(element => element.name != null && element.name.StartsWith("token-", StringComparison.Ordinal)).First();
+        }
+
+        private static VisualElement? FirstObstacleElement(UIDocument document)
+        {
+            return document.rootVisualElement.Query<VisualElement>().Where(element => element.name != null && element.name.StartsWith("obstacle-", StringComparison.Ordinal)).First();
+        }
+
+        // SLICE-10 Block 6 part 1: a real pointer down -> move -> up sequence at two different board-local
+        // offsets -- ClickWithMouse's own screen-position conversion, generalized to a drag rather than a
+        // press/release at the same point, so the drawing gesture's real UI Toolkit event routing (not just
+        // its public methods) is exercised end to end.
+        private static IEnumerator DragWithMouse(InputTestFixture input, Mouse mouse, VisualElement boardArea, Vector2 startBoardLocalOffset, Vector2 endBoardLocalOffset)
+        {
+            Vector2 startScreen = ToScreenPosition(boardArea, startBoardLocalOffset);
+            Vector2 endScreen = ToScreenPosition(boardArea, endBoardLocalOffset);
+
+            mouse.MakeCurrent();
+            input.Move(mouse.position, startScreen);
+            yield return null;
+
+            input.Press(mouse.leftButton);
+            yield return null;
+
+            input.Move(mouse.position, endScreen);
+            yield return null;
+
+            input.Release(mouse.leftButton);
+            yield return null;
+            yield return null;
+        }
+
+        private static Vector2 ToScreenPosition(VisualElement element, Vector2 boardLocalOffset)
+        {
+            Vector2 panelPosition = (Vector2)element.worldBound.position + boardLocalOffset;
+            Vector2 bottomLeftPosition = new(panelPosition.x, Screen.height - panelPosition.y);
+            return bottomLeftPosition.y < 0f ? panelPosition : bottomLeftPosition;
         }
 
         private static void AssertUiInputActionsConfigured()

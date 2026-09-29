@@ -118,6 +118,7 @@ namespace Odyssey.Tests.Unity.EditMode
                 Assert.That(created.IsSuccess, Is.True);
 
                 var sceneRepository = new SqliteSceneRepository(Clock);
+                var obstacleRepository = new SqliteObstacleRepository(Clock);
                 SceneId sceneId = sceneRepository.CreateScene(created.Value, "Test Scene", NewCommandId(), TestCorrelationId).Value.SceneId;
                 Result<TokenRecord> token = sceneRepository.CreateToken(created.Value, sceneId, new TokenPosition(0, 0), User("2"), NewCommandId(), TestCorrelationId);
                 Assert.That(token.IsSuccess, Is.True);
@@ -126,7 +127,7 @@ namespace Odyssey.Tests.Unity.EditMode
                 UIDocument document = gameObject.AddComponent<UIDocument>();
                 PresentationRuntime presentationRuntime = new PresentationRuntime();
                 RoleSelection selection = new RoleSelection(User("2"), User("1"), User("3"), initialRole);
-                var presenter = new BoardScreenPresenter(document, sceneRepository, created.Value, campaignRepository, sceneId, selection, presentationRuntime);
+                var presenter = new BoardScreenPresenter(document, sceneRepository, created.Value, campaignRepository, obstacleRepository, sceneId, selection, presentationRuntime);
                 Assert.That(presenter.Initialize().IsSuccess, Is.True);
                 var selector = new RoleSelectorPresenter(selection, presentationRuntime);
 

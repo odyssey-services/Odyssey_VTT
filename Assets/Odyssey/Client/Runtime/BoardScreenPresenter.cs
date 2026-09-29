@@ -5,6 +5,7 @@ using Odyssey.Application.Board;
 using Odyssey.Application.Commands;
 using Odyssey.Application.Persistence;
 using Odyssey.Application.Results;
+using Odyssey.Domain.Geometry;
 using Odyssey.Domain.Identity;
 using UnityEngine;
 using UnityEngine.UIElements;
@@ -51,6 +52,10 @@ namespace Odyssey.Unity.Client
         private readonly ISceneRepository _sceneRepository;
         private readonly CampaignHandle _campaign;
         private readonly ICampaignRepository _campaignRepository;
+        // SLICE-10 Block 6 part 1: obstacle drawing/toggling/damage all go through this port, injected the
+        // same way _campaignRepository already is -- a storage/authorization dependency, not something this
+        // presenter constructs internally.
+        private readonly IObstacleRepository _obstacleRepository;
         private readonly SceneId _sceneId;
         private readonly bool _includeRoleSelector;
         // ODY-S08-102: replaces the old fixed OriginOffsetPixels/PixelsPerUnit transform. Purely local,
@@ -62,6 +67,26 @@ namespace Odyssey.Unity.Client
         private readonly BoardBoxSelectGesture _boxGesture = new BoardBoxSelectGesture();
         private bool _boxAdditive;
         private VisualElement? _boxElement;
+
+        // SLICE-10 Block 6 part 1: the active tool (Select is the default and preserves every pre-existing
+        // gesture unchanged). Switching tools is refused while a draw gesture is already in progress -- see
+        // SetTool's own remarks -- so a half-drawn segment is always either committed or explicitly cancelled
+        // (Escape on the board area, or CancelObstacleDraw for tests), never silently abandoned.
+        private BoardTool _currentTool = BoardTool.Select;
+        private BoardToolbarPresenter? _toolbarPresenter;
+        private readonly BoardObstacleDrawGesture _obstacleDrawGesture = new BoardObstacleDrawGesture();
+        // Which button-0 gesture the current press started (draw vs. the pre-existing box-select/click) --
+        // decided once at press time from _currentTool, not re-read on every move/up, so a (disallowed, but
+        // defensively handled) tool change mid-gesture cannot flip which gesture a move/up call feeds.
+        private bool _obstacleDrawActive;
+        private const double ObstacleLineThicknessPixels = 4.0;
+        private const double ObstacleHitTestThresholdPixels = 8.0;
+        private VisualElement? _obstacleDrawPreviewElement;
+        private readonly Dictionary<string, ObstacleRecord> _obstacleRecordsByObstacleId = new Dictionary<string, ObstacleRecord>(StringComparer.Ordinal);
+        private readonly Dictionary<string, ObstacleDurabilityRecord> _obstacleDurabilityByObstacleId = new Dictionary<string, ObstacleDurabilityRecord>(StringComparer.Ordinal);
+        private ObstacleId? _selectedObstacleId;
+        private VisualElement? _obstacleInspectorElement;
+        private IntegerField? _obstacleDamageAmountField;
 
         // Which mouse button owns the board gesture in progress (-1: none). The mouse reports one pointer id
         // for every button, so this -- not the pointer id -- is what keeps a second button from starting a
@@ -118,7 +143,7 @@ namespace Odyssey.Unity.Client
         private readonly Dictionary<string, TokenPosition> _dragStartPositions = new Dictionary<string, TokenPosition>(StringComparer.Ordinal);
         private bool _disposed;
 
-        public BoardScreenPresenter(UIDocument document, ISceneRepository sceneRepository, CampaignHandle campaign, ICampaignRepository campaignRepository, SceneId sceneId, UserId localActorUserId)
+        public BoardScreenPresenter(UIDocument document, ISceneRepository sceneRepository, CampaignHandle campaign, ICampaignRepository campaignRepository, IObstacleRepository obstacleRepository, SceneId sceneId, UserId localActorUserId)
         {
             _document = document ?? throw new ArgumentNullException(nameof(document));
             _sceneRepository = sceneRepository ?? throw new ArgumentNullException(nameof(sceneRepository));
@@ -126,6 +151,7 @@ namespace Odyssey.Unity.Client
             // ODY-S10-101: a token move by someone other than the token's controller is authorized against the
             // stored campaign membership, so the presenter needs the repository that holds it.
             _campaignRepository = campaignRepository ?? throw new ArgumentNullException(nameof(campaignRepository));
+            _obstacleRepository = obstacleRepository ?? throw new ArgumentNullException(nameof(obstacleRepository));
             if (!sceneId.IsValid) throw new ArgumentException("SceneId is required.", nameof(sceneId));
             if (!localActorUserId.IsValid) throw new ArgumentException("LocalActorUserId is required.", nameof(localActorUserId));
             _sceneId = sceneId;
@@ -133,8 +159,8 @@ namespace Odyssey.Unity.Client
             LocalActorUserId = localActorUserId;
         }
 
-        public BoardScreenPresenter(UIDocument document, ISceneRepository sceneRepository, CampaignHandle campaign, ICampaignRepository campaignRepository, SceneId sceneId, RoleSelection roleSelection, PresentationRuntime presentationRuntime, bool includeRoleSelector = true)
-            : this(document, sceneRepository, campaign, campaignRepository, sceneId, (roleSelection ?? throw new ArgumentNullException(nameof(roleSelection))).ActorUserId)
+        public BoardScreenPresenter(UIDocument document, ISceneRepository sceneRepository, CampaignHandle campaign, ICampaignRepository campaignRepository, IObstacleRepository obstacleRepository, SceneId sceneId, RoleSelection roleSelection, PresentationRuntime presentationRuntime, bool includeRoleSelector = true)
+            : this(document, sceneRepository, campaign, campaignRepository, obstacleRepository, sceneId, (roleSelection ?? throw new ArgumentNullException(nameof(roleSelection))).ActorUserId)
         {
             _roleSelection = roleSelection;
             _presentationRuntime = presentationRuntime ?? throw new ArgumentNullException(nameof(presentationRuntime));
@@ -193,6 +219,12 @@ namespace Odyssey.Unity.Client
                 appRoot.Add(_roleSelectorPresenter.BuildView());
             }
 
+            // SLICE-10 Block 6 part 1: the toolbar's own visibility (MainGM-only, presentational) is set on
+            // every Refresh(), so it stays correct regardless of how LocalActorIsMainGm was last changed.
+            _toolbarPresenter = new BoardToolbarPresenter(OnToolSelected);
+            appRoot.Add(_toolbarPresenter.BuildView());
+            _toolbarPresenter.SetActiveTool(_currentTool);
+
             _statusLabel = new Label { name = "board-status" };
             appRoot.Add(_statusLabel);
 
@@ -202,6 +234,10 @@ namespace Odyssey.Unity.Client
             _boardArea.style.height = 440;
             _boardArea.style.marginTop = 8;
             _boardArea.style.backgroundColor = new StyleColor(new Color(0.12f, 0.12f, 0.14f));
+            // Focusable so Escape (OnBoardKeyDown) can reach it and cancel an in-progress draw gesture --
+            // requires the board area to have received focus first (e.g. from a prior click on it), a known,
+            // accepted MVP limitation documented in the task report.
+            _boardArea.focusable = true;
             // ODY-S08-102: pointer-down/move/up (not ClickEvent) drives the board's own click-vs-pan
             // disambiguation (BoardPointerGesture) -- see the class remarks and OnBoardPointerDown/Move/Up.
             _boardArea.RegisterCallback<PointerDownEvent>(OnBoardPointerDown);
@@ -209,7 +245,10 @@ namespace Odyssey.Unity.Client
             _boardArea.RegisterCallback<PointerUpEvent>(OnBoardPointerUp);
             _boardArea.RegisterCallback<PointerCaptureOutEvent>(OnBoardPointerCaptureOut);
             _boardArea.RegisterCallback<WheelEvent>(OnBoardWheel);
+            _boardArea.RegisterCallback<KeyDownEvent>(OnBoardKeyDown);
             appRoot.Add(_boardArea);
+
+            BuildObstacleInspector();
         }
 
         public Result Refresh()
@@ -221,8 +260,19 @@ namespace Odyssey.Unity.Client
                 return Result.Failure(tokens.Error);
             }
 
+            // SLICE-10 Block 6 part 1: a scene-geometry read failure (rare -- IO only, ListObstacles performs
+            // no authorization) degrades to "no obstacles rendered this pass" rather than failing the whole
+            // Refresh() -- tokens are the more critical render, exactly as an asset-load failure already only
+            // affects its own visual, never the rest of the board.
+            Result<IReadOnlyList<ObstacleRecord>> obstacles = _obstacleRepository.ListObstacles(_campaign, _sceneId, NewCorrelationId());
+
             Error? backgroundError = ApplySceneBackground();
+
+            _boardArea?.Clear();
+            RenderObstacles(obstacles.IsSuccess ? obstacles.Value : Array.Empty<ObstacleRecord>());
             Error? tokenAssetError = RenderTokens(tokens.Value);
+            RestoreOverlays();
+            _toolbarPresenter?.SetVisible(LocalActorIsMainGm);
 
             // Image assets are presentation: a missing/corrupt/undecodable one never stops the
             // board from rendering (fallback visuals are drawn), but the first failure is reported.
@@ -234,6 +284,18 @@ namespace Odyssey.Unity.Client
             }
 
             return Result.Success();
+        }
+
+        // Re-adds whichever overlay elements are currently live -- RenderObstacles/RenderTokens' shared
+        // _boardArea.Clear() (moved here from RenderTokens itself, task contract section 2.3: obstacles and
+        // tokens now share one render pass) removes every child indiscriminately, tokens included.
+        private void RestoreOverlays()
+        {
+            if (_boardArea == null) return;
+            if (_boxElement != null && _boxGesture.IsDragging) _boardArea.Add(_boxElement);
+            if (_markerElement != null && _markerWorldPosition.HasValue) _boardArea.Add(_markerElement);
+            if (_obstacleDrawPreviewElement != null && _obstacleDrawGesture.IsActive) _boardArea.Add(_obstacleDrawPreviewElement);
+            ShowObstacleInspectorIfSelected();
         }
 
         private Error? ApplySceneBackground()
@@ -300,7 +362,6 @@ namespace Odyssey.Unity.Client
         private Error? RenderTokens(IReadOnlyList<TokenRecord> tokens)
         {
             if (_boardArea == null) return null;
-            _boardArea.Clear();
             _tokenElementsByTokenId.Clear();
             _tokenPositionsByTokenId.Clear();
             _tokenGesturesByTokenId.Clear();
@@ -367,10 +428,6 @@ namespace Odyssey.Unity.Client
                 _tokenScalesByTokenId[token.TokenId.ToString()] = token.Scale;
             }
 
-            // _boardArea.Clear() above also removed the overlays; put back whichever is live.
-            if (_boxElement != null && _boxGesture.IsDragging) _boardArea.Add(_boxElement);
-            if (_markerElement != null && _markerWorldPosition.HasValue) _boardArea.Add(_markerElement);
-
             return firstAssetError;
         }
 
@@ -378,6 +435,133 @@ namespace Odyssey.Unity.Client
         {
             isLocalActorControlled = token.ControllerUserId.Equals(LocalActorUserId);
             return isLocalActorControlled ? new Color(0.25f, 0.65f, 0.95f) : new Color(0.75f, 0.35f, 0.30f);
+        }
+
+        // ---- SLICE-10 Block 6 part 1: obstacle rendering (walls/doors/windows) and their HP bars --------
+        //
+        // Full reconciliation of the whole obstacle set on every Refresh(), the exact same "not an
+        // incremental diff" shape RenderTokens already uses (task contract section 2.3) -- obstacles never
+        // move or resize once created (no drag/resize in this task, section 4's own non-goal), so this is
+        // simpler than the token case, not a shortcut taken under time pressure.
+
+        private void RenderObstacles(IReadOnlyList<ObstacleRecord> obstacles)
+        {
+            if (_boardArea == null) return;
+            _obstacleRecordsByObstacleId.Clear();
+            _obstacleDurabilityByObstacleId.Clear();
+
+            foreach (ObstacleRecord obstacle in obstacles)
+            {
+                string key = obstacle.ObstacleId.ToString();
+                _obstacleRecordsByObstacleId[key] = obstacle;
+
+                double x1 = _camera.ToPixelsX(obstacle.X1);
+                double y1 = _camera.ToPixelsY(obstacle.Y1);
+                double x2 = _camera.ToPixelsX(obstacle.X2);
+                double y2 = _camera.ToPixelsY(obstacle.Y2);
+
+                VisualElement line = new VisualElement { name = "obstacle-" + obstacle.ObstacleId, pickingMode = PickingMode.Ignore };
+                line.style.position = Position.Absolute;
+                ApplyObstacleColor(line, obstacle);
+                PositionSegmentElement(line, x1, y1, x2, y2, ObstacleLineThicknessPixels);
+                _boardArea.Add(line);
+
+                // SLICE-10 Block 6 part 1 task contract section 2.6: one GetObstacleDurability call per
+                // obstacle per Refresh() (N+1), not a batch read -- the contract has no batch method and
+                // adding one is explicitly out of this task's scope. A failure here (the obstacle was never
+                // given a maxHp) is the expected, non-error case for most obstacles: no HP bar, no status
+                // message, nothing logged.
+                Result<ObstacleDurabilityRecord> durability = _obstacleRepository.GetObstacleDurability(_campaign, obstacle.ObstacleId, NewCorrelationId());
+                if (durability.IsSuccess)
+                {
+                    _obstacleDurabilityByObstacleId[key] = durability.Value;
+                    RenderObstacleHpBar(obstacle.ObstacleId, durability.Value, x1, y1, x2, y2);
+                }
+            }
+        }
+
+        // Placeholder colors (task contract section 2.3 -- explicitly not final art, fixed values disclosed
+        // in the task report): a Wall is a solid, opaque stone-gray line; a Door is a warm brown that lightens
+        // when open; a Window is the same blue-gray as a Wall but translucent.
+        private static void ApplyObstacleColor(VisualElement element, ObstacleRecord obstacle)
+        {
+            Color color;
+            switch (obstacle.Kind)
+            {
+                case ObstacleKind.Door:
+                    color = obstacle.IsOpen == true ? new Color(0.75f, 0.55f, 0.30f, 1f) : new Color(0.50f, 0.32f, 0.14f, 1f);
+                    break;
+                case ObstacleKind.Window:
+                    color = new Color(0.55f, 0.75f, 0.95f, 0.45f);
+                    break;
+                default:
+                    color = new Color(0.55f, 0.55f, 0.58f, 1f);
+                    break;
+            }
+
+            element.style.backgroundColor = new StyleColor(color);
+        }
+
+        /// <summary>
+        /// Positions and rotates an absolutely-positioned <see cref="VisualElement"/> so it visually connects
+        /// two board-local pixel points -- the technique chosen for drawing a line with UI Toolkit, since no
+        /// prior task in this codebase renders one (task contract section 2.3, disclosed in the task report):
+        /// the element's own width becomes the segment's pixel length, its height is a small fixed
+        /// <paramref name="thicknessPixels"/>, and <c>style.rotate</c>/<c>transformOrigin</c> (supported by
+        /// this project's Unity 6 UI Toolkit runtime) rotate it around its own left-center point, which is
+        /// pinned to (<paramref name="x1"/>, <paramref name="y1"/>) -- so the element's left edge is always the
+        /// segment's start point, regardless of angle.
+        /// </summary>
+        private static void PositionSegmentElement(VisualElement element, double x1, double y1, double x2, double y2, double thicknessPixels)
+        {
+            double dx = x2 - x1;
+            double dy = y2 - y1;
+            double length = Math.Sqrt(dx * dx + dy * dy);
+            double angleDegrees = Math.Atan2(dy, dx) * (180.0 / Math.PI);
+
+            element.style.left = (float)x1;
+            element.style.top = (float)(y1 - thicknessPixels / 2.0);
+            element.style.width = (float)length;
+            element.style.height = (float)thicknessPixels;
+            element.style.transformOrigin = new TransformOrigin(Length.Percent(0), Length.Percent(50));
+            element.style.rotate = new StyleRotate(new Rotate(new Angle((float)angleDegrees, AngleUnit.Degree)));
+        }
+
+        private const double ObstacleHpBarWidthPixels = 40.0;
+        private const double ObstacleHpBarHeightPixels = 6.0;
+
+        private void RenderObstacleHpBar(ObstacleId obstacleId, ObstacleDurabilityRecord durability, double x1, double y1, double x2, double y2)
+        {
+            if (_boardArea == null) return;
+            double midX = (x1 + x2) / 2.0;
+            double midY = (y1 + y2) / 2.0 - ObstacleHpBarHeightPixels - 6.0;
+
+            var track = new VisualElement { name = "obstacle-hp-track-" + obstacleId, pickingMode = PickingMode.Ignore };
+            track.style.position = Position.Absolute;
+            track.style.left = (float)(midX - ObstacleHpBarWidthPixels / 2.0);
+            track.style.top = (float)midY;
+            track.style.width = (float)ObstacleHpBarWidthPixels;
+            track.style.height = (float)ObstacleHpBarHeightPixels;
+            track.style.backgroundColor = new StyleColor(new Color(0.15f, 0.15f, 0.15f, 0.85f));
+
+            double fraction = durability.MaxHp > 0 ? Math.Max(0.0, Math.Min(1.0, (double)durability.CurrentHp / durability.MaxHp)) : 0.0;
+            var fill = new VisualElement { name = "obstacle-hp-fill-" + obstacleId, pickingMode = PickingMode.Ignore };
+            fill.style.position = Position.Absolute;
+            fill.style.left = 0;
+            fill.style.top = 0;
+            fill.style.bottom = 0;
+            fill.style.width = new Length((float)(fraction * 100.0), LengthUnit.Percent);
+            fill.style.backgroundColor = new StyleColor(HpBarColor(fraction));
+            track.Add(fill);
+
+            _boardArea.Add(track);
+        }
+
+        private static Color HpBarColor(double fraction)
+        {
+            if (fraction > 0.5) return new Color(0.30f, 0.80f, 0.30f, 1f);
+            if (fraction > 0.25) return new Color(0.90f, 0.75f, 0.20f, 1f);
+            return new Color(0.85f, 0.25f, 0.20f, 1f);
         }
 
         /// <summary>
@@ -826,6 +1010,290 @@ namespace Odyssey.Unity.Client
             }
         }
 
+        // ---- SLICE-10 Block 6 part 1: obstacle selection, door toggle, and manual damage ---------------
+
+        /// <summary>The obstacle currently selected in <see cref="BoardTool.Select"/> mode (for the damage panel), or <c>null</c>. Exposed for tests.</summary>
+        public ObstacleId? SelectedObstacleId => _selectedObstacleId;
+
+        // Pure math against the last-rendered obstacle positions, by exact precedent of HitTestToken -- no
+        // per-element pointer-event handler on the obstacle line itself (obstacles are pickingMode.Ignore;
+        // unlike a token, nothing here is ever dragged, so a real per-element handler buys nothing).
+        private ObstacleId? HitTestObstacle(double boardPixelX, double boardPixelY)
+        {
+            ObstacleId? best = null;
+            double bestDistance = ObstacleHitTestThresholdPixels;
+            foreach (KeyValuePair<string, ObstacleRecord> entry in _obstacleRecordsByObstacleId)
+            {
+                ObstacleRecord obstacle = entry.Value;
+                double x1 = _camera.ToPixelsX(obstacle.X1);
+                double y1 = _camera.ToPixelsY(obstacle.Y1);
+                double x2 = _camera.ToPixelsX(obstacle.X2);
+                double y2 = _camera.ToPixelsY(obstacle.Y2);
+                double distance = BoardHitTestMath.DistancePointToSegment(boardPixelX, boardPixelY, x1, y1, x2, y2);
+                if (distance <= bestDistance)
+                {
+                    bestDistance = distance;
+                    best = obstacle.ObstacleId;
+                }
+            }
+
+            return best;
+        }
+
+        /// <summary>
+        /// A click on an obstacle in <see cref="BoardTool.Select"/> mode always selects it (so its damage
+        /// panel, if any, appears/updates); a <see cref="ObstacleKind.Door"/> is additionally toggled by the
+        /// same click -- task contract section 2.4 (any click toggles a door) and section 2.6 (any click
+        /// selects for the damage panel) both describe the same gesture without saying which wins, so this
+        /// combines them rather than picking one arbitrarily, disclosed in the task report.
+        /// </summary>
+        private void HandleObstacleClick(ObstacleId obstacleId)
+        {
+            _selectedObstacleId = obstacleId;
+            if (_obstacleRecordsByObstacleId.TryGetValue(obstacleId.ToString(), out ObstacleRecord obstacle) && obstacle.Kind == ObstacleKind.Door)
+            {
+                ToggleObstacleDoor(obstacleId, obstacle);
+                return;
+            }
+
+            SetStatus("Selected obstacle " + obstacleId + ".");
+            Refresh();
+        }
+
+        /// <summary>
+        /// Toggles a door's <see cref="ObstacleRecord.IsOpen"/> via <see cref="ObstacleAuthoringService.ToggleDoorState"/>
+        /// -- open to any registered campaign participant on the server (task contract section 2.4: no
+        /// artificial client-side role restriction), exactly the same direct-call/read-revision/Refresh()
+        /// pattern every other server command in this class already uses.
+        /// </summary>
+        private void ToggleObstacleDoor(ObstacleId obstacleId, ObstacleRecord current)
+        {
+            bool nextIsOpen = !(current.IsOpen ?? false);
+            var request = new ToggleDoorStateRequest(_campaign, obstacleId, nextIsOpen, current.Revision, LocalActorUserId, NewCommandId(), NewCorrelationId());
+            Result<ObstacleRecord> toggled = ObstacleAuthoringService.ToggleDoorState(_obstacleRepository, _campaignRepository, request);
+            if (toggled.IsFailure)
+            {
+                SetStatus("Could not toggle the door: " + toggled.Error.SafeReasonCode);
+            }
+            else
+            {
+                SetStatus("Door is now " + (toggled.Value.IsOpen == true ? "open." : "closed."));
+            }
+
+            Refresh();
+        }
+
+        /// <summary>
+        /// MainGM-only manual damage command (task contract section 2.6) -- <see cref="ObstacleAuthoringService.ApplyObstacleDamage"/>
+        /// is a direct command outside the attack pipeline (SLICE-10 Block 5's own decision, unchanged here),
+        /// so its UI lives on the obstacle itself, not in any attack UI. Reads the durability revision fresh
+        /// immediately before writing, the same pattern every other command in this class already uses.
+        /// Public -- see the class remarks on testability.
+        /// </summary>
+        public Result<ObstacleDurabilityRecord> TryApplyObstacleDamage(ObstacleId obstacleId, long amount)
+        {
+            Result<ObstacleDurabilityRecord> current = _obstacleRepository.GetObstacleDurability(_campaign, obstacleId, NewCorrelationId());
+            if (current.IsFailure)
+            {
+                SetStatus("Could not read obstacle durability: " + current.Error.SafeReasonCode);
+                return current;
+            }
+
+            var request = new ApplyObstacleDamageRequest(_campaign, obstacleId, amount, current.Value.Revision, LocalActorUserId, NewCommandId(), NewCorrelationId());
+            Result<ObstacleDurabilityRecord> applied = ObstacleAuthoringService.ApplyObstacleDamage(_obstacleRepository, _campaignRepository, request);
+            if (applied.IsFailure)
+            {
+                SetStatus("Damage denied: " + applied.Error.SafeReasonCode);
+            }
+            else
+            {
+                SetStatus("Applied " + amount + " damage; " + applied.Value.CurrentHp + "/" + applied.Value.MaxHp + " HP remaining.");
+            }
+
+            Refresh();
+            return applied;
+        }
+
+        private void BuildObstacleInspector()
+        {
+            _obstacleInspectorElement = new VisualElement { name = "obstacle-inspector" };
+            _obstacleInspectorElement.style.position = Position.Absolute;
+            _obstacleInspectorElement.style.backgroundColor = new StyleColor(new Color(0.10f, 0.10f, 0.12f, 0.92f));
+            _obstacleInspectorElement.style.paddingLeft = 4;
+            _obstacleInspectorElement.style.paddingRight = 4;
+            _obstacleInspectorElement.style.paddingTop = 2;
+            _obstacleInspectorElement.style.paddingBottom = 2;
+            _obstacleInspectorElement.style.flexDirection = FlexDirection.Row;
+
+            _obstacleDamageAmountField = new IntegerField { name = "obstacle-damage-amount", value = 1 };
+            _obstacleDamageAmountField.style.width = 48;
+            _obstacleInspectorElement.Add(_obstacleDamageAmountField);
+
+            var damageButton = new Button(OnApplyDamageButtonClicked) { name = "obstacle-damage-button", text = "Apply Damage" };
+            _obstacleInspectorElement.Add(damageButton);
+        }
+
+        private void OnApplyDamageButtonClicked()
+        {
+            if (!_selectedObstacleId.HasValue || _obstacleDamageAmountField == null) return;
+            long amount = _obstacleDamageAmountField.value;
+            if (amount <= 0) return;
+            TryApplyObstacleDamage(_selectedObstacleId.Value, amount);
+        }
+
+        /// <summary>
+        /// Shows the damage panel next to the selected obstacle only when it is still rendered, has a
+        /// durability record (task contract section 2.6: no bar/panel at all for an indestructible
+        /// obstacle), and the local actor presents as MainGM (presentational only -- the server re-checks
+        /// <see cref="ObstacleAuthoringService.ApplyObstacleDamage"/> regardless).
+        /// </summary>
+        private void ShowObstacleInspectorIfSelected()
+        {
+            if (_obstacleInspectorElement == null || _boardArea == null) return;
+            if (!_selectedObstacleId.HasValue || !LocalActorIsMainGm)
+            {
+                _obstacleInspectorElement.RemoveFromHierarchy();
+                return;
+            }
+
+            string key = _selectedObstacleId.Value.ToString();
+            if (!_obstacleRecordsByObstacleId.TryGetValue(key, out ObstacleRecord obstacle) || !_obstacleDurabilityByObstacleId.ContainsKey(key))
+            {
+                _obstacleInspectorElement.RemoveFromHierarchy();
+                return;
+            }
+
+            double x1 = _camera.ToPixelsX(obstacle.X1);
+            double y1 = _camera.ToPixelsY(obstacle.Y1);
+            double x2 = _camera.ToPixelsX(obstacle.X2);
+            double y2 = _camera.ToPixelsY(obstacle.Y2);
+            _obstacleInspectorElement.style.left = (float)((x1 + x2) / 2.0);
+            _obstacleInspectorElement.style.top = (float)((y1 + y2) / 2.0 + 12.0);
+
+            if (_obstacleInspectorElement.parent != _boardArea) _boardArea.Add(_obstacleInspectorElement);
+        }
+
+        // ---- SLICE-10 Block 6 part 1: drawing a wall/door/window ---------------------------------------
+        //
+        // Real UI Toolkit callbacks are thin wrappers over BeginObstacleDraw/MoveObstacleDraw/EndObstacleDraw,
+        // the same testable-public-method shape as every other board gesture in this class. Until the gesture
+        // ends, only a visual preview line is shown -- no repository call happens until EndObstacleDraw
+        // decides the drag was long enough to commit (task contract section 2.2's own accidental-click guard).
+
+        private void OnToolSelected(BoardTool tool) => SetTool(tool);
+
+        /// <summary>
+        /// Switches the active tool. Refused (returns <c>false</c>, no change) while a draw gesture is
+        /// already in progress -- task contract section 2.1's own instruction that switching tools mid-gesture
+        /// must not abandon it; the gesture must be completed (mouse up) or explicitly cancelled
+        /// (<see cref="CancelObstacleDraw"/>, wired to Escape on the board area) first. Public -- see the
+        /// class remarks on testability.
+        /// </summary>
+        public bool SetTool(BoardTool tool)
+        {
+            if (_obstacleDrawGesture.IsActive) return false;
+            _currentTool = tool;
+            _toolbarPresenter?.SetActiveTool(tool);
+            return true;
+        }
+
+        /// <summary>The currently active tool. Exposed for tests.</summary>
+        public BoardTool CurrentTool => _currentTool;
+
+        private static ObstacleKind ToObstacleKind(BoardTool tool)
+        {
+            switch (tool)
+            {
+                case BoardTool.DrawWall: return ObstacleKind.Wall;
+                case BoardTool.DrawDoor: return ObstacleKind.Door;
+                case BoardTool.DrawWindow: return ObstacleKind.Window;
+                default: throw new ArgumentOutOfRangeException(nameof(tool), tool, "Not a drawing tool.");
+            }
+        }
+
+        /// <summary>Starts capturing a new obstacle segment at a board-local pixel position. Public -- see the class remarks on testability.</summary>
+        public void BeginObstacleDraw(double boardPixelX, double boardPixelY)
+        {
+            _obstacleDrawGesture.Begin(boardPixelX, boardPixelY);
+            ShowObstacleDrawPreview(boardPixelX, boardPixelY, boardPixelX, boardPixelY);
+        }
+
+        /// <summary>Feeds a pointer move into the in-progress segment capture, updating the preview line. Public -- see <see cref="BeginObstacleDraw"/>.</summary>
+        public void MoveObstacleDraw(double boardPixelX, double boardPixelY)
+        {
+            _obstacleDrawGesture.Move(boardPixelX, boardPixelY);
+            if (_obstacleDrawGesture.TryGetSegment(out double sx, out double sy, out double cx, out double cy))
+            {
+                ShowObstacleDrawPreview(sx, sy, cx, cy);
+            }
+        }
+
+        /// <summary>
+        /// Ends the segment capture. A movement below <see cref="BoardPointerGesture.DragThresholdPixels"/>
+        /// (an accidental click) creates nothing (task contract section 2.2); otherwise converts the two
+        /// pixel endpoints to world coordinates through <see cref="BoardCamera"/> and calls
+        /// <see cref="ObstacleAuthoringService.CreateObstacle"/> for the tool's own <see cref="ObstacleKind"/>.
+        /// The tool itself stays active afterwards (task contract section 2.2: drawing several obstacles in a
+        /// row needs no re-selection) -- only an explicit <see cref="SetTool"/> call changes it. Public -- see
+        /// <see cref="BeginObstacleDraw"/>.
+        /// </summary>
+        public void EndObstacleDraw(double boardPixelX, double boardPixelY)
+        {
+            _obstacleDrawGesture.Move(boardPixelX, boardPixelY);
+            bool committed = _obstacleDrawGesture.End(out double sx, out double sy, out double ex, out double ey);
+            HideObstacleDrawPreview();
+            if (!committed) return;
+
+            TokenPosition start = ToWorldPosition(sx, sy);
+            TokenPosition end = ToWorldPosition(ex, ey);
+            ObstacleKind kind = ToObstacleKind(_currentTool);
+            var request = new CreateObstacleRequest(_campaign, _sceneId, kind, start.X, start.Y, end.X, end.Y, LocalActorUserId, NewCommandId(), NewCorrelationId());
+            Result<ObstacleRecord> created = ObstacleAuthoringService.CreateObstacle(_obstacleRepository, _campaignRepository, request);
+            if (created.IsFailure)
+            {
+                // Task contract section 2.2: a denied request (not MainGM, etc.) must not leave a phantom
+                // obstacle -- nothing was created, and Refresh() below re-reads the real (unchanged) set.
+                SetStatus("Could not create obstacle: " + created.Error.SafeReasonCode);
+            }
+            else
+            {
+                SetStatus("Created " + kind + " obstacle.");
+            }
+
+            Refresh();
+        }
+
+        /// <summary>Aborts the in-progress segment capture without creating anything -- wired to Escape on the board area. Public -- see <see cref="BeginObstacleDraw"/>.</summary>
+        public void CancelObstacleDraw()
+        {
+            _obstacleDrawGesture.Cancel();
+            HideObstacleDrawPreview();
+        }
+
+        private void ShowObstacleDrawPreview(double x1, double y1, double x2, double y2)
+        {
+            if (_boardArea == null) return;
+            if (_obstacleDrawPreviewElement == null)
+            {
+                _obstacleDrawPreviewElement = new VisualElement { name = "obstacle-draw-preview", pickingMode = PickingMode.Ignore };
+                _obstacleDrawPreviewElement.style.position = Position.Absolute;
+                _obstacleDrawPreviewElement.style.backgroundColor = new StyleColor(new Color(1f, 0.85f, 0.1f, 0.6f));
+            }
+
+            PositionSegmentElement(_obstacleDrawPreviewElement, x1, y1, x2, y2, ObstacleLineThicknessPixels);
+            if (_obstacleDrawPreviewElement.parent != _boardArea) _boardArea.Add(_obstacleDrawPreviewElement);
+        }
+
+        private void HideObstacleDrawPreview() => _obstacleDrawPreviewElement?.RemoveFromHierarchy();
+
+        private void OnBoardKeyDown(KeyDownEvent evt)
+        {
+            if (evt.keyCode != KeyCode.Escape) return;
+            if (!_obstacleDrawGesture.IsActive) return;
+            CancelObstacleDraw();
+            evt.StopPropagation();
+        }
+
         // ---- ODY-S08-102: board camera (pan/zoom) and click-vs-drag gesture -------------------------
         //
         // The real UI Toolkit callbacks below are thin wrappers over BeginBoardPointerGesture/
@@ -856,7 +1324,11 @@ namespace Odyssey.Unity.Client
             {
                 case 0:
                     _activeBoardButton = 0;
-                    BeginBoardPointerGesture(pixelX, pixelY, shift);
+                    // SLICE-10 Block 6 part 1: which button-0 gesture owns this press is decided once, here,
+                    // from the tool active at press time -- see _obstacleDrawActive's own remarks.
+                    _obstacleDrawActive = _currentTool != BoardTool.Select;
+                    if (_obstacleDrawActive) BeginObstacleDraw(pixelX, pixelY);
+                    else BeginBoardPointerGesture(pixelX, pixelY, shift);
                     return true;
                 case 1:
                     _activeBoardButton = 1;
@@ -875,8 +1347,16 @@ namespace Odyssey.Unity.Client
         {
             if (_activeBoardButton == -1 || button != _activeBoardButton) return false;
             _activeBoardButton = -1;
-            if (button == 0) EndBoardPointerGesture(pixelX, pixelY);
-            else EndBoardPan();
+            if (button == 0)
+            {
+                if (_obstacleDrawActive) EndObstacleDraw(pixelX, pixelY);
+                else EndBoardPointerGesture(pixelX, pixelY);
+            }
+            else
+            {
+                EndBoardPan();
+            }
+
             return true;
         }
 
@@ -887,7 +1367,11 @@ namespace Odyssey.Unity.Client
         {
             if (_boardArea == null || _activeBoardButton == -1 || !_boardArea.HasPointerCapture(evt.pointerId)) return;
             Vector2 local = _boardArea.WorldToLocal(evt.position);
-            if (_activeBoardButton == 0) MoveBoardPointer(local.x, local.y);
+            if (_activeBoardButton == 0)
+            {
+                if (_obstacleDrawActive) MoveObstacleDraw(local.x, local.y);
+                else MoveBoardPointer(local.x, local.y);
+            }
             else if (_activeBoardButton == 1) MoveBoardPan(local.x, local.y);
         }
 
@@ -905,6 +1389,7 @@ namespace Odyssey.Unity.Client
             _boxGesture.Cancel();
             _activeBoardButton = -1;
             HideBoxElement();
+            CancelObstacleDraw();
         }
 
         private void OnBoardWheel(WheelEvent evt)
@@ -1026,6 +1511,20 @@ namespace Odyssey.Unity.Client
 
             if (wasClick)
             {
+                // SLICE-10 Block 6 part 1: an obstacle hit takes priority over the pre-existing token-move/
+                // deselect click behaviour below (a token's own pointer-down already stops propagation before
+                // reaching here, so the only real ambiguity is obstacle-vs-empty-board, not obstacle-vs-token).
+                ObstacleId? obstacleHit = HitTestObstacle(pixelX, pixelY);
+                if (obstacleHit.HasValue)
+                {
+                    HandleObstacleClick(obstacleHit.Value);
+                    return;
+                }
+
+                // Clearing here (without its own Refresh()) is enough -- every path below already calls
+                // Refresh() unconditionally before this method returns.
+                _selectedObstacleId = null;
+
                 // ODY-S08-106: with two or more tokens selected a single destination point cannot place them
                 // all, so a click on empty board just clears the selection. With exactly one selected token
                 // (or none) the behaviour is unchanged: try to move it there.

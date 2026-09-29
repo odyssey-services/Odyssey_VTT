@@ -5321,6 +5321,158 @@
                           "check":  "Only one mouse-button gesture runs at a time: middle/right presses during a left gesture are refused, another button's release is ignored, and the same holds for a left press during a middle pan"
                       },
                       {
+                          "testCaseId":  "TC-BOARD-103",
+                          "taskId":  "ODY-S10-111",
+                          "authority":  "SLICE-10 Block 6 part 1 task contract section 5/9",
+                          "runner":  "Unity EditMode",
+                          "path":  "Assets/Odyssey/Client/Tests/EditMode/BoardHitTestMathTests.cs",
+                          "check":  "DistancePointToSegment: a point directly on the segment is zero"
+                      },
+                      {
+                          "testCaseId":  "TC-BOARD-104",
+                          "taskId":  "ODY-S10-111",
+                          "authority":  "SLICE-10 Block 6 part 1 task contract section 5/9",
+                          "runner":  "Unity EditMode",
+                          "path":  "Assets/Odyssey/Client/Tests/EditMode/BoardHitTestMathTests.cs",
+                          "check":  "DistancePointToSegment: a point beyond the segment's end measures to the endpoint, not the infinite line"
+                      },
+                      {
+                          "testCaseId":  "TC-BOARD-105",
+                          "taskId":  "ODY-S10-111",
+                          "authority":  "SLICE-10 Block 6 part 1 task contract section 5/9",
+                          "runner":  "Unity EditMode",
+                          "path":  "Assets/Odyssey/Client/Tests/EditMode/BoardHitTestMathTests.cs",
+                          "check":  "DistancePointToSegment: a point beside the segment measures the perpendicular offset"
+                      },
+                      {
+                          "testCaseId":  "TC-BOARD-106",
+                          "taskId":  "ODY-S10-111",
+                          "authority":  "SLICE-10 Block 6 part 1 task contract section 5/9",
+                          "runner":  "Unity EditMode",
+                          "path":  "Assets/Odyssey/Client/Tests/EditMode/BoardHitTestMathTests.cs",
+                          "check":  "DistancePointToSegment: a point before the segment's start measures to the startpoint"
+                      },
+                      {
+                          "testCaseId":  "TC-BOARD-107",
+                          "taskId":  "ODY-S10-111",
+                          "authority":  "SLICE-10 Block 6 part 1 task contract section 5/9",
+                          "runner":  "Unity EditMode",
+                          "path":  "Assets/Odyssey/Client/Tests/EditMode/BoardHitTestMathTests.cs",
+                          "check":  "DistancePointToSegment: a degenerate zero-length segment is treated as a point"
+                      },
+                      {
+                          "testCaseId":  "TC-BOARD-108",
+                          "taskId":  "ODY-S10-111",
+                          "authority":  "SLICE-10 Block 6 part 1 task contract section 5/9",
+                          "runner":  "Unity EditMode",
+                          "path":  "Assets/Odyssey/Client/Tests/EditMode/BoardObstacleDrawGestureTests.cs",
+                          "check":  "Captures the segment from the start to the current pointer position, start point fixed"
+                      },
+                      {
+                          "testCaseId":  "TC-BOARD-109",
+                          "taskId":  "ODY-S10-111",
+                          "authority":  "SLICE-10 Block 6 part 1 task contract section 5/9",
+                          "runner":  "Unity EditMode",
+                          "path":  "Assets/Odyssey/Client/Tests/EditMode/BoardObstacleDrawGestureTests.cs",
+                          "check":  "End below the drag threshold reports no commit -- an accidental click"
+                      },
+                      {
+                          "testCaseId":  "TC-BOARD-110",
+                          "taskId":  "ODY-S10-111",
+                          "authority":  "SLICE-10 Block 6 part 1 task contract section 5/9",
+                          "runner":  "Unity EditMode",
+                          "path":  "Assets/Odyssey/Client/Tests/EditMode/BoardObstacleDrawGestureTests.cs",
+                          "check":  "End at or above the drag threshold reports a commit with the final segment"
+                      },
+                      {
+                          "testCaseId":  "TC-BOARD-111",
+                          "taskId":  "ODY-S10-111",
+                          "authority":  "SLICE-10 Block 6 part 1 task contract section 5/9",
+                          "runner":  "Unity EditMode",
+                          "path":  "Assets/Odyssey/Client/Tests/EditMode/BoardObstacleDrawGestureTests.cs",
+                          "check":  "Cancel discards the gesture -- neither End nor any further Move does anything"
+                      },
+                      {
+                          "testCaseId":  "TC-BOARD-112",
+                          "taskId":  "ODY-S10-111",
+                          "authority":  "SLICE-10 Block 6 part 1 task contract section 5/9",
+                          "runner":  "Unity EditMode",
+                          "path":  "Assets/Odyssey/Client/Tests/EditMode/BoardObstacleDrawGestureTests.cs",
+                          "check":  "Move or End with no active gesture is a no-op"
+                      },
+                      {
+                          "testCaseId":  "TC-BOARD-113",
+                          "taskId":  "ODY-S10-111",
+                          "authority":  "SLICE-10 Block 6 part 1 task contract section 5/9",
+                          "runner":  "Unity EditMode",
+                          "path":  "Assets/Odyssey/Client/Tests/EditMode/BoardScreenPresenterObstacleTests.cs",
+                          "check":  "DrawWall: a committed drag creates a real ObstacleRecord (Wall) at the dragged world coordinates; the tool stays active afterwards"
+                      },
+                      {
+                          "testCaseId":  "TC-BOARD-114",
+                          "taskId":  "ODY-S10-111",
+                          "authority":  "SLICE-10 Block 6 part 1 task contract section 5/9",
+                          "runner":  "Unity EditMode",
+                          "path":  "Assets/Odyssey/Client/Tests/EditMode/BoardScreenPresenterObstacleTests.cs",
+                          "check":  "DrawDoor: a committed drag creates a Door obstacle, closed by default"
+                      },
+                      {
+                          "testCaseId":  "TC-BOARD-115",
+                          "taskId":  "ODY-S10-111",
+                          "authority":  "SLICE-10 Block 6 part 1 task contract section 5/9",
+                          "runner":  "Unity EditMode",
+                          "path":  "Assets/Odyssey/Client/Tests/EditMode/BoardScreenPresenterObstacleTests.cs",
+                          "check":  "DrawWindow: a committed drag creates a Window obstacle"
+                      },
+                      {
+                          "testCaseId":  "TC-BOARD-116",
+                          "taskId":  "ODY-S10-111",
+                          "authority":  "SLICE-10 Block 6 part 1 task contract section 5/9",
+                          "runner":  "Unity EditMode",
+                          "path":  "Assets/Odyssey/Client/Tests/EditMode/BoardScreenPresenterObstacleTests.cs",
+                          "check":  "A drag below the pixel drag threshold creates nothing -- an accidental-click guard"
+                      },
+                      {
+                          "testCaseId":  "TC-BOARD-117",
+                          "taskId":  "ODY-S10-111",
+                          "authority":  "SLICE-10 Block 6 part 1 task contract section 5/9",
+                          "runner":  "Unity EditMode",
+                          "path":  "Assets/Odyssey/Client/Tests/EditMode/BoardScreenPresenterObstacleTests.cs",
+                          "check":  "Select mode: a click on a closed door toggles it open, through the real ToggleDoorState server call"
+                      },
+                      {
+                          "testCaseId":  "TC-BOARD-118",
+                          "taskId":  "ODY-S10-111",
+                          "authority":  "SLICE-10 Block 6 part 1 task contract section 5/9",
+                          "runner":  "Unity EditMode",
+                          "path":  "Assets/Odyssey/Client/Tests/EditMode/BoardScreenPresenterObstacleTests.cs",
+                          "check":  "A non-MainGm actor's drawing attempt is denied by the real server-side authorization -- no obstacle is created"
+                      },
+                      {
+                          "testCaseId":  "TC-BOARD-119",
+                          "taskId":  "ODY-S10-111",
+                          "authority":  "SLICE-10 Block 6 part 1 task contract section 5/9",
+                          "runner":  "Unity EditMode",
+                          "path":  "Assets/Odyssey/Client/Tests/EditMode/BoardScreenPresenterObstacleTests.cs",
+                          "check":  "ApplyObstacleDamage through the presenter's own public method reduces CurrentHp by the expected amount, persisted in the real repository"
+                      },
+                      {
+                          "testCaseId":  "TC-BOARD-120",
+                          "taskId":  "ODY-S10-111",
+                          "authority":  "SLICE-10 Block 6 part 1 task contract section 5/9",
+                          "runner":  "Unity EditMode",
+                          "path":  "Assets/Odyssey/Client/Tests/EditMode/BoardScreenPresenterObstacleTests.cs",
+                          "check":  "An obstacle with no durability record is still selectable, but exposes no HP bar/damage panel -- the expected, non-error case"
+                      },
+                      {
+                          "testCaseId":  "TC-BOARD-121",
+                          "taskId":  "ODY-S10-111",
+                          "authority":  "SLICE-10 Block 6 part 1 task contract section 5/9",
+                          "runner":  "Unity PlayMode",
+                          "path":  "Assets/Odyssey/Client/Tests/PlayMode/OdysseyPlayModeFoundationSmokeTests.cs",
+                          "check":  "A real pointer down->move->up sequence on the board in DrawWall mode, routed through real UI Toolkit input (not the presenter's public methods directly), creates a real obstacle"
+                      },
+                      {
                           "testCaseId":  "TC-CATALOG-001",
                           "taskId":  "ODY-S05-101",
                           "authority":  "ADR-027 section 4; 11_Content_Block_System section 5.3/6.1",
