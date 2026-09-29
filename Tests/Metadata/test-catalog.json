@@ -2361,6 +2361,14 @@
                           "check":  "CancelRoll: a registered-but-not-MainGm Player is denied for someone else's roll, and a real, separately-registered MainGm succeeds"
                       },
                       {
+                          "testCaseId":  "TC-DICE-029",
+                          "taskId":  "ODY-S10-105",
+                          "authority":  "Independent review of ODY-S10-105 (PR #194): missing fast-path proof for CancelRoll",
+                          "runner":  "dotnet test",
+                          "path":  "DotNet/Tests/Odyssey.Tests.Unit/Dice/DiceRollServiceTests.cs",
+                          "check":  "Cancelling one's own roll never calls the membership lookup at all (poisoned-repository proof, mirroring RequestFullReroll's own TC-DICE-027); cancelling someone else's roll does call it exactly once and fails closed"
+                      },
+                      {
                           "testCaseId":  "TC-NET-001",
                           "taskId":  "ODY-S02-001",
                           "authority":  "ADR-004; ADR-015; ODY-S02-001",
