@@ -109,8 +109,8 @@ namespace Odyssey.Tests.Persistence.Integration
             // persisted outcome, no Game Log entry, repeatable.
             long attackOutcomeBefore = Count("AttackOutcome");
             long gameLogBefore = Count("GameLogEntries");
-            Result<ProposedAttackResolution> preview1 = AttackEvaluationService.PreviewAttack(_reader, rules, _campaign, request);
-            Result<ProposedAttackResolution> preview2 = AttackEvaluationService.PreviewAttack(_reader, rules, _campaign, request);
+            Result<ProposedAttackResolution> preview1 = AttackEvaluationService.PreviewAttack(_reader, new SqliteCampaignRepository(_clock), rules, _campaign, request);
+            Result<ProposedAttackResolution> preview2 = AttackEvaluationService.PreviewAttack(_reader, new SqliteCampaignRepository(_clock), rules, _campaign, request);
             Assert.That(preview1.IsSuccess, Is.True);
             Assert.That(preview2.IsSuccess, Is.True, "Preview is repeatable without side effects.");
             Assert.That(random.CreateCalls, Is.EqualTo(0), "Preview never draws RNG.");
@@ -123,7 +123,7 @@ namespace Odyssey.Tests.Persistence.Integration
             // ActiveEffect row (Apply decision), and the resource delta --
             // all in the one atomic-apply transaction SqliteAttackApplyRepository
             // itself owns.
-            Result<AttackOutcomeRecord> result = AttackApplyService.ResolveAttack(_reader, rules, random, _apply, _campaign, Epoch, request);
+            Result<AttackOutcomeRecord> result = AttackApplyService.ResolveAttack(_reader, new SqliteCampaignRepository(_clock), rules, random, _apply, _campaign, Epoch, request);
 
             Assert.That(result.IsSuccess, Is.True);
             Assert.That(result.Value.OutcomeKind, Is.EqualTo(AttackOutcomeKind.Accepted));
@@ -149,7 +149,7 @@ namespace Odyssey.Tests.Persistence.Integration
             AttackRequest request = Request(encounter, actor, target, item);
             var random = new CountingRandomFactory();
 
-            Result<AttackOutcomeRecord> pending = AttackApplyService.ResolveAttack(_reader, rules, random, _apply, _campaign, Epoch, request);
+            Result<AttackOutcomeRecord> pending = AttackApplyService.ResolveAttack(_reader, new SqliteCampaignRepository(_clock), rules, random, _apply, _campaign, Epoch, request);
             Assert.That(pending.IsSuccess, Is.True);
             Assert.That(pending.Value.OutcomeKind, Is.EqualTo(AttackOutcomeKind.Pending), "A durable pending resolution, not an immediate commit.");
             Assert.That(random.CreateCalls, Is.EqualTo(1));
@@ -177,12 +177,12 @@ namespace Odyssey.Tests.Persistence.Integration
             AttackRequest request = Request(encounter, actor, target, item);
             var random = new CountingRandomFactory();
 
-            Result<AttackOutcomeRecord> first = AttackApplyService.ResolveAttack(_reader, rules, random, _apply, _campaign, Epoch, request);
+            Result<AttackOutcomeRecord> first = AttackApplyService.ResolveAttack(_reader, new SqliteCampaignRepository(_clock), rules, random, _apply, _campaign, Epoch, request);
             Assert.That(first.IsSuccess, Is.True);
             long attackOutcomeAfterFirst = Count("AttackOutcome");
             long gameLogAfterFirst = Count("GameLogEntries");
 
-            Result<AttackOutcomeRecord> retry = AttackApplyService.ResolveAttack(_reader, rules, random, _apply, _campaign, Epoch, request);
+            Result<AttackOutcomeRecord> retry = AttackApplyService.ResolveAttack(_reader, new SqliteCampaignRepository(_clock), rules, random, _apply, _campaign, Epoch, request);
 
             Assert.That(retry.IsSuccess, Is.True);
             Assert.That(retry.Value.ResolveAttackCommandId, Is.EqualTo(first.Value.ResolveAttackCommandId));
@@ -205,12 +205,12 @@ namespace Odyssey.Tests.Persistence.Integration
             // advance the encounter for real before ever calling ResolveAttack --
             // exactly the "preview, then the world moved on" scenario.
             AttackRequest staleRequest = Request(encounter, actor, target, item);
-            Result<ProposedAttackResolution> stalePreview = AttackEvaluationService.PreviewAttack(_reader, rules, _campaign, staleRequest);
+            Result<ProposedAttackResolution> stalePreview = AttackEvaluationService.PreviewAttack(_reader, new SqliteCampaignRepository(_clock), rules, _campaign, staleRequest);
             Assert.That(stalePreview.IsSuccess, Is.True, "The preview itself succeeded against the revision current at preview time.");
             encounter = Advance(Advance(encounter));
             long attackOutcomeBefore = Count("AttackOutcome");
 
-            Result<AttackOutcomeRecord> result = AttackApplyService.ResolveAttack(_reader, rules, new CountingRandomFactory(), _apply, _campaign, Epoch, staleRequest);
+            Result<AttackOutcomeRecord> result = AttackApplyService.ResolveAttack(_reader, new SqliteCampaignRepository(_clock), rules, new CountingRandomFactory(), _apply, _campaign, Epoch, staleRequest);
 
             Assert.That(result.IsFailure, Is.True, "Apply-time re-authorization rejects the now-stale ExpectedEncounterRevision -- never silently applies preview-time data.");
             Assert.That(Count("AttackOutcome"), Is.EqualTo(attackOutcomeBefore));
@@ -227,7 +227,7 @@ namespace Odyssey.Tests.Persistence.Integration
             var binding = new CombatDurationBinding(encounter.EncounterId, actor, target, encounter.RoundOrdinal, 0, 1);
             var rules = new Rules(requiresIntervention: false, effectDecision: EffectApplicationDecision.Apply, durationBinding: binding, damageDeltas: Array.Empty<AttackDelta>(), costDeltas: Array.Empty<AttackDelta>());
 
-            Result<AttackOutcomeRecord> result = AttackApplyService.ResolveAttack(_reader, rules, new CountingRandomFactory(), _apply, _campaign, Epoch, Request(encounter, actor, target, item));
+            Result<AttackOutcomeRecord> result = AttackApplyService.ResolveAttack(_reader, new SqliteCampaignRepository(_clock), rules, new CountingRandomFactory(), _apply, _campaign, Epoch, Request(encounter, actor, target, item));
             Assert.That(result.IsSuccess, Is.True);
             ActiveEffectRecord candidate = _activeEffects.ListActiveEffectsByTarget(_campaign, _campaign.CampaignId, ActiveEffectTargetRef.ForCharacter(target), Corr).Value[0];
 
@@ -256,7 +256,7 @@ namespace Odyssey.Tests.Persistence.Integration
             CombatEncounterRecord encounter = CreateEncounter(actor, target);
             ItemInstanceRecord item = ItemFor(actor);
             var rules = new Rules(requiresIntervention: false, effectDecision: EffectApplicationDecision.DoNotApply, durationBinding: null, damageDeltas: Array.Empty<AttackDelta>(), costDeltas: Array.Empty<AttackDelta>());
-            Result<AttackOutcomeRecord> accepted = AttackApplyService.ResolveAttack(_reader, rules, new CountingRandomFactory(), _apply, _campaign, Epoch, Request(encounter, actor, target, item));
+            Result<AttackOutcomeRecord> accepted = AttackApplyService.ResolveAttack(_reader, new SqliteCampaignRepository(_clock), rules, new CountingRandomFactory(), _apply, _campaign, Epoch, Request(encounter, actor, target, item));
             Assert.That(accepted.IsSuccess, Is.True);
             string originalSummary = GameLogSummary(accepted.Value.GameLogEntryId!);
             long gameLogBefore = Count("GameLogEntries");
@@ -282,7 +282,7 @@ namespace Odyssey.Tests.Persistence.Integration
             ItemInstanceRecord item = ItemFor(actor);
             var rules = new Rules(requiresIntervention: false, effectDecision: EffectApplicationDecision.DoNotApply, durationBinding: null, damageDeltas: Array.Empty<AttackDelta>(), costDeltas: Array.Empty<AttackDelta>());
 
-            Result<AttackOutcomeRecord> result = AttackApplyService.ResolveAttack(_reader, rules, new CountingRandomFactory(), _apply, _campaign, Epoch, Request(encounter, actor, target, item));
+            Result<AttackOutcomeRecord> result = AttackApplyService.ResolveAttack(_reader, new SqliteCampaignRepository(_clock), rules, new CountingRandomFactory(), _apply, _campaign, Epoch, Request(encounter, actor, target, item));
             Assert.That(result.IsSuccess, Is.True);
 
             IReadOnlyList<GameLogEntryRecord> entries = _gameLog.ListGameLog(_campaign, Corr).Value;
@@ -304,7 +304,7 @@ namespace Odyssey.Tests.Persistence.Integration
             var rules = new Rules(requiresIntervention: false, effectDecision: EffectApplicationDecision.DoNotApply, durationBinding: null, damageDeltas: new[] { new AttackDelta("item:" + item.ItemInstanceId + ":durability", -1) }, costDeltas: Array.Empty<AttackDelta>());
             long before = TotalRowCount();
 
-            Result<AttackOutcomeRecord> result = AttackApplyService.ResolveAttack(_reader, rules, new CountingRandomFactory(), _apply, _campaign, Epoch, Request(encounter, actor, target, item));
+            Result<AttackOutcomeRecord> result = AttackApplyService.ResolveAttack(_reader, new SqliteCampaignRepository(_clock), rules, new CountingRandomFactory(), _apply, _campaign, Epoch, Request(encounter, actor, target, item));
 
             Assert.That(result.IsFailure, Is.True, "609's own disclosed, escalated blocker -- item-targeted deltas are always a typed rejection, never a successful application; 608 does not attempt to close this gap.");
             Assert.That(TotalRowCount(), Is.EqualTo(before), "No partial commit -- not even the AttackOutcome row itself.");
@@ -350,7 +350,7 @@ namespace Odyssey.Tests.Persistence.Integration
             => CombatEncounterService.Advance(_encounters, new SqliteCampaignRepository(_clock), _campaign, new AdvanceCombatEncounterRequest(encounter.EncounterId, encounter.Revision, global::Odyssey.Application.Identity.DevIdentityProvider.AssignHost(), Command()), Corr).Value;
 
         private static AttackRequest Request(CombatEncounterRecord encounter, CharacterId actor, CharacterId target, ItemInstanceRecord item)
-            => new AttackRequest(new AttackIntent(encounter.EncounterId, actor, new[] { target }, item.ItemInstanceId, encounter.Revision), User(), true, Command(), Corr);
+            => new AttackRequest(new AttackIntent(encounter.EncounterId, actor, new[] { target }, item.ItemInstanceId, encounter.Revision), global::Odyssey.Application.Identity.DevIdentityProvider.AssignHost(), Command(), Corr);
 
         private CharacterId Active(string name)
         {

@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using NUnit.Framework;
 using Odyssey.Application.Commands;
 using Odyssey.Application.Combat;
+using Odyssey.Application.Identity;
 using Odyssey.Application.Persistence;
 using Odyssey.Application.Random;
 using Odyssey.Application.Results;
@@ -18,6 +19,14 @@ namespace Odyssey.Tests.Unit
 {
     public sealed class AttackEvaluationServiceTests
     {
+        private static readonly UserId Host = global::Odyssey.Application.Identity.DevIdentityProvider.AssignHost();
+
+        private static FakeCampaignRepository NewCampaignRepository()
+        {
+            var repository = new FakeCampaignRepository();
+            Assert.That(repository.AddMember(Campaign(), Host, CampaignMembershipRole.MainGm, CommandId.Parse("cmd_" + Guid.NewGuid().ToString("N")), CorrelationId.Parse("corr_" + Guid.NewGuid().ToString("N"))).IsSuccess, Is.True);
+            return repository;
+        }
         [Test]
         public void Intent_RejectsInvalidOrDuplicateTargets_AndCopiesTargetList()
         {
@@ -38,7 +47,7 @@ namespace Odyssey.Tests.Unit
             var reader = new Reader(State());
             var rules = new Rules();
             var random = new ThrowingRandomFactory();
-            Result<ProposedAttackResolution> result = AttackEvaluationService.PreviewAttack(reader, rules, Campaign(), Request());
+            Result<ProposedAttackResolution> result = AttackEvaluationService.PreviewAttack(reader, NewCampaignRepository(), rules, Campaign(), Request());
             Assert.That(result.IsSuccess, Is.True);
             Assert.That(rules.PreviewCalls, Is.EqualTo(1));
             Assert.That(rules.EvaluateCalls, Is.Zero);
@@ -53,7 +62,7 @@ namespace Odyssey.Tests.Unit
             var rules = new Rules();
             var random = new RecordingRandomFactory();
             AttackRequest request = Request();
-            Result<ProposedAttackResolution> result = AttackEvaluationService.EvaluateAttack(reader, rules, random, Campaign(), RngKeyEpochId.Parse("epoch-001"), request);
+            Result<ProposedAttackResolution> result = AttackEvaluationService.EvaluateAttack(reader, NewCampaignRepository(), rules, random, Campaign(), RngKeyEpochId.Parse("epoch-001"), request);
             Assert.That(result.IsSuccess, Is.True);
             Assert.That(rules.EvaluateCalls, Is.EqualTo(1));
             Assert.That(result.Value.RandomSample!.Value.Value, Is.InRange(1, 100));
@@ -66,12 +75,13 @@ namespace Odyssey.Tests.Unit
         [Test]
         public void Evaluation_RejectsUnauthorizedOrInactiveActor_BeforeRulesAndRng()
         {
+            var campaignRepository = NewCampaignRepository();
             var unauthorized = new Reader(State()) { CanControl = false };
-            Result<ProposedAttackResolution> denied = AttackEvaluationService.PreviewAttack(unauthorized, new Rules(), Campaign(), Request(mainGm: false));
+            Result<ProposedAttackResolution> denied = AttackEvaluationService.PreviewAttack(unauthorized, campaignRepository, new Rules(), Campaign(), Request(mainGm: false));
             Assert.That(denied.IsFailure, Is.True);
             Assert.That(denied.Error.SafeReasonCode, Is.EqualTo(SafeReasonCode.PermissionDenied));
             var inactive = new Reader(State(current: Target()));
-            Result<ProposedAttackResolution> notTurn = AttackEvaluationService.PreviewAttack(inactive, new Rules(), Campaign(), Request());
+            Result<ProposedAttackResolution> notTurn = AttackEvaluationService.PreviewAttack(inactive, campaignRepository, new Rules(), Campaign(), Request());
             Assert.That(notTurn.IsFailure, Is.True);
             Assert.That(notTurn.Error.SafeReasonCode, Is.EqualTo(SafeReasonCode.ActionNotAllowed));
         }
@@ -79,7 +89,7 @@ namespace Odyssey.Tests.Unit
         [Test]
         public void Proposal_IsImmutableHostOnlyData_AndDoesNotExposeRngProof()
         {
-            Result<ProposedAttackResolution> result = AttackEvaluationService.EvaluateAttack(new Reader(State()), new Rules(), new RecordingRandomFactory(), Campaign(), RngKeyEpochId.Parse("epoch-001"), Request());
+            Result<ProposedAttackResolution> result = AttackEvaluationService.EvaluateAttack(new Reader(State()), NewCampaignRepository(), new Rules(), new RecordingRandomFactory(), Campaign(), RngKeyEpochId.Parse("epoch-001"), Request());
             Assert.That(result.IsSuccess, Is.True);
             Assert.That(typeof(ProposedAttackResolution).GetProperty("RandomSample")!.PropertyType, Is.EqualTo(typeof(AttackRandomSample?)));
             Assert.That(typeof(AttackRandomSample).GetProperty("ProofData"), Is.Null);
@@ -89,10 +99,11 @@ namespace Odyssey.Tests.Unit
         [Test]
         public void Evaluation_RejectsStaleRevisionOrTargetOutsideEncounter_BeforeRules()
         {
+            var campaignRepository = NewCampaignRepository();
             var stale = new Reader(State(revision: 2));
-            Assert.That(AttackEvaluationService.PreviewAttack(stale, new Rules(), Campaign(), Request()).IsFailure, Is.True);
-            AttackRequest wrongTarget = new AttackRequest(new AttackIntent(Encounter(), Actor(), new[] { CharacterId.Parse("char_11111111111111111111111111111111") }, Item(), 1), UserId.Parse("user_0123456789abcdef0123456789abcdef"), true, CommandId.Parse("cmd_0123456789abcdef0123456789abcdef"), CorrelationId.Parse("corr_0123456789abcdef0123456789abcdef"));
-            Assert.That(AttackEvaluationService.PreviewAttack(new Reader(State()), new Rules(), Campaign(), wrongTarget).IsFailure, Is.True);
+            Assert.That(AttackEvaluationService.PreviewAttack(stale, campaignRepository, new Rules(), Campaign(), Request()).IsFailure, Is.True);
+            AttackRequest wrongTarget = new AttackRequest(new AttackIntent(Encounter(), Actor(), new[] { CharacterId.Parse("char_11111111111111111111111111111111") }, Item(), 1), Host, CommandId.Parse("cmd_0123456789abcdef0123456789abcdef"), CorrelationId.Parse("corr_0123456789abcdef0123456789abcdef"));
+            Assert.That(AttackEvaluationService.PreviewAttack(new Reader(State()), campaignRepository, new Rules(), Campaign(), wrongTarget).IsFailure, Is.True);
         }
 
         [Test] // TC-ATTACK-022
@@ -114,7 +125,7 @@ namespace Odyssey.Tests.Unit
         [Test]
         public void Preview_HasNoSample_AndAllProposalCollectionsAreCopied()
         {
-            ProposedAttackResolution preview = AttackEvaluationService.PreviewAttack(new Reader(State()), new Rules(), Campaign(), Request()).Value;
+            ProposedAttackResolution preview = AttackEvaluationService.PreviewAttack(new Reader(State()), NewCampaignRepository(), new Rules(), Campaign(), Request()).Value;
             Assert.That(preview.RandomSample.HasValue, Is.False);
             Assert.That(preview.Range.IsInRange, Is.True);
             Assert.That(preview.Modifiers.Count, Is.EqualTo(1));
@@ -125,6 +136,40 @@ namespace Odyssey.Tests.Unit
             Assert.That(preview.EffectCandidates.Count, Is.EqualTo(1));
         }
 
+        [Test] // MG-3b: TC-ATTACK-127 -- owner without MainGm still succeeds via CanControlActor (regression: this path must not be broken by the new MainGm check).
+        public void Evaluation_OwnerWithoutMainGm_StillSucceedsThroughCanControlActor()
+        {
+            var owner = new Reader(State()) { CanControl = true };
+            Result<ProposedAttackResolution> result = AttackEvaluationService.PreviewAttack(owner, NewCampaignRepository(), new Rules(), Campaign(), Request(mainGm: false));
+            Assert.That(result.IsSuccess, Is.True, "an owner (CanControlActor) must still be authorized without being MainGm");
+        }
+
+        [Test] // MG-3b: TC-ATTACK-128 -- a registered-but-not-MainGm, non-owning user is denied; a real MainGm succeeds even when CanControlActor would say no.
+        public void Evaluation_AreMainGmOrOwnerOnly_ByTheStoredMembership()
+        {
+            var campaignRepository = NewCampaignRepository();
+            UserId player = UserId.Parse("user_" + Guid.NewGuid().ToString("N"));
+            Assert.That(campaignRepository.AddMember(Campaign(), player, CampaignMembershipRole.Player, CommandId.Parse("cmd_" + Guid.NewGuid().ToString("N")), CorrelationId.Parse("corr_" + Guid.NewGuid().ToString("N"))).IsSuccess, Is.True);
+
+            var notOwner = new Reader(State()) { CanControl = false };
+            AttackRequest playerRequest = new AttackRequest(new AttackIntent(Encounter(), Actor(), new[] { Target() }, Item(), 1), player, CommandId.Parse("cmd_0123456789abcdef0123456789abcdef"), CorrelationId.Parse("corr_0123456789abcdef0123456789abcdef"));
+            Result<ProposedAttackResolution> deniedForPlayer = AttackEvaluationService.PreviewAttack(notOwner, campaignRepository, new Rules(), Campaign(), playerRequest);
+            Assert.That(deniedForPlayer.IsFailure, Is.True, "a registered Player who does not control the actor must still be denied");
+
+            Result<ProposedAttackResolution> succeedsForHost = AttackEvaluationService.PreviewAttack(notOwner, campaignRepository, new Rules(), Campaign(), Request(mainGm: true));
+            Assert.That(succeedsForHost.IsSuccess, Is.True, "a genuinely registered MainGm must be authorized even without CanControlActor");
+        }
+
+        [Test] // MG-3b: TC-ATTACK-129 -- fail-closed when the membership lookup itself cannot be read.
+        public void Evaluation_FailsClosed_WhenTheMembershipLookupFails()
+        {
+            var poisoned = PoisonedCampaignRepository.FailsOnLookup();
+            Result<ProposedAttackResolution> result = AttackEvaluationService.PreviewAttack(new Reader(State()) { CanControl = false }, poisoned, new Rules(), Campaign(), Request());
+            Assert.That(result.IsFailure, Is.True);
+            Assert.That(result.Error.Code, Is.EqualTo(ErrorCodes.PersistenceCampaignIoFailed), "an unreadable membership is the lookup's own failure, not a pass and not a fake denial -- even for the host");
+            Assert.That(poisoned.LookupCalls, Is.EqualTo(1));
+        }
+
         private static CampaignHandle Campaign()
         {
             CampaignId id = CampaignId.Parse("camp_0123456789abcdef0123456789abcdef");
@@ -132,7 +177,7 @@ namespace Odyssey.Tests.Unit
             return new CampaignHandle(id, CampaignPublicId.Parse("cpub_0123456789abcdef0123456789abcdef"), "test", new CampaignManifest(id, "test", "1", "1", "core", "1.0.0", now, now, "1", 1, false));
         }
 
-        private static AttackRequest Request(bool mainGm = true) => new AttackRequest(new AttackIntent(Encounter(), Actor(), new[] { Target() }, Item(), 1), UserId.Parse("user_0123456789abcdef0123456789abcdef"), mainGm, CommandId.Parse("cmd_0123456789abcdef0123456789abcdef"), CorrelationId.Parse("corr_0123456789abcdef0123456789abcdef"));
+        private static AttackRequest Request(bool mainGm = true) => new AttackRequest(new AttackIntent(Encounter(), Actor(), new[] { Target() }, Item(), 1), mainGm ? Host : UserId.Parse("user_0123456789abcdef0123456789abcdef"), CommandId.Parse("cmd_0123456789abcdef0123456789abcdef"), CorrelationId.Parse("corr_0123456789abcdef0123456789abcdef"));
         private static AttackEvaluationState State(CharacterId? current = null, long revision = 1) => new AttackEvaluationState(new CombatEncounterRecord(Encounter(), Campaign().CampaignId, "core", "1.0.0", new[] { new CombatParticipant(Actor(), 0), new CombatParticipant(Target(), 1) }, revision, 1, 1, CombatEncounterStatus.Open, CombatPhase.TurnOpen, current ?? Actor(), default, default), new AttackEvaluationSnapshot("fingerprint", "core", "1.0.0", revision, Source(), Mechanics(), Participant(Actor()), Array.AsReadOnly(new[] { Participant(Target()) }), AttackTopologyInput.Unavailable("no topology"), AttackArmorInput.Unavailable("no armor/effects")));
         private static CombatEncounterId Encounter() => CombatEncounterId.Parse("enc_0123456789abcdef0123456789abcdef");
         private static CharacterId Actor() => CharacterId.Parse("char_0123456789abcdef0123456789abcdef");
@@ -172,6 +217,57 @@ namespace Odyssey.Tests.Unit
             private readonly IAuthoritativeRandomStreamFactory _inner = new DeterministicRandomStreamFactory(CampaignRngKey.FromBytes(new byte[32] { 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1 }));
             public RandomDecisionContext Context = null!;
             public Result<IAuthoritativeRandomStream> Create(RandomDecisionContext context) { Context = context; return _inner.Create(context); }
+        }
+
+        /// <summary>A minimal in-memory <see cref="ICampaignRepository"/> -- this project has no reference to the real SQLite one.</summary>
+        private sealed class FakeCampaignRepository : ICampaignRepository
+        {
+            private readonly Dictionary<string, CampaignMembershipRole> _members = new Dictionary<string, CampaignMembershipRole>();
+
+            public Result<CampaignMembership> AddMember(CampaignHandle campaign, UserId userId, CampaignMembershipRole role, CommandId commandId, CorrelationId correlationId)
+            {
+                string key = userId.ToString();
+                if (_members.ContainsKey(key))
+                {
+                    return Result<CampaignMembership>.Failure(PersistenceFailures.CampaignIoFailed(correlationId));
+                }
+
+                _members[key] = role;
+                return Result<CampaignMembership>.Success(new CampaignMembership(userId, campaign.CampaignId, role, 1,
+                    UtcInstant.FromDateTimeOffset(DateTimeOffset.UtcNow), UtcInstant.FromDateTimeOffset(DateTimeOffset.UtcNow)));
+            }
+
+            public Result<CampaignMemberLookup> GetMemberRole(CampaignHandle campaign, UserId userId, CorrelationId correlationId)
+            {
+                return _members.TryGetValue(userId.ToString(), out CampaignMembershipRole role)
+                    ? Result<CampaignMemberLookup>.Success(CampaignMemberLookup.Member(role))
+                    : Result<CampaignMemberLookup>.Success(CampaignMemberLookup.NotAMember);
+            }
+
+            public Result<CampaignHandle> Create(CreateCampaignRequest request, CommandId commandId, CorrelationId correlationId) => throw new NotSupportedException();
+            public Result<CampaignHandle> Open(string campaignFolderPath, CorrelationId correlationId) => throw new NotSupportedException();
+            public Result Close(CampaignHandle handle, CorrelationId correlationId) => throw new NotSupportedException();
+            public Result<IReadOnlyList<CampaignMembership>> ListMembers(CampaignHandle campaign, CorrelationId correlationId) => throw new NotSupportedException();
+        }
+
+        /// <summary>A campaign repository whose membership lookup always fails -- everything else is unused by these checks.</summary>
+        private sealed class PoisonedCampaignRepository : ICampaignRepository
+        {
+            public static PoisonedCampaignRepository FailsOnLookup() => new PoisonedCampaignRepository();
+
+            public int LookupCalls { get; private set; }
+
+            public Result<CampaignMemberLookup> GetMemberRole(CampaignHandle campaign, UserId userId, CorrelationId correlationId)
+            {
+                LookupCalls++;
+                return Result<CampaignMemberLookup>.Failure(PersistenceFailures.CampaignIoFailed(correlationId));
+            }
+
+            public Result<CampaignHandle> Create(CreateCampaignRequest request, CommandId commandId, CorrelationId correlationId) => throw new NotSupportedException();
+            public Result<CampaignHandle> Open(string campaignFolderPath, CorrelationId correlationId) => throw new NotSupportedException();
+            public Result Close(CampaignHandle handle, CorrelationId correlationId) => throw new NotSupportedException();
+            public Result<CampaignMembership> AddMember(CampaignHandle campaign, UserId userId, CampaignMembershipRole role, CommandId commandId, CorrelationId correlationId) => throw new NotSupportedException();
+            public Result<IReadOnlyList<CampaignMembership>> ListMembers(CampaignHandle campaign, CorrelationId correlationId) => throw new NotSupportedException();
         }
     }
 }

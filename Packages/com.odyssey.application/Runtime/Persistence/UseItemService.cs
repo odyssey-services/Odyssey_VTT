@@ -6,6 +6,7 @@ using System.Text;
 using Odyssey.Application.Commands;
 using Odyssey.Application.Content;
 using Odyssey.Application.Effects;
+using Odyssey.Application.Identity;
 using Odyssey.Application.Mechanics;
 using Odyssey.Application.Random;
 using Odyssey.Application.Results;
@@ -43,9 +44,10 @@ namespace Odyssey.Application.Persistence
         // identical reason: formulas are not decoded until after these draws happen.
         private const int MaxRandomDraws = 4;
 
-        public static Result<ItemUsageRecord> UseItem(IUseItemStateReader reader, IUseItemRepository apply, IContentCatalogRepository catalog, IActiveEffectRepository effects, IAuthoritativeRandomStreamFactory random, IWallClock clock, CampaignHandle campaign, RngKeyEpochId keyEpochId, UseItemRequest request)
+        public static Result<ItemUsageRecord> UseItem(IUseItemStateReader reader, ICampaignRepository campaignRepository, IUseItemRepository apply, IContentCatalogRepository catalog, IActiveEffectRepository effects, IAuthoritativeRandomStreamFactory random, IWallClock clock, CampaignHandle campaign, RngKeyEpochId keyEpochId, UseItemRequest request)
         {
             if (reader == null || apply == null || catalog == null || effects == null || random == null || clock == null) throw new ArgumentNullException(nameof(reader));
+            if (campaignRepository == null) throw new ArgumentNullException(nameof(campaignRepository));
             if (campaign == null || request == null) throw new ArgumentNullException(nameof(campaign));
 
             // ADR-008 rule 14 + ODY-S06-106's own final, thrice-revised idempotency shape, built here from
@@ -69,7 +71,7 @@ namespace Odyssey.Application.Persistence
                 return existing;
             }
 
-            Result<bool> authorized = Authorize(reader, campaign, request);
+            Result<bool> authorized = Authorize(reader, campaignRepository, campaign, request);
             if (authorized.IsFailure) return Result<ItemUsageRecord>.Failure(authorized.Error);
             if (!authorized.Value) return Result<ItemUsageRecord>.Failure(Denied(request.CorrelationId));
 
@@ -147,9 +149,11 @@ namespace Odyssey.Application.Persistence
             return Result<ItemUsageRecord>.Success(recorded.Value);
         }
 
-        private static Result<bool> Authorize(IUseItemStateReader reader, CampaignHandle campaign, UseItemRequest request)
+        private static Result<bool> Authorize(IUseItemStateReader reader, ICampaignRepository campaignRepository, CampaignHandle campaign, UseItemRequest request)
         {
-            if (request.ActorIsMainGm) return Result<bool>.Success(true);
+            Result<bool> mainGmCheck = CampaignMembershipAuthorization.IsMainGm(campaignRepository, campaign, request.ActorUserId, request.CorrelationId);
+            if (mainGmCheck.IsFailure) return mainGmCheck;
+            if (mainGmCheck.Value) return Result<bool>.Success(true);
             return reader.CanControlActor(campaign, request.Intent.ActorId, request.ActorUserId, request.CorrelationId);
         }
 

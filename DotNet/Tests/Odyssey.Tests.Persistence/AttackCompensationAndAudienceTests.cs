@@ -147,7 +147,7 @@ namespace Odyssey.Tests.Persistence
             CombatEncounterRecord encounter = CreateEncounter(actor, target);
             ItemInstanceRecord item = ItemFor(actor);
             var rules = new Rules(requiresIntervention: true);
-            Result<AttackOutcomeRecord> pending = AttackApplyService.ResolveAttack(_reader, rules, new CountingRandomFactory(), _apply, _campaign, Epoch, Request(encounter, actor, target, item));
+            Result<AttackOutcomeRecord> pending = AttackApplyService.ResolveAttack(_reader, new SqliteCampaignRepository(_clock), rules, new CountingRandomFactory(), _apply, _campaign, Epoch, Request(encounter, actor, target, item));
             Assert.That(pending.IsSuccess, Is.True);
             Assert.That(pending.Value.OutcomeKind, Is.EqualTo(AttackOutcomeKind.Pending));
 
@@ -188,7 +188,7 @@ namespace Odyssey.Tests.Persistence
             CombatEncounterRecord encounter = CreateEncounter(actor, target);
             ItemInstanceRecord item = ItemFor(actor);
             var rules = new Rules(requiresIntervention: false);
-            Result<AttackOutcomeRecord> result = AttackApplyService.ResolveAttack(_reader, rules, new CountingRandomFactory(), _apply, _campaign, Epoch, Request(encounter, actor, target, item));
+            Result<AttackOutcomeRecord> result = AttackApplyService.ResolveAttack(_reader, new SqliteCampaignRepository(_clock), rules, new CountingRandomFactory(), _apply, _campaign, Epoch, Request(encounter, actor, target, item));
             Assert.That(result.IsSuccess, Is.True);
 
             IReadOnlyList<GameLogEntryRecord> entries = _gameLog.ListGameLog(_campaign, Corr).Value;
@@ -235,7 +235,7 @@ namespace Odyssey.Tests.Persistence
             CombatEncounterRecord encounter = CreateEncounter(actor, target);
             ItemInstanceRecord item = ItemFor(actor);
             var rules = new Rules(requiresIntervention: false);
-            Result<AttackOutcomeRecord> result = AttackApplyService.ResolveAttack(_reader, rules, new CountingRandomFactory(), _apply, _campaign, Epoch, Request(encounter, actor, target, item));
+            Result<AttackOutcomeRecord> result = AttackApplyService.ResolveAttack(_reader, new SqliteCampaignRepository(_clock), rules, new CountingRandomFactory(), _apply, _campaign, Epoch, Request(encounter, actor, target, item));
             Assert.That(result.IsSuccess, Is.True);
             Assert.That(result.Value.GameLogEntryId, Is.Not.Null);
             return (result.Value, actor, target);
@@ -252,7 +252,7 @@ namespace Odyssey.Tests.Persistence
             => CombatEncounterService.Create(_encounters, new SqliteCampaignRepository(_clock), _campaign, new CreateCombatEncounterRequest(new[] { a, b }, global::Odyssey.Application.Identity.DevIdentityProvider.AssignHost(), Command()), Corr).Value;
 
         private static AttackRequest Request(CombatEncounterRecord encounter, CharacterId actor, CharacterId target, ItemInstanceRecord item)
-            => new AttackRequest(new AttackIntent(encounter.EncounterId, actor, new[] { target }, item.ItemInstanceId, encounter.Revision), User(), true, Command(), Corr);
+            => new AttackRequest(new AttackIntent(encounter.EncounterId, actor, new[] { target }, item.ItemInstanceId, encounter.Revision), global::Odyssey.Application.Identity.DevIdentityProvider.AssignHost(), Command(), Corr);
 
         private CharacterId Active(string name)
         {

@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using System.IO;
 using NUnit.Framework;
 using Odyssey.Application.CharacterAdvancement;
@@ -68,7 +69,7 @@ namespace Odyssey.Tests.Persistence
             ContentDefinitionRecord published = PublishAbilityWithAdjustResource(costMana: 3, resourceKind: Health, amountFormula: "-5");
             CharacterAbility ability = GrantActivatableAbility(actor, published);
 
-            Result<AbilityActivationRecord> result = ActivateAbilityService.ActivateAbility(_reader, _apply, _catalog, _effects, new ThrowingRandomFactory(), _clock, _campaign, Epoch, Request(actor, ability.CharacterAbilityId, actor));
+            Result<AbilityActivationRecord> result = ActivateAbilityService.ActivateAbility(_reader, new SqliteCampaignRepository(_clock), _apply, _catalog, _effects, new ThrowingRandomFactory(), _clock, _campaign, Epoch, Request(actor, ability.CharacterAbilityId, actor));
 
             Assert.That(result.IsSuccess, Is.True, result.IsFailure ? result.Error.Code.ToString() : string.Empty);
             Assert.That(CurrentValue(actor, Mana), Is.EqualTo(7), "10 - 3 cost = 7.");
@@ -85,7 +86,7 @@ namespace Odyssey.Tests.Persistence
             ContentDefinitionRecord published = PublishAbilityWithAdjustResource(costMana: 0, resourceKind: Health, amountFormula: "-1d6-Strength");
             CharacterAbility ability = GrantActivatableAbility(actor, published);
 
-            Result<AbilityActivationRecord> result = ActivateAbilityService.ActivateAbility(_reader, _apply, _catalog, _effects, new FixedRandomStreamFactory(10, 20, 30, 40), _clock, _campaign, Epoch, Request(actor, ability.CharacterAbilityId, actor));
+            Result<AbilityActivationRecord> result = ActivateAbilityService.ActivateAbility(_reader, new SqliteCampaignRepository(_clock), _apply, _catalog, _effects, new FixedRandomStreamFactory(10, 20, 30, 40), _clock, _campaign, Epoch, Request(actor, ability.CharacterAbilityId, actor));
 
             Assert.That(result.IsSuccess, Is.True, result.IsFailure ? result.Error.Code.ToString() : string.Empty);
             // raw=10 mapped onto a d6: ((10-1)%6)+1 = 4; -4 -4 Strength = -8; 10 - 8 = 2.
@@ -100,7 +101,7 @@ namespace Odyssey.Tests.Persistence
             ContentDefinitionRecord published = PublishAbilityWithApplyEffect(new ContentDefinitionRef(effect.ContentDefinitionId, effect.Version));
             CharacterAbility ability = GrantActivatableAbility(actor, published);
 
-            Result<AbilityActivationRecord> result = ActivateAbilityService.ActivateAbility(_reader, _apply, _catalog, _effects, new ThrowingRandomFactory(), _clock, _campaign, Epoch, Request(actor, ability.CharacterAbilityId, actor));
+            Result<AbilityActivationRecord> result = ActivateAbilityService.ActivateAbility(_reader, new SqliteCampaignRepository(_clock), _apply, _catalog, _effects, new ThrowingRandomFactory(), _clock, _campaign, Epoch, Request(actor, ability.CharacterAbilityId, actor));
 
             Assert.That(result.IsSuccess, Is.True);
             Assert.That(result.Value.AppliedEffectRefs.Count, Is.EqualTo(1));
@@ -119,7 +120,7 @@ namespace Odyssey.Tests.Persistence
             ContentDefinitionRecord published = PublishAbilityWithAdjustResource(costMana: 999, resourceKind: Health, amountFormula: "5");
             CharacterAbility ability = GrantActivatableAbility(actor, published);
 
-            Result<AbilityActivationRecord> result = ActivateAbilityService.ActivateAbility(_reader, _apply, _catalog, _effects, new ThrowingRandomFactory(), _clock, _campaign, Epoch, Request(actor, ability.CharacterAbilityId, actor));
+            Result<AbilityActivationRecord> result = ActivateAbilityService.ActivateAbility(_reader, new SqliteCampaignRepository(_clock), _apply, _catalog, _effects, new ThrowingRandomFactory(), _clock, _campaign, Epoch, Request(actor, ability.CharacterAbilityId, actor));
 
             Assert.That(result.IsFailure, Is.True);
             Assert.That(CurrentValue(actor, Mana), Is.EqualTo(10), "Cost must not be partially charged.");
@@ -135,9 +136,9 @@ namespace Odyssey.Tests.Persistence
             CharacterAbility ability = GrantActivatableAbility(actor, published);
             CharacterRecord current = _characters.GetCharacter(_campaign, actor, Corr).Value;
             var intent = new ActivateAbilityIntent(actor, ability.CharacterAbilityId, new[] { actor }, current.Revisions.CharacterAbilitiesRevision, current.Revisions.CharacterResourcesRevision);
-            var request = new ActivateAbilityRequest(intent, User(), actorIsMainGm: false, Command(), Corr);
+            var request = new ActivateAbilityRequest(intent, User(), Command(), Corr);
 
-            Result<AbilityActivationRecord> result = ActivateAbilityService.ActivateAbility(_reader, _apply, _catalog, _effects, new ThrowingRandomFactory(), _clock, _campaign, Epoch, request);
+            Result<AbilityActivationRecord> result = ActivateAbilityService.ActivateAbility(_reader, new SqliteCampaignRepository(_clock), _apply, _catalog, _effects, new ThrowingRandomFactory(), _clock, _campaign, Epoch, request);
 
             Assert.That(result.IsFailure, Is.True);
             Assert.That(CurrentValue(actor, Health), Is.EqualTo(10));
@@ -154,12 +155,12 @@ namespace Odyssey.Tests.Persistence
             ActivateAbilityRequest request = Request(actor, ability.CharacterAbilityId, actor);
             var random = new CountingRandomFactory();
 
-            Result<AbilityActivationRecord> first = ActivateAbilityService.ActivateAbility(_reader, _apply, _catalog, _effects, random, _clock, _campaign, Epoch, request);
+            Result<AbilityActivationRecord> first = ActivateAbilityService.ActivateAbility(_reader, new SqliteCampaignRepository(_clock), _apply, _catalog, _effects, random, _clock, _campaign, Epoch, request);
             Assert.That(first.IsSuccess, Is.True, first.IsFailure ? first.Error.Code.ToString() : string.Empty);
             long manaAfterFirst = CurrentValue(actor, Mana);
             long healthAfterFirst = CurrentValue(actor, Health);
 
-            Result<AbilityActivationRecord> second = ActivateAbilityService.ActivateAbility(_reader, _apply, _catalog, _effects, random, _clock, _campaign, Epoch, request);
+            Result<AbilityActivationRecord> second = ActivateAbilityService.ActivateAbility(_reader, new SqliteCampaignRepository(_clock), _apply, _catalog, _effects, random, _clock, _campaign, Epoch, request);
 
             Assert.That(second.IsSuccess, Is.True);
             Assert.That(random.CreateCalls, Is.EqualTo(1), "A retry with the same CommandId must not re-derive the random stream.");
@@ -177,7 +178,7 @@ namespace Odyssey.Tests.Persistence
             ContentDefinitionRecord published = PublishFixture(draft);
             CharacterAbility ability = GrantActivatableAbility(actor, published);
 
-            Result<AbilityActivationRecord> result = ActivateAbilityService.ActivateAbility(_reader, _apply, _catalog, _effects, new ThrowingRandomFactory(), _clock, _campaign, Epoch, Request(actor, ability.CharacterAbilityId, actor));
+            Result<AbilityActivationRecord> result = ActivateAbilityService.ActivateAbility(_reader, new SqliteCampaignRepository(_clock), _apply, _catalog, _effects, new ThrowingRandomFactory(), _clock, _campaign, Epoch, Request(actor, ability.CharacterAbilityId, actor));
 
             Assert.That(result.IsFailure, Is.True);
         }
@@ -191,7 +192,7 @@ namespace Odyssey.Tests.Persistence
             ContentDefinitionRecord published = PublishAbilityWithAdjustResource(costMana: 0, resourceKind: Health, amountFormula: "-3");
             CharacterAbility ability = GrantActivatableAbility(actor, published);
 
-            Result<AbilityActivationRecord> result = ActivateAbilityService.ActivateAbility(_reader, _apply, _catalog, _effects, new ThrowingRandomFactory(), _clock, _campaign, Epoch, Request(actor, ability.CharacterAbilityId, actor));
+            Result<AbilityActivationRecord> result = ActivateAbilityService.ActivateAbility(_reader, new SqliteCampaignRepository(_clock), _apply, _catalog, _effects, new ThrowingRandomFactory(), _clock, _campaign, Epoch, Request(actor, ability.CharacterAbilityId, actor));
 
             Assert.That(result.IsSuccess, Is.True, result.IsFailure ? result.Error.Code.ToString() : string.Empty);
             Assert.That(CurrentValue(actor, Health), Is.EqualTo(7));
@@ -220,13 +221,13 @@ namespace Odyssey.Tests.Persistence
             Assert.That(archived.IsSuccess, Is.True, archived.IsFailure ? archived.Error.Code.ToString() : string.Empty);
 
             ActivateAbilityRequest request = Request(actor, ability.CharacterAbilityId, actor);
-            Result<AbilityActivationRecord> result = ActivateAbilityService.ActivateAbility(_reader, _apply, _catalog, _effects, new ThrowingRandomFactory(), _clock, _campaign, Epoch, request);
+            Result<AbilityActivationRecord> result = ActivateAbilityService.ActivateAbility(_reader, new SqliteCampaignRepository(_clock), _apply, _catalog, _effects, new ThrowingRandomFactory(), _clock, _campaign, Epoch, request);
 
             Assert.That(result.IsFailure, Is.True, "An archived EffectDefinitionRef must fail the whole activation, not silently succeed.");
             Assert.That(CurrentValue(actor, Mana), Is.EqualTo(10), "The cost charge must be reversed after the downstream ApplyEffect failure.");
             Assert.That(CurrentValue(actor, Health), Is.EqualTo(10), "The AdjustResource delta must be reversed after the downstream ApplyEffect failure.");
 
-            Result<AbilityActivationRecord> retried = ActivateAbilityService.ActivateAbility(_reader, _apply, _catalog, _effects, new ThrowingRandomFactory(), _clock, _campaign, Epoch, request);
+            Result<AbilityActivationRecord> retried = ActivateAbilityService.ActivateAbility(_reader, new SqliteCampaignRepository(_clock), _apply, _catalog, _effects, new ThrowingRandomFactory(), _clock, _campaign, Epoch, request);
             Assert.That(retried.IsFailure, Is.True, "A retry of a compensated CommandId must remain a permanent failure -- never a silent success on replay.");
             Assert.That(CurrentValue(actor, Mana), Is.EqualTo(10), "A retry must not re-apply or double-compensate.");
             Assert.That(CurrentValue(actor, Health), Is.EqualTo(10), "A retry must not re-apply or double-compensate.");
@@ -248,14 +249,14 @@ namespace Odyssey.Tests.Persistence
 
             CharacterRecord staleState = _characters.GetCharacter(_campaign, actor, Corr).Value;
             var staleIntent = new ActivateAbilityIntent(actor, ability.CharacterAbilityId, new[] { actor }, staleState.Revisions.CharacterAbilitiesRevision, staleState.Revisions.CharacterResourcesRevision);
-            var staleRequest = new ActivateAbilityRequest(staleIntent, User(), actorIsMainGm: true, Command(), Corr);
+            var staleRequest = new ActivateAbilityRequest(staleIntent, global::Odyssey.Application.Identity.DevIdentityProvider.AssignHost(), Command(), Corr);
 
             // Concurrent mutation: an unrelated ability is granted to the same character, bumping
             // CharacterAbilitiesRevision past what staleIntent already captured.
             Result<CharacterRecord> concurrentGrant = CharacterAdvancementService.AcquireAbility(_characters, _campaign, actor, AbilityDefinitionId.Parse("OtherAbility"), SourceKind.GMGrant, null, RankMode.None, null, null, "{}", global::Odyssey.Application.Identity.DevIdentityProvider.AssignHost(), null, staleState.Revisions.CharacterAbilitiesRevision, Command(), Corr);
             Assert.That(concurrentGrant.IsSuccess, Is.True);
 
-            Result<AbilityActivationRecord> result = ActivateAbilityService.ActivateAbility(_reader, _apply, _catalog, _effects, new ThrowingRandomFactory(), _clock, _campaign, Epoch, staleRequest);
+            Result<AbilityActivationRecord> result = ActivateAbilityService.ActivateAbility(_reader, new SqliteCampaignRepository(_clock), _apply, _catalog, _effects, new ThrowingRandomFactory(), _clock, _campaign, Epoch, staleRequest);
 
             Assert.That(result.IsFailure, Is.True, "A stale ExpectedCharacterAbilitiesRevision must be rejected, not applied over newer state.");
             Assert.That(CurrentValue(actor, Health), Is.EqualTo(10), "Nothing must be applied when the revision check fails.");
@@ -279,7 +280,7 @@ namespace Odyssey.Tests.Persistence
             Assert.That(ability.ActivationDefinitionRef, Is.Not.Null);
             Assert.That(ability.ActivationDefinitionRef!.Value.Equals(new ContentDefinitionRef(published.ContentDefinitionId, published.Version)), Is.True);
 
-            Result<AbilityActivationRecord> result = ActivateAbilityService.ActivateAbility(_reader, _apply, _catalog, _effects, new ThrowingRandomFactory(), _clock, _campaign, Epoch, Request(actor, ability.CharacterAbilityId, actor));
+            Result<AbilityActivationRecord> result = ActivateAbilityService.ActivateAbility(_reader, new SqliteCampaignRepository(_clock), _apply, _catalog, _effects, new ThrowingRandomFactory(), _clock, _campaign, Epoch, Request(actor, ability.CharacterAbilityId, actor));
 
             Assert.That(result.IsSuccess, Is.True, result.IsFailure ? result.Error.Code.ToString() : string.Empty);
             Assert.That(CurrentValue(actor, Health), Is.EqualTo(6));
@@ -310,14 +311,14 @@ namespace Odyssey.Tests.Persistence
             Assert.That(archived.IsSuccess, Is.True, archived.IsFailure ? archived.Error.Code.ToString() : string.Empty);
 
             ActivateAbilityRequest request = Request(actor, ability.CharacterAbilityId, actor);
-            Result<AbilityActivationRecord> result = ActivateAbilityService.ActivateAbility(_reader, _apply, _catalog, _effects, new ThrowingRandomFactory(), _clock, _campaign, Epoch, request);
+            Result<AbilityActivationRecord> result = ActivateAbilityService.ActivateAbility(_reader, new SqliteCampaignRepository(_clock), _apply, _catalog, _effects, new ThrowingRandomFactory(), _clock, _campaign, Epoch, request);
 
             Assert.That(result.IsFailure, Is.True, "The second, archived ApplyEffect must fail the whole activation.");
             Assert.That(CurrentValue(actor, Mana), Is.EqualTo(10), "The cost charge must be reversed.");
 
             Assert.That(CountStillAttached(actor), Is.EqualTo(0), "The FIRST effect, already successfully created before the second one failed, must be removed too -- not left attached (ADR-012's append-only history keeps the row itself, transitioned to Status=Removed, not physically deleted).");
 
-            Result<AbilityActivationRecord> retried = ActivateAbilityService.ActivateAbility(_reader, _apply, _catalog, _effects, new ThrowingRandomFactory(), _clock, _campaign, Epoch, request);
+            Result<AbilityActivationRecord> retried = ActivateAbilityService.ActivateAbility(_reader, new SqliteCampaignRepository(_clock), _apply, _catalog, _effects, new ThrowingRandomFactory(), _clock, _campaign, Epoch, request);
             Assert.That(retried.IsFailure, Is.True, "A retry of a compensated CommandId must remain a permanent failure -- never a silent success, and never a second removal/creation attempt.");
             Assert.That(CurrentValue(actor, Mana), Is.EqualTo(10));
             Assert.That(CountStillAttached(actor), Is.EqualTo(0));
@@ -357,7 +358,7 @@ namespace Odyssey.Tests.Persistence
             // resource reversal or CompensatedAt is ever reached.
             var failingEffects = new FailsNthRemovalActiveEffectRepository(_effects, failOnCallNumber: 2);
             var apply1 = new SqliteActivateAbilityRepository(_clock, failingEffects);
-            Result<AbilityActivationRecord> first = ActivateAbilityService.ActivateAbility(_reader, apply1, _catalog, _effects, new ThrowingRandomFactory(), _clock, _campaign, Epoch, request);
+            Result<AbilityActivationRecord> first = ActivateAbilityService.ActivateAbility(_reader, new SqliteCampaignRepository(_clock), apply1, _catalog, _effects, new ThrowingRandomFactory(), _clock, _campaign, Epoch, request);
             Assert.That(first.IsFailure, Is.True, "The third, archived ApplyEffect must fail the whole activation.");
             Assert.That(CurrentValue(actor, Mana), Is.EqualTo(7), "Compensation itself failed on the second effect removal before ever reaching resource reversal -- the cost charge is still applied, not yet reversed.");
             Assert.That(CountStillAttached(actor), Is.EqualTo(1), "Exactly one of the two already-created effects (the second) must still be attached -- the first was genuinely removed before the injected failure.");
@@ -367,7 +368,7 @@ namespace Odyssey.Tests.Persistence
             // durable removal set the first attempt started (not a fresh, possibly-different one), and that
             // the overall retry call NEVER reports Success even though the resumed compensation now completes.
             var apply2 = new SqliteActivateAbilityRepository(_clock, _effects);
-            Result<AbilityActivationRecord> retried = ActivateAbilityService.ActivateAbility(_reader, apply2, _catalog, _effects, new ThrowingRandomFactory(), _clock, _campaign, Epoch, request);
+            Result<AbilityActivationRecord> retried = ActivateAbilityService.ActivateAbility(_reader, new SqliteCampaignRepository(_clock), apply2, _catalog, _effects, new ThrowingRandomFactory(), _clock, _campaign, Epoch, request);
             Assert.That(retried.IsFailure, Is.True, "A retry after an incomplete compensation attempt must never be reported as Success, even once the resumed compensation now genuinely finishes.");
             Assert.That(CurrentValue(actor, Mana), Is.EqualTo(10), "The resumed compensation call must finish reversing the cost charge.");
             Assert.That(CountStillAttached(actor), Is.EqualTo(0), "The resumed compensation call must finish removing the second effect too -- consistent final state, not a state frozen halfway and masked as success.");
@@ -483,7 +484,7 @@ namespace Odyssey.Tests.Persistence
         {
             CharacterRecord current = _characters.GetCharacter(_campaign, actor, Corr).Value;
             var intent = new ActivateAbilityIntent(actor, characterAbilityId, targets, current.Revisions.CharacterAbilitiesRevision, current.Revisions.CharacterResourcesRevision);
-            return new ActivateAbilityRequest(intent, User(), actorIsMainGm: true, Command(), Corr);
+            return new ActivateAbilityRequest(intent, global::Odyssey.Application.Identity.DevIdentityProvider.AssignHost(), Command(), Corr);
         }
 
         private void InitResource(CharacterId characterId, ResourceDefinitionId resourceKind)
@@ -640,13 +641,74 @@ namespace Odyssey.Tests.Persistence
 
             CharacterRecord current = _characters.GetCharacter(_campaign, actor, Corr).Value;
             var intent = new ActivateAbilityIntent(actor, ability.CharacterAbilityId, new[] { actor }, current.Revisions.CharacterAbilitiesRevision, current.Revisions.CharacterResourcesRevision);
-            var request = new ActivateAbilityRequest(intent, player, actorIsMainGm: false, Command(), Corr);
+            var request = new ActivateAbilityRequest(intent, player, Command(), Corr);
 
-            Result<AbilityActivationRecord> result = ActivateAbilityService.ActivateAbility(_reader, _apply, _catalog, _effects, new ThrowingRandomFactory(), _clock, _campaign, Epoch, request);
+            Result<AbilityActivationRecord> result = ActivateAbilityService.ActivateAbility(_reader, new SqliteCampaignRepository(_clock), _apply, _catalog, _effects, new ThrowingRandomFactory(), _clock, _campaign, Epoch, request);
 
             Assert.That(result.IsFailure, Is.True, "the third, archived ApplyEffect fails the whole activation");
             Assert.That(CountStillAttached(actor), Is.EqualTo(0), "the two effects created before the failure are rolled back even though the actor is not a MainGm");
             Assert.That(CurrentValue(actor, Mana), Is.EqualTo(10), "and the cost is reversed");
+        }
+
+        [Test] // MG-3b: TC-ABILITY-015 -- a registered-but-not-owning, non-MainGm Player is denied; a real MainGm is authorized even without owning the character.
+        public void ActivateAbility_RegisteredNonOwningPlayer_IsDenied_RealMainGmSucceedsRegardlessOfOwnership()
+        {
+            CharacterId actor = Active("actor");
+            InitResource(actor, Mana);
+            ContentDefinitionRecord published = PublishAbilityWithAdjustResource(costMana: 3, resourceKind: Mana, amountFormula: "0");
+            CharacterAbility ability = GrantActivatableAbility(actor, published);
+
+            var campaigns = new SqliteCampaignRepository(_clock);
+            UserId bystander = User();
+            Assert.That(campaigns.AddMember(_campaign, bystander, CampaignMembershipRole.Player, Command(), Corr).IsSuccess, Is.True);
+            UserId realGm = User();
+            Assert.That(campaigns.AddMember(_campaign, realGm, CampaignMembershipRole.MainGm, Command(), Corr).IsSuccess, Is.True);
+
+            CharacterRecord current = _characters.GetCharacter(_campaign, actor, Corr).Value;
+            var intent = new ActivateAbilityIntent(actor, ability.CharacterAbilityId, new[] { actor }, current.Revisions.CharacterAbilitiesRevision, current.Revisions.CharacterResourcesRevision);
+
+            Result<AbilityActivationRecord> deniedForBystander = ActivateAbilityService.ActivateAbility(_reader, new SqliteCampaignRepository(_clock), _apply, _catalog, _effects, new ThrowingRandomFactory(), _clock, _campaign, Epoch, new ActivateAbilityRequest(intent, bystander, Command(), Corr));
+            Assert.That(deniedForBystander.IsFailure, Is.True, "a registered Player who neither owns the actor nor is MainGm must be denied");
+
+            Result<AbilityActivationRecord> succeedsForGm = ActivateAbilityService.ActivateAbility(_reader, new SqliteCampaignRepository(_clock), _apply, _catalog, _effects, new ThrowingRandomFactory(), _clock, _campaign, Epoch, new ActivateAbilityRequest(intent, realGm, Command(), Corr));
+            Assert.That(succeedsForGm.IsSuccess, Is.True, "a genuinely registered MainGm must be authorized even without owning the actor");
+        }
+
+        [Test] // MG-3b: TC-ABILITY-016 -- fail-closed when the membership lookup itself cannot be read.
+        public void ActivateAbility_FailsClosed_WhenTheMembershipLookupFails()
+        {
+            CharacterId actor = Active("actor");
+            InitResource(actor, Mana);
+            ContentDefinitionRecord published = PublishAbilityWithAdjustResource(costMana: 3, resourceKind: Mana, amountFormula: "0");
+            CharacterAbility ability = GrantActivatableAbility(actor, published);
+            CharacterRecord current = _characters.GetCharacter(_campaign, actor, Corr).Value;
+            var intent = new ActivateAbilityIntent(actor, ability.CharacterAbilityId, new[] { actor }, current.Revisions.CharacterAbilitiesRevision, current.Revisions.CharacterResourcesRevision);
+            var poisoned = PoisonedCampaignRepository.FailsOnLookup();
+
+            Result<AbilityActivationRecord> result = ActivateAbilityService.ActivateAbility(_reader, poisoned, _apply, _catalog, _effects, new ThrowingRandomFactory(), _clock, _campaign, Epoch, new ActivateAbilityRequest(intent, global::Odyssey.Application.Identity.DevIdentityProvider.AssignHost(), Command(), Corr));
+
+            Assert.That(result.IsFailure, Is.True);
+            Assert.That(result.Error.Code, Is.EqualTo(ErrorCodes.PersistenceCampaignIoFailed), "an unreadable membership is the lookup's own failure, not a pass and not a fake denial -- even for the host");
+            Assert.That(poisoned.LookupCalls, Is.EqualTo(1));
+        }
+
+        private sealed class PoisonedCampaignRepository : ICampaignRepository
+        {
+            public static PoisonedCampaignRepository FailsOnLookup() => new PoisonedCampaignRepository();
+
+            public int LookupCalls { get; private set; }
+
+            public Result<CampaignMemberLookup> GetMemberRole(CampaignHandle campaign, UserId userId, CorrelationId correlationId)
+            {
+                LookupCalls++;
+                return Result<CampaignMemberLookup>.Failure(PersistenceFailures.CampaignIoFailed(correlationId));
+            }
+
+            public Result<CampaignHandle> Create(CreateCampaignRequest request, CommandId commandId, CorrelationId correlationId) => throw new NotSupportedException();
+            public Result<CampaignHandle> Open(string campaignFolderPath, CorrelationId correlationId) => throw new NotSupportedException();
+            public Result Close(CampaignHandle handle, CorrelationId correlationId) => throw new NotSupportedException();
+            public Result<CampaignMembership> AddMember(CampaignHandle campaign, UserId userId, CampaignMembershipRole role, CommandId commandId, CorrelationId correlationId) => throw new NotSupportedException();
+            public Result<IReadOnlyList<CampaignMembership>> ListMembers(CampaignHandle campaign, CorrelationId correlationId) => throw new NotSupportedException();
         }
     }
 }

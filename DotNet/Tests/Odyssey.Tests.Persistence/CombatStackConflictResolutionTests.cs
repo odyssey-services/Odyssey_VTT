@@ -85,12 +85,12 @@ namespace Odyssey.Tests.Persistence
             ItemInstanceRecord item = ItemFor(actor);
             ContentDefinitionRef effectRef = EffectRef();
             var firstRules = new Rules(_ => new[] { Candidate(target, effectRef, EffectStackPolicy.RequestGMResolution) });
-            Assert.That(AttackApplyService.ResolveAttack(_reader, firstRules, new CountingRandomFactory(), _apply, _campaign, Epoch, Request(encounter, actor, target, item)).IsSuccess, Is.True);
+            Assert.That(AttackApplyService.ResolveAttack(_reader, new SqliteCampaignRepository(_clock), firstRules, new CountingRandomFactory(), _apply, _campaign, Epoch, Request(encounter, actor, target, item)).IsSuccess, Is.True);
 
             encounter = Advance(Advance(encounter));
             var secondRules = new Rules(_ => new[] { Candidate(target, effectRef, EffectStackPolicy.RequestGMResolution) });
             AttackRequest secondRequest = Request(encounter, actor, target, item);
-            Result<AttackOutcomeRecord> second = AttackApplyService.ResolveAttack(_reader, secondRules, new CountingRandomFactory(), _apply, _campaign, Epoch, secondRequest);
+            Result<AttackOutcomeRecord> second = AttackApplyService.ResolveAttack(_reader, new SqliteCampaignRepository(_clock), secondRules, new CountingRandomFactory(), _apply, _campaign, Epoch, secondRequest);
 
             Assert.That(second.IsSuccess, Is.True, "TC-ATTACK-054's own invariant: the overall attack outcome still commits even though this candidate's own stacking conflict is deferred.");
             IReadOnlyList<ActiveEffectRecord> effects = ActiveEffectsFor(target);
@@ -207,14 +207,14 @@ namespace Odyssey.Tests.Persistence
             ItemInstanceRecord item = ItemFor(actor);
             ContentDefinitionRef effectRef = EffectRef();
             var firstRules = new Rules(_ => new[] { Candidate(target, effectRef, EffectStackPolicy.RequestGMResolution) });
-            Result<AttackOutcomeRecord> first = AttackApplyService.ResolveAttack(_reader, firstRules, new CountingRandomFactory(), _apply, _campaign, Epoch, Request(encounter, actor, target, item));
+            Result<AttackOutcomeRecord> first = AttackApplyService.ResolveAttack(_reader, new SqliteCampaignRepository(_clock), firstRules, new CountingRandomFactory(), _apply, _campaign, Epoch, Request(encounter, actor, target, item));
             Assert.That(first.IsSuccess, Is.True);
             ActiveEffectId firstActiveEffectId = ActiveEffectsFor(target)[0].Effect.ActiveEffectId;
 
             encounter = Advance(Advance(encounter));
             var secondRules = new Rules(_ => new[] { Candidate(target, effectRef, EffectStackPolicy.RequestGMResolution) });
             AttackRequest secondRequest = Request(encounter, actor, target, item);
-            Result<AttackOutcomeRecord> second = AttackApplyService.ResolveAttack(_reader, secondRules, new CountingRandomFactory(), _apply, _campaign, Epoch, secondRequest);
+            Result<AttackOutcomeRecord> second = AttackApplyService.ResolveAttack(_reader, new SqliteCampaignRepository(_clock), secondRules, new CountingRandomFactory(), _apply, _campaign, Epoch, secondRequest);
             Assert.That(second.IsSuccess, Is.True);
 
             return (secondRequest.CommandId, firstActiveEffectId, target);
@@ -254,7 +254,7 @@ namespace Odyssey.Tests.Persistence
             => CombatEncounterService.Advance(_encounters, new SqliteCampaignRepository(_clock), _campaign, new AdvanceCombatEncounterRequest(encounter.EncounterId, encounter.Revision, global::Odyssey.Application.Identity.DevIdentityProvider.AssignHost(), Command()), Corr).Value;
 
         private static AttackRequest Request(CombatEncounterRecord encounter, CharacterId actor, CharacterId target, ItemInstanceRecord item)
-            => new AttackRequest(new AttackIntent(encounter.EncounterId, actor, new[] { target }, item.ItemInstanceId, encounter.Revision), User(), true, Command(), Corr);
+            => new AttackRequest(new AttackIntent(encounter.EncounterId, actor, new[] { target }, item.ItemInstanceId, encounter.Revision), global::Odyssey.Application.Identity.DevIdentityProvider.AssignHost(), Command(), Corr);
 
         private CharacterId Active(string name)
         {

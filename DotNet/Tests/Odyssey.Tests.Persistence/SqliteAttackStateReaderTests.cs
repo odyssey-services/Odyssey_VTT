@@ -199,7 +199,7 @@ namespace Odyssey.Tests.Persistence
             CombatEncounterRecord encounter = CreateEncounter(actor, target);
             ItemInstanceRecord item = ItemFor(actor);
 
-            Result<ProposedAttackResolution> preview = AttackEvaluationService.PreviewAttack(_reader, new RecordingRules(), _campaign, ServiceRequest(encounter, actor, target, item));
+            Result<ProposedAttackResolution> preview = AttackEvaluationService.PreviewAttack(_reader, new SqliteCampaignRepository(_clock), new RecordingRules(), _campaign, ServiceRequest(encounter, actor, target, item));
             Assert.That(preview.IsSuccess, Is.True);
             AttackParticipantState snapshotActor = preview.Value.Snapshot.Actor;
             Assert.That(snapshotActor.AttributeValues[AttributeDefinitionId.Parse("Strength")], Is.EqualTo(5));
@@ -214,7 +214,7 @@ namespace Odyssey.Tests.Persistence
             CombatEncounterRecord encounter = CreateEncounter(actor, target);
             ItemInstanceRecord item = ItemFor(actor);
 
-            Result<ProposedAttackResolution> preview = AttackEvaluationService.PreviewAttack(_reader, new RecordingRules(), _campaign, ServiceRequest(encounter, actor, target, item));
+            Result<ProposedAttackResolution> preview = AttackEvaluationService.PreviewAttack(_reader, new SqliteCampaignRepository(_clock), new RecordingRules(), _campaign, ServiceRequest(encounter, actor, target, item));
             Assert.That(preview.IsSuccess, Is.True);
             Assert.That(preview.Value.Snapshot.Targets[0].AttributeValues[AttributeDefinitionId.Parse("Constitution")], Is.EqualTo(7));
         }
@@ -226,7 +226,7 @@ namespace Odyssey.Tests.Persistence
             CombatEncounterRecord encounter = CreateEncounter(actor, target);
             ItemInstanceRecord item = ItemFor(actor);
 
-            Result<ProposedAttackResolution> preview = AttackEvaluationService.PreviewAttack(_reader, new RecordingRules(), _campaign, ServiceRequest(encounter, actor, target, item));
+            Result<ProposedAttackResolution> preview = AttackEvaluationService.PreviewAttack(_reader, new SqliteCampaignRepository(_clock), new RecordingRules(), _campaign, ServiceRequest(encounter, actor, target, item));
             Assert.That(preview.IsSuccess, Is.True);
             Assert.That(preview.Value.Snapshot.Actor.AttributeValues, Is.Empty);
             Assert.That(preview.Value.Snapshot.Targets[0].AttributeValues, Is.Empty);
@@ -241,7 +241,7 @@ namespace Odyssey.Tests.Persistence
             ItemInstanceRecord item = ItemFor(actor);
             var random = new DeterministicRandomStreamFactory(CampaignRngKey.FromBytes(new byte[32]));
 
-            Result<ProposedAttackResolution> evaluated = AttackEvaluationService.EvaluateAttack(_reader, new RecordingRules(), random, _campaign, RngKeyEpochId.Parse("epoch-001"), ServiceRequest(encounter, actor, target, item));
+            Result<ProposedAttackResolution> evaluated = AttackEvaluationService.EvaluateAttack(_reader, new SqliteCampaignRepository(_clock), new RecordingRules(), random, _campaign, RngKeyEpochId.Parse("epoch-001"), ServiceRequest(encounter, actor, target, item));
             Assert.That(evaluated.IsSuccess, Is.True);
             Assert.That(evaluated.Value.Snapshot.Actor.AttributeValues[AttributeDefinitionId.Parse("Strength")], Is.EqualTo(9));
         }
@@ -351,7 +351,7 @@ namespace Odyssey.Tests.Persistence
             CombatEncounterRecord encounter = CreateEncounter(actor, target);
             ItemInstanceRecord item = ItemFor(actor);
 
-            Result<ProposedAttackResolution> preview = AttackEvaluationService.PreviewAttack(_reader, new RecordingRules(), _campaign, ServiceRequest(encounter, actor, target, item));
+            Result<ProposedAttackResolution> preview = AttackEvaluationService.PreviewAttack(_reader, new SqliteCampaignRepository(_clock), new RecordingRules(), _campaign, ServiceRequest(encounter, actor, target, item));
             Assert.That(preview.IsSuccess, Is.True);
             AttackTopologyInput topology = preview.Value.Snapshot.Topology;
             Assert.That(topology.Availability, Is.EqualTo(AttackTopologyAvailability.Available));
@@ -459,7 +459,7 @@ namespace Odyssey.Tests.Persistence
         }
 
         private static AttackRequest ServiceRequest(CombatEncounterRecord encounter, CharacterId actor, CharacterId target, ItemInstanceRecord item)
-            => new AttackRequest(Intent(encounter, actor, target, item), User(), actorIsMainGm: true, Command(), Corr);
+            => new AttackRequest(Intent(encounter, actor, target, item), global::Odyssey.Application.Identity.DevIdentityProvider.AssignHost(), Command(), Corr);
 
         // Real attack-evaluator implementation is ODY-S06-105's own job; this fixture is a fixed-outcome
         // stand-in identical in shape to AttackEvaluationServiceTests' own -- this task only needs the real

@@ -87,16 +87,15 @@ namespace Odyssey.Application.Persistence
 
     public sealed class UseItemRequest
     {
-        public UseItemRequest(UseItemIntent intent, UserId actorUserId, bool actorIsMainGm, CommandId commandId, CorrelationId correlationId)
+        public UseItemRequest(UseItemIntent intent, UserId actorUserId, CommandId commandId, CorrelationId correlationId)
         {
             Intent = intent ?? throw new ArgumentNullException(nameof(intent));
             if (!actorUserId.IsValid || !commandId.IsValid || !correlationId.IsValid) throw new ArgumentException("Actor, command and correlation identities are required.");
-            ActorUserId = actorUserId; ActorIsMainGm = actorIsMainGm; CommandId = commandId; CorrelationId = correlationId;
+            ActorUserId = actorUserId; CommandId = commandId; CorrelationId = correlationId;
         }
 
         public UseItemIntent Intent { get; }
         public UserId ActorUserId { get; }
-        public bool ActorIsMainGm { get; }
         public CommandId CommandId { get; }
         public CorrelationId CorrelationId { get; }
     }
