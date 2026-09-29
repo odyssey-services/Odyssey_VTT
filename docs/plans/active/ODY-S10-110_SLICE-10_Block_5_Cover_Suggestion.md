@@ -1,0 +1,25 @@
+# ExecPlan — ODY-S10-110 SLICE-10 Block 5: Cover (Damage Reduction) + Destructible Obstacles — v3
+
+## 1. Purpose
+Part A (unchanged): a graduated cover *degree* (`None`/`Half`/`ThreeQuarters`/`Full`), computed from Block 2's obstacle geometry, exposed as a standalone read-only hint. Part B (new): obstacles gain optional HP/armor and a MainGM-only damage command; a destroyed obstacle drops out of `ListObstacles`. Part C (new, product decision 2026-09-29): cover now really reduces attack damage inside the combat pipeline, the same additive way armor already does, without ever affecting `Hit`/`Range`.
+
+## 2. Scope
+Part A: `Cover.cs`, `CoverSuggestionService.cs`, one error code (unchanged). Part B: `ObstacleRepositoryContracts.cs`/`ObstacleAuthoringService.cs`/`SqliteObstacleRepository.cs` extended, two new error codes. Part C: `AttackPipelineContracts.cs`/`CoreAttackRulesEvaluator.cs`/`SqliteAttackStateReader.cs` extended, one disclosed necessary line in `AttackEvaluationService.cs`. Test files: `CoverTests.cs`/`CoverSuggestionServiceTests.cs` (Part A, unchanged), `SqliteObstacleRepositoryTests.cs`/`ObstacleAuthoringServiceTests.cs` extended (Part B), `CoreAttackRulesEvaluatorIntegrationTests.cs` extended plus a mechanical constructor-argument fix across nine attack-pipeline test files (Part C). Catalogue, backlog, this plan and the contract, all updated in place under the same task ID.
+
+## 3. Non-goals
+Any change to the to-hit mechanic itself (`Hit == Range` unchanged); a configurable, per-campaign `CoverPenaltyTable`; the full "4 attacker corners x 4 target corners" tabletop algorithm; cover differentiated by obstacle material; formal integration of obstacles as attack targets; the cover/fog UI (Block 6).
+
+## 4. Architecture
+Part A/B unchanged from their own original designs (pure Domain geometry function + thin Application read; a second, independent, INSERT/UPDATE table alongside `Obstacle`, joined only at `ListObstacles` read time). Part C: `AttackCoverInput` mirrors `AttackTopologyInput`'s own Available/Unavailable-with-per-target-entries shape exactly; `SqliteAttackStateReader.ReadTopology` computes both topology and cover from the same already-resolved actor/target token positions in one pass (one `ListObstacles` call per actor Scene, not per target); `CoreAttackRulesEvaluator.Resolve` looks up each target's own cover degree in a fixed `CoverPenaltyTable` and subtracts it alongside `AggregateProtection`'s own armor subtraction, appending an `AttackModifierEntry` when the penalty is nonzero. `AttackEvaluationSnapshot` gains `Cover` via a new 12-arg constructor, backward-compatible with every pre-existing 10-arg/11-arg caller (which default to `Cover = Unavailable`); `AttackEvaluationService.WithDecodedWeapon` was found, during implementation, to silently discard that already-computed `Cover` when re-wrapping the snapshot with `ActionWeapon` -- fixed by threading `snapshot.Cover` through explicitly, the same way every other pre-existing field on that call already is.
+
+## 5. Milestones
+1. Part A (already complete, unchanged). 2. Part B: `ObstacleRepositoryContracts.cs`/`ObstacleAuthoringService.cs`/`SqliteObstacleRepository.cs` extensions, two error codes, new tests in the two existing Block 2 test files. 3. Part C domain/rules: `AttackPipelineContracts.cs`'s `AttackCoverInput`, `CoreAttackRulesEvaluator.cs`'s `CoverPenaltyTable`/`Resolve` wiring. 4. Part C persistence: `SqliteAttackStateReader.cs`'s new constructor parameter and `ReadTopology` restructuring, plus the disclosed `AttackEvaluationService.WithDecodedWeapon` fix. 5. The mechanical constructor-argument fix across all nine attack-pipeline test files; new Part C tests in `CoreAttackRulesEvaluatorIntegrationTests.cs`. 6. Two mutation checks (Part A's sample-blocking test, Part C's cover-penalty subtraction). 7. Catalogue, `ERROR_CODES.md`, backlog, contract, plan, all updated in place. 8. Full validation (including the full pre-existing 88-test combat-pipeline suite, to prove no baseline outcome moved) and push to the existing Draft PR.
+
+## 6-8. State/flow, error handling, test strategy
+See task contract section 9 and section 18.
+
+## 9. Validation and acceptance evidence
+`dotnet test` (full: Unit 220/220, Persistence 938/938, including the full pre-existing 88-test combat-pipeline suite unchanged); `verify-format`/`verify-repository`/`verify-test-structure`; two mutations (Part A's sample-blocking intersection test, Part C's cover-penalty subtraction) each proving their own representative tests bite; `git diff --name-status origin/main` reviewed against the forbidden-path list (confirming no combat-apply-side or Block 1/3/4 file is touched, and that the only touches beyond the ТЗ's own named files are the disclosed, necessary ones in section 18).
+
+## 10. Recovery and rollback
+Revert the PR; the only schema changes are two new, independent tables (`ObstacleDurability` in Part B; none in Part C, which adds no storage of its own) -- no existing table is altered.

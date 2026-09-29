@@ -2201,6 +2201,150 @@
                           "check":  "Self-scoped read fails closed when the membership lookup itself fails, even though requester and target differ"
                       },
                       {
+                          "testCaseId":  "TC-PERSIST-120",
+                          "taskId":  "ODY-S10-110",
+                          "authority":  "SLICE-10 Block 5 task contract section 4/9",
+                          "runner":  "dotnet test",
+                          "path":  "DotNet/Tests/Odyssey.Tests.Unit/Geometry/CoverTests.cs",
+                          "check":  "ComputeCoverDegree with no obstacles on the path is None"
+                      },
+                      {
+                          "testCaseId":  "TC-PERSIST-121",
+                          "taskId":  "ODY-S10-110",
+                          "authority":  "SLICE-10 Block 5 task contract section 4/9",
+                          "runner":  "dotnet test",
+                          "path":  "DotNet/Tests/Odyssey.Tests.Unit/Geometry/CoverTests.cs",
+                          "check":  "ComputeCoverDegree with a Wall blocking all four target samples is Full"
+                      },
+                      {
+                          "testCaseId":  "TC-PERSIST-122",
+                          "taskId":  "ODY-S10-110",
+                          "authority":  "SLICE-10 Block 5 task contract section 4/9",
+                          "runner":  "dotnet test",
+                          "path":  "DotNet/Tests/Odyssey.Tests.Unit/Geometry/CoverTests.cs",
+                          "check":  "ComputeCoverDegree with an open Door geometrically on the path is None -- uses ObstacleGeometry.BlocksVision, not raw geometry"
+                      },
+                      {
+                          "testCaseId":  "TC-PERSIST-123",
+                          "taskId":  "ODY-S10-110",
+                          "authority":  "SLICE-10 Block 5 task contract section 4/9",
+                          "runner":  "dotnet test",
+                          "path":  "DotNet/Tests/Odyssey.Tests.Unit/Geometry/CoverTests.cs",
+                          "check":  "ComputeCoverDegree with a Window geometrically on the path is None"
+                      },
+                      {
+                          "testCaseId":  "TC-PERSIST-124",
+                          "taskId":  "ODY-S10-110",
+                          "authority":  "SLICE-10 Block 5 task contract section 4/9",
+                          "runner":  "dotnet test",
+                          "path":  "DotNet/Tests/Odyssey.Tests.Unit/Geometry/CoverTests.cs",
+                          "check":  "ComputeCoverDegree with a closed Door blocking all four target samples is Full"
+                      },
+                      {
+                          "testCaseId":  "TC-PERSIST-125",
+                          "taskId":  "ODY-S10-110",
+                          "authority":  "SLICE-10 Block 5 task contract section 4/9",
+                          "runner":  "dotnet test",
+                          "path":  "DotNet/Tests/Odyssey.Tests.Unit/Geometry/CoverTests.cs",
+                          "check":  "ComputeCoverDegree: the full 0/1/2/3/4-blocked-samples table maps to None/Half/Half/ThreeQuarters/Full"
+                      },
+                      {
+                          "testCaseId":  "TC-PERSIST-126",
+                          "taskId":  "ODY-S10-110",
+                          "authority":  "SLICE-10 Block 5 task contract section 4/9",
+                          "runner":  "dotnet test",
+                          "path":  "DotNet/Tests/Odyssey.Tests.Persistence/Board/CoverSuggestionServiceTests.cs",
+                          "check":  "SuggestCover with no obstacles matches a direct CoverGeometry.ComputeCoverDegree call -- None"
+                      },
+                      {
+                          "testCaseId":  "TC-PERSIST-127",
+                          "taskId":  "ODY-S10-110",
+                          "authority":  "SLICE-10 Block 5 task contract section 4/9",
+                          "runner":  "dotnet test",
+                          "path":  "DotNet/Tests/Odyssey.Tests.Persistence/Board/CoverSuggestionServiceTests.cs",
+                          "check":  "SuggestCover with a wall blocking all samples matches a direct CoverGeometry.ComputeCoverDegree call on the same coordinates/obstacles -- Full"
+                      },
+                      {
+                          "testCaseId":  "TC-PERSIST-128",
+                          "taskId":  "ODY-S10-110",
+                          "authority":  "SLICE-10 Block 5 task contract section 4/9",
+                          "runner":  "dotnet test",
+                          "path":  "DotNet/Tests/Odyssey.Tests.Persistence/Board/CoverSuggestionServiceTests.cs",
+                          "check":  "SuggestCover returns a typed error when attacker and target tokens are in different scenes"
+                      },
+                      {
+                          "testCaseId":  "TC-PERSIST-129",
+                          "taskId":  "ODY-S10-110",
+                          "authority":  "SLICE-10 Block 5 task contract section 4/9",
+                          "runner":  "dotnet test",
+                          "path":  "DotNet/Tests/Odyssey.Tests.Persistence/Board/CoverSuggestionServiceTests.cs",
+                          "check":  "SuggestCover performs no mutation of token or obstacle state -- a pure read"
+                      },
+                      {
+                          "testCaseId":  "TC-PERSIST-130",
+                          "taskId":  "ODY-S10-110",
+                          "authority":  "SLICE-10 Block 5 v3 Part B task contract section 4/9",
+                          "runner":  "dotnet test",
+                          "path":  "DotNet/Tests/Odyssey.Tests.Persistence/SqliteObstacleRepositoryTests.cs",
+                          "check":  "CreateObstacle without maxHp has no ObstacleDurability row -- indestructible by omission"
+                      },
+                      {
+                          "testCaseId":  "TC-PERSIST-131",
+                          "taskId":  "ODY-S10-110",
+                          "authority":  "SLICE-10 Block 5 v3 Part B task contract section 4/9",
+                          "runner":  "dotnet test",
+                          "path":  "DotNet/Tests/Odyssey.Tests.Persistence/SqliteObstacleRepositoryTests.cs",
+                          "check":  "CreateObstacle with maxHp seeds a durability row at full health with the given Protection"
+                      },
+                      {
+                          "testCaseId":  "TC-PERSIST-132",
+                          "taskId":  "ODY-S10-110",
+                          "authority":  "SLICE-10 Block 5 v3 Part B task contract section 4/9",
+                          "runner":  "dotnet test",
+                          "path":  "DotNet/Tests/Odyssey.Tests.Persistence/SqliteObstacleRepositoryTests.cs",
+                          "check":  "ApplyObstacleDamage subtracts Protection before reducing CurrentHp, clamps at 0, and sets IsDestroyed at 0 HP"
+                      },
+                      {
+                          "testCaseId":  "TC-PERSIST-133",
+                          "taskId":  "ODY-S10-110",
+                          "authority":  "SLICE-10 Block 5 v3 Part B task contract section 4/9",
+                          "runner":  "dotnet test",
+                          "path":  "DotNet/Tests/Odyssey.Tests.Persistence/SqliteObstacleRepositoryTests.cs",
+                          "check":  "ApplyObstacleDamage with a stale expectedRevision is rejected without mutating the durability row"
+                      },
+                      {
+                          "testCaseId":  "TC-PERSIST-134",
+                          "taskId":  "ODY-S10-110",
+                          "authority":  "SLICE-10 Block 5 v3 Part B task contract section 4/9",
+                          "runner":  "dotnet test",
+                          "path":  "DotNet/Tests/Odyssey.Tests.Persistence/SqliteObstacleRepositoryTests.cs",
+                          "check":  "ApplyObstacleDamage against an obstacle with no durability configured is a typed rejection"
+                      },
+                      {
+                          "testCaseId":  "TC-PERSIST-135",
+                          "taskId":  "ODY-S10-110",
+                          "authority":  "SLICE-10 Block 5 v3 Part B task contract section 4/9",
+                          "runner":  "dotnet test",
+                          "path":  "DotNet/Tests/Odyssey.Tests.Persistence/SqliteObstacleRepositoryTests.cs",
+                          "check":  "ListObstacles excludes a destroyed obstacle while still including an indestructible one and a not-yet-destroyed one"
+                      },
+                      {
+                          "testCaseId":  "TC-PERSIST-136",
+                          "taskId":  "ODY-S10-110",
+                          "authority":  "SLICE-10 Block 5 v3 Part B task contract section 4/9",
+                          "runner":  "dotnet test",
+                          "path":  "DotNet/Tests/Odyssey.Tests.Persistence/Board/ObstacleAuthoringServiceTests.cs",
+                          "check":  "ApplyObstacleDamage is MainGM-only by the stored membership: a stranger and a registered Player are denied with no repository state change, a genuinely registered MainGm succeeds"
+                      },
+                      {
+                          "testCaseId":  "TC-PERSIST-137",
+                          "taskId":  "ODY-S10-110",
+                          "authority":  "SLICE-10 Block 5 v3 Part B task contract section 4/9",
+                          "runner":  "dotnet test",
+                          "path":  "DotNet/Tests/Odyssey.Tests.Persistence/Board/ObstacleAuthoringServiceTests.cs",
+                          "check":  "Fail-closed: ApplyObstacleDamage returns the membership lookup's own failure with an unreadable membership, and the durability row is unchanged"
+                      },
+                      {
                           "testCaseId":  "TC-BOARD-001",
                           "taskId":  "ODY-S03-004",
                           "authority":  "ADR-020 section 5.1/5.3; ODY-S03-004",
@@ -6916,6 +7060,12 @@
                       { "testCaseId": "TC-ATTACK-127", "taskId": "ODY-S10-106", "authority": "MG-3b test list (task contract section 4)", "runner": "dotnet test", "path": "DotNet/Tests/Odyssey.Tests.Unit/AttackEvaluationServiceTests.cs", "check": "An owner without MainGm still succeeds through CanControlActor -- regression proving the real MainGm check did not remove the existing owner path" },
                       { "testCaseId": "TC-ATTACK-128", "taskId": "ODY-S10-106", "authority": "MG-3b test list (task contract section 4)", "runner": "dotnet test", "path": "DotNet/Tests/Odyssey.Tests.Unit/AttackEvaluationServiceTests.cs", "check": "A registered-but-not-owning, non-MainGm Player is denied; a real MainGm succeeds even when CanControlActor would say no" },
                       { "testCaseId": "TC-ATTACK-129", "taskId": "ODY-S10-106", "authority": "MG-3b test list (task contract section 4)", "runner": "dotnet test", "path": "DotNet/Tests/Odyssey.Tests.Unit/AttackEvaluationServiceTests.cs", "check": "Fail-closed: AuthorizeAndRead returns the membership lookup's own failure with an unreadable membership, not a pass and not a fake denial" },
+                      { "testCaseId": "TC-ATTACK-130", "taskId": "ODY-S10-110", "authority": "SLICE-10 Block 5 v3 Part C task contract section 7/11", "runner": "dotnet test", "path": "DotNet/Tests/Odyssey.Tests.Persistence/CoreAttackRulesEvaluatorIntegrationTests.cs", "check": "Full cover (a wall blocking all four target samples) reduces damage by exactly the Full penalty (10), never below zero, without affecting Hit/Range; Modifiers carries one cover entry" },
+                      { "testCaseId": "TC-ATTACK-131", "taskId": "ODY-S10-110", "authority": "SLICE-10 Block 5 v3 Part C task contract section 7/11", "runner": "dotnet test", "path": "DotNet/Tests/Odyssey.Tests.Persistence/CoreAttackRulesEvaluatorIntegrationTests.cs", "check": "Half cover (a single blocked target sample) reduces damage by exactly the Half penalty (2)" },
+                      { "testCaseId": "TC-ATTACK-132", "taskId": "ODY-S10-110", "authority": "SLICE-10 Block 5 v3 Part C task contract section 7/11", "runner": "dotnet test", "path": "DotNet/Tests/Odyssey.Tests.Persistence/CoreAttackRulesEvaluatorIntegrationTests.cs", "check": "Armor Protection and a cover penalty apply independently and additively in the same attack, neither skipped nor double-counted" },
+                      { "testCaseId": "TC-ATTACK-133", "taskId": "ODY-S10-110", "authority": "SLICE-10 Block 5 v3 Part C task contract section 7/11", "runner": "dotnet test", "path": "DotNet/Tests/Odyssey.Tests.Persistence/CoreAttackRulesEvaluatorIntegrationTests.cs", "check": "Regression: with no obstacle on the Scene, Modifiers stays empty and damage is exactly the pre-Block-5 value" },
+                      { "testCaseId": "TC-ATTACK-134", "taskId": "ODY-S10-110", "authority": "SLICE-10 Block 5 v3 Part C task contract section 7/11", "runner": "dotnet test", "path": "DotNet/Tests/Odyssey.Tests.Persistence/CoreAttackRulesEvaluatorIntegrationTests.cs", "check": "PreviewAttack computes the identical cover degree/damage as EvaluateAttack for the same geometry, with no extra edit to AttackEvaluationService.cs beyond passing Cover through WithDecodedWeapon" },
+                      { "testCaseId": "TC-ATTACK-135", "taskId": "ODY-S10-110", "authority": "SLICE-10 Block 5 v3 Part C task contract section 7/11", "runner": "dotnet test", "path": "DotNet/Tests/Odyssey.Tests.Persistence/CoreAttackRulesEvaluatorIntegrationTests.cs", "check": "Destroying the covering obstacle (Part B ApplyObstacleDamage) between two calls removes its cover from the next damage calculation, purely through ListObstacles -- no direct Part B/Part C coupling" },
                       { "testCaseId": "TC-ABILITY-001", "taskId": "ODY-S06-106", "authority": "ADR-030 section 9.2", "runner": "dotnet test", "path": "DotNet/Tests/Odyssey.Tests.Persistence/ActivateAbilityIntegrationTests.cs", "check": "Activation with a constant (no-dice) AdjustResource formula -- exact, deterministic cost charge and resource adjustment, verified via exact before/after CharacterResource.CurrentValue, and no RNG stream is ever derived (ThrowingRandomFactory)" },
                       { "testCaseId": "TC-ABILITY-002", "taskId": "ODY-S06-106", "authority": "ADR-030 section 6.2, section 7.1", "runner": "dotnet test", "path": "DotNet/Tests/Odyssey.Tests.Persistence/ActivateAbilityIntegrationTests.cs", "check": "Activation with a dice-and-attribute AdjustResource formula ('-1d6-Strength') against a fixed RNG stream -- exact (not range) resulting CharacterResource.CurrentValue, proving formula/dice reuse through the existing AttackDamageFormulaParser/AttackRandomSample" },
                       { "testCaseId": "TC-ABILITY-003", "taskId": "ODY-S06-106", "authority": "ADR-030 section 7.1, section 9.2", "runner": "dotnet test", "path": "DotNet/Tests/Odyssey.Tests.Persistence/ActivateAbilityIntegrationTests.cs", "check": "Activation of an ability whose MechanicsPrimitiveEnvelope contains an ApplyEffectPrimitive -- a real ActiveEffectRecord is created via the existing, unmodified IActiveEffectRepository.CreateActiveEffect, found afterward via ListActiveEffectsByTarget" },

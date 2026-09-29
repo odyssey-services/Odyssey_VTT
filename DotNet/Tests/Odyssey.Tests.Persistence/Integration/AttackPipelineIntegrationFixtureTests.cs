@@ -80,7 +80,7 @@ namespace Odyssey.Tests.Persistence.Integration
             _inventory = new SqliteInventoryRepository(_clock, new SqliteCampaignRepository(_clock));
             _scenes = new SqliteSceneRepository(_clock);
             _activeEffects = new SqliteActiveEffectRepository(_clock, new SqliteCampaignRepository(_clock));
-            _reader = new SqliteAttackStateReader(_encounters, _inventory, _characters, _clock, _scenes);
+            _reader = new SqliteAttackStateReader(_encounters, _inventory, _characters, _clock, _scenes, new SqliteObstacleRepository(_clock));
             _apply = new SqliteAttackApplyRepository(_clock, new SqliteCampaignRepository(_clock));
             _gameLog = new SqliteGameLogRepository(_clock);
             _lifecycleReader = new SqliteCombatEncounterLifecycleReader(_encounters);

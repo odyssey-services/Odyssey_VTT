@@ -170,6 +170,48 @@ namespace Odyssey.Tests.Persistence.Board
             Assert.That(result.Value.Count, Is.EqualTo(1));
         }
 
+        [Test] // TC-PERSIST-136
+        public void ApplyObstacleDamage_MainGmOnly_ByTheStoredMembership()
+        {
+            UserId stranger = NewUserId();
+            UserId player = NewUserId();
+            Assert.That(_campaignRepository.AddMember(_campaign, player, CampaignMembershipRole.Player, NewCommandId(), TestCorrelationId).IsSuccess, Is.True);
+            UserId secondGm = NewUserId();
+            Assert.That(_campaignRepository.AddMember(_campaign, secondGm, CampaignMembershipRole.MainGm, NewCommandId(), TestCorrelationId).IsSuccess, Is.True);
+            ObstacleRecord wall = _obstacles.CreateObstacle(_campaign, _sceneId, ObstacleKind.Wall, 0, 0, 5, 0, NewCommandId(), TestCorrelationId, maxHp: 10).Value;
+
+            foreach (UserId denied in new[] { stranger, player })
+            {
+                var request = new ApplyObstacleDamageRequest(_campaign, wall.ObstacleId, 5, 1, denied, NewCommandId(), TestCorrelationId);
+                Result<ObstacleDurabilityRecord> result = ObstacleAuthoringService.ApplyObstacleDamage(_obstacles, _campaignRepository, request);
+                Assert.That(result.IsFailure, Is.True, "an actor who is not MainGm must be denied");
+                Assert.That(result.Error.Code, Is.EqualTo(ErrorCodes.ObstacleApplyDamageDenied));
+            }
+
+            Result<ObstacleDurabilityRecord> unchanged = _obstacles.GetObstacleDurability(_campaign, wall.ObstacleId, TestCorrelationId);
+            Assert.That(unchanged.Value.CurrentHp, Is.EqualTo(10), "every denied ApplyObstacleDamage above must have caused no repository state change");
+
+            var byMainGm = new ApplyObstacleDamageRequest(_campaign, wall.ObstacleId, 5, 1, secondGm, NewCommandId(), TestCorrelationId);
+            Result<ObstacleDurabilityRecord> mainGmResult = ObstacleAuthoringService.ApplyObstacleDamage(_obstacles, _campaignRepository, byMainGm);
+            Assert.That(mainGmResult.IsSuccess, Is.True, "a genuinely registered MainGm must be authorized");
+            Assert.That(mainGmResult.Value.CurrentHp, Is.EqualTo(5));
+        }
+
+        [Test] // TC-PERSIST-137
+        public void ApplyObstacleDamage_FailsClosed_WhenTheMembershipLookupFails()
+        {
+            var poisoned = PoisonedCampaignRepository.FailsOnLookup();
+            ObstacleRecord wall = _obstacles.CreateObstacle(_campaign, _sceneId, ObstacleKind.Wall, 0, 0, 5, 0, NewCommandId(), TestCorrelationId, maxHp: 10).Value;
+            var request = new ApplyObstacleDamageRequest(_campaign, wall.ObstacleId, 5, 1, Host, NewCommandId(), TestCorrelationId);
+
+            Result<ObstacleDurabilityRecord> result = ObstacleAuthoringService.ApplyObstacleDamage(_obstacles, poisoned, request);
+
+            Assert.That(result.IsFailure, Is.True);
+            Assert.That(result.Error.Code, Is.EqualTo(ErrorCodes.PersistenceCampaignIoFailed), "an unreadable membership is the lookup's own failure, not a pass and not a fake denial -- even for the host");
+            Assert.That(poisoned.LookupCalls, Is.EqualTo(1));
+            Assert.That(_obstacles.GetObstacleDurability(_campaign, wall.ObstacleId, TestCorrelationId).Value.CurrentHp, Is.EqualTo(10), "the poisoned lookup must never reach the repository write");
+        }
+
         private sealed class PoisonedCampaignRepository : ICampaignRepository
         {
             public static PoisonedCampaignRepository FailsOnLookup() => new PoisonedCampaignRepository();

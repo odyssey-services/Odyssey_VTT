@@ -47,7 +47,7 @@ namespace Odyssey.Tests.Persistence
             _encounters = new SqliteCombatEncounterRepository(_clock);
             _inventory = new SqliteInventoryRepository(_clock, new SqliteCampaignRepository(_clock));
             _scenes = new SqliteSceneRepository(_clock);
-            _reader = new SqliteAttackStateReader(_encounters, _inventory, _characters, _clock, _scenes);
+            _reader = new SqliteAttackStateReader(_encounters, _inventory, _characters, _clock, _scenes, new SqliteObstacleRepository(_clock));
         }
 
         [Test] // TC-ATTACK-016

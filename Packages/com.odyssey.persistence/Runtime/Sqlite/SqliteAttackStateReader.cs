@@ -23,14 +23,17 @@ namespace Odyssey.Persistence.Sqlite
         private readonly ICharacterRepository _characters;
         private readonly ISceneRepository _scenes;
         private readonly IWallClock _clock;
+        private readonly IObstacleRepository _obstacles;
 
-        public SqliteAttackStateReader(ICombatEncounterRepository encounters, IInventoryRepository inventory, ICharacterRepository characters, IWallClock clock, ISceneRepository scenes)
+        /// <summary>SLICE-10 Block 5 Part C: <paramref name="obstacles"/> is a new required constructor parameter, by this codebase's own established convention (a Persistence-layer reader takes each `I*Repository` port it needs via constructor, `ArgumentNullException`-guarded, exactly like every other parameter here) -- used only to compute each target's own cover degree in <see cref="ReadTopology"/>, alongside the same raw token positions already read there for <see cref="AttackTopologyInput"/>.</summary>
+        public SqliteAttackStateReader(ICombatEncounterRepository encounters, IInventoryRepository inventory, ICharacterRepository characters, IWallClock clock, ISceneRepository scenes, IObstacleRepository obstacles)
         {
             _encounters = encounters ?? throw new ArgumentNullException(nameof(encounters));
             _inventory = inventory ?? throw new ArgumentNullException(nameof(inventory));
             _characters = characters ?? throw new ArgumentNullException(nameof(characters));
             _clock = clock ?? throw new ArgumentNullException(nameof(clock));
             _scenes = scenes ?? throw new ArgumentNullException(nameof(scenes));
+            _obstacles = obstacles ?? throw new ArgumentNullException(nameof(obstacles));
         }
 
         public Result<AttackEvaluationState> Read(CampaignHandle campaign, AttackIntent intent, CorrelationId correlationId)
@@ -50,11 +53,11 @@ namespace Odyssey.Persistence.Sqlite
             var targets = new List<AttackParticipantState>();
             for (int index = 0; index < intent.TargetIds.Count; index++) { Result<CharacterRecord> target = _characters.GetCharacter(campaign, intent.TargetIds[index], correlationId); if (target.IsFailure || target.Value.CampaignId != campaign.CampaignId) return Result<AttackEvaluationState>.Failure(target.IsFailure ? target.Error : Rejected(correlationId)); targets.Add(State(target.Value)); }
             AttackParticipantState actorState = State(actor.Value);
-            Result<AttackTopologyInput> topology = ReadTopology(campaign, intent.ActorId, intent.TargetIds, correlationId);
-            if (topology.IsFailure) return Result<AttackEvaluationState>.Failure(topology.Error);
+            Result<(AttackTopologyInput Topology, AttackCoverInput Cover)> topologyAndCover = ReadTopology(campaign, intent.ActorId, intent.TargetIds, correlationId);
+            if (topologyAndCover.IsFailure) return Result<AttackEvaluationState>.Failure(topologyAndCover.Error);
             Result<AttackArmorInput> armorAndEffects = ReadArmor(campaign, intent.TargetIds, correlationId);
             if (armorAndEffects.IsFailure) return Result<AttackEvaluationState>.Failure(armorAndEffects.Error);
-            var snapshot = new AttackEvaluationSnapshot(Fingerprint(encounter.Value, item.Value, actorState, targets), encounter.Value.RulesetId, encounter.Value.RulesetVersion, encounter.Value.Revision, item.Value.SourceItemDefinitionRef, item.Value.MechanicsSnapshot, actorState, targets, topology.Value, armorAndEffects.Value);
+            var snapshot = new AttackEvaluationSnapshot(Fingerprint(encounter.Value, item.Value, actorState, targets), encounter.Value.RulesetId, encounter.Value.RulesetVersion, encounter.Value.Revision, item.Value.SourceItemDefinitionRef, item.Value.MechanicsSnapshot, actorState, targets, topologyAndCover.Value.Topology, armorAndEffects.Value, null, topologyAndCover.Value.Cover);
             return Result<AttackEvaluationState>.Success(new AttackEvaluationState(encounter.Value, snapshot));
         }
 
@@ -84,30 +87,52 @@ namespace Odyssey.Persistence.Sqlite
         // either side, or a cross-Scene actor/target pair, is not an error -- that target (or, if the
         // actor itself has no token, every target) is simply absent from Entries, matching the same
         // "unresolvable data is not a hard-fail" precedent ODY-S06-103 already established for armor.
-        private Result<AttackTopologyInput> ReadTopology(CampaignHandle campaign, CharacterId actorId, IReadOnlyList<CharacterId> targetIds, CorrelationId correlationId)
+        //
+        // SLICE-10 Block 5 Part C: also computes each same-scene target's own cover degree from the same
+        // raw positions this method already resolves for distance -- not a second token-position pass.
+        // Obstacles are read once per actor Scene (IObstacleRepository.ListObstacles, already excluding
+        // destroyed ones -- SLICE-10 Block 5 Part B's own single integration point with geometry), not
+        // once per target.
+        private Result<(AttackTopologyInput Topology, AttackCoverInput Cover)> ReadTopology(CampaignHandle campaign, CharacterId actorId, IReadOnlyList<CharacterId> targetIds, CorrelationId correlationId)
         {
             Result<IReadOnlyList<TokenRecord>> actorTokens = _scenes.ListTokensByCharacter(campaign, actorId, correlationId);
-            if (actorTokens.IsFailure) return Result<AttackTopologyInput>.Failure(actorTokens.Error);
+            if (actorTokens.IsFailure) return Result<(AttackTopologyInput, AttackCoverInput)>.Failure(actorTokens.Error);
             TokenRecord? actorToken = actorTokens.Value.Count > 0 ? actorTokens.Value[0] : null;
 
-            var entries = new List<AttackTargetDistanceEntry>();
+            var distanceEntries = new List<AttackTargetDistanceEntry>();
+            var coverEntries = new List<AttackTargetCoverEntry>();
             if (actorToken != null)
             {
+                Result<IReadOnlyList<ObstacleRecord>> obstacles = _obstacles.ListObstacles(campaign, actorToken.SceneId, correlationId);
+                if (obstacles.IsFailure) return Result<(AttackTopologyInput, AttackCoverInput)>.Failure(obstacles.Error);
+                var segments = new ObstacleSegment[obstacles.Value.Count];
+                for (int obstacleIndex = 0; obstacleIndex < obstacles.Value.Count; obstacleIndex++)
+                {
+                    ObstacleRecord obstacle = obstacles.Value[obstacleIndex];
+                    segments[obstacleIndex] = new ObstacleSegment(obstacle.Kind, obstacle.IsOpen, obstacle.X1, obstacle.Y1, obstacle.X2, obstacle.Y2);
+                }
+
                 for (int index = 0; index < targetIds.Count; index++)
                 {
                     CharacterId targetId = targetIds[index];
                     Result<IReadOnlyList<TokenRecord>> targetTokens = _scenes.ListTokensByCharacter(campaign, targetId, correlationId);
-                    if (targetTokens.IsFailure) return Result<AttackTopologyInput>.Failure(targetTokens.Error);
+                    if (targetTokens.IsFailure) return Result<(AttackTopologyInput, AttackCoverInput)>.Failure(targetTokens.Error);
                     TokenRecord? targetToken = targetTokens.Value.Count > 0 ? targetTokens.Value[0] : null;
                     if (targetToken == null || !targetToken.SceneId.Equals(actorToken.SceneId)) continue;
                     double distance = BoardGeometry.EuclideanDistance(actorToken.Position.X, actorToken.Position.Y, targetToken.Position.X, targetToken.Position.Y);
-                    entries.Add(new AttackTargetDistanceEntry(targetId, distance));
+                    distanceEntries.Add(new AttackTargetDistanceEntry(targetId, distance));
+                    CoverDegree coverDegree = CoverGeometry.ComputeCoverDegree(actorToken.Position.X, actorToken.Position.Y, targetToken.Position.X, targetToken.Position.Y, segments);
+                    coverEntries.Add(new AttackTargetCoverEntry(targetId, coverDegree));
                 }
             }
 
-            return Result<AttackTopologyInput>.Success(entries.Count == 0
+            AttackTopologyInput topology = distanceEntries.Count == 0
                 ? AttackTopologyInput.Unavailable("No resolvable actor/target token position binding.")
-                : AttackTopologyInput.Available(entries));
+                : AttackTopologyInput.Available(distanceEntries);
+            AttackCoverInput cover = coverEntries.Count == 0
+                ? AttackCoverInput.Unavailable("No resolvable actor/target token position binding.")
+                : AttackCoverInput.Available(coverEntries);
+            return Result<(AttackTopologyInput, AttackCoverInput)>.Success((topology, cover));
         }
 
         // ODY-S06-103: aggregates every target's currently-equipped armor across the whole intent, tagged

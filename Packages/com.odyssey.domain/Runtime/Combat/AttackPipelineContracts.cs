@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using Odyssey.Domain.Content;
 using Odyssey.Domain.Character;
 using Odyssey.Domain.Effects;
+using Odyssey.Domain.Geometry;
 using Odyssey.Domain.Identity;
 using Odyssey.Domain.Inventory;
 
@@ -182,6 +183,61 @@ namespace Odyssey.Domain.Combat
         public IReadOnlyList<AttackTargetDistanceEntry> Entries { get; }
     }
 
+    public enum AttackCoverAvailability { Available = 1, UnavailableNotBound = 2 }
+
+    /// <summary>SLICE-10 Block 5 Part C: one target's own already-computed <see cref="CoverDegree"/> (`Odyssey.Domain.Geometry.CoverGeometry.ComputeCoverDegree`), by exact precedent of <see cref="AttackTargetDistanceEntry"/>/<see cref="AttackTargetArmorEntry"/> -- tagged by TargetId, since a multi-target intent may have a different cover degree per target.</summary>
+    public readonly struct AttackTargetCoverEntry
+    {
+        public AttackTargetCoverEntry(CharacterId targetId, CoverDegree degree)
+        {
+            if (!targetId.IsValid) throw new ArgumentException("TargetId is required.", nameof(targetId));
+            TargetId = targetId;
+            Degree = degree;
+        }
+        public CharacterId TargetId { get; }
+        public CoverDegree Degree { get; }
+    }
+
+    /// <summary>
+    /// SLICE-10 Block 5 Part C: by exact precedent of <see cref="AttackTopologyInput"/> --
+    /// <see cref="Unavailable"/> for when no target's cover could be resolved (missing Character-Token
+    /// link, cross-Scene pair, or the actor itself has no token -- the same "unresolvable data is not a
+    /// hard-fail" rule <c>ODY-S06-104</c> already established for <see cref="AttackTopologyInput"/>);
+    /// <see cref="Available"/> carries every target whose cover WAS resolvable. A target absent from
+    /// <see cref="Entries"/> (including every target when <see cref="Availability"/> itself is
+    /// <see cref="AttackCoverAvailability.UnavailableNotBound"/>) is treated as <see cref="CoverDegree.None"/>
+    /// by <c>CoreAttackRulesEvaluator</c> -- the permissive default, matching <see cref="AttackTopologyInput"/>'s
+    /// own "missing data does not become a new hard-fail" philosophy.
+    /// </summary>
+    public sealed class AttackCoverInput
+    {
+        private AttackCoverInput(AttackCoverAvailability availability, string reason, IReadOnlyList<AttackTargetCoverEntry> entries)
+        {
+            Availability = availability;
+            Reason = reason;
+            Entries = entries;
+        }
+
+        public static AttackCoverInput Unavailable(string reason)
+        {
+            if (string.IsNullOrWhiteSpace(reason)) throw new ArgumentException("Reason is required.", nameof(reason));
+            return new AttackCoverInput(AttackCoverAvailability.UnavailableNotBound, reason, Array.Empty<AttackTargetCoverEntry>());
+        }
+
+        public static AttackCoverInput Available(IReadOnlyList<AttackTargetCoverEntry> entries)
+        {
+            if (entries == null) throw new ArgumentNullException(nameof(entries));
+            if (entries.Count == 0) throw new ArgumentException("Available cover input requires at least one entry; use Unavailable when no target's cover could be resolved.", nameof(entries));
+            AttackTargetCoverEntry[] copy = new AttackTargetCoverEntry[entries.Count];
+            for (int index = 0; index < copy.Length; index++) copy[index] = entries[index];
+            return new AttackCoverInput(AttackCoverAvailability.Available, string.Empty, Array.AsReadOnly(copy));
+        }
+
+        public AttackCoverAvailability Availability { get; }
+        public string Reason { get; }
+        public IReadOnlyList<AttackTargetCoverEntry> Entries { get; }
+    }
+
     public readonly struct AttackRangeResult { public AttackRangeResult(bool isInRange, string reason) { IsInRange = isInRange; Reason = reason ?? throw new ArgumentNullException(nameof(reason)); } public bool IsInRange { get; } public string Reason { get; } }
     public readonly struct AttackModifierEntry { public AttackModifierEntry(string source, int value) { if (string.IsNullOrWhiteSpace(source)) throw new ArgumentException("Source is required.", nameof(source)); Source = source; Value = value; } public string Source { get; } public int Value { get; } }
     public readonly struct AttackHitResult { public AttackHitResult(bool isHit, string outcome) { IsHit = isHit; Outcome = outcome ?? throw new ArgumentNullException(nameof(outcome)); } public bool IsHit { get; } public string Outcome { get; } }
@@ -295,6 +351,12 @@ namespace Odyssey.Domain.Combat
         {
         }
 
+        /// <summary>SLICE-10 Block 5 Part C: preserved for every pre-existing caller that constructs a snapshot without cover data -- defaults <see cref="Cover"/> to <see cref="AttackCoverInput.Unavailable"/>, the permissive "no cover computed" state <c>CoreAttackRulesEvaluator</c> already treats as <see cref="CoverDegree.None"/> for every target.</summary>
+        public AttackEvaluationSnapshot(string fingerprint, string rulesetId, string rulesetVersion, long encounterRevision, ContentDefinitionRef actionSourceRef, ItemMechanicsSnapshot actionMechanics, AttackParticipantState actor, IReadOnlyList<AttackParticipantState> targets, AttackTopologyInput topology, AttackArmorInput armorAndEffects, WeaponDefinition? actionWeapon)
+            : this(fingerprint, rulesetId, rulesetVersion, encounterRevision, actionSourceRef, actionMechanics, actor, targets, topology, armorAndEffects, actionWeapon, AttackCoverInput.Unavailable("Cover not computed for this snapshot."))
+        {
+        }
+
         /// <summary>
         /// ODY-S06-105: <paramref name="actionWeapon"/> is the action item's own already-decoded
         /// <see cref="WeaponDefinition"/>, when its `ActionMechanics` is Weapon-shaped and decodes
@@ -310,11 +372,11 @@ namespace Odyssey.Domain.Combat
         /// fixture that constructs a snapshot directly -- armor (`ArmorDefinition`, `ODY-S06-103`) needed no
         /// equivalent extension, since it is already decoded by the time it reaches this type.
         /// </summary>
-        public AttackEvaluationSnapshot(string fingerprint, string rulesetId, string rulesetVersion, long encounterRevision, ContentDefinitionRef actionSourceRef, ItemMechanicsSnapshot actionMechanics, AttackParticipantState actor, IReadOnlyList<AttackParticipantState> targets, AttackTopologyInput topology, AttackArmorInput armorAndEffects, WeaponDefinition? actionWeapon)
+        public AttackEvaluationSnapshot(string fingerprint, string rulesetId, string rulesetVersion, long encounterRevision, ContentDefinitionRef actionSourceRef, ItemMechanicsSnapshot actionMechanics, AttackParticipantState actor, IReadOnlyList<AttackParticipantState> targets, AttackTopologyInput topology, AttackArmorInput armorAndEffects, WeaponDefinition? actionWeapon, AttackCoverInput cover)
         {
             if (string.IsNullOrWhiteSpace(fingerprint) || string.IsNullOrWhiteSpace(rulesetId) || string.IsNullOrWhiteSpace(rulesetVersion) || encounterRevision < 1 || !actionSourceRef.IsValid || !actionMechanics.SourceDefinitionRef.Equals(actionSourceRef)) throw new ArgumentException("Snapshot values are required.");
-            if (actor.CharacterId == default || targets == null || topology == null || armorAndEffects == null) throw new ArgumentException("Read participant state is required.");
-            Fingerprint = fingerprint; RulesetId = rulesetId; RulesetVersion = rulesetVersion; EncounterRevision = encounterRevision; ActionSourceRef = actionSourceRef; ActionMechanics = actionMechanics; Actor = actor; Targets = Copy(targets, nameof(targets)); Topology = topology; ArmorAndEffects = armorAndEffects; ActionWeapon = actionWeapon;
+            if (actor.CharacterId == default || targets == null || topology == null || armorAndEffects == null || cover == null) throw new ArgumentException("Read participant state is required.");
+            Fingerprint = fingerprint; RulesetId = rulesetId; RulesetVersion = rulesetVersion; EncounterRevision = encounterRevision; ActionSourceRef = actionSourceRef; ActionMechanics = actionMechanics; Actor = actor; Targets = Copy(targets, nameof(targets)); Topology = topology; ArmorAndEffects = armorAndEffects; ActionWeapon = actionWeapon; Cover = cover;
         }
         public string Fingerprint { get; }
         public string RulesetId { get; }
@@ -327,6 +389,9 @@ namespace Odyssey.Domain.Combat
         public AttackTopologyInput Topology { get; }
         public AttackArmorInput ArmorAndEffects { get; }
         public WeaponDefinition? ActionWeapon { get; }
+
+        /// <summary>SLICE-10 Block 5 Part C: each target's own already-computed cover degree, read by `SqliteAttackStateReader.ReadTopology` alongside `Topology` itself (same raw positions, same obstacle-blocking geometry) -- consumed by `CoreAttackRulesEvaluator.Resolve` as a flat damage-reduction lookup (`CoverPenaltyTable`), never affecting `Hit`/`Range`.</summary>
+        public AttackCoverInput Cover { get; }
         private static IReadOnlyList<T> Copy<T>(IReadOnlyList<T> source, string name) { T[] copy = new T[source.Count]; for (int index = 0; index < copy.Length; index++) copy[index] = source[index]; return Array.AsReadOnly(copy); }
     }
 

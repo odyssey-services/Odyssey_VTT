@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using Odyssey.Domain.Character;
 using Odyssey.Domain.Combat;
 using Odyssey.Domain.Content;
+using Odyssey.Domain.Geometry;
 using Odyssey.Domain.Identity;
 
 namespace Odyssey.Rules.Combat
@@ -30,6 +31,22 @@ namespace Odyssey.Rules.Combat
     {
         private static readonly ResourceDefinitionId DamageResourceKind = ResourceDefinitionId.Parse("health");
 
+        /// <summary>
+        /// SLICE-10 Block 5 Part C (product decision 2026-09-29): a flat damage subtraction per graduated
+        /// cover degree, the same additive shape as <see cref="AggregateProtection"/>'s own armor
+        /// subtraction -- not a to-hit modifier (there is no to-hit roll to modify; see this class's own
+        /// remarks on `Hit == Range`). These are deliberate MVP placeholder values, not tuned game
+        /// balance -- the product owner may ask for different numbers in a future, separate ticket
+        /// without reopening this table's own architecture.
+        /// </summary>
+        private static readonly IReadOnlyDictionary<CoverDegree, long> CoverPenaltyTable = new Dictionary<CoverDegree, long>
+        {
+            [CoverDegree.None] = 0,
+            [CoverDegree.Half] = 2,
+            [CoverDegree.ThreeQuarters] = 5,
+            [CoverDegree.Full] = 10,
+        };
+
         public ProposedAttackResolution Preview(AttackIntent intent, AttackEvaluationSnapshot snapshot)
             => Resolve(intent, snapshot, randomSample: null);
 
@@ -52,6 +69,7 @@ namespace Odyssey.Rules.Combat
 
             bool anyTargetOutOfRange = false;
             var damageDeltas = new List<AttackDelta>();
+            var modifiers = new List<AttackModifierEntry>();
             string? firstArmoredTargetRef = null;
             long firstArmoredTargetAbsorbed = 0;
 
@@ -71,12 +89,21 @@ namespace Odyssey.Rules.Combat
                     firstArmoredTargetAbsorbed = protection;
                 }
 
+                // SLICE-10 Block 5 Part C: cover reduces damage the same additive way armor does -- it
+                // never affects Hit/Range (a target behind Full cover is still hit if in range, per the
+                // product's own explicit decision; only the resulting damage shrinks, possibly to zero).
+                long coverPenalty = CoverPenaltyTable[GetCoverDegree(snapshot, targetId)];
+                if (coverPenalty > 0)
+                {
+                    modifiers.Add(new AttackModifierEntry("cover", (int)coverPenalty));
+                }
+
                 int cursor = 0;
                 Func<int, int> nextDie = randomSample.HasValue
                     ? sides => MapRawRollToDie(randomSample.Value.Values[cursor++ % randomSample.Value.Values.Count], sides)
                     : PreviewDieValue;
                 long formulaValue = EvaluateFormula(formula, snapshot.Actor.AttributeValues, nextDie);
-                long finalDamage = Math.Max(0, formulaValue - protection);
+                long finalDamage = Math.Max(0, formulaValue - protection - coverPenalty);
                 damageDeltas.Add(new AttackDelta(TargetRef(targetId), (int)-finalDamage));
             }
 
@@ -93,7 +120,7 @@ namespace Odyssey.Rules.Combat
                 snapshot,
                 randomSample,
                 range,
-                Array.Empty<AttackModifierEntry>(),
+                Array.AsReadOnly(modifiers.ToArray()),
                 hit,
                 bodyPart: null,
                 armorProposal,
@@ -118,6 +145,25 @@ namespace Odyssey.Rules.Combat
             }
 
             return true;
+        }
+
+        /// <summary>SLICE-10 Block 5 Part C: a target absent from <see cref="AttackEvaluationSnapshot.Cover"/>'s own entries (including every target when <see cref="AttackCoverAvailability.UnavailableNotBound"/>) defaults to <see cref="CoverDegree.None"/> -- the permissive "missing data is not a hard-fail" rule already established for <see cref="AttackTopologyInput"/>/range.</summary>
+        private static CoverDegree GetCoverDegree(AttackEvaluationSnapshot snapshot, CharacterId targetId)
+        {
+            if (snapshot.Cover.Availability != AttackCoverAvailability.Available)
+            {
+                return CoverDegree.None;
+            }
+
+            foreach (AttackTargetCoverEntry entry in snapshot.Cover.Entries)
+            {
+                if (entry.TargetId == targetId)
+                {
+                    return entry.Degree;
+                }
+            }
+
+            return CoverDegree.None;
         }
 
         /// <summary>
