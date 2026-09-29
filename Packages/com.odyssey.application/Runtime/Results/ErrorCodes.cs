@@ -191,6 +191,8 @@ namespace Odyssey.Application.Results
         public static readonly ErrorCode ObstacleAuthoringDenied = ErrorCode.Parse("obstacle.authoring.denied");
         public static readonly ErrorCode ObstacleToggleDenied = ErrorCode.Parse("obstacle.toggle.denied");
         public static readonly ErrorCode ObstacleToggleNotADoor = ErrorCode.Parse("obstacle.toggle.not_a_door");
+        public static readonly ErrorCode ObstacleApplyDamageDenied = ErrorCode.Parse("obstacle.apply_damage.denied");
+        public static readonly ErrorCode ObstacleDurabilityNotConfigured = ErrorCode.Parse("obstacle.durability.not_configured");
 
         public static readonly ErrorCode PersistenceTokenVisionNotFound = ErrorCode.Parse("persistence.token_vision.not_found");
         public static readonly ErrorCode PersistenceTokenVisionIoFailed = ErrorCode.Parse("persistence.token_vision.io_failed");

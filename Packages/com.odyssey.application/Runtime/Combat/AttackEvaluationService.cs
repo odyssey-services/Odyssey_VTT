@@ -104,7 +104,10 @@ namespace Odyssey.Application.Combat
         {
             Result<WeaponDefinition> weapon = TypedDefinitionCodec.DecodeWeapon(snapshot.ActionMechanics.ContentType, snapshot.ActionMechanics.Payload, correlationId);
             if (weapon.IsFailure) return snapshot;
-            return new AttackEvaluationSnapshot(snapshot.Fingerprint, snapshot.RulesetId, snapshot.RulesetVersion, snapshot.EncounterRevision, snapshot.ActionSourceRef, snapshot.ActionMechanics, snapshot.Actor, snapshot.Targets, snapshot.Topology, snapshot.ArmorAndEffects, weapon.Value);
+            // SLICE-10 Block 5 Part C: the 11-arg overload defaults Cover to Unavailable, which would
+            // silently discard the real Cover the reader already computed -- Cover must be threaded
+            // through explicitly here, exactly like every other pre-existing field on this line.
+            return new AttackEvaluationSnapshot(snapshot.Fingerprint, snapshot.RulesetId, snapshot.RulesetVersion, snapshot.EncounterRevision, snapshot.ActionSourceRef, snapshot.ActionMechanics, snapshot.Actor, snapshot.Targets, snapshot.Topology, snapshot.ArmorAndEffects, weapon.Value, snapshot.Cover);
         }
 
         private static Result<AttackEvaluationState> AuthorizeAndRead(IAttackStateReader reader, ICampaignRepository campaignRepository, CampaignHandle campaign, AttackRequest request)

@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.IO;
 using NUnit.Framework;
+using Odyssey.Application.Board;
 using Odyssey.Application.CharacterAdvancement;
 using Odyssey.Application.Combat;
 using Odyssey.Application.Commands;
@@ -14,6 +15,7 @@ using Odyssey.Application.Time;
 using Odyssey.Domain.Character;
 using Odyssey.Domain.Combat;
 using Odyssey.Domain.Content;
+using Odyssey.Domain.Geometry;
 using Odyssey.Domain.Identity;
 using Odyssey.Domain.Inventory;
 using Odyssey.Domain.Time;
@@ -43,6 +45,7 @@ namespace Odyssey.Tests.Persistence
         private SqliteCombatEncounterRepository _encounters = null!;
         private SqliteInventoryRepository _inventory = null!;
         private SqliteSceneRepository _scenes = null!;
+        private SqliteObstacleRepository _obstacles = null!;
         private SqliteAttackStateReader _reader = null!;
         private SqliteAttackApplyRepository _apply = null!;
 
@@ -58,7 +61,8 @@ namespace Odyssey.Tests.Persistence
             _encounters = new SqliteCombatEncounterRepository(_clock);
             _inventory = new SqliteInventoryRepository(_clock, new SqliteCampaignRepository(_clock));
             _scenes = new SqliteSceneRepository(_clock);
-            _reader = new SqliteAttackStateReader(_encounters, _inventory, _characters, _clock, _scenes);
+            _obstacles = new SqliteObstacleRepository(_clock);
+            _reader = new SqliteAttackStateReader(_encounters, _inventory, _characters, _clock, _scenes, _obstacles);
             _apply = new SqliteAttackApplyRepository(_clock, new SqliteCampaignRepository(_clock));
         }
 
@@ -216,6 +220,145 @@ namespace Odyssey.Tests.Persistence
 
             Assert.That(resolved.IsSuccess, Is.True);
             Assert.That(CurrentValue(target, Health), Is.EqualTo(5), "Constant formula '5' with no armor: 10 - 5 = 5.");
+        }
+
+        [Test] // TC-ATTACK-130
+        public void EvaluateAttack_FullCover_DamageReducedByFullPenalty_HitAndRangeUnaffected()
+        {
+            CharacterId actor = Active("actor"), target = Active("target");
+            InitResource(target, Health);
+            SceneId scene = CreateScene();
+            LinkToken(scene, actor, 0, 0);
+            LinkToken(scene, target, 10, 0);
+            // A wide wall blocking all four of CoverGeometry's own diagonal samples around the target.
+            _obstacles.CreateObstacle(_campaign, scene, ObstacleKind.Wall, 5, -5, 5, 5, Command(), Corr);
+            CombatEncounterRecord encounter = CreateEncounter(actor, target);
+            ItemInstanceRecord weapon = WeaponFor(actor, "10", range: 100);
+
+            Result<ProposedAttackResolution> evaluated = AttackEvaluationService.EvaluateAttack(_reader, new SqliteCampaignRepository(_clock), new CoreAttackRulesEvaluator(), new FixedRandomStreamFactory(10, 20, 30, 40), _campaign, Epoch, Request(encounter, actor, target, weapon));
+
+            Assert.That(evaluated.IsSuccess, Is.True);
+            Assert.That(evaluated.Value.Range.IsInRange, Is.True, "Full cover must never affect Range");
+            Assert.That(evaluated.Value.Hit.IsHit, Is.True, "Full cover must never affect Hit -- the attack still connects, only the damage shrinks");
+            // Constant formula "10" minus Full cover penalty (10) = 0, never negative.
+            Assert.That(evaluated.Value.DamageDeltas[0].Value, Is.EqualTo(0));
+            Assert.That(evaluated.Value.Modifiers.Count, Is.EqualTo(1));
+            Assert.That(evaluated.Value.Modifiers[0].Source, Is.EqualTo("cover"));
+            Assert.That(evaluated.Value.Modifiers[0].Value, Is.EqualTo(10));
+        }
+
+        [Test] // TC-ATTACK-131
+        public void EvaluateAttack_HalfCover_DamageReducedByHalfPenalty()
+        {
+            CharacterId actor = Active("actor"), target = Active("target");
+            InitResource(target, Health);
+            SceneId scene = CreateScene();
+            LinkToken(scene, actor, 0, 0);
+            LinkToken(scene, target, 10, 0);
+            // A tiny wall straddling exactly one of the target's own four diagonal cover samples --
+            // blocks exactly 1 of 4, the same construction CoverTests.cs itself already validates.
+            double offset = CoverGeometry.DefaultTargetRadius * 0.70710678118654752;
+            _obstacles.CreateObstacle(_campaign, scene, ObstacleKind.Wall, 10 + offset - 0.01, 0 + offset + 0.01, 10 + offset + 0.01, 0 + offset - 0.01, Command(), Corr);
+            CombatEncounterRecord encounter = CreateEncounter(actor, target);
+            ItemInstanceRecord weapon = WeaponFor(actor, "5", range: 100);
+
+            Result<ProposedAttackResolution> evaluated = AttackEvaluationService.EvaluateAttack(_reader, new SqliteCampaignRepository(_clock), new CoreAttackRulesEvaluator(), new FixedRandomStreamFactory(10, 20, 30, 40), _campaign, Epoch, Request(encounter, actor, target, weapon));
+
+            Assert.That(evaluated.IsSuccess, Is.True);
+            Assert.That(evaluated.Value.Hit.IsHit, Is.True);
+            // Constant formula "5" minus Half cover penalty (2) = 3.
+            Assert.That(evaluated.Value.DamageDeltas[0].Value, Is.EqualTo(-3));
+            Assert.That(evaluated.Value.Modifiers.Count, Is.EqualTo(1));
+            Assert.That(evaluated.Value.Modifiers[0].Value, Is.EqualTo(2));
+        }
+
+        [Test] // TC-ATTACK-132
+        public void EvaluateAttack_CoverAndArmorTogether_BothDeductionsApplyIndependently()
+        {
+            CharacterId actor = Active("actor"), target = Active("target");
+            InitResource(target, Health);
+            EquipArmor(target, "chest_slot", protection: 3, "Torso");
+            SceneId scene = CreateScene();
+            LinkToken(scene, actor, 0, 0);
+            LinkToken(scene, target, 10, 0);
+            _obstacles.CreateObstacle(_campaign, scene, ObstacleKind.Wall, 5, -5, 5, 5, Command(), Corr);
+            CombatEncounterRecord encounter = CreateEncounter(actor, target);
+            ItemInstanceRecord weapon = WeaponFor(actor, "20", range: 100);
+
+            Result<ProposedAttackResolution> evaluated = AttackEvaluationService.EvaluateAttack(_reader, new SqliteCampaignRepository(_clock), new CoreAttackRulesEvaluator(), new FixedRandomStreamFactory(10, 20, 30, 40), _campaign, Epoch, Request(encounter, actor, target, weapon));
+
+            Assert.That(evaluated.IsSuccess, Is.True);
+            // Constant formula "20" minus 3 Protection minus 10 Full-cover penalty = 7 -- both deductions apply, neither is skipped or doubled.
+            Assert.That(evaluated.Value.DamageDeltas[0].Value, Is.EqualTo(-7));
+            Assert.That(evaluated.Value.Armor!.Value.Absorbed, Is.EqualTo(3));
+        }
+
+        [Test] // TC-ATTACK-133
+        public void EvaluateAttack_NoObstaclesOnScene_ModifiersStaysEmpty_RegressionUnchanged()
+        {
+            CharacterId actor = Active("actor"), target = Active("target");
+            InitResource(target, Health);
+            SceneId scene = CreateScene();
+            LinkToken(scene, actor, 0, 0);
+            LinkToken(scene, target, 10, 0);
+            CombatEncounterRecord encounter = CreateEncounter(actor, target);
+            ItemInstanceRecord weapon = WeaponFor(actor, "5", range: 100);
+
+            Result<ProposedAttackResolution> evaluated = AttackEvaluationService.EvaluateAttack(_reader, new SqliteCampaignRepository(_clock), new CoreAttackRulesEvaluator(), new FixedRandomStreamFactory(10, 20, 30, 40), _campaign, Epoch, Request(encounter, actor, target, weapon));
+
+            Assert.That(evaluated.IsSuccess, Is.True);
+            Assert.That(evaluated.Value.Modifiers, Is.Empty, "no obstacle on the scene must mean no cover, hence no modifier entry -- exactly the pre-Block-5 behavior");
+            Assert.That(evaluated.Value.DamageDeltas[0].Value, Is.EqualTo(-5));
+        }
+
+        [Test] // TC-ATTACK-134
+        public void PreviewAttack_ReflectsTheSameCoverAsEvaluateAttack_ForTheSameGeometry()
+        {
+            CharacterId actor = Active("actor"), target = Active("target");
+            InitResource(target, Health);
+            SceneId scene = CreateScene();
+            LinkToken(scene, actor, 0, 0);
+            LinkToken(scene, target, 10, 0);
+            _obstacles.CreateObstacle(_campaign, scene, ObstacleKind.Wall, 5, -5, 5, 5, Command(), Corr);
+            CombatEncounterRecord encounter = CreateEncounter(actor, target);
+            ItemInstanceRecord weapon = WeaponFor(actor, "10", range: 100);
+
+            Result<ProposedAttackResolution> previewed = AttackEvaluationService.PreviewAttack(_reader, new SqliteCampaignRepository(_clock), new CoreAttackRulesEvaluator(), _campaign, Request(encounter, actor, target, weapon));
+            Result<ProposedAttackResolution> evaluated = AttackEvaluationService.EvaluateAttack(_reader, new SqliteCampaignRepository(_clock), new CoreAttackRulesEvaluator(), new FixedRandomStreamFactory(10, 20, 30, 40), _campaign, Epoch, Request(encounter, actor, target, weapon));
+
+            Assert.That(previewed.IsSuccess, Is.True);
+            Assert.That(evaluated.IsSuccess, Is.True);
+            Assert.That(previewed.Value.DamageDeltas[0].Value, Is.EqualTo(evaluated.Value.DamageDeltas[0].Value), "Preview and Evaluate must compute the identical cover degree for the same geometry -- both go through the same SqliteAttackStateReader.ReadTopology");
+            Assert.That(previewed.Value.Modifiers.Count, Is.EqualTo(1));
+            Assert.That(previewed.Value.Modifiers[0].Value, Is.EqualTo(10));
+        }
+
+        [Test] // TC-ATTACK-135
+        public void DestroyingTheCoveringObstacle_BetweenTwoCalls_RemovesCoverFromTheNextCalculation()
+        {
+            CharacterId actor = Active("actor"), target = Active("target");
+            InitResource(target, Health);
+            SceneId scene = CreateScene();
+            LinkToken(scene, actor, 0, 0);
+            LinkToken(scene, target, 10, 0);
+            Result<ObstacleRecord> wall = _obstacles.CreateObstacle(_campaign, scene, ObstacleKind.Wall, 5, -5, 5, 5, Command(), Corr, maxHp: 1);
+            CombatEncounterRecord encounter = CreateEncounter(actor, target);
+            ItemInstanceRecord weapon = WeaponFor(actor, "10", range: 100);
+
+            Result<ProposedAttackResolution> beforeDestruction = AttackEvaluationService.PreviewAttack(_reader, new SqliteCampaignRepository(_clock), new CoreAttackRulesEvaluator(), _campaign, Request(encounter, actor, target, weapon));
+            Assert.That(beforeDestruction.IsSuccess, Is.True);
+            Assert.That(beforeDestruction.Value.DamageDeltas[0].Value, Is.EqualTo(0), "Full cover (penalty 10) against a formula-10 attack leaves 0 damage before the wall is destroyed");
+
+            var damageRequest = new ApplyObstacleDamageRequest(_campaign, wall.Value.ObstacleId, 100, 1, global::Odyssey.Application.Identity.DevIdentityProvider.AssignHost(), Command(), Corr);
+            Result<ObstacleDurabilityRecord> destroyed = ObstacleAuthoringService.ApplyObstacleDamage(_obstacles, new SqliteCampaignRepository(_clock), damageRequest);
+            Assert.That(destroyed.IsSuccess, Is.True);
+            Assert.That(destroyed.Value.IsDestroyed, Is.True);
+
+            Result<ProposedAttackResolution> afterDestruction = AttackEvaluationService.PreviewAttack(_reader, new SqliteCampaignRepository(_clock), new CoreAttackRulesEvaluator(), _campaign, Request(encounter, actor, target, weapon));
+
+            Assert.That(afterDestruction.IsSuccess, Is.True);
+            Assert.That(afterDestruction.Value.DamageDeltas[0].Value, Is.EqualTo(-10), "with the covering wall destroyed, ListObstacles no longer returns it -- cover drops to None with no direct link between Part B and Part C");
+            Assert.That(afterDestruction.Value.Modifiers, Is.Empty);
         }
 
         // ---- helpers ----

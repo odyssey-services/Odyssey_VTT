@@ -36,17 +36,21 @@ namespace Odyssey.Persistence.Sqlite
             _pipeline = new SqliteSavingPipeline(clock);
         }
 
-        public Result<ObstacleRecord> CreateObstacle(CampaignHandle campaign, SceneId sceneId, ObstacleKind kind, double x1, double y1, double x2, double y2, CommandId commandId, CorrelationId correlationId)
+        public Result<ObstacleRecord> CreateObstacle(CampaignHandle campaign, SceneId sceneId, ObstacleKind kind, double x1, double y1, double x2, double y2, CommandId commandId, CorrelationId correlationId, long? maxHp = null, long protection = 0)
         {
             if (campaign == null) throw new ArgumentNullException(nameof(campaign));
             if (!sceneId.IsValid) throw new ArgumentException("SceneId is required.", nameof(sceneId));
             if (!BoardGeometry.IsFinite(x1, y1) || !BoardGeometry.IsFinite(x2, y2)) throw new ArgumentException("Obstacle endpoints must be finite.");
             if (!commandId.IsValid) throw new ArgumentException("CommandId is required.", nameof(commandId));
+            if (maxHp.HasValue && maxHp.Value <= 0) throw new ArgumentOutOfRangeException(nameof(maxHp));
+            if (!maxHp.HasValue && protection != 0) throw new ArgumentException("Protection is only meaningful together with MaxHp.", nameof(protection));
+            if (protection < 0) throw new ArgumentOutOfRangeException(nameof(protection));
 
             try
             {
                 using SqliteConnection connection = OpenConnection(campaign.RootPath);
                 EnsureObstacleTable(connection);
+                EnsureObstacleDurabilityTable(connection);
                 UtcInstant now = _clock.GetUtcNow();
 
                 return _pipeline.Execute(
@@ -81,6 +85,22 @@ namespace Odyssey.Persistence.Sqlite
                             insert.Parameters.AddWithValue("$updatedAt", now.ToString());
                             insert.Parameters.AddWithValue("$lastCommandId", commandId.ToString());
                             insert.ExecuteNonQuery();
+                        }
+
+                        if (maxHp.HasValue)
+                        {
+                            using var insertDurability = connection.CreateCommand();
+                            insertDurability.Transaction = transaction;
+                            insertDurability.CommandText = "INSERT INTO ObstacleDurability (ObstacleId, CampaignId, MaxHp, CurrentHp, Protection, IsDestroyed, Revision, CreatedAt, UpdatedAt, LastCommandId) " +
+                                                            "VALUES ($obstacleId, $campaignId, $maxHp, $maxHp, $protection, 0, 1, $createdAt, $updatedAt, $lastCommandId);";
+                            insertDurability.Parameters.AddWithValue("$obstacleId", obstacleId.ToString());
+                            insertDurability.Parameters.AddWithValue("$campaignId", campaign.CampaignId.ToString());
+                            insertDurability.Parameters.AddWithValue("$maxHp", maxHp.Value);
+                            insertDurability.Parameters.AddWithValue("$protection", protection);
+                            insertDurability.Parameters.AddWithValue("$createdAt", now.ToString());
+                            insertDurability.Parameters.AddWithValue("$updatedAt", now.ToString());
+                            insertDurability.Parameters.AddWithValue("$lastCommandId", commandId.ToString());
+                            insertDurability.ExecuteNonQuery();
                         }
 
                         bool? isOpen = kind == ObstacleKind.Door ? (bool?)false : null;
@@ -196,9 +216,16 @@ namespace Odyssey.Persistence.Sqlite
             {
                 using SqliteConnection connection = OpenConnection(campaign.RootPath);
                 EnsureObstacleTable(connection);
+                EnsureObstacleDurabilityTable(connection);
 
                 using var select = connection.CreateCommand();
-                select.CommandText = "SELECT ObstacleId, Kind, X1, Y1, X2, Y2, IsOpen, Revision, CreatedAt, UpdatedAt FROM Obstacle WHERE SceneId = $sceneId ORDER BY CreatedAt ASC;";
+                // SLICE-10 Block 5 Part B: LEFT JOIN against the optional durability table and exclude a
+                // destroyed obstacle -- an obstacle with no durability row (od.ObstacleId IS NULL) is
+                // indestructible and always included, by construction.
+                select.CommandText = "SELECT o.ObstacleId, o.Kind, o.X1, o.Y1, o.X2, o.Y2, o.IsOpen, o.Revision, o.CreatedAt, o.UpdatedAt " +
+                                      "FROM Obstacle o LEFT JOIN ObstacleDurability od ON od.ObstacleId = o.ObstacleId " +
+                                      "WHERE o.SceneId = $sceneId AND (od.ObstacleId IS NULL OR od.IsDestroyed = 0) " +
+                                      "ORDER BY o.CreatedAt ASC;";
                 select.Parameters.AddWithValue("$sceneId", sceneId.ToString());
                 using SqliteDataReader reader = select.ExecuteReader();
                 var results = new List<ObstacleRecord>();
@@ -212,6 +239,93 @@ namespace Odyssey.Persistence.Sqlite
             catch (Exception ex) when (ex is IOException || ex is UnauthorizedAccessException || ex is SqliteException)
             {
                 return Result<IReadOnlyList<ObstacleRecord>>.Failure(ObstacleFailures.IoFailed(correlationId));
+            }
+        }
+
+        public Result<ObstacleDurabilityRecord> ApplyObstacleDamage(CampaignHandle campaign, ObstacleId obstacleId, long damageAmount, long expectedRevision, CommandId commandId, CorrelationId correlationId)
+        {
+            if (campaign == null) throw new ArgumentNullException(nameof(campaign));
+            if (!obstacleId.IsValid) throw new ArgumentException("ObstacleId is required.", nameof(obstacleId));
+            if (damageAmount < 0) throw new ArgumentOutOfRangeException(nameof(damageAmount));
+            if (expectedRevision < 1) throw new ArgumentOutOfRangeException(nameof(expectedRevision));
+            if (!commandId.IsValid) throw new ArgumentException("CommandId is required.", nameof(commandId));
+
+            try
+            {
+                using SqliteConnection connection = OpenConnection(campaign.RootPath);
+                EnsureObstacleTable(connection);
+                EnsureObstacleDurabilityTable(connection);
+
+                return _pipeline.Execute(
+                    connection,
+                    campaign.CampaignId,
+                    commandId,
+                    correlationId,
+                    tryReplay: transaction => ReplayDurability(connection, transaction, "ObstacleId = $obstacleId AND LastCommandId = $commandId", campaign.CampaignId, commandId, correlationId, obstacleId),
+                    apply: transaction =>
+                    {
+                        ObstacleDurabilityRecord? current = ReadDurability(connection, transaction, obstacleId, campaign.CampaignId);
+                        if (current == null)
+                        {
+                            return Result<PipelineWrite<ObstacleDurabilityRecord>>.Failure(ObstacleFailures.DurabilityNotConfigured(correlationId));
+                        }
+
+                        if (current.Revision != expectedRevision)
+                        {
+                            return Result<PipelineWrite<ObstacleDurabilityRecord>>.Failure(ObstacleFailures.RevisionConflict(correlationId));
+                        }
+
+                        long effectiveDamage = Math.Max(0, damageAmount - current.Protection);
+                        long newCurrentHp = Math.Max(0, current.CurrentHp - effectiveDamage);
+                        bool isDestroyed = newCurrentHp == 0;
+                        long newRevision = current.Revision + 1;
+                        UtcInstant now = _clock.GetUtcNow();
+
+                        using (var update = connection.CreateCommand())
+                        {
+                            update.Transaction = transaction;
+                            update.CommandText = "UPDATE ObstacleDurability SET CurrentHp = $currentHp, IsDestroyed = $isDestroyed, Revision = $revision, UpdatedAt = $updatedAt, LastCommandId = $lastCommandId WHERE ObstacleId = $obstacleId;";
+                            update.Parameters.AddWithValue("$currentHp", newCurrentHp);
+                            update.Parameters.AddWithValue("$isDestroyed", isDestroyed ? 1 : 0);
+                            update.Parameters.AddWithValue("$revision", newRevision);
+                            update.Parameters.AddWithValue("$updatedAt", now.ToString());
+                            update.Parameters.AddWithValue("$lastCommandId", commandId.ToString());
+                            update.Parameters.AddWithValue("$obstacleId", obstacleId.ToString());
+                            update.ExecuteNonQuery();
+                        }
+
+                        var record = new ObstacleDurabilityRecord(obstacleId, campaign.CampaignId, current.MaxHp, newCurrentHp, current.Protection, isDestroyed, newRevision, current.CreatedAt, now);
+                        string payloadJson = "{\"obstacleId\":\"" + obstacleId + "\",\"currentHp\":" + newCurrentHp + ",\"isDestroyed\":" + (isDestroyed ? "true" : "false") + "}";
+                        return Result<PipelineWrite<ObstacleDurabilityRecord>>.Success(new PipelineWrite<ObstacleDurabilityRecord>(
+                            record, "odyssey.persistence.obstacle_damaged", payloadJson, obstacleId.ToString(),
+                            aggregateType: "obstacle_durability", aggregateId: obstacleId.ToString(), aggregateRevision: newRevision));
+                    });
+            }
+            catch (Exception ex) when (ex is IOException || ex is UnauthorizedAccessException || ex is SqliteException)
+            {
+                return Result<ObstacleDurabilityRecord>.Failure(ObstacleFailures.IoFailed(correlationId));
+            }
+        }
+
+        public Result<ObstacleDurabilityRecord> GetObstacleDurability(CampaignHandle campaign, ObstacleId obstacleId, CorrelationId correlationId)
+        {
+            if (campaign == null) throw new ArgumentNullException(nameof(campaign));
+            if (!obstacleId.IsValid) throw new ArgumentException("ObstacleId is required.", nameof(obstacleId));
+
+            try
+            {
+                using SqliteConnection connection = OpenConnection(campaign.RootPath);
+                EnsureObstacleTable(connection);
+                EnsureObstacleDurabilityTable(connection);
+
+                ObstacleDurabilityRecord? record = ReadDurability(connection, null, obstacleId, campaign.CampaignId);
+                return record == null
+                    ? Result<ObstacleDurabilityRecord>.Failure(ObstacleFailures.DurabilityNotConfigured(correlationId))
+                    : Result<ObstacleDurabilityRecord>.Success(record);
+            }
+            catch (Exception ex) when (ex is IOException || ex is UnauthorizedAccessException || ex is SqliteException)
+            {
+                return Result<ObstacleDurabilityRecord>.Failure(ObstacleFailures.IoFailed(correlationId));
             }
         }
 
@@ -242,6 +356,41 @@ namespace Odyssey.Persistence.Sqlite
                 reader.GetDouble(3), reader.GetDouble(4), reader.GetDouble(5), reader.GetDouble(6),
                 reader.IsDBNull(7) ? (bool?)null : reader.GetInt64(7) != 0,
                 reader.GetInt64(8), UtcInstant.Parse(reader.GetString(9)), UtcInstant.Parse(reader.GetString(10))));
+        }
+
+        private static ObstacleDurabilityRecord? ReadDurability(SqliteConnection connection, SqliteTransaction? transaction, ObstacleId obstacleId, CampaignId campaignId)
+        {
+            using var select = connection.CreateCommand();
+            select.Transaction = transaction;
+            select.CommandText = "SELECT MaxHp, CurrentHp, Protection, IsDestroyed, Revision, CreatedAt, UpdatedAt FROM ObstacleDurability WHERE ObstacleId = $obstacleId LIMIT 1;";
+            select.Parameters.AddWithValue("$obstacleId", obstacleId.ToString());
+            using SqliteDataReader reader = select.ExecuteReader();
+            if (!reader.Read())
+            {
+                return null;
+            }
+
+            return new ObstacleDurabilityRecord(
+                obstacleId, campaignId, reader.GetInt64(0), reader.GetInt64(1), reader.GetInt64(2), reader.GetInt64(3) != 0,
+                reader.GetInt64(4), UtcInstant.Parse(reader.GetString(5)), UtcInstant.Parse(reader.GetString(6)));
+        }
+
+        private static Result<ObstacleDurabilityRecord> ReplayDurability(SqliteConnection connection, SqliteTransaction transaction, string whereClause, CampaignId campaignId, CommandId commandId, CorrelationId correlationId, ObstacleId obstacleId)
+        {
+            using var select = connection.CreateCommand();
+            select.Transaction = transaction;
+            select.CommandText = "SELECT MaxHp, CurrentHp, Protection, IsDestroyed, Revision, CreatedAt, UpdatedAt FROM ObstacleDurability WHERE " + whereClause + " LIMIT 1;";
+            select.Parameters.AddWithValue("$obstacleId", obstacleId.ToString());
+            select.Parameters.AddWithValue("$commandId", commandId.ToString());
+            using SqliteDataReader reader = select.ExecuteReader();
+            if (!reader.Read())
+            {
+                return Result<ObstacleDurabilityRecord>.Failure(PersistenceFailures.CommandReplayFailed(correlationId));
+            }
+
+            return Result<ObstacleDurabilityRecord>.Success(new ObstacleDurabilityRecord(
+                obstacleId, campaignId, reader.GetInt64(0), reader.GetInt64(1), reader.GetInt64(2), reader.GetInt64(3) != 0,
+                reader.GetInt64(4), UtcInstant.Parse(reader.GetString(5)), UtcInstant.Parse(reader.GetString(6))));
         }
 
         private static ObstacleRecord ReadObstacleRecord(SqliteDataReader reader, SceneId sceneId, CampaignId campaignId)
@@ -292,6 +441,26 @@ CREATE TABLE IF NOT EXISTS Obstacle (
     X2 REAL NOT NULL,
     Y2 REAL NOT NULL,
     IsOpen INTEGER,
+    Revision INTEGER NOT NULL,
+    CreatedAt TEXT NOT NULL,
+    UpdatedAt TEXT NOT NULL,
+    LastCommandId TEXT NOT NULL
+);";
+            command.ExecuteNonQuery();
+        }
+
+        /// <summary>SLICE-10 Block 5 Part B: `CREATE TABLE IF NOT EXISTS`, one row per obstacle that was created with a `maxHp` -- optional, not a column on `Obstacle` itself, the same "a new table, never `ALTER TABLE`" convention every prior SLICE-10 table already follows. No foreign key to `Obstacle` (this codebase scopes tables by plain id fields, not database foreign keys, by `EnsureSceneTokenTables`'s own established precedent).</summary>
+        private static void EnsureObstacleDurabilityTable(SqliteConnection connection)
+        {
+            using var command = connection.CreateCommand();
+            command.CommandText = @"
+CREATE TABLE IF NOT EXISTS ObstacleDurability (
+    ObstacleId TEXT PRIMARY KEY,
+    CampaignId TEXT NOT NULL,
+    MaxHp INTEGER NOT NULL,
+    CurrentHp INTEGER NOT NULL,
+    Protection INTEGER NOT NULL,
+    IsDestroyed INTEGER NOT NULL,
     Revision INTEGER NOT NULL,
     CreatedAt TEXT NOT NULL,
     UpdatedAt TEXT NOT NULL,

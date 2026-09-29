@@ -44,7 +44,28 @@ namespace Odyssey.Application.Board
                 return Result<ObstacleRecord>.Failure(ObstacleFailures.CreateDenied(request.CorrelationId));
             }
 
-            return repository.CreateObstacle(request.Campaign, request.SceneId, request.Kind, request.X1, request.Y1, request.X2, request.Y2, request.CommandId, request.CorrelationId);
+            return repository.CreateObstacle(request.Campaign, request.SceneId, request.Kind, request.X1, request.Y1, request.X2, request.Y2, request.CommandId, request.CorrelationId, request.MaxHp, request.Protection);
+        }
+
+        /// <summary>SLICE-10 Block 5 Part B: MainGM-only, by exact precedent of <see cref="CreateObstacle"/> -- damaging/destroying scene geometry is a game-master action, not something an ordinary player does. Checked before the repository is ever called, so a denied request causes no state change.</summary>
+        public static Result<ObstacleDurabilityRecord> ApplyObstacleDamage(IObstacleRepository repository, ICampaignRepository campaignRepository, ApplyObstacleDamageRequest request)
+        {
+            if (repository == null) throw new ArgumentNullException(nameof(repository));
+            if (campaignRepository == null) throw new ArgumentNullException(nameof(campaignRepository));
+            if (request == null) throw new ArgumentNullException(nameof(request));
+
+            Result<bool> mainGmCheck = CampaignMembershipAuthorization.IsMainGm(campaignRepository, request.Campaign, request.ActorUserId, request.CorrelationId);
+            if (mainGmCheck.IsFailure)
+            {
+                return Result<ObstacleDurabilityRecord>.Failure(mainGmCheck.Error);
+            }
+
+            if (!mainGmCheck.Value)
+            {
+                return Result<ObstacleDurabilityRecord>.Failure(ObstacleFailures.ApplyDamageDenied(request.CorrelationId));
+            }
+
+            return repository.ApplyObstacleDamage(request.Campaign, request.ObstacleId, request.DamageAmount, request.ExpectedRevision, request.CommandId, request.CorrelationId);
         }
 
         public static Result<ObstacleRecord> ToggleDoorState(IObstacleRepository repository, ICampaignRepository campaignRepository, ToggleDoorStateRequest request)
@@ -82,13 +103,16 @@ namespace Odyssey.Application.Board
 
     public sealed class CreateObstacleRequest
     {
-        public CreateObstacleRequest(CampaignHandle campaign, SceneId sceneId, ObstacleKind kind, double x1, double y1, double x2, double y2, UserId actorUserId, CommandId commandId, CorrelationId correlationId)
+        public CreateObstacleRequest(CampaignHandle campaign, SceneId sceneId, ObstacleKind kind, double x1, double y1, double x2, double y2, UserId actorUserId, CommandId commandId, CorrelationId correlationId, long? maxHp = null, long protection = 0)
         {
             Campaign = campaign ?? throw new ArgumentNullException(nameof(campaign));
             if (!sceneId.IsValid) throw new ArgumentException("SceneId is required.", nameof(sceneId));
             if (!BoardGeometry.IsFinite(x1, y1) || !BoardGeometry.IsFinite(x2, y2)) throw new ArgumentException("Obstacle endpoints must be finite.");
             if (!actorUserId.IsValid) throw new ArgumentException("ActorUserId is required.", nameof(actorUserId));
             if (!commandId.IsValid) throw new ArgumentException("CommandId is required.", nameof(commandId));
+            if (maxHp.HasValue && maxHp.Value <= 0) throw new ArgumentOutOfRangeException(nameof(maxHp));
+            if (!maxHp.HasValue && protection != 0) throw new ArgumentException("Protection is only meaningful together with MaxHp.", nameof(protection));
+            if (protection < 0) throw new ArgumentOutOfRangeException(nameof(protection));
 
             SceneId = sceneId;
             Kind = kind;
@@ -99,6 +123,8 @@ namespace Odyssey.Application.Board
             ActorUserId = actorUserId;
             CommandId = commandId;
             CorrelationId = correlationId;
+            MaxHp = maxHp;
+            Protection = protection;
         }
 
         public CampaignHandle Campaign { get; }
@@ -108,6 +134,39 @@ namespace Odyssey.Application.Board
         public double Y1 { get; }
         public double X2 { get; }
         public double Y2 { get; }
+        public UserId ActorUserId { get; }
+        public CommandId CommandId { get; }
+        public CorrelationId CorrelationId { get; }
+
+        /// <summary>SLICE-10 Block 5 Part B: optional -- when set, `CreateObstacle` also creates this obstacle's own durability row (SqliteObstacleRepository.CreateObstacle's own remarks). Null (the default) means the obstacle is indestructible, exactly as every obstacle created before this task already was.</summary>
+        public long? MaxHp { get; }
+
+        public long Protection { get; }
+    }
+
+    public sealed class ApplyObstacleDamageRequest
+    {
+        public ApplyObstacleDamageRequest(CampaignHandle campaign, ObstacleId obstacleId, long damageAmount, long expectedRevision, UserId actorUserId, CommandId commandId, CorrelationId correlationId)
+        {
+            Campaign = campaign ?? throw new ArgumentNullException(nameof(campaign));
+            if (!obstacleId.IsValid) throw new ArgumentException("ObstacleId is required.", nameof(obstacleId));
+            if (damageAmount < 0) throw new ArgumentOutOfRangeException(nameof(damageAmount));
+            if (expectedRevision < 1) throw new ArgumentOutOfRangeException(nameof(expectedRevision));
+            if (!actorUserId.IsValid) throw new ArgumentException("ActorUserId is required.", nameof(actorUserId));
+            if (!commandId.IsValid) throw new ArgumentException("CommandId is required.", nameof(commandId));
+
+            ObstacleId = obstacleId;
+            DamageAmount = damageAmount;
+            ExpectedRevision = expectedRevision;
+            ActorUserId = actorUserId;
+            CommandId = commandId;
+            CorrelationId = correlationId;
+        }
+
+        public CampaignHandle Campaign { get; }
+        public ObstacleId ObstacleId { get; }
+        public long DamageAmount { get; }
+        public long ExpectedRevision { get; }
         public UserId ActorUserId { get; }
         public CommandId CommandId { get; }
         public CorrelationId CorrelationId { get; }

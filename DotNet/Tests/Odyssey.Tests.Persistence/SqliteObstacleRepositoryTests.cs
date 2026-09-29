@@ -168,5 +168,95 @@ namespace Odyssey.Tests.Persistence
             Result<IReadOnlyList<TokenRecord>> tokens = _sceneRepository.ListTokens(_campaign, _sceneId, TestCorrelationId);
             Assert.That(tokens.Value.Count, Is.EqualTo(1));
         }
+
+        [Test] // TC-PERSIST-130
+        public void CreateObstacle_WithoutMaxHp_IsIndestructible_NoDurabilityRow()
+        {
+            ObstacleRecord wall = _obstacles.CreateObstacle(_campaign, _sceneId, ObstacleKind.Wall, 0, 0, 5, 0, NewCommandId(), TestCorrelationId).Value;
+
+            Result<ObstacleDurabilityRecord> durability = _obstacles.GetObstacleDurability(_campaign, wall.ObstacleId, TestCorrelationId);
+
+            Assert.That(durability.IsFailure, Is.True, "an obstacle created without maxHp has no durability row at all -- indestructible by omission");
+            Assert.That(durability.Error.Code, Is.EqualTo(ErrorCodes.ObstacleDurabilityNotConfigured));
+        }
+
+        [Test] // TC-PERSIST-131
+        public void CreateObstacle_WithMaxHp_SeedsADurabilityRowAtFullHealth()
+        {
+            ObstacleRecord wall = _obstacles.CreateObstacle(_campaign, _sceneId, ObstacleKind.Wall, 0, 0, 5, 0, NewCommandId(), TestCorrelationId, maxHp: 10, protection: 2).Value;
+
+            Result<ObstacleDurabilityRecord> durability = _obstacles.GetObstacleDurability(_campaign, wall.ObstacleId, TestCorrelationId);
+
+            Assert.That(durability.IsSuccess, Is.True);
+            Assert.That(durability.Value.MaxHp, Is.EqualTo(10));
+            Assert.That(durability.Value.CurrentHp, Is.EqualTo(10));
+            Assert.That(durability.Value.Protection, Is.EqualTo(2));
+            Assert.That(durability.Value.IsDestroyed, Is.False);
+            Assert.That(durability.Value.Revision, Is.EqualTo(1));
+        }
+
+        [Test] // TC-PERSIST-132
+        public void ApplyObstacleDamage_SubtractsProtectionFirst_ReducesCurrentHp_NotBelowZero()
+        {
+            ObstacleRecord wall = _obstacles.CreateObstacle(_campaign, _sceneId, ObstacleKind.Wall, 0, 0, 5, 0, NewCommandId(), TestCorrelationId, maxHp: 10, protection: 3).Value;
+
+            Result<ObstacleDurabilityRecord> afterFirstHit = _obstacles.ApplyObstacleDamage(_campaign, wall.ObstacleId, damageAmount: 5, expectedRevision: 1, NewCommandId(), TestCorrelationId);
+            Assert.That(afterFirstHit.IsSuccess, Is.True);
+            // effectiveDamage = Max(0, 5 - 3) = 2; CurrentHp = 10 - 2 = 8.
+            Assert.That(afterFirstHit.Value.CurrentHp, Is.EqualTo(8));
+            Assert.That(afterFirstHit.Value.IsDestroyed, Is.False);
+            Assert.That(afterFirstHit.Value.Revision, Is.EqualTo(2));
+
+            Result<ObstacleDurabilityRecord> belowProtection = _obstacles.ApplyObstacleDamage(_campaign, wall.ObstacleId, damageAmount: 1, expectedRevision: 2, NewCommandId(), TestCorrelationId);
+            Assert.That(belowProtection.IsSuccess, Is.True);
+            // effectiveDamage = Max(0, 1 - 3) = 0 -- damage fully absorbed by Protection, HP unchanged.
+            Assert.That(belowProtection.Value.CurrentHp, Is.EqualTo(8));
+
+            Result<ObstacleDurabilityRecord> overkill = _obstacles.ApplyObstacleDamage(_campaign, wall.ObstacleId, damageAmount: 1000, expectedRevision: 3, NewCommandId(), TestCorrelationId);
+            Assert.That(overkill.IsSuccess, Is.True);
+            Assert.That(overkill.Value.CurrentHp, Is.EqualTo(0), "CurrentHp must clamp at 0, never go negative");
+            Assert.That(overkill.Value.IsDestroyed, Is.True);
+        }
+
+        [Test] // TC-PERSIST-133
+        public void ApplyObstacleDamage_StaleExpectedRevision_IsRejectedWithoutMutation()
+        {
+            ObstacleRecord wall = _obstacles.CreateObstacle(_campaign, _sceneId, ObstacleKind.Wall, 0, 0, 5, 0, NewCommandId(), TestCorrelationId, maxHp: 10).Value;
+            Assert.That(_obstacles.ApplyObstacleDamage(_campaign, wall.ObstacleId, 5, 1, NewCommandId(), TestCorrelationId).IsSuccess, Is.True);
+
+            Result<ObstacleDurabilityRecord> stale = _obstacles.ApplyObstacleDamage(_campaign, wall.ObstacleId, 5, 1, NewCommandId(), TestCorrelationId);
+
+            Assert.That(stale.IsFailure, Is.True);
+            Assert.That(stale.Error.Code, Is.EqualTo(ErrorCodes.PersistenceObstacleRevisionConflict));
+            Assert.That(_obstacles.GetObstacleDurability(_campaign, wall.ObstacleId, TestCorrelationId).Value.CurrentHp, Is.EqualTo(5), "the stale/rejected damage must not have mutated the row a second time");
+        }
+
+        [Test] // TC-PERSIST-134
+        public void ApplyObstacleDamage_ObstacleWithoutDurabilityConfigured_IsTypedRejection()
+        {
+            ObstacleRecord wall = _obstacles.CreateObstacle(_campaign, _sceneId, ObstacleKind.Wall, 0, 0, 5, 0, NewCommandId(), TestCorrelationId).Value;
+
+            Result<ObstacleDurabilityRecord> result = _obstacles.ApplyObstacleDamage(_campaign, wall.ObstacleId, 5, 1, NewCommandId(), TestCorrelationId);
+
+            Assert.That(result.IsFailure, Is.True);
+            Assert.That(result.Error.Code, Is.EqualTo(ErrorCodes.ObstacleDurabilityNotConfigured));
+        }
+
+        [Test] // TC-PERSIST-135
+        public void ListObstacles_ExcludesADestroyedObstacle_IncludesEverythingElse()
+        {
+            ObstacleRecord destructible = _obstacles.CreateObstacle(_campaign, _sceneId, ObstacleKind.Wall, 0, 0, 5, 0, NewCommandId(), TestCorrelationId, maxHp: 1).Value;
+            ObstacleRecord indestructible = _obstacles.CreateObstacle(_campaign, _sceneId, ObstacleKind.Wall, 10, 0, 15, 0, NewCommandId(), TestCorrelationId).Value;
+            ObstacleRecord notYetDestroyed = _obstacles.CreateObstacle(_campaign, _sceneId, ObstacleKind.Wall, 20, 0, 25, 0, NewCommandId(), TestCorrelationId, maxHp: 10).Value;
+
+            Result<ObstacleDurabilityRecord> destroyed = _obstacles.ApplyObstacleDamage(_campaign, destructible.ObstacleId, 100, 1, NewCommandId(), TestCorrelationId);
+            Assert.That(destroyed.IsSuccess, Is.True);
+            Assert.That(destroyed.Value.IsDestroyed, Is.True);
+
+            Result<IReadOnlyList<ObstacleRecord>> listed = _obstacles.ListObstacles(_campaign, _sceneId, TestCorrelationId);
+
+            Assert.That(listed.IsSuccess, Is.True);
+            Assert.That(listed.Value.Select(o => o.ObstacleId), Is.EquivalentTo(new[] { indestructible.ObstacleId, notYetDestroyed.ObstacleId }), "a destroyed obstacle must no longer be listed; an indestructible one and a not-yet-destroyed one must still be");
+        }
     }
 }

@@ -83,7 +83,7 @@ namespace Odyssey.Tests.Persistence
             _abilityApply = new SqliteActivateAbilityRepository(_clock, _effects);
             _useItemReader = new SqliteUseItemStateReader(_characters, _inventory, _catalog, _clock);
             _useItemApply = new SqliteUseItemRepository(_clock, _effects);
-            _attackReader = new SqliteAttackStateReader(_encounters, _inventory, _characters, _clock, _scenes);
+            _attackReader = new SqliteAttackStateReader(_encounters, _inventory, _characters, _clock, _scenes, new SqliteObstacleRepository(_clock));
             _attackApply = new SqliteAttackApplyRepository(_clock, _campaignRepository);
         }
 
