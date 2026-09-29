@@ -5441,6 +5441,14 @@
                           "check":  "Select mode: a click on a closed door toggles it open, through the real ToggleDoorState server call"
                       },
                       {
+                          "testCaseId":  "TC-BOARD-122",
+                          "taskId":  "ODY-S10-112",
+                          "authority":  "ODY-S10-112 task contract section 4",
+                          "runner":  "Unity EditMode",
+                          "path":  "Assets/Odyssey/Client/Tests/EditMode/BoardScreenPresenterObstacleTests.cs",
+                          "check":  "Door toggle survives a Revision race: another participant toggles the same door via the repository between the presenter's last Refresh() and the click, and the click still succeeds using a freshly re-read Revision/IsOpen, not the stale RenderObstacles-cached ObstacleRecord"
+                      },
+                      {
                           "testCaseId":  "TC-BOARD-118",
                           "taskId":  "ODY-S10-111",
                           "authority":  "SLICE-10 Block 6 part 1 task contract section 5/9",

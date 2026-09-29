@@ -1064,10 +1064,47 @@ namespace Odyssey.Unity.Client
         /// Toggles a door's <see cref="ObstacleRecord.IsOpen"/> via <see cref="ObstacleAuthoringService.ToggleDoorState"/>
         /// -- open to any registered campaign participant on the server (task contract section 2.4: no
         /// artificial client-side role restriction), exactly the same direct-call/read-revision/Refresh()
-        /// pattern every other server command in this class already uses.
+        /// pattern every other server command in this class already uses. <paramref name="lastKnown"/>
+        /// (the `RenderObstacles`-cached record from the last `Refresh()`) is used only to identify the
+        /// obstacle and its Scene -- ODY-S10-112 finding: the actual `Revision`/`IsOpen` passed to the
+        /// server command are re-read fresh via <see cref="IObstacleRepository.ListObstacles"/>
+        /// immediately before the write, the same "never trust the render-time cache for a revision-gated
+        /// command" rule <see cref="TryApplyObstacleDamage"/>'s own fresh <c>GetObstacleDurability</c> call
+        /// already follows -- a stale cached revision was causing a spurious "denied" toggle whenever
+        /// another participant had already toggled the same door since the last `Refresh()`. No single-
+        /// obstacle-by-id read exists on <see cref="IObstacleRepository"/> (only `ListObstacles`/Scene and
+        /// `GetObstacleDurability`/id), so this scans the fresh `ListObstacles` result for the matching id
+        /// rather than adding a new method to the server-side contract for a client-only fix.
         /// </summary>
-        private void ToggleObstacleDoor(ObstacleId obstacleId, ObstacleRecord current)
+        private void ToggleObstacleDoor(ObstacleId obstacleId, ObstacleRecord lastKnown)
         {
+            Result<IReadOnlyList<ObstacleRecord>> fresh = _obstacleRepository.ListObstacles(_campaign, lastKnown.SceneId, NewCorrelationId());
+            if (fresh.IsFailure)
+            {
+                SetStatus("Could not toggle the door: " + fresh.Error.SafeReasonCode);
+                Refresh();
+                return;
+            }
+
+            ObstacleRecord? current = null;
+            foreach (ObstacleRecord candidate in fresh.Value)
+            {
+                if (candidate.ObstacleId.ToString() == obstacleId.ToString())
+                {
+                    current = candidate;
+                    break;
+                }
+            }
+
+            // The same "denied/unavailable" status path as any other rejected server command -- no crash,
+            // no special-cased UI, just a status message and a Refresh() that re-reads the real state.
+            if (current == null || current.Kind != ObstacleKind.Door)
+            {
+                SetStatus("Could not toggle the door: obstacle is no longer available.");
+                Refresh();
+                return;
+            }
+
             bool nextIsOpen = !(current.IsOpen ?? false);
             var request = new ToggleDoorStateRequest(_campaign, obstacleId, nextIsOpen, current.Revision, LocalActorUserId, NewCommandId(), NewCorrelationId());
             Result<ObstacleRecord> toggled = ObstacleAuthoringService.ToggleDoorState(_obstacleRepository, _campaignRepository, request);

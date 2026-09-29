@@ -178,6 +178,32 @@ namespace Odyssey.Tests.Unity.EditMode
             Assert.That(obstacles.Value[0].IsOpen, Is.True, "clicking a closed door in Select mode must open it");
         }
 
+        [Test] // TC-BOARD-122
+        public void SelectMode_ClickOnADoor_RevisionChangedSinceTheLastRefresh_StillToggles_UsingTheFreshRevision()
+        {
+            using var fixture = new Fixture();
+            ObstacleRecord door = fixture.ObstacleRepository.CreateObstacle(fixture.Campaign, fixture.SceneId, ObstacleKind.Door, 0, 0, 2, 0, NewCommandId(), TestCorrelationId).Value;
+            fixture.Presenter.Refresh();
+
+            // ODY-S10-112: another participant toggles the same door directly through the repository --
+            // the presenter's own cached ObstacleRecord (from the Refresh() above) is now stale (Revision 1,
+            // IsOpen false) while the real row is already Revision 2, IsOpen true. No presenter.Refresh() is
+            // called here on purpose, so the click below can only succeed if ToggleObstacleDoor re-reads the
+            // revision fresh rather than reusing the stale cached one.
+            Result<ObstacleRecord> raced = fixture.ObstacleRepository.ToggleDoorState(fixture.Campaign, door.ObstacleId, true, door.Revision, NewCommandId(), TestCorrelationId);
+            Assert.That(raced.IsSuccess, Is.True);
+            Assert.That(raced.Value.Revision, Is.EqualTo(2));
+
+            double clickPixelX = fixture.Presenter.Camera.ToPixelsX(1);
+            double clickPixelY = fixture.Presenter.Camera.ToPixelsY(0);
+            fixture.Presenter.BeginBoardPointerGesture(clickPixelX, clickPixelY);
+            fixture.Presenter.EndBoardPointerGesture(clickPixelX, clickPixelY);
+
+            Result<IReadOnlyList<ObstacleRecord>> obstacles = fixture.ObstacleRepository.ListObstacles(fixture.Campaign, fixture.SceneId, TestCorrelationId);
+            Assert.That(obstacles.Value[0].Revision, Is.EqualTo(3), "the click must have gone through against the fresh Revision 2, not failed against the stale cached Revision 1");
+            Assert.That(obstacles.Value[0].IsOpen, Is.False, "the door was already open (from the race) -- this click must close it, proving it used the door's real, current IsOpen, not the stale cached one");
+        }
+
         [Test] // TC-BOARD-118
         public void NonMainGmActor_DrawingAWall_IsDenied_NoObstacleCreated()
         {
