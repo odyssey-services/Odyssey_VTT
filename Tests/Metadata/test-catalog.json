@@ -1881,6 +1881,238 @@
                           "check":  "ObstacleGeometry.BlocksVision/BlocksMovement truth table for every ObstacleKind x IsOpen combination -- pure functions, no repository/database involved"
                       },
                       {
+                          "testCaseId":  "TC-PERSIST-080",
+                          "taskId":  "ODY-S10-108",
+                          "authority":  "SLICE-10 Block 3 task contract section 4/9; ADR-020 section 6.2",
+                          "runner":  "dotnet test",
+                          "path":  "DotNet/Tests/Odyssey.Tests.Unit/Geometry/SegmentIntersectionTests.cs",
+                          "check":  "SegmentsIntersect: a clear diagonal crossing is true"
+                      },
+                      {
+                          "testCaseId":  "TC-PERSIST-081",
+                          "taskId":  "ODY-S10-108",
+                          "authority":  "SLICE-10 Block 3 task contract section 4/9; ADR-020 section 6.2",
+                          "runner":  "dotnet test",
+                          "path":  "DotNet/Tests/Odyssey.Tests.Unit/Geometry/SegmentIntersectionTests.cs",
+                          "check":  "SegmentsIntersect: parallel, non-intersecting segments are false"
+                      },
+                      {
+                          "testCaseId":  "TC-PERSIST-082",
+                          "taskId":  "ODY-S10-108",
+                          "authority":  "SLICE-10 Block 3 task contract section 4/9; ADR-020 section 6.3",
+                          "runner":  "dotnet test",
+                          "path":  "DotNet/Tests/Odyssey.Tests.Unit/Geometry/SegmentIntersectionTests.cs",
+                          "check":  "SegmentsIntersect: collinear, genuinely overlapping segments fail closed to true"
+                      },
+                      {
+                          "testCaseId":  "TC-PERSIST-083",
+                          "taskId":  "ODY-S10-108",
+                          "authority":  "SLICE-10 Block 3 task contract section 4/9; ADR-020 section 6.3",
+                          "runner":  "dotnet test",
+                          "path":  "DotNet/Tests/Odyssey.Tests.Unit/Geometry/SegmentIntersectionTests.cs",
+                          "check":  "SegmentsIntersect: collinear but genuinely non-intersecting segments (a real gap) are false -- collinear alone does not mean blocking"
+                      },
+                      {
+                          "testCaseId":  "TC-PERSIST-084",
+                          "taskId":  "ODY-S10-108",
+                          "authority":  "SLICE-10 Block 3 task contract section 4/9; ADR-020 section 6.3",
+                          "runner":  "dotnet test",
+                          "path":  "DotNet/Tests/Odyssey.Tests.Unit/Geometry/SegmentIntersectionTests.cs",
+                          "check":  "SegmentsIntersect: a shared-endpoint touch fails closed to true"
+                      },
+                      {
+                          "testCaseId":  "TC-PERSIST-085",
+                          "taskId":  "ODY-S10-108",
+                          "authority":  "SLICE-10 Block 3 task contract section 4/9; ADR-020 section 6.3",
+                          "runner":  "dotnet test",
+                          "path":  "DotNet/Tests/Odyssey.Tests.Unit/Geometry/SegmentIntersectionTests.cs",
+                          "check":  "SegmentsIntersect: a T-shaped midpoint touch fails closed to true"
+                      },
+                      {
+                          "testCaseId":  "TC-PERSIST-086",
+                          "taskId":  "ODY-S10-108",
+                          "authority":  "SLICE-10 Block 3 task contract section 4/9; ADR-020 section 6.2",
+                          "runner":  "dotnet test",
+                          "path":  "DotNet/Tests/Odyssey.Tests.Unit/Geometry/SegmentIntersectionTests.cs",
+                          "check":  "SegmentsIntersect: two disjoint, non-collinear segments are false"
+                      },
+                      {
+                          "testCaseId":  "TC-PERSIST-087",
+                          "taskId":  "ODY-S10-108",
+                          "authority":  "SLICE-10 Block 3 task contract section 4/9",
+                          "runner":  "dotnet test",
+                          "path":  "DotNet/Tests/Odyssey.Tests.Unit/Geometry/LineOfSightTests.cs",
+                          "check":  "HasClearLine: a Wall between observer and target blocks"
+                      },
+                      {
+                          "testCaseId":  "TC-PERSIST-088",
+                          "taskId":  "ODY-S10-108",
+                          "authority":  "SLICE-10 Block 3 task contract section 4/9",
+                          "runner":  "dotnet test",
+                          "path":  "DotNet/Tests/Odyssey.Tests.Unit/Geometry/LineOfSightTests.cs",
+                          "check":  "HasClearLine: an open Door between observer and target does not block -- calls ObstacleGeometry.BlocksVision rather than reimplementing the rule"
+                      },
+                      {
+                          "testCaseId":  "TC-PERSIST-089",
+                          "taskId":  "ODY-S10-108",
+                          "authority":  "SLICE-10 Block 3 task contract section 4/9",
+                          "runner":  "dotnet test",
+                          "path":  "DotNet/Tests/Odyssey.Tests.Unit/Geometry/LineOfSightTests.cs",
+                          "check":  "HasClearLine: a closed Door between observer and target blocks"
+                      },
+                      {
+                          "testCaseId":  "TC-PERSIST-090",
+                          "taskId":  "ODY-S10-108",
+                          "authority":  "SLICE-10 Block 3 task contract section 4/9",
+                          "runner":  "dotnet test",
+                          "path":  "DotNet/Tests/Odyssey.Tests.Unit/Geometry/LineOfSightTests.cs",
+                          "check":  "HasClearLine: a Window between observer and target does not block"
+                      },
+                      {
+                          "testCaseId":  "TC-PERSIST-091",
+                          "taskId":  "ODY-S10-108",
+                          "authority":  "SLICE-10 Block 3 task contract section 4/9",
+                          "runner":  "dotnet test",
+                          "path":  "DotNet/Tests/Odyssey.Tests.Unit/Geometry/LineOfSightTests.cs",
+                          "check":  "HasClearLine: an obstacle not on the direct path leaves the line clear"
+                      },
+                      {
+                          "testCaseId":  "TC-PERSIST-092",
+                          "taskId":  "ODY-S10-108",
+                          "authority":  "SLICE-10 Block 3 task contract section 4/9",
+                          "runner":  "dotnet test",
+                          "path":  "DotNet/Tests/Odyssey.Tests.Unit/Geometry/LineOfSightTests.cs",
+                          "check":  "IsWithinFovCone: a target directly ahead of the observer's facing is visible"
+                      },
+                      {
+                          "testCaseId":  "TC-PERSIST-093",
+                          "taskId":  "ODY-S10-108",
+                          "authority":  "SLICE-10 Block 3 task contract section 4/9",
+                          "runner":  "dotnet test",
+                          "path":  "DotNet/Tests/Odyssey.Tests.Unit/Geometry/LineOfSightTests.cs",
+                          "check":  "IsWithinFovCone: a target exactly on the half-angle boundary is visible (inclusive, not strictly less-than)"
+                      },
+                      {
+                          "testCaseId":  "TC-PERSIST-094",
+                          "taskId":  "ODY-S10-108",
+                          "authority":  "SLICE-10 Block 3 task contract section 4/9",
+                          "runner":  "dotnet test",
+                          "path":  "DotNet/Tests/Odyssey.Tests.Unit/Geometry/LineOfSightTests.cs",
+                          "check":  "IsWithinFovCone: a target outside the cone is not visible"
+                      },
+                      {
+                          "testCaseId":  "TC-PERSIST-095",
+                          "taskId":  "ODY-S10-108",
+                          "authority":  "SLICE-10 Block 3 task contract section 4/9",
+                          "runner":  "dotnet test",
+                          "path":  "DotNet/Tests/Odyssey.Tests.Unit/Geometry/LineOfSightTests.cs",
+                          "check":  "IsWithinFovCone: FovAngleDegrees=360 is always visible regardless of facing or bearing"
+                      },
+                      {
+                          "testCaseId":  "TC-PERSIST-096",
+                          "taskId":  "ODY-S10-108",
+                          "authority":  "SLICE-10 Block 3 task contract section 4/9",
+                          "runner":  "dotnet test",
+                          "path":  "DotNet/Tests/Odyssey.Tests.Unit/Geometry/LineOfSightTests.cs",
+                          "check":  "IsWithinFovCone: correctly handles the 0/360 degree wraparound using the shortest angular difference, not a naive subtraction"
+                      },
+                      {
+                          "testCaseId":  "TC-PERSIST-097",
+                          "taskId":  "ODY-S10-108",
+                          "authority":  "SLICE-10 Block 3 task contract section 4/9",
+                          "runner":  "dotnet test",
+                          "path":  "DotNet/Tests/Odyssey.Tests.Unit/Geometry/LineOfSightTests.cs",
+                          "check":  "IsWithinRange: a target exactly on the ViewDistance boundary is visible"
+                      },
+                      {
+                          "testCaseId":  "TC-PERSIST-098",
+                          "taskId":  "ODY-S10-108",
+                          "authority":  "SLICE-10 Block 3 task contract section 4/9",
+                          "runner":  "dotnet test",
+                          "path":  "DotNet/Tests/Odyssey.Tests.Unit/Geometry/LineOfSightTests.cs",
+                          "check":  "IsWithinRange: a target beyond ViewDistance is not visible"
+                      },
+                      {
+                          "testCaseId":  "TC-PERSIST-099",
+                          "taskId":  "ODY-S10-108",
+                          "authority":  "SLICE-10 Block 3 task contract section 4/9",
+                          "runner":  "dotnet test",
+                          "path":  "DotNet/Tests/Odyssey.Tests.Unit/Geometry/LineOfSightTests.cs",
+                          "check":  "CanSee composes range, cone and obstacle checks correctly across all four combinations"
+                      },
+                      {
+                          "testCaseId":  "TC-PERSIST-100",
+                          "taskId":  "ODY-S10-108",
+                          "authority":  "SLICE-10 Block 3 task contract section 4/9",
+                          "runner":  "dotnet test",
+                          "path":  "DotNet/Tests/Odyssey.Tests.Unit/Geometry/LineOfSightTests.cs",
+                          "check":  "CanSee: non-finite scalar input returns false and does not throw"
+                      },
+                      {
+                          "testCaseId":  "TC-PERSIST-101",
+                          "taskId":  "ODY-S10-108",
+                          "authority":  "SLICE-10 Block 3 task contract section 4/9",
+                          "runner":  "dotnet test",
+                          "path":  "DotNet/Tests/Odyssey.Tests.Persistence/Board/TokenVisionServiceTests.cs",
+                          "check":  "SetTokenFacing: the token's own controller and the MainGm both succeed; an unrelated registered participant is denied"
+                      },
+                      {
+                          "testCaseId":  "TC-PERSIST-102",
+                          "taskId":  "ODY-S10-108",
+                          "authority":  "SLICE-10 Block 3 task contract section 4/9",
+                          "runner":  "dotnet test",
+                          "path":  "DotNet/Tests/Odyssey.Tests.Persistence/Board/TokenVisionServiceTests.cs",
+                          "check":  "SetTokenFacing fails closed when the membership lookup fails, for a non-controller actor"
+                      },
+                      {
+                          "testCaseId":  "TC-PERSIST-103",
+                          "taskId":  "ODY-S10-108",
+                          "authority":  "SLICE-10 Block 3 task contract section 4/9",
+                          "runner":  "dotnet test",
+                          "path":  "DotNet/Tests/Odyssey.Tests.Persistence/Board/TokenVisionServiceTests.cs",
+                          "check":  "SetTokenVisionParameters is MainGM-only: the token's own owner (not MainGm) and an unrelated participant are both denied; the MainGm succeeds"
+                      },
+                      {
+                          "testCaseId":  "TC-PERSIST-104",
+                          "taskId":  "ODY-S10-108",
+                          "authority":  "SLICE-10 Block 3 task contract section 4/9",
+                          "runner":  "dotnet test",
+                          "path":  "DotNet/Tests/Odyssey.Tests.Persistence/Board/TokenVisionServiceTests.cs",
+                          "check":  "SetTokenVisionParameters fails closed when the membership lookup fails, even for the host"
+                      },
+                      {
+                          "testCaseId":  "TC-PERSIST-105",
+                          "taskId":  "ODY-S10-108",
+                          "authority":  "SLICE-10 Block 3 task contract section 4/9",
+                          "runner":  "dotnet test",
+                          "path":  "DotNet/Tests/Odyssey.Tests.Persistence/Board/TokenVisionServiceTests.cs",
+                          "check":  "ComputeLineOfSight: a closed door blocks; opening it restores line of sight -- full integration against real repositories"
+                      },
+                      {
+                          "testCaseId":  "TC-PERSIST-106",
+                          "taskId":  "ODY-S10-108",
+                          "authority":  "SLICE-10 Block 3 task contract section 4/9",
+                          "runner":  "dotnet test",
+                          "path":  "DotNet/Tests/Odyssey.Tests.Persistence/Board/TokenVisionServiceTests.cs",
+                          "check":  "ComputeLineOfSight returns a typed error when observer and target tokens are in different scenes"
+                      },
+                      {
+                          "testCaseId":  "TC-PERSIST-107",
+                          "taskId":  "ODY-S10-108",
+                          "authority":  "SLICE-10 Block 3 task contract section 4/9",
+                          "runner":  "dotnet test",
+                          "path":  "DotNet/Tests/Odyssey.Tests.Persistence/Board/TokenVisionServiceTests.cs",
+                          "check":  "ComputeLineOfSight performs no mutation of token or obstacle state -- a pure read"
+                      },
+                      {
+                          "testCaseId":  "TC-PERSIST-108",
+                          "taskId":  "ODY-S10-108",
+                          "authority":  "SLICE-10 Block 3 task contract section 4/9",
+                          "runner":  "dotnet test",
+                          "path":  "DotNet/Tests/Odyssey.Tests.Persistence/Board/TokenVisionServiceTests.cs",
+                          "check":  "CreateToken seeds a default, omnidirectional TokenVisionSettings row atomically in the same transaction (Path A)"
+                      },
+                      {
                           "testCaseId":  "TC-BOARD-001",
                           "taskId":  "ODY-S03-004",
                           "authority":  "ADR-020 section 5.1/5.3; ODY-S03-004",

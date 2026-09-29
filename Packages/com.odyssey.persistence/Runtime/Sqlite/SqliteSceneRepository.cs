@@ -155,6 +155,30 @@ namespace Odyssey.Persistence.Sqlite
                             zOrder = Convert.ToInt64(readZ.ExecuteScalar(), CultureInfo.InvariantCulture);
                         }
 
+                        // SLICE-10 Block 3 point-edit: seed a default TokenVisionSettings row in the same
+                        // transaction as the Token row itself, so every token has vision parameters from the
+                        // moment it exists (omnidirectional, a generous placeholder range -- see
+                        // TokenVisionSettingsRecord's own doc comments) rather than requiring a MainGM to
+                        // configure it before any ComputeLineOfSight query involving this token can succeed.
+                        // A separate table (SqliteTokenVisionRepository.EnsureTokenVisionSettingsTable), not a
+                        // new column on Token -- this file's own EnsureSceneTokenTables convention.
+                        Odyssey.Persistence.Sqlite.SqliteTokenVisionRepository.EnsureTokenVisionSettingsTable(connection);
+                        using (var insertVision = connection.CreateCommand())
+                        {
+                            insertVision.Transaction = transaction;
+                            insertVision.CommandText = "INSERT INTO TokenVisionSettings (TokenId, SceneId, CampaignId, FacingDegrees, FovAngleDegrees, ViewDistance, Revision, CreatedAt, UpdatedAt, LastCommandId) " +
+                                                        "VALUES ($tokenId, $sceneId, $campaignId, 0, $fov, $range, 1, $createdAt, $updatedAt, $lastCommandId);";
+                            insertVision.Parameters.AddWithValue("$tokenId", tokenId.ToString());
+                            insertVision.Parameters.AddWithValue("$sceneId", sceneId.ToString());
+                            insertVision.Parameters.AddWithValue("$campaignId", campaign.CampaignId.ToString());
+                            insertVision.Parameters.AddWithValue("$fov", Odyssey.Application.Persistence.TokenVisionSettingsRecord.DefaultFovAngleDegrees);
+                            insertVision.Parameters.AddWithValue("$range", Odyssey.Application.Persistence.TokenVisionSettingsRecord.DefaultViewDistance);
+                            insertVision.Parameters.AddWithValue("$createdAt", now.ToString());
+                            insertVision.Parameters.AddWithValue("$updatedAt", now.ToString());
+                            insertVision.Parameters.AddWithValue("$lastCommandId", commandId.ToString());
+                            insertVision.ExecuteNonQuery();
+                        }
+
                         var record = new TokenRecord(tokenId, sceneId, campaign.CampaignId, initialPosition, controllerUserId, revision, now, now, characterId, null, zOrder, 1.0);
                         string payloadJson = "{\"tokenId\":\"" + tokenId + "\",\"sceneId\":\"" + sceneId + "\",\"controllerUserId\":\"" + controllerUserId + "\",\"x\":" +
                                               initialPosition.X.ToString(CultureInfo.InvariantCulture) + ",\"y\":" + initialPosition.Y.ToString(CultureInfo.InvariantCulture) + "}";
