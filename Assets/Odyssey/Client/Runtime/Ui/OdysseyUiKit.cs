@@ -1,0 +1,683 @@
+using System;
+using System.Collections.Generic;
+using System.Globalization;
+using Odyssey.Application.Commands;
+using Odyssey.Application.Results;
+using Odyssey.Domain.Identity;
+using UnityEngine.UIElements;
+
+namespace Odyssey.Unity.Client
+{
+    /// <summary>
+    /// ODY-S11-200 phase 0: class names of the project-wide design system (<c>OdysseyDesignSystem.uss</c>).
+    /// Presenters reference these constants instead of repeating string literals or inline colors; the stylesheet
+    /// itself is attached once through <c>AppShell.uxml</c> (explicit asset reference -- never <c>Resources.Load</c>,
+    /// ADR-001 / TC-ARCH-001). Full catalogue: <c>docs/ui/Odyssey_Design_System.md</c>.
+    /// </summary>
+    public static class OdyClasses
+    {
+        public const string Root = "ody-root";
+        public const string Screen = "ody-screen";
+        public const string Row = "ody-row";
+        public const string RowTop = "ody-row--top";
+        public const string Column = "ody-column";
+        public const string Grow = "ody-grow";
+        public const string Spacer = "ody-spacer";
+        public const string Hidden = "ody-hidden";
+        public const string Scroll = "ody-scroll";
+        public const string Split = "ody-split";
+        public const string SplitSidebar = "ody-split__sidebar";
+        public const string SplitMain = "ody-split__main";
+        public const string Divider = "ody-divider";
+
+        public const string TextDisplay = "ody-text-display";
+        public const string TextH1 = "ody-text-h1";
+        public const string TextH2 = "ody-text-h2";
+        public const string TextH3 = "ody-text-h3";
+        public const string TextBody = "ody-text-body";
+        public const string TextSmall = "ody-text-small";
+        public const string TextCaption = "ody-text-caption";
+        public const string TextLabel = "ody-text-label";
+        public const string TextMuted = "ody-text-muted";
+        public const string TextStrong = "ody-text-strong";
+        public const string TextAccent = "ody-text-accent";
+        public const string TextDanger = "ody-text-danger";
+        public const string TextSuccess = "ody-text-success";
+        public const string TextWrap = "ody-text-wrap";
+
+        public const string Card = "ody-card";
+        public const string CardFlat = "ody-card--flat";
+        public const string CardMuted = "ody-card--muted";
+        public const string CardHeader = "ody-card__header";
+        public const string CardTitle = "ody-card__title";
+        public const string CardBody = "ody-card__body";
+        public const string CardFooter = "ody-card__footer";
+        public const string Section = "ody-section";
+        public const string SectionTitle = "ody-section__title";
+        public const string Kv = "ody-kv";
+        public const string KvKey = "ody-kv__key";
+        public const string KvValue = "ody-kv__value";
+
+        public const string Button = "ody-button";
+        public const string ButtonPrimary = "ody-button--primary";
+        public const string ButtonDanger = "ody-button--danger";
+        public const string ButtonGhost = "ody-button--ghost";
+        public const string ButtonSmall = "ody-button--small";
+        public const string ButtonIcon = "ody-button--icon";
+        public const string ButtonToggleOn = "ody-button--toggle-on";
+        public const string ButtonRow = "ody-button-row";
+
+        public const string Form = "ody-form";
+        public const string FormRow = "ody-form-row";
+        public const string Field = "ody-field";
+        public const string FieldGrow = "ody-field--grow";
+        public const string FieldNarrow = "ody-field--narrow";
+        public const string FieldMultiline = "ody-field--multiline";
+        public const string FieldInvalid = "ody-field--invalid";
+        public const string Toggle = "ody-toggle";
+        public const string FieldError = "ody-field-error";
+        public const string FieldHint = "ody-field-hint";
+
+        public const string List = "ody-list";
+        public const string ListItem = "ody-list-item";
+        public const string ListItemSelected = "ody-list-item--selected";
+        public const string ListItemMain = "ody-list-item__main";
+        public const string ListItemTitle = "ody-list-item__title";
+        public const string ListItemMeta = "ody-list-item__meta";
+        public const string EmptyState = "ody-empty-state";
+
+        public const string Badge = "ody-badge";
+        public const string Banner = "ody-banner";
+
+        public const string Tabs = "ody-tabs";
+        public const string TabsBar = "ody-tabs__bar";
+        public const string Tab = "ody-tab";
+        public const string TabActive = "ody-tab--active";
+        public const string TabsPanel = "ody-tabs__panel";
+
+        public const string ResourceBar = "ody-resource-bar";
+        public const string ResourceBarSmall = "ody-resource-bar--small";
+        public const string ResourceBarFill = "ody-resource-bar__fill";
+        public const string ResourceBarFillMid = "ody-resource-bar__fill--mid";
+        public const string ResourceBarFillHigh = "ody-resource-bar__fill--high";
+        public const string ResourceBarLabel = "ody-resource-bar__label";
+
+        public const string ModalScrim = "ody-modal-scrim";
+        public const string Modal = "ody-modal";
+        public const string ModalTitle = "ody-modal__title";
+        public const string ModalBody = "ody-modal__body";
+        public const string ModalActions = "ody-modal__actions";
+
+        public const string GameRoot = "ody-game-root";
+        public const string BoardLayer = "ody-board-layer";
+        public const string OverlayLayer = "ody-overlay-layer";
+        public const string Topbar = "ody-topbar";
+        public const string TopbarTitle = "ody-topbar__title";
+        public const string TopbarRole = "ody-topbar__role";
+        public const string TopbarToggles = "ody-topbar__toggles";
+        public const string Drawer = "ody-drawer";
+        public const string DrawerLeft = "ody-drawer--left";
+        public const string DrawerRight = "ody-drawer--right";
+        public const string DrawerWide = "ody-drawer--wide";
+        public const string DrawerHeader = "ody-drawer__header";
+        public const string DrawerTitle = "ody-drawer__title";
+        public const string DrawerBody = "ody-drawer__body";
+        public const string DrawerContent = "ody-drawer__content";
+        public const string Dock = "ody-dock";
+        public const string DockLeft = "ody-dock--left";
+        public const string DockCollapsed = "ody-dock--collapsed";
+        public const string DockHeader = "ody-dock__header";
+        public const string DockTitle = "ody-dock__title";
+        public const string DockBody = "ody-dock__body";
+        public const string FloatingToolbar = "ody-floating-toolbar";
+    }
+
+    public enum OdyButtonVariant
+    {
+        Secondary = 1,
+        Primary = 2,
+        Danger = 3,
+        Ghost = 4
+    }
+
+    /// <summary>Badge / status colors. Lifecycle (Draft/Published/Archived) and runtime states (Pending/Conflict/Error).</summary>
+    public enum OdyStatusKind
+    {
+        Neutral = 1,
+        Draft = 2,
+        Published = 3,
+        Archived = 4,
+        Pending = 5,
+        Conflict = 6,
+        Error = 7,
+        Success = 8,
+        Info = 9,
+        Accent = 10
+    }
+
+    public enum OdyBannerKind
+    {
+        Info = 1,
+        Success = 2,
+        Warning = 3,
+        Error = 4
+    }
+
+    /// <summary>
+    /// ODY-S11-200 phase 0: small, stateless factory helpers for the recurring building blocks. Plain static helpers
+    /// (no registry, no lookup) -- each returns a new element carrying the design-system classes.
+    /// </summary>
+    public static class OdyUi
+    {
+        public static Label Text(string text, params string[] classes)
+        {
+            var label = new Label(text ?? string.Empty);
+            foreach (string cls in classes) label.AddToClassList(cls);
+            return label;
+        }
+
+        public static Button Button(string text, Action onClick, OdyButtonVariant variant = OdyButtonVariant.Secondary, string? name = null, bool small = false)
+        {
+            if (onClick == null) throw new ArgumentNullException(nameof(onClick));
+            var button = new Button(onClick) { text = text ?? string.Empty };
+            if (!string.IsNullOrEmpty(name)) button.name = name;
+            button.AddToClassList(OdyClasses.Button);
+            switch (variant)
+            {
+                case OdyButtonVariant.Primary:
+                    button.AddToClassList(OdyClasses.ButtonPrimary);
+                    break;
+                case OdyButtonVariant.Danger:
+                    button.AddToClassList(OdyClasses.ButtonDanger);
+                    break;
+                case OdyButtonVariant.Ghost:
+                    button.AddToClassList(OdyClasses.ButtonGhost);
+                    break;
+            }
+
+            if (small) button.AddToClassList(OdyClasses.ButtonSmall);
+            return button;
+        }
+
+        public static VisualElement ButtonRow(params VisualElement[] children)
+        {
+            var row = new VisualElement();
+            row.AddToClassList(OdyClasses.ButtonRow);
+            foreach (VisualElement child in children) row.Add(child);
+            return row;
+        }
+
+        public static VisualElement Row(params VisualElement[] children)
+        {
+            var row = new VisualElement();
+            row.AddToClassList(OdyClasses.Row);
+            foreach (VisualElement child in children) row.Add(child);
+            return row;
+        }
+
+        public static Label Badge(string text, OdyStatusKind kind, string? name = null)
+        {
+            var badge = new Label(text ?? string.Empty);
+            if (!string.IsNullOrEmpty(name)) badge.name = name;
+            badge.AddToClassList(OdyClasses.Badge);
+            SetBadgeKind(badge, kind);
+            return badge;
+        }
+
+        public static void SetBadgeKind(VisualElement badge, OdyStatusKind kind)
+        {
+            if (badge == null) throw new ArgumentNullException(nameof(badge));
+            foreach (OdyStatusKind candidate in (OdyStatusKind[])Enum.GetValues(typeof(OdyStatusKind)))
+            {
+                badge.RemoveFromClassList(BadgeModifier(candidate));
+            }
+
+            badge.AddToClassList(BadgeModifier(kind));
+        }
+
+        public static string BadgeModifier(OdyStatusKind kind) => "ody-badge--" + kind.ToString().ToLowerInvariant();
+
+        /// <summary>A card with an optional title; children go into <paramref name="body"/>.</summary>
+        public static VisualElement Card(string? title, out VisualElement body, string? name = null)
+        {
+            var card = new VisualElement();
+            if (!string.IsNullOrEmpty(name)) card.name = name;
+            card.AddToClassList(OdyClasses.Card);
+            if (!string.IsNullOrEmpty(title))
+            {
+                var header = new VisualElement();
+                header.AddToClassList(OdyClasses.CardHeader);
+                header.Add(Text(title!, OdyClasses.CardTitle));
+                card.Add(header);
+            }
+
+            body = new VisualElement();
+            body.AddToClassList(OdyClasses.CardBody);
+            card.Add(body);
+            return card;
+        }
+
+        public static VisualElement Section(string title, string? name = null)
+        {
+            var section = new VisualElement();
+            if (!string.IsNullOrEmpty(name)) section.name = name;
+            section.AddToClassList(OdyClasses.Section);
+            section.Add(Text(title, OdyClasses.SectionTitle));
+            return section;
+        }
+
+        public static VisualElement KeyValue(string key, string value, out Label valueLabel, string? valueName = null)
+        {
+            var row = new VisualElement();
+            row.AddToClassList(OdyClasses.Kv);
+            row.Add(Text(key, OdyClasses.KvKey));
+            valueLabel = Text(value, OdyClasses.KvValue);
+            if (!string.IsNullOrEmpty(valueName)) valueLabel.name = valueName;
+            row.Add(valueLabel);
+            return row;
+        }
+
+        public static TextField TextField(string label, string value, string name, bool multiline = false)
+        {
+            var field = new TextField(label) { name = name, value = value ?? string.Empty, multiline = multiline };
+            field.AddToClassList(OdyClasses.Field);
+            if (multiline) field.AddToClassList(OdyClasses.FieldMultiline);
+            return field;
+        }
+
+        public static IntegerField IntegerField(string label, int value, string name)
+        {
+            var field = new IntegerField(label) { name = name, value = value };
+            field.AddToClassList(OdyClasses.Field);
+            field.AddToClassList(OdyClasses.FieldNarrow);
+            return field;
+        }
+
+        public static DropdownField Dropdown(string label, List<string> choices, int index, string name)
+        {
+            if (choices == null) throw new ArgumentNullException(nameof(choices));
+            var field = new DropdownField(label, choices, choices.Count == 0 ? -1 : Math.Max(0, Math.Min(index, choices.Count - 1))) { name = name };
+            field.AddToClassList(OdyClasses.Field);
+            return field;
+        }
+
+        public static Toggle Toggle(string label, bool value, string name)
+        {
+            var toggle = new Toggle(label) { name = name, value = value };
+            toggle.AddToClassList(OdyClasses.Toggle);
+            return toggle;
+        }
+
+        public static Label EmptyState(string text, string? name = null)
+        {
+            Label label = Text(text, OdyClasses.EmptyState);
+            if (!string.IsNullOrEmpty(name)) label.name = name;
+            return label;
+        }
+
+        public static void SetVisible(VisualElement element, bool visible)
+        {
+            if (element == null) throw new ArgumentNullException(nameof(element));
+            element.EnableInClassList(OdyClasses.Hidden, !visible);
+        }
+
+        public static bool IsVisible(VisualElement element) => element != null && !element.ClassListContains(OdyClasses.Hidden);
+
+        /// <summary>Parses a comma/newline separated list of short keys, trimming and dropping empties (tags, ammo keys, body part ids).</summary>
+        public static List<string> ParseList(string? text)
+        {
+            var result = new List<string>();
+            if (string.IsNullOrWhiteSpace(text)) return result;
+            foreach (string part in text!.Split(new[] { ',', '\n', ';' }, StringSplitOptions.RemoveEmptyEntries))
+            {
+                string trimmed = part.Trim();
+                if (trimmed.Length > 0 && !result.Contains(trimmed)) result.Add(trimmed);
+            }
+
+            return result;
+        }
+
+        public static string JoinList(IEnumerable<string> values) => string.Join(", ", values);
+
+        public static string Format(long value) => value.ToString(CultureInfo.InvariantCulture);
+    }
+
+    /// <summary>Canonical id minting for UI-issued commands (the exact pattern every existing presenter already uses).</summary>
+    public static class UiCommandIds
+    {
+        public static CommandId NewCommandId() => CommandId.Parse("cmd_" + Guid.NewGuid().ToString("N"));
+
+        public static CorrelationId NewCorrelationId() => CorrelationId.Parse("corr_" + Guid.NewGuid().ToString("N"));
+    }
+
+    /// <summary>A banner that shows one readable message at a time (role explanation, validation summary, result).</summary>
+    public sealed class OdyBanner
+    {
+        private readonly Label _label;
+
+        public OdyBanner(string name)
+        {
+            Element = new VisualElement { name = name };
+            Element.AddToClassList(OdyClasses.Banner);
+            _label = new Label { name = name + "-text" };
+            _label.AddToClassList(OdyClasses.TextWrap);
+            Element.Add(_label);
+            Hide();
+        }
+
+        public VisualElement Element { get; }
+        public string Text => _label.text;
+        public OdyBannerKind Kind { get; private set; } = OdyBannerKind.Info;
+        public bool IsVisible => OdyUi.IsVisible(Element);
+
+        public void Show(OdyBannerKind kind, string text)
+        {
+            foreach (OdyBannerKind candidate in (OdyBannerKind[])Enum.GetValues(typeof(OdyBannerKind)))
+            {
+                Element.RemoveFromClassList(Modifier(candidate));
+            }
+
+            Kind = kind;
+            Element.AddToClassList(Modifier(kind));
+            _label.text = text ?? string.Empty;
+            OdyUi.SetVisible(Element, true);
+        }
+
+        public void ShowError(string action, Error error) => Show(OdyBannerKind.Error, action + ": " + OdyMessages.Describe(error));
+
+        public void Hide()
+        {
+            _label.text = string.Empty;
+            OdyUi.SetVisible(Element, false);
+        }
+
+        private static string Modifier(OdyBannerKind kind) => "ody-banner--" + kind.ToString().ToLowerInvariant();
+    }
+
+    /// <summary>A filled bar with a text label over it (HP and similar resources).</summary>
+    public sealed class OdyResourceBar
+    {
+        private readonly VisualElement _fill;
+        private readonly Label _label;
+
+        public OdyResourceBar(string name, bool small = false)
+        {
+            Element = new VisualElement { name = name };
+            Element.AddToClassList(OdyClasses.ResourceBar);
+            if (small) Element.AddToClassList(OdyClasses.ResourceBarSmall);
+            _fill = new VisualElement { name = name + "-fill" };
+            _fill.AddToClassList(OdyClasses.ResourceBarFill);
+            _fill.pickingMode = PickingMode.Ignore;
+            Element.Add(_fill);
+            _label = new Label { name = name + "-label" };
+            _label.AddToClassList(OdyClasses.ResourceBarLabel);
+            _label.pickingMode = PickingMode.Ignore;
+            Element.Add(_label);
+        }
+
+        public VisualElement Element { get; }
+        public double FillFraction { get; private set; }
+        public string LabelText => _label.text;
+
+        /// <summary>Fraction is (current - minimum) / (maximum - minimum), clamped to [0, 1]; a non-positive span shows empty.</summary>
+        public void SetValue(long current, long minimum, long maximum, string? caption = null)
+        {
+            long span = maximum - minimum;
+            double fraction = span <= 0 ? 0.0 : (double)(current - minimum) / span;
+            if (fraction < 0.0) fraction = 0.0;
+            if (fraction > 1.0) fraction = 1.0;
+            FillFraction = fraction;
+            _fill.style.width = new Length((float)(fraction * 100.0), LengthUnit.Percent);
+            _fill.EnableInClassList(OdyClasses.ResourceBarFillMid, fraction >= 0.34 && fraction < 0.67);
+            _fill.EnableInClassList(OdyClasses.ResourceBarFillHigh, fraction >= 0.67);
+            string numbers = OdyUi.Format(current) + " / " + OdyUi.Format(maximum);
+            _label.text = string.IsNullOrEmpty(caption) ? numbers : caption + "  " + numbers;
+        }
+    }
+
+    /// <summary>Tab strip + panels. One panel visible at a time; tests call <see cref="Select"/> directly.</summary>
+    public sealed class OdyTabs
+    {
+        private readonly VisualElement _bar;
+        private readonly VisualElement _panels;
+        private readonly Dictionary<string, Button> _buttons = new Dictionary<string, Button>(StringComparer.Ordinal);
+        private readonly Dictionary<string, VisualElement> _panelsById = new Dictionary<string, VisualElement>(StringComparer.Ordinal);
+        private readonly List<string> _order = new List<string>();
+
+        public OdyTabs(string name)
+        {
+            Element = new VisualElement { name = name };
+            Element.AddToClassList(OdyClasses.Tabs);
+            _bar = new VisualElement { name = name + "-bar" };
+            _bar.AddToClassList(OdyClasses.TabsBar);
+            Element.Add(_bar);
+            _panels = new VisualElement { name = name + "-panels" };
+            _panels.AddToClassList(OdyClasses.TabsPanel);
+            Element.Add(_panels);
+        }
+
+        public event Action<string>? TabChanged;
+
+        public VisualElement Element { get; }
+        public string? ActiveTabId { get; private set; }
+        public IReadOnlyList<string> TabIds => _order;
+
+        public VisualElement AddTab(string id, string title)
+        {
+            if (string.IsNullOrWhiteSpace(id)) throw new ArgumentException("Tab id is required.", nameof(id));
+            if (_buttons.ContainsKey(id)) throw new ArgumentException("Duplicate tab id.", nameof(id));
+            var button = new Button(() => Select(id)) { name = "tab-" + id, text = title };
+            button.AddToClassList(OdyClasses.Tab);
+            _bar.Add(button);
+            var panel = new ScrollView(ScrollViewMode.Vertical) { name = "tab-panel-" + id };
+            panel.AddToClassList(OdyClasses.Scroll);
+            OdyUi.SetVisible(panel, false);
+            _panels.Add(panel);
+            _buttons[id] = button;
+            _panelsById[id] = panel;
+            _order.Add(id);
+            if (ActiveTabId == null) Select(id);
+            return panel.contentContainer;
+        }
+
+        public bool Select(string id)
+        {
+            if (!_buttons.ContainsKey(id)) return false;
+            foreach (KeyValuePair<string, Button> entry in _buttons)
+            {
+                bool active = string.Equals(entry.Key, id, StringComparison.Ordinal);
+                entry.Value.EnableInClassList(OdyClasses.TabActive, active);
+                OdyUi.SetVisible(_panelsById[entry.Key], active);
+            }
+
+            bool changed = !string.Equals(ActiveTabId, id, StringComparison.Ordinal);
+            ActiveTabId = id;
+            if (changed) TabChanged?.Invoke(id);
+            return true;
+        }
+
+        public bool IsPanelVisible(string id) => _panelsById.TryGetValue(id, out VisualElement panel) && OdyUi.IsVisible(panel);
+    }
+
+    /// <summary>Options of a confirmation dialog.</summary>
+    public sealed class OdyConfirmOptions
+    {
+        public OdyConfirmOptions(string title, string message, string confirmText)
+        {
+            Title = title ?? throw new ArgumentNullException(nameof(title));
+            Message = message ?? throw new ArgumentNullException(nameof(message));
+            ConfirmText = confirmText ?? throw new ArgumentNullException(nameof(confirmText));
+        }
+
+        public string Title { get; }
+        public string Message { get; }
+        public string ConfirmText { get; }
+        public string CancelText { get; set; } = "Cancel";
+
+        /// <summary>Destructive/irreversible actions (delete, archive, override) get the danger button.</summary>
+        public bool Destructive { get; set; }
+
+        /// <summary>When set, the dialog shows a text field with this label and refuses to confirm while it is blank (reason codes).</summary>
+        public string? RequiredTextLabel { get; set; }
+    }
+
+    /// <summary>
+    /// Modal confirmation for irreversible actions. Mounted on a host element (usually the screen root), removed on
+    /// either outcome. <see cref="Confirm"/>/<see cref="Cancel"/> are public so tests drive it without synthetic clicks.
+    /// </summary>
+    public sealed class OdyConfirmDialog
+    {
+        private readonly OdyConfirmOptions _options;
+        private readonly Action<string> _onConfirm;
+        private readonly Action? _onCancel;
+        private readonly TextField? _textField;
+        private readonly Label _error;
+
+        private OdyConfirmDialog(VisualElement host, OdyConfirmOptions options, Action<string> onConfirm, Action? onCancel)
+        {
+            _options = options;
+            _onConfirm = onConfirm;
+            _onCancel = onCancel;
+
+            Element = new VisualElement { name = "ody-confirm-dialog" };
+            Element.AddToClassList(OdyClasses.ModalScrim);
+            var modal = new VisualElement { name = "ody-confirm-dialog-panel" };
+            modal.AddToClassList(OdyClasses.Modal);
+            Element.Add(modal);
+
+            modal.Add(OdyUi.Text(options.Title, OdyClasses.ModalTitle));
+            var body = new VisualElement();
+            body.AddToClassList(OdyClasses.ModalBody);
+            body.Add(OdyUi.Text(options.Message, OdyClasses.TextWrap));
+            if (!string.IsNullOrEmpty(options.RequiredTextLabel))
+            {
+                _textField = OdyUi.TextField(options.RequiredTextLabel!, string.Empty, "ody-confirm-dialog-text");
+                body.Add(_textField);
+            }
+
+            _error = OdyUi.Text(string.Empty, OdyClasses.FieldError);
+            _error.name = "ody-confirm-dialog-error";
+            OdyUi.SetVisible(_error, false);
+            body.Add(_error);
+            modal.Add(body);
+
+            var actions = new VisualElement();
+            actions.AddToClassList(OdyClasses.ModalActions);
+            actions.Add(OdyUi.Button(options.CancelText, Cancel, OdyButtonVariant.Secondary, "ody-confirm-dialog-cancel"));
+            actions.Add(OdyUi.Button(options.ConfirmText, () => Confirm(), options.Destructive ? OdyButtonVariant.Danger : OdyButtonVariant.Primary, "ody-confirm-dialog-confirm"));
+            modal.Add(actions);
+
+            host.Add(Element);
+            Element.BringToFront();
+            IsOpen = true;
+        }
+
+        public VisualElement Element { get; }
+        public bool IsOpen { get; private set; }
+        public string Title => _options.Title;
+
+        public static OdyConfirmDialog Show(VisualElement host, OdyConfirmOptions options, Action<string> onConfirm, Action? onCancel = null)
+        {
+            if (host == null) throw new ArgumentNullException(nameof(host));
+            if (options == null) throw new ArgumentNullException(nameof(options));
+            if (onConfirm == null) throw new ArgumentNullException(nameof(onConfirm));
+            return new OdyConfirmDialog(host, options, onConfirm, onCancel);
+        }
+
+        public void SetText(string text)
+        {
+            if (_textField != null) _textField.value = text ?? string.Empty;
+        }
+
+        /// <summary>Returns false (and stays open) when a required text is blank.</summary>
+        public bool Confirm()
+        {
+            if (!IsOpen) return false;
+            string text = _textField?.value ?? string.Empty;
+            if (_textField != null && string.IsNullOrWhiteSpace(text))
+            {
+                _error.text = _options.RequiredTextLabel + " is required.";
+                OdyUi.SetVisible(_error, true);
+                return false;
+            }
+
+            Close();
+            _onConfirm(text.Trim());
+            return true;
+        }
+
+        public void Cancel()
+        {
+            if (!IsOpen) return;
+            Close();
+            _onCancel?.Invoke();
+        }
+
+        private void Close()
+        {
+            IsOpen = false;
+            Element.RemoveFromHierarchy();
+        }
+    }
+
+    /// <summary>
+    /// Maps a typed <see cref="Error"/> to a readable, safe sentence (ADR-004: only <see cref="Error.UserMessageKey"/> and
+    /// <see cref="Error.SafeReasonCode"/> are used -- never internal codes, exception text or ids). Unknown keys fall back
+    /// to the safe reason code's generic sentence.
+    /// </summary>
+    public static class OdyMessages
+    {
+        private static readonly Dictionary<string, string> ByMessageKey = new Dictionary<string, string>(StringComparer.Ordinal)
+        {
+            { "errors.content_catalog.authoring_denied", "Only the MainGM can author the content catalog." },
+            { "errors.content_catalog.publish_validation_failed", "The definition did not pass publish validation -- see the issues listed below." },
+            { "errors.content_catalog.validation.not_draft", "Only a Draft can be validated for publishing." },
+            { "errors.content_catalog.validation.ruleset_incompatible", "Ruleset compatibility does not include the campaign's active ruleset." },
+            { "errors.content_catalog.validation.weapon_ammo_keys_required", "The weapon needs ammunition but lists no compatible ammo keys." },
+            { "errors.content_catalog.validation.weapon_no_compatible_ammo", "The weapon requires ammunition, but no Ammo definition in the catalog shares any of its compatible ammo keys. Create an Ammo definition with a matching compatibility key first." },
+            { "errors.content_catalog.validation.dependency_cycle", "The definition's references form a cycle." },
+            { "errors.content_catalog.validation.dependency_graph_too_deep", "The reference chain is too deep." },
+            { "errors.content_catalog.validation.reference_missing", "A referenced definition does not exist." },
+            { "errors.content_catalog.validation.reference_version_mismatch", "A referenced definition version is not published." },
+            { "errors.content_catalog.validation.reference_wrong_type", "A reference points to a definition of the wrong type." },
+            { "errors.combat.denied", "Only the MainGM can do this in combat." },
+            { "errors.inventory.move_denied", "Only the MainGM can move or equip items." },
+        };
+
+        public static string Describe(Error error)
+        {
+            if (error == null) throw new ArgumentNullException(nameof(error));
+            if (ByMessageKey.TryGetValue(error.UserMessageKey.ToString(), out string? text)) return text;
+            return DescribeReason(error.SafeReasonCode);
+        }
+
+        public static string DescribeReason(SafeReasonCode code)
+        {
+            switch (code.ToString())
+            {
+                case "PermissionDenied":
+                    return "You do not have permission for this action.";
+                case "InvalidRequest":
+                    return "The request is not valid -- check the highlighted values.";
+                case "ActionNotAllowed":
+                    return "This action is not allowed in the current state.";
+                case "TargetUnavailable":
+                    return "The target is not available.";
+                case "StateChanged":
+                    return "The data changed since it was loaded. The view was refreshed -- try again.";
+                case "ResourceUnavailable":
+                    return "A required resource is not available.";
+                case "CapacityReached":
+                    return "A limit was reached.";
+                case "ApprovalRequired":
+                    return "This needs MainGM approval.";
+                case "VersionUnsupported":
+                    return "This version is not supported.";
+                case "DataCorrupted":
+                    return "The stored data could not be read.";
+                default:
+                    return "Something went wrong (" + code + ").";
+            }
+        }
+    }
+}

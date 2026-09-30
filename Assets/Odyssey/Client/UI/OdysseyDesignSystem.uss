@@ -1,0 +1,1063 @@
+/*
+ * Odyssey VTT -- project-wide design system (ODY-S11-200, phase 0).
+ *
+ * Reference: D&D Beyond (light, clean, readable). One explicit exception: the board screen follows
+ * Owlbear Rodeo -- the map is full-bleed and every functional panel floats over it (see the
+ * "Board / overlay layout" section at the end of this file).
+ *
+ * Wiring: this file is referenced by an explicit <Style src="OdysseyDesignSystem.uss" /> in AppShell.uxml
+ * (static asset reference resolved by the UXML importer). Never Resources.Load / service lookup
+ * (ADR-001, TC-ARCH-001). Presenters only add the classes defined here -- they never hard-code colors.
+ *
+ * Full catalogue with examples: docs/ui/Odyssey_Design_System.md.
+ *
+ * Temporary: system/default Unity font; text glyphs instead of icons (until the art pass).
+ */
+
+/* ------------------------------------------------------------------------------------------------
+ * 1. Tokens
+ * --------------------------------------------------------------------------------------------- */
+
+:root {
+    /* Brand / accent */
+    --ody-color-accent: #C53131;
+    --ody-color-accent-hover: #A82828;
+    --ody-color-accent-pressed: #8E2121;
+    --ody-color-accent-soft: #FBE9E9;
+
+    /* Neutrals */
+    --ody-color-bg: #F4F5F7;
+    --ody-color-surface: #FFFFFF;
+    --ody-color-surface-muted: #F9FAFB;
+    --ody-color-surface-sunken: #EDEFF2;
+    --ody-color-border: #D7DBE0;
+    --ody-color-border-strong: #B8BFC7;
+    --ody-color-text: #1F2933;
+    --ody-color-text-muted: #5B6875;
+    --ody-color-text-subtle: #8A96A3;
+    --ody-color-text-inverse: #FFFFFF;
+    --ody-color-header: #1F2327;
+
+    /* Semantic status */
+    --ody-color-success: #2E7D4F;
+    --ody-color-success-soft: #E5F4EA;
+    --ody-color-warning: #B7791F;
+    --ody-color-warning-soft: #FDF3E1;
+    --ody-color-danger: #9B2C2C;
+    --ody-color-danger-soft: #FBE9E9;
+    --ody-color-info: #2B6CB0;
+    --ody-color-info-soft: #E6F0FA;
+    --ody-color-neutral-soft: #EDEFF2;
+
+    /* Overlays (board screen) */
+    --ody-color-overlay-surface: rgba(255, 255, 255, 0.96);
+    --ody-color-overlay-scrim: rgba(17, 20, 24, 0.45);
+    --ody-color-shadow: rgba(17, 20, 24, 0.18);
+    --ody-color-board: #2A2E33;
+
+    /* Resource bars */
+    --ody-color-bar-track: #E3E6EA;
+    --ody-color-bar-fill: #C53131;
+    --ody-color-bar-fill-mid: #D69E2E;
+    --ody-color-bar-fill-high: #2E7D4F;
+
+    /* Radius */
+    --ody-radius-sm: 4px;
+    --ody-radius-md: 6px;
+    --ody-radius-lg: 10px;
+    --ody-radius-pill: 999px;
+
+    /* Spacing scale */
+    --ody-space-1: 4px;
+    --ody-space-2: 8px;
+    --ody-space-3: 12px;
+    --ody-space-4: 16px;
+    --ody-space-5: 24px;
+    --ody-space-6: 32px;
+
+    /* Typography scale (system font, see header) */
+    --ody-font-display: 28px;
+    --ody-font-h1: 22px;
+    --ody-font-h2: 18px;
+    --ody-font-h3: 16px;
+    --ody-font-body: 13px;
+    --ody-font-small: 12px;
+    --ody-font-caption: 11px;
+
+    /* Sizes */
+    --ody-control-height: 30px;
+    --ody-control-height-small: 24px;
+    --ody-topbar-height: 44px;
+    --ody-drawer-width: 380px;
+}
+
+/* ------------------------------------------------------------------------------------------------
+ * 2. Roots and layout helpers
+ * --------------------------------------------------------------------------------------------- */
+
+.ody-root {
+    flex-grow: 1;
+    background-color: var(--ody-color-bg);
+    color: var(--ody-color-text);
+    font-size: var(--ody-font-body);
+}
+
+.ody-screen {
+    flex-grow: 1;
+    padding: var(--ody-space-5);
+}
+
+.ody-row {
+    flex-direction: row;
+    align-items: center;
+    flex-wrap: wrap;
+}
+
+.ody-row > * {
+    margin-right: var(--ody-space-2);
+}
+
+.ody-row--top {
+    align-items: flex-start;
+}
+
+.ody-row--nowrap {
+    flex-wrap: nowrap;
+}
+
+.ody-column {
+    flex-direction: column;
+}
+
+.ody-column > * {
+    margin-bottom: var(--ody-space-2);
+}
+
+.ody-grow {
+    flex-grow: 1;
+    flex-shrink: 1;
+}
+
+.ody-spacer {
+    flex-grow: 1;
+}
+
+.ody-hidden {
+    display: none;
+}
+
+.ody-scroll {
+    flex-grow: 1;
+    flex-shrink: 1;
+}
+
+.ody-split {
+    flex-direction: row;
+    flex-grow: 1;
+    align-items: stretch;
+}
+
+.ody-split__sidebar {
+    width: 300px;
+    min-width: 240px;
+    flex-shrink: 0;
+    margin-right: var(--ody-space-4);
+}
+
+.ody-split__main {
+    flex-grow: 1;
+    flex-shrink: 1;
+}
+
+.ody-divider {
+    height: 1px;
+    background-color: var(--ody-color-border);
+    margin-top: var(--ody-space-2);
+    margin-bottom: var(--ody-space-2);
+}
+
+/* ------------------------------------------------------------------------------------------------
+ * 3. Typography
+ * --------------------------------------------------------------------------------------------- */
+
+.ody-text-display {
+    font-size: var(--ody-font-display);
+    -unity-font-style: bold;
+    color: var(--ody-color-text);
+}
+
+.ody-text-h1 {
+    font-size: var(--ody-font-h1);
+    -unity-font-style: bold;
+    color: var(--ody-color-text);
+    margin-bottom: var(--ody-space-2);
+}
+
+.ody-text-h2 {
+    font-size: var(--ody-font-h2);
+    -unity-font-style: bold;
+    color: var(--ody-color-text);
+    margin-bottom: var(--ody-space-2);
+}
+
+.ody-text-h3 {
+    font-size: var(--ody-font-h3);
+    -unity-font-style: bold;
+    color: var(--ody-color-text);
+    margin-bottom: var(--ody-space-1);
+}
+
+.ody-text-body {
+    font-size: var(--ody-font-body);
+    color: var(--ody-color-text);
+}
+
+.ody-text-small {
+    font-size: var(--ody-font-small);
+}
+
+.ody-text-caption {
+    font-size: var(--ody-font-caption);
+    color: var(--ody-color-text-muted);
+}
+
+.ody-text-label {
+    font-size: var(--ody-font-caption);
+    -unity-font-style: bold;
+    color: var(--ody-color-text-muted);
+    letter-spacing: 1px;
+}
+
+.ody-text-muted {
+    color: var(--ody-color-text-muted);
+}
+
+.ody-text-strong {
+    -unity-font-style: bold;
+}
+
+.ody-text-accent {
+    color: var(--ody-color-accent);
+}
+
+.ody-text-danger {
+    color: var(--ody-color-danger);
+}
+
+.ody-text-success {
+    color: var(--ody-color-success);
+}
+
+.ody-text-wrap {
+    white-space: normal;
+}
+
+/* ------------------------------------------------------------------------------------------------
+ * 4. Surfaces: cards and sections
+ * --------------------------------------------------------------------------------------------- */
+
+.ody-card {
+    background-color: var(--ody-color-surface);
+    border-width: 1px;
+    border-color: var(--ody-color-border);
+    border-bottom-color: var(--ody-color-border-strong);
+    border-radius: var(--ody-radius-md);
+    padding: var(--ody-space-4);
+    margin-bottom: var(--ody-space-3);
+}
+
+.ody-card--flat {
+    border-bottom-color: var(--ody-color-border);
+}
+
+.ody-card--muted {
+    background-color: var(--ody-color-surface-muted);
+}
+
+.ody-card__header {
+    flex-direction: row;
+    align-items: center;
+    margin-bottom: var(--ody-space-3);
+}
+
+.ody-card__title {
+    font-size: var(--ody-font-h3);
+    -unity-font-style: bold;
+    flex-grow: 1;
+}
+
+.ody-card__body {
+    flex-shrink: 1;
+}
+
+.ody-card__footer {
+    flex-direction: row;
+    justify-content: flex-end;
+    margin-top: var(--ody-space-3);
+    padding-top: var(--ody-space-3);
+    border-top-width: 1px;
+    border-top-color: var(--ody-color-border);
+}
+
+.ody-section {
+    margin-bottom: var(--ody-space-4);
+}
+
+.ody-section__title {
+    font-size: var(--ody-font-caption);
+    -unity-font-style: bold;
+    color: var(--ody-color-text-muted);
+    letter-spacing: 1px;
+    margin-bottom: var(--ody-space-2);
+    padding-bottom: var(--ody-space-1);
+    border-bottom-width: 2px;
+    border-bottom-color: var(--ody-color-accent);
+}
+
+/* Key / value pairs (character sheet header, preview panels) */
+.ody-kv {
+    flex-direction: row;
+    align-items: center;
+    margin-bottom: var(--ody-space-1);
+}
+
+.ody-kv__key {
+    width: 130px;
+    flex-shrink: 0;
+    color: var(--ody-color-text-muted);
+    font-size: var(--ody-font-small);
+}
+
+.ody-kv__value {
+    flex-grow: 1;
+    flex-shrink: 1;
+    white-space: normal;
+}
+
+/* ------------------------------------------------------------------------------------------------
+ * 5. Buttons
+ * --------------------------------------------------------------------------------------------- */
+
+.ody-button {
+    min-height: var(--ody-control-height);
+    padding-left: var(--ody-space-3);
+    padding-right: var(--ody-space-3);
+    padding-top: 0;
+    padding-bottom: 0;
+    margin-left: 0;
+    margin-top: 0;
+    margin-bottom: 0;
+    background-color: var(--ody-color-surface);
+    color: var(--ody-color-text);
+    border-width: 1px;
+    border-color: var(--ody-color-border-strong);
+    border-radius: var(--ody-radius-sm);
+    font-size: var(--ody-font-body);
+    -unity-font-style: bold;
+    -unity-text-align: middle-center;
+    transition-property: background-color, border-color, color;
+    transition-duration: 0.12s;
+}
+
+.ody-button:hover {
+    background-color: var(--ody-color-surface-sunken);
+    border-color: var(--ody-color-text-muted);
+}
+
+.ody-button:active {
+    background-color: var(--ody-color-border);
+}
+
+.ody-button:disabled {
+    opacity: 0.45;
+}
+
+.ody-button--primary {
+    background-color: var(--ody-color-accent);
+    border-color: var(--ody-color-accent);
+    color: var(--ody-color-text-inverse);
+}
+
+.ody-button--primary:hover {
+    background-color: var(--ody-color-accent-hover);
+    border-color: var(--ody-color-accent-hover);
+}
+
+.ody-button--primary:active {
+    background-color: var(--ody-color-accent-pressed);
+    border-color: var(--ody-color-accent-pressed);
+}
+
+.ody-button--danger {
+    background-color: var(--ody-color-surface);
+    border-color: var(--ody-color-danger);
+    color: var(--ody-color-danger);
+}
+
+.ody-button--danger:hover {
+    background-color: var(--ody-color-danger-soft);
+}
+
+.ody-button--ghost {
+    background-color: rgba(0, 0, 0, 0);
+    border-color: rgba(0, 0, 0, 0);
+    color: var(--ody-color-text-muted);
+}
+
+.ody-button--ghost:hover {
+    background-color: var(--ody-color-surface-sunken);
+    border-color: rgba(0, 0, 0, 0);
+    color: var(--ody-color-text);
+}
+
+.ody-button--small {
+    min-height: var(--ody-control-height-small);
+    padding-left: var(--ody-space-2);
+    padding-right: var(--ody-space-2);
+    font-size: var(--ody-font-small);
+}
+
+.ody-button--icon {
+    min-width: var(--ody-control-height);
+    padding-left: 0;
+    padding-right: 0;
+    font-size: var(--ody-font-h3);
+}
+
+/* Toggle-style button (top bar panel switches, board tools) */
+.ody-button--toggle-on {
+    background-color: var(--ody-color-accent-soft);
+    border-color: var(--ody-color-accent);
+    color: var(--ody-color-accent);
+}
+
+.ody-button-row {
+    flex-direction: row;
+    flex-wrap: wrap;
+    align-items: center;
+    margin-top: var(--ody-space-2);
+}
+
+.ody-button-row > * {
+    margin-right: var(--ody-space-2);
+    margin-bottom: var(--ody-space-2);
+}
+
+/* ------------------------------------------------------------------------------------------------
+ * 6. Forms (TextField / IntegerField / DropdownField / Toggle)
+ * --------------------------------------------------------------------------------------------- */
+
+.ody-form {
+    flex-direction: column;
+}
+
+.ody-form-row {
+    flex-direction: row;
+    flex-wrap: wrap;
+    align-items: flex-start;
+}
+
+.ody-form-row > * {
+    margin-right: var(--ody-space-3);
+}
+
+.ody-field {
+    flex-direction: column;
+    align-items: stretch;
+    margin-left: 0;
+    margin-right: 0;
+    margin-bottom: var(--ody-space-3);
+    min-width: 160px;
+}
+
+.ody-field--grow {
+    flex-grow: 1;
+}
+
+.ody-field--narrow {
+    min-width: 90px;
+    width: 110px;
+}
+
+.ody-field > .unity-base-field__label {
+    min-width: 0;
+    margin-bottom: var(--ody-space-1);
+    padding-left: 0;
+    font-size: var(--ody-font-small);
+    -unity-font-style: bold;
+    color: var(--ody-color-text-muted);
+}
+
+.ody-field .unity-base-text-field__input,
+.ody-field .unity-base-popup-field__input {
+    min-height: var(--ody-control-height);
+    background-color: var(--ody-color-surface);
+    border-width: 1px;
+    border-color: var(--ody-color-border-strong);
+    border-radius: var(--ody-radius-sm);
+    color: var(--ody-color-text);
+    padding-left: var(--ody-space-2);
+    padding-right: var(--ody-space-2);
+    margin-left: 0;
+    margin-right: 0;
+}
+
+.ody-field:focus .unity-base-text-field__input,
+.ody-field .unity-base-text-field__input:focus {
+    border-color: var(--ody-color-accent);
+}
+
+.ody-field--multiline .unity-base-text-field__input {
+    min-height: 64px;
+    white-space: normal;
+}
+
+.ody-field--invalid .unity-base-text-field__input,
+.ody-field--invalid .unity-base-popup-field__input {
+    border-color: var(--ody-color-danger);
+    background-color: var(--ody-color-danger-soft);
+}
+
+/* Toggles lay out label-right like a checkbox row */
+.ody-toggle {
+    flex-direction: row-reverse;
+    justify-content: flex-end;
+    align-items: center;
+    margin-bottom: var(--ody-space-2);
+    margin-left: 0;
+}
+
+.ody-toggle > .unity-base-field__label {
+    min-width: 0;
+    margin-left: var(--ody-space-2);
+    color: var(--ody-color-text);
+}
+
+.ody-toggle .unity-toggle__checkmark {
+    background-color: var(--ody-color-surface);
+    border-color: var(--ody-color-border-strong);
+    border-radius: var(--ody-radius-sm);
+}
+
+.ody-toggle:checked .unity-toggle__checkmark {
+    background-color: var(--ody-color-accent);
+    border-color: var(--ody-color-accent);
+}
+
+.ody-field-error {
+    color: var(--ody-color-danger);
+    font-size: var(--ody-font-small);
+    white-space: normal;
+    margin-top: -8px;
+    margin-bottom: var(--ody-space-2);
+}
+
+.ody-field-hint {
+    color: var(--ody-color-text-muted);
+    font-size: var(--ody-font-caption);
+    white-space: normal;
+    margin-bottom: var(--ody-space-2);
+}
+
+/* ------------------------------------------------------------------------------------------------
+ * 7. Lists
+ * --------------------------------------------------------------------------------------------- */
+
+.ody-list {
+    background-color: var(--ody-color-surface);
+    border-width: 1px;
+    border-color: var(--ody-color-border);
+    border-radius: var(--ody-radius-md);
+}
+
+.ody-list-item {
+    flex-direction: row;
+    align-items: center;
+    padding: var(--ody-space-2) var(--ody-space-3);
+    border-bottom-width: 1px;
+    border-bottom-color: var(--ody-color-border);
+    min-height: 36px;
+}
+
+.ody-list-item:hover {
+    background-color: var(--ody-color-surface-muted);
+}
+
+.ody-list-item--selected {
+    background-color: var(--ody-color-accent-soft);
+    border-left-width: 3px;
+    border-left-color: var(--ody-color-accent);
+}
+
+.ody-list-item__main {
+    flex-grow: 1;
+    flex-shrink: 1;
+}
+
+.ody-list-item__title {
+    -unity-font-style: bold;
+    white-space: normal;
+}
+
+.ody-list-item__meta {
+    font-size: var(--ody-font-caption);
+    color: var(--ody-color-text-muted);
+    white-space: normal;
+}
+
+.ody-list-item > .ody-badge,
+.ody-list-item > .ody-button {
+    margin-left: var(--ody-space-2);
+}
+
+.ody-empty-state {
+    padding: var(--ody-space-4);
+    color: var(--ody-color-text-muted);
+    -unity-text-align: middle-center;
+    white-space: normal;
+}
+
+/* ------------------------------------------------------------------------------------------------
+ * 8. Badges and status indicators
+ * --------------------------------------------------------------------------------------------- */
+
+.ody-badge {
+    padding: 2px var(--ody-space-2);
+    border-radius: var(--ody-radius-pill);
+    border-width: 1px;
+    font-size: var(--ody-font-caption);
+    -unity-font-style: bold;
+    -unity-text-align: middle-center;
+    background-color: var(--ody-color-neutral-soft);
+    border-color: var(--ody-color-border);
+    color: var(--ody-color-text-muted);
+    flex-shrink: 0;
+}
+
+/* Content lifecycle */
+.ody-badge--draft {
+    background-color: var(--ody-color-warning-soft);
+    border-color: var(--ody-color-warning);
+    color: var(--ody-color-warning);
+}
+
+.ody-badge--published {
+    background-color: var(--ody-color-success-soft);
+    border-color: var(--ody-color-success);
+    color: var(--ody-color-success);
+}
+
+.ody-badge--archived {
+    background-color: var(--ody-color-neutral-soft);
+    border-color: var(--ody-color-border-strong);
+    color: var(--ody-color-text-muted);
+}
+
+/* Runtime states */
+.ody-badge--pending {
+    background-color: var(--ody-color-info-soft);
+    border-color: var(--ody-color-info);
+    color: var(--ody-color-info);
+}
+
+.ody-badge--conflict {
+    background-color: var(--ody-color-warning-soft);
+    border-color: var(--ody-color-warning);
+    color: var(--ody-color-warning);
+}
+
+.ody-badge--error {
+    background-color: var(--ody-color-danger-soft);
+    border-color: var(--ody-color-danger);
+    color: var(--ody-color-danger);
+}
+
+.ody-badge--success {
+    background-color: var(--ody-color-success-soft);
+    border-color: var(--ody-color-success);
+    color: var(--ody-color-success);
+}
+
+.ody-badge--info {
+    background-color: var(--ody-color-info-soft);
+    border-color: var(--ody-color-info);
+    color: var(--ody-color-info);
+}
+
+.ody-badge--accent {
+    background-color: var(--ody-color-accent);
+    border-color: var(--ody-color-accent);
+    color: var(--ody-color-text-inverse);
+}
+
+/* Banners: readable explanations (role restrictions, validation, results) */
+.ody-banner {
+    padding: var(--ody-space-2) var(--ody-space-3);
+    border-radius: var(--ody-radius-sm);
+    border-left-width: 4px;
+    margin-bottom: var(--ody-space-3);
+    white-space: normal;
+    background-color: var(--ody-color-info-soft);
+    border-left-color: var(--ody-color-info);
+    color: var(--ody-color-text);
+}
+
+.ody-banner--info {
+    background-color: var(--ody-color-info-soft);
+    border-left-color: var(--ody-color-info);
+}
+
+.ody-banner--success {
+    background-color: var(--ody-color-success-soft);
+    border-left-color: var(--ody-color-success);
+}
+
+.ody-banner--warning {
+    background-color: var(--ody-color-warning-soft);
+    border-left-color: var(--ody-color-warning);
+}
+
+.ody-banner--error {
+    background-color: var(--ody-color-danger-soft);
+    border-left-color: var(--ody-color-danger);
+}
+
+.ody-banner > Label {
+    white-space: normal;
+}
+
+/* ------------------------------------------------------------------------------------------------
+ * 9. Tabs (character sheet)
+ * --------------------------------------------------------------------------------------------- */
+
+.ody-tabs {
+    flex-grow: 1;
+    flex-shrink: 1;
+}
+
+.ody-tabs__bar {
+    flex-direction: row;
+    flex-wrap: wrap;
+    border-bottom-width: 1px;
+    border-bottom-color: var(--ody-color-border);
+    margin-bottom: var(--ody-space-3);
+}
+
+.ody-tab {
+    min-height: 32px;
+    padding-left: var(--ody-space-3);
+    padding-right: var(--ody-space-3);
+    margin: 0;
+    background-color: rgba(0, 0, 0, 0);
+    border-width: 0;
+    border-bottom-width: 3px;
+    border-bottom-color: rgba(0, 0, 0, 0);
+    border-radius: 0;
+    color: var(--ody-color-text-muted);
+    font-size: var(--ody-font-body);
+    -unity-font-style: bold;
+}
+
+.ody-tab:hover {
+    color: var(--ody-color-text);
+    background-color: var(--ody-color-surface-sunken);
+}
+
+.ody-tab--active {
+    color: var(--ody-color-accent);
+    border-bottom-color: var(--ody-color-accent);
+}
+
+.ody-tabs__panel {
+    flex-grow: 1;
+    flex-shrink: 1;
+}
+
+/* ------------------------------------------------------------------------------------------------
+ * 10. Resource bars (HP and similar)
+ * --------------------------------------------------------------------------------------------- */
+
+.ody-resource-bar {
+    height: 22px;
+    background-color: var(--ody-color-bar-track);
+    border-radius: var(--ody-radius-sm);
+    border-width: 1px;
+    border-color: var(--ody-color-border);
+    overflow: hidden;
+    justify-content: center;
+    margin-bottom: var(--ody-space-2);
+}
+
+.ody-resource-bar__fill {
+    position: absolute;
+    left: 0;
+    top: 0;
+    bottom: 0;
+    width: 0;
+    background-color: var(--ody-color-bar-fill);
+}
+
+.ody-resource-bar__fill--mid {
+    background-color: var(--ody-color-bar-fill-mid);
+}
+
+.ody-resource-bar__fill--high {
+    background-color: var(--ody-color-bar-fill-high);
+}
+
+.ody-resource-bar__label {
+    -unity-text-align: middle-center;
+    -unity-font-style: bold;
+    font-size: var(--ody-font-small);
+    color: var(--ody-color-text);
+}
+
+.ody-resource-bar--small {
+    height: 12px;
+}
+
+/* ------------------------------------------------------------------------------------------------
+ * 11. Modal dialogs / confirmations
+ * --------------------------------------------------------------------------------------------- */
+
+.ody-modal-scrim {
+    position: absolute;
+    left: 0;
+    top: 0;
+    right: 0;
+    bottom: 0;
+    background-color: var(--ody-color-overlay-scrim);
+    align-items: center;
+    justify-content: center;
+}
+
+.ody-modal {
+    width: 440px;
+    max-width: 90%;
+    background-color: var(--ody-color-surface);
+    border-radius: var(--ody-radius-lg);
+    border-width: 1px;
+    border-color: var(--ody-color-border-strong);
+    padding: var(--ody-space-5);
+}
+
+.ody-modal__title {
+    font-size: var(--ody-font-h2);
+    -unity-font-style: bold;
+    margin-bottom: var(--ody-space-3);
+}
+
+.ody-modal__body {
+    white-space: normal;
+    margin-bottom: var(--ody-space-4);
+}
+
+.ody-modal__body > Label {
+    white-space: normal;
+}
+
+.ody-modal__actions {
+    flex-direction: row;
+    justify-content: flex-end;
+}
+
+.ody-modal__actions > * {
+    margin-left: var(--ody-space-2);
+}
+
+/* ------------------------------------------------------------------------------------------------
+ * 12. Board / overlay layout (Owlbear exception)
+ * --------------------------------------------------------------------------------------------- */
+
+.ody-game-root {
+    flex-grow: 1;
+    background-color: var(--ody-color-board);
+    color: var(--ody-color-text);
+    font-size: var(--ody-font-body);
+    padding: 0;
+    overflow: hidden;
+}
+
+/* Full-bleed map, bottom of the z-order */
+.ody-board-layer {
+    position: absolute;
+    left: 0;
+    top: 0;
+    right: 0;
+    bottom: 0;
+    background-color: var(--ody-color-board);
+    overflow: hidden;
+}
+
+/* Overlay container: covers the screen but ignores picking itself (set in code), so the map stays usable
+ * everywhere no panel is drawn. */
+.ody-overlay-layer {
+    position: absolute;
+    left: 0;
+    top: 0;
+    right: 0;
+    bottom: 0;
+}
+
+.ody-topbar {
+    position: absolute;
+    left: var(--ody-space-3);
+    right: var(--ody-space-3);
+    top: var(--ody-space-3);
+    height: var(--ody-topbar-height);
+    flex-direction: row;
+    align-items: center;
+    padding-left: var(--ody-space-3);
+    padding-right: var(--ody-space-2);
+    background-color: var(--ody-color-overlay-surface);
+    border-radius: var(--ody-radius-lg);
+    border-width: 1px;
+    border-color: var(--ody-color-border);
+    border-bottom-color: var(--ody-color-shadow);
+}
+
+.ody-topbar > * {
+    margin-right: var(--ody-space-2);
+}
+
+.ody-topbar__title {
+    font-size: var(--ody-font-h3);
+    -unity-font-style: bold;
+}
+
+.ody-topbar__role {
+    min-width: 170px;
+    margin-bottom: 0;
+}
+
+.ody-topbar__role > .unity-base-field__label {
+    min-width: 0;
+    margin-right: var(--ody-space-2);
+    color: var(--ody-color-text-muted);
+}
+
+.ody-topbar__toggles {
+    flex-direction: row;
+    align-items: center;
+}
+
+.ody-topbar__toggles > * {
+    margin-left: var(--ody-space-1);
+}
+
+/* Slide-in side panel. Width leaves most of the map visible. */
+.ody-drawer {
+    position: absolute;
+    top: 68px;
+    bottom: var(--ody-space-3);
+    width: var(--ody-drawer-width);
+    max-width: 45%;
+    background-color: var(--ody-color-overlay-surface);
+    border-radius: var(--ody-radius-lg);
+    border-width: 1px;
+    border-color: var(--ody-color-border);
+    border-bottom-color: var(--ody-color-shadow);
+    overflow: hidden;
+}
+
+.ody-drawer--left {
+    left: var(--ody-space-3);
+}
+
+.ody-drawer--right {
+    right: var(--ody-space-3);
+}
+
+.ody-drawer--wide {
+    width: 560px;
+    max-width: 60%;
+}
+
+.ody-drawer__header {
+    flex-direction: row;
+    align-items: center;
+    padding: var(--ody-space-2) var(--ody-space-2) var(--ody-space-2) var(--ody-space-4);
+    border-bottom-width: 1px;
+    border-bottom-color: var(--ody-color-border);
+    background-color: var(--ody-color-surface);
+}
+
+.ody-drawer__title {
+    flex-grow: 1;
+    font-size: var(--ody-font-h3);
+    -unity-font-style: bold;
+}
+
+.ody-drawer__body {
+    flex-grow: 1;
+    flex-shrink: 1;
+}
+
+.ody-drawer__content {
+    padding: var(--ody-space-3) var(--ody-space-4);
+}
+
+/* Collapsible dock in a corner (roll panel + game log, like Owlbear chat) */
+.ody-dock {
+    position: absolute;
+    right: var(--ody-space-3);
+    bottom: var(--ody-space-3);
+    width: 380px;
+    max-width: 45%;
+    max-height: 70%;
+    background-color: var(--ody-color-overlay-surface);
+    border-radius: var(--ody-radius-lg);
+    border-width: 1px;
+    border-color: var(--ody-color-border);
+    border-bottom-color: var(--ody-color-shadow);
+    overflow: hidden;
+}
+
+.ody-dock--left {
+    right: auto;
+    left: var(--ody-space-3);
+}
+
+.ody-dock__header {
+    flex-direction: row;
+    align-items: center;
+    padding: var(--ody-space-1) var(--ody-space-1) var(--ody-space-1) var(--ody-space-3);
+    background-color: var(--ody-color-surface);
+    border-bottom-width: 1px;
+    border-bottom-color: var(--ody-color-border);
+}
+
+.ody-dock__title {
+    flex-grow: 1;
+    -unity-font-style: bold;
+}
+
+.ody-dock__body {
+    flex-shrink: 1;
+}
+
+.ody-dock--collapsed .ody-dock__body {
+    display: none;
+}
+
+.ody-dock--collapsed .ody-dock__header {
+    border-bottom-width: 0;
+}
+
+/* Floating tool strip (board tools, status) */
+.ody-floating-toolbar {
+    position: absolute;
+    left: var(--ody-space-3);
+    bottom: var(--ody-space-3);
+    flex-direction: row;
+    align-items: center;
+    padding: var(--ody-space-1);
+    background-color: var(--ody-color-overlay-surface);
+    border-radius: var(--ody-radius-lg);
+    border-width: 1px;
+    border-color: var(--ody-color-border);
+}
+
+.ody-floating-toolbar > * {
+    margin: 2px;
+}
