@@ -107,7 +107,10 @@ namespace Odyssey.Unity.Client
 
                 var board = new BoardScreenPresenter(_document, sceneRepository, demo.Value.Campaign, demo.Value.CampaignRepository, obstacleRepository, visionRepository, fogRepository, demo.Value.SceneId, selection, _presentationRuntime, includeRoleSelector: false)
                 {
-                    FullBleed = true
+                    FullBleed = true,
+                    // ODY-S11-208: mounts title/toolbar/status on the overlay layer -- a structural sibling of
+                    // BoardLayer -- so the full-bleed board can never paint over or intercept clicks meant for them.
+                    OverlayHost = shell.OverlayLayer
                 };
                 Result boardInitialized = board.InitializeInto(shell.BoardLayer);
                 if (boardInitialized.IsFailure) return boardInitialized;

@@ -207,6 +207,19 @@ namespace Odyssey.Unity.Client
         /// </summary>
         public bool FullBleed { get; set; }
 
+        /// <summary>
+        /// ODY-S11-208: when set before <see cref="InitializeInto"/> (Owlbear/<see cref="FullBleed"/> mode), the
+        /// title/toolbar/status chrome is mounted here instead of <c>appRoot</c>. <c>appRoot</c> also hosts
+        /// <c>_boardArea</c>, and when <see cref="FullBleed"/> is true that area is absolutely positioned to cover
+        /// the whole parent and is added after the chrome -- later siblings paint and receive pointer events on
+        /// top in UI Toolkit, so the full-bleed board silently swallowed every click meant for the toolbar's
+        /// Select/Draw Wall/Draw Door/Draw Window buttons (TC-BOARD-121 finding, ODY-S11-207/208). Mounting the
+        /// chrome on a host that is a structural sibling of the board layer, not a document-order predecessor
+        /// inside it, fixes this regardless of stylesheet loading. Null (default) keeps the pre-existing
+        /// appRoot-hosted chrome byte-for-byte (dev shell, fixed-size board, existing EditMode/PlayMode tests).
+        /// </summary>
+        public VisualElement? OverlayHost { get; set; }
+
         public Result Initialize()
         {
             return InitializeInto(null);
@@ -241,8 +254,15 @@ namespace Odyssey.Unity.Client
             appRoot.Clear();
             appRoot.AddToClassList("app-root");
 
-            Label title = new Label("Odyssey Board Screen (trial)") { name = "board-title" };
-            appRoot.Add(title);
+            // ODY-S11-208: in Owlbear/FullBleed mode the chrome is mounted on OverlayHost, a structural sibling
+            // of appRoot's board layer, not a document-order predecessor inside it -- see OverlayHost's remarks.
+            VisualElement chromeHost = OverlayHost ?? appRoot;
+
+            if (OverlayHost == null)
+            {
+                Label title = new Label("Odyssey Board Screen (trial)") { name = "board-title" };
+                chromeHost.Add(title);
+            }
 
             if (_includeRoleSelector && _roleSelection != null && _presentationRuntime != null)
             {
@@ -253,11 +273,47 @@ namespace Odyssey.Unity.Client
             // SLICE-10 Block 6 part 1: the toolbar's own visibility (MainGM-only, presentational) is set on
             // every Refresh(), so it stays correct regardless of how LocalActorIsMainGm was last changed.
             _toolbarPresenter = new BoardToolbarPresenter(OnToolSelected);
-            appRoot.Add(_toolbarPresenter.BuildView());
+            VisualElement toolbarView = _toolbarPresenter.BuildView();
+            chromeHost.Add(toolbarView);
             _toolbarPresenter.SetActiveTool(_currentTool);
 
             _statusLabel = new Label { name = "board-status" };
-            appRoot.Add(_statusLabel);
+            chromeHost.Add(_statusLabel);
+
+            if (OverlayHost != null)
+            {
+                // Floats the toolbar and status pill over the map's bottom-left corner -- a thin strip, not a
+                // block that competes with the map for space -- independent of the design-system stylesheet
+                // (not currently attached to this UIDocument; see ODY-S11-208 completion evidence).
+                toolbarView.style.position = Position.Absolute;
+                toolbarView.style.left = 12;
+                toolbarView.style.bottom = 56;
+                toolbarView.style.paddingLeft = 4;
+                toolbarView.style.paddingRight = 4;
+                toolbarView.style.paddingTop = 4;
+                toolbarView.style.paddingBottom = 4;
+                toolbarView.style.backgroundColor = new StyleColor(new Color(0.12f, 0.12f, 0.14f, 0.92f));
+                toolbarView.style.borderTopLeftRadius = 8;
+                toolbarView.style.borderTopRightRadius = 8;
+                toolbarView.style.borderBottomLeftRadius = 8;
+                toolbarView.style.borderBottomRightRadius = 8;
+
+                _statusLabel.style.position = Position.Absolute;
+                _statusLabel.style.left = 12;
+                _statusLabel.style.bottom = 12;
+                _statusLabel.style.maxWidth = Length.Percent(50);
+                _statusLabel.style.paddingLeft = 8;
+                _statusLabel.style.paddingRight = 8;
+                _statusLabel.style.paddingTop = 4;
+                _statusLabel.style.paddingBottom = 4;
+                _statusLabel.style.backgroundColor = new StyleColor(new Color(0.12f, 0.12f, 0.14f, 0.92f));
+                _statusLabel.style.color = new StyleColor(Color.white);
+                _statusLabel.style.borderTopLeftRadius = 12;
+                _statusLabel.style.borderTopRightRadius = 12;
+                _statusLabel.style.borderBottomLeftRadius = 12;
+                _statusLabel.style.borderBottomRightRadius = 12;
+                _statusLabel.style.whiteSpace = WhiteSpace.Normal;
+            }
 
             _boardArea = new VisualElement { name = "board-area" };
             if (FullBleed)
