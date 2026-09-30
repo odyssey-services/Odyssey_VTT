@@ -147,7 +147,7 @@ MonoBehaviour:
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 19102, guid: 0000000000000000e000000000000000, type: 0}
-  m_Name:
+  m_Name: 
   m_EditorClassIdentifier: UnityEngine.dll::UnityEngine.UIElements.UIDocument
   m_PanelSettings: {fileID: 11400000, guid: 2677362e67e332f45b94106f6a8ddb28, type: 2}
   m_ParentUI: {fileID: 0}
@@ -160,18 +160,6 @@ MonoBehaviour:
   m_PivotReferenceSize: 0
   m_Pivot: 0
   m_WorldSpaceCollider: {fileID: 0}
---- !u!114 &1173327854
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 1173327851}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: 7b2f0c6a19c446a8b9d4dfe72fd81a61, type: 3}
-  m_Name:
-  m_EditorClassIdentifier:
 --- !u!4 &1173327853
 Transform:
   m_ObjectHideFlags: 0
@@ -187,6 +175,19 @@ Transform:
   m_Children: []
   m_Father: {fileID: 0}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
+--- !u!114 &1173327854
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1173327851}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 7b2f0c6a19c446a8b9d4dfe72fd81a61, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  _designSystemStyleSheet: {fileID: 7433441132597879392, guid: c692f5d21d2c6f348b53e2e7deb9c96b, type: 3}
 --- !u!1 &1669412495
 GameObject:
   m_ObjectHideFlags: 0
