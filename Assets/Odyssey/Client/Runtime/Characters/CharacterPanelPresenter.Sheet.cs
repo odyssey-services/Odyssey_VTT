@@ -4,6 +4,7 @@ using Odyssey.Application.CharacterAdvancement;
 using Odyssey.Application.Persistence;
 using Odyssey.Application.Results;
 using Odyssey.Domain.Character;
+using Odyssey.Domain.Content;
 using Odyssey.Domain.Identity;
 using UnityEngine.UIElements;
 using RulesAbilityCostRules = Odyssey.Rules.Character.AbilityCostRules;
@@ -264,6 +265,20 @@ namespace Odyssey.Unity.Client
                 c => CharacterAdvancementService.AcquireAbility(_characters, _context.Campaign, c.CharacterId, abilityId, sourceKind, null, RankMode.None, null, null, "{}", _context.ActorUserId,
                     sourceKind == SourceKind.ProgressionPurchase ? c.Revisions.MechanicsRevision : (long?)null, c.Revisions.CharacterAbilitiesRevision, UiCommandIds.NewCommandId(), UiCommandIds.NewCorrelationId()),
                 abilityId + " acquired.");
+        }
+
+        /// <summary>ODY-S11-205 (MainGM): links a character ability to a published Ability definition so combat can activate it.</summary>
+        public Result<CharacterRecord> LinkAbilityToDefinition(CharacterAbilityId characterAbilityId, ContentDefinitionRef abilityDefinition) =>
+            Mutate("Link ability", c => _characters.LinkAbilityActivationSource(_context.Campaign, c.CharacterId, characterAbilityId, abilityDefinition, _context.ActorUserId, c.Revisions.CharacterAbilitiesRevision, UiCommandIds.NewCommandId(), UiCommandIds.NewCorrelationId()), "Ability linked -- it can now be activated in combat.");
+
+        private List<ContentDefinitionRecord> PublishedAbilityDefinitions()
+        {
+            var result = new List<ContentDefinitionRecord>();
+            if (_catalog == null) return result;
+            Result<IReadOnlyList<ContentDefinitionRecord>> published = _catalog.ListContentDefinitions(_context.Campaign, Odyssey.Domain.Content.ContentDefinitionStatus.Published, UiCommandIds.NewCorrelationId());
+            if (published.IsFailure) return result;
+            foreach (ContentDefinitionRecord record in published.Value) if (record.DefinitionType == Odyssey.Domain.Content.ContentDefinitionType.Ability) result.Add(record);
+            return result;
         }
 
         public static bool IsRemovable(CharacterAbility ability) => ability.SourceKind == SourceKind.Item || ability.SourceKind == SourceKind.ActiveEffect;
@@ -583,6 +598,25 @@ namespace Odyssey.Unity.Client
             {
                 string rank = ability.RankMode == RankMode.Numeric ? " · rank " + ability.NumericRank : ability.RankMode == RankMode.Named ? " · " + ability.NamedRankKey : string.Empty;
                 VisualElement row = ListRow(ability.AbilityDefinitionId.ToString(), "from " + EnumChoices.Humanize(ability.SourceKind.ToString()) + rank + (ability.IsEnabled ? string.Empty : " · disabled"));
+                if (ability.ActivationDefinitionRef.HasValue) row.Add(OdyUi.Badge("Activatable", OdyStatusKind.Success));
+                else if (ActorIsMainGm && _catalog != null)
+                {
+                    List<ContentDefinitionRecord> definitions = PublishedAbilityDefinitions();
+                    if (definitions.Count > 0)
+                    {
+                        var labels = new List<string>();
+                        foreach (ContentDefinitionRecord definition in definitions) labels.Add(definition.Name + " v" + definition.Version);
+                        DropdownField link = OdyUi.Dropdown("Link to", labels, 0, "character-ability-link-" + ability.CharacterAbilityId);
+                        row.Add(link);
+                        CharacterAbilityId linkId = ability.CharacterAbilityId;
+                        row.Add(OdyUi.Button("Link", () =>
+                        {
+                            int index = link.index;
+                            if (index >= 0 && index < definitions.Count) LinkAbilityToDefinition(linkId, new ContentDefinitionRef(definitions[index].ContentDefinitionId, definitions[index].Version));
+                        }, OdyButtonVariant.Secondary, "character-ability-link-button-" + ability.CharacterAbilityId, small: true));
+                    }
+                }
+
                 if (IsRemovable(ability) && ActorIsMainGm)
                 {
                     CharacterAbilityId id = ability.CharacterAbilityId;

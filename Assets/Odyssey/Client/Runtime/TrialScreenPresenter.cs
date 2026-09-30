@@ -9,6 +9,7 @@ using Odyssey.Application.Random;
 using Odyssey.Application.Results;
 using Odyssey.Application.Time;
 using Odyssey.Domain.Identity;
+using Odyssey.Rules.Combat;
 using Odyssey.Rules.Versions;
 using Odyssey.Persistence.Sqlite;
 using UnityEngine.UIElements;
@@ -53,6 +54,9 @@ namespace Odyssey.Unity.Client
         public CharacterPanelPresenter? Characters { get; private set; }
         public ICharacterRepository? CharacterRepository { get; private set; }
         public IInventoryRepository? InventoryRepository { get; private set; }
+
+        /// <summary>ODY-S11-205: the combat panel (Combat drawer).</summary>
+        public CombatPanelPresenter? Combat { get; private set; }
 
         /// <summary>ODY-S11-204: the inventory panel (Inventory drawer).</summary>
         public InventoryPanelPresenter? Inventory { get; private set; }
@@ -116,7 +120,6 @@ namespace Odyssey.Unity.Client
                 VisualElement inventoryDrawer = shell.AddDrawer(InventoryDrawerId, "Inventory", GameDrawerSide.Left);
                 VisualElement combatDrawer = shell.AddDrawer(CombatDrawerId, "Combat", GameDrawerSide.Right);
                 VisualElement catalogDrawer = shell.AddDrawer(CatalogDrawerId, "Catalog", GameDrawerSide.Right, wide: true);
-                combatDrawer.Add(OdyUi.EmptyState("Combat -- ODY-S11-205."));
 
                 // ODY-S11-203/204: inventory is the dependency owner for character deletion, body-part removal and
                 // catalog definition deletion, so those repositories get its checkers (the backend's own wiring).
@@ -130,14 +133,15 @@ namespace Odyssey.Unity.Client
                 InventoryRepository = inventoryRepository;
                 CharacterRepository = characterRepository;
 
+                var catalogRepository = new SqliteContentCatalogRepository(_clock, new IContentDefinitionDeletionDependencyChecker[] { new InventoryContentDefinitionDependencyChecker(inventoryRepository) });
+
                 // ODY-S11-203: character roster, creation/import and sheet.
-                var characterPanel = new CharacterPanelPresenter(context, characterRepository, sceneRepository, Path.Combine(_rootDirectory, "CharacterExports"));
+                var characterPanel = new CharacterPanelPresenter(context, characterRepository, sceneRepository, Path.Combine(_rootDirectory, "CharacterExports"), catalogRepository);
                 characterDrawer.Add(characterPanel.BuildView());
                 characterPanel.BoardChanged += OnBoardChanged;
                 Characters = characterPanel;
 
                 // ODY-S11-202: content catalog (MainGM authoring; everyone else browses published definitions).
-                var catalogRepository = new SqliteContentCatalogRepository(_clock, new IContentDefinitionDeletionDependencyChecker[] { new InventoryContentDefinitionDependencyChecker(inventoryRepository) });
                 var catalog = new ContentCatalogPresenter(context, catalogRepository);
                 catalogDrawer.Add(catalog.BuildView());
                 Catalog = catalog;
@@ -148,6 +152,34 @@ namespace Odyssey.Unity.Client
                 inventoryDrawer.Add(inventoryPanel.BuildView());
                 characterPanel.CurrentChanged += inventoryPanel.SetCharacter;
                 Inventory = inventoryPanel;
+
+                // ODY-S11-205: combat -- the same composition the backend's own MVP combat scenario uses.
+                var effectRepository = new SqliteActiveEffectRepository(_clock, demo.Value.CampaignRepository);
+                var encounterRepository = new SqliteCombatEncounterRepository(_clock, effectRepository);
+                var combatPorts = new CombatPorts(
+                    characterRepository,
+                    inventoryRepository,
+                    catalogRepository,
+                    sceneRepository,
+                    encounterRepository,
+                    new SqliteAttackStateReader(encounterRepository, inventoryRepository, characterRepository, _clock, sceneRepository, obstacleRepository),
+                    new SqliteAttackApplyRepository(_clock, demo.Value.CampaignRepository),
+                    new CoreAttackRulesEvaluator(),
+                    new SqliteActivateAbilityStateReader(characterRepository, catalogRepository, _clock),
+                    new SqliteActivateAbilityRepository(_clock, effectRepository),
+                    new SqliteUseItemStateReader(characterRepository, inventoryRepository, catalogRepository, _clock),
+                    new SqliteUseItemRepository(_clock, effectRepository),
+                    effectRepository,
+                    new SqliteCheckStateReader(characterRepository),
+                    new SqliteCheckRepository(_clock),
+                    rollStore,
+                    new SqliteGameLogRepository(_clock),
+                    groups,
+                    rngFactory,
+                    TestEpoch);
+                var combatPanel = new CombatPanelPresenter(context, combatPorts);
+                combatDrawer.Add(combatPanel.BuildView());
+                Combat = combatPanel;
 
                 var assetPool = new AssetPoolPresenter(_document, sceneRepository, demo.Value.Campaign, board);
                 VisualElement assetPoolView = assetPool.BuildView();
@@ -193,6 +225,7 @@ namespace Odyssey.Unity.Client
             if (Characters != null) Characters.BoardChanged -= OnBoardChanged;
             if (Characters != null && Inventory != null) Characters.CurrentChanged -= Inventory.SetCharacter;
             Inventory?.Dispose();
+            Combat?.Dispose();
             Characters?.Dispose();
             Catalog?.Dispose();
             Shell?.Dispose();
@@ -214,6 +247,9 @@ namespace Odyssey.Unity.Client
                     break;
                 case InventoryDrawerId:
                     Inventory?.Refresh();
+                    break;
+                case CombatDrawerId:
+                    Combat?.Refresh();
                     break;
             }
         }

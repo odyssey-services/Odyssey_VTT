@@ -46,6 +46,7 @@ namespace Odyssey.Unity.Client
         private readonly ICharacterRepository _characters;
         private readonly ISceneRepository _scenes;
         private readonly string _exportDirectory;
+        private readonly IContentCatalogRepository? _catalog;
         private readonly HashSet<string> _sessionCharacterIds = new HashSet<string>(StringComparer.Ordinal);
         private readonly List<CharacterRecord> _roster = new List<CharacterRecord>();
         private readonly List<CampaignMembership> _members = new List<CampaignMembership>();
@@ -66,8 +67,10 @@ namespace Odyssey.Unity.Client
         public const string OwnershipTab = "ownership";
         public const string HistoryTab = "history";
 
-        public CharacterPanelPresenter(GameSessionContext context, ICharacterRepository characters, ISceneRepository scenes, string exportDirectory)
+        /// <param name="catalog">Optional (ODY-S11-205): lets the MainGM link a character ability to a published catalog Ability so it can be activated in combat.</param>
+        public CharacterPanelPresenter(GameSessionContext context, ICharacterRepository characters, ISceneRepository scenes, string exportDirectory, IContentCatalogRepository? catalog = null)
         {
+            _catalog = catalog;
             _context = context ?? throw new ArgumentNullException(nameof(context));
             _characters = characters ?? throw new ArgumentNullException(nameof(characters));
             _scenes = scenes ?? throw new ArgumentNullException(nameof(scenes));
