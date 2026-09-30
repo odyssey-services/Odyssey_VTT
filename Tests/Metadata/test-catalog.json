@@ -5537,6 +5537,54 @@
                           "check":  "A real mouse-driven role switch Player -> MainGM -> Player toggles the fog-of-war overlay's presence/visibility end to end, relying on the class's own [OneTimeSetUp] input-actions check rather than a duplicated inline one"
                       },
                       {
+                          "testCaseId":  "TC-BOARD-129",
+                          "taskId":  "ODY-S10-114",
+                          "authority":  "SLICE-10 Block 6 part 3 task contract section 5/9",
+                          "runner":  "Unity EditMode",
+                          "path":  "Assets/Odyssey/Client/Tests/EditMode/BoardScreenPresenterTokenVisionInspectorTests.cs",
+                          "check":  "Selecting a token populates the vision inspector's facing/FOV/view-distance fields from the real, currently-stored SqliteTokenVisionRepository settings"
+                      },
+                      {
+                          "testCaseId":  "TC-BOARD-130",
+                          "taskId":  "ODY-S10-114",
+                          "authority":  "SLICE-10 Block 6 part 3 task contract section 5/9",
+                          "runner":  "Unity EditMode",
+                          "path":  "Assets/Odyssey/Client/Tests/EditMode/BoardScreenPresenterTokenVisionInspectorTests.cs",
+                          "check":  "SetTokenFacing through the new UI command succeeds for the token's own controller and is denied by the real server-side authorization for a non-owner, non-MainGm actor, leaving the stored facing unchanged"
+                      },
+                      {
+                          "testCaseId":  "TC-BOARD-131",
+                          "taskId":  "ODY-S10-114",
+                          "authority":  "SLICE-10 Block 6 part 3 task contract section 5/9",
+                          "runner":  "Unity EditMode",
+                          "path":  "Assets/Odyssey/Client/Tests/EditMode/BoardScreenPresenterTokenVisionInspectorTests.cs",
+                          "check":  "SetTokenVisionParameters through the new UI command succeeds for a MainGm and is denied for the token's own owner alone (MainGm-only, ownership is not sufficient)"
+                      },
+                      {
+                          "testCaseId":  "TC-BOARD-132",
+                          "taskId":  "ODY-S10-114",
+                          "authority":  "SLICE-10 Block 6 part 3 task contract section 3/9",
+                          "runner":  "Unity EditMode",
+                          "path":  "Assets/Odyssey/Client/Tests/EditMode/BoardScreenPresenterTokenVisionInspectorTests.cs",
+                          "check":  "SetTokenFacing succeeds even when the best-effort RecordExploration call it triggers is artificially broken (IFogOfWarRepository.ListReveals always failing)"
+                      },
+                      {
+                          "testCaseId":  "TC-BOARD-133",
+                          "taskId":  "ODY-S10-114",
+                          "authority":  "SLICE-10 Block 6 part 3 task contract section 3/9 (ODY-S10-112 lesson reapplied)",
+                          "runner":  "Unity EditMode",
+                          "path":  "Assets/Odyssey/Client/Tests/EditMode/BoardScreenPresenterTokenVisionInspectorTests.cs",
+                          "check":  "A token's vision-settings Revision changed by another participant between the presenter's last Refresh() and the facing-apply call does not cause a stale-revision denial -- the Revision is re-read fresh immediately before the write, never from a render-time cache"
+                      },
+                      {
+                          "testCaseId":  "TC-BOARD-134",
+                          "taskId":  "ODY-S10-114",
+                          "authority":  "SLICE-10 Block 6 part 3 task contract section 5/9",
+                          "runner":  "Unity EditMode",
+                          "path":  "Assets/Odyssey/Client/Tests/EditMode/BoardScreenPresenterTokenVisionInspectorTests.cs",
+                          "check":  "The cover-preview command calls SuggestCover with the inspected token as attacker and the dropdown-selected token as target, matching a direct CoverSuggestionService.SuggestCover call on the same known Full-cover geometry"
+                      },
+                      {
                           "testCaseId":  "TC-BOARD-119",
                           "taskId":  "ODY-S10-111",
                           "authority":  "SLICE-10 Block 6 part 1 task contract section 5/9",
