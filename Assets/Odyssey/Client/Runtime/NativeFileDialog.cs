@@ -20,5 +20,12 @@ namespace Odyssey.Unity.Client
             string[] paths = SFB.StandaloneFileBrowser.OpenFilePanel(title, string.Empty, extensions, false);
             return paths.Length > 0 && !string.IsNullOrWhiteSpace(paths[0]) ? paths[0] : null;
         }
+
+        /// <summary>ODY-S11-203: picks a folder (an <c>.odchar</c> character bundle is a directory).</summary>
+        public static string? OpenFolder(string title)
+        {
+            string[] paths = SFB.StandaloneFileBrowser.OpenFolderPanel(title, string.Empty, false);
+            return paths.Length > 0 && !string.IsNullOrWhiteSpace(paths[0]) ? paths[0] : null;
+        }
     }
 }

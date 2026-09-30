@@ -2,6 +2,7 @@ using System;
 using System.IO;
 using Odyssey.Application.Audience;
 using Odyssey.Application.Dice;
+using Odyssey.Application.Inventory;
 using Odyssey.Application.Networking.Session;
 using Odyssey.Application.Persistence;
 using Odyssey.Application.Random;
@@ -47,6 +48,11 @@ namespace Odyssey.Unity.Client
         public GameLogPresenter? GameLog { get; private set; }
         public AssetPoolPresenter? AssetPool { get; private set; }
         public BoardScreenDemoCampaignHandle? DemoCampaign { get; private set; }
+
+        /// <summary>ODY-S11-203: the character panel (Character drawer).</summary>
+        public CharacterPanelPresenter? Characters { get; private set; }
+        public ICharacterRepository? CharacterRepository { get; private set; }
+        public IInventoryRepository? InventoryRepository { get; private set; }
 
         /// <summary>ODY-S11-202: the content catalog panel (Catalog drawer).</summary>
         public ContentCatalogPresenter? Catalog { get; private set; }
@@ -107,12 +113,29 @@ namespace Odyssey.Unity.Client
                 VisualElement inventoryDrawer = shell.AddDrawer(InventoryDrawerId, "Inventory", GameDrawerSide.Left);
                 VisualElement combatDrawer = shell.AddDrawer(CombatDrawerId, "Combat", GameDrawerSide.Right);
                 VisualElement catalogDrawer = shell.AddDrawer(CatalogDrawerId, "Catalog", GameDrawerSide.Right, wide: true);
-                characterDrawer.Add(OdyUi.EmptyState("Character sheet -- ODY-S11-203."));
                 inventoryDrawer.Add(OdyUi.EmptyState("Inventory -- ODY-S11-204."));
                 combatDrawer.Add(OdyUi.EmptyState("Combat -- ODY-S11-205."));
 
+                // ODY-S11-203/204: inventory is the dependency owner for character deletion, body-part removal and
+                // catalog definition deletion, so those repositories get its checkers (the backend's own wiring).
+                var inventoryRepository = new SqliteInventoryRepository(_clock, demo.Value.CampaignRepository);
+                var characterRepository = new SqliteCharacterRepository(
+                    _clock,
+                    demo.Value.CampaignRepository,
+                    null,
+                    new ICharacterDeletionDependencyChecker[] { new InventoryCharacterDeletionDependencyChecker(inventoryRepository) },
+                    new IBodyPartRemovalDependencyChecker[] { new InventoryBodyPartRemovalDependencyChecker(inventoryRepository) });
+                InventoryRepository = inventoryRepository;
+                CharacterRepository = characterRepository;
+
+                // ODY-S11-203: character roster, creation/import and sheet.
+                var characterPanel = new CharacterPanelPresenter(context, characterRepository, sceneRepository, Path.Combine(_rootDirectory, "CharacterExports"));
+                characterDrawer.Add(characterPanel.BuildView());
+                characterPanel.BoardChanged += OnBoardChanged;
+                Characters = characterPanel;
+
                 // ODY-S11-202: content catalog (MainGM authoring; everyone else browses published definitions).
-                var catalogRepository = new SqliteContentCatalogRepository(_clock);
+                var catalogRepository = new SqliteContentCatalogRepository(_clock, new IContentDefinitionDeletionDependencyChecker[] { new InventoryContentDefinitionDependencyChecker(inventoryRepository) });
                 var catalog = new ContentCatalogPresenter(context, catalogRepository);
                 catalogDrawer.Add(catalog.BuildView());
                 Catalog = catalog;
@@ -159,10 +182,14 @@ namespace Odyssey.Unity.Client
             Board?.Dispose();
             _roleSelectorPresenter?.Dispose();
             if (Shell != null) Shell.DrawerOpened -= OnDrawerOpened;
+            if (Characters != null) Characters.BoardChanged -= OnBoardChanged;
+            Characters?.Dispose();
             Catalog?.Dispose();
             Shell?.Dispose();
             _disposed = true;
         }
+
+        private void OnBoardChanged() => Board?.Refresh();
 
         // Each panel reloads fresh server state when its drawer opens (no stale revisions).
         private void OnDrawerOpened(string drawerId)
@@ -171,6 +198,9 @@ namespace Odyssey.Unity.Client
             {
                 case CatalogDrawerId:
                     Catalog?.Refresh();
+                    break;
+                case CharacterDrawerId:
+                    Characters?.Refresh();
                     break;
             }
         }

@@ -1,11 +1,13 @@
 using System;
 using System.IO;
 using NUnit.Framework;
+using Odyssey.Application.Inventory;
 using Odyssey.Application.Networking.Session;
 using Odyssey.Application.Persistence;
 using Odyssey.Application.Results;
 using Odyssey.Application.Time;
 using Odyssey.Domain.Time;
+using Odyssey.Persistence.Sqlite;
 using Odyssey.Rules.Versions;
 using Odyssey.Unity.Client;
 using UnityEngine.UIElements;
@@ -52,6 +54,22 @@ namespace Odyssey.Tests.Unity.EditMode
             Directory.CreateDirectory(directory);
             return new GameTestHost(directory, role);
         }
+
+        /// <summary>The trial composition's repositories (same wiring as <see cref="TrialScreenPresenter"/>).</summary>
+        public SqliteInventoryRepository NewInventoryRepository() => new SqliteInventoryRepository(Clock, CampaignRepository);
+
+        public SqliteCharacterRepository NewCharacterRepository(IInventoryRepository inventory) => new SqliteCharacterRepository(
+            Clock,
+            CampaignRepository,
+            null,
+            new ICharacterDeletionDependencyChecker[] { new InventoryCharacterDeletionDependencyChecker(inventory) },
+            new IBodyPartRemovalDependencyChecker[] { new InventoryBodyPartRemovalDependencyChecker(inventory) });
+
+        public SqliteSceneRepository NewSceneRepository() => new SqliteSceneRepository(Clock);
+
+        public SqliteContentCatalogRepository NewCatalogRepository(IInventoryRepository inventory) => new SqliteContentCatalogRepository(Clock, new IContentDefinitionDeletionDependencyChecker[] { new InventoryContentDefinitionDependencyChecker(inventory) });
+
+        public string ExportDirectory => Path.Combine(_directory, "exports");
 
         /// <summary>The single open confirmation dialog mounted on the modal host, if any.</summary>
         public VisualElement? OpenDialog => ModalHost.Q<VisualElement>("ody-confirm-dialog");

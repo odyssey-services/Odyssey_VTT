@@ -351,6 +351,53 @@ namespace Odyssey.Unity.Client
         public static CorrelationId NewCorrelationId() => CorrelationId.Parse("corr_" + Guid.NewGuid().ToString("N"));
     }
 
+    /// <summary>
+    /// ADR-004 outer boundary for UI-issued commands: repositories and request constructors guard their preconditions
+    /// with argument exceptions (a programming error, not a normal outcome). A form must never crash the screen, so
+    /// such an exception is translated here into a typed, safe <c>InvalidRequest</c> failure; any other exception is
+    /// not swallowed.
+    /// </summary>
+    public static class UiGuard
+    {
+        private static readonly CorrelationId Placeholder = CorrelationId.Parse("corr_00000000000000000000000000000000");
+
+        public static Result<T> Run<T>(Func<Result<T>> call)
+        {
+            if (call == null) throw new ArgumentNullException(nameof(call));
+            try
+            {
+                return call();
+            }
+            catch (ArgumentException)
+            {
+                return Result<T>.Failure(InvalidRequest());
+            }
+            catch (FormatException)
+            {
+                return Result<T>.Failure(InvalidRequest());
+            }
+        }
+
+        public static Result Run(Func<Result> call)
+        {
+            if (call == null) throw new ArgumentNullException(nameof(call));
+            try
+            {
+                return call();
+            }
+            catch (ArgumentException)
+            {
+                return Result.Failure(InvalidRequest());
+            }
+            catch (FormatException)
+            {
+                return Result.Failure(InvalidRequest());
+            }
+        }
+
+        public static Error InvalidRequest() => Error.Create(ErrorCodes.ApplicationValidationInvalid, ErrorCategory.Validation, SafeReasonCode.InvalidRequest, UserMessageKey.Parse("errors.ui.invalid_request"), RetryDirective.DoNotRetry, Placeholder);
+    }
+
     /// <summary>A banner that shows one readable message at a time (role explanation, validation summary, result).</summary>
     public sealed class OdyBanner
     {
@@ -643,6 +690,77 @@ namespace Odyssey.Unity.Client
             { "errors.content_catalog.validation.reference_wrong_type", "A reference points to a definition of the wrong type." },
             { "errors.combat.denied", "Only the MainGM can do this in combat." },
             { "errors.inventory.move_denied", "Only the MainGM can move or equip items." },
+            { "errors.ui.invalid_request", "The entered values are not valid for this action." },
+            { "errors.persistence.character_not_found", "The character was not found." },
+            { "errors.persistence.character_revision_conflict", "The character changed since it was loaded. The sheet was refreshed -- try again." },
+            { "errors.persistence.character_development_insufficient_balance", "Not enough development points available." },
+            { "errors.persistence.character_development_purchase_denied", "Only the character's owner or the MainGM can spend its development points." },
+            { "errors.persistence.character_development_grant_denied", "Only the MainGM can grant development points." },
+            { "errors.persistence.character_attribute_cap_exceeded", "This value is above the normal development cap and needs an explicit rule, ability or MainGM override." },
+            { "errors.persistence.character_skill_level_requires_recommendation", "Skill levels above the ordinary limit need a MainGM-approved recommendation." },
+            { "errors.persistence.character_advancement_recommendation_not_pending", "This recommendation was already resolved." },
+            { "errors.persistence.character_advancement_resolution_denied", "Only the MainGM can resolve recommendations." },
+            { "errors.persistence.character_advancement_reason_required", "A reason is required." },
+            { "errors.persistence.character_advancement_purchase_has_dependent", "A later purchase depends on this one; revert that first." },
+            { "errors.persistence.character_advancement_purchase_not_applied", "This purchase is no longer applied." },
+            { "errors.persistence.character_advancement_operation_kind_not_supported", "Only attribute and skill purchases can be reverted or respecced." },
+            { "errors.persistence.character_advancement_operation_denied", "You cannot change this character's advancement." },
+            { "errors.persistence.character_ability_grant_denied", "Only the MainGM can grant abilities." },
+            { "errors.persistence.character_ability_removal_not_allowed", "Only abilities from an item or an active effect can be removed." },
+            { "errors.persistence.character_ability_not_found", "The ability was not found on this character." },
+            { "errors.persistence.character_resource_operation_denied", "Only the MainGM can change resources." },
+            { "errors.persistence.character_resource_value_out_of_range", "The value is outside the resource's allowed range." },
+            { "errors.persistence.character_resource_not_found", "The resource was not found on this character." },
+            { "errors.persistence.character_anatomy_already_initialized", "The anatomy is already initialized." },
+            { "errors.persistence.character_anatomy_not_initialized", "Initialize the character's anatomy first." },
+            { "errors.persistence.character_anatomy_operation_denied", "You cannot change this character's anatomy." },
+            { "errors.persistence.character_body_part_already_exists", "A body part with this id already exists." },
+            { "errors.persistence.character_body_part_has_dependent", "This body part cannot be removed: another part is attached to it or equipment is worn on it." },
+            { "errors.persistence.character_body_part_not_found", "The body part was not found." },
+            { "errors.persistence.character_ownership_denied", "Only the MainGM can change ownership and control." },
+            { "errors.persistence.character_ownership_reason_required", "A reason is required." },
+            { "errors.persistence.character_approval_denied", "Only the MainGM can approve a character." },
+            { "errors.persistence.character_archive_denied", "Only the MainGM or the character's owner can archive it." },
+            { "errors.persistence.character_deletion_denied", "Only the MainGM can delete a character permanently." },
+            { "errors.persistence.character_deletion_has_dependent", "The character still owns items or other data; remove them first." },
+            { "errors.persistence.character_deletion_reason_required", "A reason is required." },
+            { "errors.persistence.character_dead_transition_denied", "Only the MainGM can mark a character dead." },
+            { "errors.persistence.character_restore_denied", "Only the MainGM can restore a dead character." },
+            { "errors.persistence.character_restore_not_dead", "Only a dead character can be restored." },
+            { "errors.persistence.character_restore_reason_required", "A reason is required." },
+            { "errors.persistence.character_lifecycle_transition_invalid", "This lifecycle change is not allowed from the character's current status." },
+            { "errors.persistence.character_draft_ruleset_incompatible", "The template's ruleset does not match the campaign." },
+            { "errors.persistence.character_export_bundle_malformed", "The selected .odchar bundle is missing or damaged." },
+            { "errors.persistence.inventory_item_revision_conflict", "The item changed since it was loaded. The inventory was refreshed -- try again." },
+            { "errors.persistence.inventory_revision_conflict", "The inventory changed since it was loaded. It was refreshed -- try again." },
+            { "errors.persistence.equipment_entry_revision_conflict", "The equipment changed since it was loaded. It was refreshed -- try again." },
+            { "errors.persistence.equipment_entry_already_equipped", "This item is already equipped." },
+            { "errors.persistence.equipment_entry_not_found", "The item is not equipped." },
+            { "errors.inventory.create_denied", "Only the MainGM can create items." },
+            { "errors.inventory.create_definition_not_published", "Only published catalog definitions can become items." },
+            { "errors.inventory.create_definition_type_unsupported", "This definition cannot be created with the chosen form (instance vs. stack)." },
+            { "errors.inventory.equip_body_part_not_found", "One of the chosen body parts does not exist on the character." },
+            { "errors.inventory.equip_body_part_refs_require_character_owner", "Body parts can only be chosen for a character's inventory." },
+            { "errors.inventory.move_destination_unchanged", "The item is already there." },
+            { "errors.inventory.move_source_invalid", "The item is not in the chosen source inventory." },
+            { "errors.inventory.stack_merge_exceeds_max_quantity", "The merged stack would exceed the maximum stack size." },
+            { "errors.inventory.stack_merge_mismatch", "Only stacks of the same definition can be merged." },
+            { "errors.inventory.stack_split_quantity_invalid", "The split quantity must be between 1 and the stack size minus 1." },
+            { "errors.attack.denied", "You cannot attack with this character." },
+            { "errors.attack.not_current_turn", "It is not this character's turn." },
+            { "errors.persistence.attack_outcome_not_pending", "This attack is not waiting for a decision." },
+            { "errors.persistence.attack_outcome_already_compensated", "This log entry was already corrected." },
+            { "errors.persistence.attack_outcome_compensation_reason_required", "A reason is required to correct a log entry." },
+            { "errors.persistence.attack_outcome_not_accepted", "Only an applied attack can have its log entry corrected." },
+            { "errors.persistence.attack_outcome_operation_denied", "Only the MainGM can do this." },
+            { "errors.persistence.combat_stack_conflict_already_resolved", "This conflict was already resolved." },
+            { "errors.persistence.combat_stack_conflict_not_found", "No such unresolved stacking conflict." },
+            { "errors.persistence.combat_stack_conflict_operation_denied", "Only the MainGM can resolve stacking conflicts." },
+            { "errors.check.formula_invalid", "The check formula is not valid (for example 1d20+2)." },
+            { "errors.check.requires_exactly_one_dice_group", "A check formula needs exactly one dice group, like 1d20." },
+            { "errors.check.requires_at_most_one_attribute_reference", "A check formula can reference at most one attribute." },
+            { "errors.check.unresolved_reference", "The formula references something the character does not have." },
+            { "errors.check.ambiguous_reference", "The formula reference is ambiguous." },
         };
 
         public static string Describe(Error error)
