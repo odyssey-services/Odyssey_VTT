@@ -140,3 +140,29 @@ Code + docs committed; owner runs the Unity/PowerShell validation locally (see �
 - Decision (product owner, 2026-09-30): ODY-S11-101 absent → build the UI anew.
 - Decision (product owner, 2026-09-30): commit without in-container Unity validation; owner validates locally.
 - Decision (executor): system font, text glyphs as temporary icons; no font/icon licence work.
+
+## 19. Series validation evidence (all phases, 2026-09-30)
+
+The container has no Unity or PowerShell, so the required scripts (`test-unity.ps1`, `test-fast.ps1`,
+`verify-*.ps1`, `build-dev.ps1`) were **not run**. What was run instead (scratch folder outside the repository,
+nothing of it committed):
+
+- **Compile check.** .NET SDK 10.0.112 (Ubuntu package; the repo pins 10.0.302 in `global.json`, so only a scratch
+  project was built) compiled the unchanged backend sources (`Packages/com.odyssey.*`, repo `Directory.Build.props`:
+  C# 9, nullable, warnings as errors) plus every new client file of this series (`Runtime/Ui|Game|Catalog|Characters|
+  Inventory|Combat/**`, `TrialScreenPresenter.cs`, `RoleSelection.cs`, `RoleSelectorPresenter.cs`) against minimal
+  stand-ins for the UnityEngine/UI Toolkit types used and for the unchanged presenters `TrialScreenPresenter`
+  composes. Result: 0 errors, 0 warnings (after the fixes listed below).
+- **Test run.** The 51 new EditMode tests (`TC-UIKIT`, `TC-GAMESHELL`, `TC-CATALOGUI`, `TC-CHARUI`, `TC-INVUI`,
+  `TC-COMBATUI`) ran with NUnit against the real SQLite persistence: **51/51 passed, 5 consecutive runs**.
+  Caveat: UI Toolkit behaviour was stubbed (no layout, no event dispatch), so Unity Play-mode checks remain the
+  owner's; the pre-existing Unity-only tests (board, roll panel, game log, PlayMode) were not run.
+- **Gate emulation.** The `TC-ARCH-001` forbidden-pattern scan of `Assets/Odyssey/Client/Runtime` (same regexes as
+  `verify-test-structure.ps1`) and the test-catalog rules (id/task formats, one contract per task, paths exist, no
+  duplicate ids or ownership keys) were re-implemented in a script: both clean.
+- **Backend untouched:** `git diff --name-status origin/main -- Packages DotNet` is empty.
+
+Fixes this validation produced: `RulesetVersion` is a struct (`?? throw` did not compile); `where T : notnull` on
+generic `Result<T>` helpers; a doc comment that named a forbidden API (the gate also scans comments); the review-feed
+test no longer assumes an order for equal timestamps; an inventory schema warm-up (see `ODY-S11-203` §18).
+

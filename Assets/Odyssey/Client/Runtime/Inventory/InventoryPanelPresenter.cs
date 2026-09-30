@@ -355,14 +355,14 @@ namespace Odyssey.Unity.Client
             return false;
         }
 
-        private Result<T> Finish<T>(string success, string action, Result<T> result)
+        private Result<T> Finish<T>(string success, string action, Result<T> result) where T : notnull
         {
             if (result.IsFailure) return Fail<T>(action, result.Error);
             Reload(success);
             return result;
         }
 
-        private Result<T> Fail<T>(string action, Error error)
+        private Result<T> Fail<T>(string action, Error error) where T : notnull
         {
             FailPlain(action, error);
             return Result<T>.Failure(error);

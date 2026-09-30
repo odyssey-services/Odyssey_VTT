@@ -56,7 +56,13 @@ namespace Odyssey.Tests.Unity.EditMode
         }
 
         /// <summary>The trial composition's repositories (same wiring as <see cref="TrialScreenPresenter"/>).</summary>
-        public SqliteInventoryRepository NewInventoryRepository() => new SqliteInventoryRepository(Clock, CampaignRepository);
+        public SqliteInventoryRepository NewInventoryRepository()
+        {
+            var inventory = new SqliteInventoryRepository(Clock, CampaignRepository);
+            // Same schema warm-up as TrialScreenPresenter (see its comment on the inventory checker's lazy schema creation).
+            inventory.GetInventory(Campaign, InventoryLocator.SceneInventoryId(Demo.SceneId), UiCommandIds.NewCorrelationId());
+            return inventory;
+        }
 
         public SqliteCharacterRepository NewCharacterRepository(IInventoryRepository inventory) => new SqliteCharacterRepository(
             Clock,

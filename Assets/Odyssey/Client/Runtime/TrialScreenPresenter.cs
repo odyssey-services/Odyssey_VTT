@@ -124,6 +124,11 @@ namespace Odyssey.Unity.Client
                 // ODY-S11-203/204: inventory is the dependency owner for character deletion, body-part removal and
                 // catalog definition deletion, so those repositories get its checkers (the backend's own wiring).
                 var inventoryRepository = new SqliteInventoryRepository(_clock, demo.Value.CampaignRepository);
+                // Backend issue (reported in ODY-S11-203/204, not fixed here -- backend is out of scope): the inventory
+                // body-part dependency checker creates the inventory tables lazily from inside the character repository's
+                // open write transaction, which blocks until SQLite's busy timeout on a campaign that never touched
+                // inventory and then fails closed. One plain read creates the tables up front.
+                inventoryRepository.GetInventory(demo.Value.Campaign, InventoryLocator.SceneInventoryId(demo.Value.SceneId), UiCommandIds.NewCorrelationId());
                 var characterRepository = new SqliteCharacterRepository(
                     _clock,
                     demo.Value.CampaignRepository,

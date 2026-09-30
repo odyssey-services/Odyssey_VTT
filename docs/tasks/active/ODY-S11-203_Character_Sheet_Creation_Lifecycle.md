@@ -119,3 +119,11 @@ Error texts come only from `UserMessageKey`/`SafeReasonCode`. Export writes only
 ## 18. Blockers, decisions, and change control
 
 - Backend gap (reported, not fixed): no campaign character / template listing; no recommendation listing.
+- **Backend bug found (reported, not fixed — backend is out of scope):** `InventoryBodyPartRemovalDependencyChecker`
+  creates the inventory tables lazily (`EnsureInventoryTables`) from inside `SqliteCharacterRepository.RemoveBodyPart`'s
+  open write transaction. On a campaign that never touched inventory, the second connection waits for SQLite's busy
+  timeout (~30 s) and the checker fails closed, so **every** body-part removal is refused as "has dependent".
+  Client mitigation: the trial composition (and the test host) performs one plain inventory read at startup, which
+  creates the tables first. Proper fix belongs in the backend (create the schema outside the transaction or reuse
+  the caller's connection).
+

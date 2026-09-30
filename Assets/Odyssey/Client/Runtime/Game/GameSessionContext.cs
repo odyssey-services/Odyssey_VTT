@@ -32,7 +32,7 @@ namespace Odyssey.Unity.Client
             Clock = clock ?? throw new ArgumentNullException(nameof(clock));
             Selection = selection ?? throw new ArgumentNullException(nameof(selection));
             PresentationRuntime = presentationRuntime ?? throw new ArgumentNullException(nameof(presentationRuntime));
-            RulesetVersion = rulesetVersion ?? throw new ArgumentNullException(nameof(rulesetVersion));
+            RulesetVersion = rulesetVersion;
             ModalHost = modalHost ?? throw new ArgumentNullException(nameof(modalHost));
         }
 

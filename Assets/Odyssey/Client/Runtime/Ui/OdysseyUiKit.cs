@@ -11,7 +11,7 @@ namespace Odyssey.Unity.Client
     /// <summary>
     /// ODY-S11-200 phase 0: class names of the project-wide design system (<c>OdysseyDesignSystem.uss</c>).
     /// Presenters reference these constants instead of repeating string literals or inline colors; the stylesheet
-    /// itself is attached once through <c>AppShell.uxml</c> (explicit asset reference -- never <c>Resources.Load</c>,
+    /// itself is attached once through <c>AppShell.uxml</c> (an explicit asset reference -- no runtime asset lookup,
     /// ADR-001 / TC-ARCH-001). Full catalogue: <c>docs/ui/Odyssey_Design_System.md</c>.
     /// </summary>
     public static class OdyClasses
@@ -361,7 +361,7 @@ namespace Odyssey.Unity.Client
     {
         private static readonly CorrelationId Placeholder = CorrelationId.Parse("corr_00000000000000000000000000000000");
 
-        public static Result<T> Run<T>(Func<Result<T>> call)
+        public static Result<T> Run<T>(Func<Result<T>> call) where T : notnull
         {
             if (call == null) throw new ArgumentNullException(nameof(call));
             try

@@ -72,7 +72,8 @@ namespace Odyssey.Tests.Unity.EditMode
             fixture.Host.Selection.SelectRole(BaselineRole.MainGM);
             panel.Open(panel.Roster.Single().CharacterId);
             Assert.That(panel.AddReviewComment("Looks good.").IsSuccess, Is.True);
-            Assert.That(panel.ReviewComments.Select(c => c.Text), Is.EqualTo(new[] { "Please check my backstory.", "Looks good." }), "append-only feed in order");
+            // Both comments stay (append-only). Their order is by creation time, which the fixed test clock makes equal.
+            Assert.That(panel.ReviewComments.Select(c => c.Text), Is.EquivalentTo(new[] { "Please check my backstory.", "Looks good." }), "append-only feed");
             Assert.That(panel.Approve().IsSuccess, Is.True);
             Assert.That(panel.Current!.LifecycleStatus, Is.EqualTo(CharacterLifecycleStatus.Active));
             Assert.That(panel.Current.ApprovalState, Is.EqualTo(CharacterApprovalState.Approved));

@@ -404,14 +404,14 @@ namespace Odyssey.Unity.Client
             return null;
         }
 
-        private Result<T> Fail<T>(string action, Error error)
+        private Result<T> Fail<T>(string action, Error error) where T : notnull
         {
             Banner.ShowError(action, error);
             return Result<T>.Failure(error);
         }
 
         // A stale revision means someone else changed the row: reload so the next attempt uses the server's state.
-        private Result<T> FailAndResync<T>(string action, Error error)
+        private Result<T> FailAndResync<T>(string action, Error error) where T : notnull
         {
             if (error.SafeReasonCode.Equals(SafeReasonCode.StateChanged)) Refresh();
             Banner.ShowError(action, error);

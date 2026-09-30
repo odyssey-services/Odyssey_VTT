@@ -40,7 +40,7 @@ namespace Odyssey.Tests.Unity.EditMode
             {
                 Assert.That(catalog.StartNew(type), Is.True, type.ToString());
                 Assert.That(view.Q<TextField>("catalog-name"), Is.Not.Null, type + " has the common envelope");
-                if (expectedFields.TryGetValue(type, out string field)) Assert.That(view.Q<VisualElement>(field), Is.Not.Null, type + " has its own fields");
+                if (expectedFields.TryGetValue(type, out string? field)) Assert.That(view.Q<VisualElement>(field), Is.Not.Null, type + " has its own fields");
             }
 
             Assert.That(view.Q<VisualElement>("catalog-ability-target-rule"), Is.Null, "Skill has no type-specific section");
