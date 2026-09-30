@@ -204,6 +204,38 @@ namespace Odyssey.Application.Board
             return Result<bool>.Success(false);
         }
 
+        /// <summary>
+        /// SLICE-10 Block 6 part 2: the bulk-read counterpart of <see cref="IsPointExplored"/> -- every
+        /// reveal ever recorded for the target user in the given Scene, not one point at a time. Exists
+        /// only so a UI can render a whole fog-of-war overlay (sampling the board point-by-point until it
+        /// looks smooth is not workable); the raw <see cref="IFogOfWarRepository.ListReveals"/> port
+        /// performs no authorization of its own (by design -- it is a storage port, not a decision-maker,
+        /// exactly like every other repository in this track), so a caller reaching it directly would skip
+        /// the self-scoped-or-MainGm check entirely. This method is the only sanctioned path: the exact
+        /// same <see cref="CheckSelfScopedOrMainGm"/>/<see cref="CampaignMembershipAuthorization.IsMainGm"/>
+        /// gate every other read in this class already uses, then a thin pass-through to
+        /// <see cref="IFogOfWarRepository.ListReveals"/>. A MainGm target's reveals are read and returned
+        /// as-is (not synthesized/short-circuited to "everything") -- unlike <see cref="IsPointExplored"/>'s
+        /// own <c>true</c> shortcut, there is no single "the whole Scene, unconditionally" circle to
+        /// substitute for an arbitrary bulk read; the caller (this task's own client code) is expected to
+        /// simply not call this method at all for a MainGm viewer, the same way it already skips
+        /// <see cref="ComputeVisibleTokens"/> for one.
+        /// </summary>
+        public static Result<IReadOnlyList<FogRevealRecord>> ListExploredReveals(IFogOfWarRepository fogRepository, ICampaignRepository campaignRepository, ListExploredRevealsRequest request)
+        {
+            if (fogRepository == null) throw new ArgumentNullException(nameof(fogRepository));
+            if (campaignRepository == null) throw new ArgumentNullException(nameof(campaignRepository));
+            if (request == null) throw new ArgumentNullException(nameof(request));
+
+            Result selfScoped = CheckSelfScopedOrMainGm(campaignRepository, request.Campaign, request.RequestingUserId, request.TargetUserId, request.CorrelationId);
+            if (selfScoped.IsFailure)
+            {
+                return Result<IReadOnlyList<FogRevealRecord>>.Failure(selfScoped.Error);
+            }
+
+            return fogRepository.ListReveals(request.Campaign, request.SceneId, request.TargetUserId, request.CorrelationId);
+        }
+
         /// <summary>True when the circle (<paramref name="newCenterX"/>,<paramref name="newCenterY"/>,<paramref name="newRadius"/>) is fully contained within (<paramref name="existingCenterX"/>,<paramref name="existingCenterY"/>,<paramref name="existingRadius"/>) -- the standard circle-containment test (distance between centers plus the new radius does not exceed the existing radius), not a full union/merge of the two circles into a combined shape.</summary>
         private static bool IsFullyCovered(double newCenterX, double newCenterY, double newRadius, double existingCenterX, double existingCenterY, double existingRadius)
         {
@@ -288,6 +320,29 @@ namespace Odyssey.Application.Board
         public SceneId SceneId { get; }
         public double X { get; }
         public double Y { get; }
+        public UserId RequestingUserId { get; }
+        public UserId TargetUserId { get; }
+        public CorrelationId CorrelationId { get; }
+    }
+
+    /// <summary>Same shape as <see cref="IsPointExploredRequest"/>, minus the single point -- a bulk read over a whole Scene rather than a single-point check.</summary>
+    public sealed class ListExploredRevealsRequest
+    {
+        public ListExploredRevealsRequest(CampaignHandle campaign, SceneId sceneId, UserId requestingUserId, UserId targetUserId, CorrelationId correlationId)
+        {
+            Campaign = campaign ?? throw new ArgumentNullException(nameof(campaign));
+            if (!sceneId.IsValid) throw new ArgumentException("SceneId is required.", nameof(sceneId));
+            if (!requestingUserId.IsValid) throw new ArgumentException("RequestingUserId is required.", nameof(requestingUserId));
+            if (!targetUserId.IsValid) throw new ArgumentException("TargetUserId is required.", nameof(targetUserId));
+
+            SceneId = sceneId;
+            RequestingUserId = requestingUserId;
+            TargetUserId = targetUserId;
+            CorrelationId = correlationId;
+        }
+
+        public CampaignHandle Campaign { get; }
+        public SceneId SceneId { get; }
         public UserId RequestingUserId { get; }
         public UserId TargetUserId { get; }
         public CorrelationId CorrelationId { get; }

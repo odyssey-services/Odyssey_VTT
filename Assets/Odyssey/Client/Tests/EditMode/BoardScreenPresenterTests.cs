@@ -51,6 +51,8 @@ namespace Odyssey.Tests.Unity.EditMode
 
             var sceneRepository = new SqliteSceneRepository(Clock);
             var obstacleRepository = new SqliteObstacleRepository(Clock);
+            var visionRepository = new SqliteTokenVisionRepository(Clock);
+            var fogRepository = new SqliteFogOfWarRepository(Clock);
             SceneId sceneId = sceneRepository.CreateScene(campaign, "Test Scene", NewCommandId(), TestCorrelationId).Value.SceneId;
 
             UserId localActor = NewUserId();
@@ -60,7 +62,7 @@ namespace Odyssey.Tests.Unity.EditMode
             try
             {
                 UIDocument document = gameObject.AddComponent<UIDocument>();
-                using var presenter = new BoardScreenPresenter(document, sceneRepository, campaign, campaignRepository, obstacleRepository, sceneId, localActor);
+                using var presenter = new BoardScreenPresenter(document, sceneRepository, campaign, campaignRepository, obstacleRepository, visionRepository, fogRepository, sceneId, localActor);
                 Assert.That(presenter.Initialize().IsSuccess, Is.True);
 
                 presenter.SelectToken(ownToken.TokenId);
@@ -97,6 +99,8 @@ namespace Odyssey.Tests.Unity.EditMode
 
             var sceneRepository = new SqliteSceneRepository(Clock);
             var obstacleRepository = new SqliteObstacleRepository(Clock);
+            var visionRepository = new SqliteTokenVisionRepository(Clock);
+            var fogRepository = new SqliteFogOfWarRepository(Clock);
             SceneId sceneId = sceneRepository.CreateScene(campaign, "Test Scene", NewCommandId(), TestCorrelationId).Value.SceneId;
 
             UserId localActor = NewUserId();
@@ -107,7 +111,7 @@ namespace Odyssey.Tests.Unity.EditMode
             try
             {
                 UIDocument document = gameObject.AddComponent<UIDocument>();
-                using var presenter = new BoardScreenPresenter(document, sceneRepository, campaign, campaignRepository, obstacleRepository, sceneId, localActor);
+                using var presenter = new BoardScreenPresenter(document, sceneRepository, campaign, campaignRepository, obstacleRepository, visionRepository, fogRepository, sceneId, localActor);
                 Assert.That(presenter.Initialize().IsSuccess, Is.True);
 
                 presenter.SelectToken(foreignToken.TokenId);
@@ -136,6 +140,8 @@ namespace Odyssey.Tests.Unity.EditMode
 
             var sceneRepository = new SqliteSceneRepository(Clock);
             var obstacleRepository = new SqliteObstacleRepository(Clock);
+            var visionRepository = new SqliteTokenVisionRepository(Clock);
+            var fogRepository = new SqliteFogOfWarRepository(Clock);
             SceneId sceneId = sceneRepository.CreateScene(campaign, "Test Scene", NewCommandId(), TestCorrelationId).Value.SceneId;
 
             // ODY-S10-101: MainGM-ness is the stored membership now, so this actor is the campaign's host.
@@ -147,7 +153,7 @@ namespace Odyssey.Tests.Unity.EditMode
             try
             {
                 UIDocument document = gameObject.AddComponent<UIDocument>();
-                using var presenter = new BoardScreenPresenter(document, sceneRepository, campaign, campaignRepository, obstacleRepository, sceneId, mainGm);
+                using var presenter = new BoardScreenPresenter(document, sceneRepository, campaign, campaignRepository, obstacleRepository, visionRepository, fogRepository, sceneId, mainGm);
                 Assert.That(presenter.Initialize().IsSuccess, Is.True);
 
                 presenter.SelectToken(foreignToken.TokenId);
@@ -173,6 +179,8 @@ namespace Odyssey.Tests.Unity.EditMode
 
             var sceneRepository = new SqliteSceneRepository(Clock);
             var obstacleRepository = new SqliteObstacleRepository(Clock);
+            var visionRepository = new SqliteTokenVisionRepository(Clock);
+            var fogRepository = new SqliteFogOfWarRepository(Clock);
             SceneId sceneId = sceneRepository.CreateScene(campaign, "Test Scene", NewCommandId(), TestCorrelationId).Value.SceneId;
 
             UserId localActor = NewUserId();
@@ -183,7 +191,7 @@ namespace Odyssey.Tests.Unity.EditMode
             try
             {
                 UIDocument document = gameObject.AddComponent<UIDocument>();
-                using var presenter = new BoardScreenPresenter(document, sceneRepository, campaign, campaignRepository, obstacleRepository, sceneId, localActor);
+                using var presenter = new BoardScreenPresenter(document, sceneRepository, campaign, campaignRepository, obstacleRepository, visionRepository, fogRepository, sceneId, localActor);
                 Assert.That(presenter.Initialize().IsSuccess, Is.True);
 
                 Assert.That(document.rootVisualElement.Q<VisualElement>("token-" + tokenA.TokenId), Is.Not.Null);
@@ -205,6 +213,8 @@ namespace Odyssey.Tests.Unity.EditMode
             campaign = campaignRepository.Create(new CreateCampaignRequest(directory.Path, "Board Camera Test Campaign", "ruleset.core", "1.0.0", "0.1.0", global::Odyssey.Application.Identity.DevIdentityProvider.AssignHost()), NewCommandId(), TestCorrelationId).Value;
             var sqliteSceneRepository = new SqliteSceneRepository(Clock);
             var obstacleRepository = new SqliteObstacleRepository(Clock);
+            var visionRepository = new SqliteTokenVisionRepository(Clock);
+            var fogRepository = new SqliteFogOfWarRepository(Clock);
             sceneRepository = sqliteSceneRepository;
             SceneId sceneId = sqliteSceneRepository.CreateScene(campaign, "Test Scene", NewCommandId(), TestCorrelationId).Value.SceneId;
             UserId localActor = NewUserId();
@@ -213,7 +223,7 @@ namespace Odyssey.Tests.Unity.EditMode
 
             gameObject = new GameObject("Board Camera Document");
             document = gameObject.AddComponent<UIDocument>();
-            var presenter = new BoardScreenPresenter(document, sceneRepository, campaign, campaignRepository, obstacleRepository, sceneId, localActor);
+            var presenter = new BoardScreenPresenter(document, sceneRepository, campaign, campaignRepository, obstacleRepository, visionRepository, fogRepository, sceneId, localActor);
             Assert.That(presenter.Initialize().IsSuccess, Is.True);
             return presenter;
         }
@@ -425,6 +435,8 @@ namespace Odyssey.Tests.Unity.EditMode
             campaign = campaignRepository.Create(new CreateCampaignRequest(directory.Path, "Token Drag Test Campaign", "ruleset.core", "1.0.0", "0.1.0", global::Odyssey.Application.Identity.DevIdentityProvider.AssignHost()), NewCommandId(), TestCorrelationId).Value;
             var sqliteSceneRepository = new SqliteSceneRepository(Clock);
             var obstacleRepository = new SqliteObstacleRepository(Clock);
+            var visionRepository = new SqliteTokenVisionRepository(Clock);
+            var fogRepository = new SqliteFogOfWarRepository(Clock);
             sceneRepository = new MoveCountingSceneRepository(sqliteSceneRepository);
             SceneId sceneId = sqliteSceneRepository.CreateScene(campaign, "Test Scene", NewCommandId(), TestCorrelationId).Value.SceneId;
             UserId localActor = NewUserId();
@@ -433,7 +445,7 @@ namespace Odyssey.Tests.Unity.EditMode
 
             gameObject = new GameObject("Token Drag Document");
             document = gameObject.AddComponent<UIDocument>();
-            var presenter = new BoardScreenPresenter(document, sceneRepository, campaign, campaignRepository, obstacleRepository, sceneId, localActor);
+            var presenter = new BoardScreenPresenter(document, sceneRepository, campaign, campaignRepository, obstacleRepository, visionRepository, fogRepository, sceneId, localActor);
             Assert.That(presenter.Initialize().IsSuccess, Is.True);
             return presenter;
         }
@@ -1445,6 +1457,8 @@ namespace Odyssey.Tests.Unity.EditMode
                 Campaign = _campaignRepository.Create(createRequest, NewCommandId(), TestCorrelationId).Value;
                 Repository = new SqliteSceneRepository(Clock);
                 ObstacleRepository = new SqliteObstacleRepository(Clock);
+                VisionRepository = new SqliteTokenVisionRepository(Clock);
+                FogRepository = new SqliteFogOfWarRepository(Clock);
                 Scene = Repository.CreateScene(Campaign, "Test Scene", NewCommandId(), TestCorrelationId).Value;
                 _sceneRevision = Scene.Revision;
                 LocalActor = NewUserId();
@@ -1455,6 +1469,8 @@ namespace Odyssey.Tests.Unity.EditMode
             public SqliteCampaignRepository CampaignRepository => _campaignRepository;
             public SqliteSceneRepository Repository { get; }
             public SqliteObstacleRepository ObstacleRepository { get; }
+            public SqliteTokenVisionRepository VisionRepository { get; }
+            public SqliteFogOfWarRepository FogRepository { get; }
             public SceneRecord Scene { get; }
             public UserId LocalActor { get; }
             public TokenRecord Token { get; private set; }
@@ -1494,7 +1510,7 @@ namespace Odyssey.Tests.Unity.EditMode
             try
             {
                 UIDocument document = gameObject.AddComponent<UIDocument>();
-                using var presenter = new BoardScreenPresenter(document, fixture.Repository, fixture.Campaign, fixture.CampaignRepository, fixture.ObstacleRepository, fixture.Scene.SceneId, fixture.LocalActor);
+                using var presenter = new BoardScreenPresenter(document, fixture.Repository, fixture.Campaign, fixture.CampaignRepository, fixture.ObstacleRepository, fixture.VisionRepository, fixture.FogRepository, fixture.Scene.SceneId, fixture.LocalActor);
                 Assert.That(presenter.Initialize().IsSuccess, Is.True);
 
                 Texture2D? texture = Board(document).style.backgroundImage.value.texture;
@@ -1516,7 +1532,7 @@ namespace Odyssey.Tests.Unity.EditMode
             try
             {
                 UIDocument document = gameObject.AddComponent<UIDocument>();
-                using var presenter = new BoardScreenPresenter(document, fixture.Repository, fixture.Campaign, fixture.CampaignRepository, fixture.ObstacleRepository, fixture.Scene.SceneId, fixture.LocalActor);
+                using var presenter = new BoardScreenPresenter(document, fixture.Repository, fixture.Campaign, fixture.CampaignRepository, fixture.ObstacleRepository, fixture.VisionRepository, fixture.FogRepository, fixture.Scene.SceneId, fixture.LocalActor);
                 Assert.That(presenter.Initialize().IsSuccess, Is.True);
 
                 VisualElement board = Board(document);
@@ -1540,7 +1556,7 @@ namespace Odyssey.Tests.Unity.EditMode
             try
             {
                 UIDocument document = gameObject.AddComponent<UIDocument>();
-                using var presenter = new BoardScreenPresenter(document, fixture.Repository, fixture.Campaign, fixture.CampaignRepository, fixture.ObstacleRepository, fixture.Scene.SceneId, fixture.LocalActor);
+                using var presenter = new BoardScreenPresenter(document, fixture.Repository, fixture.Campaign, fixture.CampaignRepository, fixture.ObstacleRepository, fixture.VisionRepository, fixture.FogRepository, fixture.Scene.SceneId, fixture.LocalActor);
                 Assert.That(presenter.Initialize().IsSuccess, Is.True);
                 Assert.That(Board(document).style.backgroundImage.value.texture, Is.Not.Null, "precondition: the background is shown");
 
@@ -1566,7 +1582,7 @@ namespace Odyssey.Tests.Unity.EditMode
             try
             {
                 UIDocument document = gameObject.AddComponent<UIDocument>();
-                using var presenter = new BoardScreenPresenter(document, fixture.Repository, fixture.Campaign, fixture.CampaignRepository, fixture.ObstacleRepository, fixture.Scene.SceneId, fixture.LocalActor);
+                using var presenter = new BoardScreenPresenter(document, fixture.Repository, fixture.Campaign, fixture.CampaignRepository, fixture.ObstacleRepository, fixture.VisionRepository, fixture.FogRepository, fixture.Scene.SceneId, fixture.LocalActor);
                 Assert.That(presenter.Initialize().IsSuccess, Is.True);
 
                 VisualElement tokenElement = TokenElement(document, fixture.Token);
@@ -1590,7 +1606,7 @@ namespace Odyssey.Tests.Unity.EditMode
             try
             {
                 UIDocument document = gameObject.AddComponent<UIDocument>();
-                using var presenter = new BoardScreenPresenter(document, fixture.Repository, fixture.Campaign, fixture.CampaignRepository, fixture.ObstacleRepository, fixture.Scene.SceneId, fixture.LocalActor);
+                using var presenter = new BoardScreenPresenter(document, fixture.Repository, fixture.Campaign, fixture.CampaignRepository, fixture.ObstacleRepository, fixture.VisionRepository, fixture.FogRepository, fixture.Scene.SceneId, fixture.LocalActor);
                 Assert.That(presenter.Initialize().IsSuccess, Is.True);
 
                 VisualElement tokenElement = TokenElement(document, fixture.Token);
@@ -1617,7 +1633,7 @@ namespace Odyssey.Tests.Unity.EditMode
             try
             {
                 UIDocument document = gameObject.AddComponent<UIDocument>();
-                using var presenter = new BoardScreenPresenter(document, counting, fixture.Campaign, fixture.CampaignRepository, fixture.ObstacleRepository, fixture.Scene.SceneId, fixture.LocalActor);
+                using var presenter = new BoardScreenPresenter(document, counting, fixture.Campaign, fixture.CampaignRepository, fixture.ObstacleRepository, fixture.VisionRepository, fixture.FogRepository, fixture.Scene.SceneId, fixture.LocalActor);
                 Assert.That(presenter.Initialize().IsSuccess, Is.True);
                 Assert.That(presenter.Refresh().IsSuccess, Is.True);
                 Assert.That(presenter.Refresh().IsSuccess, Is.True);
@@ -1648,7 +1664,7 @@ namespace Odyssey.Tests.Unity.EditMode
             try
             {
                 UIDocument document = gameObject.AddComponent<UIDocument>();
-                using var presenter = new BoardScreenPresenter(document, fixture.Repository, fixture.Campaign, fixture.CampaignRepository, fixture.ObstacleRepository, fixture.Scene.SceneId, fixture.LocalActor);
+                using var presenter = new BoardScreenPresenter(document, fixture.Repository, fixture.Campaign, fixture.CampaignRepository, fixture.ObstacleRepository, fixture.VisionRepository, fixture.FogRepository, fixture.Scene.SceneId, fixture.LocalActor);
 
                 Result result = presenter.Initialize();
 
@@ -1677,7 +1693,7 @@ namespace Odyssey.Tests.Unity.EditMode
             try
             {
                 UIDocument document = gameObject.AddComponent<UIDocument>();
-                using var presenter = new BoardScreenPresenter(document, fixture.Repository, fixture.Campaign, fixture.CampaignRepository, fixture.ObstacleRepository, fixture.Scene.SceneId, fixture.LocalActor);
+                using var presenter = new BoardScreenPresenter(document, fixture.Repository, fixture.Campaign, fixture.CampaignRepository, fixture.ObstacleRepository, fixture.VisionRepository, fixture.FogRepository, fixture.Scene.SceneId, fixture.LocalActor);
 
                 Result result = presenter.Initialize();
 

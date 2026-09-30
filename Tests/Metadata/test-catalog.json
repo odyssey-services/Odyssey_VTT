@@ -2345,6 +2345,38 @@
                           "check":  "Fail-closed: ApplyObstacleDamage returns the membership lookup's own failure with an unreadable membership, and the durability row is unchanged"
                       },
                       {
+                          "testCaseId":  "TC-PERSIST-138",
+                          "taskId":  "ODY-S10-113",
+                          "authority":  "SLICE-10 Block 6 part 2 task contract section 2.1/5",
+                          "runner":  "dotnet test",
+                          "path":  "DotNet/Tests/Odyssey.Tests.Persistence/Board/PlayerVisibilityServiceTests.cs",
+                          "check":  "ListExploredReveals, self-scoped, returns exactly the reveal(s) previously recorded for the target user in the given Scene"
+                      },
+                      {
+                          "testCaseId":  "TC-PERSIST-139",
+                          "taskId":  "ODY-S10-113",
+                          "authority":  "SLICE-10 Block 6 part 2 task contract section 2.1/5",
+                          "runner":  "dotnet test",
+                          "path":  "DotNet/Tests/Odyssey.Tests.Persistence/Board/PlayerVisibilityServiceTests.cs",
+                          "check":  "ListExploredReveals for a target with zero recorded reveals returns an empty list, not an error"
+                      },
+                      {
+                          "testCaseId":  "TC-PERSIST-140",
+                          "taskId":  "ODY-S10-113",
+                          "authority":  "SLICE-10 Block 6 part 2 task contract section 2.1/5",
+                          "runner":  "dotnet test",
+                          "path":  "DotNet/Tests/Odyssey.Tests.Persistence/Board/PlayerVisibilityServiceTests.cs",
+                          "check":  "ListExploredReveals denies an ordinary player bulk-reading another ordinary player's map memory with the typed PlayerVisibilityTargetUserDenied failure"
+                      },
+                      {
+                          "testCaseId":  "TC-PERSIST-141",
+                          "taskId":  "ODY-S10-113",
+                          "authority":  "SLICE-10 Block 6 part 2 task contract section 2.1/5",
+                          "runner":  "dotnet test",
+                          "path":  "DotNet/Tests/Odyssey.Tests.Persistence/Board/PlayerVisibilityServiceTests.cs",
+                          "check":  "ListExploredReveals allows the registered MainGm to bulk-read another participant's map memory"
+                      },
+                      {
                           "testCaseId":  "TC-BOARD-001",
                           "taskId":  "ODY-S03-004",
                           "authority":  "ADR-020 section 5.1/5.3; ODY-S03-004",
@@ -5455,6 +5487,54 @@
                           "runner":  "Unity EditMode",
                           "path":  "Assets/Odyssey/Client/Tests/EditMode/BoardScreenPresenterObstacleTests.cs",
                           "check":  "A non-MainGm actor's drawing attempt is denied by the real server-side authorization -- no obstacle is created"
+                      },
+                      {
+                          "testCaseId":  "TC-BOARD-123",
+                          "taskId":  "ODY-S10-113",
+                          "authority":  "SLICE-10 Block 6 part 2 task contract section 5/9",
+                          "runner":  "Unity EditMode",
+                          "path":  "Assets/Odyssey/Client/Tests/EditMode/BoardScreenPresenterFogOfWarTests.cs",
+                          "check":  "A successful TryMoveTokenTo records exploration through the real PlayerVisibilityService.RecordExploration/SqliteFogOfWarRepository, gaining exactly one reveal centered on the new position"
+                      },
+                      {
+                          "testCaseId":  "TC-BOARD-124",
+                          "taskId":  "ODY-S10-113",
+                          "authority":  "SLICE-10 Block 6 part 2 task contract section 3/9",
+                          "runner":  "Unity EditMode",
+                          "path":  "Assets/Odyssey/Client/Tests/EditMode/BoardScreenPresenterFogOfWarTests.cs",
+                          "check":  "An artificially broken RecordExploration (best-effort) never blocks or rolls back the token move that triggered it"
+                      },
+                      {
+                          "testCaseId":  "TC-BOARD-125",
+                          "taskId":  "ODY-S10-113",
+                          "authority":  "SLICE-10 Block 6 part 2 task contract section 2.3/9",
+                          "runner":  "Unity EditMode",
+                          "path":  "Assets/Odyssey/Client/Tests/EditMode/BoardScreenPresenterFogOfWarTests.cs",
+                          "check":  "A non-MainGm actor's token outside the real PlayerVisibilityService.ComputeVisibleTokens result is not rendered (DisplayStyle.None), not merely darkened"
+                      },
+                      {
+                          "testCaseId":  "TC-BOARD-126",
+                          "taskId":  "ODY-S10-113",
+                          "authority":  "SLICE-10 Block 6 part 2 task contract section 2.3/9",
+                          "runner":  "Unity EditMode",
+                          "path":  "Assets/Odyssey/Client/Tests/EditMode/BoardScreenPresenterFogOfWarTests.cs",
+                          "check":  "A MainGm actor sees every token unconditionally, with no live-visibility or fog filtering applied regardless of the underlying server data"
+                      },
+                      {
+                          "testCaseId":  "TC-BOARD-127",
+                          "taskId":  "ODY-S10-113",
+                          "authority":  "SLICE-10 Block 6 part 2 task contract section 9 (regression)",
+                          "runner":  "Unity EditMode",
+                          "path":  "Assets/Odyssey/Client/Tests/EditMode/BoardScreenPresenterFogOfWarTests.cs",
+                          "check":  "Regression guard: a non-MainGm actor's ordinary Refresh() with a real obstacle present still succeeds and renders the board area after adding fog-of-war/token-visibility rendering"
+                      },
+                      {
+                          "testCaseId":  "TC-BOARD-128",
+                          "taskId":  "ODY-S10-113",
+                          "authority":  "SLICE-10 Block 6 part 2 task contract section 5/9",
+                          "runner":  "Unity PlayMode",
+                          "path":  "Assets/Odyssey/Client/Tests/PlayMode/OdysseyPlayModeFoundationSmokeTests.cs",
+                          "check":  "A real mouse-driven role switch Player -> MainGM -> Player toggles the fog-of-war overlay's presence/visibility end to end, relying on the class's own [OneTimeSetUp] input-actions check rather than a duplicated inline one"
                       },
                       {
                           "testCaseId":  "TC-BOARD-119",

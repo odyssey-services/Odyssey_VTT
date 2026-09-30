@@ -55,6 +55,8 @@ namespace Odyssey.Unity.Client
                 ICampaignUserGroupDirectory groups = CreateGroups(demo.Value.Campaign.CampaignId, selection.PlayerUserId);
                 var sceneRepository = new SqliteSceneRepository(_clock);
                 var obstacleRepository = new SqliteObstacleRepository(_clock);
+                var visionRepository = new SqliteTokenVisionRepository(_clock);
+                var fogRepository = new SqliteFogOfWarRepository(_clock);
                 var rollStore = new DiceRollStore();
                 var rngFactory = NewRngFactory();
 
@@ -82,7 +84,7 @@ namespace Odyssey.Unity.Client
                 controlsColumn.style.minWidth = 320;
                 layout.Add(controlsColumn);
 
-                var board = new BoardScreenPresenter(_document, sceneRepository, demo.Value.Campaign, demo.Value.CampaignRepository, obstacleRepository, demo.Value.SceneId, selection, _presentationRuntime, includeRoleSelector: false);
+                var board = new BoardScreenPresenter(_document, sceneRepository, demo.Value.Campaign, demo.Value.CampaignRepository, obstacleRepository, visionRepository, fogRepository, demo.Value.SceneId, selection, _presentationRuntime, includeRoleSelector: false);
                 Result boardInitialized = board.InitializeInto(boardColumn);
                 if (boardInitialized.IsFailure) return boardInitialized;
 
