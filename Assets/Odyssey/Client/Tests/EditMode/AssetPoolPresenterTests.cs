@@ -34,6 +34,8 @@ namespace Odyssey.Tests.Unity.EditMode
             public readonly SqliteCampaignRepository CampaignRepository;
             public readonly SqliteSceneRepository SceneRepository;
             public readonly SqliteObstacleRepository ObstacleRepository;
+            public readonly SqliteTokenVisionRepository VisionRepository;
+            public readonly SqliteFogOfWarRepository FogRepository;
             public readonly CampaignHandle Campaign;
             public readonly SceneId SceneId;
             public readonly GameObject GameObject;
@@ -46,11 +48,13 @@ namespace Odyssey.Tests.Unity.EditMode
                 Campaign = CampaignRepository.Create(new CreateCampaignRequest(Directory.Path, "Asset Pool Test Campaign", "ruleset.core", "1.0.0", "0.1.0", global::Odyssey.Application.Identity.DevIdentityProvider.AssignHost()), NewCommandId(), TestCorrelationId).Value;
                 SceneRepository = new SqliteSceneRepository(Clock);
                 ObstacleRepository = new SqliteObstacleRepository(Clock);
+                VisionRepository = new SqliteTokenVisionRepository(Clock);
+                FogRepository = new SqliteFogOfWarRepository(Clock);
                 SceneId = SceneRepository.CreateScene(Campaign, "Test Scene", NewCommandId(), TestCorrelationId).Value.SceneId;
 
                 GameObject = new GameObject("Asset Pool Document");
                 Document = GameObject.AddComponent<UIDocument>();
-                Board = new BoardScreenPresenter(Document, SceneRepository, Campaign, CampaignRepository, ObstacleRepository, SceneId, NewUserId());
+                Board = new BoardScreenPresenter(Document, SceneRepository, Campaign, CampaignRepository, ObstacleRepository, VisionRepository, FogRepository, SceneId, NewUserId());
                 Assert.That(Board.Initialize().IsSuccess, Is.True);
             }
 

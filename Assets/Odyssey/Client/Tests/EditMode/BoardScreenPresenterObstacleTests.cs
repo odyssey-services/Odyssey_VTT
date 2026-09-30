@@ -37,6 +37,8 @@ namespace Odyssey.Tests.Unity.EditMode
             public readonly SqliteCampaignRepository CampaignRepository;
             public readonly SqliteSceneRepository SceneRepository;
             public readonly SqliteObstacleRepository ObstacleRepository;
+            public readonly SqliteTokenVisionRepository VisionRepository;
+            public readonly SqliteFogOfWarRepository FogRepository;
             public readonly CampaignHandle Campaign;
             public readonly SceneId SceneId;
             public readonly UserId MainGmActor;
@@ -52,11 +54,13 @@ namespace Odyssey.Tests.Unity.EditMode
                 Campaign = CampaignRepository.Create(createRequest, NewCommandId(), TestCorrelationId).Value;
                 SceneRepository = new SqliteSceneRepository(Clock);
                 ObstacleRepository = new SqliteObstacleRepository(Clock);
+                VisionRepository = new SqliteTokenVisionRepository(Clock);
+                FogRepository = new SqliteFogOfWarRepository(Clock);
                 SceneId = SceneRepository.CreateScene(Campaign, "Test Scene", NewCommandId(), TestCorrelationId).Value.SceneId;
 
                 GameObject = new GameObject("Board Obstacle Document");
                 Document = GameObject.AddComponent<UIDocument>();
-                Presenter = new BoardScreenPresenter(Document, SceneRepository, Campaign, CampaignRepository, ObstacleRepository, SceneId, MainGmActor);
+                Presenter = new BoardScreenPresenter(Document, SceneRepository, Campaign, CampaignRepository, ObstacleRepository, VisionRepository, FogRepository, SceneId, MainGmActor);
                 Assert.That(Presenter.Initialize().IsSuccess, Is.True);
             }
 
@@ -209,7 +213,7 @@ namespace Odyssey.Tests.Unity.EditMode
         {
             using var fixture = new Fixture();
             UserId stranger = NewUserId();
-            var presenter = new BoardScreenPresenter(fixture.Document, fixture.SceneRepository, fixture.Campaign, fixture.CampaignRepository, fixture.ObstacleRepository, fixture.SceneId, stranger);
+            var presenter = new BoardScreenPresenter(fixture.Document, fixture.SceneRepository, fixture.Campaign, fixture.CampaignRepository, fixture.ObstacleRepository, fixture.VisionRepository, fixture.FogRepository, fixture.SceneId, stranger);
             Assert.That(presenter.Initialize().IsSuccess, Is.True);
             Assert.That(presenter.SetTool(BoardTool.DrawWall), Is.True);
 

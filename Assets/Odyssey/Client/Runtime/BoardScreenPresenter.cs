@@ -56,6 +56,14 @@ namespace Odyssey.Unity.Client
         // same way _campaignRepository already is -- a storage/authorization dependency, not something this
         // presenter constructs internally.
         private readonly IObstacleRepository _obstacleRepository;
+        // SLICE-10 Block 6 part 2: fog-of-war UI needs the same two ports PlayerVisibilityService already
+        // composes over in its own tests (ComputeVisibleTokens/ListExploredReveals/RecordExploration) --
+        // injected the same way _obstacleRepository already is, not constructed internally.
+        private readonly ITokenVisionRepository _visionRepository;
+        private readonly IFogOfWarRepository _fogRepository;
+        private readonly BoardFogOfWarPresenter _fogPresenter = new BoardFogOfWarPresenter();
+        private const double BoardWidthPixels = 440.0;
+        private const double BoardHeightPixels = 440.0;
         private readonly SceneId _sceneId;
         private readonly bool _includeRoleSelector;
         // ODY-S08-102: replaces the old fixed OriginOffsetPixels/PixelsPerUnit transform. Purely local,
@@ -143,7 +151,7 @@ namespace Odyssey.Unity.Client
         private readonly Dictionary<string, TokenPosition> _dragStartPositions = new Dictionary<string, TokenPosition>(StringComparer.Ordinal);
         private bool _disposed;
 
-        public BoardScreenPresenter(UIDocument document, ISceneRepository sceneRepository, CampaignHandle campaign, ICampaignRepository campaignRepository, IObstacleRepository obstacleRepository, SceneId sceneId, UserId localActorUserId)
+        public BoardScreenPresenter(UIDocument document, ISceneRepository sceneRepository, CampaignHandle campaign, ICampaignRepository campaignRepository, IObstacleRepository obstacleRepository, ITokenVisionRepository visionRepository, IFogOfWarRepository fogRepository, SceneId sceneId, UserId localActorUserId)
         {
             _document = document ?? throw new ArgumentNullException(nameof(document));
             _sceneRepository = sceneRepository ?? throw new ArgumentNullException(nameof(sceneRepository));
@@ -152,6 +160,8 @@ namespace Odyssey.Unity.Client
             // stored campaign membership, so the presenter needs the repository that holds it.
             _campaignRepository = campaignRepository ?? throw new ArgumentNullException(nameof(campaignRepository));
             _obstacleRepository = obstacleRepository ?? throw new ArgumentNullException(nameof(obstacleRepository));
+            _visionRepository = visionRepository ?? throw new ArgumentNullException(nameof(visionRepository));
+            _fogRepository = fogRepository ?? throw new ArgumentNullException(nameof(fogRepository));
             if (!sceneId.IsValid) throw new ArgumentException("SceneId is required.", nameof(sceneId));
             if (!localActorUserId.IsValid) throw new ArgumentException("LocalActorUserId is required.", nameof(localActorUserId));
             _sceneId = sceneId;
@@ -159,8 +169,8 @@ namespace Odyssey.Unity.Client
             LocalActorUserId = localActorUserId;
         }
 
-        public BoardScreenPresenter(UIDocument document, ISceneRepository sceneRepository, CampaignHandle campaign, ICampaignRepository campaignRepository, IObstacleRepository obstacleRepository, SceneId sceneId, RoleSelection roleSelection, PresentationRuntime presentationRuntime, bool includeRoleSelector = true)
-            : this(document, sceneRepository, campaign, campaignRepository, obstacleRepository, sceneId, (roleSelection ?? throw new ArgumentNullException(nameof(roleSelection))).ActorUserId)
+        public BoardScreenPresenter(UIDocument document, ISceneRepository sceneRepository, CampaignHandle campaign, ICampaignRepository campaignRepository, IObstacleRepository obstacleRepository, ITokenVisionRepository visionRepository, IFogOfWarRepository fogRepository, SceneId sceneId, RoleSelection roleSelection, PresentationRuntime presentationRuntime, bool includeRoleSelector = true)
+            : this(document, sceneRepository, campaign, campaignRepository, obstacleRepository, visionRepository, fogRepository, sceneId, (roleSelection ?? throw new ArgumentNullException(nameof(roleSelection))).ActorUserId)
         {
             _roleSelection = roleSelection;
             _presentationRuntime = presentationRuntime ?? throw new ArgumentNullException(nameof(presentationRuntime));
@@ -230,8 +240,8 @@ namespace Odyssey.Unity.Client
 
             _boardArea = new VisualElement { name = "board-area" };
             _boardArea.style.position = Position.Relative;
-            _boardArea.style.width = 440;
-            _boardArea.style.height = 440;
+            _boardArea.style.width = (float)BoardWidthPixels;
+            _boardArea.style.height = (float)BoardHeightPixels;
             _boardArea.style.marginTop = 8;
             _boardArea.style.backgroundColor = new StyleColor(new Color(0.12f, 0.12f, 0.14f));
             // Focusable so Escape (OnBoardKeyDown) can reach it and cancel an in-progress draw gesture --
@@ -268,9 +278,22 @@ namespace Odyssey.Unity.Client
 
             Error? backgroundError = ApplySceneBackground();
 
+            // SLICE-10 Block 6 part 2: null means "MainGm, no filtering" -- every token renders, exactly as
+            // before this task. A non-null set is the real, authoritative ComputeVisibleTokens result; a
+            // player's own controlled token not being in it is trusted and rendered as absent too (task
+            // contract section 2.3: never client-side override the server's answer).
+            IReadOnlyCollection<TokenId>? visibleTokenIds = null;
+            if (!LocalActorIsMainGm)
+            {
+                var visibilityRequest = new ComputeVisibleTokensRequest(_campaign, _sceneId, LocalActorUserId, LocalActorUserId, NewCorrelationId());
+                Result<IReadOnlyCollection<TokenId>> visibility = PlayerVisibilityService.ComputeVisibleTokens(_sceneRepository, _visionRepository, _obstacleRepository, _campaignRepository, visibilityRequest);
+                visibleTokenIds = visibility.IsSuccess ? visibility.Value : Array.Empty<TokenId>();
+            }
+
             _boardArea?.Clear();
             RenderObstacles(obstacles.IsSuccess ? obstacles.Value : Array.Empty<ObstacleRecord>());
-            Error? tokenAssetError = RenderTokens(tokens.Value);
+            RenderFogOfWar();
+            Error? tokenAssetError = RenderTokens(tokens.Value, visibleTokenIds);
             RestoreOverlays();
             _toolbarPresenter?.SetVisible(LocalActorIsMainGm);
 
@@ -296,6 +319,27 @@ namespace Odyssey.Unity.Client
             if (_markerElement != null && _markerWorldPosition.HasValue) _boardArea.Add(_markerElement);
             if (_obstacleDrawPreviewElement != null && _obstacleDrawGesture.IsActive) _boardArea.Add(_obstacleDrawPreviewElement);
             ShowObstacleInspectorIfSelected();
+        }
+
+        // SLICE-10 Block 6 part 2: permanent map memory. Recomputed from the real, authorized
+        // ListExploredReveals result on every Refresh() (never cached in screen space), so a camera
+        // pan/zoom is picked up the same way RenderObstacles/RenderTokens already are. Added to the board
+        // area right after RenderObstacles and before RenderTokens, so a currently-visible token (added
+        // next) always renders on top of the darkness, never obscured by it -- fog only ever hides map
+        // geometry (background/obstacles), never a token that ComputeVisibleTokens has already approved.
+        private void RenderFogOfWar()
+        {
+            if (_boardArea == null) return;
+            if (LocalActorIsMainGm)
+            {
+                _fogPresenter.Hide();
+                return;
+            }
+
+            var request = new ListExploredRevealsRequest(_campaign, _sceneId, LocalActorUserId, LocalActorUserId, NewCorrelationId());
+            Result<IReadOnlyList<FogRevealRecord>> reveals = PlayerVisibilityService.ListExploredReveals(_fogRepository, _campaignRepository, request);
+            _fogPresenter.Show(reveals.IsSuccess ? reveals.Value : Array.Empty<FogRevealRecord>(), _camera, BoardWidthPixels, BoardHeightPixels);
+            _boardArea.Add(_fogPresenter.Element);
         }
 
         private Error? ApplySceneBackground()
@@ -359,7 +403,7 @@ namespace Odyssey.Unity.Client
             if (refresh) Refresh();
         }
 
-        private Error? RenderTokens(IReadOnlyList<TokenRecord> tokens)
+        private Error? RenderTokens(IReadOnlyList<TokenRecord> tokens, IReadOnlyCollection<TokenId>? visibleTokenIds)
         {
             if (_boardArea == null) return null;
             _tokenElementsByTokenId.Clear();
@@ -405,6 +449,17 @@ namespace Odyssey.Unity.Client
                 tokenElement.style.borderBottomWidth = isSelected ? 3 : 1;
                 tokenElement.style.borderLeftWidth = isSelected ? 3 : 1;
                 tokenElement.style.borderRightWidth = isSelected ? 3 : 1;
+
+                // SLICE-10 Block 6 part 2: a token absent from the real, authoritative ComputeVisibleTokens
+                // result is not rendered at all (DisplayStyle.None, not merely darkened) -- an
+                // in-range-then-moved-out-of-sight enemy must disappear, matching Block 4's own "map is
+                // remembered, tokens are not" decision (task contract section 2.3). Picking is also
+                // disabled so a hidden token can never be selected/dragged/hit-tested while invisible. The
+                // element is still created and tracked in every dictionary below (unchanged from before this
+                // task) so the rest of this class's per-token bookkeeping needs no special-casing.
+                bool isVisible = visibleTokenIds == null || visibleTokenIds.Contains(token.TokenId);
+                tokenElement.style.display = isVisible ? DisplayStyle.Flex : DisplayStyle.None;
+                tokenElement.pickingMode = isVisible ? PickingMode.Position : PickingMode.Ignore;
 
                 // ODY-S08-104: a token drags itself (PointerDown/Move/Up + CapturePointer, by exact
                 // precedent of AssetPoolPresenter.OnItemPointerDown), replacing the old ClickEvent-based
@@ -670,6 +725,7 @@ namespace Odyssey.Unity.Client
             else
             {
                 SetStatus("Moved token " + tokenId + " to (" + moved.Value.Position.X.ToString("0.0") + ", " + moved.Value.Position.Y.ToString("0.0") + ").");
+                RecordExplorationBestEffort(tokenId);
             }
 
             Refresh();
@@ -706,10 +762,26 @@ namespace Odyssey.Unity.Client
             else
             {
                 SetStatus("Moved token " + tokenId + " to (" + moved.Value.Position.X.ToString("0.0") + ", " + moved.Value.Position.Y.ToString("0.0") + ").");
+                RecordExplorationBestEffort(tokenId);
             }
 
             Refresh();
             return moved;
+        }
+
+        // SLICE-10 Block 6 part 2: best-effort map-memory update after a successful token move/creation.
+        // The task contract's own facts (section 1) name only TryMoveTokenTo as the drag/click-move path,
+        // but TryMoveSelectedTokenTo (the older, still-live click-to-move path invoked from
+        // OnBoardPointerUp) commits the exact same BoardMovementService.MoveToken call -- wiring only one
+        // of the two would silently leave map memory frozen for whichever move path a session happens to
+        // use, which the task's own purpose (a demonstrable, real fog of war) rules out; this deviates from
+        // the contract's literal method name but not from its stated intent, and is disclosed as such in the
+        // task report. A failure here (any Result.Failure, or the ports simply not being ready) is
+        // swallowed -- it must never surface as an error of the move/creation itself.
+        private void RecordExplorationBestEffort(TokenId observerTokenId)
+        {
+            var request = new RecordExplorationRequest(_campaign, observerTokenId, NewCommandId(), NewCorrelationId());
+            PlayerVisibilityService.RecordExploration(_fogRepository, _sceneRepository, _visionRepository, request);
         }
 
         // ---- ODY-S08-104: dragging a token across the board -----------------------------------------

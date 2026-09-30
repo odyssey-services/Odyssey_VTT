@@ -241,6 +241,67 @@ namespace Odyssey.Tests.Persistence.Board
             Assert.That(result.Error.Code, Is.EqualTo(ErrorCodes.PersistenceCampaignIoFailed), "an unreadable membership must never fall back to a pass or a fake denial");
         }
 
+        [Test] // TC-PERSIST-138
+        public void ListExploredReveals_SelfScoped_ReturnsExactlyTheStoredCircles()
+        {
+            UserId player = NewUserId();
+            Assert.That(_campaignRepository.AddMember(_campaign, player, CampaignMembershipRole.Player, NewCommandId(), TestCorrelationId).IsSuccess, Is.True);
+            TokenRecord observer = CreateToken(player, 0, 0);
+            PlayerVisibilityService.RecordExploration(_fog, _scenes, _vision, new RecordExplorationRequest(_campaign, observer.TokenId, NewCommandId(), TestCorrelationId));
+
+            var request = new ListExploredRevealsRequest(_campaign, _sceneId, player, player, TestCorrelationId);
+            Result<IReadOnlyList<FogRevealRecord>> result = PlayerVisibilityService.ListExploredReveals(_fog, _campaignRepository, request);
+
+            Assert.That(result.IsSuccess, Is.True);
+            Assert.That(result.Value.Count, Is.EqualTo(1), "a bulk read must return every reveal ever recorded for the target user in this Scene");
+            Assert.That(result.Value[0].UserId, Is.EqualTo(player));
+        }
+
+        [Test] // TC-PERSIST-139
+        public void ListExploredReveals_NoRevealsEverRecorded_IsEmptyList_NotAnError()
+        {
+            UserId player = NewUserId();
+            Assert.That(_campaignRepository.AddMember(_campaign, player, CampaignMembershipRole.Player, NewCommandId(), TestCorrelationId).IsSuccess, Is.True);
+
+            var request = new ListExploredRevealsRequest(_campaign, _sceneId, player, player, TestCorrelationId);
+            Result<IReadOnlyList<FogRevealRecord>> result = PlayerVisibilityService.ListExploredReveals(_fog, _campaignRepository, request);
+
+            Assert.That(result.IsSuccess, Is.True);
+            Assert.That(result.Value, Is.Empty, "a target with zero recorded reveals must yield an empty list, never an error");
+        }
+
+        [Test] // TC-PERSIST-140
+        public void ListExploredReveals_OrdinaryPlayerAskingAboutAnotherUser_IsDenied()
+        {
+            UserId askingPlayer = NewUserId();
+            UserId otherPlayer = NewUserId();
+            Assert.That(_campaignRepository.AddMember(_campaign, askingPlayer, CampaignMembershipRole.Player, NewCommandId(), TestCorrelationId).IsSuccess, Is.True);
+            Assert.That(_campaignRepository.AddMember(_campaign, otherPlayer, CampaignMembershipRole.Player, NewCommandId(), TestCorrelationId).IsSuccess, Is.True);
+            TokenRecord otherObserver = CreateToken(otherPlayer, 0, 0);
+            PlayerVisibilityService.RecordExploration(_fog, _scenes, _vision, new RecordExplorationRequest(_campaign, otherObserver.TokenId, NewCommandId(), TestCorrelationId));
+
+            var request = new ListExploredRevealsRequest(_campaign, _sceneId, askingPlayer, otherPlayer, TestCorrelationId);
+            Result<IReadOnlyList<FogRevealRecord>> result = PlayerVisibilityService.ListExploredReveals(_fog, _campaignRepository, request);
+
+            Assert.That(result.IsFailure, Is.True, "an ordinary player must not bulk-read another ordinary player's map memory");
+            Assert.That(result.Error.Code, Is.EqualTo(ErrorCodes.PlayerVisibilityTargetUserDenied));
+        }
+
+        [Test] // TC-PERSIST-141
+        public void ListExploredReveals_MainGmAskingAboutAnotherUser_Succeeds()
+        {
+            UserId player = NewUserId();
+            Assert.That(_campaignRepository.AddMember(_campaign, player, CampaignMembershipRole.Player, NewCommandId(), TestCorrelationId).IsSuccess, Is.True);
+            TokenRecord observer = CreateToken(player, 0, 0);
+            PlayerVisibilityService.RecordExploration(_fog, _scenes, _vision, new RecordExplorationRequest(_campaign, observer.TokenId, NewCommandId(), TestCorrelationId));
+
+            var request = new ListExploredRevealsRequest(_campaign, _sceneId, Host, player, TestCorrelationId);
+            Result<IReadOnlyList<FogRevealRecord>> result = PlayerVisibilityService.ListExploredReveals(_fog, _campaignRepository, request);
+
+            Assert.That(result.IsSuccess, Is.True, "the registered MainGm must be able to bulk-read another participant's map memory, e.g. for support/debugging");
+            Assert.That(result.Value.Count, Is.EqualTo(1));
+        }
+
         private sealed class PoisonedCampaignRepository : ICampaignRepository
         {
             public static PoisonedCampaignRepository FailsOnLookup() => new PoisonedCampaignRepository();

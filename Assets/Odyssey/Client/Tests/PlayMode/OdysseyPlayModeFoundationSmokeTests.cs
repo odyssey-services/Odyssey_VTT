@@ -291,6 +291,48 @@ namespace Odyssey.Tests.Unity.PlayMode
             }
         }
 
+        [UnityTest] // TC-BOARD-128
+        public IEnumerator RoleSwitch_PlayerToMainGmAndBack_RealRun_TogglesFogOfWarOverlay()
+        {
+            const string bootstrapPath = "Assets/Odyssey/Client/Scenes/Bootstrap.unity";
+
+            // SLICE-10 Block 6 part 2: relies on the class's own [OneTimeSetUp] input-actions check --
+            // see its remarks -- rather than a second inline AssertUiInputActionsConfigured() call.
+            yield return SceneManager.LoadSceneAsync(bootstrapPath, LoadSceneMode.Single);
+            yield return WaitUntil(() => FindAcceptedHosts() == 1);
+            yield return WaitUntil(() => SceneManager.GetSceneByName("AppShell").isLoaded);
+            yield return WaitUntil(() => FindEntryPoint() != null && FindEntryPoint()!.IsInitialized);
+
+            AppShellEntryPoint entryPoint = FindEntryPoint()!;
+            UIDocument document = entryPoint.GetComponent<UIDocument>();
+            Click(document, "trial-ui-button");
+            yield return WaitUntil(() => document.rootVisualElement.Q<VisualElement>("trial-screen") != null);
+
+            // The default role (BaselineRole.Player, TrialScreenPresenter.Initialize) is a non-MainGm actor,
+            // so the fog-of-war overlay must already be present and shown.
+            yield return WaitUntil(() => document.rootVisualElement.Q<VisualElement>("board-fog-of-war") != null);
+            Assert.That(document.rootVisualElement.Q<VisualElement>("board-fog-of-war").style.display.value, Is.EqualTo(DisplayStyle.Flex), "a non-MainGm actor must have the fog overlay shown");
+
+            DropdownField roleDropdown = document.rootVisualElement.Q<DropdownField>("role-selector-dropdown");
+            Assert.That(roleDropdown, Is.Not.Null);
+
+            roleDropdown.value = "MainGM";
+            yield return null;
+            Assert.That(document.rootVisualElement.Q<VisualElement>("board-fog-of-war"), Is.Null, "a MainGm actor must have no fog overlay at all, not merely a hidden one");
+
+            roleDropdown.value = "Player";
+            yield return null;
+            VisualElement? fogAfterSwitchingBack = document.rootVisualElement.Q<VisualElement>("board-fog-of-war");
+            Assert.That(fogAfterSwitchingBack, Is.Not.Null, "switching back to Player must re-show the fog overlay on a real run, not just on the first Refresh() ever");
+            Assert.That(fogAfterSwitchingBack!.style.display.value, Is.EqualTo(DisplayStyle.Flex));
+
+            OdysseyRuntimeHost host = FindAcceptedHost()!;
+            host.Runtime!.Shutdown();
+            Object.Destroy(host.gameObject);
+            yield return null;
+            Assert.That(RuntimeHostLease.IsHeld, Is.False);
+        }
+
         private static IEnumerator WaitUntil(System.Func<bool> predicate)
         {
             float started = Time.realtimeSinceStartup;
