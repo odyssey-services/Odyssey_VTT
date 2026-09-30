@@ -48,6 +48,10 @@ namespace Odyssey.Unity.Client
         public AssetPoolPresenter? AssetPool { get; private set; }
         public BoardScreenDemoCampaignHandle? DemoCampaign { get; private set; }
 
+        /// <summary>ODY-S11-202: the content catalog panel (Catalog drawer).</summary>
+        public ContentCatalogPresenter? Catalog { get; private set; }
+        public IContentCatalogRepository? CatalogRepository { get; private set; }
+
         /// <summary>ODY-S11-201: the overlay layout (drawers, dock, top bar).</summary>
         public GameShellPresenter? Shell { get; private set; }
 
@@ -80,7 +84,8 @@ namespace Odyssey.Unity.Client
 
                 Result members = AddTrialMembers(demo.Value.CampaignRepository, demo.Value.Campaign, selection);
                 if (members.IsFailure) return members;
-                Context = new GameSessionContext(demo.Value.Campaign, demo.Value.CampaignRepository, demo.Value.SceneId, _clock, selection, _presentationRuntime, TestRulesetVersion, shell.ModalHost);
+                var context = new GameSessionContext(demo.Value.Campaign, demo.Value.CampaignRepository, demo.Value.SceneId, _clock, selection, _presentationRuntime, TestRulesetVersion, shell.ModalHost);
+                Context = context;
 
                 _roleSelectorPresenter = new RoleSelectorPresenter(selection, _presentationRuntime);
                 VisualElement roleSelectorView = _roleSelectorPresenter.BuildView();
@@ -105,7 +110,13 @@ namespace Odyssey.Unity.Client
                 characterDrawer.Add(OdyUi.EmptyState("Character sheet -- ODY-S11-203."));
                 inventoryDrawer.Add(OdyUi.EmptyState("Inventory -- ODY-S11-204."));
                 combatDrawer.Add(OdyUi.EmptyState("Combat -- ODY-S11-205."));
-                catalogDrawer.Add(OdyUi.EmptyState("Content catalog -- ODY-S11-202."));
+
+                // ODY-S11-202: content catalog (MainGM authoring; everyone else browses published definitions).
+                var catalogRepository = new SqliteContentCatalogRepository(_clock);
+                var catalog = new ContentCatalogPresenter(context, catalogRepository);
+                catalogDrawer.Add(catalog.BuildView());
+                Catalog = catalog;
+                CatalogRepository = catalogRepository;
 
                 var assetPool = new AssetPoolPresenter(_document, sceneRepository, demo.Value.Campaign, board);
                 VisualElement assetPoolView = assetPool.BuildView();
@@ -122,6 +133,8 @@ namespace Odyssey.Unity.Client
                 shell.SetDockContent("Rolls & Game Log", rollPanelView, gameLogView);
                 // Kept name: the dock content is the former controls column (PlayMode smoke tests look it up).
                 if (shell.DockContent != null) shell.DockContent.name = "trial-controls-column";
+
+                shell.DrawerOpened += OnDrawerOpened;
 
                 Selection = selection;
                 Board = board;
@@ -145,8 +158,21 @@ namespace Odyssey.Unity.Client
             AssetPool?.Dispose();
             Board?.Dispose();
             _roleSelectorPresenter?.Dispose();
+            if (Shell != null) Shell.DrawerOpened -= OnDrawerOpened;
+            Catalog?.Dispose();
             Shell?.Dispose();
             _disposed = true;
+        }
+
+        // Each panel reloads fresh server state when its drawer opens (no stale revisions).
+        private void OnDrawerOpened(string drawerId)
+        {
+            switch (drawerId)
+            {
+                case CatalogDrawerId:
+                    Catalog?.Refresh();
+                    break;
+            }
         }
 
         // ODY-S11-201: the trial's player and observer become stored campaign members (the host is already the MainGM),
