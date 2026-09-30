@@ -236,6 +236,115 @@ namespace Odyssey.Application.Board
             return fogRepository.ListReveals(request.Campaign, request.SceneId, request.TargetUserId, request.CorrelationId);
         }
 
+        /// <summary>
+        /// SLICE-10 Block 6 follow-up (ODY-S10-115): the same fog-of-war filtering
+        /// <see cref="ComputeVisibleTokens"/> already applies to tokens, applied to obstacle geometry --
+        /// closing a gap found at Block 6's own close-out (the client previously drew every obstacle
+        /// unconditionally, relying only on the fog overlay's own 82%-opacity darkening to hide an
+        /// unexplored door's existence/open-closed state, which a determined player could still read
+        /// through the translucency). <see cref="IObstacleRepository.ListObstacles"/> itself is
+        /// deliberately left untouched and unfiltered -- <c>TokenVisionService.ComputeLineOfSight</c>/
+        /// <c>CoverSuggestionService.SuggestCover</c> both need the true, complete obstacle set
+        /// regardless of any one player's own map memory (an obstacle blocks vision/gives cover whether
+        /// or not that specific player has ever seen it), so this filtering exists only as a second,
+        /// additive read for a client's own render pass, exactly the same relationship
+        /// <see cref="ComputeVisibleTokens"/> already has with the unfiltered <c>ISceneRepository.ListTokens</c>.
+        ///
+        /// A MainGm target bypasses filtering entirely, receiving the same unfiltered
+        /// <see cref="IObstacleRepository.ListObstacles"/> result as any other internal caller -- the
+        /// same "MainGm sees everything, unconditionally" principle <see cref="ComputeVisibleTokens"/>/
+        /// <see cref="IsPointExplored"/> already establish. For everyone else, an obstacle is "known" if
+        /// any of three sample points along its segment -- both endpoints and the midpoint -- falls
+        /// within any of the target's own explored reveal circles (reusing <see cref="ListExploredReveals"/>
+        /// rather than a second, duplicate read of <see cref="IFogOfWarRepository.ListReveals"/> --
+        /// the same authorization-hole lesson <see cref="ListExploredReveals"/> itself was introduced to
+        /// close). Three points along a segment is this task's own sampling decision, by direct analogy
+        /// to <c>CoverGeometry</c>'s own four-sample-point technique for a target's cover degree -- not a
+        /// reuse of that specific code, just the same "a few representative points, not a full boundary
+        /// scan" shape.
+        ///
+        /// Deliberate simplification, disclosed here as an accepted design decision rather than a
+        /// missed requirement: the obstacle's *current, live* state (including <see cref="ObstacleRecord.IsOpen"/>)
+        /// is returned, not a snapshot frozen at the moment any sample point first entered explored
+        /// territory. A player who has ever seen a door will see its real-time state even while it is
+        /// currently out of that player's own live sight -- this is not the same kind of persistent
+        /// memory <see cref="FogRevealRecord"/> itself provides for terrain (which never changes once
+        /// explored); a "frozen at last observation" model would need obstacle-specific memory storage
+        /// this task does not add. A future task's own scope if ever needed.
+        /// </summary>
+        public static Result<IReadOnlyList<ObstacleRecord>> ListExploredObstacles(IObstacleRepository obstacleRepository, IFogOfWarRepository fogRepository, ICampaignRepository campaignRepository, ListExploredObstaclesRequest request)
+        {
+            if (obstacleRepository == null) throw new ArgumentNullException(nameof(obstacleRepository));
+            if (fogRepository == null) throw new ArgumentNullException(nameof(fogRepository));
+            if (campaignRepository == null) throw new ArgumentNullException(nameof(campaignRepository));
+            if (request == null) throw new ArgumentNullException(nameof(request));
+
+            Result selfScoped = CheckSelfScopedOrMainGm(campaignRepository, request.Campaign, request.RequestingUserId, request.TargetUserId, request.CorrelationId);
+            if (selfScoped.IsFailure)
+            {
+                return Result<IReadOnlyList<ObstacleRecord>>.Failure(selfScoped.Error);
+            }
+
+            Result<IReadOnlyList<ObstacleRecord>> allObstacles = obstacleRepository.ListObstacles(request.Campaign, request.SceneId, request.CorrelationId);
+            if (allObstacles.IsFailure)
+            {
+                return allObstacles;
+            }
+
+            Result<bool> targetIsMainGm = CampaignMembershipAuthorization.IsMainGm(campaignRepository, request.Campaign, request.TargetUserId, request.CorrelationId);
+            if (targetIsMainGm.IsFailure)
+            {
+                return Result<IReadOnlyList<ObstacleRecord>>.Failure(targetIsMainGm.Error);
+            }
+
+            if (targetIsMainGm.Value)
+            {
+                return allObstacles;
+            }
+
+            var revealsRequest = new ListExploredRevealsRequest(request.Campaign, request.SceneId, request.TargetUserId, request.TargetUserId, request.CorrelationId);
+            Result<IReadOnlyList<FogRevealRecord>> reveals = ListExploredReveals(fogRepository, campaignRepository, revealsRequest);
+            if (reveals.IsFailure)
+            {
+                return Result<IReadOnlyList<ObstacleRecord>>.Failure(reveals.Error);
+            }
+
+            var known = new List<ObstacleRecord>();
+            foreach (ObstacleRecord obstacle in allObstacles.Value)
+            {
+                if (IsAnySamplePointExplored(obstacle, reveals.Value))
+                {
+                    known.Add(obstacle);
+                }
+            }
+
+            return Result<IReadOnlyList<ObstacleRecord>>.Success(known);
+        }
+
+        private static bool IsAnySamplePointExplored(ObstacleRecord obstacle, IReadOnlyList<FogRevealRecord> reveals)
+        {
+            double midX = (obstacle.X1 + obstacle.X2) / 2.0;
+            double midY = (obstacle.Y1 + obstacle.Y2) / 2.0;
+
+            return IsPointWithinAnyReveal(obstacle.X1, obstacle.Y1, reveals)
+                || IsPointWithinAnyReveal(obstacle.X2, obstacle.Y2, reveals)
+                || IsPointWithinAnyReveal(midX, midY, reveals);
+        }
+
+        private static bool IsPointWithinAnyReveal(double x, double y, IReadOnlyList<FogRevealRecord> reveals)
+        {
+            foreach (FogRevealRecord reveal in reveals)
+            {
+                double distance = BoardGeometry.EuclideanDistance(x, y, reveal.CenterX, reveal.CenterY);
+                if (distance <= reveal.Radius + BoardGeometry.GeometryEpsilonV1)
+                {
+                    return true;
+                }
+            }
+
+            return false;
+        }
+
         /// <summary>True when the circle (<paramref name="newCenterX"/>,<paramref name="newCenterY"/>,<paramref name="newRadius"/>) is fully contained within (<paramref name="existingCenterX"/>,<paramref name="existingCenterY"/>,<paramref name="existingRadius"/>) -- the standard circle-containment test (distance between centers plus the new radius does not exceed the existing radius), not a full union/merge of the two circles into a combined shape.</summary>
         private static bool IsFullyCovered(double newCenterX, double newCenterY, double newRadius, double existingCenterX, double existingCenterY, double existingRadius)
         {
@@ -329,6 +438,29 @@ namespace Odyssey.Application.Board
     public sealed class ListExploredRevealsRequest
     {
         public ListExploredRevealsRequest(CampaignHandle campaign, SceneId sceneId, UserId requestingUserId, UserId targetUserId, CorrelationId correlationId)
+        {
+            Campaign = campaign ?? throw new ArgumentNullException(nameof(campaign));
+            if (!sceneId.IsValid) throw new ArgumentException("SceneId is required.", nameof(sceneId));
+            if (!requestingUserId.IsValid) throw new ArgumentException("RequestingUserId is required.", nameof(requestingUserId));
+            if (!targetUserId.IsValid) throw new ArgumentException("TargetUserId is required.", nameof(targetUserId));
+
+            SceneId = sceneId;
+            RequestingUserId = requestingUserId;
+            TargetUserId = targetUserId;
+            CorrelationId = correlationId;
+        }
+
+        public CampaignHandle Campaign { get; }
+        public SceneId SceneId { get; }
+        public UserId RequestingUserId { get; }
+        public UserId TargetUserId { get; }
+        public CorrelationId CorrelationId { get; }
+    }
+
+    /// <summary>Same shape as <see cref="ListExploredRevealsRequest"/> -- a bulk, self-scoped-or-MainGm-gated read, this time over obstacle geometry instead of fog reveals.</summary>
+    public sealed class ListExploredObstaclesRequest
+    {
+        public ListExploredObstaclesRequest(CampaignHandle campaign, SceneId sceneId, UserId requestingUserId, UserId targetUserId, CorrelationId correlationId)
         {
             Campaign = campaign ?? throw new ArgumentNullException(nameof(campaign));
             if (!sceneId.IsValid) throw new ArgumentException("SceneId is required.", nameof(sceneId));

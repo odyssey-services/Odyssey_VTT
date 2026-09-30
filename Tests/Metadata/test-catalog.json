@@ -2377,6 +2377,54 @@
                           "check":  "ListExploredReveals allows the registered MainGm to bulk-read another participant's map memory"
                       },
                       {
+                          "testCaseId":  "TC-PERSIST-142",
+                          "taskId":  "ODY-S10-115",
+                          "authority":  "ODY-S10-115 task contract section 5/9",
+                          "runner":  "dotnet test",
+                          "path":  "DotNet/Tests/Odyssey.Tests.Persistence/Board/PlayerVisibilityServiceTests.cs",
+                          "check":  "ListExploredObstacles does not return an obstacle none of whose three sample points (both endpoints, midpoint) is inside any of the target's own explored reveals"
+                      },
+                      {
+                          "testCaseId":  "TC-PERSIST-143",
+                          "taskId":  "ODY-S10-115",
+                          "authority":  "ODY-S10-115 task contract section 5/9",
+                          "runner":  "dotnet test",
+                          "path":  "DotNet/Tests/Odyssey.Tests.Persistence/Board/PlayerVisibilityServiceTests.cs",
+                          "check":  "ListExploredObstacles returns an obstacle when a reveal covers only its first endpoint"
+                      },
+                      {
+                          "testCaseId":  "TC-PERSIST-144",
+                          "taskId":  "ODY-S10-115",
+                          "authority":  "ODY-S10-115 task contract section 5/9",
+                          "runner":  "dotnet test",
+                          "path":  "DotNet/Tests/Odyssey.Tests.Persistence/Board/PlayerVisibilityServiceTests.cs",
+                          "check":  "ListExploredObstacles returns an obstacle when a reveal covers only its second endpoint"
+                      },
+                      {
+                          "testCaseId":  "TC-PERSIST-145",
+                          "taskId":  "ODY-S10-115",
+                          "authority":  "ODY-S10-115 task contract section 5/9",
+                          "runner":  "dotnet test",
+                          "path":  "DotNet/Tests/Odyssey.Tests.Persistence/Board/PlayerVisibilityServiceTests.cs",
+                          "check":  "ListExploredObstacles returns an obstacle when a reveal covers only its own midpoint"
+                      },
+                      {
+                          "testCaseId":  "TC-PERSIST-146",
+                          "taskId":  "ODY-S10-115",
+                          "authority":  "ODY-S10-115 task contract section 5/9",
+                          "runner":  "dotnet test",
+                          "path":  "DotNet/Tests/Odyssey.Tests.Persistence/Board/PlayerVisibilityServiceTests.cs",
+                          "check":  "ListExploredObstacles returns the full, unfiltered obstacle list for a MainGm target regardless of any exploration"
+                      },
+                      {
+                          "testCaseId":  "TC-PERSIST-147",
+                          "taskId":  "ODY-S10-115",
+                          "authority":  "ODY-S10-115 task contract section 5/9",
+                          "runner":  "dotnet test",
+                          "path":  "DotNet/Tests/Odyssey.Tests.Persistence/Board/PlayerVisibilityServiceTests.cs",
+                          "check":  "ListExploredObstacles denies an ordinary player passing another ordinary player's TargetUserId, with the typed PlayerVisibilityTargetUserDenied failure"
+                      },
+                      {
                           "testCaseId":  "TC-BOARD-001",
                           "taskId":  "ODY-S03-004",
                           "authority":  "ADR-020 section 5.1/5.3; ODY-S03-004",
@@ -5583,6 +5631,22 @@
                           "runner":  "Unity EditMode",
                           "path":  "Assets/Odyssey/Client/Tests/EditMode/BoardScreenPresenterTokenVisionInspectorTests.cs",
                           "check":  "The cover-preview command calls SuggestCover with the inspected token as attacker and the dropdown-selected token as target, matching a direct CoverSuggestionService.SuggestCover call on the same known Full-cover geometry"
+                      },
+                      {
+                          "testCaseId":  "TC-BOARD-135",
+                          "taskId":  "ODY-S10-115",
+                          "authority":  "ODY-S10-115 task contract section 5/9",
+                          "runner":  "Unity EditMode",
+                          "path":  "Assets/Odyssey/Client/Tests/EditMode/BoardScreenPresenterObstacleFogTests.cs",
+                          "check":  "A non-MainGm actor does not render an obstacle none of whose sample points is inside any explored reveal; a MainGm actor sees it unconditionally"
+                      },
+                      {
+                          "testCaseId":  "TC-BOARD-136",
+                          "taskId":  "ODY-S10-115",
+                          "authority":  "ODY-S10-115 task contract section 5/9",
+                          "runner":  "Unity EditMode",
+                          "path":  "Assets/Odyssey/Client/Tests/EditMode/BoardScreenPresenterObstacleFogTests.cs",
+                          "check":  "An obstacle that becomes explored via a token move's own best-effort RecordExploration appears on the following Refresh()"
                       },
                       {
                           "testCaseId":  "TC-BOARD-119",
