@@ -54,6 +54,9 @@ namespace Odyssey.Unity.Client
         public ICharacterRepository? CharacterRepository { get; private set; }
         public IInventoryRepository? InventoryRepository { get; private set; }
 
+        /// <summary>ODY-S11-204: the inventory panel (Inventory drawer).</summary>
+        public InventoryPanelPresenter? Inventory { get; private set; }
+
         /// <summary>ODY-S11-202: the content catalog panel (Catalog drawer).</summary>
         public ContentCatalogPresenter? Catalog { get; private set; }
         public IContentCatalogRepository? CatalogRepository { get; private set; }
@@ -113,7 +116,6 @@ namespace Odyssey.Unity.Client
                 VisualElement inventoryDrawer = shell.AddDrawer(InventoryDrawerId, "Inventory", GameDrawerSide.Left);
                 VisualElement combatDrawer = shell.AddDrawer(CombatDrawerId, "Combat", GameDrawerSide.Right);
                 VisualElement catalogDrawer = shell.AddDrawer(CatalogDrawerId, "Catalog", GameDrawerSide.Right, wide: true);
-                inventoryDrawer.Add(OdyUi.EmptyState("Inventory -- ODY-S11-204."));
                 combatDrawer.Add(OdyUi.EmptyState("Combat -- ODY-S11-205."));
 
                 // ODY-S11-203/204: inventory is the dependency owner for character deletion, body-part removal and
@@ -140,6 +142,12 @@ namespace Odyssey.Unity.Client
                 catalogDrawer.Add(catalog.BuildView());
                 Catalog = catalog;
                 CatalogRepository = catalogRepository;
+
+                // ODY-S11-204: inventory/equipment of the character open in the Character panel + the scene ground.
+                var inventoryPanel = new InventoryPanelPresenter(context, inventoryRepository, catalogRepository, characterRepository);
+                inventoryDrawer.Add(inventoryPanel.BuildView());
+                characterPanel.CurrentChanged += inventoryPanel.SetCharacter;
+                Inventory = inventoryPanel;
 
                 var assetPool = new AssetPoolPresenter(_document, sceneRepository, demo.Value.Campaign, board);
                 VisualElement assetPoolView = assetPool.BuildView();
@@ -183,6 +191,8 @@ namespace Odyssey.Unity.Client
             _roleSelectorPresenter?.Dispose();
             if (Shell != null) Shell.DrawerOpened -= OnDrawerOpened;
             if (Characters != null) Characters.BoardChanged -= OnBoardChanged;
+            if (Characters != null && Inventory != null) Characters.CurrentChanged -= Inventory.SetCharacter;
+            Inventory?.Dispose();
             Characters?.Dispose();
             Catalog?.Dispose();
             Shell?.Dispose();
@@ -201,6 +211,9 @@ namespace Odyssey.Unity.Client
                     break;
                 case CharacterDrawerId:
                     Characters?.Refresh();
+                    break;
+                case InventoryDrawerId:
+                    Inventory?.Refresh();
                     break;
             }
         }
