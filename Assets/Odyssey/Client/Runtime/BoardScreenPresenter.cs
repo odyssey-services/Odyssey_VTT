@@ -304,8 +304,22 @@ namespace Odyssey.Unity.Client
                 visibleTokenIds = visibility.IsSuccess ? visibility.Value : Array.Empty<TokenId>();
             }
 
+            // ODY-S10-115: obstacles are filtered by the player's own map memory the same way tokens
+            // already are by ComputeVisibleTokens above -- IObstacleRepository.ListObstacles itself stays
+            // the unfiltered source of truth (LineOfSight/SuggestCover need the true, complete set
+            // regardless of any one player's own exploration), so this is a second, additive read for
+            // this presenter's own render pass only, not a replacement of the read above. MainGm gets the
+            // unfiltered list, unconditionally, exactly as MainGm already does for tokens/fog.
+            IReadOnlyList<ObstacleRecord> obstaclesToRender = obstacles.IsSuccess ? obstacles.Value : Array.Empty<ObstacleRecord>();
+            if (!LocalActorIsMainGm)
+            {
+                var obstacleVisibilityRequest = new ListExploredObstaclesRequest(_campaign, _sceneId, LocalActorUserId, LocalActorUserId, NewCorrelationId());
+                Result<IReadOnlyList<ObstacleRecord>> exploredObstacles = PlayerVisibilityService.ListExploredObstacles(_obstacleRepository, _fogRepository, _campaignRepository, obstacleVisibilityRequest);
+                obstaclesToRender = exploredObstacles.IsSuccess ? exploredObstacles.Value : Array.Empty<ObstacleRecord>();
+            }
+
             _boardArea?.Clear();
-            RenderObstacles(obstacles.IsSuccess ? obstacles.Value : Array.Empty<ObstacleRecord>());
+            RenderObstacles(obstaclesToRender);
             RenderFogOfWar();
             Error? tokenAssetError = RenderTokens(tokens.Value, visibleTokenIds);
             RestoreOverlays();

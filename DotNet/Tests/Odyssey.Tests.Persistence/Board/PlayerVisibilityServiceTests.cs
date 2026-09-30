@@ -302,6 +302,97 @@ namespace Odyssey.Tests.Persistence.Board
             Assert.That(result.Value.Count, Is.EqualTo(1));
         }
 
+        [Test] // TC-PERSIST-142
+        public void ListExploredObstacles_NoRevealCoversAnySamplePoint_ObstacleNotReturned()
+        {
+            UserId player = NewUserId();
+            Assert.That(_campaignRepository.AddMember(_campaign, player, CampaignMembershipRole.Player, NewCommandId(), TestCorrelationId).IsSuccess, Is.True);
+            _obstacles.CreateObstacle(_campaign, _sceneId, ObstacleKind.Wall, 0, 0, 20, 0, NewCommandId(), TestCorrelationId);
+
+            var request = new ListExploredObstaclesRequest(_campaign, _sceneId, player, player, TestCorrelationId);
+            Result<IReadOnlyList<ObstacleRecord>> result = PlayerVisibilityService.ListExploredObstacles(_obstacles, _fog, _campaignRepository, request);
+
+            Assert.That(result.IsSuccess, Is.True);
+            Assert.That(result.Value, Is.Empty, "an obstacle none of whose sample points is inside any explored reveal must not be returned");
+        }
+
+        [Test] // TC-PERSIST-143
+        public void ListExploredObstacles_RevealCoversOnlyEndpoint1_ObstacleIsReturned()
+        {
+            UserId player = NewUserId();
+            Assert.That(_campaignRepository.AddMember(_campaign, player, CampaignMembershipRole.Player, NewCommandId(), TestCorrelationId).IsSuccess, Is.True);
+            ObstacleRecord obstacle = _obstacles.CreateObstacle(_campaign, _sceneId, ObstacleKind.Wall, 0, 0, 20, 0, NewCommandId(), TestCorrelationId).Value;
+            _fog.RecordReveal(_campaign, _sceneId, player, 0, 0, 1, NewCommandId(), TestCorrelationId);
+
+            var request = new ListExploredObstaclesRequest(_campaign, _sceneId, player, player, TestCorrelationId);
+            Result<IReadOnlyList<ObstacleRecord>> result = PlayerVisibilityService.ListExploredObstacles(_obstacles, _fog, _campaignRepository, request);
+
+            Assert.That(result.IsSuccess, Is.True);
+            Assert.That(result.Value, Has.One.Matches<ObstacleRecord>(o => o.ObstacleId.Equals(obstacle.ObstacleId)), "a reveal covering only the segment's first endpoint must still be enough to reveal the whole obstacle");
+        }
+
+        [Test] // TC-PERSIST-144
+        public void ListExploredObstacles_RevealCoversOnlyEndpoint2_ObstacleIsReturned()
+        {
+            UserId player = NewUserId();
+            Assert.That(_campaignRepository.AddMember(_campaign, player, CampaignMembershipRole.Player, NewCommandId(), TestCorrelationId).IsSuccess, Is.True);
+            ObstacleRecord obstacle = _obstacles.CreateObstacle(_campaign, _sceneId, ObstacleKind.Wall, 0, 0, 20, 0, NewCommandId(), TestCorrelationId).Value;
+            _fog.RecordReveal(_campaign, _sceneId, player, 20, 0, 1, NewCommandId(), TestCorrelationId);
+
+            var request = new ListExploredObstaclesRequest(_campaign, _sceneId, player, player, TestCorrelationId);
+            Result<IReadOnlyList<ObstacleRecord>> result = PlayerVisibilityService.ListExploredObstacles(_obstacles, _fog, _campaignRepository, request);
+
+            Assert.That(result.IsSuccess, Is.True);
+            Assert.That(result.Value, Has.One.Matches<ObstacleRecord>(o => o.ObstacleId.Equals(obstacle.ObstacleId)), "a reveal covering only the segment's second endpoint must still be enough to reveal the whole obstacle");
+        }
+
+        [Test] // TC-PERSIST-145
+        public void ListExploredObstacles_RevealCoversOnlyMidpoint_ObstacleIsReturned()
+        {
+            UserId player = NewUserId();
+            Assert.That(_campaignRepository.AddMember(_campaign, player, CampaignMembershipRole.Player, NewCommandId(), TestCorrelationId).IsSuccess, Is.True);
+            ObstacleRecord obstacle = _obstacles.CreateObstacle(_campaign, _sceneId, ObstacleKind.Wall, 0, 0, 20, 0, NewCommandId(), TestCorrelationId).Value;
+            _fog.RecordReveal(_campaign, _sceneId, player, 10, 0, 1, NewCommandId(), TestCorrelationId);
+
+            var request = new ListExploredObstaclesRequest(_campaign, _sceneId, player, player, TestCorrelationId);
+            Result<IReadOnlyList<ObstacleRecord>> result = PlayerVisibilityService.ListExploredObstacles(_obstacles, _fog, _campaignRepository, request);
+
+            Assert.That(result.IsSuccess, Is.True);
+            Assert.That(result.Value, Has.One.Matches<ObstacleRecord>(o => o.ObstacleId.Equals(obstacle.ObstacleId)), "a reveal covering only the segment's own midpoint must still be enough to reveal the whole obstacle");
+        }
+
+        [Test] // TC-PERSIST-146
+        public void ListExploredObstacles_MainGmTarget_ReturnsFullListRegardlessOfExploration()
+        {
+            UserId mainGm = NewUserId();
+            Assert.That(_campaignRepository.AddMember(_campaign, mainGm, CampaignMembershipRole.MainGm, NewCommandId(), TestCorrelationId).IsSuccess, Is.True);
+            _obstacles.CreateObstacle(_campaign, _sceneId, ObstacleKind.Wall, 0, 0, 20, 0, NewCommandId(), TestCorrelationId);
+            _obstacles.CreateObstacle(_campaign, _sceneId, ObstacleKind.Wall, 1000, 1000, 1020, 1000, NewCommandId(), TestCorrelationId);
+
+            var request = new ListExploredObstaclesRequest(_campaign, _sceneId, mainGm, mainGm, TestCorrelationId);
+            Result<IReadOnlyList<ObstacleRecord>> result = PlayerVisibilityService.ListExploredObstacles(_obstacles, _fog, _campaignRepository, request);
+
+            Assert.That(result.IsSuccess, Is.True);
+            Assert.That(result.Value.Count, Is.EqualTo(2), "MainGm must see every obstacle unconditionally, with zero reveals ever recorded");
+        }
+
+        [Test] // TC-PERSIST-147
+        public void ListExploredObstacles_OrdinaryPlayerAskingAboutAnotherUser_IsDenied()
+        {
+            UserId askingPlayer = NewUserId();
+            UserId otherPlayer = NewUserId();
+            Assert.That(_campaignRepository.AddMember(_campaign, askingPlayer, CampaignMembershipRole.Player, NewCommandId(), TestCorrelationId).IsSuccess, Is.True);
+            Assert.That(_campaignRepository.AddMember(_campaign, otherPlayer, CampaignMembershipRole.Player, NewCommandId(), TestCorrelationId).IsSuccess, Is.True);
+            _obstacles.CreateObstacle(_campaign, _sceneId, ObstacleKind.Wall, 0, 0, 20, 0, NewCommandId(), TestCorrelationId);
+            _fog.RecordReveal(_campaign, _sceneId, otherPlayer, 0, 0, 1, NewCommandId(), TestCorrelationId);
+
+            var request = new ListExploredObstaclesRequest(_campaign, _sceneId, askingPlayer, otherPlayer, TestCorrelationId);
+            Result<IReadOnlyList<ObstacleRecord>> result = PlayerVisibilityService.ListExploredObstacles(_obstacles, _fog, _campaignRepository, request);
+
+            Assert.That(result.IsFailure, Is.True, "an ordinary player must not read another ordinary player's obstacle-visibility state");
+            Assert.That(result.Error.Code, Is.EqualTo(ErrorCodes.PlayerVisibilityTargetUserDenied));
+        }
+
         private sealed class PoisonedCampaignRepository : ICampaignRepository
         {
             public static PoisonedCampaignRepository FailsOnLookup() => new PoisonedCampaignRepository();
