@@ -10,10 +10,14 @@ namespace Odyssey.Application.Board
 {
     /// <summary>
     /// SLICE-10 Block 5: a graduated cover *hint* over Block 2/3's own obstacle/geometry data --
-    /// product decision (2026-09-29): a suggestion the caller (UI, or a future, separate decision)
-    /// may act on, not an automatic combat modifier. `CoreAttackRulesEvaluator`/`AttackEvaluationService`/
-    /// `AttackApplyService` are not touched by this task, at all -- <c>Modifiers</c> stays
-    /// <c>Array.Empty&lt;AttackModifierEntry&gt;()</c> and <c>Hit</c> stays exactly `Range`, unchanged.
+    /// product decision (2026-09-29): a suggestion the caller (UI, or a separate decision) may act
+    /// on, computed independently of this method's own return value. This method itself is not
+    /// touched by, and does not call into, `CoreAttackRulesEvaluator`/`AttackEvaluationService`/
+    /// `AttackApplyService` -- but those are no longer untouched by cover in general: SLICE-10 Block
+    /// 5 Part C (ODY-S10-110 v3) wired the same `CoverGeometry.ComputeCoverDegree` this method also
+    /// calls directly into `CoreAttackRulesEvaluator`'s own `CoverPenaltyTable`, so a real attack's
+    /// `Modifiers`/`Hit` today can and do reflect cover -- computed there via `SqliteAttackStateReader`,
+    /// not through a call to this method.
     ///
     /// Performs no authorization at all, by exact precedent of <c>ObstacleAuthoringService.ListObstacles</c>/
     /// <c>TokenVisionService.ComputeLineOfSight</c>: reading scene geometry to compute a cover hint is

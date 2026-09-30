@@ -96,6 +96,15 @@ namespace Odyssey.Unity.Client
         private VisualElement? _obstacleInspectorElement;
         private IntegerField? _obstacleDamageAmountField;
 
+        // SLICE-10 Block 6 part 3: token facing/FOV/view-distance inspector + cover preview.
+        private BoardTokenInspectorPresenter? _tokenInspectorPresenter;
+        // The token the inspector's fields were last populated from -- SetValues is only called again when
+        // this changes, so an in-progress, not-yet-applied edit is never clobbered by an unrelated Refresh()
+        // (e.g. another participant moving elsewhere, or this board's own fog recompute). See
+        // BoardTokenInspectorPresenter.SetValues's own remarks.
+        private TokenId? _lastInspectedTokenId;
+        private const double VisionIndicatorThicknessPixels = 2.0;
+
         // Which mouse button owns the board gesture in progress (-1: none). The mouse reports one pointer id
         // for every button, so this -- not the pointer id -- is what keeps a second button from starting a
         // second gesture, and keeps its release from ending the first.
@@ -128,6 +137,9 @@ namespace Odyssey.Unity.Client
         // the pointer-down "is this already on top?" check and the hit test need no repository read.
         private readonly Dictionary<string, long> _tokenZOrdersByTokenId = new Dictionary<string, long>(StringComparer.Ordinal);
         private readonly Dictionary<string, double> _tokenScalesByTokenId = new Dictionary<string, double>(StringComparer.Ordinal);
+        // SLICE-10 Block 6 part 3: needed to gate facing editability (owner-or-MainGM) in the token
+        // inspector without a repository read -- the same in-memory-mirror convention as the two dictionaries above.
+        private readonly Dictionary<string, UserId> _tokenControllersByTokenId = new Dictionary<string, UserId>(StringComparer.Ordinal);
         // ODY-S08-101/ODY-S08-103: decoded textures for the presenter's lifetime, keyed by AssetId.
         // Extracted into AssetTextureCache in ODY-S08-103 so AssetPoolPresenter can reuse the exact same
         // read+decode+cache logic instead of a second, independent implementation.
@@ -259,6 +271,8 @@ namespace Odyssey.Unity.Client
             appRoot.Add(_boardArea);
 
             BuildObstacleInspector();
+
+            _tokenInspectorPresenter = new BoardTokenInspectorPresenter(OnApplyTokenFacingButton, OnApplyTokenVisionParametersButton, OnCheckCoverButton);
         }
 
         public Result Refresh()
@@ -319,6 +333,7 @@ namespace Odyssey.Unity.Client
             if (_markerElement != null && _markerWorldPosition.HasValue) _boardArea.Add(_markerElement);
             if (_obstacleDrawPreviewElement != null && _obstacleDrawGesture.IsActive) _boardArea.Add(_obstacleDrawPreviewElement);
             ShowObstacleInspectorIfSelected();
+            ShowTokenVisionInspectorIfSelected();
         }
 
         // SLICE-10 Block 6 part 2: permanent map memory. Recomputed from the real, authorized
@@ -411,6 +426,7 @@ namespace Odyssey.Unity.Client
             _tokenGesturesByTokenId.Clear();
             _tokenZOrdersByTokenId.Clear();
             _tokenScalesByTokenId.Clear();
+            _tokenControllersByTokenId.Clear();
             Error? firstAssetError = null;
 
             // ODY-S08-105: UI Toolkit draws siblings in tree order, so ascending ZOrder (stable for ties)
@@ -481,6 +497,7 @@ namespace Odyssey.Unity.Client
                 _tokenPositionsByTokenId[token.TokenId.ToString()] = token.Position;
                 _tokenZOrdersByTokenId[token.TokenId.ToString()] = token.ZOrder;
                 _tokenScalesByTokenId[token.TokenId.ToString()] = token.Scale;
+                _tokenControllersByTokenId[token.TokenId.ToString()] = token.ControllerUserId;
             }
 
             return firstAssetError;
@@ -1280,6 +1297,229 @@ namespace Odyssey.Unity.Client
             _obstacleInspectorElement.style.top = (float)((y1 + y2) / 2.0 + 12.0);
 
             if (_obstacleInspectorElement.parent != _boardArea) _boardArea.Add(_obstacleInspectorElement);
+        }
+
+        // ---- SLICE-10 Block 6 part 3: token facing/FOV/view-distance inspector, vision indicator, cover preview ----
+
+        /// <summary>
+        /// Shows the token vision inspector next to the currently, singly selected token (<see cref="SelectedTokenId"/>
+        /// -- never the multi-select group, task contract section 3's own invariant against reusing group
+        /// selection for attacker/target semantics) and, while shown, draws its facing/FOV indicator.
+        /// Facing is editable by the token's own controller or a MainGm; FOV/view-distance only by a MainGm
+        /// -- both presentational gates only, exactly as <see cref="ShowObstacleInspectorIfSelected"/>'s own
+        /// MainGm gate already is; the server re-checks <see cref="TokenVisionService.SetTokenFacing"/>/
+        /// <see cref="TokenVisionService.SetTokenVisionParameters"/> regardless.
+        /// </summary>
+        private void ShowTokenVisionInspectorIfSelected()
+        {
+            if (_tokenInspectorPresenter == null || _boardArea == null) return;
+
+            TokenId? selected = SelectedTokenId;
+            if (!selected.HasValue)
+            {
+                _tokenInspectorPresenter.Element.RemoveFromHierarchy();
+                _lastInspectedTokenId = null;
+                return;
+            }
+
+            string key = selected.Value.ToString();
+            if (!_tokenPositionsByTokenId.TryGetValue(key, out TokenPosition position) || !_tokenControllersByTokenId.TryGetValue(key, out UserId controller))
+            {
+                _tokenInspectorPresenter.Element.RemoveFromHierarchy();
+                _lastInspectedTokenId = null;
+                return;
+            }
+
+            Result<TokenVisionSettingsRecord> vision = _visionRepository.GetVisionSettings(_campaign, selected.Value, NewCorrelationId());
+            if (vision.IsFailure)
+            {
+                _tokenInspectorPresenter.Element.RemoveFromHierarchy();
+                _lastInspectedTokenId = null;
+                return;
+            }
+
+            // SetValues only on an actual selection change -- see BoardTokenInspectorPresenter.SetValues's
+            // own remarks on why this must not run on every Refresh().
+            if (!_lastInspectedTokenId.HasValue || !_lastInspectedTokenId.Value.Equals(selected.Value))
+            {
+                _tokenInspectorPresenter.SetValues(vision.Value.FacingDegrees, vision.Value.FovAngleDegrees, vision.Value.ViewDistance);
+                _lastInspectedTokenId = selected;
+            }
+
+            bool facingEditable = LocalActorIsMainGm || controller.Equals(LocalActorUserId);
+            _tokenInspectorPresenter.SetEditable(facingEditable, LocalActorIsMainGm);
+
+            var otherTokenIds = new List<TokenId>();
+            foreach (string otherKey in _tokenPositionsByTokenId.Keys)
+            {
+                if (otherKey == key) continue;
+                otherTokenIds.Add(TokenId.Parse(otherKey));
+            }
+
+            _tokenInspectorPresenter.SetCoverTargets(otherTokenIds);
+
+            double centerX = _camera.ToPixelsX(position.X);
+            double centerY = _camera.ToPixelsY(position.Y);
+            _tokenInspectorPresenter.PositionAt(centerX, centerY + TokenSizePixels + 4.0);
+
+            if (_tokenInspectorPresenter.Element.parent != _boardArea) _boardArea.Add(_tokenInspectorPresenter.Element);
+
+            RenderTokenVisionIndicator(centerX, centerY, vision.Value.FacingDegrees, vision.Value.FovAngleDegrees, vision.Value.ViewDistance);
+        }
+
+        /// <summary>
+        /// Minimal direction/FOV-cone indicator (task contract section 4: no final art) -- one line in the
+        /// facing direction, length proportional to <paramref name="viewDistance"/>, plus two more marking
+        /// the FOV cone's edges when <paramref name="fovAngleDegrees"/> is less than the omnidirectional
+        /// default (360 -- a cone would be meaningless at exactly 360, so only the direction line is drawn
+        /// then). Uses <see cref="PositionSegmentElement"/>, the exact rotation technique Block 6 part 1's
+        /// obstacle-line rendering already established -- no new drawing technique needed. Angles are
+        /// computed directly in pixel space (not converted from a separately-computed world endpoint)
+        /// because <see cref="BoardCamera"/> scales both axes by the same factor with no flip, so an angle
+        /// is preserved exactly between world and pixel space; this matches
+        /// <see cref="Odyssey.Domain.Geometry.LineOfSight.IsWithinFovCone"/>'s own bearing convention
+        /// (<c>Math.Atan2(dy, dx)</c>) so the drawn cone visually matches what the server actually computes.
+        /// Recomputed every Refresh() (never cached in screen space), so pan/zoom keeps it correctly placed.
+        /// </summary>
+        private void RenderTokenVisionIndicator(double centerX, double centerY, double facingDegrees, double fovAngleDegrees, double viewDistance)
+        {
+            double lengthPixels = viewDistance * _camera.Scale;
+            AddVisionIndicatorLine(centerX, centerY, facingDegrees, lengthPixels, "token-vision-facing");
+
+            if (fovAngleDegrees < 360.0)
+            {
+                AddVisionIndicatorLine(centerX, centerY, facingDegrees - fovAngleDegrees / 2.0, lengthPixels, "token-vision-fov-left");
+                AddVisionIndicatorLine(centerX, centerY, facingDegrees + fovAngleDegrees / 2.0, lengthPixels, "token-vision-fov-right");
+            }
+        }
+
+        private void AddVisionIndicatorLine(double centerX, double centerY, double angleDegrees, double lengthPixels, string name)
+        {
+            if (_boardArea == null) return;
+
+            double radians = angleDegrees * Math.PI / 180.0;
+            double endX = centerX + lengthPixels * Math.Cos(radians);
+            double endY = centerY + lengthPixels * Math.Sin(radians);
+
+            var line = new VisualElement { name = name, pickingMode = PickingMode.Ignore };
+            line.style.position = Position.Absolute;
+            line.style.backgroundColor = new StyleColor(new Color(1f, 0.85f, 0.1f, 0.75f));
+            PositionSegmentElement(line, centerX, centerY, endX, endY, VisionIndicatorThicknessPixels);
+            _boardArea.Add(line);
+        }
+
+        private void OnApplyTokenFacingButton(double facingDegrees)
+        {
+            TokenId? selected = SelectedTokenId;
+            if (!selected.HasValue) return;
+            TryApplyTokenFacing(selected.Value, facingDegrees);
+        }
+
+        private void OnApplyTokenVisionParametersButton(double fovAngleDegrees, double viewDistance)
+        {
+            TokenId? selected = SelectedTokenId;
+            if (!selected.HasValue) return;
+            TryApplyTokenVisionParameters(selected.Value, fovAngleDegrees, viewDistance);
+        }
+
+        private void OnCheckCoverButton(TokenId targetTokenId)
+        {
+            TokenId? selected = SelectedTokenId;
+            if (!selected.HasValue) return;
+            TryCheckCover(selected.Value, targetTokenId);
+        }
+
+        /// <summary>
+        /// Owner-or-MainGM (server-enforced; the caller's own presentational gate is
+        /// <see cref="ShowTokenVisionInspectorIfSelected"/>'s <c>facingEditable</c>). Reads the vision
+        /// settings' <see cref="TokenVisionSettingsRecord.Revision"/> fresh immediately before writing --
+        /// the exact <c>ODY-S10-112</c> lesson (never trust a render-time-cached revision for a
+        /// revision-gated command) applied here for the first time to token vision settings. On success,
+        /// records exploration for this token best-effort (never blocking/rolling back a successful facing
+        /// change) -- the Block 4 follow-up this task's own facts section names as now due. Public for the
+        /// same testability reason as every other command method in this class.
+        /// </summary>
+        public Result<TokenVisionSettingsRecord> TryApplyTokenFacing(TokenId tokenId, double facingDegrees)
+        {
+            Result<TokenVisionSettingsRecord> current = _visionRepository.GetVisionSettings(_campaign, tokenId, NewCorrelationId());
+            if (current.IsFailure)
+            {
+                SetStatus("Could not read vision settings: " + current.Error.SafeReasonCode);
+                Refresh();
+                return current;
+            }
+
+            var request = new SetTokenFacingRequest(_campaign, tokenId, facingDegrees, current.Value.Revision, LocalActorUserId, NewCommandId(), NewCorrelationId());
+            Result<TokenVisionSettingsRecord> result = TokenVisionService.SetTokenFacing(_visionRepository, _sceneRepository, _campaignRepository, request);
+            if (result.IsFailure)
+            {
+                SetStatus("Set facing denied: " + result.Error.SafeReasonCode);
+            }
+            else
+            {
+                SetStatus("Token facing set to " + facingDegrees.ToString("0.0") + " degrees.");
+                RecordExplorationBestEffort(tokenId);
+            }
+
+            Refresh();
+            return result;
+        }
+
+        /// <summary>
+        /// MainGM-only (server-enforced). Reads the vision settings' <see cref="TokenVisionSettingsRecord.Revision"/>
+        /// fresh immediately before writing, the same <c>ODY-S10-112</c> lesson as <see cref="TryApplyTokenFacing"/>.
+        /// A single call sets both FOV and view distance together (matching <see cref="TokenVisionService.SetTokenVisionParameters"/>'s
+        /// own combined signature) -- when both facing and FOV/range are changed in the panel at once, this
+        /// method and <see cref="TryApplyTokenFacing"/> are still two separate calls (task contract section
+        /// 2.1), never merged into one, since they map to two separate server commands with different
+        /// authorization.
+        /// </summary>
+        public Result<TokenVisionSettingsRecord> TryApplyTokenVisionParameters(TokenId tokenId, double fovAngleDegrees, double viewDistance)
+        {
+            Result<TokenVisionSettingsRecord> current = _visionRepository.GetVisionSettings(_campaign, tokenId, NewCorrelationId());
+            if (current.IsFailure)
+            {
+                SetStatus("Could not read vision settings: " + current.Error.SafeReasonCode);
+                Refresh();
+                return current;
+            }
+
+            var request = new SetTokenVisionParametersRequest(_campaign, tokenId, fovAngleDegrees, viewDistance, current.Value.Revision, LocalActorUserId, NewCommandId(), NewCorrelationId());
+            Result<TokenVisionSettingsRecord> result = TokenVisionService.SetTokenVisionParameters(_visionRepository, _campaignRepository, request);
+            if (result.IsFailure)
+            {
+                SetStatus("Set vision parameters denied: " + result.Error.SafeReasonCode);
+            }
+            else
+            {
+                SetStatus("Token FOV/view distance updated.");
+            }
+
+            Refresh();
+            return result;
+        }
+
+        /// <summary>
+        /// <see cref="CoverSuggestionService.SuggestCover"/> performs no authorization at all (used as-is,
+        /// task contract section 2.3) -- <paramref name="attackerTokenId"/> is always the inspected token,
+        /// <paramref name="targetTokenId"/> always the dropdown's own selection; nothing is persisted, so no
+        /// <see cref="Refresh"/> is needed, only the inspector's own result label updates. Public for the
+        /// same testability reason as every other command method in this class.
+        /// </summary>
+        public Result<CoverDegree> TryCheckCover(TokenId attackerTokenId, TokenId targetTokenId)
+        {
+            var request = new SuggestCoverRequest(_campaign, attackerTokenId, targetTokenId, NewCorrelationId());
+            Result<CoverDegree> result = CoverSuggestionService.SuggestCover(_sceneRepository, _obstacleRepository, request);
+            if (result.IsFailure)
+            {
+                _tokenInspectorPresenter?.SetCoverResult("Cover check failed: " + result.Error.SafeReasonCode);
+            }
+            else
+            {
+                _tokenInspectorPresenter?.SetCoverResult("Cover: " + result.Value);
+            }
+
+            return result;
         }
 
         // ---- SLICE-10 Block 6 part 1: drawing a wall/door/window ---------------------------------------
