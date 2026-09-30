@@ -109,6 +109,7 @@ namespace Odyssey.Unity.Client
         public const string ModalActions = "ody-modal__actions";
 
         public const string GameRoot = "ody-game-root";
+        public const string GameScreen = "ody-game-screen";
         public const string BoardLayer = "ody-board-layer";
         public const string OverlayLayer = "ody-overlay-layer";
         public const string Topbar = "ody-topbar";

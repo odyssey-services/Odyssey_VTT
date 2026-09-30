@@ -198,6 +198,15 @@ namespace Odyssey.Unity.Client
         /// <summary>Whether the current local actor holds the MainGM baseline role, as the role selector reports it. Settable -- see class remarks. Since ODY-S10-101 this is presentation state only: token-move authorization no longer reads it (it uses the stored campaign membership).</summary>
         public bool LocalActorIsMainGm { get; set; }
 
+        /// <summary>
+        /// ODY-S11-201 (Owlbear layout): when set before <see cref="InitializeInto"/>, the board area is not given its
+        /// fixed 440x440 inline size -- it fills its parent (the full-screen board layer; the design system's
+        /// <c>.ody-board-layer #board-area</c> rule) and the fog overlay follows the area's real laid-out size. Only the
+        /// embedding changes: camera, gestures, hit tests, token/obstacle/fog rendering and every command are the
+        /// same code paths. Default false keeps the pre-existing fixed-size board byte-for-byte (all existing tests).
+        /// </summary>
+        public bool FullBleed { get; set; }
+
         public Result Initialize()
         {
             return InitializeInto(null);
@@ -251,10 +260,24 @@ namespace Odyssey.Unity.Client
             appRoot.Add(_statusLabel);
 
             _boardArea = new VisualElement { name = "board-area" };
-            _boardArea.style.position = Position.Relative;
-            _boardArea.style.width = (float)BoardWidthPixels;
-            _boardArea.style.height = (float)BoardHeightPixels;
-            _boardArea.style.marginTop = 8;
+            if (FullBleed)
+            {
+                _boardArea.style.position = Position.Absolute;
+                _boardArea.style.left = 0;
+                _boardArea.style.top = 0;
+                _boardArea.style.right = 0;
+                _boardArea.style.bottom = 0;
+                _boardArea.style.overflow = Overflow.Hidden;
+                _boardArea.RegisterCallback<GeometryChangedEvent>(OnBoardAreaGeometryChanged);
+            }
+            else
+            {
+                _boardArea.style.position = Position.Relative;
+                _boardArea.style.width = (float)BoardWidthPixels;
+                _boardArea.style.height = (float)BoardHeightPixels;
+                _boardArea.style.marginTop = 8;
+            }
+
             _boardArea.style.backgroundColor = new StyleColor(new Color(0.12f, 0.12f, 0.14f));
             // Focusable so Escape (OnBoardKeyDown) can reach it and cancel an in-progress draw gesture --
             // requires the board area to have received focus first (e.g. from a prior click on it), a known,
@@ -367,8 +390,31 @@ namespace Odyssey.Unity.Client
 
             var request = new ListExploredRevealsRequest(_campaign, _sceneId, LocalActorUserId, LocalActorUserId, NewCorrelationId());
             Result<IReadOnlyList<FogRevealRecord>> reveals = PlayerVisibilityService.ListExploredReveals(_fogRepository, _campaignRepository, request);
-            _fogPresenter.Show(reveals.IsSuccess ? reveals.Value : Array.Empty<FogRevealRecord>(), _camera, BoardWidthPixels, BoardHeightPixels);
+            _fogPresenter.Show(reveals.IsSuccess ? reveals.Value : Array.Empty<FogRevealRecord>(), _camera, CurrentBoardWidthPixels(), CurrentBoardHeightPixels());
             _boardArea.Add(_fogPresenter.Element);
+        }
+
+        // ODY-S11-201: the fixed constants unless FullBleed and the area already has a real layout (EditMode tests
+        // without a panel never lay out, so they keep the constants).
+        private double CurrentBoardWidthPixels()
+        {
+            if (!FullBleed || _boardArea == null) return BoardWidthPixels;
+            float width = _boardArea.layout.width;
+            return float.IsNaN(width) || width <= 0f ? BoardWidthPixels : width;
+        }
+
+        private double CurrentBoardHeightPixels()
+        {
+            if (!FullBleed || _boardArea == null) return BoardHeightPixels;
+            float height = _boardArea.layout.height;
+            return float.IsNaN(height) || height <= 0f ? BoardHeightPixels : height;
+        }
+
+        // ODY-S11-201: a window resize re-sizes the already-computed fog darkness; no repository read.
+        private void OnBoardAreaGeometryChanged(GeometryChangedEvent evt)
+        {
+            if (!_fogPresenter.IsVisible) return;
+            _fogPresenter.Show(_fogPresenter.CurrentReveals, _camera, CurrentBoardWidthPixels(), CurrentBoardHeightPixels());
         }
 
         private Error? ApplySceneBackground()

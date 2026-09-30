@@ -878,6 +878,14 @@
     overflow: hidden;
 }
 
+.ody-game-screen {
+    position: absolute;
+    left: 0;
+    top: 0;
+    right: 0;
+    bottom: 0;
+}
+
 /* Full-bleed map, bottom of the z-order */
 .ody-board-layer {
     position: absolute;
@@ -886,6 +894,8 @@
     right: 0;
     bottom: 0;
     background-color: var(--ody-color-board);
+    /* The board's own in-map widgets (token/obstacle inspectors) are dark: keep their light text. */
+    color: rgb(230, 235, 241);
     overflow: hidden;
 }
 
@@ -1004,7 +1014,7 @@
     bottom: var(--ody-space-3);
     width: 380px;
     max-width: 45%;
-    max-height: 70%;
+    max-height: 55%;
     background-color: var(--ody-color-overlay-surface);
     border-radius: var(--ody-radius-lg);
     border-width: 1px;
@@ -1060,4 +1070,113 @@
 
 .ody-floating-toolbar > * {
     margin: 2px;
+}
+
+/* ------------------------------------------------------------------------------------------------
+ * 13. Existing board elements restyled for the overlay layout (phase 1). The board presenter's own
+ *     structure is untouched; these selectors only move its chrome (title/toolbar/status) off the map.
+ * --------------------------------------------------------------------------------------------- */
+
+.ody-board-layer #board-title {
+    display: none;
+}
+
+.ody-board-layer #board-area {
+    position: absolute;
+    left: 0;
+    top: 0;
+    right: 0;
+    bottom: 0;
+    width: auto;
+    height: auto;
+    margin-top: 0;
+}
+
+.ody-board-layer #board-toolbar {
+    position: absolute;
+    left: var(--ody-space-3);
+    bottom: 56px;
+    margin-top: 0;
+    padding: var(--ody-space-1);
+    background-color: var(--ody-color-overlay-surface);
+    border-radius: var(--ody-radius-lg);
+    border-width: 1px;
+    border-color: var(--ody-color-border);
+}
+
+.ody-board-layer #board-toolbar > Button {
+    min-height: var(--ody-control-height-small);
+    background-color: var(--ody-color-surface);
+    color: var(--ody-color-text);
+    border-radius: var(--ody-radius-sm);
+    font-size: var(--ody-font-small);
+}
+
+.ody-board-layer #board-status {
+    position: absolute;
+    left: var(--ody-space-3);
+    bottom: var(--ody-space-3);
+    max-width: 50%;
+    padding: var(--ody-space-1) var(--ody-space-3);
+    background-color: var(--ody-color-overlay-surface);
+    border-radius: var(--ody-radius-pill);
+    color: var(--ody-color-text);
+    font-size: var(--ody-font-small);
+    white-space: normal;
+}
+
+/* ------------------------------------------------------------------------------------------------
+ * 14. Pre-existing panels hosted in overlays (roll panel, game log, asset pool, role selector).
+ *     Their presenters build plain Unity controls; `.ody-legacy-panel` (added by the shell) gives those
+ *     controls the design-system look without touching the presenters.
+ * --------------------------------------------------------------------------------------------- */
+
+.ody-legacy-panel {
+    color: var(--ody-color-text);
+    margin-bottom: var(--ody-space-3);
+}
+
+.ody-legacy-panel .unity-button {
+    min-height: var(--ody-control-height-small);
+    background-color: var(--ody-color-surface);
+    color: var(--ody-color-text);
+    border-width: 1px;
+    border-color: var(--ody-color-border-strong);
+    border-radius: var(--ody-radius-sm);
+    font-size: var(--ody-font-small);
+    -unity-font-style: bold;
+}
+
+.ody-legacy-panel .unity-button:hover {
+    background-color: var(--ody-color-surface-sunken);
+}
+
+.ody-legacy-panel .unity-base-text-field__input,
+.ody-legacy-panel .unity-base-popup-field__input {
+    background-color: var(--ody-color-surface);
+    border-color: var(--ody-color-border-strong);
+    border-radius: var(--ody-radius-sm);
+    color: var(--ody-color-text);
+}
+
+.ody-legacy-panel .unity-base-field__label {
+    color: var(--ody-color-text-muted);
+    font-size: var(--ody-font-small);
+    min-width: 80px;
+}
+
+.ody-legacy-panel Label {
+    white-space: normal;
+}
+
+.ody-topbar .role-selector {
+    margin-bottom: 0;
+}
+
+.ody-topbar .role-selector .unity-base-popup-field__input {
+    background-color: var(--ody-color-surface);
+    border-color: var(--ody-color-border-strong);
+    border-radius: var(--ody-radius-sm);
+    color: var(--ody-color-text);
+    min-width: 110px;
 }

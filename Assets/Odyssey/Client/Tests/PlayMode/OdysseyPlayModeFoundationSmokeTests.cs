@@ -223,7 +223,9 @@ namespace Odyssey.Tests.Unity.PlayMode
 
                 VisualElement boardArea = document.rootVisualElement.Q<VisualElement>("board-area");
                 Assert.That(boardArea, Is.Not.Null);
-                yield return DragWithMouse(input, mouse, boardArea, new Vector2(40f, 40f), new Vector2(140f, 40f));
+                // ODY-S11-201: the board is full-screen now and its top-left corner sits under the overlay top bar,
+                // so the drag starts lower on the open map (the gesture being proven is unchanged).
+                yield return DragWithMouse(input, mouse, boardArea, new Vector2(140f, 140f), new Vector2(240f, 140f));
 
                 yield return WaitUntil(() => FirstObstacleElement(document) != null);
                 Assert.That(Text(document, "board-status"), Does.StartWith("Created Wall obstacle."));
