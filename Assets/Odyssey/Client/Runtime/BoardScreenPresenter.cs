@@ -1533,7 +1533,9 @@ namespace Odyssey.Unity.Client
             var otherTokenIds = new List<TokenId>();
             foreach (string otherKey in _tokenPositionsByTokenId.Keys)
             {
-                if (otherKey == key) continue;
+                // ODY-S11-218: only tokens the local actor can see. A token hidden by ComputeVisibleTokens must not
+                // appear in this first-level list (its id, the count, or a cover check against it would leak it).
+                if (otherKey == key || !_visibleTokenKeys.Contains(otherKey)) continue;
                 otherTokenIds.Add(TokenId.Parse(otherKey));
             }
 
@@ -2380,6 +2382,9 @@ namespace Odyssey.Unity.Client
 
             return BoardFocusOutcome.Started;
         }
+
+        /// <summary>ODY-S11-218: the token inspector's cover-target choices (visible tokens only). Exposed for tests.</summary>
+        public IReadOnlyList<TokenId> InspectorCoverTargets => _tokenInspectorPresenter?.CoverTargetTokenIds ?? Array.Empty<TokenId>();
 
         /// <summary>ODY-S11-214: whether the camera is currently easing towards a token. Exposed for tests.</summary>
         public bool IsCameraFocusing => _cameraFocus.IsActive;
