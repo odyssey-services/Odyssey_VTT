@@ -1,9 +1,13 @@
 /*
- * Odyssey VTT -- project-wide design system (ODY-S11-200, phase 0).
+ * Odyssey VTT -- project-wide design system (ODY-S11-200, phase 0; repalette to dark in ODY-S11-230).
  *
- * Reference: D&D Beyond (light, clean, readable). One explicit exception: the board screen follows
- * Owlbear Rodeo -- the map is full-bleed and every functional panel floats over it (see the
- * "Board / overlay layout" section at the end of this file).
+ * Reference: a dark panel/card theme with light text (product owner's own earlier Odyssey_System
+ * prototype), reversing phase 0's original light "D&D Beyond" decision -- see ODY-S11-230's task doc for
+ * why. One carry-over exception, unchanged by the repalette: the board screen follows Owlbear Rodeo --
+ * the map is full-bleed and every functional panel floats over it (see the "Board / overlay layout"
+ * section at the end of this file); the map's own canvas colors (tokens, obstacles, fog, HP bars, the
+ * board's own toolbar) are set directly in BoardScreenPresenter/BoardToolbarPresenter and were already
+ * dark before this repalette -- out of scope here.
  *
  * Wiring: this file is referenced by an explicit <Style src="OdysseyDesignSystem.uss" /> in AppShell.uxml
  * (static asset reference resolved by the UXML importer). Never Resources.Load / service lookup
@@ -19,50 +23,63 @@
  * --------------------------------------------------------------------------------------------- */
 
 :root {
-    /* Brand / accent */
+    /* Brand / accent -- unchanged by the dark repalette: already a saturated fill paired with white
+       text (buttons, the accent badge), which reads the same regardless of the surrounding theme. */
     --ody-color-accent: #C53131;
     --ody-color-accent-hover: #A82828;
     --ody-color-accent-pressed: #8E2121;
-    --ody-color-accent-soft: #FBE9E9;
+    --ody-color-accent-soft: rgba(197, 49, 49, 0.18);
 
-    /* Neutrals */
-    --ody-color-bg: #F4F5F7;
-    --ody-color-surface: #FFFFFF;
-    --ody-color-surface-muted: #F9FAFB;
-    --ody-color-surface-sunken: #EDEFF2;
-    --ody-color-border: #D7DBE0;
-    --ody-color-border-strong: #B8BFC7;
-    --ody-color-text: #1F2933;
-    --ody-color-text-muted: #5B6875;
-    --ody-color-text-subtle: #8A96A3;
+    /* Neutrals (ODY-S11-230: dark panel/card background, light text) */
+    --ody-color-bg: #14161A;
+    --ody-color-surface: #1C2028;
+    --ody-color-surface-muted: #20252E;
+    --ody-color-surface-sunken: #11141A;
+    --ody-color-border: #343B46;
+    --ody-color-border-strong: #4A5362;
+    --ody-color-text: #E7ECF2;
+    --ody-color-text-muted: #9BA7B4;
+    --ody-color-text-subtle: #717C89;
+    /* Text drawn on a saturated color fill (accent/danger/success buttons and badges), not on a plain
+       panel -- those fills stay mid-brightness in both themes, so white-on-fill is unchanged. */
     --ody-color-text-inverse: #FFFFFF;
-    --ody-color-header: #1F2327;
+    /* A step lighter than --ody-color-surface, so the tooltip/marching-ants "raised" panel still reads
+       as raised against dark surfaces (it no longer relies on being literally near-black on a white page). */
+    --ody-color-header: #30363F;
 
-    /* Semantic status */
-    --ody-color-success: #2E7D4F;
-    --ody-color-success-soft: #E5F4EA;
-    --ody-color-warning: #B7791F;
-    --ody-color-warning-soft: #FDF3E1;
-    --ody-color-danger: #9B2C2C;
-    --ody-color-danger-soft: #FBE9E9;
-    --ody-color-info: #2B6CB0;
-    --ody-color-info-soft: #E6F0FA;
+    /* Semantic status -- brightened from the phase-0 values, which were tuned for contrast against a
+       WHITE surface (and used directly as text/icon color, not just as a fill) and are too dark to read
+       on the new dark surfaces. */
+    --ody-color-success: #57B88B;
+    --ody-color-success-soft: rgba(87, 184, 139, 0.18);
+    --ody-color-warning: #D9A441;
+    --ody-color-warning-soft: rgba(217, 164, 65, 0.18);
+    --ody-color-danger: #E05A52;
+    --ody-color-danger-soft: rgba(224, 90, 82, 0.18);
+    --ody-color-info: #5B9BE6;
+    --ody-color-info-soft: rgba(91, 155, 230, 0.18);
 
-    /* Keyboard focus ring (ODY-S11-212): the Phase 0 info blue, distinct from the accent of the active state */
-    --ody-color-focus: #2B6CB0;
-    --ody-color-neutral-soft: #EDEFF2;
+    /* Keyboard focus ring (ODY-S11-212): brightened together with --ody-color-info above, for the same
+       reason -- a visible ring against dark panels, not the phase-0 contrast-on-white value. */
+    --ody-color-focus: #5B9BE6;
+    --ody-color-neutral-soft: rgba(255, 255, 255, 0.06);
 
-    /* Overlays (board screen) */
-    --ody-color-overlay-surface: rgba(255, 255, 255, 0.96);
-    --ody-color-overlay-scrim: rgba(17, 20, 24, 0.45);
-    --ody-color-shadow: rgba(17, 20, 24, 0.18);
+    /* Overlays (board screen chrome -- topbar, drawers, dock, floating toolbar, board-status "pill").
+       ODY-S11-230: this was the single largest hole in the phase-0 light-theme-only palette -- an
+       opaque near-white regardless of --ody-color-surface, so every one of those floating panels would
+       have stayed a light island after the repalette if this token alone were missed. */
+    --ody-color-overlay-surface: rgba(24, 28, 34, 0.96);
+    --ody-color-overlay-scrim: rgba(8, 9, 11, 0.55);
+    --ody-color-shadow: rgba(0, 0, 0, 0.35);
     --ody-color-board: #2A2E33;
 
-    /* Resource bars */
-    --ody-color-bar-track: #E3E6EA;
+    /* Resource bars -- track lightened from a light-theme gray to a dark one; the three fill colors are
+       aliased to the brightened semantic colors above instead of keeping their old too-dark originals,
+       so a fill is still visibly distinct from the new dark track. */
+    --ody-color-bar-track: #262B33;
     --ody-color-bar-fill: #C53131;
-    --ody-color-bar-fill-mid: #D69E2E;
-    --ody-color-bar-fill-high: #2E7D4F;
+    --ody-color-bar-fill-mid: #D9A441;
+    --ody-color-bar-fill-high: #57B88B;
 
     /* Radius */
     --ody-radius-sm: 4px;
@@ -853,6 +870,36 @@
     height: 12px;
 }
 
+/* ODY-S11-230: moved here (was declared inside section 15, "Popover", further down this file) from
+ * directly above `.ody-select`. USS resolves an equal-specificity tie (plain class vs. plain class) by
+ * source order, last writer wins -- with this base here, BEFORE every consumer that adds its own
+ * `PaperClasses` on top of it (`.ody-modal` below, `.ody-drawer` in section 12), each consumer's own
+ * background/border always wins over this generic reset, instead of losing whenever the consumer's own
+ * class happened to be declared earlier in the file than this one was. Found live while verifying the
+ * ODY-S11-230 dark-palette DoD: the drawer and modal bodies resolved to a fully transparent background
+ * (not merely the wrong color) and let the board show through, in both the old light theme and the new
+ * dark one -- a pre-existing cascade-order bug, not something the repalette itself introduced, but one
+ * that defeats this task's own "--ody-color-overlay-surface must actually paint the drawer" requirement
+ * if left as-is. `.ody-tooltip` (section 17) was never affected: it happens to be declared further down
+ * the file than this block, in both the old and new position.
+ */
+.ody-popover__paper {
+    background-color: var(--ody-color-surface);
+    border-radius: var(--ody-radius-md);
+    border-width: 1px;
+    border-color: var(--ody-color-border-strong);
+    border-bottom-color: var(--ody-color-shadow);
+    padding: var(--ody-space-1);
+}
+
+/* hidePaper: no surface of its own (the content or the extra classes style it) */
+.ody-popover__paper--hidden {
+    background-color: rgba(0, 0, 0, 0);
+    border-width: 0;
+    border-radius: 0;
+    padding: 0;
+}
+
 /* ------------------------------------------------------------------------------------------------
  * 11. Modal dialogs / confirmations
  * --------------------------------------------------------------------------------------------- */
@@ -931,8 +978,10 @@
     right: 0;
     bottom: 0;
     background-color: var(--ody-color-board);
-    /* The board's own in-map widgets (token/obstacle inspectors) are dark: keep their light text. */
-    color: rgb(230, 235, 241);
+    /* The board's own in-map widgets (token/obstacle inspectors) are dark: keep their light text.
+       ODY-S11-230: now the same token as the rest of the (now also dark) design system's body text,
+       instead of a separate hardcoded value that bypassed the token system. */
+    color: var(--ody-color-text);
     overflow: hidden;
 }
 
@@ -1224,24 +1273,10 @@
 /* ------------------------------------------------------------------------------------------------
  * 15. Popover (ODY-S11-210) -- the one primitive behind drawers, confirmations and dropdown lists.
  *     Placement (left/top, size caps) is inline from OdyPopover; these classes only style it.
+ *     `.ody-popover__paper` / `.ody-popover__paper--hidden` themselves now live just above section 11
+ *     (ODY-S11-230) so every consumer below keeps winning the background/border cascade tie -- see the
+ *     comment there.
  * --------------------------------------------------------------------------------------------- */
-
-.ody-popover__paper {
-    background-color: var(--ody-color-surface);
-    border-radius: var(--ody-radius-md);
-    border-width: 1px;
-    border-color: var(--ody-color-border-strong);
-    border-bottom-color: var(--ody-color-shadow);
-    padding: var(--ody-space-1);
-}
-
-/* hidePaper: no surface of its own (the content or the extra classes style it) */
-.ody-popover__paper--hidden {
-    background-color: rgba(0, 0, 0, 0);
-    border-width: 0;
-    border-radius: 0;
-    padding: 0;
-}
 
 /* Dropdown selector (OdySelect) */
 .ody-select {
