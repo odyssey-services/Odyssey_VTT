@@ -684,6 +684,9 @@ namespace Odyssey.Unity.Client
     /// root gets <see cref="OdyClasses.FocusVisible"/> while the user navigates with the keyboard (Tab / arrows) and
     /// loses it on the next pointer press; the stylesheet draws the ring only under that class. Owned by the screen
     /// presenter that creates it; <see cref="Dispose"/> removes its callbacks.
+    /// ODY-S11-215: keyboard navigation is detected only through <see cref="NavigationMoveEvent"/> -- arrows arrive as
+    /// one from the <c>UI/Navigate</c> action, Tab / Shift+Tab from <c>UiTabNavigation</c>. The former raw
+    /// <c>KeyDownEvent</c> Tab check is removed: the input module never delivers an unbound Tab key as a KeyDownEvent.
     /// </summary>
     public sealed class OdyFocusVisible : IDisposable
     {
@@ -694,7 +697,6 @@ namespace Odyssey.Unity.Client
         {
             _root = root ?? throw new ArgumentNullException(nameof(root));
             _root.RegisterCallback<NavigationMoveEvent>(OnNavigationMove, TrickleDown.TrickleDown);
-            _root.RegisterCallback<KeyDownEvent>(OnKeyDown, TrickleDown.TrickleDown);
             _root.RegisterCallback<PointerDownEvent>(OnPointerDown, TrickleDown.TrickleDown);
         }
 
@@ -708,18 +710,12 @@ namespace Odyssey.Unity.Client
         {
             if (_disposed) return;
             _root.UnregisterCallback<NavigationMoveEvent>(OnNavigationMove, TrickleDown.TrickleDown);
-            _root.UnregisterCallback<KeyDownEvent>(OnKeyDown, TrickleDown.TrickleDown);
             _root.UnregisterCallback<PointerDownEvent>(OnPointerDown, TrickleDown.TrickleDown);
             NotePointer();
             _disposed = true;
         }
 
         private void OnNavigationMove(NavigationMoveEvent evt) => NoteKeyboardNavigation();
-
-        private void OnKeyDown(KeyDownEvent evt)
-        {
-            if (evt.keyCode == UnityEngine.KeyCode.Tab) NoteKeyboardNavigation();
-        }
 
         private void OnPointerDown(PointerDownEvent evt) => NotePointer();
     }

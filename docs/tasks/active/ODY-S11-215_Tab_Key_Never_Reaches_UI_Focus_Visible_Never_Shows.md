@@ -1,10 +1,10 @@
 # ODY-S11-215 — Tab key never reaches the UI; the keyboard focus ring never shows from Tab
 
-**Status:** Draft
+**Status:** In Review
 **Roadmap stage / slice:** SLICE-11 (polish P0, found during independent verification of `ODY-S11-212`)
-**Owner:** Unassigned
+**Owner:** Claude Code
 **Requested by:** Product owner (found during real-Unity verification of P0 CoreFeel on `claude/pensive-gates-n18srp`)
-**Branch:** Not created
+**Branch:** `claude/pensive-gates-n18srp`
 **Pull request:** Not opened
 **ExecPlan:** Not required
 **Created:** 2026-10-01
@@ -47,9 +47,9 @@ focus ring), as `ODY-S11-212`'s own acceptance criteria require ("Кольцо �
 - Existing test IDs: `Odyssey.Tests.Unity.EditMode.OdyTabConventionTests.FocusRing_ShowsWhileNavigatingByKeyboard_AndHidesOnThePointer`
   -- this test calls `OdyFocusVisible.NoteKeyboardNavigation()` directly, bypassing the entire input pipeline,
   so it could not and did not catch this gap.
-- New test IDs to introduce: a PlayMode test driving a real `Keyboard` device through `InputTestFixture`,
-  pressing the actual key(s) the fix binds, and asserting the ring appears (not calling
-  `OdyFocusVisible`'s methods directly).
+- New test IDs to introduce: `TC-FOCUSRING-TAB-001`
+  (`OdysseyPlayModeFoundationSmokeTests.RealTabKey_MovesFocusForwardAndBack_ShowsTheFocusRing_PointerHidesIt_ArrowsStillNavigate`).
+  It uses a real `Keyboard` device through `InputTestFixture` and never calls `OdyFocusVisible` directly.
 
 ### Task-safe private context
 
@@ -161,7 +161,7 @@ test at the `OdyFocusVisible` level; add the equivalent through a real Tab key p
 
 | Test ID | Layer / runner | Behavior or contract proven | Required result |
 |---|---|---|---|
-| (new, suggested `TC-FOCUSRING-TAB-001`) | Unity PlayMode | a real Tab keypress through the actual input module shows the focus ring | Pass |
+| `TC-FOCUSRING-TAB-001` | Unity PlayMode | real Tab / Shift+Tab presses move focus forward and back and show the ring; a real mouse press hides it; arrows (`UI/Navigate`) still show it | Pass (owner run pending) |
 
 ### Required commands
 
@@ -196,7 +196,10 @@ Not applicable.
 - Planning mode: Brief plan
 - Reason for selected mode: Narrow, well-diagnosed input-configuration fix with a clear repro and a clear
   control case proving the rest of the mechanism already works.
-- Decision needed from the owner before implementation: bind Tab directly into the existing `Navigate` action
+- **Decided (2026-10-01, see §18): neither option as written.** Binding Tab into `Navigate` conflicts with how the
+  module processes `Navigate`. A dedicated binding in the asset would need a string-based `FindAction` lookup. Tab is
+  instead a code-created action owned by the composition root. Original question, kept for the record: bind Tab
+  directly into the existing `Navigate` action
   (simplest; Tab and arrows become interchangeable for focus movement, which most desktop users expect
   anyway), or add a separate dedicated action/binding so Tab can be distinguished from directional navigation
   if some future UI wants to treat them differently. Record whichever is chosen here before implementing.
@@ -222,13 +225,26 @@ Not applicable.
 
 ## 17. Completion evidence
 
-Not started.
+- Changed: `UiTabNavigation.cs` (new), `AppShellEntryPoint.cs`, `OdysseyUiKit.cs` (`OdyFocusVisible`),
+  `OdysseyPlayModeFoundationSmokeTests.cs` (new test), `Tests/Metadata/test-catalog.json`, this file,
+  `ODY-S11-212` (note).
+- `git diff origin/main -- Packages DotNet`: empty.
+- **Run in the container:** the 72 SLICE-11 EditMode tests in the scratch build (Unity stand-ins, outside the
+  repository) passed after removing the raw-key listener.
+- **Not run (no Unity or PowerShell in the container):** `test-unity.ps1` (including the new PlayMode test),
+  `test-fast.ps1`, `verify-format.ps1`, `verify-repository.ps1`, `verify-test-structure.ps1`. `UiTabNavigation`
+  depends on the Input System package and was compiled only by the owner's Unity.
+- **Requires the owner's real-Unity confirmation:**
+  1. Tab moves focus forward through the top-bar toggles and on into the character sheet tabs and catalog form
+     fields; Shift+Tab moves it back.
+  2. The blue ring shows during Tab navigation and hides after a mouse click.
+  3. Arrows still navigate.
 
 ## 18. Blockers, decisions, and change control
 
 ### Blockers
 
-- Needs an owner decision on the binding approach (see §14) before implementation.
+- None. The binding question in §14 was resolved by the technical finding below.
 
 ### Decisions made during execution
 
@@ -236,6 +252,44 @@ Not started.
   (`ODY-S11-210..214`); written up as a separate task per that verification's own instruction not to fix
   defects silently inside a verification pass.
 
+- 2026-10-01: **Recommended fix (Tab as an extra `Navigate` binding) rejected after reading the real package
+  source.** Source: Input System `1.19.0` at the exact pinned version (`com.unity.inputsystem`, GitHub tag
+  `1.19.0`).
+  - `InputSystemUIInputModule.ProcessNavigation` reads `Navigate` as a Vector2 and maps it only to
+    `MoveDirection` Left/Right/Up/Down. There is no Next/Previous.
+  - Tab bound into `Navigate`, for example as a composite part, would therefore move focus *spatially*, like an
+    arrow key, instead of in tab order.
+  - Shift+Tab could not mean "previous" at all: a Shift modifier composite would only pick another arrow direction.
+- **What Unity itself does.** Unity's own InputForUI path (`InputSystemProvider`, used when no EventSystem drives UI
+  Toolkit) handles Tab with a code-created `<Keyboard>/tab` button action outside the actions asset
+  (`RegisterFixedActions`). Shift decides between `NavigationEvent.Direction.Next` and `Previous`. Our app uses an
+  EventSystem + `InputSystemUIInputModule` (`AppShellEntryPoint.EnsureRuntimeUiInput`), so that provider is not in
+  play, and Tab is lost.
+- **Chosen fix: the same technique, on our side.** `UiTabNavigation` (new, `Assets/Odyssey/Client/Runtime/UiTabNavigation.cs`):
+  - It owns a code-created `<Keyboard>/tab` button action.
+  - On press it sends `NavigationMoveEvent` Next (or Previous with Shift held) to the focused element (to the
+    document root when nothing is focused). UI Toolkit's focus ring turns that into a tab-order focus change.
+  - It is constructed and disposed by `AppShellEntryPoint`, the composition root, through explicit ownership. There
+    is no `FindAction`/string lookup and no TC-ARCH-001 pattern.
+- **Focus ring.** `OdyFocusVisible` needed no logic change: it already reacts to `NavigationMoveEvent`, which arrows
+  and Tab now both produce. Its raw `KeyDownEvent` Tab listener was dead code against this input configuration and is
+  removed, with a comment saying why.
+- **Unchanged.** `Odyssey.inputactions` is **not changed**. Arrow, WASD and gamepad `Navigate` behave exactly as
+  before.
+- **Known limits (documented, not hidden):**
+  - **One move per Tab press.** Holding Tab does not auto-repeat; the arrows keep the module's own repeat.
+  - **First press with nothing focused.** That press only focuses the first element. Its event targets the document
+    root, outside the screen that `OdyFocusVisible` watches, so the ring appears from the second press. In normal use
+    something is focused after any click.
+  - **Tab binding is fixed in code.** It is not user-rebindable, like Unity's own provider.
+  - **Double handling.** If a future Unity or Input System version starts forwarding Tab to UI Toolkit by itself
+    while an EventSystem is present, Tab would move focus twice. `TC-FOCUSRING-TAB-001` would catch that, because
+    Shift+Tab must return to the start element.
+- **Observed, out of scope.** `Navigate` is also bound to WASD, which may interfere with typing in text fields. This
+  is pre-existing and not changed here.
+
 ### Approved task changes
 
-- None.
+- Paths beyond §5's allowed list, needed by the decision above: `Assets/Odyssey/Client/Runtime/UiTabNavigation.cs`
+  (new) and `Assets/Odyssey/Client/Runtime/AppShellEntryPoint.cs` (ownership of the new object).
+  `Assets/Odyssey/Client/Input/Odyssey.inputactions` stays untouched.

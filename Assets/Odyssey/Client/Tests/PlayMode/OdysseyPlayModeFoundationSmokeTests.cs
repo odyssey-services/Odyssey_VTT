@@ -6,6 +6,7 @@ using Odyssey.Application.Diagnostics;
 using Odyssey.Unity.Client;
 using UnityEngine;
 using UnityEngine.InputSystem;
+using UnityEngine.InputSystem.Controls;
 using UnityEngine.SceneManagement;
 using UnityEngine.TestTools;
 using UnityEngine.UIElements;
@@ -293,6 +294,84 @@ namespace Odyssey.Tests.Unity.PlayMode
             }
         }
 
+        [UnityTest] // TC-FOCUSRING-TAB-001 (ODY-S11-215)
+        public IEnumerator RealTabKey_MovesFocusForwardAndBack_ShowsTheFocusRing_PointerHidesIt_ArrowsStillNavigate()
+        {
+            const string bootstrapPath = "Assets/Odyssey/Client/Scenes/Bootstrap.unity";
+
+            InputTestFixture input = new();
+            Mouse mouse = null;
+            Keyboard keyboard = null;
+            try
+            {
+                input.Setup();
+                mouse = InputSystem.AddDevice<Mouse>();
+                keyboard = InputSystem.AddDevice<Keyboard>();
+
+                yield return SceneManager.LoadSceneAsync(bootstrapPath, LoadSceneMode.Single);
+                yield return WaitUntil(() => FindAcceptedHosts() == 1);
+                yield return WaitUntil(() => SceneManager.GetSceneByName("AppShell").isLoaded);
+                yield return WaitUntil(() => FindEntryPoint() != null && FindEntryPoint()!.IsInitialized);
+
+                UIDocument document = FindEntryPoint()!.GetComponent<UIDocument>();
+                yield return WaitUntil(() => ButtonReady(document, "trial-ui-button"));
+                yield return ClickWithMouse(document, input, mouse, "trial-ui-button");
+                yield return WaitUntil(() => document.rootVisualElement.Q<VisualElement>("trial-screen") != null);
+
+                VisualElement screen = document.rootVisualElement.Q<VisualElement>("trial-screen");
+                Button first = screen.Q<Button>("toggle-" + TrialScreenPresenter.CharacterDrawerId);
+                yield return WaitUntil(() => first != null && ElementReady(first));
+                // Setup step only: give the first top-bar toggle focus without a click (a click would hide the ring).
+                first.Focus();
+                yield return null;
+                Assert.That(Focused(document), Is.SameAs(first));
+                Assert.That(screen.ClassListContains(OdyClasses.FocusVisible), Is.False, "no ring before keyboard navigation");
+
+                // Tab: focus moves forward and the ring shows.
+                yield return PressKey(input, keyboard.tabKey);
+                yield return WaitUntil(() => Focused(document) != null && !ReferenceEquals(Focused(document), first));
+                Focusable forward = Focused(document)!;
+                Assert.That(screen.ClassListContains(OdyClasses.FocusVisible), Is.True, "Tab shows the focus ring");
+
+                // Shift+Tab: focus moves back.
+                input.Press(keyboard.leftShiftKey);
+                yield return null;
+                yield return PressKey(input, keyboard.tabKey);
+                input.Release(keyboard.leftShiftKey);
+                yield return null;
+                yield return WaitUntil(() => ReferenceEquals(Focused(document), first));
+                Assert.That(forward, Is.Not.SameAs(first));
+
+                // A real mouse press hides the ring; the next Tab shows it again.
+                yield return ClickWithMouse(document, input, mouse, "game-role-badge");
+                yield return WaitUntil(() => !screen.ClassListContains(OdyClasses.FocusVisible));
+                first.Focus();
+                yield return null;
+                yield return PressKey(input, keyboard.tabKey);
+                yield return WaitUntil(() => screen.ClassListContains(OdyClasses.FocusVisible));
+
+                // Control check: arrow navigation (UI/Navigate) still reaches the panel and shows the ring.
+                yield return ClickWithMouse(document, input, mouse, "game-role-badge");
+                yield return WaitUntil(() => !screen.ClassListContains(OdyClasses.FocusVisible));
+                first.Focus();
+                yield return null;
+                yield return PressKey(input, keyboard.rightArrowKey);
+                yield return WaitUntil(() => screen.ClassListContains(OdyClasses.FocusVisible));
+
+                OdysseyRuntimeHost host = FindAcceptedHost()!;
+                host.Runtime!.Shutdown();
+                Object.Destroy(host.gameObject);
+                yield return null;
+                Assert.That(RuntimeHostLease.IsHeld, Is.False);
+            }
+            finally
+            {
+                if (keyboard != null && keyboard.added) InputSystem.RemoveDevice(keyboard);
+                if (mouse != null && mouse.added) InputSystem.RemoveDevice(mouse);
+                input.TearDown();
+            }
+        }
+
         [UnityTest] // TC-BOARD-128
         public IEnumerator RoleSwitch_PlayerToMainGmAndBack_RealRun_TogglesFogOfWarOverlay()
         {
@@ -528,6 +607,16 @@ namespace Odyssey.Tests.Unity.PlayMode
 
             input.Release(mouse.leftButton);
             yield return null;
+            yield return null;
+        }
+
+        private static Focusable? Focused(UIDocument document) => document.rootVisualElement.panel?.focusController.focusedElement;
+
+        private static IEnumerator PressKey(InputTestFixture input, KeyControl key)
+        {
+            input.Press(key);
+            yield return null;
+            input.Release(key);
             yield return null;
         }
 

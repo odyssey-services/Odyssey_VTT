@@ -113,6 +113,13 @@ focus-ring class toggling. Tests call `NoteKeyboardNavigation` / `NotePointer` b
 **Not run:** `test-unity.ps1`, `test-fast.ps1`, `verify-format.ps1`, `verify-repository.ps1`, `verify-docs.ps1`,
 `build-dev.ps1`. Owner validation is pending.
 
+## 7a. Defect found in verification (ODY-S11-215)
+
+Real-Unity verification showed that a physical **Tab** key press never reached UI Toolkit. The input module has no
+Next/Previous navigation, and Tab was bound to nothing. As a result neither focus movement nor the ring worked from
+Tab; arrows were fine. The EditMode test `TC-TABS-002` calls `OdyFocusVisible` directly and could not catch this.
+Fixed in `ODY-S11-215` (`UiTabNavigation`, PlayMode test `TC-FOCUSRING-TAB-001`).
+
 ## 8. Security, privacy, compatibility
 
 No data or contract change. Rollback = revert the commit. No dependency added.

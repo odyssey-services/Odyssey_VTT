@@ -25,6 +25,7 @@ namespace Odyssey.Unity.Client
         private DeveloperShellPresenter? _presenter;
         private TrialScreenPresenter? _trialPresenter;
         private GameObject? _ownedEventSystemObject;
+        private UiTabNavigation? _tabNavigation;
 
         public bool IsInitialized => _presenter != null;
         internal bool HasDisplayedUiRoot => _document != null && _document.rootVisualElement.panel != null && _document.rootVisualElement.childCount > 0;
@@ -94,6 +95,8 @@ namespace Odyssey.Unity.Client
             _presenter = null;
             _trialPresenter?.Dispose();
             _trialPresenter = null;
+            _tabNavigation?.Dispose();
+            _tabNavigation = null;
             if (_ownedEventSystemObject != null)
             {
                 Destroy(_ownedEventSystemObject);
@@ -119,6 +122,10 @@ namespace Odyssey.Unity.Client
             InputSystemUIInputModule module = eventSystemObject.GetComponent<InputSystemUIInputModule>();
             if (module == null) module = eventSystemObject.AddComponent<InputSystemUIInputModule>();
             if (InputSystem.actions != null) module.actionsAsset = InputSystem.actions;
+
+            // ODY-S11-215: the module has no Next/Previous navigation, so Tab / Shift+Tab are handled here.
+            _tabNavigation?.Dispose();
+            _tabNavigation = new UiTabNavigation(_document!.rootVisualElement);
         }
     }
 
