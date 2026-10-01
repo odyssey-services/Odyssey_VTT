@@ -231,6 +231,17 @@ Not applicable.
 - `git diff origin/main -- Packages DotNet`: empty.
 - **Run in the container:** the 72 SLICE-11 EditMode tests in the scratch build (Unity stand-ins, outside the
   repository) passed after removing the raw-key listener.
+- **Compile defect in `10fc9e1` (found by the owner's `test-unity.ps1`).** `UiTabNavigation.cs` used
+  `EventModifiers` (`UnityEngine`) without `using UnityEngine;`, which gave CS0103 at line 53 and blocked every
+  Unity run. Fixed in a separate follow-up commit. Every other identifier in the file was re-checked against its
+  real namespace: `System`, `UnityEngine.InputSystem` and `UnityEngine.UIElements` were already imported, and the
+  new using introduces no ambiguous name.
+- **Compilation status of `UiTabNavigation.cs`: still NOT confirmed against real UnityEngine / Input System.** This
+  container has neither, so no real compile was possible. The only check run was a namespace-placement compile: the
+  file built against minimal stand-in types, each in the namespace of the real type. Without the fix it reproduces
+  exactly the owner's two CS0103 errors; with the fix it gives 0 errors and 0 warnings. That check proves imports and
+  name resolution only. It does not prove the real API signatures (`NavigationMoveEvent.GetPooled`,
+  `focusController`, `InputAction`), which only Unity's compiler can confirm.
 - **Not run (no Unity or PowerShell in the container):** `test-unity.ps1` (including the new PlayMode test),
   `test-fast.ps1`, `verify-format.ps1`, `verify-repository.ps1`, `verify-test-structure.ps1`. `UiTabNavigation`
   depends on the Input System package and was compiled only by the owner's Unity.
