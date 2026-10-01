@@ -314,10 +314,16 @@ namespace Odyssey.Tests.Unity.EditMode
             var model = new TargetRuleModel();
             int changes = 0;
             VisualElement editor = TargetRuleEditor.Build(model, "t", editable: true, () => changes++);
-            Assert.That(editor.Q<DropdownField>("t-target-source"), Is.Not.Null);
+            OdySelect source = editor.Q<OdySelect>("t-target-source");
+            Assert.That(source, Is.Not.Null, "ODY-S11-210: the target source is the popover-based selector");
             Assert.That(editor.Q<IntegerField>("t-target-min"), Is.Not.Null);
             Assert.That(editor.Q<IntegerField>("t-target-max"), Is.Not.Null);
             Assert.That(editor.Q<Toggle>("t-target-allow-self"), Is.Not.Null);
+
+            string other = EnumChoices.Names<ContentTargetSource>().Find(name => name != model.Source.ToString())!;
+            Assert.That(source.Choose(other), Is.True);
+            Assert.That(model.Source.ToString(), Is.EqualTo(other), "picking from the list edits the shared model");
+            Assert.That(changes, Is.EqualTo(1));
 
             Assert.That(TargetRuleEditor.Describe(new ContentTargetRule(ContentTargetSource.ManualSelection, 1, 2, true)), Is.EqualTo("Manual selection, 1-2 targets, self allowed"));
             Assert.That(EnumChoices.Humanize("ActiveAction"), Is.EqualTo("Active action"));

@@ -955,12 +955,9 @@
     margin-left: var(--ody-space-1);
 }
 
-/* Slide-in side panel. Width leaves most of the map visible. */
+/* Slide-in side panel. Width leaves most of the map visible. Position, width and height are set by its OdyPopover
+   (ODY-S11-210: anchored below the top bar, inset 12px, down to the bottom edge); the classes only cap and style it. */
 .ody-drawer {
-    position: absolute;
-    top: 68px;
-    bottom: var(--ody-space-3);
-    width: var(--ody-drawer-width);
     max-width: 45%;
     background-color: var(--ody-color-overlay-surface);
     border-radius: var(--ody-radius-lg);
@@ -970,17 +967,13 @@
     overflow: hidden;
 }
 
-.ody-drawer--left {
-    left: var(--ody-space-3);
-}
-
-.ody-drawer--right {
-    right: var(--ody-space-3);
-}
-
 .ody-drawer--wide {
-    width: 560px;
     max-width: 60%;
+}
+
+.ody-drawer__frame {
+    flex-grow: 1;
+    flex-shrink: 1;
 }
 
 .ody-drawer__header {
@@ -1179,4 +1172,79 @@
     border-radius: var(--ody-radius-sm);
     color: var(--ody-color-text);
     min-width: 110px;
+}
+
+/* ------------------------------------------------------------------------------------------------
+ * 15. Popover (ODY-S11-210) -- the one primitive behind drawers, confirmations and dropdown lists.
+ *     Placement (left/top, size caps) is inline from OdyPopover; these classes only style it.
+ * --------------------------------------------------------------------------------------------- */
+
+.ody-popover__paper {
+    background-color: var(--ody-color-surface);
+    border-radius: var(--ody-radius-md);
+    border-width: 1px;
+    border-color: var(--ody-color-border-strong);
+    border-bottom-color: var(--ody-color-shadow);
+    padding: var(--ody-space-1);
+}
+
+/* hidePaper: no surface of its own (the content or the extra classes style it) */
+.ody-popover__paper--hidden {
+    background-color: rgba(0, 0, 0, 0);
+    border-width: 0;
+    border-radius: 0;
+    padding: 0;
+}
+
+/* Dropdown selector (OdySelect) */
+.ody-select {
+    margin-bottom: var(--ody-space-2);
+}
+
+.ody-select__label {
+    margin-bottom: var(--ody-space-1);
+}
+
+.ody-select__button {
+    min-height: var(--ody-control-height);
+    margin: 0;
+    padding: 0 var(--ody-space-3);
+    background-color: var(--ody-color-surface);
+    border-width: 1px;
+    border-color: var(--ody-color-border-strong);
+    border-radius: var(--ody-radius-sm);
+    color: var(--ody-color-text);
+    -unity-text-align: middle-left;
+}
+
+.ody-select__button:hover {
+    background-color: var(--ody-color-surface-sunken);
+}
+
+.ody-select__button:focus {
+    border-color: var(--ody-color-accent);
+}
+
+.ody-select__menu {
+    min-width: 160px;
+    max-height: 320px;
+}
+
+.ody-select__option {
+    margin: 0;
+    padding: var(--ody-space-1) var(--ody-space-3);
+    background-color: rgba(0, 0, 0, 0);
+    border-width: 0;
+    border-radius: var(--ody-radius-sm);
+    color: var(--ody-color-text);
+    -unity-text-align: middle-left;
+}
+
+.ody-select__option:hover {
+    background-color: var(--ody-color-surface-sunken);
+}
+
+.ody-select__option--active {
+    color: var(--ody-color-accent);
+    -unity-font-style: bold;
 }

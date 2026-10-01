@@ -170,6 +170,34 @@ OdyConfirmDialog.Show(screenRoot,
     reason => DeleteCharacter(reason));
 ```
 
+### Popover (`OdyPopover`, `ODY-S11-210`) — the one floating-surface primitive
+Side drawers, confirmation dialogs and dropdown lists (`OdySelect`) are all `OdyPopover`s; new floating UI uses
+only this primitive. Classes: `.ody-popover`, `.ody-popover__paper` (+`--hidden`), `.ody-popover-host` (marks the
+screen that `OdyPopover.FindHost` mounts panel popovers on); `.ody-select` (+`__label`, `__button`, `__menu`,
+`__options`, `__option`, `__option--active`).
+
+| Option | Meaning |
+|---|---|
+| `OdyPopoverAnchor.ToElement(e, origin)` / `ToPoint(x, y)` | attach to a point of an element's rectangle, or to host-local coordinates; `OffsetX/OffsetY` |
+| `Pivot` | which point of the popover sits on the anchor = growth direction (Left/Center/Right × Top/Center/Bottom) |
+| `Width` / `Height`, `SetWidth` / `SetHeight` | fixed size (also while open); `null` = content size |
+| `FillToBottomEdge` | height runs to the viewport bottom minus the margin (drawers) |
+| `HidePaper` | no default surface; the content or `PaperClasses` style it |
+| `DisableClickAway` | outside presses do not close it |
+| `Modal` | scrim behind it blocks the screen |
+| `EdgeMargin` (default 8px) | minimum distance to every viewport edge; the popover is moved and, if needed, shrunk |
+| `ClickAwayScope` | where an outside press is detected (drawers: the board layer); presses are never swallowed |
+| `RemoveOnClose` | one-shot (removed) vs persistent (hidden, stays mounted) |
+
+```csharp
+OdyPopover.Show(screen, menuContent, new OdyPopoverOptions(OdyPopoverAnchor.ToElement(button, OdyPopoverOrigin.BottomLeft))
+    { Pivot = OdyPopoverOrigin.TopLeft, Width = 200f });
+OdySelect mode = OdyUi.Select("Attack mode", choices, 0, "catalog-weapon-mode");
+mode.ValueChanged += value => ...;
+```
+
+`OdyUi.Dropdown` (Unity `DropdownField`) remains only in the pre-existing call sites not yet migrated.
+
 ### Board / overlay layout (Owlbear exception, `ODY-S11-201`)
 `.ody-game-root`, `.ody-board-layer` (full-bleed map), `.ody-overlay-layer` (picking ignored in code),
 `.ody-topbar` (+`__title`, `__role`, `__toggles`), `.ody-drawer` (+`--left`, `--right`, `--wide`, `__header`,
@@ -183,3 +211,4 @@ OdyConfirmDialog.Show(screenRoot,
 2. Role restrictions are explained with an info banner, never only hidden or disabled controls.
 3. Every failure is shown through `OdyMessages.Describe` (safe `UserMessageKey` / `SafeReasonCode` only).
 4. Irreversible actions go through `OdyConfirmDialog`.
+5. Floating surfaces (menus, pickers, drawers, dialogs) are `OdyPopover`s; dropdown selectors in new code are `OdySelect` (`ODY-S11-210`).

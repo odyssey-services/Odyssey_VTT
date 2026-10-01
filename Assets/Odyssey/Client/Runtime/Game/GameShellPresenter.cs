@@ -28,6 +28,12 @@ namespace Odyssey.Unity.Client
     {
         public const string LegacyPanelClass = "ody-legacy-panel";
 
+        /// <summary>Drawer geometry (ODY-S11-210): below the top bar, inset from the screen edges.</summary>
+        public const float DrawerTopOffset = 68f;
+        public const float DrawerEdgeInset = 12f;
+        public const float DrawerWidth = 380f;
+        public const float DrawerWideWidth = 560f;
+
         private readonly VisualElement _appRoot;
         private readonly RoleSelection _selection;
         private readonly PresentationRuntime _presentationRuntime;
@@ -83,13 +89,12 @@ namespace Odyssey.Unity.Client
 
             Screen = new VisualElement { name = _screenName };
             Screen.AddToClassList(OdyClasses.GameScreen);
+            // Popovers opened from inside a panel (e.g. OdySelect lists) mount here, above both layers.
+            Screen.AddToClassList(OdyClasses.PopoverHost);
             _appRoot.Add(Screen);
 
             BoardLayer = new VisualElement { name = "game-board-layer" };
             BoardLayer.AddToClassList(OdyClasses.BoardLayer);
-            // "Click outside a panel closes it": the map is exactly the area outside every drawer. TrickleDown so the
-            // board still receives the very same press (select / pan / box / marker) -- nothing is swallowed.
-            BoardLayer.RegisterCallback<PointerDownEvent>(OnMapPointerDown, TrickleDown.TrickleDown);
             Screen.Add(BoardLayer);
 
             OverlayLayer = new VisualElement { name = "game-overlay-layer", pickingMode = PickingMode.Ignore };
@@ -119,10 +124,8 @@ namespace Odyssey.Unity.Client
             if (_drawers.ContainsKey(id)) throw new ArgumentException("Duplicate drawer id.", nameof(id));
             if (_topbarToggles == null) throw new InvalidOperationException("Build() first.");
 
-            var element = new VisualElement { name = "drawer-" + id };
-            element.AddToClassList(OdyClasses.Drawer);
-            element.AddToClassList(side == GameDrawerSide.Left ? OdyClasses.DrawerLeft : OdyClasses.DrawerRight);
-            if (wide) element.AddToClassList(OdyClasses.DrawerWide);
+            var element = new VisualElement { name = "drawer-" + id + "-frame" };
+            element.AddToClassList(OdyClasses.DrawerFrame);
 
             var header = new VisualElement();
             header.AddToClassList(OdyClasses.DrawerHeader);
@@ -140,18 +143,43 @@ namespace Odyssey.Unity.Client
             body.Add(content);
             element.Add(body);
 
-            OdyUi.SetVisible(element, false);
-            OverlayLayer.Add(element);
+            // ODY-S11-210: a persistent OdyPopover anchored to the overlay's top corner on its side, growing inwards and
+            // down to the bottom edge. "Click outside a panel closes it": the click-away scope is the board layer, i.e.
+            // exactly the map outside every drawer (the top bar and the other side's drawer do not close it). The
+            // popover listens trickle-down and never stops the press, so the board still receives it.
+            bool left = side == GameDrawerSide.Left;
+            var anchor = OdyPopoverAnchor.ToElement(OverlayLayer, left ? OdyPopoverOrigin.TopLeft : OdyPopoverOrigin.TopRight);
+            anchor.OffsetX = left ? DrawerEdgeInset : -DrawerEdgeInset;
+            anchor.OffsetY = DrawerTopOffset;
+            var popover = new OdyPopover(OverlayLayer, element, new OdyPopoverOptions(anchor)
+            {
+                Pivot = left ? OdyPopoverOrigin.TopLeft : OdyPopoverOrigin.TopRight,
+                Width = wide ? DrawerWideWidth : DrawerWidth,
+                FillToBottomEdge = true,
+                HidePaper = true,
+                EdgeMargin = DrawerEdgeInset,
+                RemoveOnClose = false,
+                ClickAwayScope = BoardLayer,
+                Name = "drawer-" + id,
+                PaperClasses = wide
+                    ? new[] { OdyClasses.Drawer, left ? OdyClasses.DrawerLeft : OdyClasses.DrawerRight, OdyClasses.DrawerWide }
+                    : new[] { OdyClasses.Drawer, left ? OdyClasses.DrawerLeft : OdyClasses.DrawerRight }
+            });
+            popover.Mount();
 
             Button toggle = OdyUi.Button(title, () => ToggleDrawer(id), OdyButtonVariant.Secondary, "toggle-" + id, small: true);
             _topbarToggles.Add(toggle);
+            popover.Closed += _ => toggle.EnableInClassList(OdyClasses.ButtonToggleOn, false);
 
-            _drawers[id] = new Drawer(id, side, element, content, toggle);
+            _drawers[id] = new Drawer(id, side, popover, content, toggle);
             _drawerOrder.Add(id);
             return content;
         }
 
-        public bool IsDrawerOpen(string id) => _drawers.TryGetValue(id, out Drawer? drawer) && OdyUi.IsVisible(drawer.Element);
+        public bool IsDrawerOpen(string id) => _drawers.TryGetValue(id, out Drawer? drawer) && drawer.Popover.IsOpen;
+
+        /// <summary>The drawer's popover (placement, size), or <c>null</c> for an unknown id.</summary>
+        public OdyPopover? DrawerPopover(string id) => _drawers.TryGetValue(id, out Drawer? drawer) ? drawer.Popover : null;
 
         public bool OpenDrawer(string id)
         {
@@ -163,7 +191,6 @@ namespace Odyssey.Unity.Client
             }
 
             SetOpen(drawer, true);
-            drawer.Element.BringToFront();
             DrawerOpened?.Invoke(id);
             return true;
         }
@@ -182,8 +209,11 @@ namespace Odyssey.Unity.Client
             foreach (Drawer drawer in _drawers.Values) SetOpen(drawer, false);
         }
 
-        /// <summary>The map-click rule, public for tests (a real press arrives through the board layer callback).</summary>
-        public void HandleMapPointerDown() => CloseAllDrawers();
+        /// <summary>The map-click rule, public for tests (a real press arrives through each open drawer's click-away scope).</summary>
+        public void HandleMapPointerDown()
+        {
+            foreach (Drawer drawer in _drawers.Values) drawer.Popover.HandleClickAway(null);
+        }
 
         /// <summary>Fills the corner dock (collapsible; open by default).</summary>
         public void SetDockContent(string title, params VisualElement[] content)
@@ -230,7 +260,7 @@ namespace Odyssey.Unity.Client
         public void Dispose()
         {
             if (_disposed) return;
-            BoardLayer.UnregisterCallback<PointerDownEvent>(OnMapPointerDown, TrickleDown.TrickleDown);
+            CloseAllDrawers();
             _roleSubscription?.Dispose();
             _disposed = true;
         }
@@ -276,8 +306,6 @@ namespace Odyssey.Unity.Client
             OverlayLayer.Add(_dock);
         }
 
-        private void OnMapPointerDown(PointerDownEvent evt) => HandleMapPointerDown();
-
         private void OnRoleChanged(RoleSelectionSnapshot snapshot)
         {
             if (_roleBadge == null) return;
@@ -300,24 +328,25 @@ namespace Odyssey.Unity.Client
 
         private static void SetOpen(Drawer drawer, bool open)
         {
-            OdyUi.SetVisible(drawer.Element, open);
+            if (open) drawer.Popover.Open();
+            else drawer.Popover.Close();
             drawer.Toggle.EnableInClassList(OdyClasses.ButtonToggleOn, open);
         }
 
         private sealed class Drawer
         {
-            public Drawer(string id, GameDrawerSide side, VisualElement element, VisualElement content, Button toggle)
+            public Drawer(string id, GameDrawerSide side, OdyPopover popover, VisualElement content, Button toggle)
             {
                 Id = id;
                 Side = side;
-                Element = element;
+                Popover = popover;
                 Content = content;
                 Toggle = toggle;
             }
 
             public string Id { get; }
             public GameDrawerSide Side { get; }
-            public VisualElement Element { get; }
+            public OdyPopover Popover { get; }
             public VisualElement Content { get; }
             public Button Toggle { get; }
         }

@@ -716,12 +716,12 @@ namespace Odyssey.Unity.Client
         private void AddEnum<T>(VisualElement parent, string key, string label, string name, Func<T> get, Action<T> set, bool editable) where T : struct, Enum
         {
             List<string> choices = EnumChoices.Names<T>();
-            DropdownField field = OdyUi.Dropdown(label, choices, choices.IndexOf(get().ToString()), name);
-            field.RegisterValueChangedCallback(evt =>
+            OdySelect field = OdyUi.Select(label, choices, choices.IndexOf(get().ToString()), name);
+            field.ValueChanged += value =>
             {
-                if (EnumChoices.TryParse(evt.newValue, out T parsed)) set(parsed);
+                if (EnumChoices.TryParse(value, out T parsed)) set(parsed);
                 ApplyFormChange();
-            });
+            };
             field.SetEnabled(editable);
             Register(parent, key, field, conditional: false);
         }

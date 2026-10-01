@@ -7,7 +7,7 @@ namespace Odyssey.Unity.Client
 {
     /// <summary>
     /// ODY-S11-202: the one reusable editor for <see cref="ContentTargetRule"/> (Ability and Effect forms, and the
-    /// read-only target hint of the combat panel): TargetSource dropdown + minimum/maximum counts + AllowSelf. It edits a
+    /// read-only target hint of the combat panel): TargetSource selector (OdySelect) + minimum/maximum counts + AllowSelf. It edits a
     /// <see cref="TargetRuleModel"/> in place and reports every change through <c>onChanged</c>.
     /// </summary>
     public static class TargetRuleEditor
@@ -23,12 +23,12 @@ namespace Odyssey.Unity.Client
             section.Add(row);
 
             List<string> sources = EnumChoices.Names<ContentTargetSource>();
-            DropdownField source = OdyUi.Dropdown("Target source", sources, sources.IndexOf(model.Source.ToString()), namePrefix + "-target-source");
-            source.RegisterValueChangedCallback(evt =>
+            OdySelect source = OdyUi.Select("Target source", sources, sources.IndexOf(model.Source.ToString()), namePrefix + "-target-source");
+            source.ValueChanged += value =>
             {
-                if (EnumChoices.TryParse(evt.newValue, out ContentTargetSource parsed)) model.Source = parsed;
+                if (EnumChoices.TryParse(value, out ContentTargetSource parsed)) model.Source = parsed;
                 onChanged();
-            });
+            };
             row.Add(source);
 
             IntegerField minimum = OdyUi.IntegerField("Min", EnumChoices.ClampToInt(model.MinimumCount), namePrefix + "-target-min");

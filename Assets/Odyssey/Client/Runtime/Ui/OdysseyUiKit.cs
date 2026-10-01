@@ -108,6 +108,19 @@ namespace Odyssey.Unity.Client
         public const string ModalBody = "ody-modal__body";
         public const string ModalActions = "ody-modal__actions";
 
+        // ODY-S11-210: the popover primitive (OdyPopover) and the dropdown selector built on it (OdySelect).
+        public const string Popover = "ody-popover";
+        public const string PopoverHost = "ody-popover-host";
+        public const string PopoverPaper = "ody-popover__paper";
+        public const string PopoverPaperHidden = "ody-popover__paper--hidden";
+        public const string Select = "ody-select";
+        public const string SelectLabel = "ody-select__label";
+        public const string SelectButton = "ody-select__button";
+        public const string SelectMenu = "ody-select__menu";
+        public const string SelectOptions = "ody-select__options";
+        public const string SelectOption = "ody-select__option";
+        public const string SelectOptionActive = "ody-select__option--active";
+
         public const string GameRoot = "ody-game-root";
         public const string GameScreen = "ody-game-screen";
         public const string BoardLayer = "ody-board-layer";
@@ -120,6 +133,7 @@ namespace Odyssey.Unity.Client
         public const string DrawerLeft = "ody-drawer--left";
         public const string DrawerRight = "ody-drawer--right";
         public const string DrawerWide = "ody-drawer--wide";
+        public const string DrawerFrame = "ody-drawer__frame";
         public const string DrawerHeader = "ody-drawer__header";
         public const string DrawerTitle = "ody-drawer__title";
         public const string DrawerBody = "ody-drawer__body";
@@ -301,6 +315,9 @@ namespace Odyssey.Unity.Client
             field.AddToClassList(OdyClasses.Field);
             return field;
         }
+
+        /// <summary>ODY-S11-210: the dropdown selector for new code (its list is an <see cref="OdyPopover"/>).</summary>
+        public static OdySelect Select(string label, IReadOnlyList<string> choices, int index, string name) => new OdySelect(label, choices, index, name);
 
         public static Toggle Toggle(string label, bool value, string name)
         {
@@ -570,8 +587,8 @@ namespace Odyssey.Unity.Client
     }
 
     /// <summary>
-    /// Modal confirmation for irreversible actions. Mounted on a host element (usually the screen root), removed on
-    /// either outcome. <see cref="Confirm"/>/<see cref="Cancel"/> are public so tests drive it without synthetic clicks.
+    /// Modal confirmation for irreversible actions: a modal <see cref="OdyPopover"/> on a host element (usually the
+    /// screen root), removed on either outcome. <see cref="Confirm"/>/<see cref="Cancel"/> are public so tests drive it without synthetic clicks.
     /// </summary>
     public sealed class OdyConfirmDialog
     {
@@ -580,6 +597,7 @@ namespace Odyssey.Unity.Client
         private readonly Action? _onCancel;
         private readonly TextField? _textField;
         private readonly Label _error;
+        private readonly OdyPopover _popover;
 
         private OdyConfirmDialog(VisualElement host, OdyConfirmOptions options, Action<string> onConfirm, Action? onCancel)
         {
@@ -587,11 +605,20 @@ namespace Odyssey.Unity.Client
             _onConfirm = onConfirm;
             _onCancel = onCancel;
 
-            Element = new VisualElement { name = "ody-confirm-dialog" };
-            Element.AddToClassList(OdyClasses.ModalScrim);
-            var modal = new VisualElement { name = "ody-confirm-dialog-panel" };
-            modal.AddToClassList(OdyClasses.Modal);
-            Element.Add(modal);
+            // ODY-S11-210: a modal OdyPopover centered on the host; the scrim blocks the screen and a click on it does
+            // not dismiss (irreversible actions need an explicit Confirm or Cancel).
+            var modal = new VisualElement { name = "ody-confirm-dialog-content" };
+            _popover = new OdyPopover(host, modal, new OdyPopoverOptions(OdyPopoverAnchor.ToElement(host, OdyPopoverOrigin.Center))
+            {
+                Pivot = OdyPopoverOrigin.Center,
+                Modal = true,
+                DisableClickAway = true,
+                HidePaper = true,
+                Name = "ody-confirm-dialog",
+                PaperName = "ody-confirm-dialog-panel",
+                PaperClasses = new[] { OdyClasses.Modal }
+            });
+            Element = _popover.Element;
 
             modal.Add(OdyUi.Text(options.Title, OdyClasses.ModalTitle));
             var body = new VisualElement();
@@ -615,12 +642,12 @@ namespace Odyssey.Unity.Client
             actions.Add(OdyUi.Button(options.ConfirmText, () => Confirm(), options.Destructive ? OdyButtonVariant.Danger : OdyButtonVariant.Primary, "ody-confirm-dialog-confirm"));
             modal.Add(actions);
 
-            host.Add(Element);
-            Element.BringToFront();
+            _popover.Open();
             IsOpen = true;
         }
 
         public VisualElement Element { get; }
+        public OdyPopover Popover => _popover;
         public bool IsOpen { get; private set; }
         public string Title => _options.Title;
 
@@ -664,7 +691,7 @@ namespace Odyssey.Unity.Client
         private void Close()
         {
             IsOpen = false;
-            Element.RemoveFromHierarchy();
+            _popover.Close();
         }
     }
 
