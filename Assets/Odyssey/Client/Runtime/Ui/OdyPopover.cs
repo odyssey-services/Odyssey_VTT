@@ -100,7 +100,10 @@ namespace Odyssey.Unity.Client
     public enum OdyPopoverCloseReason
     {
         Programmatic = 1,
-        ClickAway = 2
+        ClickAway = 2,
+
+        /// <summary>ODY-S11-225: the Escape key (the <c>UI/Cancel</c> action) closed the topmost popover.</summary>
+        Escape = 3
     }
 
     /// <summary>Options of an <see cref="OdyPopover"/>.</summary>
@@ -140,6 +143,12 @@ namespace Odyssey.Unity.Client
 
         /// <summary>Remove the elements from the host on close (one-shot popovers) instead of hiding them (persistent drawers).</summary>
         public bool RemoveOnClose { get; set; } = true;
+
+        /// <summary>
+        /// ODY-S11-225: Escape closes the popover when it is the topmost open one (default). Modal confirmations treat it
+        /// as Cancel. Independent of <see cref="DisableClickAway"/>: an explicit key press is not an accidental click.
+        /// </summary>
+        public bool CloseOnEscape { get; set; } = true;
 
         /// <summary>
         /// Where a press counts as "away". Default: the host. Drawers use the board layer so the top bar and the other
@@ -202,6 +211,7 @@ namespace Odyssey.Unity.Client
         private readonly OdyPopoverOptions _options;
         private readonly VisualElement _paper;
         private bool _callbacksRegistered;
+        private VisualElement? _escapeScope;
 
         public OdyPopover(VisualElement host, VisualElement content, OdyPopoverOptions options)
         {
@@ -234,6 +244,8 @@ namespace Odyssey.Unity.Client
                 Element = _paper;
             }
 
+            // ODY-S11-225: lets the Escape handling find which open popover is on top (owned by the element itself).
+            Element.userData = this;
             ApplySize();
         }
 
@@ -365,6 +377,47 @@ namespace Odyssey.Unity.Client
             return placed;
         }
 
+        /// <summary>
+        /// ODY-S11-225: the Escape key. Closes this popover if it is the topmost open one under
+        /// <paramref name="scopeRoot"/> and allows it; returns whether it closed. Public for tests; at runtime it is
+        /// called from the <c>NavigationCancelEvent</c> handler.
+        /// </summary>
+        public bool HandleEscape(VisualElement scopeRoot)
+        {
+            if (!IsOpen || !_options.CloseOnEscape || !ReferenceEquals(TopmostOpen(scopeRoot), this)) return false;
+            Close(OdyPopoverCloseReason.Escape);
+            return true;
+        }
+
+        /// <summary>
+        /// ODY-S11-225: the open popover painted on top under <paramref name="scopeRoot"/> -- the last visible popover in
+        /// tree order (later siblings and children paint over earlier ones). Walks the tree; no registry.
+        /// </summary>
+        public static OdyPopover? TopmostOpen(VisualElement scopeRoot)
+        {
+            if (scopeRoot == null) throw new ArgumentNullException(nameof(scopeRoot));
+            OdyPopover? topmost = null;
+            var pending = new Stack<VisualElement>();
+            pending.Push(scopeRoot);
+            while (pending.Count > 0)
+            {
+                VisualElement current = pending.Pop();
+                if (!OdyUi.IsVisible(current)) continue;
+                if (current.userData is OdyPopover popover && popover.IsOpen && ReferenceEquals(popover.Element, current)) topmost = popover;
+                var children = new List<VisualElement>(current.Children());
+                for (int index = children.Count - 1; index >= 0; index--) pending.Push(children[index]);
+            }
+
+            return topmost;
+        }
+
+        private static VisualElement RootOf(VisualElement element)
+        {
+            VisualElement current = element;
+            while (current.parent != null) current = current.parent;
+            return current;
+        }
+
         private void Close(OdyPopoverCloseReason reason)
         {
             if (!IsOpen) return;
@@ -392,6 +445,10 @@ namespace Odyssey.Unity.Client
             else ClickAwayScope.RegisterCallback<PointerDownEvent>(OnScopePointerDown, TrickleDown.TrickleDown);
             _host.RegisterCallback<GeometryChangedEvent>(OnGeometryChanged);
             _paper.RegisterCallback<GeometryChangedEvent>(OnGeometryChanged);
+            // ODY-S11-225: Escape arrives as NavigationCancelEvent (UI/Cancel); listen at the top of the tree so it is
+            // seen wherever focus is.
+            _escapeScope = RootOf(_host);
+            _escapeScope.RegisterCallback<NavigationCancelEvent>(OnNavigationCancel, TrickleDown.TrickleDown);
             _callbacksRegistered = true;
         }
 
@@ -402,6 +459,8 @@ namespace Odyssey.Unity.Client
             else ClickAwayScope.UnregisterCallback<PointerDownEvent>(OnScopePointerDown, TrickleDown.TrickleDown);
             _host.UnregisterCallback<GeometryChangedEvent>(OnGeometryChanged);
             _paper.UnregisterCallback<GeometryChangedEvent>(OnGeometryChanged);
+            _escapeScope?.UnregisterCallback<NavigationCancelEvent>(OnNavigationCancel, TrickleDown.TrickleDown);
+            _escapeScope = null;
             _callbacksRegistered = false;
         }
 
@@ -415,6 +474,14 @@ namespace Odyssey.Unity.Client
         private void OnScopePointerDown(PointerDownEvent evt) => HandleClickAway(evt.target as VisualElement);
 
         private void OnGeometryChanged(GeometryChangedEvent evt) => Reposition();
+
+        // Every open popover hears the same event; only the topmost closes, and it stops the event so that no other
+        // popover (which would be topmost now) closes on the same key press.
+        private void OnNavigationCancel(NavigationCancelEvent evt)
+        {
+            if (evt.isPropagationStopped || _escapeScope == null) return;
+            if (HandleEscape(_escapeScope)) evt.StopPropagation();
+        }
 
         private static bool IsWithin(VisualElement container, VisualElement target)
         {

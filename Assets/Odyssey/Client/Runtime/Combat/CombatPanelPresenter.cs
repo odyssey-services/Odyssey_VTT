@@ -394,6 +394,7 @@ namespace Odyssey.Unity.Client
             TextField openId = OdyUi.TextField("Open encounter by id", string.Empty, "combat-open-id");
             open.Add(openId);
             open.Add(OdyUi.Button("Open", () => OpenEncounter(openId.value), OdyButtonVariant.Secondary, "combat-open-button", small: true));
+            OdyUi.SubmitOnEnter(openId, () => OpenEncounter(openId.value));
             section.Add(open);
             return section;
         }

@@ -122,6 +122,7 @@ namespace Odyssey.Unity.Client
             openId.AddToClassList(OdyClasses.FieldGrow);
             openRow.Add(openId);
             openRow.Add(OdyUi.Button("Open", () => OpenById(openId.value), OdyButtonVariant.Secondary, "character-open-button", small: true));
+            OdyUi.SubmitOnEnter(openId, () => OpenById(openId.value));
             rosterSection.Add(openRow);
             _root.Add(rosterSection);
 

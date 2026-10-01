@@ -372,6 +372,66 @@ namespace Odyssey.Tests.Unity.PlayMode
             }
         }
 
+        [UnityTest] // TC-KEYPARITY-006 (ODY-S11-225)
+        public IEnumerator RealEscapeKey_ClosesTheOpenDrawer_RealEnterKey_SubmitsTheOpenByIdField()
+        {
+            const string bootstrapPath = "Assets/Odyssey/Client/Scenes/Bootstrap.unity";
+
+            InputTestFixture input = new();
+            Mouse mouse = null;
+            Keyboard keyboard = null;
+            try
+            {
+                input.Setup();
+                mouse = InputSystem.AddDevice<Mouse>();
+                keyboard = InputSystem.AddDevice<Keyboard>();
+
+                yield return SceneManager.LoadSceneAsync(bootstrapPath, LoadSceneMode.Single);
+                yield return WaitUntil(() => FindAcceptedHosts() == 1);
+                yield return WaitUntil(() => SceneManager.GetSceneByName("AppShell").isLoaded);
+                yield return WaitUntil(() => FindEntryPoint() != null && FindEntryPoint()!.IsInitialized);
+
+                UIDocument document = FindEntryPoint()!.GetComponent<UIDocument>();
+                yield return WaitUntil(() => ButtonReady(document, "trial-ui-button"));
+                yield return ClickWithMouse(document, input, mouse, "trial-ui-button");
+                yield return WaitUntil(() => document.rootVisualElement.Q<VisualElement>("trial-screen") != null);
+
+                // Escape: a drawer opened with a real click closes on a real Escape press (UI/Cancel).
+                string combatToggle = "toggle-" + TrialScreenPresenter.CombatDrawerId;
+                yield return WaitUntil(() => ButtonReady(document, combatToggle));
+                yield return ClickWithMouse(document, input, mouse, combatToggle);
+                VisualElement combatDrawer = document.rootVisualElement.Q<VisualElement>("drawer-" + TrialScreenPresenter.CombatDrawerId);
+                yield return WaitUntil(() => OdyUi.IsVisible(combatDrawer));
+                yield return PressKey(input, keyboard.escapeKey);
+                yield return WaitUntil(() => !OdyUi.IsVisible(combatDrawer));
+
+                // Enter: a real Enter press (UI/Submit) in the character "Open by id" field submits it.
+                string characterToggle = "toggle-" + TrialScreenPresenter.CharacterDrawerId;
+                yield return WaitUntil(() => ButtonReady(document, characterToggle));
+                yield return ClickWithMouse(document, input, mouse, characterToggle);
+                TextField openId = document.rootVisualElement.Q<TextField>("character-open-id");
+                yield return WaitUntil(() => openId != null && ElementReady(openId));
+                // Setup only: the value and the focus (typing text is not what this test proves).
+                openId.value = "not-an-id";
+                openId.Focus();
+                yield return null;
+                yield return PressKey(input, keyboard.enterKey);
+                yield return WaitUntil(() => Text(document, "character-banner-text").Contains("Enter a character id"));
+
+                OdysseyRuntimeHost host = FindAcceptedHost()!;
+                host.Runtime!.Shutdown();
+                Object.Destroy(host.gameObject);
+                yield return null;
+                Assert.That(RuntimeHostLease.IsHeld, Is.False);
+            }
+            finally
+            {
+                if (keyboard != null && keyboard.added) InputSystem.RemoveDevice(keyboard);
+                if (mouse != null && mouse.added) InputSystem.RemoveDevice(mouse);
+                input.TearDown();
+            }
+        }
+
         [UnityTest] // TC-BOARD-128
         public IEnumerator RoleSwitch_PlayerToMainGmAndBack_RealRun_TogglesFogOfWarOverlay()
         {

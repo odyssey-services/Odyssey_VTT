@@ -351,6 +351,14 @@ namespace Odyssey.Unity.Client
             return field;
         }
 
+        /// <summary>
+        /// ODY-S11-225: Enter (the <c>UI/Submit</c> action, delivered as <c>NavigationSubmitEvent</c>) in a single-line
+        /// text field runs <paramref name="submit"/> -- for fields with one obvious, non-destructive action (open by id,
+        /// rename, add). Multiline fields are left alone: Enter there is a new line. Never used for confirmations of
+        /// irreversible actions.
+        /// </summary>
+        public static OdyEnterSubmit SubmitOnEnter(TextField field, Action submit) => OdyEnterSubmit.Attach(field, submit);
+
         /// <summary>ODY-S11-210: the dropdown selector for new code (its list is an <see cref="OdyPopover"/>).</summary>
         public static OdySelect Select(string label, IReadOnlyList<string> choices, int index, string name) => new OdySelect(label, choices, index, name);
 
@@ -710,6 +718,49 @@ namespace Odyssey.Unity.Client
     }
 
     /// <summary>
+    /// ODY-S11-225: Enter-to-submit on a single-line <see cref="TextField"/> (see <see cref="OdyUi.SubmitOnEnter"/>).
+    /// Kept in the field's <c>userData</c> (owned by the field).
+    /// </summary>
+    public sealed class OdyEnterSubmit
+    {
+        private readonly TextField _field;
+        private readonly Action _submit;
+
+        private OdyEnterSubmit(TextField field, Action submit)
+        {
+            _field = field;
+            _submit = submit;
+            // Trickle-down on the field: the event targets its inner text input, which may handle it itself.
+            _field.RegisterCallback<NavigationSubmitEvent>(OnSubmit, TrickleDown.TrickleDown);
+            _field.userData = this;
+        }
+
+        public static OdyEnterSubmit Attach(TextField field, Action submit)
+        {
+            if (field == null) throw new ArgumentNullException(nameof(field));
+            if (submit == null) throw new ArgumentNullException(nameof(submit));
+            if (field.multiline) throw new ArgumentException("Enter in a multiline field is a new line, not a submit.", nameof(field));
+            return new OdyEnterSubmit(field, submit);
+        }
+
+        /// <summary>The handler attached to <paramref name="field"/>, or <c>null</c>.</summary>
+        public static OdyEnterSubmit? Of(TextField field) => field?.userData as OdyEnterSubmit;
+
+        /// <summary>What Enter does (public so tests trigger it without event dispatch). Disabled fields do nothing.</summary>
+        public bool Submit()
+        {
+            if (!_field.enabledInHierarchy) return false;
+            _submit();
+            return true;
+        }
+
+        private void OnSubmit(NavigationSubmitEvent evt)
+        {
+            if (Submit()) evt.StopPropagation();
+        }
+    }
+
+    /// <summary>
     /// ODY-S11-212: keyboard focus rings without showing them on mouse clicks. USS has no <c>:focus-visible</c>, so the
     /// root gets <see cref="OdyClasses.FocusVisible"/> while the user navigates with the keyboard (Tab / arrows) and
     /// loses it on the next pointer press; the stylesheet draws the ring only under that class. Owned by the screen
@@ -805,6 +856,13 @@ namespace Odyssey.Unity.Client
                 PaperClasses = new[] { OdyClasses.Modal }
             });
             Element = _popover.Element;
+            // ODY-S11-225: Escape on the dialog means Cancel (never Confirm).
+            _popover.Closed += reason =>
+            {
+                if (reason != OdyPopoverCloseReason.Escape || !IsOpen) return;
+                IsOpen = false;
+                _onCancel?.Invoke();
+            };
 
             modal.Add(OdyUi.Text(options.Title, OdyClasses.ModalTitle));
             var body = new VisualElement();

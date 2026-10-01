@@ -235,6 +235,7 @@ namespace Odyssey.Unity.Client
             add.Add(keyField);
             add.Add(OdyUi.Text("Starts with the ruleset defaults; adjust the maximum afterwards.", OdyClasses.FieldHint));
             add.Add(OdyUi.ButtonRow(OdyUi.Button("Add", () => InitializeResource(keyField.value), OdyButtonVariant.Primary, "character-resource-add", small: true)));
+            OdyUi.SubmitOnEnter(keyField, () => InitializeResource(keyField.value));
             tab.Add(add);
         }
 

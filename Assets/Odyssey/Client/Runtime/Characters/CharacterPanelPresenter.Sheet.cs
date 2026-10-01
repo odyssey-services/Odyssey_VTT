@@ -397,6 +397,7 @@ namespace Odyssey.Unity.Client
                 TextField rename = OdyUi.TextField("Name", c.DisplayName, "character-rename");
                 tab.Add(rename);
                 tab.Add(OdyUi.ButtonRow(OdyUi.Button("Rename", () => Rename(rename.value), OdyButtonVariant.Secondary, "character-rename-button", small: true)));
+                OdyUi.SubmitOnEnter(rename, () => Rename(rename.value));
             }
 
             // Review cycle: submit (owner), append-only comment feed, approve (MainGM).
