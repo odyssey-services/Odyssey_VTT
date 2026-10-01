@@ -251,6 +251,34 @@ Not applicable.
   2. The blue ring shows during Tab navigation and hides after a mouse click.
   3. Arrows still navigate.
 
+### Owner verification (2026-10-01, real Unity 6000.4.0f1, this machine)
+
+- Confirmed the missing-`using` compile defect first-hand: `scripts/test-unity.ps1` failed at the batch-compile
+  step with exactly the two reported `CS0103` errors at `UiTabNavigation.cs(53,29)`/`(53,52)` before either fix
+  landed.
+- After the fix (`cf04c0e`, identical one-line change to the owner's own independently-prepared fix, which was
+  dropped in favor of this one once confirmed byte-identical): ran a real Unity batchmode compile on its own
+  (`-batchmode -quit`, exit 0, zero `error CS` matches in the log) before running anything else.
+- `scripts/test-unity.ps1`: `TC-UNITY-ASM-001 PASS` compile, EditMode 224/224, PlayMode **8/8 including
+  `TC-FOCUSRING-TAB-001`** (`RealTabKey_MovesFocusForwardAndBack_ShowsTheFocusRing_PointerHidesIt_ArrowsStillNavigate`,
+  a real `Keyboard` device driven through `InputTestFixture` -- not a direct method call).
+- `scripts/test-fast.ps1`: `TC-ARCH-001 PASS` (covers the new/changed files -- no forbidden composition
+  pattern); `dotnet test` all green (Contracts 1/1, Domain 90/90, Networking 67/67, Unit 220/220,
+  Architecture 10/10, Persistence 948/948).
+- `scripts/verify-format.ps1`, `scripts/verify-repository.ps1`, `scripts/verify-test-structure.ps1`: all PASS.
+- This supersedes the "NOT confirmed against real UnityEngine / Input System" note above: it now is, on this
+  machine's real Unity Editor, not a namespace-placement emulation.
+- Generated and committed `UiTabNavigation.cs.meta` (genuine Unity import, 0 GUID collisions against every
+  tracked `.meta` in the repository) -- the file had none before, since neither cloud agent attempt could run
+  Unity to produce one.
+- Not independently re-run: the interactive Play-mode walkthrough items in `ODY-S11-215`'s own §2.1/§2.2
+  checklist (Tab order through top-bar/character-sheet/catalog fields, Shift+Tab, WASD-in-text-field
+  interference) -- this environment has batchmode-only Unity access, no interactive GUI, the same limitation
+  recorded throughout this verification track. The automated `TC-FOCUSRING-TAB-001` above does exercise real
+  Tab/Shift+Tab/mouse-click/arrow input end to end against the real composed Trial screen and passed, which is
+  a genuine (if non-visual) confirmation of the forward/backward/ring/arrows-still-work behavior; it does not
+  substitute for a human looking at the result.
+
 ## 18. Blockers, decisions, and change control
 
 ### Blockers
