@@ -13,11 +13,19 @@ namespace Odyssey.Unity.Client
     [RequireComponent(typeof(UIDocument))]
     public sealed class AppShellEntryPoint : MonoBehaviour
     {
+        // ODY-S11-209: the project-wide design system (.ody-* classes used throughout every screen) was never
+        // attached to any UIDocument -- found while diagnosing ODY-S11-208. Explicit serialized reference,
+        // assigned once on the root VisualElement (Clear() on a child container never touches the root's own
+        // styleSheets list, so this survives every screen swap below) -- same explicit-reference pattern
+        // ODY-S11-101 used for CatalogTheme.uss; no string/path-based asset lookup (ADR-001, TC-ARCH-001).
+        [SerializeField] private StyleSheet? _designSystemStyleSheet;
+
         private UIDocument? _document;
         private PresentationRuntime? _presentationRuntime;
         private DeveloperShellPresenter? _presenter;
         private TrialScreenPresenter? _trialPresenter;
         private GameObject? _ownedEventSystemObject;
+        private UiTabNavigation? _tabNavigation;
 
         public bool IsInitialized => _presenter != null;
         internal bool HasDisplayedUiRoot => _document != null && _document.rootVisualElement.panel != null && _document.rootVisualElement.childCount > 0;
@@ -27,6 +35,10 @@ namespace Odyssey.Unity.Client
             if (facade == null) throw new ArgumentNullException(nameof(facade));
             if (presentationRuntime == null) throw new ArgumentNullException(nameof(presentationRuntime));
             _document = GetComponent<UIDocument>();
+            if (_designSystemStyleSheet != null && !_document.rootVisualElement.styleSheets.Contains(_designSystemStyleSheet))
+            {
+                _document.rootVisualElement.styleSheets.Add(_designSystemStyleSheet);
+            }
             EnsureRuntimeUiInput();
             _presentationRuntime = presentationRuntime;
             _presenter = new DeveloperShellPresenter(_document, facade, presentationRuntime);
@@ -83,6 +95,8 @@ namespace Odyssey.Unity.Client
             _presenter = null;
             _trialPresenter?.Dispose();
             _trialPresenter = null;
+            _tabNavigation?.Dispose();
+            _tabNavigation = null;
             if (_ownedEventSystemObject != null)
             {
                 Destroy(_ownedEventSystemObject);
@@ -108,6 +122,10 @@ namespace Odyssey.Unity.Client
             InputSystemUIInputModule module = eventSystemObject.GetComponent<InputSystemUIInputModule>();
             if (module == null) module = eventSystemObject.AddComponent<InputSystemUIInputModule>();
             if (InputSystem.actions != null) module.actionsAsset = InputSystem.actions;
+
+            // ODY-S11-215: the module has no Next/Previous navigation, so Tab / Shift+Tab are handled here.
+            _tabNavigation?.Dispose();
+            _tabNavigation = new UiTabNavigation(_document!.rootVisualElement);
         }
     }
 

@@ -3,6 +3,7 @@ using System.IO;
 using NUnit.Framework;
 using Odyssey.Application.Board;
 using Odyssey.Application.Commands;
+using Odyssey.Application.Networking.Session;
 using Odyssey.Application.Persistence;
 using Odyssey.Application.Results;
 using Odyssey.Domain.Geometry;
@@ -219,6 +220,30 @@ namespace Odyssey.Tests.Unity.EditMode
             Assert.That(result.Value.FacingDegrees, Is.EqualTo(270.0).Within(0.001));
         }
 
+        [Test] // TC-TOKENMENU-001 (ODY-S11-218)
+        public void CoverTargets_OfferOnlyTokensThePlayerCanSee_TheMainGmSeesAll()
+        {
+            using var fixture = new Fixture();
+            UserId player = NewUserId();
+            Assert.That(fixture.CampaignRepository.AddMember(fixture.Campaign, player, CampaignMembershipRole.Player, NewCommandId(), TestCorrelationId).IsSuccess, Is.True);
+            TokenRecord own = fixture.SceneRepository.CreateToken(fixture.Campaign, fixture.SceneId, new TokenPosition(0, 0), player, NewCommandId(), TestCorrelationId).Value;
+            TokenRecord near = fixture.SceneRepository.CreateToken(fixture.Campaign, fixture.SceneId, new TokenPosition(3, 0), fixture.MainGmActor, NewCommandId(), TestCorrelationId).Value;
+            // Far beyond the default 100-unit view distance: hidden from the player by ComputeVisibleTokens.
+            TokenRecord far = fixture.SceneRepository.CreateToken(fixture.Campaign, fixture.SceneId, new TokenPosition(500, 0), fixture.MainGmActor, NewCommandId(), TestCorrelationId).Value;
+
+            using var presenter = fixture.NewPresenter(player, isMainGm: false);
+            Assert.That(presenter.Initialize().IsSuccess, Is.True);
+            presenter.SelectToken(own.TokenId);
+            Assert.That(presenter.InspectorCoverTargets, Is.EquivalentTo(new[] { near.TokenId }), "a hidden token is not even listed");
+            Assert.That(presenter.InspectorCoverTargets, Has.No.Member(far.TokenId));
+
+            // Same board, now the MainGM's unfiltered view (the selection is kept across the re-render).
+            presenter.LocalActorUserId = fixture.MainGmActor;
+            presenter.LocalActorIsMainGm = true;
+            Assert.That(presenter.Refresh().IsSuccess, Is.True);
+            Assert.That(presenter.InspectorCoverTargets, Is.EquivalentTo(new[] { near.TokenId, far.TokenId }), "the MainGM sees every token");
+        }
+
         [Test] // TC-BOARD-134
         public void TryCheckCover_UsesInspectedTokenAsAttacker_DropdownSelectionAsTarget()
         {
@@ -237,7 +262,7 @@ namespace Odyssey.Tests.Unity.EditMode
 
             // The reverse order must not accidentally produce the same result by symmetry alone -- confirm
             // this call really used attacker/target in the order passed, not swapped internally.
-            Result<CoverDegree> direct = CoverSuggestionService.SuggestCover(fixture.SceneRepository, fixture.ObstacleRepository, new SuggestCoverRequest(fixture.Campaign, attacker.TokenId, target.TokenId, TestCorrelationId));
+            Result<CoverDegree> direct = CoverSuggestionService.SuggestCover(fixture.SceneRepository, fixture.ObstacleRepository, fixture.VisionRepository, fixture.CampaignRepository, new SuggestCoverRequest(fixture.Campaign, fixture.MainGmActor, attacker.TokenId, target.TokenId, TestCorrelationId));
             Assert.That(result.Value, Is.EqualTo(direct.Value));
         }
     }

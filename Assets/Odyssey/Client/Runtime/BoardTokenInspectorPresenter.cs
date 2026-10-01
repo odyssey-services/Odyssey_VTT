@@ -99,6 +99,9 @@ namespace Odyssey.Unity.Client
         /// <summary>The panel element -- callers re-add it to the board area on every Refresh() (a full <c>Clear()</c> discards it like every other overlay).</summary>
         public VisualElement Element => _element;
 
+        /// <summary>ODY-S11-218: the token ids currently offered as cover targets.</summary>
+        public IReadOnlyList<TokenId> CoverTargetTokenIds => _coverTargetTokenIds;
+
         /// <summary>Sets the three fields from the token's real, currently-stored vision settings. Call only when the inspected token changes -- not on every Refresh() -- so an in-progress, not-yet-applied edit is never silently overwritten by an unrelated Refresh() (e.g. another participant moving elsewhere, or this board's own fog recompute).</summary>
         public void SetValues(double facingDegrees, double fovAngleDegrees, double viewDistance)
         {

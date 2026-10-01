@@ -842,6 +842,195 @@ namespace Odyssey.Tests.Unity.EditMode
             return presenter;
         }
 
+        [Test]
+        public void OwnMoveIsDrawnInstantly_MoveMadeElsewhereEasesToTheNewPosition()
+        {
+            using TemporaryDirectory directory = new TemporaryDirectory();
+            var campaignRepository = new SqliteCampaignRepository(Clock);
+            var createRequest = new CreateCampaignRequest(directory.Path, "Board Motion Test Campaign", "ruleset.core", "1.0.0", "0.1.0", global::Odyssey.Application.Identity.DevIdentityProvider.AssignHost());
+            CampaignHandle campaign = campaignRepository.Create(createRequest, NewCommandId(), TestCorrelationId).Value;
+            var sceneRepository = new SqliteSceneRepository(Clock);
+            SceneId sceneId = sceneRepository.CreateScene(campaign, "Test Scene", NewCommandId(), TestCorrelationId).Value.SceneId;
+            UserId localActor = NewUserId();
+            TokenRecord token = sceneRepository.CreateToken(campaign, sceneId, new TokenPosition(0, 0), localActor, NewCommandId(), TestCorrelationId).Value;
+
+            GameObject gameObject = new GameObject("Board Motion Document");
+            try
+            {
+                UIDocument document = gameObject.AddComponent<UIDocument>();
+                using var presenter = new BoardScreenPresenter(document, sceneRepository, campaign, campaignRepository, new SqliteObstacleRepository(Clock), new SqliteTokenVisionRepository(Clock), new SqliteFogOfWarRepository(Clock), sceneId, localActor);
+                // ODY-S11-211 (TC-MOTION-006). Unfiltered render, so visibility rules play no part in what is checked here.
+                presenter.LocalActorIsMainGm = true;
+                Assert.That(presenter.Initialize().IsSuccess, Is.True);
+                float PixelLeft(double worldX) => (float)(presenter.Camera.ToPixelsX(worldX) - 14.0);
+                VisualElement Element() => document.rootVisualElement.Q<VisualElement>("token-" + token.TokenId)!;
+
+                Assert.That(presenter.TryMoveTokenTo(token.TokenId, new TokenPosition(3, 0)).IsSuccess, Is.True);
+                Assert.That(presenter.IsTokenAnimating(token.TokenId), Is.False, "the local user's own move is never delayed");
+                Assert.That(Element().style.left.value.value, Is.EqualTo(PixelLeft(3)).Within(0.01f));
+
+                // Another participant's move reaches storage; this board only sees it on its next render.
+                long revision = sceneRepository.GetToken(campaign, token.TokenId, TestCorrelationId).Value.Revision;
+                Assert.That(sceneRepository.MoveToken(campaign, token.TokenId, new TokenPosition(8, 0), revision, NewCommandId(), TestCorrelationId).IsSuccess, Is.True);
+                Assert.That(presenter.Refresh().IsSuccess, Is.True);
+                Assert.That(presenter.IsTokenAnimating(token.TokenId), Is.True, "a move made elsewhere eases in");
+                Assert.That(Element().style.left.value.value, Is.EqualTo(PixelLeft(3)).Within(0.01f), "starts where it was drawn");
+
+                Assert.That(presenter.AdvanceTokenMotion(OdyMotion.RemoteUpdateDurationMs / 2), Is.True);
+                float mid = Element().style.left.value.value;
+                Assert.That(mid, Is.GreaterThan(PixelLeft(3)).And.LessThan(PixelLeft(8)));
+
+                Assert.That(presenter.AdvanceTokenMotion(OdyMotion.RemoteUpdateDurationMs), Is.False);
+                Assert.That(Element().style.left.value.value, Is.EqualTo(PixelLeft(8)).Within(0.01f), "arrives at the authoritative position");
+            }
+            finally
+            {
+                UnityEngine.Object.DestroyImmediate(gameObject);
+                campaignRepository.Close(campaign, TestCorrelationId);
+            }
+        }
+
+        [Test]
+        public void FocusOnCharacter_EasesTheCameraToAnOffScreenToken_ManualPanInterrupts_HiddenTokensAreNeverFocused()
+        {
+            using TemporaryDirectory directory = new TemporaryDirectory();
+            var campaignRepository = new SqliteCampaignRepository(Clock);
+            var createRequest = new CreateCampaignRequest(directory.Path, "Board Focus Test Campaign", "ruleset.core", "1.0.0", "0.1.0", global::Odyssey.Application.Identity.DevIdentityProvider.AssignHost());
+            CampaignHandle campaign = campaignRepository.Create(createRequest, NewCommandId(), TestCorrelationId).Value;
+            var sceneRepository = new SqliteSceneRepository(Clock);
+            SceneId sceneId = sceneRepository.CreateScene(campaign, "Test Scene", NewCommandId(), TestCorrelationId).Value.SceneId;
+            UserId localActor = NewUserId();
+            CharacterId nearCharacter = CharacterId.NewId(Clock.GetUtcNow());
+            CharacterId farCharacter = CharacterId.NewId(Clock.GetUtcNow());
+            // Neither token is controlled by the local actor, so as a player they see none of them (see the end of the test).
+            sceneRepository.CreateToken(campaign, sceneId, new TokenPosition(0, 0), NewUserId(), NewCommandId(), TestCorrelationId, nearCharacter);
+            sceneRepository.CreateToken(campaign, sceneId, new TokenPosition(200, 150), NewUserId(), NewCommandId(), TestCorrelationId, farCharacter);
+
+            GameObject gameObject = new GameObject("Board Focus Document");
+            try
+            {
+                UIDocument document = gameObject.AddComponent<UIDocument>();
+                using var presenter = new BoardScreenPresenter(document, sceneRepository, campaign, campaignRepository, new SqliteObstacleRepository(Clock), new SqliteTokenVisionRepository(Clock), new SqliteFogOfWarRepository(Clock), sceneId, localActor);
+                // ODY-S11-214 (TC-CAMFOCUS-005). Unfiltered render first: both tokens are visible.
+                presenter.LocalActorIsMainGm = true;
+                Assert.That(presenter.Initialize().IsSuccess, Is.True);
+
+                Assert.That(presenter.FocusOnCharacter(nearCharacter), Is.EqualTo(BoardFocusOutcome.AlreadyInFrame), "the default camera already frames the origin");
+                Assert.That(presenter.FocusOnCharacter(CharacterId.NewId(Clock.GetUtcNow())), Is.EqualTo(BoardFocusOutcome.NotOnBoard));
+
+                Assert.That(presenter.FocusOnCharacter(farCharacter), Is.EqualTo(BoardFocusOutcome.Started));
+                Assert.That(presenter.IsCameraFocusing, Is.True);
+                Assert.That(presenter.AdvanceCameraFocus(BoardCameraFocus.DurationMs / 2), Is.True);
+                Assert.That(presenter.AdvanceCameraFocus(BoardCameraFocus.DurationMs), Is.False);
+                Assert.That(presenter.Camera.ToPixelsX(200), Is.EqualTo(220.0).Within(1e-6), "centered in the 440px board");
+                Assert.That(presenter.Camera.ToPixelsY(150), Is.EqualTo(220.0).Within(1e-6));
+
+                Assert.That(presenter.FocusOnCharacter(nearCharacter), Is.EqualTo(BoardFocusOutcome.Started));
+                presenter.BeginBoardPan(10, 10);
+                Assert.That(presenter.IsCameraFocusing, Is.False, "the user's own camera input wins at once");
+                presenter.EndBoardPan();
+                double offsetAfterInterrupt = presenter.Camera.OffsetX;
+                Assert.That(presenter.AdvanceCameraFocus(BoardCameraFocus.DurationMs), Is.False);
+                Assert.That(presenter.Camera.OffsetX, Is.EqualTo(offsetAfterInterrupt), "no further autofocus movement");
+
+                // A player who controls no token sees no token (ComputeVisibleTokens): focusing must not reveal one.
+                presenter.LocalActorIsMainGm = false;
+                Assert.That(presenter.Refresh().IsSuccess, Is.True);
+                Assert.That(presenter.FocusOnCharacter(farCharacter), Is.EqualTo(BoardFocusOutcome.Hidden));
+                Assert.That(presenter.IsCameraFocusing, Is.False);
+            }
+            finally
+            {
+                UnityEngine.Object.DestroyImmediate(gameObject);
+                campaignRepository.Close(campaign, TestCorrelationId);
+            }
+        }
+
+        [Test]
+        public void SelectedTokensAndTheSelectionBox_GetAMarchingAntsOutline_DeselectRemovesIt()
+        {
+            using TemporaryDirectory directory = new TemporaryDirectory();
+            var campaignRepository = new SqliteCampaignRepository(Clock);
+            var createRequest = new CreateCampaignRequest(directory.Path, "Board Ants Test Campaign", "ruleset.core", "1.0.0", "0.1.0", global::Odyssey.Application.Identity.DevIdentityProvider.AssignHost());
+            CampaignHandle campaign = campaignRepository.Create(createRequest, NewCommandId(), TestCorrelationId).Value;
+            var sceneRepository = new SqliteSceneRepository(Clock);
+            SceneId sceneId = sceneRepository.CreateScene(campaign, "Test Scene", NewCommandId(), TestCorrelationId).Value.SceneId;
+            UserId localActor = NewUserId();
+            TokenRecord token = sceneRepository.CreateToken(campaign, sceneId, new TokenPosition(0, 0), localActor, NewCommandId(), TestCorrelationId).Value;
+
+            GameObject gameObject = new GameObject("Board Ants Document");
+            try
+            {
+                UIDocument document = gameObject.AddComponent<UIDocument>();
+                using var presenter = new BoardScreenPresenter(document, sceneRepository, campaign, campaignRepository, new SqliteObstacleRepository(Clock), new SqliteTokenVisionRepository(Clock), new SqliteFogOfWarRepository(Clock), sceneId, localActor);
+                // ODY-S11-216 (TC-ANTS-004). Unfiltered render, so visibility rules play no part here.
+                presenter.LocalActorIsMainGm = true;
+                Assert.That(presenter.Initialize().IsSuccess, Is.True);
+                Assert.That(presenter.SelectionOutline(token.TokenId), Is.Null, "nothing selected, no outline");
+
+                presenter.SelectToken(token.TokenId);
+                OdyMarchingAnts? outline = presenter.SelectionOutline(token.TokenId);
+                Assert.That(outline, Is.Not.Null);
+                Assert.That(outline!.Element.parent, Is.SameAs(document.rootVisualElement.Q<VisualElement>("token-" + token.TokenId)), "drawn on the selected token");
+
+                presenter.SelectToken(token.TokenId); // a plain click on the only selected token clears the selection
+                Assert.That(presenter.SelectionOutline(token.TokenId), Is.Null);
+                Assert.That(outline.Element.parent, Is.Null, "removed with the selection");
+
+                presenter.BeginBoardPointerGesture(300, 300);
+                presenter.MoveBoardPointer(380, 360);
+                Assert.That(presenter.SelectionBoxElement, Is.Not.Null);
+                Assert.That(presenter.SelectionBoxOutline!.Element.parent, Is.SameAs(presenter.SelectionBoxElement), "the box marches too");
+                presenter.EndBoardPointerGesture(380, 360);
+            }
+            finally
+            {
+                UnityEngine.Object.DestroyImmediate(gameObject);
+                campaignRepository.Close(campaign, TestCorrelationId);
+            }
+        }
+
+        [Test]
+        public void UnderReducedMotion_MovesMadeElsewhereAreInstant_AndTheCameraJumpsToTheActingToken()
+        {
+            using TemporaryDirectory directory = new TemporaryDirectory();
+            var campaignRepository = new SqliteCampaignRepository(Clock);
+            var createRequest = new CreateCampaignRequest(directory.Path, "Board Reduced Motion Test Campaign", "ruleset.core", "1.0.0", "0.1.0", global::Odyssey.Application.Identity.DevIdentityProvider.AssignHost());
+            CampaignHandle campaign = campaignRepository.Create(createRequest, NewCommandId(), TestCorrelationId).Value;
+            var sceneRepository = new SqliteSceneRepository(Clock);
+            SceneId sceneId = sceneRepository.CreateScene(campaign, "Test Scene", NewCommandId(), TestCorrelationId).Value.SceneId;
+            UserId localActor = NewUserId();
+            CharacterId farCharacter = CharacterId.NewId(Clock.GetUtcNow());
+            TokenRecord token = sceneRepository.CreateToken(campaign, sceneId, new TokenPosition(0, 0), localActor, NewCommandId(), TestCorrelationId).Value;
+            sceneRepository.CreateToken(campaign, sceneId, new TokenPosition(200, 150), NewUserId(), NewCommandId(), TestCorrelationId, farCharacter);
+
+            GameObject gameObject = new GameObject("Board Reduced Motion Document");
+            try
+            {
+                UIDocument document = gameObject.AddComponent<UIDocument>();
+                // ODY-S11-223 (TC-REDUCEDMOTION-005): the reduced-motion class sits on an ancestor of the board area.
+                document.rootVisualElement.AddToClassList(OdyClasses.ReducedMotion);
+                using var presenter = new BoardScreenPresenter(document, sceneRepository, campaign, campaignRepository, new SqliteObstacleRepository(Clock), new SqliteTokenVisionRepository(Clock), new SqliteFogOfWarRepository(Clock), sceneId, localActor);
+                presenter.LocalActorIsMainGm = true;
+                Assert.That(presenter.Initialize().IsSuccess, Is.True);
+
+                long revision = sceneRepository.GetToken(campaign, token.TokenId, TestCorrelationId).Value.Revision;
+                Assert.That(sceneRepository.MoveToken(campaign, token.TokenId, new TokenPosition(6, 0), revision, NewCommandId(), TestCorrelationId).IsSuccess, Is.True);
+                Assert.That(presenter.Refresh().IsSuccess, Is.True);
+                Assert.That(presenter.IsTokenAnimating(token.TokenId), Is.False, "drawn at once");
+                Assert.That(document.rootVisualElement.Q<VisualElement>("token-" + token.TokenId)!.style.left.value.value, Is.EqualTo((float)(presenter.Camera.ToPixelsX(6) - 14.0)).Within(0.01f));
+
+                Assert.That(presenter.FocusOnCharacter(farCharacter), Is.EqualTo(BoardFocusOutcome.Started));
+                Assert.That(presenter.IsCameraFocusing, Is.False, "no pan: the camera is already there");
+                Assert.That(presenter.Camera.ToPixelsX(200), Is.EqualTo(220.0).Within(1e-6));
+            }
+            finally
+            {
+                UnityEngine.Object.DestroyImmediate(gameObject);
+                campaignRepository.Close(campaign, TestCorrelationId);
+            }
+        }
+
         private static void ClickToken(BoardScreenPresenter presenter, TokenId id, double worldX, bool shift)
         {
             double x = presenter.Camera.ToPixelsX(worldX);

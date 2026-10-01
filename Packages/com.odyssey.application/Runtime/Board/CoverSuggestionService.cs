@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using Odyssey.Application.Commands;
+using Odyssey.Application.Identity;
 using Odyssey.Application.Persistence;
 using Odyssey.Application.Results;
 using Odyssey.Domain.Geometry;
@@ -19,28 +20,60 @@ namespace Odyssey.Application.Board
     /// `Modifiers`/`Hit` today can and do reflect cover -- computed there via `SqliteAttackStateReader`,
     /// not through a call to this method.
     ///
-    /// Performs no authorization at all, by exact precedent of <c>ObstacleAuthoringService.ListObstacles</c>/
-    /// <c>TokenVisionService.ComputeLineOfSight</c>: reading scene geometry to compute a cover hint is
-    /// no more sensitive than reading it to compute line of sight, both already open to any caller.
+    /// ODY-S11-222 (security): visibility-checked. A cover answer reveals where a token is relative to the
+    /// obstacles, so a requester who is not the campaign's registered MainGm only gets an answer when BOTH tokens
+    /// are in their own live visible set -- the same <see cref="PlayerVisibilityService.ComputeVisibleTokens"/> rule
+    /// that hides tokens from players everywhere else (reused, not re-implemented). For such a requester a token
+    /// that is hidden, does not exist, or sits on another Scene is refused with one and the same
+    /// <see cref="CoverSuggestionFailures.TokenUnavailable"/> error, checked before anything else about the pair,
+    /// so the refusal cannot be used to probe which token ids exist or where they are. The MainGm is unrestricted,
+    /// exactly as before.
     /// </summary>
     public static class CoverSuggestionService
     {
-        public static Result<CoverDegree> SuggestCover(ISceneRepository sceneRepository, IObstacleRepository obstacleRepository, SuggestCoverRequest request)
+        public static Result<CoverDegree> SuggestCover(ISceneRepository sceneRepository, IObstacleRepository obstacleRepository, ITokenVisionRepository visionRepository, ICampaignRepository campaignRepository, SuggestCoverRequest request)
         {
             if (sceneRepository == null) throw new ArgumentNullException(nameof(sceneRepository));
             if (obstacleRepository == null) throw new ArgumentNullException(nameof(obstacleRepository));
+            if (visionRepository == null) throw new ArgumentNullException(nameof(visionRepository));
+            if (campaignRepository == null) throw new ArgumentNullException(nameof(campaignRepository));
             if (request == null) throw new ArgumentNullException(nameof(request));
+
+            Result<bool> requesterIsMainGm = CampaignMembershipAuthorization.IsMainGm(campaignRepository, request.Campaign, request.RequestingUserId, request.CorrelationId);
+            if (requesterIsMainGm.IsFailure)
+            {
+                return Result<CoverDegree>.Failure(requesterIsMainGm.Error);
+            }
+
+            bool restricted = !requesterIsMainGm.Value;
 
             Result<TokenRecord> attackerToken = sceneRepository.GetToken(request.Campaign, request.AttackerTokenId, request.CorrelationId);
             if (attackerToken.IsFailure)
             {
-                return Result<CoverDegree>.Failure(attackerToken.Error);
+                return Result<CoverDegree>.Failure(restricted && attackerToken.Error.Category == ErrorCategory.NotFound ? CoverSuggestionFailures.TokenUnavailable(request.CorrelationId) : attackerToken.Error);
             }
 
             Result<TokenRecord> targetToken = sceneRepository.GetToken(request.Campaign, request.TargetTokenId, request.CorrelationId);
             if (targetToken.IsFailure)
             {
-                return Result<CoverDegree>.Failure(targetToken.Error);
+                return Result<CoverDegree>.Failure(restricted && targetToken.Error.Category == ErrorCategory.NotFound ? CoverSuggestionFailures.TokenUnavailable(request.CorrelationId) : targetToken.Error);
+            }
+
+            if (restricted)
+            {
+                // Visibility is decided on the attacker's Scene: a target on another Scene is simply not visible there,
+                // so it gets the same refusal as a hidden one (no "different scene" answer that would confirm it exists).
+                var visibilityRequest = new ComputeVisibleTokensRequest(request.Campaign, attackerToken.Value.SceneId, request.RequestingUserId, request.RequestingUserId, request.CorrelationId);
+                Result<IReadOnlyCollection<TokenId>> visible = PlayerVisibilityService.ComputeVisibleTokens(sceneRepository, visionRepository, obstacleRepository, campaignRepository, visibilityRequest);
+                if (visible.IsFailure)
+                {
+                    return Result<CoverDegree>.Failure(visible.Error);
+                }
+
+                if (!Contains(visible.Value, request.AttackerTokenId) || !Contains(visible.Value, request.TargetTokenId))
+                {
+                    return Result<CoverDegree>.Failure(CoverSuggestionFailures.TokenUnavailable(request.CorrelationId));
+                }
             }
 
             if (!attackerToken.Value.SceneId.Equals(targetToken.Value.SceneId))
@@ -68,22 +101,37 @@ namespace Odyssey.Application.Board
 
             return Result<CoverDegree>.Success(degree);
         }
+
+        private static bool Contains(IReadOnlyCollection<TokenId> tokenIds, TokenId tokenId)
+        {
+            foreach (TokenId candidate in tokenIds)
+            {
+                if (candidate.Equals(tokenId)) return true;
+            }
+
+            return false;
+        }
     }
 
     public sealed class SuggestCoverRequest
     {
-        public SuggestCoverRequest(CampaignHandle campaign, TokenId attackerTokenId, TokenId targetTokenId, CorrelationId correlationId)
+        public SuggestCoverRequest(CampaignHandle campaign, UserId requestingUserId, TokenId attackerTokenId, TokenId targetTokenId, CorrelationId correlationId)
         {
             Campaign = campaign ?? throw new ArgumentNullException(nameof(campaign));
+            if (!requestingUserId.IsValid) throw new ArgumentException("RequestingUserId is required.", nameof(requestingUserId));
             if (!attackerTokenId.IsValid) throw new ArgumentException("AttackerTokenId is required.", nameof(attackerTokenId));
             if (!targetTokenId.IsValid) throw new ArgumentException("TargetTokenId is required.", nameof(targetTokenId));
 
+            RequestingUserId = requestingUserId;
             AttackerTokenId = attackerTokenId;
             TargetTokenId = targetTokenId;
             CorrelationId = correlationId;
         }
 
         public CampaignHandle Campaign { get; }
+
+        /// <summary>ODY-S11-222: who asks -- decides whether the answer is limited to tokens they can see.</summary>
+        public UserId RequestingUserId { get; }
         public TokenId AttackerTokenId { get; }
         public TokenId TargetTokenId { get; }
         public CorrelationId CorrelationId { get; }
@@ -91,6 +139,19 @@ namespace Odyssey.Application.Board
 
     public static class CoverSuggestionFailures
     {
+        /// <summary>
+        /// ODY-S11-222 (security): a non-MainGm requester asked about a token they cannot see -- hidden from them, not on
+        /// the attacker's Scene, or not existing at all. One error for all three on purpose, so the refusal reveals
+        /// neither existence nor position.
+        /// </summary>
+        public static Error TokenUnavailable(CorrelationId correlationId) => Error.Create(
+            ErrorCodes.CoverSuggestionTokenUnavailable,
+            ErrorCategory.NotFound,
+            SafeReasonCode.TargetUnavailable,
+            UserMessageKey.Parse("errors.cover_suggestion.token_unavailable"),
+            RetryDirective.DoNotRetry,
+            correlationId);
+
         /// <summary>`CoverSuggestionService.SuggestCover`: attacker and target tokens are not on the same Scene -- a cover hint across two different maps has no meaning, by exact precedent of `TokenVisionFailures.ObserverAndTargetNotInSameScene`.</summary>
         public static Error AttackerAndTargetNotInSameScene(CorrelationId correlationId) => Error.Create(
             ErrorCodes.CoverSuggestionAttackerAndTargetNotInSameScene,

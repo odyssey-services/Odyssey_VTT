@@ -161,6 +161,18 @@ namespace Odyssey.Unity.Client
         private string? _dragAnchorKey;
         private readonly List<string> _dragGroup = new List<string>();
         private readonly Dictionary<string, TokenPosition> _dragStartPositions = new Dictionary<string, TokenPosition>(StringComparer.Ordinal);
+        // ODY-S11-211: local moves are drawn instantly, moves observed from elsewhere ease in (BoardTokenMotion).
+        private readonly BoardTokenMotion _tokenMotion = new BoardTokenMotion();
+        private IVisualElementScheduledItem? _tokenMotionTicker;
+        // ODY-S11-214: camera autofocus on the acting participant; manual camera input always wins.
+        private readonly BoardCameraFocus _cameraFocus = new BoardCameraFocus();
+        private IVisualElementScheduledItem? _cameraFocusTicker;
+        private readonly Dictionary<string, string> _tokenKeysByCharacterId = new Dictionary<string, string>(StringComparer.Ordinal);
+        private readonly HashSet<string> _visibleTokenKeys = new HashSet<string>(StringComparer.Ordinal);
+        // ODY-S11-216: marching-ants outlines on selected tokens and on the box-select rectangle (visual only).
+        private const float SelectionAntsOutset = 4f;
+        private readonly Dictionary<string, OdyMarchingAnts> _selectionAnts = new Dictionary<string, OdyMarchingAnts>(StringComparer.Ordinal);
+        private OdyMarchingAnts? _boxAnts;
         private bool _disposed;
 
         public BoardScreenPresenter(UIDocument document, ISceneRepository sceneRepository, CampaignHandle campaign, ICampaignRepository campaignRepository, IObstacleRepository obstacleRepository, ITokenVisionRepository visionRepository, IFogOfWarRepository fogRepository, SceneId sceneId, UserId localActorUserId)
@@ -198,6 +210,28 @@ namespace Odyssey.Unity.Client
         /// <summary>Whether the current local actor holds the MainGM baseline role, as the role selector reports it. Settable -- see class remarks. Since ODY-S10-101 this is presentation state only: token-move authorization no longer reads it (it uses the stored campaign membership).</summary>
         public bool LocalActorIsMainGm { get; set; }
 
+        /// <summary>
+        /// ODY-S11-201 (Owlbear layout): when set before <see cref="InitializeInto"/>, the board area is not given its
+        /// fixed 440x440 inline size -- it fills its parent (the full-screen board layer; the design system's
+        /// <c>.ody-board-layer #board-area</c> rule) and the fog overlay follows the area's real laid-out size. Only the
+        /// embedding changes: camera, gestures, hit tests, token/obstacle/fog rendering and every command are the
+        /// same code paths. Default false keeps the pre-existing fixed-size board byte-for-byte (all existing tests).
+        /// </summary>
+        public bool FullBleed { get; set; }
+
+        /// <summary>
+        /// ODY-S11-208: when set before <see cref="InitializeInto"/> (Owlbear/<see cref="FullBleed"/> mode), the
+        /// title/toolbar/status chrome is mounted here instead of <c>appRoot</c>. <c>appRoot</c> also hosts
+        /// <c>_boardArea</c>, and when <see cref="FullBleed"/> is true that area is absolutely positioned to cover
+        /// the whole parent and is added after the chrome -- later siblings paint and receive pointer events on
+        /// top in UI Toolkit, so the full-bleed board silently swallowed every click meant for the toolbar's
+        /// Select/Draw Wall/Draw Door/Draw Window buttons (TC-BOARD-121 finding, ODY-S11-207/208). Mounting the
+        /// chrome on a host that is a structural sibling of the board layer, not a document-order predecessor
+        /// inside it, fixes this regardless of stylesheet loading. Null (default) keeps the pre-existing
+        /// appRoot-hosted chrome byte-for-byte (dev shell, fixed-size board, existing EditMode/PlayMode tests).
+        /// </summary>
+        public VisualElement? OverlayHost { get; set; }
+
         public Result Initialize()
         {
             return InitializeInto(null);
@@ -221,6 +255,8 @@ namespace Odyssey.Unity.Client
             if (_disposed) return;
             _roleSelectorPresenter?.Dispose();
             _roleSubscription?.Dispose();
+            _tokenMotionTicker?.Pause();
+            CancelCameraFocus();
             _textureCache.Dispose();
             _disposed = true;
         }
@@ -232,8 +268,15 @@ namespace Odyssey.Unity.Client
             appRoot.Clear();
             appRoot.AddToClassList("app-root");
 
-            Label title = new Label("Odyssey Board Screen (trial)") { name = "board-title" };
-            appRoot.Add(title);
+            // ODY-S11-208: in Owlbear/FullBleed mode the chrome is mounted on OverlayHost, a structural sibling
+            // of appRoot's board layer, not a document-order predecessor inside it -- see OverlayHost's remarks.
+            VisualElement chromeHost = OverlayHost ?? appRoot;
+
+            if (OverlayHost == null)
+            {
+                Label title = new Label("Odyssey Board Screen (trial)") { name = "board-title" };
+                chromeHost.Add(title);
+            }
 
             if (_includeRoleSelector && _roleSelection != null && _presentationRuntime != null)
             {
@@ -244,17 +287,67 @@ namespace Odyssey.Unity.Client
             // SLICE-10 Block 6 part 1: the toolbar's own visibility (MainGM-only, presentational) is set on
             // every Refresh(), so it stays correct regardless of how LocalActorIsMainGm was last changed.
             _toolbarPresenter = new BoardToolbarPresenter(OnToolSelected);
-            appRoot.Add(_toolbarPresenter.BuildView());
+            VisualElement toolbarView = _toolbarPresenter.BuildView();
+            chromeHost.Add(toolbarView);
             _toolbarPresenter.SetActiveTool(_currentTool);
 
             _statusLabel = new Label { name = "board-status" };
-            appRoot.Add(_statusLabel);
+            chromeHost.Add(_statusLabel);
+
+            if (OverlayHost != null)
+            {
+                // Floats the toolbar and status pill over the map's bottom-left corner -- a thin strip, not a
+                // block that competes with the map for space -- independent of the design-system stylesheet
+                // (not currently attached to this UIDocument; see ODY-S11-208 completion evidence).
+                toolbarView.style.position = Position.Absolute;
+                toolbarView.style.left = 12;
+                toolbarView.style.bottom = 56;
+                toolbarView.style.paddingLeft = 4;
+                toolbarView.style.paddingRight = 4;
+                toolbarView.style.paddingTop = 4;
+                toolbarView.style.paddingBottom = 4;
+                toolbarView.style.backgroundColor = new StyleColor(new Color(0.12f, 0.12f, 0.14f, 0.92f));
+                toolbarView.style.borderTopLeftRadius = 8;
+                toolbarView.style.borderTopRightRadius = 8;
+                toolbarView.style.borderBottomLeftRadius = 8;
+                toolbarView.style.borderBottomRightRadius = 8;
+
+                _statusLabel.style.position = Position.Absolute;
+                _statusLabel.style.left = 12;
+                _statusLabel.style.bottom = 12;
+                _statusLabel.style.maxWidth = Length.Percent(50);
+                _statusLabel.style.paddingLeft = 8;
+                _statusLabel.style.paddingRight = 8;
+                _statusLabel.style.paddingTop = 4;
+                _statusLabel.style.paddingBottom = 4;
+                _statusLabel.style.backgroundColor = new StyleColor(new Color(0.12f, 0.12f, 0.14f, 0.92f));
+                _statusLabel.style.color = new StyleColor(Color.white);
+                _statusLabel.style.borderTopLeftRadius = 12;
+                _statusLabel.style.borderTopRightRadius = 12;
+                _statusLabel.style.borderBottomLeftRadius = 12;
+                _statusLabel.style.borderBottomRightRadius = 12;
+                _statusLabel.style.whiteSpace = WhiteSpace.Normal;
+            }
 
             _boardArea = new VisualElement { name = "board-area" };
-            _boardArea.style.position = Position.Relative;
-            _boardArea.style.width = (float)BoardWidthPixels;
-            _boardArea.style.height = (float)BoardHeightPixels;
-            _boardArea.style.marginTop = 8;
+            if (FullBleed)
+            {
+                _boardArea.style.position = Position.Absolute;
+                _boardArea.style.left = 0;
+                _boardArea.style.top = 0;
+                _boardArea.style.right = 0;
+                _boardArea.style.bottom = 0;
+                _boardArea.style.overflow = Overflow.Hidden;
+                _boardArea.RegisterCallback<GeometryChangedEvent>(OnBoardAreaGeometryChanged);
+            }
+            else
+            {
+                _boardArea.style.position = Position.Relative;
+                _boardArea.style.width = (float)BoardWidthPixels;
+                _boardArea.style.height = (float)BoardHeightPixels;
+                _boardArea.style.marginTop = 8;
+            }
+
             _boardArea.style.backgroundColor = new StyleColor(new Color(0.12f, 0.12f, 0.14f));
             // Focusable so Escape (OnBoardKeyDown) can reach it and cancel an in-progress draw gesture --
             // requires the board area to have received focus first (e.g. from a prior click on it), a known,
@@ -367,8 +460,31 @@ namespace Odyssey.Unity.Client
 
             var request = new ListExploredRevealsRequest(_campaign, _sceneId, LocalActorUserId, LocalActorUserId, NewCorrelationId());
             Result<IReadOnlyList<FogRevealRecord>> reveals = PlayerVisibilityService.ListExploredReveals(_fogRepository, _campaignRepository, request);
-            _fogPresenter.Show(reveals.IsSuccess ? reveals.Value : Array.Empty<FogRevealRecord>(), _camera, BoardWidthPixels, BoardHeightPixels);
+            _fogPresenter.Show(reveals.IsSuccess ? reveals.Value : Array.Empty<FogRevealRecord>(), _camera, CurrentBoardWidthPixels(), CurrentBoardHeightPixels());
             _boardArea.Add(_fogPresenter.Element);
+        }
+
+        // ODY-S11-201: the fixed constants unless FullBleed and the area already has a real layout (EditMode tests
+        // without a panel never lay out, so they keep the constants).
+        private double CurrentBoardWidthPixels()
+        {
+            if (!FullBleed || _boardArea == null) return BoardWidthPixels;
+            float width = _boardArea.layout.width;
+            return float.IsNaN(width) || width <= 0f ? BoardWidthPixels : width;
+        }
+
+        private double CurrentBoardHeightPixels()
+        {
+            if (!FullBleed || _boardArea == null) return BoardHeightPixels;
+            float height = _boardArea.layout.height;
+            return float.IsNaN(height) || height <= 0f ? BoardHeightPixels : height;
+        }
+
+        // ODY-S11-201: a window resize re-sizes the already-computed fog darkness; no repository read.
+        private void OnBoardAreaGeometryChanged(GeometryChangedEvent evt)
+        {
+            if (!_fogPresenter.IsVisible) return;
+            _fogPresenter.Show(_fogPresenter.CurrentReveals, _camera, CurrentBoardWidthPixels(), CurrentBoardHeightPixels());
         }
 
         private Error? ApplySceneBackground()
@@ -435,8 +551,16 @@ namespace Odyssey.Unity.Client
         private Error? RenderTokens(IReadOnlyList<TokenRecord> tokens, IReadOnlyCollection<TokenId>? visibleTokenIds)
         {
             if (_boardArea == null) return null;
+            // ODY-S11-223: under reduced motion, moves made elsewhere are drawn at once instead of easing in.
+            _tokenMotion.Enabled = !OdyMotion.IsReducedMotion(_boardArea);
+            // ODY-S11-211: where each token was last rendered, to tell a moved token from an unchanged one.
+            var previousPositions = new Dictionary<string, TokenPosition>(_tokenPositionsByTokenId, StringComparer.Ordinal);
             _tokenElementsByTokenId.Clear();
             _tokenPositionsByTokenId.Clear();
+            _tokenKeysByCharacterId.Clear();
+            _visibleTokenKeys.Clear();
+            foreach (OdyMarchingAnts ants in _selectionAnts.Values) ants.Detach();
+            _selectionAnts.Clear();
             _tokenGesturesByTokenId.Clear();
             _tokenZOrdersByTokenId.Clear();
             _tokenScalesByTokenId.Clear();
@@ -447,12 +571,15 @@ namespace Odyssey.Unity.Client
             // puts the highest ZOrder last, i.e. on top.
             foreach (TokenRecord token in tokens.OrderBy(t => t.ZOrder))
             {
+                string tokenKey = token.TokenId.ToString();
+                bool isVisible = visibleTokenIds == null || visibleTokenIds.Contains(token.TokenId);
                 VisualElement tokenElement = new VisualElement { name = "token-" + token.TokenId };
                 tokenElement.AddToClassList("board-token");
                 tokenElement.style.position = Position.Absolute;
                 tokenElement.style.width = (float)(TokenSizePixels * token.Scale);
                 tokenElement.style.height = (float)(TokenSizePixels * token.Scale);
-                PositionTokenElement(tokenElement, token.Position, token.Scale);
+                TokenPosition? previousPosition = previousPositions.TryGetValue(tokenKey, out TokenPosition previous) ? previous : (TokenPosition?)null;
+                PositionTokenElement(tokenElement, _tokenMotion.Observe(tokenKey, previousPosition, token.Position, isVisible), token.Scale);
                 bool hasPortraitTexture = false;
                 if (token.PortraitAssetId.HasValue)
                 {
@@ -479,6 +606,7 @@ namespace Odyssey.Unity.Client
                 tokenElement.style.borderBottomWidth = isSelected ? 3 : 1;
                 tokenElement.style.borderLeftWidth = isSelected ? 3 : 1;
                 tokenElement.style.borderRightWidth = isSelected ? 3 : 1;
+                ApplySelectionOutline(tokenKey, tokenElement, isSelected);
 
                 // SLICE-10 Block 6 part 2: a token absent from the real, authoritative ComputeVisibleTokens
                 // result is not rendered at all (DisplayStyle.None, not merely darkened) -- an
@@ -487,7 +615,6 @@ namespace Odyssey.Unity.Client
                 // disabled so a hidden token can never be selected/dragged/hit-tested while invisible. The
                 // element is still created and tracked in every dictionary below (unchanged from before this
                 // task) so the rest of this class's per-token bookkeeping needs no special-casing.
-                bool isVisible = visibleTokenIds == null || visibleTokenIds.Contains(token.TokenId);
                 tokenElement.style.display = isVisible ? DisplayStyle.Flex : DisplayStyle.None;
                 tokenElement.pickingMode = isVisible ? PickingMode.Position : PickingMode.Ignore;
 
@@ -512,8 +639,12 @@ namespace Odyssey.Unity.Client
                 _tokenZOrdersByTokenId[token.TokenId.ToString()] = token.ZOrder;
                 _tokenScalesByTokenId[token.TokenId.ToString()] = token.Scale;
                 _tokenControllersByTokenId[token.TokenId.ToString()] = token.ControllerUserId;
+                if (isVisible) _visibleTokenKeys.Add(tokenKey);
+                if (token.CharacterId.HasValue && !_tokenKeysByCharacterId.ContainsKey(token.CharacterId.Value.ToString())) _tokenKeysByCharacterId[token.CharacterId.Value.ToString()] = tokenKey;
             }
 
+            _tokenMotion.RetainOnly(_tokenElementsByTokenId.Keys);
+            EnsureTokenMotionTicking();
             return firstAssetError;
         }
 
@@ -736,6 +867,8 @@ namespace Odyssey.Unity.Client
             }
 
             TokenId tokenId = selected.Value;
+            // ODY-S11-211: the local user's own move (or its rollback) is drawn instantly.
+            _tokenMotion.MarkLocal(tokenId.ToString());
             Result<TokenRecord> current = _sceneRepository.GetToken(_campaign, tokenId, NewCorrelationId());
             if (current.IsFailure)
             {
@@ -775,6 +908,8 @@ namespace Odyssey.Unity.Client
         /// </summary>
         public Result<TokenRecord> TryMoveTokenTo(TokenId tokenId, TokenPosition destination)
         {
+            // ODY-S11-211: the local user's own move (or its rollback) is drawn instantly.
+            _tokenMotion.MarkLocal(tokenId.ToString());
             Result<TokenRecord> current = _sceneRepository.GetToken(_campaign, tokenId, NewCorrelationId());
             if (current.IsFailure)
             {
@@ -879,6 +1014,9 @@ namespace Odyssey.Unity.Client
             if (_draggingTokenId.HasValue && _draggingTokenId.Value.Equals(tokenId))
             {
                 _draggingTokenId = null;
+                // ODY-S11-211: rolling back the local user's own drag is drawn instantly, not animated.
+                _tokenMotion.MarkLocal(key);
+                foreach (string member in _dragGroup) _tokenMotion.MarkLocal(member);
                 ResetDragState();
                 Refresh();
             }
@@ -912,6 +1050,8 @@ namespace Odyssey.Unity.Client
 
             foreach (string key in _dragGroup)
             {
+                // ODY-S11-211: a grabbed token stops any remote animation -- the local drag is always 1:1.
+                _tokenMotion.Cancel(key);
                 if (_tokenPositionsByTokenId.TryGetValue(key, out TokenPosition start)) _dragStartPositions[key] = start;
             }
 
@@ -1048,8 +1188,35 @@ namespace Odyssey.Unity.Client
                 entry.Value.style.borderBottomWidth = isSelected ? 3 : 1;
                 entry.Value.style.borderLeftWidth = isSelected ? 3 : 1;
                 entry.Value.style.borderRightWidth = isSelected ? 3 : 1;
+                ApplySelectionOutline(entry.Key, entry.Value, isSelected);
             }
         }
+
+        // ODY-S11-216: selected tokens get a marching-ants outline just outside their border; deselected ones lose it.
+        private void ApplySelectionOutline(string tokenKey, VisualElement tokenElement, bool selected)
+        {
+            if (selected)
+            {
+                if (!_selectionAnts.TryGetValue(tokenKey, out OdyMarchingAnts? ants))
+                {
+                    ants = new OdyMarchingAnts("token-selection-ants-" + tokenKey, SelectionAntsOutset);
+                    _selectionAnts[tokenKey] = ants;
+                }
+
+                ants.AttachTo(tokenElement);
+            }
+            else if (_selectionAnts.TryGetValue(tokenKey, out OdyMarchingAnts? ants))
+            {
+                ants.Detach();
+                _selectionAnts.Remove(tokenKey);
+            }
+        }
+
+        /// <summary>ODY-S11-216: the marching-ants outline of a selected token, or <c>null</c>. Exposed for tests.</summary>
+        public OdyMarchingAnts? SelectionOutline(TokenId tokenId) => _selectionAnts.TryGetValue(tokenId.ToString(), out OdyMarchingAnts? ants) ? ants : null;
+
+        /// <summary>ODY-S11-216: the marching-ants outline of the box-select rectangle (exists once a box was drawn). Exposed for tests.</summary>
+        public OdyMarchingAnts? SelectionBoxOutline => _boxAnts;
 
         /// <summary>
         /// Ends a token's own drag gesture. Movement below the drag threshold is a click -- selects the
@@ -1097,6 +1264,8 @@ namespace Odyssey.Unity.Client
             }
 
             ResetDragState();
+            // ODY-S11-211: every member's commit (and any rollback) is the local user's own move: drawn instantly.
+            foreach (KeyValuePair<TokenId, TokenPosition> entry in destinations) _tokenMotion.MarkLocal(entry.Key.ToString());
 
             // ODY-S08-106: a group commits as one ordinary MoveToken per token (BoardMovementService has no
             // batch API). NOT atomic: a token whose move is denied is rolled back visually by its own
@@ -1366,7 +1535,9 @@ namespace Odyssey.Unity.Client
             var otherTokenIds = new List<TokenId>();
             foreach (string otherKey in _tokenPositionsByTokenId.Keys)
             {
-                if (otherKey == key) continue;
+                // ODY-S11-218: only tokens the local actor can see. A token hidden by ComputeVisibleTokens must not
+                // appear in this first-level list (its id, the count, or a cover check against it would leak it).
+                if (otherKey == key || !_visibleTokenKeys.Contains(otherKey)) continue;
                 otherTokenIds.Add(TokenId.Parse(otherKey));
             }
 
@@ -1514,16 +1685,18 @@ namespace Odyssey.Unity.Client
         }
 
         /// <summary>
-        /// <see cref="CoverSuggestionService.SuggestCover"/> performs no authorization at all (used as-is,
-        /// task contract section 2.3) -- <paramref name="attackerTokenId"/> is always the inspected token,
+        /// <see cref="CoverSuggestionService.SuggestCover"/> answers only about tokens the local actor can see
+        /// (MainGM: all; ODY-S11-222) and refuses anything else with one uniform error, shown here as a plain
+        /// "Cover check failed" -- <paramref name="attackerTokenId"/> is always the inspected token,
         /// <paramref name="targetTokenId"/> always the dropdown's own selection; nothing is persisted, so no
         /// <see cref="Refresh"/> is needed, only the inspector's own result label updates. Public for the
         /// same testability reason as every other command method in this class.
         /// </summary>
         public Result<CoverDegree> TryCheckCover(TokenId attackerTokenId, TokenId targetTokenId)
         {
-            var request = new SuggestCoverRequest(_campaign, attackerTokenId, targetTokenId, NewCorrelationId());
-            Result<CoverDegree> result = CoverSuggestionService.SuggestCover(_sceneRepository, _obstacleRepository, request);
+            // ODY-S11-222: the backend now answers only about tokens the local actor can see (MainGM: all).
+            var request = new SuggestCoverRequest(_campaign, LocalActorUserId, attackerTokenId, targetTokenId, NewCorrelationId());
+            Result<CoverDegree> result = CoverSuggestionService.SuggestCover(_sceneRepository, _obstacleRepository, _visionRepository, _campaignRepository, request);
             if (result.IsFailure)
             {
                 _tokenInspectorPresenter?.SetCoverResult("Cover check failed: " + result.Error.SafeReasonCode);
@@ -1682,6 +1855,8 @@ namespace Odyssey.Unity.Client
         /// </summary>
         public bool HandleBoardButtonDown(int button, double pixelX, double pixelY, bool shift)
         {
+            // ODY-S11-214: any press on the board takes the camera back from autofocus.
+            CancelCameraFocus();
             if (_activeBoardButton != -1 || _draggingTokenId.HasValue) return false;
             switch (button)
             {
@@ -1945,6 +2120,9 @@ namespace Odyssey.Unity.Client
                 _boxElement.style.borderBottomColor = border;
                 _boxElement.style.borderLeftColor = border;
                 _boxElement.style.borderRightColor = border;
+                // ODY-S11-216: the box outline marches too (drawn over the thin border).
+                _boxAnts = new OdyMarchingAnts("board-selection-box-ants");
+                _boxAnts.AttachTo(_boxElement);
             }
 
             _boxElement.style.left = (float)minX;
@@ -1962,7 +2140,11 @@ namespace Odyssey.Unity.Client
         // ---- ODY-S08-107: middle-button camera pan --------------------------------------------------
 
         /// <summary>Starts a camera pan at a board-local pixel position (middle button). Public -- see <see cref="BeginBoardPointerGesture"/>.</summary>
-        public void BeginBoardPan(double pixelX, double pixelY) => _boardPointerGesture.Begin(pixelX, pixelY);
+        public void BeginBoardPan(double pixelX, double pixelY)
+        {
+            CancelCameraFocus(); // ODY-S11-214: manual camera input wins over autofocus
+            _boardPointerGesture.Begin(pixelX, pixelY);
+        }
 
         /// <summary>Feeds a pointer move into the pan; once past <see cref="BoardPointerGesture.DragThresholdPixels"/> it pans the camera and repositions the rendered tokens and the marker. Public -- see <see cref="BeginBoardPointerGesture"/>.</summary>
         public void MoveBoardPan(double pixelX, double pixelY)
@@ -2044,6 +2226,7 @@ namespace Odyssey.Unity.Client
         /// <summary>Zooms the camera to <paramref name="anchorPixelX"/>/<paramref name="anchorPixelY"/> and repositions the already-rendered tokens. Public -- see <see cref="BeginBoardPointerGesture"/>.</summary>
         public void ZoomBoard(double factor, double anchorPixelX, double anchorPixelY)
         {
+            CancelCameraFocus(); // ODY-S11-214: manual camera input wins over autofocus
             _camera.Zoom(factor, anchorPixelX, anchorPixelY);
             RepositionTokens();
         }
@@ -2156,9 +2339,109 @@ namespace Odyssey.Unity.Client
             {
                 if (_tokenElementsByTokenId.TryGetValue(entry.Key, out VisualElement? tokenElement))
                 {
-                    PositionTokenElement(tokenElement, entry.Value, ScaleOf(entry.Key));
+                    TokenPosition drawn = _tokenMotion.TryGetDisplayed(entry.Key, out TokenPosition animated) ? animated : entry.Value;
+                    PositionTokenElement(tokenElement, drawn, ScaleOf(entry.Key));
                 }
             }
+        }
+
+        /// <summary>ODY-S11-211: whether a token is currently easing towards a position changed elsewhere. Exposed for tests.</summary>
+        public bool IsTokenAnimating(TokenId tokenId) => _tokenMotion.IsAnimating(tokenId.ToString());
+
+        /// <summary>
+        /// ODY-S11-211: steps running token animations by <paramref name="elapsedMs"/> and redraws them. Called by the
+        /// board area's scheduler at runtime; public so tests step it deterministically. Returns whether any still runs.
+        /// </summary>
+        public bool AdvanceTokenMotion(double elapsedMs)
+        {
+            // ODY-S11-223: reduced motion switched on mid-animation -- finish at once.
+            if (_boardArea != null && OdyMotion.IsReducedMotion(_boardArea)) elapsedMs = double.MaxValue;
+            bool running = _tokenMotion.Advance(elapsedMs);
+            RepositionTokens();
+            if (!running)
+            {
+                // A fresh item next time (not Resume), so its first tick delta starts from when it is scheduled.
+                _tokenMotionTicker?.Pause();
+                _tokenMotionTicker = null;
+            }
+
+            return running;
+        }
+
+        /// <summary>
+        /// ODY-S11-214: at a turn change, eases the camera so the acting character's token is in frame. Does nothing
+        /// when the token is already comfortably in frame, is not on this board, or is hidden from the local actor
+        /// (focusing would reveal its position). Zoom is unchanged; any manual pan/zoom/press cancels the move.
+        /// </summary>
+        public BoardFocusOutcome FocusOnCharacter(CharacterId characterId)
+        {
+            if (!_tokenKeysByCharacterId.TryGetValue(characterId.ToString(), out string? key) || !_tokenPositionsByTokenId.TryGetValue(key, out TokenPosition position)) return BoardFocusOutcome.NotOnBoard;
+            if (!_visibleTokenKeys.Contains(key)) return BoardFocusOutcome.Hidden;
+            double width = CurrentBoardWidthPixels();
+            double height = CurrentBoardHeightPixels();
+            if (BoardCameraFocus.IsInFrame(_camera, position, width, height)) return BoardFocusOutcome.AlreadyInFrame;
+            _cameraFocus.Start(_camera, position, width, height);
+            if (_boardArea != null && OdyMotion.IsReducedMotion(_boardArea))
+            {
+                // ODY-S11-223: reduced motion -- the camera jumps straight to the token instead of panning there.
+                AdvanceCameraFocus(BoardCameraFocus.DurationMs);
+                return BoardFocusOutcome.Started;
+            }
+
+            if (_boardArea != null && !_disposed && _cameraFocusTicker == null)
+            {
+                _cameraFocusTicker = _boardArea.schedule.Execute(timer => AdvanceCameraFocus(timer.deltaTime)).Every(OdyMotion.FrameIntervalMs);
+            }
+
+            return BoardFocusOutcome.Started;
+        }
+
+        /// <summary>ODY-S11-218: the token inspector's cover-target choices (visible tokens only). Exposed for tests.</summary>
+        public IReadOnlyList<TokenId> InspectorCoverTargets => _tokenInspectorPresenter?.CoverTargetTokenIds ?? Array.Empty<TokenId>();
+
+        /// <summary>ODY-S11-214: whether the camera is currently easing towards a token. Exposed for tests.</summary>
+        public bool IsCameraFocusing => _cameraFocus.IsActive;
+
+        /// <summary>
+        /// ODY-S11-214: steps the camera move by <paramref name="elapsedMs"/>. Called by the board area's scheduler at
+        /// runtime; public so tests step it deterministically. Returns whether it still runs.
+        /// </summary>
+        public bool AdvanceCameraFocus(double elapsedMs)
+        {
+            if (!_cameraFocus.IsActive)
+            {
+                StopCameraFocusTicker();
+                return false;
+            }
+
+            bool running = _cameraFocus.Advance(_camera, elapsedMs);
+            RepositionTokens();
+            if (!running)
+            {
+                StopCameraFocusTicker();
+                // Same follow-up as the shell's initial centering: one re-render so obstacles and fog follow the camera.
+                if (!_disposed) Refresh();
+            }
+
+            return running;
+        }
+
+        private void CancelCameraFocus()
+        {
+            _cameraFocus.Cancel();
+            StopCameraFocusTicker();
+        }
+
+        private void StopCameraFocusTicker()
+        {
+            _cameraFocusTicker?.Pause();
+            _cameraFocusTicker = null;
+        }
+
+        private void EnsureTokenMotionTicking()
+        {
+            if (!_tokenMotion.AnyActive || _boardArea == null || _disposed || _tokenMotionTicker != null) return;
+            _tokenMotionTicker = _boardArea.schedule.Execute(timer => AdvanceTokenMotion(timer.deltaTime)).Every(OdyMotion.FrameIntervalMs);
         }
 
         private double ScaleOf(string key) => _tokenScalesByTokenId.TryGetValue(key, out double scale) ? scale : 1.0;
