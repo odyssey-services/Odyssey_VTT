@@ -1322,3 +1322,33 @@
     font-size: var(--ody-font-small);
     white-space: normal;
 }
+
+/* ------------------------------------------------------------------------------------------------
+ * 18. Skeleton placeholder (ODY-S11-220) -- OdySkeleton. The shimmer is a class toggled from code with a
+ *     transition on the bars (USS has no keyframe animation); reduced motion turns both off.
+ * --------------------------------------------------------------------------------------------- */
+
+.ody-skeleton {
+    padding: var(--ody-space-2) 0;
+}
+
+.ody-skeleton__bar {
+    height: 12px;
+    margin-bottom: var(--ody-space-2);
+    border-radius: var(--ody-radius-sm);
+    background-color: var(--ody-color-surface-sunken);
+    transition-property: background-color;
+    transition-duration: 0.65s;
+}
+
+.ody-skeleton__bar--short {
+    width: 60%;
+}
+
+.ody-skeleton--bright .ody-skeleton__bar {
+    background-color: var(--ody-color-surface-muted);
+}
+
+.ody-reduced-motion .ody-skeleton__bar {
+    transition-duration: 0s;
+}

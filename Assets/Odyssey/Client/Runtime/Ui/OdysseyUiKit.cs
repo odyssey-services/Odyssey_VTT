@@ -111,6 +111,12 @@ namespace Odyssey.Unity.Client
         // ODY-S11-219: single-line text with an ellipsis, and the tooltip that shows the full text.
         public const string TextTruncate = "ody-text-truncate";
         public const string Tooltip = "ody-tooltip";
+
+        // ODY-S11-220: skeleton placeholder for content waiting for an asynchronous answer.
+        public const string Skeleton = "ody-skeleton";
+        public const string SkeletonBar = "ody-skeleton__bar";
+        public const string SkeletonBarShort = "ody-skeleton__bar--short";
+        public const string SkeletonBright = "ody-skeleton--bright";
         public const string TabsPanel = "ody-tabs__panel";
 
         public const string ResourceBar = "ody-resource-bar";
