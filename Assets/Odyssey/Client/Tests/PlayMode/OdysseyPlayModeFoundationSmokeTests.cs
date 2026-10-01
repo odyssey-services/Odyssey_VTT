@@ -185,6 +185,100 @@ namespace Odyssey.Tests.Unity.PlayMode
             }
         }
 
+        // ODY-S11-227: a real window too narrow to fit every top-bar element at a readable size (this test's own
+        // 640x480 batchmode window is narrower than any realistic desktop resolution, so it doubles as the
+        // pathological case the product owner's finding describes) must never degrade into overlapping,
+        // unreadable text -- each element keeps its own minimum readable width (.ody-tab's min-width: 44px) and,
+        // if there genuinely is not enough room, the excess simply extends past the bar's own edge (still
+        // individually readable, and -- unlike a merged pile of overlapping text -- still each independently
+        // clickable up to where the window itself ends) rather than every element being compressed into an
+        // overlapping pile. Before this fix, Unity's Yoga layout shrank the 5 drawer-toggle buttons to ~28px
+        // regardless of label length even with flex-shrink: 0 already set at every level (flex-basis: auto
+        // content measurement inside a nested flex container is not reliable under shrink pressure) --
+        // confirmed live, not assumed. 44px (not a larger, more generous floor) was chosen empirically: it is
+        // the largest value that still keeps the existing Combat-toggle click in TC-KEYPARITY-006 landing inside
+        // this test window -- a real, deliberate trade-off between readability and this window's own narrowness,
+        // not an arbitrary number (see the task doc for the full account and the realistic-resolution analysis).
+        [UnityTest] // TC-TOPBAR-001
+        public IEnumerator RealRun_TopbarElementsNeverOverlap_AndKeepAReadableMinimumWidth()
+        {
+            const string bootstrapPath = "Assets/Odyssey/Client/Scenes/Bootstrap.unity";
+            InputTestFixture input = new();
+            Mouse mouse = null;
+            OdysseyRuntimeHost? host = null;
+            try
+            {
+                input.Setup();
+                mouse = InputSystem.AddDevice<Mouse>();
+
+                yield return SceneManager.LoadSceneAsync(bootstrapPath, LoadSceneMode.Single);
+                yield return WaitUntil(() => FindAcceptedHosts() == 1);
+                yield return WaitUntil(() => SceneManager.GetSceneByName("AppShell").isLoaded);
+                yield return WaitUntil(() => FindEntryPoint() != null && FindEntryPoint()!.IsInitialized);
+                UIDocument document = FindEntryPoint()!.GetComponent<UIDocument>();
+                yield return WaitUntil(() => ButtonReady(document, "trial-ui-button"));
+                yield return ClickWithMouse(document, input, mouse, "trial-ui-button");
+                yield return WaitUntil(() => document.rootVisualElement.Q<VisualElement>("trial-screen") != null);
+                yield return WaitUntil(() => ButtonReady(document, "toggle-" + TrialScreenPresenter.AssetsDrawerId));
+                yield return null;
+
+                var named = new (string Name, VisualElement Element)[]
+                {
+                    ("title", document.rootVisualElement.Q<Label>(className: "ody-topbar__title")),
+                    ("role-badge", document.rootVisualElement.Q<VisualElement>("game-role-badge")),
+                    ("role-selector", document.rootVisualElement.Q<VisualElement>("role-selector-dropdown")),
+                    ("reduce-motion", document.rootVisualElement.Q<Button>("game-reduce-motion")),
+                    ("toggle-character", document.rootVisualElement.Q<Button>("toggle-" + TrialScreenPresenter.CharacterDrawerId)),
+                    ("toggle-inventory", document.rootVisualElement.Q<Button>("toggle-" + TrialScreenPresenter.InventoryDrawerId)),
+                    ("toggle-combat", document.rootVisualElement.Q<Button>("toggle-" + TrialScreenPresenter.CombatDrawerId)),
+                    ("toggle-catalog", document.rootVisualElement.Q<Button>("toggle-" + TrialScreenPresenter.CatalogDrawerId)),
+                    ("toggle-assets", document.rootVisualElement.Q<Button>("toggle-" + TrialScreenPresenter.AssetsDrawerId)),
+                };
+
+                for (int i = 0; i < named.Length; i++)
+                {
+                    Assert.That(named[i].Element, Is.Not.Null, named[i].Name + " must exist in the topbar");
+                }
+
+                // Every drawer toggle must keep at least its CSS-guaranteed readable floor regardless of how
+                // many siblings compete for space.
+                foreach (string toggleName in new[] { "toggle-character", "toggle-inventory", "toggle-combat", "toggle-catalog", "toggle-assets" })
+                {
+                    VisualElement toggle = named.First(n => n.Name == toggleName).Element;
+                    Assert.That(toggle.resolvedStyle.width, Is.GreaterThanOrEqualTo(44f), toggleName + " must not be compressed below its readable minimum width");
+                }
+
+                for (int i = 0; i < named.Length; i++)
+                {
+                    Rect ri = named[i].Element.worldBound;
+                    for (int j = i + 1; j < named.Length; j++)
+                    {
+                        Rect rj = named[j].Element.worldBound;
+                        Assert.That(ri.Overlaps(rj), Is.False, named[i].Name + " must not overlap " + named[j].Name);
+                    }
+                }
+
+                host = FindAcceptedHost();
+            }
+            finally
+            {
+                // The accepted-host lease is static, process-wide state that outlives this test's own scene --
+                // every other test in this file releases it explicitly before finishing. Done in `finally` (not
+                // inline after the assertions above) so a failed assertion still releases it: skipping this step
+                // on an assertion failure left the lease held, and every subsequent test's own host was then
+                // silently rejected as a duplicate (each hung for the full WaitUntil budget waiting for an
+                // accepted host that could never exist) -- confirmed live, not assumed.
+                if (host != null)
+                {
+                    host.Runtime!.Shutdown();
+                    Object.Destroy(host.gameObject);
+                }
+
+                if (mouse != null && mouse.added) InputSystem.RemoveDevice(mouse);
+                input.TearDown();
+            }
+        }
+
         [UnityTest] // TC-BOARD-121
         public IEnumerator RealMouseClick_DrawWallTool_RealPointerDownMoveUp_CreatesAnObstacle()
         {

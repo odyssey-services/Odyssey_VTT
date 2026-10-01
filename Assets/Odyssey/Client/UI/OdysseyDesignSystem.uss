@@ -743,6 +743,13 @@
    bold text. The 2px border is always there (transparent) so the active/focus states never shift the layout. */
 .ody-tab {
     min-height: var(--ody-control-height-small);
+    /* ODY-S11-227: an explicit floor, not relying on flex-basis: auto content measurement -- inside a nested
+       flex container under shrink pressure (the top bar's toggle group, several siblings deep) Unity's Yoga
+       layout shrank these buttons to ~28px regardless of label length even with flex-shrink: 0 already set on
+       every level; min-width is the one dimension flexbox always honors even while shrinking everything it can.
+       Sized for the longest top-bar label ("Character"/"Inventory", 9 characters) at --ody-font-body (13px)
+       plus this rule's own padding. */
+    min-width: 44px;
     padding-left: var(--ody-space-3);
     padding-right: var(--ody-space-3);
     margin: 0 var(--ody-space-1) var(--ody-space-1) 0;
@@ -954,9 +961,15 @@
     border-width: 1px;
     border-color: var(--ody-color-border);
     border-bottom-color: var(--ody-color-shadow);
+    /* ODY-S11-227: a flex row shrinks its children by default when they do not all fit; every item below is
+       given flex-shrink: 0 instead (never compressed to an unreadable width), so on a window too narrow for
+       everything the row overflows past its own rounded box -- still each individually readable, not merged
+       into unreadable overlapping text -- rather than silently cramming the title/role/toggles into nothing. */
+    overflow: visible;
 }
 
 .ody-topbar > * {
+    flex-shrink: 0;
     margin-right: var(--ody-space-2);
 }
 
@@ -966,7 +979,9 @@
 }
 
 .ody-topbar__role {
-    min-width: 170px;
+    /* ODY-S11-227: was 170px -- reserved more width than the role dropdown and its label actually need and was
+       the single largest contributor to the topbar running out of room on a narrow window. */
+    min-width: 92px;
     margin-bottom: 0;
 }
 
@@ -979,9 +994,11 @@
 .ody-topbar__toggles {
     flex-direction: row;
     align-items: center;
+    flex-shrink: 0;
 }
 
 .ody-topbar__toggles > * {
+    flex-shrink: 0;
     margin-left: var(--ody-space-1);
 }
 

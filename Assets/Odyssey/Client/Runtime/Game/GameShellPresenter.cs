@@ -328,8 +328,11 @@ namespace Odyssey.Unity.Client
             spacer.AddToClassList(OdyClasses.Spacer);
             topbar.Add(spacer);
             // ODY-S11-223: the client has no settings screen, so the reduce-motion switch sits in the top bar.
-            _reducedMotionToggle = OdyUi.TabButton("Reduce motion", () => SetReducedMotion(!ReducedMotion), "game-reduce-motion");
-            _reducedMotionToggle.tooltip = "Stop decorative animation";
+            // ODY-S11-227: shortened from "Reduce motion" -- the full label was one of the largest single
+            // contributors to the top bar running out of room for the drawer toggles on an ordinary window; the
+            // tooltip keeps the full, unambiguous explanation.
+            _reducedMotionToggle = OdyUi.TabButton("Motion", () => SetReducedMotion(!ReducedMotion), "game-reduce-motion");
+            _reducedMotionToggle.tooltip = "Reduce motion: stop decorative animation";
             topbar.Add(_reducedMotionToggle);
             _topbarToggles = new VisualElement { name = "game-topbar-toggles" };
             _topbarToggles.AddToClassList(OdyClasses.TopbarToggles);
