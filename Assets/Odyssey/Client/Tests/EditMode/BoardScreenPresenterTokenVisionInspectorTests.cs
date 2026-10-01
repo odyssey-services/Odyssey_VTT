@@ -262,7 +262,7 @@ namespace Odyssey.Tests.Unity.EditMode
 
             // The reverse order must not accidentally produce the same result by symmetry alone -- confirm
             // this call really used attacker/target in the order passed, not swapped internally.
-            Result<CoverDegree> direct = CoverSuggestionService.SuggestCover(fixture.SceneRepository, fixture.ObstacleRepository, new SuggestCoverRequest(fixture.Campaign, attacker.TokenId, target.TokenId, TestCorrelationId));
+            Result<CoverDegree> direct = CoverSuggestionService.SuggestCover(fixture.SceneRepository, fixture.ObstacleRepository, fixture.VisionRepository, fixture.CampaignRepository, new SuggestCoverRequest(fixture.Campaign, fixture.MainGmActor, attacker.TokenId, target.TokenId, TestCorrelationId));
             Assert.That(result.Value, Is.EqualTo(direct.Value));
         }
     }

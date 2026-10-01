@@ -1683,16 +1683,18 @@ namespace Odyssey.Unity.Client
         }
 
         /// <summary>
-        /// <see cref="CoverSuggestionService.SuggestCover"/> performs no authorization at all (used as-is,
-        /// task contract section 2.3) -- <paramref name="attackerTokenId"/> is always the inspected token,
+        /// <see cref="CoverSuggestionService.SuggestCover"/> answers only about tokens the local actor can see
+        /// (MainGM: all; ODY-S11-222) and refuses anything else with one uniform error, shown here as a plain
+        /// "Cover check failed" -- <paramref name="attackerTokenId"/> is always the inspected token,
         /// <paramref name="targetTokenId"/> always the dropdown's own selection; nothing is persisted, so no
         /// <see cref="Refresh"/> is needed, only the inspector's own result label updates. Public for the
         /// same testability reason as every other command method in this class.
         /// </summary>
         public Result<CoverDegree> TryCheckCover(TokenId attackerTokenId, TokenId targetTokenId)
         {
-            var request = new SuggestCoverRequest(_campaign, attackerTokenId, targetTokenId, NewCorrelationId());
-            Result<CoverDegree> result = CoverSuggestionService.SuggestCover(_sceneRepository, _obstacleRepository, request);
+            // ODY-S11-222: the backend now answers only about tokens the local actor can see (MainGM: all).
+            var request = new SuggestCoverRequest(_campaign, LocalActorUserId, attackerTokenId, targetTokenId, NewCorrelationId());
+            Result<CoverDegree> result = CoverSuggestionService.SuggestCover(_sceneRepository, _obstacleRepository, _visionRepository, _campaignRepository, request);
             if (result.IsFailure)
             {
                 _tokenInspectorPresenter?.SetCoverResult("Cover check failed: " + result.Error.SafeReasonCode);
