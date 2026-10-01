@@ -64,7 +64,7 @@
 
 ## 5. Как увидеть интерфейс живьём
 
-Откройте проект в Unity (6000.4.0f1), сцена `Assets/Odyssey/Client/Scenes/AppShell.unity`, запустите Play Mode. Там же — dev-shell для переключения роли (MainGM/Player) и быстрого запуска тестовой сцены с персонажами/токенами.
+Откройте проект в Unity (6000.4.0f1), сцена `Assets/Odyssey/Client/Scenes/Bootstrap.unity` (build index 0 — создаёт рантайм и сама загружает AppShell), запустите Play Mode. Не открывайте `AppShell.unity` напрямую — без Bootstrap интерфейс не поднимется. Там же — dev-shell для переключения роли (MainGM/Player) и быстрого запуска тестовой сцены с персонажами/токенами.
 
 ---
 
