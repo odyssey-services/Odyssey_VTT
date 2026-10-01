@@ -188,6 +188,8 @@ namespace Odyssey.Unity.Client
                 var combatPanel = new CombatPanelPresenter(context, combatPorts);
                 combatDrawer.Add(combatPanel.BuildView());
                 Combat = combatPanel;
+                // ODY-S11-214: at a turn change the board camera eases to the acting participant's token.
+                combatPanel.ActiveParticipantChanged += OnActiveParticipantChanged;
 
                 var assetPool = new AssetPoolPresenter(_document, sceneRepository, demo.Value.Campaign, board);
                 VisualElement assetPoolView = assetPool.BuildView();
@@ -233,6 +235,7 @@ namespace Odyssey.Unity.Client
             if (Characters != null) Characters.BoardChanged -= OnBoardChanged;
             if (Characters != null && Inventory != null) Characters.CurrentChanged -= Inventory.SetCharacter;
             Inventory?.Dispose();
+            if (Combat != null) Combat.ActiveParticipantChanged -= OnActiveParticipantChanged;
             Combat?.Dispose();
             Characters?.Dispose();
             Catalog?.Dispose();
@@ -241,6 +244,8 @@ namespace Odyssey.Unity.Client
         }
 
         private void OnBoardChanged() => Board?.Refresh();
+
+        private void OnActiveParticipantChanged(CharacterId characterId) => Board?.FocusOnCharacter(characterId);
 
         // Each panel reloads fresh server state when its drawer opens (no stale revisions).
         private void OnDrawerOpened(string drawerId)

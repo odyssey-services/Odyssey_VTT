@@ -164,6 +164,11 @@ namespace Odyssey.Unity.Client
         // ODY-S11-211: local moves are drawn instantly, moves observed from elsewhere ease in (BoardTokenMotion).
         private readonly BoardTokenMotion _tokenMotion = new BoardTokenMotion();
         private IVisualElementScheduledItem? _tokenMotionTicker;
+        // ODY-S11-214: camera autofocus on the acting participant; manual camera input always wins.
+        private readonly BoardCameraFocus _cameraFocus = new BoardCameraFocus();
+        private IVisualElementScheduledItem? _cameraFocusTicker;
+        private readonly Dictionary<string, string> _tokenKeysByCharacterId = new Dictionary<string, string>(StringComparer.Ordinal);
+        private readonly HashSet<string> _visibleTokenKeys = new HashSet<string>(StringComparer.Ordinal);
         private bool _disposed;
 
         public BoardScreenPresenter(UIDocument document, ISceneRepository sceneRepository, CampaignHandle campaign, ICampaignRepository campaignRepository, IObstacleRepository obstacleRepository, ITokenVisionRepository visionRepository, IFogOfWarRepository fogRepository, SceneId sceneId, UserId localActorUserId)
@@ -247,6 +252,7 @@ namespace Odyssey.Unity.Client
             _roleSelectorPresenter?.Dispose();
             _roleSubscription?.Dispose();
             _tokenMotionTicker?.Pause();
+            CancelCameraFocus();
             _textureCache.Dispose();
             _disposed = true;
         }
@@ -545,6 +551,8 @@ namespace Odyssey.Unity.Client
             var previousPositions = new Dictionary<string, TokenPosition>(_tokenPositionsByTokenId, StringComparer.Ordinal);
             _tokenElementsByTokenId.Clear();
             _tokenPositionsByTokenId.Clear();
+            _tokenKeysByCharacterId.Clear();
+            _visibleTokenKeys.Clear();
             _tokenGesturesByTokenId.Clear();
             _tokenZOrdersByTokenId.Clear();
             _tokenScalesByTokenId.Clear();
@@ -622,6 +630,8 @@ namespace Odyssey.Unity.Client
                 _tokenZOrdersByTokenId[token.TokenId.ToString()] = token.ZOrder;
                 _tokenScalesByTokenId[token.TokenId.ToString()] = token.Scale;
                 _tokenControllersByTokenId[token.TokenId.ToString()] = token.ControllerUserId;
+                if (isVisible) _visibleTokenKeys.Add(tokenKey);
+                if (token.CharacterId.HasValue && !_tokenKeysByCharacterId.ContainsKey(token.CharacterId.Value.ToString())) _tokenKeysByCharacterId[token.CharacterId.Value.ToString()] = tokenKey;
             }
 
             _tokenMotion.RetainOnly(_tokenElementsByTokenId.Keys);
@@ -1805,6 +1815,8 @@ namespace Odyssey.Unity.Client
         /// </summary>
         public bool HandleBoardButtonDown(int button, double pixelX, double pixelY, bool shift)
         {
+            // ODY-S11-214: any press on the board takes the camera back from autofocus.
+            CancelCameraFocus();
             if (_activeBoardButton != -1 || _draggingTokenId.HasValue) return false;
             switch (button)
             {
@@ -2085,7 +2097,11 @@ namespace Odyssey.Unity.Client
         // ---- ODY-S08-107: middle-button camera pan --------------------------------------------------
 
         /// <summary>Starts a camera pan at a board-local pixel position (middle button). Public -- see <see cref="BeginBoardPointerGesture"/>.</summary>
-        public void BeginBoardPan(double pixelX, double pixelY) => _boardPointerGesture.Begin(pixelX, pixelY);
+        public void BeginBoardPan(double pixelX, double pixelY)
+        {
+            CancelCameraFocus(); // ODY-S11-214: manual camera input wins over autofocus
+            _boardPointerGesture.Begin(pixelX, pixelY);
+        }
 
         /// <summary>Feeds a pointer move into the pan; once past <see cref="BoardPointerGesture.DragThresholdPixels"/> it pans the camera and repositions the rendered tokens and the marker. Public -- see <see cref="BeginBoardPointerGesture"/>.</summary>
         public void MoveBoardPan(double pixelX, double pixelY)
@@ -2167,6 +2183,7 @@ namespace Odyssey.Unity.Client
         /// <summary>Zooms the camera to <paramref name="anchorPixelX"/>/<paramref name="anchorPixelY"/> and repositions the already-rendered tokens. Public -- see <see cref="BeginBoardPointerGesture"/>.</summary>
         public void ZoomBoard(double factor, double anchorPixelX, double anchorPixelY)
         {
+            CancelCameraFocus(); // ODY-S11-214: manual camera input wins over autofocus
             _camera.Zoom(factor, anchorPixelX, anchorPixelY);
             RepositionTokens();
         }
@@ -2304,6 +2321,66 @@ namespace Odyssey.Unity.Client
             }
 
             return running;
+        }
+
+        /// <summary>
+        /// ODY-S11-214: at a turn change, eases the camera so the acting character's token is in frame. Does nothing
+        /// when the token is already comfortably in frame, is not on this board, or is hidden from the local actor
+        /// (focusing would reveal its position). Zoom is unchanged; any manual pan/zoom/press cancels the move.
+        /// </summary>
+        public BoardFocusOutcome FocusOnCharacter(CharacterId characterId)
+        {
+            if (!_tokenKeysByCharacterId.TryGetValue(characterId.ToString(), out string? key) || !_tokenPositionsByTokenId.TryGetValue(key, out TokenPosition position)) return BoardFocusOutcome.NotOnBoard;
+            if (!_visibleTokenKeys.Contains(key)) return BoardFocusOutcome.Hidden;
+            double width = CurrentBoardWidthPixels();
+            double height = CurrentBoardHeightPixels();
+            if (BoardCameraFocus.IsInFrame(_camera, position, width, height)) return BoardFocusOutcome.AlreadyInFrame;
+            _cameraFocus.Start(_camera, position, width, height);
+            if (_boardArea != null && !_disposed && _cameraFocusTicker == null)
+            {
+                _cameraFocusTicker = _boardArea.schedule.Execute(timer => AdvanceCameraFocus(timer.deltaTime)).Every(OdyMotion.FrameIntervalMs);
+            }
+
+            return BoardFocusOutcome.Started;
+        }
+
+        /// <summary>ODY-S11-214: whether the camera is currently easing towards a token. Exposed for tests.</summary>
+        public bool IsCameraFocusing => _cameraFocus.IsActive;
+
+        /// <summary>
+        /// ODY-S11-214: steps the camera move by <paramref name="elapsedMs"/>. Called by the board area's scheduler at
+        /// runtime; public so tests step it deterministically. Returns whether it still runs.
+        /// </summary>
+        public bool AdvanceCameraFocus(double elapsedMs)
+        {
+            if (!_cameraFocus.IsActive)
+            {
+                StopCameraFocusTicker();
+                return false;
+            }
+
+            bool running = _cameraFocus.Advance(_camera, elapsedMs);
+            RepositionTokens();
+            if (!running)
+            {
+                StopCameraFocusTicker();
+                // Same follow-up as the shell's initial centering: one re-render so obstacles and fog follow the camera.
+                if (!_disposed) Refresh();
+            }
+
+            return running;
+        }
+
+        private void CancelCameraFocus()
+        {
+            _cameraFocus.Cancel();
+            StopCameraFocusTicker();
+        }
+
+        private void StopCameraFocusTicker()
+        {
+            _cameraFocusTicker?.Pause();
+            _cameraFocusTicker = null;
         }
 
         private void EnsureTokenMotionTicking()

@@ -28,6 +28,7 @@ namespace Odyssey.Unity.Client
     /// </summary>
     public sealed partial class CombatPanelPresenter : IDisposable
     {
+        private CombatEncounterRecord? _encounter;
         private readonly GameSessionContext _context;
         private readonly CombatPorts _ports;
         private readonly List<CharacterId> _setupOrder = new List<CharacterId>();
@@ -46,7 +47,24 @@ namespace Odyssey.Unity.Client
         }
 
         public OdyBanner Banner { get; }
-        public CombatEncounterRecord? Encounter { get; private set; }
+        public CombatEncounterRecord? Encounter
+        {
+            get => _encounter;
+            private set
+            {
+                CombatEncounterRecord? previous = _encounter;
+                _encounter = value;
+                // ODY-S11-214: a new acting participant -- whether this panel advanced the turn, started or opened the
+                // encounter, or a reload observed someone else's advance -- is announced once (the board focuses it).
+                if (value == null || !value.CurrentParticipantId.HasValue) return;
+                bool sameTurn = previous != null && previous.EncounterId.Equals(value.EncounterId) && previous.RoundOrdinal == value.RoundOrdinal && previous.TurnOrdinal == value.TurnOrdinal
+                    && previous.CurrentParticipantId.HasValue && previous.CurrentParticipantId.Value.Equals(value.CurrentParticipantId.Value);
+                if (!sameTurn) ActiveParticipantChanged?.Invoke(value.CurrentParticipantId.Value);
+            }
+        }
+
+        /// <summary>ODY-S11-214: raised when the acting participant (turn) changes; the trial composition focuses the board camera.</summary>
+        public event Action<CharacterId>? ActiveParticipantChanged;
         public IReadOnlyList<CharacterId> SetupOrder => _setupOrder;
         public IReadOnlyList<CharacterId> Candidates => _candidates;
         public bool ActorIsMainGm => _context.ActorIsMainGm;

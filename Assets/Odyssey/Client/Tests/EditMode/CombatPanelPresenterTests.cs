@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Linq;
 using NUnit.Framework;
 using Odyssey.Application.Audience;
+using Odyssey.Application.Combat;
 using Odyssey.Application.CharacterAdvancement;
 using Odyssey.Application.Checks;
 using Odyssey.Application.Content;
@@ -60,6 +61,30 @@ namespace Odyssey.Tests.Unity.EditMode
             f.Host.Selection.SelectRole(BaselineRole.Player);
             Assert.That(f.Panel.Advance().IsFailure, Is.True);
             Assert.That(f.View.Q<Button>("combat-advance"), Is.Null, "players get no Next turn button");
+        }
+
+        [Test]
+        public void TurnChange_AnnouncesTheActingParticipantOnce_WhetherAdvancedHereOrObservedOnReload()
+        {
+            using var f = CombatFixture.Create();
+            var announced = new List<CharacterId>();
+            f.Panel.ActiveParticipantChanged += announced.Add;
+
+            f.StartEncounter();
+            Assert.That(announced, Is.EqualTo(new[] { f.Attacker }), "starting the encounter announces who acts first");
+            f.Panel.Refresh();
+            Assert.That(announced, Has.Count.EqualTo(1), "a reload of the same turn announces nothing");
+
+            Assert.That(f.Panel.Advance().IsSuccess, Is.True);
+            Assert.That(announced, Is.EqualTo(new[] { f.Attacker, f.Defender }));
+
+            // Someone else advances (another session of the MainGM); this panel sees it on its next reload.
+            CombatEncounterRecord current = f.Panel.Encounter!;
+            Assert.That(CombatEncounterService.Advance(f.Ports.Encounters, f.Host.CampaignRepository, f.Host.Campaign,
+                new AdvanceCombatEncounterRequest(current.EncounterId, current.Revision, f.Host.Selection.MainGmUserId, UiCommandIds.NewCommandId()), UiCommandIds.NewCorrelationId()).IsSuccess, Is.True);
+            f.Panel.Refresh();
+            Assert.That(announced, Has.Count.EqualTo(3), "a turn change observed on reload is announced too");
+            Assert.That(announced[2], Is.EqualTo(f.Panel.CurrentParticipant!.Value));
         }
 
         [Test]
