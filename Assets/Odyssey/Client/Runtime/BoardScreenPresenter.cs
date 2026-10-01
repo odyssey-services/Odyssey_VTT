@@ -62,6 +62,7 @@ namespace Odyssey.Unity.Client
         private readonly ITokenVisionRepository _visionRepository;
         private readonly IFogOfWarRepository _fogRepository;
         private readonly BoardFogOfWarPresenter _fogPresenter = new BoardFogOfWarPresenter();
+        private readonly BoardGridPresenter _gridPresenter = new BoardGridPresenter();
         private const double BoardWidthPixels = 440.0;
         private const double BoardHeightPixels = 440.0;
         private readonly SceneId _sceneId;
@@ -92,6 +93,12 @@ namespace Odyssey.Unity.Client
         private VisualElement? _obstacleDrawPreviewElement;
         private readonly Dictionary<string, ObstacleRecord> _obstacleRecordsByObstacleId = new Dictionary<string, ObstacleRecord>(StringComparer.Ordinal);
         private readonly Dictionary<string, ObstacleDurabilityRecord> _obstacleDurabilityByObstacleId = new Dictionary<string, ObstacleDurabilityRecord>(StringComparer.Ordinal);
+        // ODY-S11-226: cached so a pan/zoom can reposition already-rendered obstacles/HP bars the same way
+        // RepositionTokens() already does for tokens -- see that method's own remarks. Before this task only
+        // tokens (and the marker) were repositioned on camera change; obstacles, fog and the map background
+        // were not, so they visually "stayed behind" during a live wheel-zoom or middle-drag pan.
+        private readonly Dictionary<string, VisualElement> _obstacleLineElementsByObstacleId = new Dictionary<string, VisualElement>(StringComparer.Ordinal);
+        private readonly Dictionary<string, VisualElement> _obstacleHpBarTrackElementsByObstacleId = new Dictionary<string, VisualElement>(StringComparer.Ordinal);
         private ObstacleId? _selectedObstacleId;
         private VisualElement? _obstacleInspectorElement;
         private IntegerField? _obstacleDamageAmountField;
@@ -144,7 +151,11 @@ namespace Odyssey.Unity.Client
         // Extracted into AssetTextureCache in ODY-S08-103 so AssetPoolPresenter can reuse the exact same
         // read+decode+cache logic instead of a second, independent implementation.
         private readonly AssetTextureCache _textureCache = new AssetTextureCache();
-        private bool _boardBackgroundApplied;
+        // ODY-S11-226: the board-background element, its fixed world-space rect, and which asset it currently
+        // shows -- see ApplyBoardBackgroundTexture's remarks.
+        private VisualElement? _backgroundElement;
+        private (double X, double Y, double Width, double Height)? _backgroundWorldRect;
+        private AssetId? _backgroundAssetId;
         private readonly RoleSelection? _roleSelection;
         private readonly PresentationRuntime? _presentationRuntime;
         private IDisposable? _roleSubscription;
@@ -383,8 +394,6 @@ namespace Odyssey.Unity.Client
             // affects its own visual, never the rest of the board.
             Result<IReadOnlyList<ObstacleRecord>> obstacles = _obstacleRepository.ListObstacles(_campaign, _sceneId, NewCorrelationId());
 
-            Error? backgroundError = ApplySceneBackground();
-
             // SLICE-10 Block 6 part 2: null means "MainGm, no filtering" -- every token renders, exactly as
             // before this task. A non-null set is the real, authoritative ComputeVisibleTokens result; a
             // player's own controlled token not being in it is trusted and rendered as absent too (task
@@ -412,6 +421,10 @@ namespace Odyssey.Unity.Client
             }
 
             _boardArea?.Clear();
+            // ODY-S11-226: applied right after Clear() (Clear() only removes children, so a background child
+            // element added before it would be wiped) and first, so it paints below the grid/obstacles/tokens/fog.
+            Error? backgroundError = ApplySceneBackground();
+            RenderBoardGrid();
             RenderObstacles(obstaclesToRender);
             RenderFogOfWar();
             Error? tokenAssetError = RenderTokens(tokens.Value, visibleTokenIds);
@@ -464,6 +477,16 @@ namespace Odyssey.Unity.Client
             _boardArea.Add(_fogPresenter.Element);
         }
 
+        // ODY-S11-226: added right after the background and before obstacles, so the grid sits under the drawn
+        // scene (walls/doors/windows, tokens) -- a purely visual reference layer, never a hit-testing concern
+        // (BoardGridPresenter's own element ignores picking).
+        private void RenderBoardGrid()
+        {
+            if (_boardArea == null) return;
+            _gridPresenter.Show(_camera, CurrentBoardWidthPixels(), CurrentBoardHeightPixels());
+            _boardArea.Add(_gridPresenter.Element);
+        }
+
         // ODY-S11-201: the fixed constants unless FullBleed and the area already has a real layout (EditMode tests
         // without a panel never lay out, so they keep the constants).
         private double CurrentBoardWidthPixels()
@@ -512,18 +535,92 @@ namespace Odyssey.Unity.Client
                 return texture.Error;
             }
 
-            ApplyTexture(_boardArea, texture.Value);
-            _boardBackgroundApplied = true;
+            // ODY-S11-226: recompute the background's world-space rect only when the asset actually changed (or
+            // on the very first apply) -- not on every Refresh(), which would otherwise "re-fit to the current
+            // viewport" (and so silently discard the user's own pan/zoom) every time something unrelated (a
+            // drawer opening, a role switch, another participant's move) triggers a Refresh().
+            bool assetChanged = !_backgroundAssetId.HasValue || !_backgroundAssetId.Value.Equals(scene.Value.BackgroundAssetId.Value);
+            ApplyBoardBackgroundTexture(texture.Value, scene.Value.BackgroundAssetId.Value, recomputeWorldRect: assetChanged || !_backgroundWorldRect.HasValue);
             return null;
         }
 
+        /// <summary>
+        /// ODY-S11-226: the background now lives on its own element (<see cref="_backgroundElement"/>), positioned
+        /// and sized by the same camera-driven pixel math as obstacles and tokens -- before this task it was a CSS
+        /// "Cover" fit directly on the fixed <see cref="_boardArea"/> box, so it never moved with pan/zoom while
+        /// everything else did (the exact defect reported: the map stayed still while tokens/walls moved). The
+        /// element's WORLD rect is computed once, by converting a "cover the current viewport" pixel rect into
+        /// world coordinates through the camera at the moment it is (re)computed -- this keeps a freshly loaded
+        /// scene's first look unchanged (same crop/fit as the old "Cover" behavior), while every later pan/zoom
+        /// repositions it from that fixed world rect exactly like any other board object (see
+        /// <see cref="RepositionBoardBackground"/>).
+        /// </summary>
+        private void ApplyBoardBackgroundTexture(Texture2D texture, AssetId assetId, bool recomputeWorldRect)
+        {
+            if (_boardArea == null) return;
+            if (_backgroundElement == null)
+            {
+                _backgroundElement = new VisualElement { name = "board-background", pickingMode = PickingMode.Ignore };
+                _backgroundElement.style.position = Position.Absolute;
+            }
+
+            _backgroundElement.style.backgroundImage = new StyleBackground(texture);
+            _backgroundAssetId = assetId;
+
+            if (recomputeWorldRect)
+            {
+                double containerWidth = CurrentBoardWidthPixels();
+                double containerHeight = CurrentBoardHeightPixels();
+                double imageAspect = texture.height > 0 ? (double)texture.width / texture.height : 1.0;
+                double containerAspect = containerHeight > 0 ? containerWidth / containerHeight : 1.0;
+                double pixelWidth, pixelHeight, pixelLeft, pixelTop;
+                if (imageAspect > containerAspect)
+                {
+                    pixelHeight = containerHeight;
+                    pixelWidth = containerHeight * imageAspect;
+                    pixelLeft = (containerWidth - pixelWidth) / 2.0;
+                    pixelTop = 0.0;
+                }
+                else
+                {
+                    pixelWidth = containerWidth;
+                    pixelHeight = imageAspect > 0 ? containerWidth / imageAspect : containerHeight;
+                    pixelLeft = 0.0;
+                    pixelTop = (containerHeight - pixelHeight) / 2.0;
+                }
+
+                _backgroundWorldRect = (
+                    _camera.FromPixelsX(pixelLeft),
+                    _camera.FromPixelsY(pixelTop),
+                    pixelWidth / _camera.Scale,
+                    pixelHeight / _camera.Scale);
+            }
+
+            // First child, so it paints below obstacles/tokens/fog; Refresh() re-adds it fresh after every
+            // Clear() (the element and its stored world rect persist on the presenter, only its DOM parent is lost).
+            _backgroundElement.RemoveFromHierarchy();
+            _boardArea.Insert(0, _backgroundElement);
+            RepositionBoardBackground();
+        }
+
+        /// <summary>ODY-S11-226: repositions the background from its stored world rect -- called after every pan/zoom (see <see cref="RepositionObstacles"/>) the same way token/obstacle positions are.</summary>
+        private void RepositionBoardBackground()
+        {
+            if (_backgroundElement == null || !_backgroundWorldRect.HasValue) return;
+            (double worldX, double worldY, double worldWidth, double worldHeight) = _backgroundWorldRect.Value;
+            _backgroundElement.style.left = (float)_camera.ToPixelsX(worldX);
+            _backgroundElement.style.top = (float)_camera.ToPixelsY(worldY);
+            _backgroundElement.style.width = (float)(worldWidth * _camera.Scale);
+            _backgroundElement.style.height = (float)(worldHeight * _camera.Scale);
+        }
+
         // Only undo what this presenter itself applied, so a board that never had a
-        // background gets no inline image style written at all (identical to before).
+        // background renders nothing (identical to before).
         private void ClearBoardBackground()
         {
-            if (_boardArea == null || !_boardBackgroundApplied) return;
-            ClearBackground(_boardArea);
-            _boardBackgroundApplied = false;
+            _backgroundElement?.RemoveFromHierarchy();
+            _backgroundWorldRect = null;
+            _backgroundAssetId = null;
         }
 
         private Result<Texture2D> LoadTexture(AssetId assetId) => _textureCache.Load(_sceneRepository, _campaign, assetId, NewCorrelationId());
@@ -666,6 +763,8 @@ namespace Odyssey.Unity.Client
             if (_boardArea == null) return;
             _obstacleRecordsByObstacleId.Clear();
             _obstacleDurabilityByObstacleId.Clear();
+            _obstacleLineElementsByObstacleId.Clear();
+            _obstacleHpBarTrackElementsByObstacleId.Clear();
 
             foreach (ObstacleRecord obstacle in obstacles)
             {
@@ -682,6 +781,7 @@ namespace Odyssey.Unity.Client
                 ApplyObstacleColor(line, obstacle);
                 PositionSegmentElement(line, x1, y1, x2, y2, ObstacleLineThicknessPixels);
                 _boardArea.Add(line);
+                _obstacleLineElementsByObstacleId[key] = line;
 
                 // SLICE-10 Block 6 part 1 task contract section 2.6: one GetObstacleDurability call per
                 // obstacle per Refresh() (N+1), not a batch read -- the contract has no batch method and
@@ -772,6 +872,7 @@ namespace Odyssey.Unity.Client
             track.Add(fill);
 
             _boardArea.Add(track);
+            _obstacleHpBarTrackElementsByObstacleId[obstacleId.ToString()] = track;
         }
 
         private static Color HpBarColor(double fraction)
@@ -1719,15 +1820,21 @@ namespace Odyssey.Unity.Client
         private void OnToolSelected(BoardTool tool) => SetTool(tool);
 
         /// <summary>
-        /// Switches the active tool. Refused (returns <c>false</c>, no change) while a draw gesture is
-        /// already in progress -- task contract section 2.1's own instruction that switching tools mid-gesture
-        /// must not abandon it; the gesture must be completed (mouse up) or explicitly cancelled
-        /// (<see cref="CancelObstacleDraw"/>, wired to Escape on the board area) first. Public -- see the
-        /// class remarks on testability.
+        /// Switches the active tool, always -- exactly one of Select/Draw Wall/Draw Door/Draw Window is active at
+        /// a time (ODY-S11-229). If a draw gesture is already in progress, switching cancels it first
+        /// (<see cref="CancelObstacleDraw"/>, the same abandon-without-creating path Escape on the board area
+        /// already uses) rather than refusing the switch -- the toolbar is a single exclusive choice, so picking
+        /// a different tool is itself an explicit instruction to stop drawing with the old one, by the same logic
+        /// a half-drawn shape in any ordinary drawing tool is abandoned when the user picks a different tool.
+        /// ODY-S11-229 note: this reverses SLICE-10 Block 6 part 1's original decision to refuse the switch and
+        /// leave the gesture untouched instead -- that choice predates this toolbar having any real user-facing
+        /// verification and was never exercised by an automated test; the product owner's later, explicit
+        /// instruction here is the one in effect now. Always returns <c>true</c> (kept non-<c>void</c> for source
+        /// compatibility with existing callers). Public -- see the class remarks on testability.
         /// </summary>
         public bool SetTool(BoardTool tool)
         {
-            if (_obstacleDrawGesture.IsActive) return false;
+            if (_obstacleDrawGesture.IsActive) CancelObstacleDraw();
             _currentTool = tool;
             _toolbarPresenter?.SetActiveTool(tool);
             return true;
@@ -2146,13 +2253,14 @@ namespace Odyssey.Unity.Client
             _boardPointerGesture.Begin(pixelX, pixelY);
         }
 
-        /// <summary>Feeds a pointer move into the pan; once past <see cref="BoardPointerGesture.DragThresholdPixels"/> it pans the camera and repositions the rendered tokens and the marker. Public -- see <see cref="BeginBoardPointerGesture"/>.</summary>
+        /// <summary>Feeds a pointer move into the pan; once past <see cref="BoardPointerGesture.DragThresholdPixels"/> it pans the camera and repositions the rendered tokens, obstacles, fog and background as one scene. Public -- see <see cref="BeginBoardPointerGesture"/>.</summary>
         public void MoveBoardPan(double pixelX, double pixelY)
         {
             if (_boardPointerGesture.Move(pixelX, pixelY, out double deltaX, out double deltaY))
             {
                 _camera.Pan(deltaX, deltaY);
                 RepositionTokens();
+                RepositionObstacles();
             }
         }
 
@@ -2223,12 +2331,13 @@ namespace Odyssey.Unity.Client
             _markerElement.style.top = (float)(_camera.ToPixelsY(_markerWorldPosition.Value.Y) - PlayerMarkerSizePixels / 2);
         }
 
-        /// <summary>Zooms the camera to <paramref name="anchorPixelX"/>/<paramref name="anchorPixelY"/> and repositions the already-rendered tokens. Public -- see <see cref="BeginBoardPointerGesture"/>.</summary>
+        /// <summary>Zooms the camera to <paramref name="anchorPixelX"/>/<paramref name="anchorPixelY"/> and repositions the already-rendered tokens, obstacles, fog and background as one scene. Public -- see <see cref="BeginBoardPointerGesture"/>.</summary>
         public void ZoomBoard(double factor, double anchorPixelX, double anchorPixelY)
         {
             CancelCameraFocus(); // ODY-S11-214: manual camera input wins over autofocus
             _camera.Zoom(factor, anchorPixelX, anchorPixelY);
             RepositionTokens();
+            RepositionObstacles();
         }
 
         /// <summary>The board camera's current state, exposed read-only for tests and any future caller that needs to know the current pan/zoom (task contract section 1.4: this state is never persisted or synced).</summary>
@@ -2345,6 +2454,46 @@ namespace Odyssey.Unity.Client
             }
         }
 
+        // ODY-S11-226: the obstacle/HP-bar equivalent of RepositionTokens() -- repositions already-rendered
+        // walls/doors/windows and their HP bars from the cached records (no repository read), so they pan and
+        // zoom together with the tokens instead of staying frozen at their last Refresh()'s pixel position.
+        private void RepositionObstacles()
+        {
+            foreach (KeyValuePair<string, ObstacleRecord> entry in _obstacleRecordsByObstacleId)
+            {
+                ObstacleRecord obstacle = entry.Value;
+                double x1 = _camera.ToPixelsX(obstacle.X1);
+                double y1 = _camera.ToPixelsY(obstacle.Y1);
+                double x2 = _camera.ToPixelsX(obstacle.X2);
+                double y2 = _camera.ToPixelsY(obstacle.Y2);
+
+                if (_obstacleLineElementsByObstacleId.TryGetValue(entry.Key, out VisualElement? line))
+                {
+                    PositionSegmentElement(line, x1, y1, x2, y2, ObstacleLineThicknessPixels);
+                }
+
+                if (_obstacleHpBarTrackElementsByObstacleId.TryGetValue(entry.Key, out VisualElement? track))
+                {
+                    double midX = (x1 + x2) / 2.0;
+                    double midY = (y1 + y2) / 2.0 - ObstacleHpBarHeightPixels - 6.0;
+                    track.style.left = (float)(midX - ObstacleHpBarWidthPixels / 2.0);
+                    track.style.top = (float)midY;
+                }
+            }
+
+            if (_fogPresenter.IsVisible)
+            {
+                _fogPresenter.Show(_fogPresenter.CurrentReveals, _camera, CurrentBoardWidthPixels(), CurrentBoardHeightPixels());
+            }
+
+            if (_gridPresenter.IsVisible)
+            {
+                _gridPresenter.Show(_camera, CurrentBoardWidthPixels(), CurrentBoardHeightPixels());
+            }
+
+            RepositionBoardBackground();
+        }
+
         /// <summary>ODY-S11-211: whether a token is currently easing towards a position changed elsewhere. Exposed for tests.</summary>
         public bool IsTokenAnimating(TokenId tokenId) => _tokenMotion.IsAnimating(tokenId.ToString());
 
@@ -2416,10 +2565,15 @@ namespace Odyssey.Unity.Client
 
             bool running = _cameraFocus.Advance(_camera, elapsedMs);
             RepositionTokens();
+            // ODY-S11-226: obstacles/fog/background now follow every tick of the ease, not just its end --
+            // before this fix only tokens moved smoothly during autofocus; the map/walls visibly lagged behind
+            // until the final Refresh() below snapped them into place.
+            RepositionObstacles();
             if (!running)
             {
                 StopCameraFocusTicker();
-                // Same follow-up as the shell's initial centering: one re-render so obstacles and fog follow the camera.
+                // Still a real re-render at the end (not just a reposition): fog exploration/visibility can have
+                // changed during the ease from something other than the camera itself.
                 if (!_disposed) Refresh();
             }
 

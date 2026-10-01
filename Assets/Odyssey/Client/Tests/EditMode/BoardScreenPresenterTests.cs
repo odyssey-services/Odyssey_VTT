@@ -5,6 +5,7 @@ using NUnit.Framework;
 using Odyssey.Application.Commands;
 using Odyssey.Application.Persistence;
 using Odyssey.Application.Results;
+using Odyssey.Domain.Geometry;
 using Odyssey.Domain.Identity;
 using Odyssey.Persistence.Sqlite;
 using Odyssey.Unity.Client;
@@ -1689,6 +1690,11 @@ namespace Odyssey.Tests.Unity.EditMode
         private static VisualElement Board(UIDocument document) => document.rootVisualElement.Q<VisualElement>("board-area");
         private static VisualElement TokenElement(UIDocument document, TokenRecord token) => document.rootVisualElement.Q<VisualElement>("token-" + token.TokenId);
 
+        // ODY-S11-226: the map background moved from an inline style on board-area itself to its own child
+        // element (so it can be positioned/scaled by the camera like every other board object) -- null when no
+        // background is currently shown (the element is removed from the hierarchy, not merely cleared).
+        private static VisualElement? Background(UIDocument document) => Board(document)?.Q<VisualElement>("board-background");
+
         [Test] // TC-BOARD-040
         public void SceneWithBackgroundAssetId_AfterRefresh_BoardShowsTheTextureNotASolidFill()
         {
@@ -1702,7 +1708,9 @@ namespace Odyssey.Tests.Unity.EditMode
                 using var presenter = new BoardScreenPresenter(document, fixture.Repository, fixture.Campaign, fixture.CampaignRepository, fixture.ObstacleRepository, fixture.VisionRepository, fixture.FogRepository, fixture.Scene.SceneId, fixture.LocalActor);
                 Assert.That(presenter.Initialize().IsSuccess, Is.True);
 
-                Texture2D? texture = Board(document).style.backgroundImage.value.texture;
+                VisualElement? background = Background(document);
+                Assert.That(background, Is.Not.Null, "the board must have a background element");
+                Texture2D? texture = background!.style.backgroundImage.value.texture;
                 Assert.That(texture, Is.Not.Null, "the board must display the registered image");
                 Assert.That(texture!.width, Is.EqualTo(4), "and it must be the decoded registered image, not some placeholder");
             }
@@ -1747,12 +1755,12 @@ namespace Odyssey.Tests.Unity.EditMode
                 UIDocument document = gameObject.AddComponent<UIDocument>();
                 using var presenter = new BoardScreenPresenter(document, fixture.Repository, fixture.Campaign, fixture.CampaignRepository, fixture.ObstacleRepository, fixture.VisionRepository, fixture.FogRepository, fixture.Scene.SceneId, fixture.LocalActor);
                 Assert.That(presenter.Initialize().IsSuccess, Is.True);
-                Assert.That(Board(document).style.backgroundImage.value.texture, Is.Not.Null, "precondition: the background is shown");
+                Assert.That(Background(document)?.style.backgroundImage.value.texture, Is.Not.Null, "precondition: the background is shown");
 
                 fixture.SetBackground(null);
                 Assert.That(presenter.Refresh().IsSuccess, Is.True);
 
-                Assert.That(Board(document).style.backgroundImage.value.texture, Is.Null, "clearing the scene's background must clear the board image on the next Refresh");
+                Assert.That(Background(document), Is.Null, "clearing the scene's background must remove the board-background element on the next Refresh");
                 Assert.That(Board(document).style.backgroundColor.value, Is.EqualTo(new Color(0.12f, 0.12f, 0.14f)));
             }
             finally
@@ -1832,7 +1840,114 @@ namespace Odyssey.Tests.Unity.EditMode
 
                 Assert.That(counting.ReadAssetContentCalls, Is.EqualTo(1), "background and portrait share one AssetId: one disk read for the presenter's whole life, however many Refresh calls");
                 Assert.That(TokenElement(document, fixture.Token).style.backgroundImage.value.texture, Is.Not.Null, "the portrait is still shown after the move re-rendered the token");
-                Assert.That(Board(document).style.backgroundImage.value.texture, Is.Not.Null);
+                Assert.That(Background(document)?.style.backgroundImage.value.texture, Is.Not.Null);
+            }
+            finally
+            {
+                UnityEngine.Object.DestroyImmediate(gameObject);
+            }
+        }
+
+        // ODY-S11-226: before this task, ZoomBoard/MoveBoardPan repositioned only the already-rendered tokens
+        // (RepositionTokens()) -- obstacles, the map background and the grid kept whatever pixel position their
+        // last full Refresh() gave them, so the map/walls visibly "stayed behind" during a live wheel-zoom or
+        // middle-drag pan while tokens moved smoothly. This was not a regression from any later refactor: the
+        // background's CSS "Cover" sizing predates the camera itself (commit fda1ada, before 600baeb introduced
+        // BoardCamera), and RenderObstacles/RenderFogOfWar were never wired into the camera-change path at all --
+        // a false-positive verification (gesture/camera-math tests passed; nobody checked that the rendered scene
+        // objects besides tokens actually moved on screen), not a true regression.
+        [Test] // TC-BOARD-121b
+        public void ZoomBoard_RepositionsObstaclesAndBackground_NotOnlyTokens()
+        {
+            using var fixture = new BoardFixture();
+            fixture.SetBackground(RegisterAssetBytes(fixture.Repository, fixture.Campaign, MakePng(4, new Color32(50, 60, 70, 255))).AssetId);
+            Result<ObstacleRecord> obstacleResult = fixture.ObstacleRepository.CreateObstacle(fixture.Campaign, fixture.Scene.SceneId, ObstacleKind.Wall, 5.0, 5.0, 8.0, 5.0, NewCommandId(), TestCorrelationId);
+            Assert.That(obstacleResult.IsSuccess, Is.True);
+
+            GameObject gameObject = new GameObject("Board Screen Document");
+            try
+            {
+                UIDocument document = gameObject.AddComponent<UIDocument>();
+                using var presenter = new BoardScreenPresenter(document, fixture.Repository, fixture.Campaign, fixture.CampaignRepository, fixture.ObstacleRepository, fixture.VisionRepository, fixture.FogRepository, fixture.Scene.SceneId, fixture.LocalActor);
+                presenter.LocalActorIsMainGm = true;
+                Assert.That(presenter.Initialize().IsSuccess, Is.True);
+
+                VisualElement obstacleLine = document.rootVisualElement.Q<VisualElement>("obstacle-" + obstacleResult.Value.ObstacleId);
+                VisualElement background = Background(document)!;
+                float obstacleLeftBefore = obstacleLine.style.left.value.value;
+                float backgroundLeftBefore = background.style.left.value.value;
+                float backgroundWidthBefore = background.style.width.value.value;
+
+                presenter.ZoomBoard(2.0, 100.0, 100.0);
+
+                Assert.That(obstacleLine.style.left.value.value, Is.Not.EqualTo(obstacleLeftBefore), "the obstacle must move with a zoom, exactly as a token does");
+                Assert.That(background.style.left.value.value, Is.Not.EqualTo(backgroundLeftBefore), "the map background must move with a zoom");
+                Assert.That(background.style.width.value.value, Is.Not.EqualTo(backgroundWidthBefore), "the map background must scale with a zoom");
+
+                // Same world point must still land under the same screen anchor (100,100) -- not just "moved by
+                // some amount", moved by exactly the zoom-to-cursor amount the camera itself promises.
+                double expectedObstacleX1 = presenter.Camera.ToPixelsX(5.0);
+                Assert.That(obstacleLine.style.left.value.value, Is.EqualTo((float)expectedObstacleX1).Within(0.01f));
+            }
+            finally
+            {
+                UnityEngine.Object.DestroyImmediate(gameObject);
+            }
+        }
+
+        [Test] // TC-BOARD-121c
+        public void MoveBoardPan_RepositionsObstaclesAndBackground_NotOnlyTokens()
+        {
+            using var fixture = new BoardFixture();
+            fixture.SetBackground(RegisterAssetBytes(fixture.Repository, fixture.Campaign, MakePng(4, new Color32(80, 90, 100, 255))).AssetId);
+            Result<ObstacleRecord> obstacleResult = fixture.ObstacleRepository.CreateObstacle(fixture.Campaign, fixture.Scene.SceneId, ObstacleKind.Door, 2.0, 2.0, 2.0, 4.0, NewCommandId(), TestCorrelationId);
+            Assert.That(obstacleResult.IsSuccess, Is.True);
+
+            GameObject gameObject = new GameObject("Board Screen Document");
+            try
+            {
+                UIDocument document = gameObject.AddComponent<UIDocument>();
+                using var presenter = new BoardScreenPresenter(document, fixture.Repository, fixture.Campaign, fixture.CampaignRepository, fixture.ObstacleRepository, fixture.VisionRepository, fixture.FogRepository, fixture.Scene.SceneId, fixture.LocalActor);
+                presenter.LocalActorIsMainGm = true;
+                Assert.That(presenter.Initialize().IsSuccess, Is.True);
+
+                VisualElement obstacleLine = document.rootVisualElement.Q<VisualElement>("obstacle-" + obstacleResult.Value.ObstacleId);
+                VisualElement background = Background(document)!;
+                float obstacleTopBefore = obstacleLine.style.top.value.value;
+                float backgroundTopBefore = background.style.top.value.value;
+
+                presenter.BeginBoardPan(50.0, 50.0);
+                presenter.MoveBoardPan(50.0, 90.0); // past BoardPointerGesture's drag threshold
+
+                Assert.That(obstacleLine.style.top.value.value, Is.Not.EqualTo(obstacleTopBefore), "the obstacle must move with a pan, exactly as a token does");
+                Assert.That(background.style.top.value.value, Is.Not.EqualTo(backgroundTopBefore), "the map background must move with a pan");
+            }
+            finally
+            {
+                UnityEngine.Object.DestroyImmediate(gameObject);
+            }
+        }
+
+        [Test] // TC-BOARD-121d
+        public void BoardGrid_IsVisibleAndFollowsZoom()
+        {
+            using var fixture = new BoardFixture();
+
+            GameObject gameObject = new GameObject("Board Screen Document");
+            try
+            {
+                UIDocument document = gameObject.AddComponent<UIDocument>();
+                using var presenter = new BoardScreenPresenter(document, fixture.Repository, fixture.Campaign, fixture.CampaignRepository, fixture.ObstacleRepository, fixture.VisionRepository, fixture.FogRepository, fixture.Scene.SceneId, fixture.LocalActor);
+                Assert.That(presenter.Initialize().IsSuccess, Is.True);
+
+                VisualElement grid = document.rootVisualElement.Q<VisualElement>("board-grid");
+                Assert.That(grid, Is.Not.Null, "a grid element is always rendered");
+                Assert.That(grid.parent, Is.SameAs(Board(document)), "mounted on the board, below obstacles/tokens");
+                List<VisualElement> boardChildren = new List<VisualElement>(Board(document).Children());
+                Assert.That(boardChildren.IndexOf(grid), Is.LessThan(boardChildren.IndexOf(TokenElement(document, fixture.Token))), "the grid paints below tokens");
+
+                presenter.ZoomBoard(3.0, 0.0, 0.0);
+                Assert.That(document.rootVisualElement.Q<VisualElement>("board-grid"), Is.Not.Null, "the grid element is not torn down by a zoom");
             }
             finally
             {
