@@ -842,6 +842,54 @@ namespace Odyssey.Tests.Unity.EditMode
             return presenter;
         }
 
+        [Test]
+        public void OwnMoveIsDrawnInstantly_MoveMadeElsewhereEasesToTheNewPosition()
+        {
+            using TemporaryDirectory directory = new TemporaryDirectory();
+            var campaignRepository = new SqliteCampaignRepository(Clock);
+            var createRequest = new CreateCampaignRequest(directory.Path, "Board Motion Test Campaign", "ruleset.core", "1.0.0", "0.1.0", global::Odyssey.Application.Identity.DevIdentityProvider.AssignHost());
+            CampaignHandle campaign = campaignRepository.Create(createRequest, NewCommandId(), TestCorrelationId).Value;
+            var sceneRepository = new SqliteSceneRepository(Clock);
+            SceneId sceneId = sceneRepository.CreateScene(campaign, "Test Scene", NewCommandId(), TestCorrelationId).Value.SceneId;
+            UserId localActor = NewUserId();
+            TokenRecord token = sceneRepository.CreateToken(campaign, sceneId, new TokenPosition(0, 0), localActor, NewCommandId(), TestCorrelationId).Value;
+
+            GameObject gameObject = new GameObject("Board Motion Document");
+            try
+            {
+                UIDocument document = gameObject.AddComponent<UIDocument>();
+                using var presenter = new BoardScreenPresenter(document, sceneRepository, campaign, campaignRepository, new SqliteObstacleRepository(Clock), new SqliteTokenVisionRepository(Clock), new SqliteFogOfWarRepository(Clock), sceneId, localActor);
+                // ODY-S11-211 (TC-MOTION-006). Unfiltered render, so visibility rules play no part in what is checked here.
+                presenter.LocalActorIsMainGm = true;
+                Assert.That(presenter.Initialize().IsSuccess, Is.True);
+                float PixelLeft(double worldX) => (float)(presenter.Camera.ToPixelsX(worldX) - 14.0);
+                VisualElement Element() => document.rootVisualElement.Q<VisualElement>("token-" + token.TokenId)!;
+
+                Assert.That(presenter.TryMoveTokenTo(token.TokenId, new TokenPosition(3, 0)).IsSuccess, Is.True);
+                Assert.That(presenter.IsTokenAnimating(token.TokenId), Is.False, "the local user's own move is never delayed");
+                Assert.That(Element().style.left.value.value, Is.EqualTo(PixelLeft(3)).Within(0.01f));
+
+                // Another participant's move reaches storage; this board only sees it on its next render.
+                long revision = sceneRepository.GetToken(campaign, token.TokenId, TestCorrelationId).Value.Revision;
+                Assert.That(sceneRepository.MoveToken(campaign, token.TokenId, new TokenPosition(8, 0), revision, NewCommandId(), TestCorrelationId).IsSuccess, Is.True);
+                Assert.That(presenter.Refresh().IsSuccess, Is.True);
+                Assert.That(presenter.IsTokenAnimating(token.TokenId), Is.True, "a move made elsewhere eases in");
+                Assert.That(Element().style.left.value.value, Is.EqualTo(PixelLeft(3)).Within(0.01f), "starts where it was drawn");
+
+                Assert.That(presenter.AdvanceTokenMotion(OdyMotion.RemoteUpdateDurationMs / 2), Is.True);
+                float mid = Element().style.left.value.value;
+                Assert.That(mid, Is.GreaterThan(PixelLeft(3)).And.LessThan(PixelLeft(8)));
+
+                Assert.That(presenter.AdvanceTokenMotion(OdyMotion.RemoteUpdateDurationMs), Is.False);
+                Assert.That(Element().style.left.value.value, Is.EqualTo(PixelLeft(8)).Within(0.01f), "arrives at the authoritative position");
+            }
+            finally
+            {
+                UnityEngine.Object.DestroyImmediate(gameObject);
+                campaignRepository.Close(campaign, TestCorrelationId);
+            }
+        }
+
         private static void ClickToken(BoardScreenPresenter presenter, TokenId id, double worldX, bool shift)
         {
             double x = presenter.Camera.ToPixelsX(worldX);

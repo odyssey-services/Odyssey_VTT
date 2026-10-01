@@ -161,6 +161,9 @@ namespace Odyssey.Unity.Client
         private string? _dragAnchorKey;
         private readonly List<string> _dragGroup = new List<string>();
         private readonly Dictionary<string, TokenPosition> _dragStartPositions = new Dictionary<string, TokenPosition>(StringComparer.Ordinal);
+        // ODY-S11-211: local moves are drawn instantly, moves observed from elsewhere ease in (BoardTokenMotion).
+        private readonly BoardTokenMotion _tokenMotion = new BoardTokenMotion();
+        private IVisualElementScheduledItem? _tokenMotionTicker;
         private bool _disposed;
 
         public BoardScreenPresenter(UIDocument document, ISceneRepository sceneRepository, CampaignHandle campaign, ICampaignRepository campaignRepository, IObstacleRepository obstacleRepository, ITokenVisionRepository visionRepository, IFogOfWarRepository fogRepository, SceneId sceneId, UserId localActorUserId)
@@ -243,6 +246,7 @@ namespace Odyssey.Unity.Client
             if (_disposed) return;
             _roleSelectorPresenter?.Dispose();
             _roleSubscription?.Dispose();
+            _tokenMotionTicker?.Pause();
             _textureCache.Dispose();
             _disposed = true;
         }
@@ -537,6 +541,8 @@ namespace Odyssey.Unity.Client
         private Error? RenderTokens(IReadOnlyList<TokenRecord> tokens, IReadOnlyCollection<TokenId>? visibleTokenIds)
         {
             if (_boardArea == null) return null;
+            // ODY-S11-211: where each token was last rendered, to tell a moved token from an unchanged one.
+            var previousPositions = new Dictionary<string, TokenPosition>(_tokenPositionsByTokenId, StringComparer.Ordinal);
             _tokenElementsByTokenId.Clear();
             _tokenPositionsByTokenId.Clear();
             _tokenGesturesByTokenId.Clear();
@@ -549,12 +555,15 @@ namespace Odyssey.Unity.Client
             // puts the highest ZOrder last, i.e. on top.
             foreach (TokenRecord token in tokens.OrderBy(t => t.ZOrder))
             {
+                string tokenKey = token.TokenId.ToString();
+                bool isVisible = visibleTokenIds == null || visibleTokenIds.Contains(token.TokenId);
                 VisualElement tokenElement = new VisualElement { name = "token-" + token.TokenId };
                 tokenElement.AddToClassList("board-token");
                 tokenElement.style.position = Position.Absolute;
                 tokenElement.style.width = (float)(TokenSizePixels * token.Scale);
                 tokenElement.style.height = (float)(TokenSizePixels * token.Scale);
-                PositionTokenElement(tokenElement, token.Position, token.Scale);
+                TokenPosition? previousPosition = previousPositions.TryGetValue(tokenKey, out TokenPosition previous) ? previous : (TokenPosition?)null;
+                PositionTokenElement(tokenElement, _tokenMotion.Observe(tokenKey, previousPosition, token.Position, isVisible), token.Scale);
                 bool hasPortraitTexture = false;
                 if (token.PortraitAssetId.HasValue)
                 {
@@ -589,7 +598,6 @@ namespace Odyssey.Unity.Client
                 // disabled so a hidden token can never be selected/dragged/hit-tested while invisible. The
                 // element is still created and tracked in every dictionary below (unchanged from before this
                 // task) so the rest of this class's per-token bookkeeping needs no special-casing.
-                bool isVisible = visibleTokenIds == null || visibleTokenIds.Contains(token.TokenId);
                 tokenElement.style.display = isVisible ? DisplayStyle.Flex : DisplayStyle.None;
                 tokenElement.pickingMode = isVisible ? PickingMode.Position : PickingMode.Ignore;
 
@@ -616,6 +624,8 @@ namespace Odyssey.Unity.Client
                 _tokenControllersByTokenId[token.TokenId.ToString()] = token.ControllerUserId;
             }
 
+            _tokenMotion.RetainOnly(_tokenElementsByTokenId.Keys);
+            EnsureTokenMotionTicking();
             return firstAssetError;
         }
 
@@ -838,6 +848,8 @@ namespace Odyssey.Unity.Client
             }
 
             TokenId tokenId = selected.Value;
+            // ODY-S11-211: the local user's own move (or its rollback) is drawn instantly.
+            _tokenMotion.MarkLocal(tokenId.ToString());
             Result<TokenRecord> current = _sceneRepository.GetToken(_campaign, tokenId, NewCorrelationId());
             if (current.IsFailure)
             {
@@ -877,6 +889,8 @@ namespace Odyssey.Unity.Client
         /// </summary>
         public Result<TokenRecord> TryMoveTokenTo(TokenId tokenId, TokenPosition destination)
         {
+            // ODY-S11-211: the local user's own move (or its rollback) is drawn instantly.
+            _tokenMotion.MarkLocal(tokenId.ToString());
             Result<TokenRecord> current = _sceneRepository.GetToken(_campaign, tokenId, NewCorrelationId());
             if (current.IsFailure)
             {
@@ -981,6 +995,9 @@ namespace Odyssey.Unity.Client
             if (_draggingTokenId.HasValue && _draggingTokenId.Value.Equals(tokenId))
             {
                 _draggingTokenId = null;
+                // ODY-S11-211: rolling back the local user's own drag is drawn instantly, not animated.
+                _tokenMotion.MarkLocal(key);
+                foreach (string member in _dragGroup) _tokenMotion.MarkLocal(member);
                 ResetDragState();
                 Refresh();
             }
@@ -1014,6 +1031,8 @@ namespace Odyssey.Unity.Client
 
             foreach (string key in _dragGroup)
             {
+                // ODY-S11-211: a grabbed token stops any remote animation -- the local drag is always 1:1.
+                _tokenMotion.Cancel(key);
                 if (_tokenPositionsByTokenId.TryGetValue(key, out TokenPosition start)) _dragStartPositions[key] = start;
             }
 
@@ -1199,6 +1218,8 @@ namespace Odyssey.Unity.Client
             }
 
             ResetDragState();
+            // ODY-S11-211: every member's commit (and any rollback) is the local user's own move: drawn instantly.
+            foreach (KeyValuePair<TokenId, TokenPosition> entry in destinations) _tokenMotion.MarkLocal(entry.Key.ToString());
 
             // ODY-S08-106: a group commits as one ordinary MoveToken per token (BoardMovementService has no
             // batch API). NOT atomic: a token whose move is denied is rolled back visually by its own
@@ -2258,9 +2279,37 @@ namespace Odyssey.Unity.Client
             {
                 if (_tokenElementsByTokenId.TryGetValue(entry.Key, out VisualElement? tokenElement))
                 {
-                    PositionTokenElement(tokenElement, entry.Value, ScaleOf(entry.Key));
+                    TokenPosition drawn = _tokenMotion.TryGetDisplayed(entry.Key, out TokenPosition animated) ? animated : entry.Value;
+                    PositionTokenElement(tokenElement, drawn, ScaleOf(entry.Key));
                 }
             }
+        }
+
+        /// <summary>ODY-S11-211: whether a token is currently easing towards a position changed elsewhere. Exposed for tests.</summary>
+        public bool IsTokenAnimating(TokenId tokenId) => _tokenMotion.IsAnimating(tokenId.ToString());
+
+        /// <summary>
+        /// ODY-S11-211: steps running token animations by <paramref name="elapsedMs"/> and redraws them. Called by the
+        /// board area's scheduler at runtime; public so tests step it deterministically. Returns whether any still runs.
+        /// </summary>
+        public bool AdvanceTokenMotion(double elapsedMs)
+        {
+            bool running = _tokenMotion.Advance(elapsedMs);
+            RepositionTokens();
+            if (!running)
+            {
+                // A fresh item next time (not Resume), so its first tick delta starts from when it is scheduled.
+                _tokenMotionTicker?.Pause();
+                _tokenMotionTicker = null;
+            }
+
+            return running;
+        }
+
+        private void EnsureTokenMotionTicking()
+        {
+            if (!_tokenMotion.AnyActive || _boardArea == null || _disposed || _tokenMotionTicker != null) return;
+            _tokenMotionTicker = _boardArea.schedule.Execute(timer => AdvanceTokenMotion(timer.deltaTime)).Every(OdyMotion.FrameIntervalMs);
         }
 
         private double ScaleOf(string key) => _tokenScalesByTokenId.TryGetValue(key, out double scale) ? scale : 1.0;

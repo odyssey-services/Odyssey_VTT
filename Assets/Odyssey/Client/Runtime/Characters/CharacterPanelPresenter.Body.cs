@@ -43,6 +43,9 @@ namespace Odyssey.Unity.Client
 
         public static long EffectiveMaximum(CharacterResource resource) => resource.BaseMaximum + resource.PermanentMaximumAdjustment;
 
+        /// <summary>The rendered bar of a resource of the open character (by resource definition key), or <c>null</c>.</summary>
+        public OdyResourceBar? ResourceBar(string resourceKey) => _resourceBars.TryGetValue(resourceKey ?? string.Empty, out OdyResourceBar? bar) ? bar : null;
+
         // ---- Anatomy ------------------------------------------------------------------------------
 
         public Result<CharacterRecord> InitializeDefaultAnatomy(string profileId)
@@ -190,6 +193,7 @@ namespace Odyssey.Unity.Client
         {
             if (!ActorIsMainGm) tab.Add(OdyUi.Text("Only the MainGM changes current values and maximums.", OdyClasses.FieldHint));
             if (c.Resources.Count == 0) tab.Add(OdyUi.EmptyState("No resources yet.", "character-resources-empty"));
+            _resourceBars.Clear();
             foreach (CharacterResource resource in c.Resources)
             {
                 string key = resource.ResourceDefinitionId.ToString();
@@ -197,6 +201,12 @@ namespace Odyssey.Unity.Client
                 var bar = new OdyResourceBar("character-resource-bar-" + key);
                 long maximum = EffectiveMaximum(resource);
                 bar.SetValue(resource.CurrentValue, resource.MinimumValue, maximum);
+                // ODY-S11-211: this panel's own change is shown at once; a value changed elsewhere (combat damage,
+                // another participant, a reload after a conflict) eases from what was shown before.
+                string shownKey = c.CharacterId + "/" + key;
+                if (!_renderingOwnChange && _shownResourceFractions.TryGetValue(shownKey, out double shown)) bar.AnimateFrom(shown);
+                _shownResourceFractions[shownKey] = bar.FillFraction;
+                _resourceBars[key] = bar;
                 body.Add(bar.Element);
                 body.Add(OdyUi.Text("min " + resource.MinimumValue + " · base max " + resource.BaseMaximum + " · adj " + resource.PermanentMaximumAdjustment + " · recovery " + EnumChoices.Humanize(resource.RecoveryRule.ToString()), OdyClasses.TextCaption));
                 if (ActorIsMainGm)

@@ -459,11 +459,17 @@ namespace Odyssey.Unity.Client
         private static string Modifier(OdyBannerKind kind) => "ody-banner--" + kind.ToString().ToLowerInvariant();
     }
 
-    /// <summary>A filled bar with a text label over it (HP and similar resources).</summary>
+    /// <summary>
+    /// A filled bar with a text label over it (HP and similar resources). <see cref="SetValue"/> is instant (the local
+    /// user's own change); <see cref="AnimateFrom"/> then eases the fill from a previously shown value (ODY-S11-211:
+    /// a change made by someone else). The numbers in the label always show the new value at once.
+    /// </summary>
     public sealed class OdyResourceBar
     {
         private readonly VisualElement _fill;
         private readonly Label _label;
+        private OdyTween? _tween;
+        private IVisualElementScheduledItem? _ticker;
 
         public OdyResourceBar(string name, bool small = false)
         {
@@ -481,7 +487,14 @@ namespace Odyssey.Unity.Client
         }
 
         public VisualElement Element { get; }
+
+        /// <summary>The value's fraction (the target while animating).</summary>
         public double FillFraction { get; private set; }
+
+        /// <summary>The fraction drawn right now.</summary>
+        public double DisplayedFraction { get; private set; }
+
+        public bool IsAnimating => _tween != null && !_tween.IsDone;
         public string LabelText => _label.text;
 
         /// <summary>Fraction is (current - minimum) / (maximum - minimum), clamped to [0, 1]; a non-positive span shows empty.</summary>
@@ -492,11 +505,54 @@ namespace Odyssey.Unity.Client
             if (fraction < 0.0) fraction = 0.0;
             if (fraction > 1.0) fraction = 1.0;
             FillFraction = fraction;
-            _fill.style.width = new Length((float)(fraction * 100.0), LengthUnit.Percent);
+            StopAnimation();
+            ShowFraction(fraction);
             _fill.EnableInClassList(OdyClasses.ResourceBarFillMid, fraction >= 0.34 && fraction < 0.67);
             _fill.EnableInClassList(OdyClasses.ResourceBarFillHigh, fraction >= 0.67);
             string numbers = OdyUi.Format(current) + " / " + OdyUi.Format(maximum);
             _label.text = string.IsNullOrEmpty(caption) ? numbers : caption + "  " + numbers;
+        }
+
+        /// <summary>
+        /// Call after <see cref="SetValue"/>: the fill starts at <paramref name="fromFraction"/> (the previously shown
+        /// value) and eases to <see cref="FillFraction"/>. Driven by the element's own scheduler while it is on a panel.
+        /// </summary>
+        public void AnimateFrom(double fromFraction, double durationMs = OdyMotion.RemoteUpdateDurationMs)
+        {
+            double from = double.IsNaN(fromFraction) ? FillFraction : Math.Max(0.0, Math.Min(1.0, fromFraction));
+            StopAnimation();
+            if (from.Equals(FillFraction)) return;
+            _tween = new OdyTween(from, FillFraction, durationMs);
+            ShowFraction(_tween.Current);
+            if (_tween.IsDone)
+            {
+                _tween = null;
+                return;
+            }
+
+            _ticker = Element.schedule.Execute(timer => AdvanceAnimation(timer.deltaTime)).Every(OdyMotion.FrameIntervalMs).Until(() => !IsAnimating);
+        }
+
+        /// <summary>Steps a running animation by <paramref name="elapsedMs"/>; public so tests step it deterministically.</summary>
+        public void AdvanceAnimation(double elapsedMs)
+        {
+            if (_tween == null) return;
+            _tween.Advance(elapsedMs);
+            ShowFraction(_tween.Current);
+            if (_tween.IsDone) _tween = null;
+        }
+
+        private void StopAnimation()
+        {
+            _tween = null;
+            _ticker?.Pause();
+            _ticker = null;
+        }
+
+        private void ShowFraction(double fraction)
+        {
+            DisplayedFraction = fraction;
+            _fill.style.width = new Length((float)(fraction * 100.0), LengthUnit.Percent);
         }
     }
 

@@ -167,6 +167,35 @@ namespace Odyssey.Tests.Unity.EditMode
         }
 
         [Test]
+        public void ResourceBar_OwnChangeIsInstant_ChangeMadeElsewhereAnimatesFromTheShownValue()
+        {
+            using var fixture = Fixture.Create(BaselineRole.MainGM);
+            CharacterPanelPresenter panel = fixture.Panel;
+            panel.CreateCharacter(fixture.PlayerCharacter("Ivo"));
+            Assert.That(panel.InitializeResource("hp").IsSuccess, Is.True);
+            CharacterResource hp = panel.Current!.Resources.Single();
+            long maximum = CharacterPanelPresenter.EffectiveMaximum(hp);
+            Assert.That(maximum, Is.GreaterThan(hp.MinimumValue), "precondition: a non-empty range");
+
+            Assert.That(panel.SetResourceCurrent(hp.CharacterResourceId, maximum).IsSuccess, Is.True);
+            OdyResourceBar own = panel.ResourceBar("hp")!;
+            Assert.That(own.IsAnimating, Is.False, "the panel's own change is shown at once");
+            Assert.That(own.DisplayedFraction, Is.EqualTo(1.0));
+
+            // Someone else (here: a direct repository write, as combat damage or another participant would) changes it.
+            CharacterRecord record = panel.Current!;
+            Assert.That(fixture.Characters.SetResourceCurrentValue(fixture.Host.Campaign, record.CharacterId, hp.CharacterResourceId, hp.MinimumValue, fixture.Host.Selection.MainGmUserId, record.Revisions.CharacterResourcesRevision, UiCommandIds.NewCommandId(), UiCommandIds.NewCorrelationId()).IsSuccess, Is.True);
+            Assert.That(panel.Open(record.CharacterId).IsSuccess, Is.True);
+
+            OdyResourceBar reloaded = panel.ResourceBar("hp")!;
+            Assert.That(reloaded.IsAnimating, Is.True, "a value changed elsewhere eases in");
+            Assert.That(reloaded.DisplayedFraction, Is.EqualTo(1.0), "from what was shown");
+            Assert.That(reloaded.FillFraction, Is.EqualTo(0.0));
+            reloaded.AdvanceAnimation(OdyMotion.RemoteUpdateDurationMs);
+            Assert.That(reloaded.DisplayedFraction, Is.EqualTo(0.0));
+        }
+
+        [Test]
         public void Anatomy_DependentRemovalIsExplained_AddRemoveAndModify()
         {
             using var fixture = Fixture.Create(BaselineRole.MainGM);

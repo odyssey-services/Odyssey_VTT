@@ -58,6 +58,13 @@ namespace Odyssey.Unity.Client
         private string _activeTab = GeneralTab;
         private bool _disposed;
 
+        // ODY-S11-211: last shown fill of every resource bar (key: character id + resource definition), and whether the
+        // record being rendered is the result of this panel's own command (shown instantly) or came from elsewhere
+        // (a reload: animated from the shown value).
+        private readonly Dictionary<string, double> _shownResourceFractions = new Dictionary<string, double>(StringComparer.Ordinal);
+        private readonly Dictionary<string, OdyResourceBar> _resourceBars = new Dictionary<string, OdyResourceBar>(StringComparer.Ordinal);
+        private bool _renderingOwnChange;
+
         public const string GeneralTab = "general";
         public const string AttributesTab = "attributes";
         public const string SkillsTab = "skills";
@@ -332,7 +339,16 @@ namespace Odyssey.Unity.Client
                 return result;
             }
 
-            SetCurrent(result.Value);
+            _renderingOwnChange = true;
+            try
+            {
+                SetCurrent(result.Value);
+            }
+            finally
+            {
+                _renderingOwnChange = false;
+            }
+
             RenderRoster();
             Banner.Show(OdyBannerKind.Success, successText ?? action + ": done.");
             return result;
