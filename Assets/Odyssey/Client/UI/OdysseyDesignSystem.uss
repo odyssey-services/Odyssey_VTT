@@ -1261,3 +1261,15 @@
     color: var(--ody-color-accent);
     -unity-font-style: bold;
 }
+
+/* ------------------------------------------------------------------------------------------------
+ * 16. Board selection outline (ODY-S11-216) -- marching ants drawn by OdyMarchingAnts (Painter2D).
+ *     color = the moving dashes, border-color = the light line under them (border-width stays 0: the
+ *     outline is painted, not a real border).
+ * --------------------------------------------------------------------------------------------- */
+
+.ody-marching-ants {
+    color: var(--ody-color-header);
+    border-color: #FFFFFF;
+    border-width: 0;
+}

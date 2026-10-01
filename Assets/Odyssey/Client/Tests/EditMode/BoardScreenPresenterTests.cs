@@ -946,6 +946,50 @@ namespace Odyssey.Tests.Unity.EditMode
             }
         }
 
+        [Test]
+        public void SelectedTokensAndTheSelectionBox_GetAMarchingAntsOutline_DeselectRemovesIt()
+        {
+            using TemporaryDirectory directory = new TemporaryDirectory();
+            var campaignRepository = new SqliteCampaignRepository(Clock);
+            var createRequest = new CreateCampaignRequest(directory.Path, "Board Ants Test Campaign", "ruleset.core", "1.0.0", "0.1.0", global::Odyssey.Application.Identity.DevIdentityProvider.AssignHost());
+            CampaignHandle campaign = campaignRepository.Create(createRequest, NewCommandId(), TestCorrelationId).Value;
+            var sceneRepository = new SqliteSceneRepository(Clock);
+            SceneId sceneId = sceneRepository.CreateScene(campaign, "Test Scene", NewCommandId(), TestCorrelationId).Value.SceneId;
+            UserId localActor = NewUserId();
+            TokenRecord token = sceneRepository.CreateToken(campaign, sceneId, new TokenPosition(0, 0), localActor, NewCommandId(), TestCorrelationId).Value;
+
+            GameObject gameObject = new GameObject("Board Ants Document");
+            try
+            {
+                UIDocument document = gameObject.AddComponent<UIDocument>();
+                using var presenter = new BoardScreenPresenter(document, sceneRepository, campaign, campaignRepository, new SqliteObstacleRepository(Clock), new SqliteTokenVisionRepository(Clock), new SqliteFogOfWarRepository(Clock), sceneId, localActor);
+                // ODY-S11-216 (TC-ANTS-004). Unfiltered render, so visibility rules play no part here.
+                presenter.LocalActorIsMainGm = true;
+                Assert.That(presenter.Initialize().IsSuccess, Is.True);
+                Assert.That(presenter.SelectionOutline(token.TokenId), Is.Null, "nothing selected, no outline");
+
+                presenter.SelectToken(token.TokenId);
+                OdyMarchingAnts? outline = presenter.SelectionOutline(token.TokenId);
+                Assert.That(outline, Is.Not.Null);
+                Assert.That(outline!.Element.parent, Is.SameAs(document.rootVisualElement.Q<VisualElement>("token-" + token.TokenId)), "drawn on the selected token");
+
+                presenter.SelectToken(token.TokenId); // a plain click on the only selected token clears the selection
+                Assert.That(presenter.SelectionOutline(token.TokenId), Is.Null);
+                Assert.That(outline.Element.parent, Is.Null, "removed with the selection");
+
+                presenter.BeginBoardPointerGesture(300, 300);
+                presenter.MoveBoardPointer(380, 360);
+                Assert.That(presenter.SelectionBoxElement, Is.Not.Null);
+                Assert.That(presenter.SelectionBoxOutline!.Element.parent, Is.SameAs(presenter.SelectionBoxElement), "the box marches too");
+                presenter.EndBoardPointerGesture(380, 360);
+            }
+            finally
+            {
+                UnityEngine.Object.DestroyImmediate(gameObject);
+                campaignRepository.Close(campaign, TestCorrelationId);
+            }
+        }
+
         private static void ClickToken(BoardScreenPresenter presenter, TokenId id, double worldX, bool shift)
         {
             double x = presenter.Camera.ToPixelsX(worldX);

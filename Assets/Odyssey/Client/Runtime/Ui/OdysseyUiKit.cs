@@ -100,6 +100,10 @@ namespace Odyssey.Unity.Client
 
         /// <summary>On a root while the user navigates with the keyboard: focus rings show (USS has no :focus-visible).</summary>
         public const string FocusVisible = "ody-focus-visible";
+
+        /// <summary>ODY-S11-216: on a root, stops decorative motion below it (set by the polish P2 reduced-motion setting).</summary>
+        public const string ReducedMotion = "ody-reduced-motion";
+        public const string MarchingAnts = "ody-marching-ants";
         public const string TabsPanel = "ody-tabs__panel";
 
         public const string ResourceBar = "ody-resource-bar";

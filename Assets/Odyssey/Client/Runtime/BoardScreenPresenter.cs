@@ -169,6 +169,10 @@ namespace Odyssey.Unity.Client
         private IVisualElementScheduledItem? _cameraFocusTicker;
         private readonly Dictionary<string, string> _tokenKeysByCharacterId = new Dictionary<string, string>(StringComparer.Ordinal);
         private readonly HashSet<string> _visibleTokenKeys = new HashSet<string>(StringComparer.Ordinal);
+        // ODY-S11-216: marching-ants outlines on selected tokens and on the box-select rectangle (visual only).
+        private const float SelectionAntsOutset = 4f;
+        private readonly Dictionary<string, OdyMarchingAnts> _selectionAnts = new Dictionary<string, OdyMarchingAnts>(StringComparer.Ordinal);
+        private OdyMarchingAnts? _boxAnts;
         private bool _disposed;
 
         public BoardScreenPresenter(UIDocument document, ISceneRepository sceneRepository, CampaignHandle campaign, ICampaignRepository campaignRepository, IObstacleRepository obstacleRepository, ITokenVisionRepository visionRepository, IFogOfWarRepository fogRepository, SceneId sceneId, UserId localActorUserId)
@@ -553,6 +557,8 @@ namespace Odyssey.Unity.Client
             _tokenPositionsByTokenId.Clear();
             _tokenKeysByCharacterId.Clear();
             _visibleTokenKeys.Clear();
+            foreach (OdyMarchingAnts ants in _selectionAnts.Values) ants.Detach();
+            _selectionAnts.Clear();
             _tokenGesturesByTokenId.Clear();
             _tokenZOrdersByTokenId.Clear();
             _tokenScalesByTokenId.Clear();
@@ -598,6 +604,7 @@ namespace Odyssey.Unity.Client
                 tokenElement.style.borderBottomWidth = isSelected ? 3 : 1;
                 tokenElement.style.borderLeftWidth = isSelected ? 3 : 1;
                 tokenElement.style.borderRightWidth = isSelected ? 3 : 1;
+                ApplySelectionOutline(tokenKey, tokenElement, isSelected);
 
                 // SLICE-10 Block 6 part 2: a token absent from the real, authoritative ComputeVisibleTokens
                 // result is not rendered at all (DisplayStyle.None, not merely darkened) -- an
@@ -1179,8 +1186,35 @@ namespace Odyssey.Unity.Client
                 entry.Value.style.borderBottomWidth = isSelected ? 3 : 1;
                 entry.Value.style.borderLeftWidth = isSelected ? 3 : 1;
                 entry.Value.style.borderRightWidth = isSelected ? 3 : 1;
+                ApplySelectionOutline(entry.Key, entry.Value, isSelected);
             }
         }
+
+        // ODY-S11-216: selected tokens get a marching-ants outline just outside their border; deselected ones lose it.
+        private void ApplySelectionOutline(string tokenKey, VisualElement tokenElement, bool selected)
+        {
+            if (selected)
+            {
+                if (!_selectionAnts.TryGetValue(tokenKey, out OdyMarchingAnts? ants))
+                {
+                    ants = new OdyMarchingAnts("token-selection-ants-" + tokenKey, SelectionAntsOutset);
+                    _selectionAnts[tokenKey] = ants;
+                }
+
+                ants.AttachTo(tokenElement);
+            }
+            else if (_selectionAnts.TryGetValue(tokenKey, out OdyMarchingAnts? ants))
+            {
+                ants.Detach();
+                _selectionAnts.Remove(tokenKey);
+            }
+        }
+
+        /// <summary>ODY-S11-216: the marching-ants outline of a selected token, or <c>null</c>. Exposed for tests.</summary>
+        public OdyMarchingAnts? SelectionOutline(TokenId tokenId) => _selectionAnts.TryGetValue(tokenId.ToString(), out OdyMarchingAnts? ants) ? ants : null;
+
+        /// <summary>ODY-S11-216: the marching-ants outline of the box-select rectangle (exists once a box was drawn). Exposed for tests.</summary>
+        public OdyMarchingAnts? SelectionBoxOutline => _boxAnts;
 
         /// <summary>
         /// Ends a token's own drag gesture. Movement below the drag threshold is a click -- selects the
@@ -2080,6 +2114,9 @@ namespace Odyssey.Unity.Client
                 _boxElement.style.borderBottomColor = border;
                 _boxElement.style.borderLeftColor = border;
                 _boxElement.style.borderRightColor = border;
+                // ODY-S11-216: the box outline marches too (drawn over the thin border).
+                _boxAnts = new OdyMarchingAnts("board-selection-box-ants");
+                _boxAnts.AttachTo(_boxElement);
             }
 
             _boxElement.style.left = (float)minX;

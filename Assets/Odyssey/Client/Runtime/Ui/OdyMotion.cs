@@ -19,6 +19,21 @@ namespace Odyssey.Unity.Client
         /// <summary>Tick interval of the UI Toolkit scheduler that drives running tweens (~60 Hz).</summary>
         public const long FrameIntervalMs = 16;
 
+        /// <summary>
+        /// ODY-S11-216: decorative motion (marching ants, skeleton shimmer) stops when any ancestor carries
+        /// <see cref="OdyClasses.ReducedMotion"/> -- the hook the later reduced-motion setting (polish P2) only has to set
+        /// on the screen. Walks the element's own parents; no global state.
+        /// </summary>
+        public static bool IsReducedMotion(UnityEngine.UIElements.VisualElement element)
+        {
+            for (UnityEngine.UIElements.VisualElement? current = element; current != null; current = current.parent)
+            {
+                if (current.ClassListContains(OdyClasses.ReducedMotion)) return true;
+            }
+
+            return false;
+        }
+
         /// <summary>Ease-out cubic: fast start, gentle arrival.</summary>
         public static double EaseOut(double progress)
         {
