@@ -4,6 +4,7 @@ using System.Linq;
 using NUnit.Framework;
 using Odyssey.Application.Audience;
 using Odyssey.Application.Combat;
+using Odyssey.Application.Commands;
 using Odyssey.Application.CharacterAdvancement;
 using Odyssey.Application.Checks;
 using Odyssey.Application.Content;
@@ -18,6 +19,7 @@ using Odyssey.Domain.Character;
 using Odyssey.Domain.Checks;
 using Odyssey.Domain.Combat;
 using Odyssey.Domain.Content;
+using Odyssey.Domain.Effects;
 using Odyssey.Domain.Geometry;
 using Odyssey.Domain.Identity;
 using Odyssey.Domain.Inventory;
@@ -85,6 +87,32 @@ namespace Odyssey.Tests.Unity.EditMode
             f.Panel.Refresh();
             Assert.That(announced, Has.Count.EqualTo(3), "a turn change observed on reload is announced too");
             Assert.That(announced[2], Is.EqualTo(f.Panel.CurrentParticipant!.Value));
+        }
+
+        [Test]
+        public void AttentionCount_CountsItemsWaitingForTheMainGm_AndEmptiesWhenTheyAreDecided()
+        {
+            using var f = CombatFixture.Create(forceIntervention: true);
+            var reported = new List<int>();
+            f.Panel.AttentionCountChanged += reported.Add;
+            f.StartEncounter();
+            Assert.That(f.Panel.AttentionCount, Is.EqualTo(0));
+
+            f.Panel.ToggleTarget(f.Defender);
+            Result<AttackOutcomeRecord> attack = f.Panel.ResolveAttack();
+            Assert.That(attack.IsSuccess, Is.True);
+            Assert.That(attack.Value.OutcomeKind, Is.EqualTo(AttackOutcomeKind.Pending));
+            Assert.That(f.Panel.AttentionCount, Is.EqualTo(1), "one attack waits for the MainGM");
+            Assert.That(reported, Is.EqualTo(new[] { 1 }));
+
+            f.Host.Selection.SelectRole(BaselineRole.Player);
+            Assert.That(f.Panel.AttentionCount, Is.EqualTo(0), "only the MainGM decides, so players get no badge");
+            f.Host.Selection.SelectRole(BaselineRole.MainGM);
+            Assert.That(f.Panel.AttentionCount, Is.EqualTo(1));
+
+            Assert.That(f.Panel.ResolveIntervention(attack.Value.ResolveAttackCommandId, AttackInterventionResolution.Reject).IsSuccess, Is.True);
+            Assert.That(f.Panel.AttentionCount, Is.EqualTo(0), "the queue is empty again");
+            Assert.That(reported.Last(), Is.EqualTo(0));
         }
 
         [Test]
@@ -193,9 +221,31 @@ namespace Odyssey.Tests.Unity.EditMode
             Assert.That(f.View.Q<Button>("combat-journal-correct-" + accepted.GameLogEntryId), Is.Null, "players cannot correct the log");
         }
 
+        /// <summary>
+        /// ODY-S11-217 test double: the real SQLite attack repository, except that every attack is recorded with
+        /// "intervention required", so it becomes a genuine durable Pending outcome without setting up effect rules.
+        /// </summary>
+        private sealed class InterventionRequiredAttackApply : IAttackApplyRepository
+        {
+            private readonly IAttackApplyRepository _inner;
+
+            public InterventionRequiredAttackApply(IAttackApplyRepository inner) => _inner = inner;
+
+            public Result<AttackOutcomeRecord> GetOutcome(CampaignHandle campaign, CommandId resolveAttackCommandId, CorrelationId correlationId) => _inner.GetOutcome(campaign, resolveAttackCommandId, correlationId);
+
+            public Result<AttackOutcomeRecord> RecordAttackOutcome(CampaignHandle campaign, AttackIntent intent, AttackRandomSample randomSample, bool interventionRequired, IReadOnlyList<AttackEffectCandidate> effectCandidates, IReadOnlyList<AttackDelta> damageDeltas, IReadOnlyList<AttackDelta> costDeltas, UserId actorUserId, CommandId commandId, CorrelationId correlationId) =>
+                _inner.RecordAttackOutcome(campaign, intent, randomSample, true, effectCandidates, damageDeltas, costDeltas, actorUserId, commandId, correlationId);
+
+            public Result<AttackOutcomeRecord> ResolveAttackIntervention(CampaignHandle campaign, CommandId pendingCommandId, AttackInterventionResolution resolution, UserId actorUserId, CommandId commandId, CorrelationId correlationId) => _inner.ResolveAttackIntervention(campaign, pendingCommandId, resolution, actorUserId, commandId, correlationId);
+
+            public Result<AttackCompensationRecord> CompensateAttackOutcome(CampaignHandle campaign, CommandId resolveAttackCommandId, string reasonCode, string correctedSummaryPayload, UserId actorUserId, CommandId commandId, CorrelationId correlationId) => _inner.CompensateAttackOutcome(campaign, resolveAttackCommandId, reasonCode, correctedSummaryPayload, actorUserId, commandId, correlationId);
+
+            public Result<CombatStackConflictRecord> ResolveStackConflict(CampaignHandle campaign, CommandId raisingCommandId, ActiveEffectId conflictingActiveEffectId, ActiveEffectStackConflictResolution resolution, UserId actorUserId, CommandId commandId, CorrelationId correlationId) => _inner.ResolveStackConflict(campaign, raisingCommandId, conflictingActiveEffectId, resolution, actorUserId, commandId, correlationId);
+        }
+
         private sealed class CombatFixture : IDisposable
         {
-            private CombatFixture(GameTestHost host, double defenderX)
+            private CombatFixture(GameTestHost host, double defenderX, bool forceIntervention)
             {
                 Host = host;
                 Inventory = host.NewInventoryRepository();
@@ -206,7 +256,7 @@ namespace Odyssey.Tests.Unity.EditMode
                 var encounters = new SqliteCombatEncounterRepository(host.Clock, effects);
                 Ports = new CombatPorts(Characters, Inventory, Catalog, Scenes, encounters,
                     new SqliteAttackStateReader(encounters, Inventory, Characters, host.Clock, Scenes, new SqliteObstacleRepository(host.Clock)),
-                    new SqliteAttackApplyRepository(host.Clock, host.CampaignRepository),
+                    forceIntervention ? new InterventionRequiredAttackApply(new SqliteAttackApplyRepository(host.Clock, host.CampaignRepository)) : new SqliteAttackApplyRepository(host.Clock, host.CampaignRepository),
                     new CoreAttackRulesEvaluator(),
                     new SqliteActivateAbilityStateReader(Characters, Catalog, host.Clock),
                     new SqliteActivateAbilityRepository(host.Clock, effects),
@@ -256,7 +306,8 @@ namespace Odyssey.Tests.Unity.EditMode
             public VisualElement View { get; }
             private UserId Gm => Host.Selection.MainGmUserId;
 
-            public static CombatFixture Create(double defenderX = 3) => new CombatFixture(GameTestHost.Create(BaselineRole.MainGM), defenderX);
+            /// <param name="forceIntervention">ODY-S11-217: every attack is recorded as waiting for the MainGM (a real Pending record).</param>
+            public static CombatFixture Create(double defenderX = 3, bool forceIntervention = false) => new CombatFixture(GameTestHost.Create(BaselineRole.MainGM), defenderX, forceIntervention);
 
             public void StartEncounter()
             {

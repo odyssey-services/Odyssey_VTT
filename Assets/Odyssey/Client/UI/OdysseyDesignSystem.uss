@@ -775,6 +775,23 @@
     -unity-font-style: bold;
 }
 
+/* ODY-S11-217: background-status counter on a tab-like toggle (e.g. Combat items waiting for the MainGM). Sits on
+   the toggle's top-right corner; visible while the panel is closed. */
+.ody-tab__badge {
+    position: absolute;
+    top: -6px;
+    right: -6px;
+    min-width: 16px;
+    height: 16px;
+    padding: 0 4px;
+    border-radius: var(--ody-radius-pill);
+    background-color: var(--ody-color-accent);
+    color: var(--ody-color-text-inverse);
+    font-size: var(--ody-font-caption);
+    -unity-font-style: bold;
+    -unity-text-align: middle-center;
+}
+
 /* Focus ring for keyboard navigation. USS has no :focus-visible: OdyFocusVisible puts `.ody-focus-visible` on the
    screen while the user navigates with Tab/arrows and removes it on the next pointer press. */
 .ody-focus-visible .ody-tab:focus {

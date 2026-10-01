@@ -98,6 +98,9 @@ namespace Odyssey.Unity.Client
         public const string TabActive = "ody-tab--active";
         public const string TabPill = "ody-tab--pill";
 
+        /// <summary>ODY-S11-217: counter badge on a tab-like toggle (background status while its panel is closed).</summary>
+        public const string TabBadge = "ody-tab__badge";
+
         /// <summary>On a root while the user navigates with the keyboard: focus rings show (USS has no :focus-visible).</summary>
         public const string FocusVisible = "ody-focus-visible";
 

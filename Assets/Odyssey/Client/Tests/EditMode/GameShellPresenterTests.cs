@@ -70,6 +70,30 @@ namespace Odyssey.Tests.Unity.EditMode
         }
 
         [Test]
+        public void DrawerBadge_ShowsACountOnTheClosedToggle_AndHidesAtZero()
+        {
+            using var runtime = new PresentationRuntime();
+            var root = new VisualElement();
+            var shell = new GameShellPresenter(root, new RoleSelection(), runtime, "Scene A");
+            shell.Build();
+            shell.AddDrawer("combat", "Combat", GameDrawerSide.Right);
+            Label badge = root.Q<Label>("toggle-combat-badge");
+            Assert.That(badge, Is.Not.Null);
+            Assert.That(badge.parent, Is.SameAs(root.Q<Button>("toggle-combat")), "the badge sits on the toggle itself");
+            Assert.That(shell.DrawerBadgeText("combat"), Is.Null, "hidden while nothing waits");
+
+            Assert.That(shell.SetDrawerBadge("combat", 2), Is.True);
+            Assert.That(shell.IsDrawerOpen("combat"), Is.False);
+            Assert.That(shell.DrawerBadgeText("combat"), Is.EqualTo("2"), "visible while the drawer is closed");
+            shell.SetDrawerBadge("combat", 12);
+            Assert.That(shell.DrawerBadgeText("combat"), Is.EqualTo("9+"));
+            shell.SetDrawerBadge("combat", 0);
+            Assert.That(shell.DrawerBadgeText("combat"), Is.Null);
+            Assert.That(shell.SetDrawerBadge("unknown", 1), Is.False);
+            shell.Dispose();
+        }
+
+        [Test]
         public void Dock_IsCollapsible_AndRoleBadgeFollowsSelection()
         {
             using var runtime = new PresentationRuntime();

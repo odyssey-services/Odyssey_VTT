@@ -175,15 +175,36 @@ namespace Odyssey.Unity.Client
 
             // ODY-S11-212: panel toggles follow the tab convention (same active-state class as every tab).
             Button toggle = OdyUi.TabButton(title, () => ToggleDrawer(id), "toggle-" + id);
+            // ODY-S11-217: background-status counter (hidden until SetDrawerBadge reports something).
+            var badge = new Label { name = "toggle-" + id + "-badge", pickingMode = PickingMode.Ignore };
+            badge.AddToClassList(OdyClasses.TabBadge);
+            OdyUi.SetVisible(badge, false);
+            toggle.Add(badge);
             _topbarToggles.Add(toggle);
             popover.Closed += _ => OdyUi.SetActive(toggle, false);
 
-            _drawers[id] = new Drawer(id, side, popover, content, toggle);
+            _drawers[id] = new Drawer(id, side, popover, content, toggle, badge);
             _drawerOrder.Add(id);
             return content;
         }
 
         public bool IsDrawerOpen(string id) => _drawers.TryGetValue(id, out Drawer? drawer) && drawer.Popover.IsOpen;
+
+        /// <summary>
+        /// ODY-S11-217: a counter badge on a drawer's top-bar toggle for background status (e.g. combat items waiting for
+        /// the MainGM), visible whether the drawer is open or closed; 0 hides it. Counts above 9 show as "9+".
+        /// </summary>
+        public bool SetDrawerBadge(string id, int count)
+        {
+            if (!_drawers.TryGetValue(id, out Drawer? drawer)) return false;
+            drawer.Badge.text = count > 9 ? "9+" : count.ToString(System.Globalization.CultureInfo.InvariantCulture);
+            OdyUi.SetVisible(drawer.Badge, count > 0);
+            drawer.Toggle.tooltip = count > 0 ? count + " waiting" : string.Empty;
+            return true;
+        }
+
+        /// <summary>ODY-S11-217: the badge text of a drawer's toggle, or <c>null</c> while it is hidden (unknown id: null).</summary>
+        public string? DrawerBadgeText(string id) => _drawers.TryGetValue(id, out Drawer? drawer) && OdyUi.IsVisible(drawer.Badge) ? drawer.Badge.text : null;
 
         /// <summary>The drawer's popover (placement, size), or <c>null</c> for an unknown id.</summary>
         public OdyPopover? DrawerPopover(string id) => _drawers.TryGetValue(id, out Drawer? drawer) ? drawer.Popover : null;
@@ -343,8 +364,9 @@ namespace Odyssey.Unity.Client
 
         private sealed class Drawer
         {
-            public Drawer(string id, GameDrawerSide side, OdyPopover popover, VisualElement content, Button toggle)
+            public Drawer(string id, GameDrawerSide side, OdyPopover popover, VisualElement content, Button toggle, Label badge)
             {
+                Badge = badge;
                 Id = id;
                 Side = side;
                 Popover = popover;
@@ -357,6 +379,7 @@ namespace Odyssey.Unity.Client
             public OdyPopover Popover { get; }
             public VisualElement Content { get; }
             public Button Toggle { get; }
+            public Label Badge { get; }
         }
     }
 }

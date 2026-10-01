@@ -190,6 +190,8 @@ namespace Odyssey.Unity.Client
                 Combat = combatPanel;
                 // ODY-S11-214: at a turn change the board camera eases to the acting participant's token.
                 combatPanel.ActiveParticipantChanged += OnActiveParticipantChanged;
+                // ODY-S11-217: items waiting for the MainGM show as a badge on the Combat toggle, even while it is closed.
+                combatPanel.AttentionCountChanged += OnCombatAttentionChanged;
 
                 var assetPool = new AssetPoolPresenter(_document, sceneRepository, demo.Value.Campaign, board);
                 VisualElement assetPoolView = assetPool.BuildView();
@@ -236,6 +238,7 @@ namespace Odyssey.Unity.Client
             if (Characters != null && Inventory != null) Characters.CurrentChanged -= Inventory.SetCharacter;
             Inventory?.Dispose();
             if (Combat != null) Combat.ActiveParticipantChanged -= OnActiveParticipantChanged;
+            if (Combat != null) Combat.AttentionCountChanged -= OnCombatAttentionChanged;
             Combat?.Dispose();
             Characters?.Dispose();
             Catalog?.Dispose();
@@ -246,6 +249,8 @@ namespace Odyssey.Unity.Client
         private void OnBoardChanged() => Board?.Refresh();
 
         private void OnActiveParticipantChanged(CharacterId characterId) => Board?.FocusOnCharacter(characterId);
+
+        private void OnCombatAttentionChanged(int count) => Shell?.SetDrawerBadge(CombatDrawerId, count);
 
         // Each panel reloads fresh server state when its drawer opens (no stale revisions).
         private void OnDrawerOpened(string drawerId)

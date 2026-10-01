@@ -65,6 +65,15 @@ namespace Odyssey.Unity.Client
 
         /// <summary>ODY-S11-214: raised when the acting participant (turn) changes; the trial composition focuses the board camera.</summary>
         public event Action<CharacterId>? ActiveParticipantChanged;
+
+        /// <summary>
+        /// ODY-S11-217: how many items wait for the current actor's decision -- for the MainGM, pending attacks plus
+        /// stacking-conflict candidates; for everyone else 0 (only the MainGM decides them). Recomputed on every refresh.
+        /// </summary>
+        public int AttentionCount { get; private set; }
+
+        /// <summary>ODY-S11-217: raised when <see cref="AttentionCount"/> changes; the trial composition shows it as a badge on the closed Combat toggle.</summary>
+        public event Action<int>? AttentionCountChanged;
         public IReadOnlyList<CharacterId> SetupOrder => _setupOrder;
         public IReadOnlyList<CharacterId> Candidates => _candidates;
         public bool ActorIsMainGm => _context.ActorIsMainGm;
@@ -113,6 +122,7 @@ namespace Odyssey.Unity.Client
             LoadActorData();
             LoadJournal();
             Render();
+            UpdateAttention();
             return Result.Success();
         }
 
@@ -220,6 +230,14 @@ namespace Odyssey.Unity.Client
         }
 
         public CharacterId? CurrentParticipant => Encounter?.CurrentParticipantId;
+
+        private void UpdateAttention()
+        {
+            int count = ActorIsMainGm ? PendingAttacks.Count + ConflictCandidates.Count : 0;
+            if (count == AttentionCount) return;
+            AttentionCount = count;
+            AttentionCountChanged?.Invoke(count);
+        }
 
         // ---- action economy hint ------------------------------------------------------------------
 
