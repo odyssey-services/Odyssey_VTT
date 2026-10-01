@@ -551,6 +551,8 @@ namespace Odyssey.Unity.Client
         private Error? RenderTokens(IReadOnlyList<TokenRecord> tokens, IReadOnlyCollection<TokenId>? visibleTokenIds)
         {
             if (_boardArea == null) return null;
+            // ODY-S11-223: under reduced motion, moves made elsewhere are drawn at once instead of easing in.
+            _tokenMotion.Enabled = !OdyMotion.IsReducedMotion(_boardArea);
             // ODY-S11-211: where each token was last rendered, to tell a moved token from an unchanged one.
             var previousPositions = new Dictionary<string, TokenPosition>(_tokenPositionsByTokenId, StringComparer.Ordinal);
             _tokenElementsByTokenId.Clear();
@@ -2352,6 +2354,8 @@ namespace Odyssey.Unity.Client
         /// </summary>
         public bool AdvanceTokenMotion(double elapsedMs)
         {
+            // ODY-S11-223: reduced motion switched on mid-animation -- finish at once.
+            if (_boardArea != null && OdyMotion.IsReducedMotion(_boardArea)) elapsedMs = double.MaxValue;
             bool running = _tokenMotion.Advance(elapsedMs);
             RepositionTokens();
             if (!running)
@@ -2377,6 +2381,13 @@ namespace Odyssey.Unity.Client
             double height = CurrentBoardHeightPixels();
             if (BoardCameraFocus.IsInFrame(_camera, position, width, height)) return BoardFocusOutcome.AlreadyInFrame;
             _cameraFocus.Start(_camera, position, width, height);
+            if (_boardArea != null && OdyMotion.IsReducedMotion(_boardArea))
+            {
+                // ODY-S11-223: reduced motion -- the camera jumps straight to the token instead of panning there.
+                AdvanceCameraFocus(BoardCameraFocus.DurationMs);
+                return BoardFocusOutcome.Started;
+            }
+
             if (_boardArea != null && !_disposed && _cameraFocusTicker == null)
             {
                 _cameraFocusTicker = _boardArea.schedule.Execute(timer => AdvanceCameraFocus(timer.deltaTime)).Every(OdyMotion.FrameIntervalMs);

@@ -50,6 +50,7 @@ namespace Odyssey.Unity.Client
         private Button? _dockToggle;
         private IDisposable? _roleSubscription;
         private OdyFocusVisible? _focusVisible;
+        private Button? _reducedMotionToggle;
         private bool _boardCentered;
         private bool _disposed;
 
@@ -80,6 +81,25 @@ namespace Odyssey.Unity.Client
 
         public bool IsDockCollapsed => _dock != null && _dock.ClassListContains(OdyClasses.DockCollapsed);
         public IReadOnlyList<string> DrawerIds => _drawerOrder;
+
+        /// <summary>
+        /// ODY-S11-223: "Reduce motion". When on, the screen carries <see cref="OdyClasses.ReducedMotion"/> and every
+        /// decorative animation below it stops or becomes instant: marching ants, skeleton shimmer, the easing of
+        /// changes made elsewhere (tokens, resource bars) and the camera's autofocus pan. Functional transitions
+        /// (panels opening and closing) still happen, just without animation. Session-only: the client has no settings
+        /// store yet.
+        /// </summary>
+        public bool ReducedMotion => Screen.ClassListContains(OdyClasses.ReducedMotion);
+
+        public event Action<bool>? ReducedMotionChanged;
+
+        public void SetReducedMotion(bool reduced)
+        {
+            bool changed = reduced != ReducedMotion;
+            Screen.EnableInClassList(OdyClasses.ReducedMotion, reduced);
+            if (_reducedMotionToggle != null) OdyUi.SetActive(_reducedMotionToggle, reduced);
+            if (changed) ReducedMotionChanged?.Invoke(reduced);
+        }
 
         /// <summary>ODY-S11-212: keyboard-focus ring state of the screen (null before <see cref="Build"/>).</summary>
         public OdyFocusVisible? FocusVisible => _focusVisible;
@@ -307,6 +327,10 @@ namespace Odyssey.Unity.Client
             var spacer = new VisualElement();
             spacer.AddToClassList(OdyClasses.Spacer);
             topbar.Add(spacer);
+            // ODY-S11-223: the client has no settings screen, so the reduce-motion switch sits in the top bar.
+            _reducedMotionToggle = OdyUi.TabButton("Reduce motion", () => SetReducedMotion(!ReducedMotion), "game-reduce-motion");
+            _reducedMotionToggle.tooltip = "Stop decorative animation";
+            topbar.Add(_reducedMotionToggle);
             _topbarToggles = new VisualElement { name = "game-topbar-toggles" };
             _topbarToggles.AddToClassList(OdyClasses.TopbarToggles);
             topbar.Add(_topbarToggles);

@@ -1352,3 +1352,9 @@
 .ody-reduced-motion .ody-skeleton__bar {
     transition-duration: 0s;
 }
+
+/* ODY-S11-223: reduced motion also drops the short hover/press colour transitions of buttons. */
+.ody-reduced-motion .ody-button,
+.ody-reduced-motion .ody-tab {
+    transition-duration: 0s;
+}

@@ -573,7 +573,8 @@ namespace Odyssey.Unity.Client
         {
             double from = double.IsNaN(fromFraction) ? FillFraction : Math.Max(0.0, Math.Min(1.0, fromFraction));
             StopAnimation();
-            if (from.Equals(FillFraction)) return;
+            // ODY-S11-223: reduced motion -- the new value is shown at once.
+            if (from.Equals(FillFraction) || OdyMotion.IsReducedMotion(Element)) return;
             _tween = new OdyTween(from, FillFraction, durationMs);
             ShowFraction(_tween.Current);
             if (_tween.IsDone)
@@ -589,7 +590,8 @@ namespace Odyssey.Unity.Client
         public void AdvanceAnimation(double elapsedMs)
         {
             if (_tween == null) return;
-            _tween.Advance(elapsedMs);
+            // ODY-S11-223: the bar may have been attached under a reduced-motion screen after AnimateFrom -- finish at once.
+            _tween.Advance(OdyMotion.IsReducedMotion(Element) ? double.MaxValue : elapsedMs);
             ShowFraction(_tween.Current);
             if (_tween.IsDone) _tween = null;
         }

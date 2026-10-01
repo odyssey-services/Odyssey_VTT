@@ -25,6 +25,12 @@ namespace Odyssey.Unity.Client
 
         public bool AnyActive => _active.Count > 0;
 
+        /// <summary>
+        /// ODY-S11-223: false under reduced motion -- every observed change is then drawn at once, like a local one
+        /// (the update itself still happens; only the easing is dropped).
+        /// </summary>
+        public bool Enabled { get; set; } = true;
+
         /// <summary>The next position change observed for this token is the local user's own: show it instantly.</summary>
         public void MarkLocal(string tokenKey)
         {
@@ -45,7 +51,7 @@ namespace Odyssey.Unity.Client
         public TokenPosition Observe(string tokenKey, TokenPosition? previousAuthoritative, TokenPosition authoritative, bool visible)
         {
             bool local = _local.Remove(tokenKey);
-            if (local || !visible || !previousAuthoritative.HasValue)
+            if (local || !visible || !previousAuthoritative.HasValue || !Enabled)
             {
                 _active.Remove(tokenKey);
                 return authoritative;
