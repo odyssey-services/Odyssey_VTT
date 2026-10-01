@@ -152,6 +152,36 @@ namespace Odyssey.Tests.Unity.EditMode
             Assert.That(obstacles.Value[0].Kind, Is.EqualTo(ObstacleKind.Window));
         }
 
+        // ODY-S11-229: the 4 toolbar buttons (Select/Draw Wall/Draw Door/Draw Window) share one exclusive
+        // BoardTool state with one entry point (SetTool) -- already true before this task. What this task
+        // changed: switching tools while a wall/door/window is half-drawn used to *refuse* the switch (leaving
+        // the half-drawn shape and the old tool both in place); it now cancels the half-drawn shape and switches,
+        // by the product owner's own explicit instruction, reversing SLICE-10 Block 6 part 1's original choice
+        // (never exercised by a test, and never visually confirmed before the real toolbar clicks that drive it
+        // were themselves discovered broken in ODY-S11-208).
+        [Test] // TC-BOARD-121e
+        public void SwitchingToolMidDraw_CancelsTheHalfDrawnShape_AndSwitches_InsteadOfRefusing()
+        {
+            using var fixture = new Fixture();
+            Assert.That(fixture.Presenter.SetTool(BoardTool.DrawWall), Is.True);
+
+            double startPixelX = fixture.Presenter.Camera.ToPixelsX(0);
+            double startPixelY = fixture.Presenter.Camera.ToPixelsY(0);
+            double movedPixelX = fixture.Presenter.Camera.ToPixelsX(5);
+            fixture.Presenter.BeginObstacleDraw(startPixelX, startPixelY);
+            fixture.Presenter.MoveObstacleDraw(movedPixelX, startPixelY);
+            Assert.That(fixture.Document.rootVisualElement.Q<VisualElement>("obstacle-draw-preview"), Is.Not.Null, "a preview is shown mid-draw");
+
+            Assert.That(fixture.Presenter.SetTool(BoardTool.Select), Is.True, "the switch is no longer refused");
+            Assert.That(fixture.Presenter.CurrentTool, Is.EqualTo(BoardTool.Select));
+            Assert.That(fixture.Document.rootVisualElement.Q<VisualElement>("obstacle-draw-preview"), Is.Null, "the half-drawn preview is removed");
+
+            // The abandoned gesture must not resurface as an obstacle on a later, unrelated pointer-up.
+            fixture.Presenter.EndObstacleDraw(movedPixelX, startPixelY);
+            Result<IReadOnlyList<ObstacleRecord>> obstacles = fixture.ObstacleRepository.ListObstacles(fixture.Campaign, fixture.SceneId, TestCorrelationId);
+            Assert.That(obstacles.Value, Is.Empty, "a cancelled gesture must never create an obstacle");
+        }
+
         [Test] // TC-BOARD-116
         public void DrawGesture_BelowThePixelDragThreshold_CreatesNothing()
         {

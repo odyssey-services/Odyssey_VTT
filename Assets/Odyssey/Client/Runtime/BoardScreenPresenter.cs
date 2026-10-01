@@ -1820,15 +1820,21 @@ namespace Odyssey.Unity.Client
         private void OnToolSelected(BoardTool tool) => SetTool(tool);
 
         /// <summary>
-        /// Switches the active tool. Refused (returns <c>false</c>, no change) while a draw gesture is
-        /// already in progress -- task contract section 2.1's own instruction that switching tools mid-gesture
-        /// must not abandon it; the gesture must be completed (mouse up) or explicitly cancelled
-        /// (<see cref="CancelObstacleDraw"/>, wired to Escape on the board area) first. Public -- see the
-        /// class remarks on testability.
+        /// Switches the active tool, always -- exactly one of Select/Draw Wall/Draw Door/Draw Window is active at
+        /// a time (ODY-S11-229). If a draw gesture is already in progress, switching cancels it first
+        /// (<see cref="CancelObstacleDraw"/>, the same abandon-without-creating path Escape on the board area
+        /// already uses) rather than refusing the switch -- the toolbar is a single exclusive choice, so picking
+        /// a different tool is itself an explicit instruction to stop drawing with the old one, by the same logic
+        /// a half-drawn shape in any ordinary drawing tool is abandoned when the user picks a different tool.
+        /// ODY-S11-229 note: this reverses SLICE-10 Block 6 part 1's original decision to refuse the switch and
+        /// leave the gesture untouched instead -- that choice predates this toolbar having any real user-facing
+        /// verification and was never exercised by an automated test; the product owner's later, explicit
+        /// instruction here is the one in effect now. Always returns <c>true</c> (kept non-<c>void</c> for source
+        /// compatibility with existing callers). Public -- see the class remarks on testability.
         /// </summary>
         public bool SetTool(BoardTool tool)
         {
-            if (_obstacleDrawGesture.IsActive) return false;
+            if (_obstacleDrawGesture.IsActive) CancelObstacleDraw();
             _currentTool = tool;
             _toolbarPresenter?.SetActiveTool(tool);
             return true;
