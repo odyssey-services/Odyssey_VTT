@@ -26,6 +26,7 @@ namespace Odyssey.Unity.Client
     public sealed class ContentCatalogPresenter : IDisposable
     {
         public const string AllTypesChoice = "All types";
+        public const string AllTypesTabId = "all";
         public const string AllStatusesChoice = "All statuses";
 
         private readonly GameSessionContext _context;
@@ -37,6 +38,7 @@ namespace Odyssey.Unity.Client
         private VisualElement? _list;
         private VisualElement? _detail;
         private VisualElement? _newRow;
+        private OdyTabBar? _typeTabs;
         private OdyBanner? _roleNotice;
         private IDisposable? _roleSubscription;
         private readonly Dictionary<string, VisualElement> _conditional = new Dictionary<string, VisualElement>(StringComparer.Ordinal);
@@ -52,6 +54,9 @@ namespace Odyssey.Unity.Client
 
         public OdyBanner Banner { get; }
         public ContentDefinitionType? TypeFilter { get; private set; }
+
+        /// <summary>ODY-S11-212: the type filter tabs ("all" + one per supported type), null before the view is built.</summary>
+        public OdyTabBar? TypeTabs => _typeTabs;
         public ContentDefinitionStatus? StatusFilter { get; private set; }
         public IReadOnlyList<ContentDefinitionRecord> VisibleDefinitions => _visible;
 
@@ -80,11 +85,13 @@ namespace Odyssey.Unity.Client
 
             var filters = new VisualElement();
             filters.AddToClassList(OdyClasses.FormRow);
-            var typeChoices = new List<string> { AllTypesChoice };
-            foreach (ContentDefinitionType type in ContentDefinitionFormModel.SupportedTypes) typeChoices.Add(type.ToString());
-            DropdownField typeFilter = OdyUi.Dropdown("Type", typeChoices, 0, "catalog-type-filter");
-            typeFilter.RegisterValueChangedCallback(evt => SetTypeFilter(EnumChoices.TryParse(evt.newValue, out ContentDefinitionType t) ? t : (ContentDefinitionType?)null));
-            filters.Add(typeFilter);
+            // ODY-S11-212: the type filter is a row of pill tabs (same active-state class as every tab of the client).
+            _typeTabs = new OdyTabBar("catalog-type-tabs", pill: true);
+            _typeTabs.AddTab(AllTypesTabId, AllTypesChoice);
+            foreach (ContentDefinitionType type in ContentDefinitionFormModel.SupportedTypes) _typeTabs.AddTab(type.ToString(), EnumChoices.Humanize(type.ToString()));
+            _typeTabs.Select(AllTypesTabId, notify: false);
+            _typeTabs.TabChanged += id => SetTypeFilter(EnumChoices.TryParse(id, out ContentDefinitionType t) ? t : (ContentDefinitionType?)null);
+            _root.Add(_typeTabs.Element);
             var statusChoices = new List<string> { AllStatusesChoice };
             statusChoices.AddRange(EnumChoices.Names<ContentDefinitionStatus>());
             DropdownField statusFilter = OdyUi.Dropdown("Status", statusChoices, 0, "catalog-status-filter");
@@ -173,6 +180,7 @@ namespace Odyssey.Unity.Client
         public void SetTypeFilter(ContentDefinitionType? type)
         {
             TypeFilter = type;
+            _typeTabs?.Select(type.HasValue ? type.Value.ToString() : AllTypesTabId, notify: false);
             RenderList();
         }
 

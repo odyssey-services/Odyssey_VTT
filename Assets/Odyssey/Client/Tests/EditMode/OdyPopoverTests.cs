@@ -201,7 +201,7 @@ namespace Odyssey.Tests.Unity.EditMode
 
             Assert.That(drawer.HandleClickAway(null), Is.True);
             Assert.That(shell.IsDrawerOpen("catalog"), Is.False);
-            Assert.That(root.Q<Button>("toggle-catalog").ClassListContains(OdyClasses.ButtonToggleOn), Is.False, "the toggle follows a click-away close");
+            Assert.That(root.Q<Button>("toggle-catalog").ClassListContains(OdyClasses.TabActive), Is.False, "the toggle follows a click-away close");
             shell.Dispose();
         }
     }

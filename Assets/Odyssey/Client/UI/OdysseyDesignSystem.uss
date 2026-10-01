@@ -47,6 +47,9 @@
     --ody-color-danger-soft: #FBE9E9;
     --ody-color-info: #2B6CB0;
     --ody-color-info-soft: #E6F0FA;
+
+    /* Keyboard focus ring (ODY-S11-212): the Phase 0 info blue, distinct from the accent of the active state */
+    --ody-color-focus: #2B6CB0;
     --ody-color-neutral-soft: #EDEFF2;
 
     /* Overlays (board screen) */
@@ -424,13 +427,6 @@
     font-size: var(--ody-font-h3);
 }
 
-/* Toggle-style button (top bar panel switches, board tools) */
-.ody-button--toggle-on {
-    background-color: var(--ody-color-accent-soft);
-    border-color: var(--ody-color-accent);
-    color: var(--ody-color-accent);
-}
-
 .ody-button-row {
     flex-direction: row;
     flex-wrap: wrap;
@@ -727,7 +723,7 @@
 }
 
 /* ------------------------------------------------------------------------------------------------
- * 9. Tabs (character sheet)
+ * 9. Tabs (tab convention, ODY-S11-212)
  * --------------------------------------------------------------------------------------------- */
 
 .ody-tabs {
@@ -738,24 +734,25 @@
 .ody-tabs__bar {
     flex-direction: row;
     flex-wrap: wrap;
-    border-bottom-width: 1px;
-    border-bottom-color: var(--ody-color-border);
+    align-items: center;
     margin-bottom: var(--ody-space-3);
 }
 
+/* ODY-S11-212 tab convention -- every tab-like control (tabs, sub-tabs, the top bar's panel toggles, the catalog
+   type filter) is a `.ody-tab`; the one active-state class is `.ody-tab--active`: accent fill + accent border +
+   bold text. The 2px border is always there (transparent) so the active/focus states never shift the layout. */
 .ody-tab {
-    min-height: 32px;
+    min-height: var(--ody-control-height-small);
     padding-left: var(--ody-space-3);
     padding-right: var(--ody-space-3);
-    margin: 0;
+    margin: 0 var(--ody-space-1) var(--ody-space-1) 0;
     background-color: rgba(0, 0, 0, 0);
-    border-width: 0;
-    border-bottom-width: 3px;
-    border-bottom-color: rgba(0, 0, 0, 0);
-    border-radius: 0;
+    border-width: 2px;
+    border-color: rgba(0, 0, 0, 0);
+    border-radius: var(--ody-radius-sm);
     color: var(--ody-color-text-muted);
     font-size: var(--ody-font-body);
-    -unity-font-style: bold;
+    -unity-font-style: normal;
 }
 
 .ody-tab:hover {
@@ -763,9 +760,25 @@
     background-color: var(--ody-color-surface-sunken);
 }
 
-.ody-tab--active {
+/* Sub-tabs inside a screen (character sheet, catalog type filter) */
+.ody-tab--pill {
+    border-radius: var(--ody-radius-pill);
+    padding-left: var(--ody-space-4);
+    padding-right: var(--ody-space-4);
+}
+
+.ody-tab--active,
+.ody-tab--active:hover {
+    background-color: var(--ody-color-accent-soft);
+    border-color: var(--ody-color-accent);
     color: var(--ody-color-accent);
-    border-bottom-color: var(--ody-color-accent);
+    -unity-font-style: bold;
+}
+
+/* Focus ring for keyboard navigation. USS has no :focus-visible: OdyFocusVisible puts `.ody-focus-visible` on the
+   screen while the user navigates with Tab/arrows and removes it on the next pointer press. */
+.ody-focus-visible .ody-tab:focus {
+    border-color: var(--ody-color-focus);
 }
 
 .ody-tabs__panel {

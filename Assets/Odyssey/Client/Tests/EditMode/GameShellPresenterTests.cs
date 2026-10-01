@@ -57,7 +57,7 @@ namespace Odyssey.Tests.Unity.EditMode
             shell.OpenDrawer("inventory");
             Assert.That(shell.IsDrawerOpen("inventory"), Is.True);
             Assert.That(shell.IsDrawerOpen("character"), Is.False, "one drawer per side keeps most of the map visible");
-            Assert.That(root.Q<Button>("toggle-inventory").ClassListContains(OdyClasses.ButtonToggleOn), Is.True);
+            Assert.That(root.Q<Button>("toggle-inventory").ClassListContains(OdyClasses.TabActive), Is.True);
             Assert.That(opened, Is.EqualTo(new[] { "character", "catalog", "inventory" }));
 
             shell.ToggleDrawer("inventory");

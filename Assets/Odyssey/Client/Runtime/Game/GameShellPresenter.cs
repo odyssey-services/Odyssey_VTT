@@ -49,6 +49,7 @@ namespace Odyssey.Unity.Client
         private Label? _dockTitle;
         private Button? _dockToggle;
         private IDisposable? _roleSubscription;
+        private OdyFocusVisible? _focusVisible;
         private bool _boardCentered;
         private bool _disposed;
 
@@ -79,6 +80,9 @@ namespace Odyssey.Unity.Client
 
         public bool IsDockCollapsed => _dock != null && _dock.ClassListContains(OdyClasses.DockCollapsed);
         public IReadOnlyList<string> DrawerIds => _drawerOrder;
+
+        /// <summary>ODY-S11-212: keyboard-focus ring state of the screen (null before <see cref="Build"/>).</summary>
+        public OdyFocusVisible? FocusVisible => _focusVisible;
         public string RoleBadgeText => _roleBadge?.text ?? string.Empty;
 
         public void Build()
@@ -91,6 +95,8 @@ namespace Odyssey.Unity.Client
             Screen.AddToClassList(OdyClasses.GameScreen);
             // Popovers opened from inside a panel (e.g. OdySelect lists) mount here, above both layers.
             Screen.AddToClassList(OdyClasses.PopoverHost);
+            // ODY-S11-212: focus rings while navigating by keyboard (Tab), not after mouse clicks.
+            _focusVisible = new OdyFocusVisible(Screen);
             _appRoot.Add(Screen);
 
             BoardLayer = new VisualElement { name = "game-board-layer" };
@@ -167,9 +173,10 @@ namespace Odyssey.Unity.Client
             });
             popover.Mount();
 
-            Button toggle = OdyUi.Button(title, () => ToggleDrawer(id), OdyButtonVariant.Secondary, "toggle-" + id, small: true);
+            // ODY-S11-212: panel toggles follow the tab convention (same active-state class as every tab).
+            Button toggle = OdyUi.TabButton(title, () => ToggleDrawer(id), "toggle-" + id);
             _topbarToggles.Add(toggle);
-            popover.Closed += _ => toggle.EnableInClassList(OdyClasses.ButtonToggleOn, false);
+            popover.Closed += _ => OdyUi.SetActive(toggle, false);
 
             _drawers[id] = new Drawer(id, side, popover, content, toggle);
             _drawerOrder.Add(id);
@@ -261,6 +268,7 @@ namespace Odyssey.Unity.Client
         {
             if (_disposed) return;
             CloseAllDrawers();
+            _focusVisible?.Dispose();
             _roleSubscription?.Dispose();
             _disposed = true;
         }
@@ -330,7 +338,7 @@ namespace Odyssey.Unity.Client
         {
             if (open) drawer.Popover.Open();
             else drawer.Popover.Close();
-            drawer.Toggle.EnableInClassList(OdyClasses.ButtonToggleOn, open);
+            OdyUi.SetActive(drawer.Toggle, open);
         }
 
         private sealed class Drawer

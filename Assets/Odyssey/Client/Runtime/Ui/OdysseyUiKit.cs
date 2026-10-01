@@ -64,7 +64,6 @@ namespace Odyssey.Unity.Client
         public const string ButtonGhost = "ody-button--ghost";
         public const string ButtonSmall = "ody-button--small";
         public const string ButtonIcon = "ody-button--icon";
-        public const string ButtonToggleOn = "ody-button--toggle-on";
         public const string ButtonRow = "ody-button-row";
 
         public const string Form = "ody-form";
@@ -92,7 +91,15 @@ namespace Odyssey.Unity.Client
         public const string Tabs = "ody-tabs";
         public const string TabsBar = "ody-tabs__bar";
         public const string Tab = "ody-tab";
+        /// <summary>
+        /// ODY-S11-212: the one active-state class of the client -- tabs, sub-tabs, the top bar's panel toggles and the
+        /// catalog type filter all use it (set through <see cref="OdyUi.SetActive"/>).
+        /// </summary>
         public const string TabActive = "ody-tab--active";
+        public const string TabPill = "ody-tab--pill";
+
+        /// <summary>On a root while the user navigates with the keyboard: focus rings show (USS has no :focus-visible).</summary>
+        public const string FocusVisible = "ody-focus-visible";
         public const string TabsPanel = "ody-tabs__panel";
 
         public const string ResourceBar = "ody-resource-bar";
@@ -326,6 +333,23 @@ namespace Odyssey.Unity.Client
             return toggle;
         }
 
+        /// <summary>ODY-S11-212: marks an element active/inactive with the single active-state class.</summary>
+        public static void SetActive(VisualElement element, bool active) => element.EnableInClassList(OdyClasses.TabActive, active);
+
+        public static bool IsActive(VisualElement element) => element != null && element.ClassListContains(OdyClasses.TabActive);
+
+        /// <summary>
+        /// ODY-S11-212: a tab-convention button (tab, sub-tab, panel toggle): keyboard-focusable, active state through
+        /// <see cref="SetActive"/>; <paramref name="pill"/> for sub-tabs inside a screen.
+        /// </summary>
+        public static Button TabButton(string text, Action onClick, string name, bool pill = false)
+        {
+            var button = new Button(onClick) { name = name, text = text ?? string.Empty, focusable = true };
+            button.AddToClassList(OdyClasses.Tab);
+            if (pill) button.AddToClassList(OdyClasses.TabPill);
+            return button;
+        }
+
         public static Label EmptyState(string text, string? name = null)
         {
             Label label = Text(text, OdyClasses.EmptyState);
@@ -556,22 +580,70 @@ namespace Odyssey.Unity.Client
         }
     }
 
+    /// <summary>
+    /// ODY-S11-212: a row of tab buttons with exactly one active (<see cref="OdyClasses.TabActive"/>). Used alone as a
+    /// filter (catalog types) and inside <see cref="OdyTabs"/>. Pill shape for sub-tabs inside a screen.
+    /// </summary>
+    public sealed class OdyTabBar
+    {
+        private readonly Dictionary<string, Button> _buttons = new Dictionary<string, Button>(StringComparer.Ordinal);
+        private readonly List<string> _order = new List<string>();
+        private readonly bool _pill;
+
+        public OdyTabBar(string name, bool pill = false)
+        {
+            _pill = pill;
+            Element = new VisualElement { name = name };
+            Element.AddToClassList(OdyClasses.TabsBar);
+        }
+
+        public event Action<string>? TabChanged;
+
+        public VisualElement Element { get; }
+        public string? ActiveTabId { get; private set; }
+        public IReadOnlyList<string> TabIds => _order;
+        public bool IsPill => _pill;
+
+        public Button AddTab(string id, string title)
+        {
+            if (string.IsNullOrWhiteSpace(id)) throw new ArgumentException("Tab id is required.", nameof(id));
+            if (_buttons.ContainsKey(id)) throw new ArgumentException("Duplicate tab id.", nameof(id));
+            Button button = OdyUi.TabButton(title, () => Select(id), "tab-" + id, _pill);
+            Element.Add(button);
+            _buttons[id] = button;
+            _order.Add(id);
+            return button;
+        }
+
+        public Button? ButtonFor(string id) => _buttons.TryGetValue(id, out Button? button) ? button : null;
+
+        /// <summary>Makes <paramref name="id"/> the active tab; raises <see cref="TabChanged"/> when it changed and <paramref name="notify"/>.</summary>
+        public bool Select(string id, bool notify = true)
+        {
+            if (!_buttons.ContainsKey(id)) return false;
+            foreach (KeyValuePair<string, Button> entry in _buttons) OdyUi.SetActive(entry.Value, string.Equals(entry.Key, id, StringComparison.Ordinal));
+            bool changed = !string.Equals(ActiveTabId, id, StringComparison.Ordinal);
+            ActiveTabId = id;
+            if (changed && notify) TabChanged?.Invoke(id);
+            return true;
+        }
+    }
+
     /// <summary>Tab strip + panels. One panel visible at a time; tests call <see cref="Select"/> directly.</summary>
     public sealed class OdyTabs
     {
-        private readonly VisualElement _bar;
+        private readonly OdyTabBar _bar;
         private readonly VisualElement _panels;
-        private readonly Dictionary<string, Button> _buttons = new Dictionary<string, Button>(StringComparer.Ordinal);
         private readonly Dictionary<string, VisualElement> _panelsById = new Dictionary<string, VisualElement>(StringComparer.Ordinal);
-        private readonly List<string> _order = new List<string>();
 
-        public OdyTabs(string name)
+        /// <param name="pill">ODY-S11-212: pill-shaped sub-tabs (tabs inside a screen, e.g. the character sheet).</param>
+        public OdyTabs(string name, bool pill = false)
         {
             Element = new VisualElement { name = name };
             Element.AddToClassList(OdyClasses.Tabs);
-            _bar = new VisualElement { name = name + "-bar" };
-            _bar.AddToClassList(OdyClasses.TabsBar);
-            Element.Add(_bar);
+            _bar = new OdyTabBar(name + "-bar", pill);
+            _bar.TabChanged += id => TabChanged?.Invoke(id);
+            Element.Add(_bar.Element);
             _panels = new VisualElement { name = name + "-panels" };
             _panels.AddToClassList(OdyClasses.TabsPanel);
             Element.Add(_panels);
@@ -580,44 +652,76 @@ namespace Odyssey.Unity.Client
         public event Action<string>? TabChanged;
 
         public VisualElement Element { get; }
-        public string? ActiveTabId { get; private set; }
-        public IReadOnlyList<string> TabIds => _order;
+        public OdyTabBar Bar => _bar;
+        public string? ActiveTabId => _bar.ActiveTabId;
+        public IReadOnlyList<string> TabIds => _bar.TabIds;
 
         public VisualElement AddTab(string id, string title)
         {
-            if (string.IsNullOrWhiteSpace(id)) throw new ArgumentException("Tab id is required.", nameof(id));
-            if (_buttons.ContainsKey(id)) throw new ArgumentException("Duplicate tab id.", nameof(id));
-            var button = new Button(() => Select(id)) { name = "tab-" + id, text = title };
-            button.AddToClassList(OdyClasses.Tab);
-            _bar.Add(button);
+            _bar.AddTab(id, title);
             var panel = new ScrollView(ScrollViewMode.Vertical) { name = "tab-panel-" + id };
             panel.AddToClassList(OdyClasses.Scroll);
             OdyUi.SetVisible(panel, false);
             _panels.Add(panel);
-            _buttons[id] = button;
             _panelsById[id] = panel;
-            _order.Add(id);
             if (ActiveTabId == null) Select(id);
             return panel.contentContainer;
         }
 
         public bool Select(string id)
         {
-            if (!_buttons.ContainsKey(id)) return false;
-            foreach (KeyValuePair<string, Button> entry in _buttons)
-            {
-                bool active = string.Equals(entry.Key, id, StringComparison.Ordinal);
-                entry.Value.EnableInClassList(OdyClasses.TabActive, active);
-                OdyUi.SetVisible(_panelsById[entry.Key], active);
-            }
-
-            bool changed = !string.Equals(ActiveTabId, id, StringComparison.Ordinal);
-            ActiveTabId = id;
-            if (changed) TabChanged?.Invoke(id);
-            return true;
+            if (!_panelsById.ContainsKey(id)) return false;
+            // Panels first, so a TabChanged handler already sees the new panel visible.
+            foreach (KeyValuePair<string, VisualElement> entry in _panelsById) OdyUi.SetVisible(entry.Value, string.Equals(entry.Key, id, StringComparison.Ordinal));
+            return _bar.Select(id);
         }
 
         public bool IsPanelVisible(string id) => _panelsById.TryGetValue(id, out VisualElement panel) && OdyUi.IsVisible(panel);
+    }
+
+    /// <summary>
+    /// ODY-S11-212: keyboard focus rings without showing them on mouse clicks. USS has no <c>:focus-visible</c>, so the
+    /// root gets <see cref="OdyClasses.FocusVisible"/> while the user navigates with the keyboard (Tab / arrows) and
+    /// loses it on the next pointer press; the stylesheet draws the ring only under that class. Owned by the screen
+    /// presenter that creates it; <see cref="Dispose"/> removes its callbacks.
+    /// </summary>
+    public sealed class OdyFocusVisible : IDisposable
+    {
+        private readonly VisualElement _root;
+        private bool _disposed;
+
+        public OdyFocusVisible(VisualElement root)
+        {
+            _root = root ?? throw new ArgumentNullException(nameof(root));
+            _root.RegisterCallback<NavigationMoveEvent>(OnNavigationMove, TrickleDown.TrickleDown);
+            _root.RegisterCallback<KeyDownEvent>(OnKeyDown, TrickleDown.TrickleDown);
+            _root.RegisterCallback<PointerDownEvent>(OnPointerDown, TrickleDown.TrickleDown);
+        }
+
+        public bool IsKeyboardMode => _root.ClassListContains(OdyClasses.FocusVisible);
+
+        public void NoteKeyboardNavigation() => _root.AddToClassList(OdyClasses.FocusVisible);
+
+        public void NotePointer() => _root.RemoveFromClassList(OdyClasses.FocusVisible);
+
+        public void Dispose()
+        {
+            if (_disposed) return;
+            _root.UnregisterCallback<NavigationMoveEvent>(OnNavigationMove, TrickleDown.TrickleDown);
+            _root.UnregisterCallback<KeyDownEvent>(OnKeyDown, TrickleDown.TrickleDown);
+            _root.UnregisterCallback<PointerDownEvent>(OnPointerDown, TrickleDown.TrickleDown);
+            NotePointer();
+            _disposed = true;
+        }
+
+        private void OnNavigationMove(NavigationMoveEvent evt) => NoteKeyboardNavigation();
+
+        private void OnKeyDown(KeyDownEvent evt)
+        {
+            if (evt.keyCode == UnityEngine.KeyCode.Tab) NoteKeyboardNavigation();
+        }
+
+        private void OnPointerDown(PointerDownEvent evt) => NotePointer();
     }
 
     /// <summary>Options of a confirmation dialog.</summary>

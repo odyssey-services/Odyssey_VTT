@@ -107,7 +107,7 @@ body.Add(OdyUi.KeyValue("Status", "Draft", out Label statusValue));
 ```
 
 ### Buttons
-`.ody-button` (secondary), `--primary`, `--danger`, `--ghost`, `--small`, `--icon`, `--toggle-on`;
+`.ody-button` (secondary), `--primary`, `--danger`, `--ghost`, `--small`, `--icon`; panel toggles are tab-convention buttons (see Tabs);
 `.ody-button-row`.
 
 ```csharp
@@ -142,13 +142,24 @@ Banners (`OdyBanner`): `.ody-banner` + `--info` / `--success` / `--warning` / `-
 explanations, e.g. “Only the MainGM can …” notices (never a silent disabled button), validation summaries,
 command results (`banner.ShowError(action, error)` → `OdyMessages.Describe`).
 
-### Tabs (`OdyTabs`)
-`.ody-tabs`, `.ody-tabs__bar`, `.ody-tab` (+`--active`), `.ody-tabs__panel`.
+### Tabs — the tab convention (`OdyTabs`, `OdyTabBar`, `ODY-S11-212`)
+`.ody-tabs`, `.ody-tabs__bar`, `.ody-tab` (+`--active`, `--pill`), `.ody-tabs__panel`; `.ody-focus-visible`.
+
+- **One active-state class** for every tab-like control — character sheet tabs, the top bar's panel toggles, the
+  catalog type filter: `.ody-tab--active` (`OdyClasses.TabActive`, set with `OdyUi.SetActive`) = accent fill
+  (`--ody-color-accent-soft`) + accent border + bold accent text.
+- **Pill shape** (`--ody-radius-pill`, 999px) for sub-tabs inside a screen: `new OdyTabs(name, pill: true)`,
+  `new OdyTabBar(name, pill: true)`. Top-level toggles keep the small radius.
+- **Keyboard focus ring** on every tab button: Tab/arrow navigation shows a 2px `--ody-color-focus` border. USS has
+  no `:focus-visible`, so `OdyFocusVisible` (owned by the game shell) puts `.ody-focus-visible` on the screen while the
+  keyboard is used and removes it on the next pointer press; the rule is `.ody-focus-visible .ody-tab:focus`.
+- Every tab button is created by `OdyUi.TabButton` (focusable).
 
 ```csharp
-var tabs = new OdyTabs("character-tabs");
+var tabs = new OdyTabs("character-tabs", pill: true);
 VisualElement general = tabs.AddTab("general", "General");
 tabs.Select("skills");
+var filter = new OdyTabBar("catalog-type-tabs", pill: true); filter.AddTab("all", "All types");
 ```
 
 ### Resource bars (`OdyResourceBar`)

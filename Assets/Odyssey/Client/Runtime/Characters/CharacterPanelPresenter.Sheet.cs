@@ -365,7 +365,8 @@ namespace Odyssey.Unity.Client
             if (!ActorCanManage) header.Add(OdyUi.Text("You can view this character; changes are for its owner or the MainGM.", OdyClasses.FieldHint));
             _sheetHost.Add(header);
 
-            _tabs = new OdyTabs("character-tabs");
+            // ODY-S11-212: sub-tabs inside a screen are pills.
+            _tabs = new OdyTabs("character-tabs", pill: true);
             RenderGeneralTab(_tabs.AddTab(GeneralTab, "General"), c);
             RenderAttributesTab(_tabs.AddTab(AttributesTab, "Attributes"), c);
             RenderSkillsTab(_tabs.AddTab(SkillsTab, "Skills"), c);
