@@ -223,8 +223,8 @@ namespace Odyssey.Unity.Client
                 foreach (CharacterId target in outcome.TargetIds) targets.Add(NameOf(target));
                 var main = new VisualElement();
                 main.AddToClassList(OdyClasses.ListItemMain);
-                main.Add(OdyUi.Text(NameOf(outcome.ActorId) + " → " + string.Join(", ", targets), OdyClasses.ListItemTitle));
-                main.Add(OdyUi.Text(outcome.DamageDeltas.Count == 0 ? "no damage" : DescribeDeltas(outcome.DamageDeltas), OdyClasses.ListItemMeta));
+                main.Add(OdyUi.TruncatedText(NameOf(outcome.ActorId) + " → " + string.Join(", ", targets), OdyClasses.ListItemTitle));
+                main.Add(OdyUi.TruncatedText(outcome.DamageDeltas.Count == 0 ? "no damage" : DescribeDeltas(outcome.DamageDeltas), OdyClasses.ListItemMeta));
                 row.Add(main);
                 row.Add(OdyUi.Badge("Pending", OdyStatusKind.Pending));
                 if (ActorIsMainGm)
@@ -262,7 +262,7 @@ namespace Odyssey.Unity.Client
             {
                 var row = new VisualElement();
                 row.AddToClassList(OdyClasses.ListItem);
-                row.Add(OdyUi.Text(NameOf(conflict.TargetId) + ": existing effect ×" + conflict.Existing.Effect.StackCount, OdyClasses.ListItemTitle, OdyClasses.Grow));
+                row.Add(OdyUi.TruncatedText(NameOf(conflict.TargetId) + ": existing effect ×" + conflict.Existing.Effect.StackCount, OdyClasses.ListItemTitle, OdyClasses.Grow));
                 row.Add(OdyUi.Badge("Conflict?", OdyStatusKind.Conflict));
                 StackConflictCandidate captured = conflict;
                 row.Add(OdyUi.Button("Independent", () => ResolveStackConflict(captured, ActiveEffectStackConflictResolution.ApplyAsIndependentInstance), OdyButtonVariant.Secondary, "combat-conflict-independent", small: true));
@@ -290,7 +290,7 @@ namespace Odyssey.Unity.Client
                 row.AddToClassList(OdyClasses.ListItem);
                 var main = new VisualElement();
                 main.AddToClassList(OdyClasses.ListItemMain);
-                main.Add(OdyUi.Text(NameOfRef(entry.SummaryPayload), OdyClasses.ListItemTitle));
+                main.Add(OdyUi.TruncatedText(NameOfRef(entry.SummaryPayload), OdyClasses.ListItemTitle));
                 main.Add(OdyUi.Text("#" + entry.AuthoritativeSequence + " · " + entry.CreatedAt.Value.ToString("u"), OdyClasses.ListItemMeta));
                 row.Add(main);
                 row.Add(OdyUi.Badge(isCorrection ? "Correction" : "Attack", isCorrection ? OdyStatusKind.Info : OdyStatusKind.Neutral));

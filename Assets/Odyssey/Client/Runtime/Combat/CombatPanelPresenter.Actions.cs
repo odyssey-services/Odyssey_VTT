@@ -465,8 +465,8 @@ namespace Odyssey.Unity.Client
                 row.AddToClassList(OdyClasses.ListItem);
                 var main = new VisualElement();
                 main.AddToClassList(OdyClasses.ListItemMain);
-                main.Add(OdyUi.Text(item.Name + (item.IsStack ? " × " + item.Quantity : string.Empty), OdyClasses.ListItemTitle));
-                main.Add(OdyUi.Text(item.Summary, OdyClasses.ListItemMeta));
+                main.Add(OdyUi.TruncatedText(item.Name + (item.IsStack ? " × " + item.Quantity : string.Empty), OdyClasses.ListItemTitle));
+                main.Add(OdyUi.TruncatedText(item.Summary, OdyClasses.ListItemMeta));
                 row.Add(main);
                 string key = item.Key;
                 row.Add(OdyUi.Button("Use", () => UseItem(key), OdyButtonVariant.Secondary, "combat-use-item-" + key, small: true));

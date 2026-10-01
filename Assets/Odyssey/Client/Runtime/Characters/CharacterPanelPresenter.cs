@@ -423,8 +423,8 @@ namespace Odyssey.Unity.Client
                 if (Current != null && Current.CharacterId.Equals(id)) row.AddToClassList(OdyClasses.ListItemSelected);
                 var main = new VisualElement();
                 main.AddToClassList(OdyClasses.ListItemMain);
-                main.Add(OdyUi.Text(record.DisplayName, OdyClasses.ListItemTitle));
-                main.Add(OdyUi.Text(EnumChoices.Humanize(record.CharacterKind.ToString()) + " · " + record.ApprovalState, OdyClasses.ListItemMeta));
+                main.Add(OdyUi.TruncatedText(record.DisplayName, OdyClasses.ListItemTitle));
+                main.Add(OdyUi.TruncatedText(EnumChoices.Humanize(record.CharacterKind.ToString()) + " · " + record.ApprovalState, OdyClasses.ListItemMeta));
                 row.Add(main);
                 row.Add(OdyUi.Badge(record.LifecycleStatus.ToString(), LifecycleKind(record.LifecycleStatus)));
                 _rosterList.Add(row);

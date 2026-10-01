@@ -652,8 +652,8 @@ namespace Odyssey.Unity.Client
             row.AddToClassList(OdyClasses.ListItem);
             var main = new VisualElement();
             main.AddToClassList(OdyClasses.ListItemMain);
-            main.Add(OdyUi.Text(title, OdyClasses.ListItemTitle));
-            main.Add(OdyUi.Text(meta, OdyClasses.ListItemMeta));
+            main.Add(OdyUi.TruncatedText(title, OdyClasses.ListItemTitle));
+            main.Add(OdyUi.TruncatedText(meta, OdyClasses.ListItemMeta));
             row.Add(main);
             return row;
         }

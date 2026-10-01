@@ -223,3 +223,4 @@ mode.ValueChanged += value => ...;
 3. Every failure is shown through `OdyMessages.Describe` (safe `UserMessageKey` / `SafeReasonCode` only).
 4. Irreversible actions go through `OdyConfirmDialog`.
 5. Floating surfaces (menus, pickers, drawers, dialogs) are `OdyPopover`s; dropdown selectors in new code are `OdySelect` (`ODY-S11-210`).
+6. Fixed-width text that may not fit (list row titles and meta lines, names) is made with `OdyUi.TruncatedText`: one line with an ellipsis, and the full text in a hover tooltip only when it is really cut (`ODY-S11-219`). Runtime UI Toolkit does not show the built-in `tooltip` property.

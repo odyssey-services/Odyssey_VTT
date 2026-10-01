@@ -475,8 +475,8 @@ namespace Odyssey.Unity.Client
                 if (Selected != null && Selected.ContentDefinitionId.Equals(id)) row.AddToClassList(OdyClasses.ListItemSelected);
                 var main = new VisualElement();
                 main.AddToClassList(OdyClasses.ListItemMain);
-                main.Add(OdyUi.Text(record.Name, OdyClasses.ListItemTitle));
-                main.Add(OdyUi.Text(record.DefinitionType + "  ·  " + VersionText(record) + "  ·  rev " + record.Revision, OdyClasses.ListItemMeta));
+                main.Add(OdyUi.TruncatedText(record.Name, OdyClasses.ListItemTitle));
+                main.Add(OdyUi.TruncatedText(record.DefinitionType + "  ·  " + VersionText(record) + "  ·  rev " + record.Revision, OdyClasses.ListItemMeta));
                 row.Add(main);
                 row.Add(OdyUi.Badge(record.Status.ToString(), StatusKind(record.Status)));
                 _list.Add(row);

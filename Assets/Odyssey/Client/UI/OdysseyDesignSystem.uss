@@ -1290,3 +1290,35 @@
     border-color: #FFFFFF;
     border-width: 0;
 }
+
+/* ------------------------------------------------------------------------------------------------
+ * 17. Truncated text and its tooltip (ODY-S11-219) -- OdyUi.TruncatedText / OdyTruncationTooltip.
+ *     List rows stay on one line; the full text appears on hover only when it is cut.
+ * --------------------------------------------------------------------------------------------- */
+
+.ody-list-item__main {
+    min-width: 0;
+    overflow: hidden;
+}
+
+.ody-text-truncate {
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    -unity-text-overflow-position: end;
+    flex-shrink: 1;
+    min-width: 0;
+}
+
+.ody-tooltip {
+    max-width: 360px;
+    padding: var(--ody-space-1) var(--ody-space-2);
+    background-color: var(--ody-color-header);
+    border-radius: var(--ody-radius-sm);
+}
+
+.ody-tooltip > Label {
+    color: var(--ody-color-text-inverse);
+    font-size: var(--ody-font-small);
+    white-space: normal;
+}

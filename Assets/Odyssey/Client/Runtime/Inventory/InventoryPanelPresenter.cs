@@ -428,8 +428,8 @@ namespace Odyssey.Unity.Client
                     if (SelectedItemKey == key) row.AddToClassList(OdyClasses.ListItemSelected);
                     var main = new VisualElement();
                     main.AddToClassList(OdyClasses.ListItemMain);
-                    main.Add(OdyUi.Text(item.Name + (item.IsStack ? " × " + item.Quantity : string.Empty), OdyClasses.ListItemTitle));
-                    main.Add(OdyUi.Text(item.Summary, OdyClasses.ListItemMeta));
+                    main.Add(OdyUi.TruncatedText(item.Name + (item.IsStack ? " × " + item.Quantity : string.Empty), OdyClasses.ListItemTitle));
+                    main.Add(OdyUi.TruncatedText(item.Summary, OdyClasses.ListItemMeta));
                     row.Add(main);
                     if (item.IsEquipped) row.Add(OdyUi.Badge("Equipped", OdyStatusKind.Success));
                     list.Add(row);

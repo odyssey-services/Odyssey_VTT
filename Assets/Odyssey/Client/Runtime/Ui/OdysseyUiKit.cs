@@ -107,6 +107,10 @@ namespace Odyssey.Unity.Client
         /// <summary>ODY-S11-216: on a root, stops decorative motion below it (set by the polish P2 reduced-motion setting).</summary>
         public const string ReducedMotion = "ody-reduced-motion";
         public const string MarchingAnts = "ody-marching-ants";
+
+        // ODY-S11-219: single-line text with an ellipsis, and the tooltip that shows the full text.
+        public const string TextTruncate = "ody-text-truncate";
+        public const string Tooltip = "ody-tooltip";
         public const string TabsPanel = "ody-tabs__panel";
 
         public const string ResourceBar = "ody-resource-bar";
@@ -202,6 +206,17 @@ namespace Odyssey.Unity.Client
         {
             var label = new Label(text ?? string.Empty);
             foreach (string cls in classes) label.AddToClassList(cls);
+            return label;
+        }
+
+        /// <summary>
+        /// ODY-S11-219: a one-line label that ends in an ellipsis when it does not fit and shows its full text on hover
+        /// (<see cref="OdyTruncationTooltip"/>). Use it for list rows and other fixed-width text.
+        /// </summary>
+        public static Label TruncatedText(string text, params string[] classes)
+        {
+            Label label = Text(text, classes);
+            OdyTruncationTooltip.Attach(label);
             return label;
         }
 
